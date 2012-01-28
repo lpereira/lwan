@@ -92,10 +92,8 @@ lwan_shutdown(lwan_t *l)
 void
 lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 {
-    l->url_map = url_map;
-    for (; url_map->prefix; url_map++) {
+    for (l->url_map = url_map; url_map->prefix; url_map++)
         url_map->prefix_len = strlen(url_map->prefix);
-    }
 }
 
 void
