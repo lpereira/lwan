@@ -36,33 +36,33 @@ _lwan_socket_init(lwan_t *l)
 {
     struct sockaddr_in sin;
     int fd;
-    
+
     fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0) {
         perror("socket");
         exit(-1);
     }
-    
+
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char[]){ 1 }, sizeof(char*)) < 0) {
         perror("setsockopt");
         goto handle_error;
     }
-    
+
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->port);
     sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_family = AF_INET;
-    
+
     if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("bind");
         goto handle_error;
     }
-    
+
     if (listen(fd, 10) < 0) {
         perror("listen");
         goto handle_error;
     }
-    
+
     l->main_socket = fd;
     return;
 
