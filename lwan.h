@@ -41,7 +41,6 @@ typedef enum {
 
 typedef enum {
     HTTP_GET = 0,
-    HTTP_POST
 } lwan_http_method_t;
 
 struct lwan_response_t_ {

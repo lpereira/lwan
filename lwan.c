@@ -108,10 +108,6 @@ _identify_http_method(lwan_request_t *request, char *buffer)
         request->method = HTTP_GET;
         return buffer + 4;
     }
-    if (!strncmp(buffer, "POST ", 5)) {
-        request->method = HTTP_POST;
-        return buffer + 5;
-    }
     return NULL;
 }
 
