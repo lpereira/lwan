@@ -436,9 +436,9 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 bool
 lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
-    char output[32];
-    int len = snprintf(output, sizeof(output), "Error %d", status);
-
+    char output[256];
+    int len = snprintf(output, sizeof(output), "HTTP Status %d (%s)",
+                            status, lwan_http_status_as_string(status));
     if (len < 0) {
         perror("snprintf");
         exit(-1);
