@@ -244,13 +244,12 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
         exit(-1);
     }
 
-    lwan_response_t response = {
+    lwan_request_set_response(request, (lwan_response_t[]) {{
         .mime_type = "text/plain",
         .content = output,
         .content_length = len,
-    };
+    }});
 
-    request->response = &response;
     return lwan_response(l, request, status);
 }
 
