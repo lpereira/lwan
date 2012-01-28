@@ -401,10 +401,10 @@ main(void)
 {
     lwan_t l = {
         .port = 8080,
-        .thread = {
-            .count = 4
-        }
     };
+
+    int max_threads = sysconf(_SC_NPROCESSORS_ONLN);
+    l.thread.count = max_threads > 0 ? max_threads : 2;
 
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);
