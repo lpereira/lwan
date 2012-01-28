@@ -164,10 +164,10 @@ _identify_http_path(lwan_request_t *request, char *buffer)
         return NULL;
     *space = '\0';
 
-    if (*(space + 6) == '1')
-        request->http_version = *(space + 8) == '1' ? HTTP_1_1 : HTTP_1_0;
+    if (*(space + 6) >= '1')
+        request->http_version = *(space + 8) == '0' ? HTTP_1_0 : HTTP_1_1;
     else
-        request->http_version = HTTP_1_0; /* assume HTTP/1.0 if unknown version */
+        return NULL;
 
     request->url = buffer;
     request->url_len = space - buffer;
