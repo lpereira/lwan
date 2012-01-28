@@ -32,7 +32,7 @@ static lwan_url_map_t default_map[] = {
 };
 
 static void
-_lwan_socket_init(lwan_t *l)
+_socket_init(lwan_t *l)
 {
     struct sockaddr_in sin;
     int fd;
@@ -72,7 +72,7 @@ handle_error:
 }
 
 static void
-_lwan_socket_shutdown(lwan_t *l)
+_socket_shutdown(lwan_t *l)
 {
     if (shutdown(l->main_socket, SHUT_RDWR) < 0) {
         perror("shutdown");
@@ -82,8 +82,95 @@ _lwan_socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
+static char *
+_identify_http_method(lwan_request_t *request, char *buffer)
+{
+    if (!strncmp(buffer, "GET ", 4)) {
+        request->method = HTTP_GET;
+        return buffer + 4;
+    }
+    if (!strncmp(buffer, "POST ", 5)) {
+        request->method = HTTP_POST;
+        return buffer + 5;
+    }
+    return NULL;
+}
+
+static char *
+_identify_http_path(lwan_request_t *request, char *buffer)
+{
+    /* FIXME
+     * - query string
+     */
+    char *end_of_line = strchr(buffer, '\r');
+    if (!end_of_line)
+        return NULL;
+    *end_of_line = '\0';
+
+    char *space = end_of_line - sizeof("HTTP/X.X");
+    if (*(space + 1) != 'H')
+        return NULL;
+    *space = '\0';
+
+    request->url = buffer;
+    request->url_len = space - buffer;
+
+    return end_of_line + 1;
+}
+
+static lwan_url_map_t *
+_find_callback_for_request(lwan_t *l, lwan_request_t *request)
+{
+    lwan_url_map_t *url_map;
+
+    /* FIXME
+     * - bsearch if url_map is too large
+     * - regex maybe? this might hurt performance
+     */
+    for (url_map = l->url_map; url_map->prefix; url_map++) {
+        if (request->url_len > url_map->prefix_len)
+            continue;
+
+        if (!strncmp(request->url, url_map->prefix, url_map->prefix_len))
+            return url_map;
+    }
+
+    return NULL;
+}
+
+static bool
+_process_request_from_socket(lwan_t *l, int fd)
+{
+    lwan_url_map_t *url_map;
+    lwan_request_t request;
+    char buffer[128], *p_buffer;
+    int n_read;
+
+    memset(&request, 0, sizeof(request));
+    request.fd = fd;
+
+    n_read = read(fd, buffer, sizeof(buffer));
+    if (n_read < 0) {
+        perror("read");
+        return false;
+    }
+
+    p_buffer = _identify_http_method(&request, buffer);
+    if (!p_buffer)
+        return lwan_default_response(l, &request, HTTP_NOT_ALLOWED);
+
+    p_buffer = _identify_http_path(&request, p_buffer);
+    if (!p_buffer)
+        return lwan_default_response(l, &request, HTTP_BAD_REQUEST);
+
+    if ((url_map = _find_callback_for_request(l, &request)))
+        return lwan_response(l, &request, url_map->callback(&request, url_map->data));
+
+    return lwan_default_response(l, &request, HTTP_NOT_FOUND);
+}
+
 static void *
-_lwan_thread(void *data)
+_thread(void *data)
 {
     lwan_thread_t *t = data;
     struct epoll_event events[10];
@@ -98,7 +185,7 @@ _lwan_thread(void *data)
 
         int n;
         for (n = 0; n < nfds; ++n) {
-            if (lwan_process_request_from_socket(t->lwan, events[n].data.fd)) {
+            if (_process_request_from_socket(t->lwan, events[n].data.fd)) {
                 if (shutdown(events[n].data.fd, SHUT_RDWR) < 0)
                     perror("shutdown");
             }
@@ -110,7 +197,7 @@ _lwan_thread(void *data)
 }
 
 static void
-_lwan_create_thread(lwan_t *l, int thread_n)
+_create_thread(lwan_t *l, int thread_n)
 {
     pthread_attr_t attr;
     cpu_set_t cpuset;
@@ -127,7 +214,7 @@ _lwan_create_thread(lwan_t *l, int thread_n)
         exit(-1);
     }
 
-    if (pthread_create(&thread->id, &attr, _lwan_thread, thread)) {
+    if (pthread_create(&thread->id, &attr, _thread, thread)) {
         perror("pthread_create");
         pthread_attr_destroy(&attr);
         exit(-1);
@@ -147,45 +234,45 @@ _lwan_create_thread(lwan_t *l, int thread_n)
 }
 
 static void
-_lwan_thread_init(lwan_t *l)
+_thread_init(lwan_t *l)
 {
     int i;
 
     l->thread.threads = malloc(sizeof(lwan_thread_t) * l->thread.count);
 
     for (i = l->thread.count - 1; i >= 0; i--)
-        _lwan_create_thread(l, i);
+        _create_thread(l, i);
 }
 
 static void
-_lwan_destroy_thread(lwan_t *l, int thread_n)
+_destroy_thread(lwan_t *l, int thread_n)
 {
     pthread_cancel(l->thread.threads[thread_n].id);
 }
 
 static void
-_lwan_thread_shutdown(lwan_t *l)
+_thread_shutdown(lwan_t *l)
 {
     int i;
 
     for (i = l->thread.count - 1; i >= 0; i--)
-        _lwan_destroy_thread(l, i);
+        _destroy_thread(l, i);
     free(l->thread.threads);
 }
 
 void
 lwan_init(lwan_t *l)
 {
-    _lwan_socket_init(l);
-    _lwan_thread_init(l);
+    _socket_init(l);
+    _thread_init(l);
     signal(SIGPIPE, SIG_IGN);
 }
 
 void
 lwan_shutdown(lwan_t *l)
 {
-    _lwan_thread_shutdown(l);
-    _lwan_socket_shutdown(l);
+    _thread_shutdown(l);
+    _socket_shutdown(l);
 }
 
 void
@@ -256,95 +343,8 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
     return lwan_response(l, request, status);
 }
 
-static char *
-_identify_http_method(lwan_request_t *request, char *buffer)
-{
-    if (!strncmp(buffer, "GET ", 4)) {
-        request->method = HTTP_GET;
-        return buffer + 4;
-    }
-    if (!strncmp(buffer, "POST ", 5)) {
-        request->method = HTTP_POST;
-        return buffer + 5;
-    }
-    return NULL;
-}
-
-static char *
-_identify_http_path(lwan_request_t *request, char *buffer)
-{
-    /* FIXME
-     * - query string
-     */
-    char *end_of_line = strchr(buffer, '\r');
-    if (!end_of_line)
-        return NULL;
-    *end_of_line = '\0';
-
-    char *space = end_of_line - sizeof("HTTP/X.X");
-    if (*(space + 1) != 'H')
-        return NULL;
-    *space = '\0';
-
-    request->url = buffer;
-    request->url_len = space - buffer;
-
-    return end_of_line + 1;
-}
-
-static lwan_url_map_t *
-_find_callback_for_request(lwan_t *l, lwan_request_t *request)
-{
-    lwan_url_map_t *url_map;
-
-    /* FIXME
-     * - bsearch if url_map is too large
-     * - regex maybe? this might hurt performance
-     */
-    for (url_map = l->url_map; url_map->prefix; url_map++) {
-        if (request->url_len > url_map->prefix_len)
-            continue;
-
-        if (!strncmp(request->url, url_map->prefix, url_map->prefix_len))
-            return url_map;
-    }
-
-    return NULL;
-}
-
-bool
-lwan_process_request_from_socket(lwan_t *l, int fd)
-{
-    lwan_url_map_t *url_map;
-    lwan_request_t request;
-    char buffer[128], *p_buffer;
-    int n_read;
-
-    memset(&request, 0, sizeof(request));
-    request.fd = fd;
-
-    n_read = read(fd, buffer, sizeof(buffer));
-    if (n_read < 0) {
-        perror("read");
-        return false;
-    }
-
-    p_buffer = _identify_http_method(&request, buffer);
-    if (!p_buffer)
-        return lwan_default_response(l, &request, HTTP_NOT_ALLOWED);
-
-    p_buffer = _identify_http_path(&request, p_buffer);
-    if (!p_buffer)
-        return lwan_default_response(l, &request, HTTP_BAD_REQUEST);
-
-    if ((url_map = _find_callback_for_request(l, &request)))
-        return lwan_response(l, &request, url_map->callback(&request, url_map->data));
-
-    return lwan_default_response(l, &request, HTTP_NOT_FOUND);
-}
-
-void
-lwan_push_request_fd(lwan_t *l, int fd)
+static void
+_push_request_fd(lwan_t *l, int fd)
 {
     static int current_thread = 0;
     int epoll_fd = l->thread.threads[current_thread % l->thread.count].epoll_fd;
@@ -373,7 +373,7 @@ lwan_main_loop(lwan_t *l)
             continue;
         }
 
-        lwan_push_request_fd(l, child_fd);
+        _push_request_fd(l, child_fd);
     }
 }
 

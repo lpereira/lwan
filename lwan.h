@@ -64,11 +64,11 @@ struct lwan_t_ {
 };
 
 void lwan_init(lwan_t *l);
-void lwan_shutdown(lwan_t *l);
-
-bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+void lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map);
+void lwan_main_loop(lwan_t *l);
 void lwan_request_set_response(lwan_request_t *request, lwan_response_t *response);
-bool lwan_process_request_from_socket(lwan_t *l, int fd);
-void lwan_push_request_fd(lwan_t *l, int fd);
+bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+void lwan_shutdown(lwan_t *l);
 
 #endif /* _LWAN_H_ */
