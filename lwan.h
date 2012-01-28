@@ -59,11 +59,11 @@ struct lwan_response_t_ {
 
 struct lwan_request_t_ {
     lwan_http_method_t method;
+    lwan_http_version_t http_version;
     lwan_response_t *response;
     char *url;
     int url_len;
     int fd;
-    lwan_http_version_t http_version;
 };
 
 struct lwan_url_map_t_ {
