@@ -332,18 +332,12 @@ _thread_init(lwan_t *l)
 }
 
 static void
-_destroy_thread(lwan_t *l, int thread_n)
-{
-    pthread_cancel(l->thread.threads[thread_n].id);
-}
-
-static void
 _thread_shutdown(lwan_t *l)
 {
     int i;
 
     for (i = l->thread.count - 1; i >= 0; i--)
-        _destroy_thread(l, i);
+        pthread_cancel(l->thread.threads[i].id);
     free(l->thread.threads);
 }
 
