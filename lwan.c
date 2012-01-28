@@ -367,9 +367,9 @@ lwan_init(lwan_t *l)
     printf("Using %d threads, maximum %d sockets per thread.\n",
         l->thread.count, l->thread.max_fd);
 
+    signal(SIGPIPE, SIG_IGN);
     _socket_init(l);
     _thread_init(l);
-    signal(SIGPIPE, SIG_IGN);
 }
 
 void
