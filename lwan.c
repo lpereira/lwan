@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -27,11 +28,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "lwan.h"
+
+#define REQUEST_SUPPORTS_KEEP_ALIVE(r) ((r)->http_version == HTTP_1_1)
+
+static const char* const _http_versions[] = {
+    [HTTP_1_0] = "1.0",
+    [HTTP_1_1] = "1.1"
+};
+static const char* const _http_connection_policy[] = {
+    [HTTP_1_0] = "Close",
+    [HTTP_1_1] = "Keep-Alive"
+};
 
 lwan_http_status_t hello_world(lwan_request_t *request, void *data __attribute__((unused)))
 {
@@ -49,6 +62,20 @@ static lwan_url_map_t default_map[] = {
     { .prefix = "/", .callback = hello_world, .data = NULL },
     { .prefix = NULL },
 };
+
+const char *
+lwan_http_status_as_string(lwan_http_status_t status)
+{
+    switch (status) {
+    case HTTP_OK: return "OK";
+    case HTTP_BAD_REQUEST: return "Bad request";
+    case HTTP_NOT_FOUND: return "Not found";
+    case HTTP_FORBIDDEN: return "Forbidden";
+    case HTTP_NOT_ALLOWED: return "Not allowed";
+    case HTTP_INTERNAL_ERROR: return "Internal server error";
+    }
+    return "Invalid";
+}
 
 static void
 _socket_init(lwan_t *l)
@@ -116,6 +143,7 @@ _identify_http_path(lwan_request_t *request, char *buffer)
 {
     /* FIXME
      * - query string
+     * - fragment
      */
     char *end_of_line = strchr(buffer, '\r');
     if (!end_of_line)
@@ -127,10 +155,22 @@ _identify_http_path(lwan_request_t *request, char *buffer)
         return NULL;
     *space = '\0';
 
+    if (*(space + 6) == '1')
+        request->http_version = *(space + 8) == '1' ? HTTP_1_1 : HTTP_1_0;
+    else
+        request->http_version = HTTP_1_0; /* assume HTTP/1.0 if unknown version */
+
     request->url = buffer;
     request->url_len = space - buffer;
 
     return end_of_line + 1;
+}
+
+static char *
+_identify_http_header_end(lwan_request_t *request __attribute__((unused)), char *buffer)
+{
+    char *end_of_header = strstr(buffer, "\r\n\r\n");
+    return end_of_header ? end_of_header + 4 : NULL;
 }
 
 static lwan_url_map_t *
@@ -154,59 +194,88 @@ _find_callback_for_request(lwan_t *l, lwan_request_t *request)
 }
 
 static bool
-_process_request_from_socket(lwan_t *l, int fd)
+_process_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
-    lwan_request_t request;
-    char buffer[128], *p_buffer;
-    int n_read;
+    char buffer[8192], *p_buffer;
 
-    memset(&request, 0, sizeof(request));
-    request.fd = fd;
-
-    n_read = read(fd, buffer, sizeof(buffer));
-    if (n_read < 0) {
+    switch (read(request->fd, buffer, sizeof(buffer))) {
+    case 0:
+        return false;
+    case -1:
         perror("read");
         return false;
     }
 
-    p_buffer = _identify_http_method(&request, buffer);
+    p_buffer = _identify_http_method(request, buffer);
+    if (!p_buffer) {
+        if (*buffer == '\r' || *buffer == '\n')
+            return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+        return lwan_default_response(l, request, HTTP_NOT_ALLOWED);
+    }
+
+    p_buffer = _identify_http_path(request, p_buffer);
     if (!p_buffer)
-        return lwan_default_response(l, &request, HTTP_NOT_ALLOWED);
+        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
-    p_buffer = _identify_http_path(&request, p_buffer);
-    if (!p_buffer)
-        return lwan_default_response(l, &request, HTTP_BAD_REQUEST);
+    if (REQUEST_SUPPORTS_KEEP_ALIVE(request)) {
+        p_buffer = _identify_http_header_end(request, p_buffer);
+        if (!p_buffer)
+            return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+    }
 
-    if ((url_map = _find_callback_for_request(l, &request)))
-        return lwan_response(l, &request, url_map->callback(&request, url_map->data));
+    if ((url_map = _find_callback_for_request(l, request)))
+        return lwan_response(l, request, url_map->callback(request, url_map->data));
 
-    return lwan_default_response(l, &request, HTTP_NOT_FOUND);
+    return lwan_default_response(l, request, HTTP_NOT_FOUND);
+}
+
+static void
+_shutdown_socket(int fd)
+{
+    if (!shutdown(fd, SHUT_RDWR))
+        close(fd);
 }
 
 static void *
 _thread(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event events[10];
-    int epoll_fd = t->epoll_fd;
+    struct epoll_event events[t->lwan->thread.max_fd];
+    int epoll_fd = t->epoll_fd, nfds, n;
+    int *fds = calloc(1, t->lwan->thread.max_fd * sizeof(int));
+    int fd_wrptr, fd_rdptr;
 
-    for (;;) {
-        int nfds = epoll_wait(epoll_fd, events, sizeof(events) / sizeof(events[0]), -1);
-        if (nfds < 0) {
-            perror("epoll_wait");
+    for (fd_wrptr = fd_rdptr = 0; ; ) {
+        switch (nfds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
+                            t->lwan->keep_alive_timeout)) {
+        case -1:
+            if (errno != EINTR)
+                perror("epoll_wait");
             continue;
-        }
-
-        int n;
-        for (n = 0; n < nfds; ++n) {
-            if (_process_request_from_socket(t->lwan, events[n].data.fd)) {
-                if (shutdown(events[n].data.fd, SHUT_RDWR) < 0)
-                    perror("shutdown");
+        case 0: /* timeout: shutdown waiting sockets */
+            while (fd_wrptr != fd_rdptr) {
+                _shutdown_socket(fds[fd_rdptr++]);
+                fd_rdptr %= t->lwan->thread.max_fd;
             }
-            close(events[n].data.fd);
+            break;
+        default: /* activity in some of this poller's file descriptor */
+            for (n = 0; n < nfds; ++n) {
+                lwan_request_t request = {.fd = events[n].data.fd};
+
+                if (_process_request(t->lwan, &request)) {
+                    if (REQUEST_SUPPORTS_KEEP_ALIVE(&request)) {
+                        fds[fd_wrptr++] = events[n].data.fd;
+                        fd_wrptr %= t->lwan->thread.max_fd;
+                        continue;
+                    }
+                }
+                _shutdown_socket(events[n].data.fd);
+            }
         }
     }
+
+    free(fds);
 
     return NULL;
 }
@@ -278,6 +347,20 @@ _thread_shutdown(lwan_t *l)
 void
 lwan_init(lwan_t *l)
 {
+    int max_threads = sysconf(_SC_NPROCESSORS_ONLN);
+    struct rlimit r;
+
+    l->thread.count = max_threads > 0 ? max_threads : 2;
+
+    if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
+        perror("getrlimit");
+        exit(-1);
+    }
+
+    l->thread.max_fd = r.rlim_cur / l->thread.count;
+    printf("Using %d threads, maximum %d sockets per thread.\n",
+        l->thread.count, l->thread.max_fd);
+
     _socket_init(l);
     _thread_init(l);
     signal(SIGPIPE, SIG_IGN);
@@ -310,14 +393,17 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
     int len;
 
     len = snprintf(headers, sizeof(headers),
-                   "HTTP/1.1 %d\r\n"
+                   "HTTP/%s %d %s\r\n"
                    "Content-Length: %d\r\n"
                    "Content-Type: %s\r\n"
-                   "Connection: close\r\n"
+                   "Connection: %s\r\n"
                    "\r\n",
+                   _http_versions[request->http_version],
                    status,
+                   lwan_http_status_as_string(status),
                    request->response->content_length,
-                   request->response->mime_type);
+                   request->response->mime_type,
+                   _http_connection_policy[request->http_version]);
     if (len < 0) {
         lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
         return false;
@@ -397,10 +483,9 @@ main(void)
 {
     lwan_t l = {
         .port = 8080,
+        .keep_alive_timeout = 5000,
     };
 
-    int max_threads = sysconf(_SC_NPROCESSORS_ONLN);
-    l.thread.count = max_threads > 0 ? max_threads : 2;
 
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);

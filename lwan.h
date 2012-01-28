@@ -23,6 +23,8 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+#define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
+
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
@@ -43,6 +45,11 @@ typedef enum {
     HTTP_GET = 0,
 } lwan_http_method_t;
 
+typedef enum {
+    HTTP_1_0 = 0,
+    HTTP_1_1
+} lwan_http_version_t;
+
 struct lwan_response_t_ {
     char *content;
     char *mime_type;
@@ -55,6 +62,7 @@ struct lwan_request_t_ {
     char *url;
     int url_len;
     int fd;
+    lwan_http_version_t http_version;
 };
 
 struct lwan_url_map_t_ {
@@ -74,9 +82,11 @@ struct lwan_t_ {
     lwan_url_map_t *url_map;
     int main_socket;
     int port;
+    int keep_alive_timeout;
 
     struct {
         int count;
+        int max_fd;
         lwan_thread_t *threads;
     } thread;
 };
@@ -87,6 +97,7 @@ void lwan_main_loop(lwan_t *l);
 void lwan_request_set_response(lwan_request_t *request, lwan_response_t *response);
 bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+const char *lwan_http_status_as_string(lwan_http_status_t status);
 void lwan_shutdown(lwan_t *l);
 
 #endif /* _LWAN_H_ */
