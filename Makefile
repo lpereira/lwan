@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -Werror
+CFLAGS=-g -Wall -Wextra
 OBJECTS=lwan.o
 
 all: lwan
