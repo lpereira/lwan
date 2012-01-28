@@ -1,11 +1,13 @@
 #define _GNU_SOURCE
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -83,19 +85,25 @@ _lwan_socket_shutdown(lwan_t *l)
 static void *
 _lwan_thread(void *data)
 {
-    lwan_t *l = data;
+    lwan_thread_t *t = data;
+    struct epoll_event events[10];
+    int epoll_fd = t->epoll_fd;
 
     for (;;) {
-        int fd = lwan_request_queue_pop_fd(l);
-        if (fd < 0)
+        int nfds = epoll_wait(epoll_fd, events, sizeof(events) / sizeof(events[0]), -1);
+        if (nfds < 0) {
+            perror("epoll_wait");
             continue;
-
-        if (lwan_process_request_from_socket(l, fd)) {
-            if (shutdown(fd, SHUT_RDWR) < 0)
-                perror("shutdown");
         }
 
-        close(fd);
+        int n;
+        for (n = 0; n < nfds; ++n) {
+            if (lwan_process_request_from_socket(t->lwan, events[n].data.fd)) {
+                if (shutdown(events[n].data.fd, SHUT_RDWR) < 0)
+                    perror("shutdown");
+            }
+            close(events[n].data.fd);
+        }
     }
 
     return NULL;
@@ -106,13 +114,20 @@ _lwan_create_thread(lwan_t *l, int thread_n)
 {
     pthread_attr_t attr;
     cpu_set_t cpuset;
+    lwan_thread_t *thread = &l->thread.threads[thread_n];
+
+    thread->lwan = l;
+    if ((thread->epoll_fd = epoll_create1(0)) < 0) {
+        perror("epoll_create");
+        exit(-1);
+    }
 
     if (pthread_attr_init(&attr)) {
         perror("pthread_attr_init");
         exit(-1);
     }
 
-    if (pthread_create(&l->thread.ids[thread_n], &attr, _lwan_thread, l)) {
+    if (pthread_create(&thread->id, &attr, _lwan_thread, thread)) {
         perror("pthread_create");
         pthread_attr_destroy(&attr);
         exit(-1);
@@ -120,7 +135,7 @@ _lwan_create_thread(lwan_t *l, int thread_n)
 
     CPU_ZERO(&cpuset);
     CPU_SET(thread_n, &cpuset);
-    if (pthread_setaffinity_np(l->thread.ids[thread_n], sizeof(cpu_set_t), &cpuset)) {
+    if (pthread_setaffinity_np(thread->id, sizeof(cpu_set_t), &cpuset)) {
         perror("pthread_setaffinity_np");
         exit(-1);
     }
@@ -135,17 +150,8 @@ static void
 _lwan_thread_init(lwan_t *l)
 {
     int i;
-    int pipe_fd[2];
 
-    l->thread.ids = malloc(sizeof(pthread_t) * l->thread.count);
-
-    if (pipe(pipe_fd) < 0) {
-        perror("pipe");
-        exit(-1);
-    }
-
-    l->thread.sockets[0] = pipe_fd[0];
-    l->thread.sockets[1] = pipe_fd[1];
+    l->thread.threads = malloc(sizeof(lwan_thread_t) * l->thread.count);
 
     for (i = l->thread.count - 1; i >= 0; i--)
         _lwan_create_thread(l, i);
@@ -154,7 +160,7 @@ _lwan_thread_init(lwan_t *l)
 static void
 _lwan_destroy_thread(lwan_t *l, int thread_n)
 {
-    pthread_cancel(l->thread.ids[thread_n]);
+    pthread_cancel(l->thread.threads[thread_n].id);
 }
 
 static void
@@ -164,10 +170,7 @@ _lwan_thread_shutdown(lwan_t *l)
 
     for (i = l->thread.count - 1; i >= 0; i--)
         _lwan_destroy_thread(l, i);
-
-    close(l->thread.sockets[0]);
-    close(l->thread.sockets[1]);
-    free(l->thread.ids);
+    free(l->thread.threads);
 }
 
 void
@@ -341,21 +344,22 @@ lwan_process_request_from_socket(lwan_t *l, int fd)
 }
 
 void
-lwan_request_queue_push_fd(lwan_t *l, int fd)
+lwan_push_request_fd(lwan_t *l, int fd)
 {
-    if (write(l->thread.sockets[1], &fd, sizeof(fd)) < 0)
-        perror("write");
-}
+    static int current_thread = 0;
+    int epoll_fd = l->thread.threads[current_thread % l->thread.count].epoll_fd;
+    struct epoll_event event = {
+        .events = EPOLLIN | EPOLLET,
+        .data.fd = fd
+    };
 
-int
-lwan_request_queue_pop_fd(lwan_t *l)
-{
-    int fd;
-    if (read(l->thread.sockets[0], &fd, sizeof(fd)) < 0) {
-        perror("read");
-        return -1;
+    fcntl(fd, F_SETFL, O_RDWR | O_NONBLOCK);
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0) {
+        perror("epoll_ctl");
+        exit(-1);
     }
-    return fd;
+
+    current_thread++;
 }
 
 void
@@ -369,7 +373,7 @@ lwan_main_loop(lwan_t *l)
             continue;
         }
 
-        lwan_request_queue_push_fd(l, child_fd);
+        lwan_push_request_fd(l, child_fd);
     }
 }
 
