@@ -173,6 +173,9 @@ _identify_http_method(lwan_request_t *request, char *buffer)
 static char *
 _identify_http_path(lwan_request_t *request, char *buffer)
 {
+    /* FIXME
+     * - query string
+     */
     char *end_of_line = strchr(buffer, '\r');
     if (!end_of_line)
         return NULL;
