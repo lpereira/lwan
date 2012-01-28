@@ -1,5 +1,8 @@
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,15 +80,108 @@ _lwan_socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
+static void *
+_lwan_thread(void *data)
+{
+    lwan_t *l = data;
+
+    for (;;) {
+        int fd = lwan_request_queue_pop_fd(l);
+        if (fd < 0)
+            continue;
+
+        if (lwan_process_request_from_socket(l, fd)) {
+            if (shutdown(fd, SHUT_RDWR) < 0)
+                perror("shutdown");
+        }
+
+        close(fd);
+    }
+
+    return NULL;
+}
+
+static void
+_lwan_create_thread(lwan_t *l, int thread_n)
+{
+    pthread_attr_t attr;
+    cpu_set_t cpuset;
+
+    if (pthread_attr_init(&attr)) {
+        perror("pthread_attr_init");
+        exit(-1);
+    }
+
+    if (pthread_create(&l->thread.ids[thread_n], &attr, _lwan_thread, l)) {
+        perror("pthread_create");
+        pthread_attr_destroy(&attr);
+        exit(-1);
+    }
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(thread_n, &cpuset);
+    if (pthread_setaffinity_np(l->thread.ids[thread_n], sizeof(cpu_set_t), &cpuset)) {
+        perror("pthread_setaffinity_np");
+        exit(-1);
+    }
+
+    if (pthread_attr_destroy(&attr)) {
+        perror("pthread_attr_destroy");
+        exit(-1);
+    }
+}
+
+static void
+_lwan_thread_init(lwan_t *l)
+{
+    int i;
+    int pipe_fd[2];
+
+    l->thread.ids = malloc(sizeof(pthread_t) * l->thread.count);
+
+    if (pipe(pipe_fd) < 0) {
+        perror("pipe");
+        exit(-1);
+    }
+
+    l->thread.sockets[0] = pipe_fd[0];
+    l->thread.sockets[1] = pipe_fd[1];
+
+    for (i = l->thread.count - 1; i >= 0; i--)
+        _lwan_create_thread(l, i);
+}
+
+static void
+_lwan_destroy_thread(lwan_t *l, int thread_n)
+{
+    pthread_cancel(l->thread.ids[thread_n]);
+}
+
+static void
+_lwan_thread_shutdown(lwan_t *l)
+{
+    int i;
+
+    for (i = l->thread.count - 1; i >= 0; i--)
+        _lwan_destroy_thread(l, i);
+
+    close(l->thread.sockets[0]);
+    close(l->thread.sockets[1]);
+    free(l->thread.ids);
+}
+
 void
 lwan_init(lwan_t *l)
 {
     _lwan_socket_init(l);
+    _lwan_thread_init(l);
+    signal(SIGPIPE, SIG_IGN);
 }
 
 void
 lwan_shutdown(lwan_t *l)
 {
+    _lwan_thread_shutdown(l);
     _lwan_socket_shutdown(l);
 }
 
@@ -102,12 +198,12 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
     request->response = response;
 }
 
-void
+bool
 lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
     int len;
-    
+
     len = snprintf(headers, sizeof(headers),
                    "HTTP/1.1 %d\r\n"
                    "Content-Length: %d\r\n"
@@ -119,33 +215,35 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
                    request->response->mime_type);
     if (len < 0) {
         lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
-        return;
+        return false;
     }
-    
+
     if (write(request->fd, headers, len) < 0) {
-        perror("write");
-        exit(-1);
+        perror("write header");
+        return false;
     }
-    
+
     if (write(request->fd,
               request->response->content,
               request->response->content_length) < 0) {
-        perror("write");
-        exit(-1);
+        perror("write response");
+        return false;
     }
+
+    return true;
 }
 
-void
+bool
 lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
     char output[32];
     int len = snprintf(output, sizeof(output), "Error %d", status);
-    
+
     if (len < 0) {
         perror("snprintf");
         exit(-1);
     }
-    
+
     lwan_response_t response = {
         .mime_type = "text/plain",
         .content = output,
@@ -153,7 +251,7 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
     };
 
     request->response = &response;
-    lwan_response(l, request, status);
+    return lwan_response(l, request, status);
 }
 
 static char *
@@ -185,18 +283,18 @@ _identify_http_path(lwan_request_t *request, char *buffer)
     if (!space)
         return NULL;
     *space = '\0';
-    
+
     request->url = buffer;
     request->url_len = space - buffer;
-    
-    return end_of_line + 1;    
+
+    return end_of_line + 1;
 }
 
 static lwan_url_map_t *
-_find_callback(lwan_t *l, lwan_request_t *request)
+_find_callback_for_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
-    
+
     /* FIXME
      * - bsearch if url_map is too large
      * - regex maybe? this might hurt performance
@@ -212,41 +310,53 @@ _find_callback(lwan_t *l, lwan_request_t *request)
     return NULL;
 }
 
-void
+bool
 lwan_process_request_from_socket(lwan_t *l, int fd)
 {
     lwan_url_map_t *url_map;
     lwan_request_t request;
     char buffer[128], *p_buffer;
     int n_read;
-    
+
     memset(&request, 0, sizeof(request));
     request.fd = fd;
-    
+
     n_read = read(fd, buffer, sizeof(buffer));
     if (n_read < 0) {
         perror("read");
-        return;
+        return false;
     }
-    
+
     p_buffer = _identify_http_method(&request, buffer);
-    if (!p_buffer) {
-        lwan_default_response(l, &request, HTTP_NOT_ALLOWED);
-        return;
-    }
-    
+    if (!p_buffer)
+        return lwan_default_response(l, &request, HTTP_NOT_ALLOWED);
+
     p_buffer = _identify_http_path(&request, p_buffer);
-    if (!p_buffer) {
-        lwan_default_response(l, &request, HTTP_BAD_REQUEST);
-        return;
+    if (!p_buffer)
+        return lwan_default_response(l, &request, HTTP_BAD_REQUEST);
+
+    if ((url_map = _find_callback_for_request(l, &request)))
+        return lwan_response(l, &request, url_map->callback(&request, url_map->data));
+
+    return lwan_default_response(l, &request, HTTP_NOT_FOUND);
+}
+
+void
+lwan_request_queue_push_fd(lwan_t *l, int fd)
+{
+    if (write(l->thread.sockets[1], &fd, sizeof(fd)) < 0)
+        perror("write");
+}
+
+int
+lwan_request_queue_pop_fd(lwan_t *l)
+{
+    int fd;
+    if (read(l->thread.sockets[0], &fd, sizeof(fd)) < 0) {
+        perror("read");
+        return -1;
     }
-    
-    if ((url_map = _find_callback(l, &request))) {
-        lwan_response(l, &request, url_map->callback(&request, url_map->data));
-        return;
-    }
-    
-    lwan_default_response(l, &request, HTTP_NOT_FOUND);
+    return fd;
 }
 
 void
@@ -259,16 +369,8 @@ lwan_main_loop(lwan_t *l)
             close(child_fd);
             continue;
         }
-        
-        lwan_process_request_from_socket(l, child_fd);
-        
-        if (shutdown(child_fd, SHUT_RDWR) < 0) {
-            perror("shutdown");
-            close(child_fd);
-            continue;
-        }
 
-        close(child_fd);
+        lwan_request_queue_push_fd(l, child_fd);
     }
 }
 
@@ -277,11 +379,14 @@ main(void)
 {
     lwan_t l = {
         .port = 8080,
+        .thread = {
+            .count = 4
+        }
     };
-    
+
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);
-    lwan_main_loop(&l);    
+    lwan_main_loop(&l);
     lwan_shutdown(&l);
 
     return 0;
