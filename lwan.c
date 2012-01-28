@@ -183,7 +183,7 @@ _identify_http_header_end(lwan_request_t *request __attribute__((unused)), char 
 }
 
 static lwan_url_map_t *
-_find_callback_for_request(lwan_t *l, lwan_request_t *request)
+_find_url_map_for_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
 
@@ -233,7 +233,7 @@ _process_request(lwan_t *l, lwan_request_t *request)
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
     }
 
-    if ((url_map = _find_callback_for_request(l, request)))
+    if ((url_map = _find_url_map_for_request(l, request)))
         return lwan_response(l, request, url_map->callback(request, url_map->data));
 
     return lwan_default_response(l, request, HTTP_NOT_FOUND);
