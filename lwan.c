@@ -278,8 +278,8 @@ _identify_http_path(lwan_request_t *request, char *buffer)
         return NULL;
     *end_of_line = '\0';
 
-    char *space = strrchr(buffer, ' ');
-    if (!space)
+    char *space = end_of_line - sizeof("HTTP/X.X");
+    if (*(space + 1) != 'H')
         return NULL;
     *space = '\0';
 
