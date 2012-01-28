@@ -1,0 +1,12 @@
+Lwan is a toy web server. So plastic-y that it can't even serve files, only
+a "Hello, world!" page.
+
+It is meant to be only an exercise in writing a server using BSD sockets and
+other auxilliary APIs, like epoll. It is not meant to serve things on the
+Internet, as it isn't resilient enough.
+
+This can yield up to 35000 requests/s on a dual-core Core i7 processor. Not
+much, but for something written in just over a day, it's not as bad as it
+sounds.  I'm open to suggestions that can improve performance; better yet if
+you can fork it and actually make it happen.
+
