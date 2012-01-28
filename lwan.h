@@ -43,6 +43,7 @@ typedef enum {
 
 typedef enum {
     HTTP_GET = 0,
+    HTTP_HEAD
 } lwan_http_method_t;
 
 typedef enum {

@@ -131,9 +131,18 @@ _socket_shutdown(lwan_t *l)
 static char *
 _identify_http_method(lwan_request_t *request, char *buffer)
 {
-    if (!strncmp(buffer, "GET ", 4)) {
-        request->method = HTTP_GET;
-        return buffer + 4;
+    switch (*buffer) {
+    case 'G':
+        if (*(buffer + 3) == ' ') { /* assume GET */
+            request->method = HTTP_GET;
+            return buffer + 4;
+        }
+        break;
+    case 'H':
+        if (*(buffer + 4) == ' ') { /* assume HEAD */
+            request->method = HTTP_HEAD;
+            return buffer + 5;
+        }
     }
     return NULL;
 }
@@ -151,7 +160,7 @@ _identify_http_path(lwan_request_t *request, char *buffer)
     *end_of_line = '\0';
 
     char *space = end_of_line - sizeof("HTTP/X.X");
-    if (*(space + 1) != 'H')
+    if (*(space + 1) != 'H') /* assume HTTP/X.Y */
         return NULL;
     *space = '\0';
 
@@ -410,6 +419,9 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
         perror("write header");
         return false;
     }
+
+    if (request->method == HTTP_HEAD)
+        return true;
 
     if (write(request->fd,
               request->response->content,
