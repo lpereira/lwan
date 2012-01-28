@@ -95,7 +95,7 @@ _socket_init(lwan_t *l)
     }
 
     memset(&sin, 0, sizeof(sin));
-    sin.sin_port = htons(l->port);
+    sin.sin_port = htons(l->config.port);
     sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_family = AF_INET;
 
@@ -248,7 +248,7 @@ _thread(void *data)
 
     for (fd_wrptr = fd_rdptr = 0; ; ) {
         switch (nfds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
-                            t->lwan->keep_alive_timeout)) {
+                            t->lwan->config.keep_alive_timeout)) {
         case -1:
             if (errno != EINTR)
                 perror("epoll_wait");
@@ -284,7 +284,6 @@ static void
 _create_thread(lwan_t *l, int thread_n)
 {
     pthread_attr_t attr;
-    cpu_set_t cpuset;
     lwan_thread_t *thread = &l->thread.threads[thread_n];
 
     thread->lwan = l;
@@ -304,11 +303,15 @@ _create_thread(lwan_t *l, int thread_n)
         exit(-1);
     }
 
-    CPU_ZERO(&cpuset);
-    CPU_SET(thread_n, &cpuset);
-    if (pthread_setaffinity_np(thread->id, sizeof(cpu_set_t), &cpuset)) {
-        perror("pthread_setaffinity_np");
-        exit(-1);
+    if (l->config.enable_thread_affinity) {
+        cpu_set_t cpuset;
+
+        CPU_ZERO(&cpuset);
+        CPU_SET(thread_n, &cpuset);
+        if (pthread_setaffinity_np(thread->id, sizeof(cpu_set_t), &cpuset)) {
+            perror("pthread_setaffinity_np");
+            exit(-1);
+        }
     }
 
     if (pthread_attr_destroy(&attr)) {
@@ -482,10 +485,12 @@ int
 main(void)
 {
     lwan_t l = {
-        .port = 8080,
-        .keep_alive_timeout = 5000,
+        .config = {
+            .port = 8080,
+            .keep_alive_timeout = 5000,
+            .enable_thread_affinity = false,
+        }
     };
-
 
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);

@@ -81,8 +81,12 @@ struct lwan_thread_t_ {
 struct lwan_t_ {
     lwan_url_map_t *url_map;
     int main_socket;
-    int port;
-    int keep_alive_timeout;
+
+    struct {
+        int port;
+        int keep_alive_timeout;
+        bool enable_thread_affinity;
+    } config;
 
     struct {
         int count;
