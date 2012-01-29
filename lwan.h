@@ -25,7 +25,6 @@
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
-typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
