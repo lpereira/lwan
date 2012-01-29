@@ -103,6 +103,7 @@ void lwan_request_set_response(lwan_request_t *request, lwan_response_t *respons
 bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_http_status_as_string(lwan_http_status_t status);
+const char *lwan_determine_mime_type_for_file_name(char *file_name);
 void lwan_shutdown(lwan_t *l);
 
 #endif /* __LWAN_H__ */
