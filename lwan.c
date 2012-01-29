@@ -247,8 +247,10 @@ _process_request(lwan_t *l, lwan_request_t *request)
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
     }
 
-    if ((url_map = _find_url_map_for_request(l, request)))
+    if ((url_map = _find_url_map_for_request(l, request))) {
+        request->url += url_map->prefix_len;
         return lwan_response(l, request, url_map->callback(request, url_map->data));
+    }
 
     return lwan_default_response(l, request, HTTP_NOT_FOUND);
 }
