@@ -63,15 +63,16 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         return _serve_file_stream(l, request, index_file);
     }
 
+    lwan_request_set_corked(request, true);
     request->response->content_length = st.st_size;
     if (!lwan_response_header(l, request, HTTP_OK)) {
         return_status = HTTP_INTERNAL_ERROR;
-        goto end;
+        goto end_corked;
     }
 
     if (request->method == HTTP_HEAD) {
         return_status = HTTP_OK;
-        goto end;
+        goto end_corked;
     }
 
     if (sendfile(request->fd, file_fd, NULL, st.st_size) < 0)
@@ -79,11 +80,14 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
     else
         return_status = HTTP_OK;
 
+end_corked:
+    lwan_request_set_corked(request, false);
 end:
     close(file_fd);
 end_no_close:
     free(data);
     free(request->response);
+
     return return_status;
 }
 

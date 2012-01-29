@@ -110,6 +110,7 @@ bool lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t
 bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_http_status_as_string(lwan_http_status_t status);
 const char *lwan_determine_mime_type_for_file_name(char *file_name);
+void lwan_request_set_corked(lwan_request_t *request, bool setting);
 void lwan_shutdown(lwan_t *l);
 
 #endif /* __LWAN_H__ */

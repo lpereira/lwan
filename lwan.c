@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -53,6 +54,14 @@ static lwan_url_map_t default_map[] = {
     { .prefix = "/", .callback = serve_files, .data = "./files_root" },
     { .prefix = NULL },
 };
+
+void
+lwan_request_set_corked(lwan_request_t *request, bool setting)
+{
+    if (setsockopt(request->fd, IPPROTO_TCP, TCP_CORK,
+                        (int[]){ setting }, sizeof(int)) < 0)
+        perror("setsockopt");
+}
 
 const char *
 lwan_determine_mime_type_for_file_name(char *file_name)
