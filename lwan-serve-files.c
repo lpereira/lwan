@@ -1,0 +1,138 @@
+/*
+ * lwan - simple web server
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+#define _GNU_SOURCE
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "lwan.h"
+
+static lwan_http_status_t
+_serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
+{
+    lwan_http_status_t return_status;
+    int file_fd;
+    struct stat st;
+
+    if ((file_fd = open(data, O_RDONLY)) < 0) {
+        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+        goto end_no_close;
+    }
+
+    if (fstat(file_fd, &st) < 0) {
+        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+        goto end;
+    }
+
+    if (S_ISDIR(st.st_mode)) {
+        char *index_file;
+
+        if (asprintf(&index_file, "%s/index.html", (char *)data) < 0) {
+            return_status = HTTP_INTERNAL_ERROR;
+            goto end;
+        }
+
+        close(file_fd);
+        free(data);
+
+        request->response->mime_type = "text/html";
+        return _serve_file_stream(l, request, index_file);
+    }
+
+    request->response->content_length = st.st_size;
+    if (!lwan_response_header(l, request, HTTP_OK)) {
+        return_status = HTTP_INTERNAL_ERROR;
+        goto end;
+    }
+
+    if (request->method == HTTP_HEAD) {
+        return_status = HTTP_OK;
+        goto end;
+    }
+
+    if (sendfile(request->fd, file_fd, NULL, st.st_size) < 0)
+        return_status = HTTP_INTERNAL_ERROR;
+    else
+        return_status = HTTP_OK;
+
+end:
+    close(file_fd);
+end_no_close:
+    free(data);
+    free(request->response);
+    return return_status;
+}
+
+lwan_http_status_t
+serve_files(lwan_request_t *request, void *root_directory)
+{
+    lwan_response_t *response;
+    lwan_http_status_t return_status = HTTP_OK;
+    char path_to_canonicalize[PATH_MAX];
+    char *canonical_path;
+    char *canonical_root;
+
+    /* FIXME: ``canonical_root'' should be cached somewhere. */
+    canonical_root = canonicalize_file_name(root_directory);
+    if (!canonical_root)
+        return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
+
+    if (snprintf(path_to_canonicalize, PATH_MAX,
+                    "%s/%s", (char *)root_directory, request->url) < 0) {
+        return_status = HTTP_INTERNAL_ERROR;
+        goto end;
+    }
+
+    canonical_path = canonicalize_file_name(path_to_canonicalize);
+    if (!canonical_path) {
+        if (errno == EACCES)
+            return_status = HTTP_FORBIDDEN;
+        else if (errno == ENOENT || errno == ENOTDIR)
+            return_status = HTTP_NOT_FOUND;
+        else
+            return_status = HTTP_BAD_REQUEST;
+        goto end;
+    }
+
+    if (strncmp(canonical_path, canonical_root, strlen(canonical_root))) {
+        free(canonical_path);
+        return_status = HTTP_FORBIDDEN;
+        goto end;
+    }
+
+    response = calloc(1, sizeof(*response));
+    response->mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
+    response->stream_content.callback = _serve_file_stream;
+    response->stream_content.data = canonical_path;
+
+    lwan_request_set_response(request, response);
+
+end:
+    free(canonical_root);
+
+    return return_status;
+}

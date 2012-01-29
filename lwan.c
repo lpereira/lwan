@@ -35,6 +35,7 @@
 
 #include "lwan.h"
 #include "lwan-hello-world.h"
+#include "lwan-serve-files.h"
 
 #define REQUEST_SUPPORTS_KEEP_ALIVE(r) ((r)->http_version == HTTP_1_1)
 
@@ -48,7 +49,8 @@ static const char* const _http_connection_policy[] = {
 };
 
 static lwan_url_map_t default_map[] = {
-    { .prefix = "/", .callback = hello_world, .data = NULL },
+    { .prefix = "/hello", .callback = hello_world, .data = NULL },
+    { .prefix = "/", .callback = serve_files, .data = "./files_root" },
     { .prefix = NULL },
 };
 
@@ -206,9 +208,6 @@ _find_url_map_for_request(lwan_t *l, lwan_request_t *request)
      * - regex maybe? this might hurt performance
      */
     for (url_map = l->url_map; url_map->prefix; url_map++) {
-        if (request->url_len > url_map->prefix_len)
-            continue;
-
         if (!strncmp(request->url, url_map->prefix, url_map->prefix_len))
             return url_map;
     }
@@ -409,7 +408,7 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
 }
 
 bool
-lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
+lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
     int len;
@@ -436,12 +435,38 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
         return false;
     }
 
+    return true;
+}
+
+bool
+lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
+{
+    if (!request->response) {
+        lwan_default_response(l, request, status);
+        return false;
+    }
+
+    if (request->response->stream_content.callback) {
+        lwan_http_status_t callback_status;
+
+        callback_status = request->response->stream_content.callback(l, request,
+                    request->response->stream_content.data);
+        if (callback_status == HTTP_OK)
+            return true;
+
+        lwan_default_response(l, request, callback_status);
+        return false;
+    }
+
+    if (!lwan_response_header(l, request, status))
+        return false;
+
     if (request->method == HTTP_HEAD)
         return true;
 
     if (write(request->fd,
-              request->response->content,
-              request->response->content_length) < 0) {
+               request->response->content,
+               request->response->content_length) < 0) {
         perror("write response");
         return false;
     }
