@@ -24,6 +24,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,6 +55,8 @@ static lwan_url_map_t default_map[] = {
     { .prefix = "/", .callback = serve_files, .data = "./files_root" },
     { .prefix = NULL },
 };
+
+static jmp_buf cleanup_jmp_buf;
 
 void
 lwan_request_set_corked(lwan_request_t *request, bool setting)
@@ -283,6 +286,8 @@ _thread(void *data)
         switch (nfds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
                             t->lwan->config.keep_alive_timeout)) {
         case -1:
+            if (errno == EBADF || errno == EINVAL)
+                goto epoll_fd_closed;
             if (errno != EINTR)
                 perror("epoll_wait");
             continue;
@@ -308,6 +313,7 @@ _thread(void *data)
         }
     }
 
+epoll_fd_closed:
     free(fds);
 
     return NULL;
@@ -369,8 +375,18 @@ _thread_shutdown(lwan_t *l)
 {
     int i;
 
+    /*
+     * Closing epoll_fd makes the thread gracefully finish; it might
+     * take a while to notice this if keep-alive timeout is high.
+     * Thread shutdown is performed in separate loops so that we
+     * don't wait one thread to join when there are others to be
+     * finalized.
+     */
     for (i = l->thread.count - 1; i >= 0; i--)
-        pthread_cancel(l->thread.threads[i].id);
+        close(l->thread.threads[i].epoll_fd);
+    for (i = l->thread.count - 1; i >= 0; i--)
+        pthread_join(l->thread.threads[i].id, NULL);
+
     free(l->thread.threads);
 }
 
@@ -522,9 +538,21 @@ _push_request_fd(lwan_t *l, int fd)
     current_thread++;
 }
 
+static void
+_cleanup(int signal_number)
+{
+    printf("Signal %d received.\n", signal_number);
+    longjmp(cleanup_jmp_buf, 1);
+}
+
 void
 lwan_main_loop(lwan_t *l)
 {
+    if (setjmp(cleanup_jmp_buf))
+        return;
+
+    signal(SIGINT, _cleanup);
+
     for (;;) {
         int child_fd = accept(l->main_socket, NULL, NULL);
         if (child_fd < 0) {
