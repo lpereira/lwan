@@ -89,7 +89,7 @@ _socket_init(lwan_t *l)
         exit(-1);
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char[]){ 1 }, sizeof(char*)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int)) < 0) {
         perror("setsockopt");
         goto handle_error;
     }
