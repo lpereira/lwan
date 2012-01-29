@@ -266,13 +266,6 @@ _process_request(lwan_t *l, lwan_request_t *request)
     return lwan_default_response(l, request, HTTP_NOT_FOUND);
 }
 
-static void
-_shutdown_socket(int fd)
-{
-    if (!shutdown(fd, SHUT_RDWR))
-        close(fd);
-}
-
 static void *
 _thread(void *data)
 {
@@ -293,7 +286,7 @@ _thread(void *data)
             continue;
         case 0: /* timeout: shutdown waiting sockets */
             while (fd_wrptr != fd_rdptr) {
-                _shutdown_socket(fds[fd_rdptr++]);
+                close(fds[fd_rdptr++]);
                 fd_rdptr %= t->lwan->thread.max_fd;
             }
             break;
@@ -308,7 +301,7 @@ _thread(void *data)
                         continue;
                     }
                 }
-                _shutdown_socket(events[n].data.fd);
+                close(events[n].data.fd);
             }
         }
     }
