@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-hello-world.h"
 
 #define REQUEST_SUPPORTS_KEEP_ALIVE(r) ((r)->http_version == HTTP_1_1)
 
@@ -45,18 +46,6 @@ static const char* const _http_connection_policy[] = {
     [HTTP_1_0] = "Close",
     [HTTP_1_1] = "Keep-Alive"
 };
-
-lwan_http_status_t hello_world(lwan_request_t *request, void *data __attribute__((unused)))
-{
-    static lwan_response_t response = {
-        .mime_type = "text/plain",
-        .content = "Hello, world!",
-        .content_length = sizeof("Hello, world!") - 1
-    };
-
-    lwan_request_set_response(request, &response);
-    return HTTP_OK;
-}
 
 static lwan_url_map_t default_map[] = {
     { .prefix = "/", .callback = hello_world, .data = NULL },

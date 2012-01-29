@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef _LWAN_H__
-#define _LWAN_H_
+#ifndef __LWAN_H__
+#define __LWAN_H__
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -105,4 +105,4 @@ bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_
 const char *lwan_http_status_as_string(lwan_http_status_t status);
 void lwan_shutdown(lwan_t *l);
 
-#endif /* _LWAN_H_ */
+#endif /* __LWAN_H__ */
