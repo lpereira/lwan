@@ -100,6 +100,14 @@ lwan_http_status_as_string(lwan_http_status_t status)
     return "Invalid";
 }
 
+#define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) { \
+            perror("setsockopt"); \
+            goto handle_error; \
+        } \
+    } while(0)
+
 static void
 _socket_init(lwan_t *l)
 {
@@ -112,10 +120,11 @@ _socket_init(lwan_t *l)
         exit(-1);
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int)) < 0) {
-        perror("setsockopt");
-        goto handle_error;
-    }
+    SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+    if (l->config.enable_linger)
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER, ((int[]){ 1, 1 }), 2*sizeof(int));
+    if (l->config.enable_tcp_defer_accept)
+        SET_SOCKET_OPTION(SOL_TCP, TCP_DEFER_ACCEPT, (int[]){ 1 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
@@ -139,6 +148,8 @@ handle_error:
     close(fd);
     exit(-1);
 }
+
+#undef SET_SOCKET_OPTION
 
 static void
 _socket_shutdown(lwan_t *l)
@@ -556,6 +567,8 @@ main(void)
             .port = 8080,
             .keep_alive_timeout = 5000,
             .enable_thread_affinity = false,
+            .enable_tcp_defer_accept = true,
+            .enable_linger = false
         }
     };
 
