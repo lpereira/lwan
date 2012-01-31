@@ -154,18 +154,13 @@ _socket_shutdown(lwan_t *l)
 static char *
 _identify_http_method(lwan_request_t *request, char *buffer)
 {
-    switch (*buffer) {
-    case 'G':
-        if (*(buffer + 3) == ' ') { /* assume GET */
-            request->method = HTTP_GET;
-            return buffer + 4;
-        }
-        break;
-    case 'H':
-        if (*(buffer + 4) == ' ') { /* assume HEAD */
-            request->method = HTTP_HEAD;
-            return buffer + 5;
-        }
+    STRING_SWITCH(buffer) {
+    case HTTP_STR_GET:
+        request->method = HTTP_GET;
+        return buffer + 4;
+    case HTTP_STR_HEAD:
+        request->method = HTTP_HEAD;
+        return buffer + 5;
     }
     return NULL;
 }

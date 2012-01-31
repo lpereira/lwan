@@ -69,6 +69,11 @@ enum {
     EXT_JS  = MULTICHAR_CONSTANT('.','j','s',0),
 } lwan_mime_ext_t;
 
+enum {
+    HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
+    HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
+} lwan_http_method_str_t;
+
 struct lwan_response_t_ {
     char *content;
     char *mime_type;
