@@ -151,7 +151,7 @@ _socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
-static char *
+static inline __attribute__((always_inline)) char *
 _identify_http_method(lwan_request_t *request, char *buffer)
 {
     STRING_SWITCH(buffer) {
@@ -165,7 +165,7 @@ _identify_http_method(lwan_request_t *request, char *buffer)
     return NULL;
 }
 
-static char *
+static inline  __attribute__((always_inline)) char *
 _identify_http_path(lwan_request_t *request, char *buffer)
 {
     /* FIXME
@@ -193,14 +193,14 @@ _identify_http_path(lwan_request_t *request, char *buffer)
     return end_of_line + 1;
 }
 
-static char *
+static inline  __attribute__((always_inline)) char *
 _identify_http_header_end(lwan_request_t *request __attribute__((unused)), char *buffer)
 {
     char *end_of_header = strstr(buffer, "\r\n\r\n");
     return end_of_header ? end_of_header + 4 : NULL;
 }
 
-static lwan_url_map_t *
+static inline  __attribute__((always_inline)) lwan_url_map_t *
 _find_url_map_for_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
