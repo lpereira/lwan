@@ -25,6 +25,16 @@
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define MULTICHAR_CONSTANT(a,b,c,d) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#  define MULTICHAR_CONSTANT(d,c,b,a) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
+#  error A PDP? Seriously?
+#endif
+
+#define STRING_SWITCH(s) switch (*((int32_t *)(s)))
+
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
@@ -49,6 +59,15 @@ typedef enum {
     HTTP_1_0 = 0,
     HTTP_1_1
 } lwan_http_version_t;
+
+enum {
+    EXT_JPG = MULTICHAR_CONSTANT('.','j','p','g'),
+    EXT_PNG = MULTICHAR_CONSTANT('.','p','n','g'),
+    EXT_HTM = MULTICHAR_CONSTANT('.','h','t','m'),
+    EXT_CSS = MULTICHAR_CONSTANT('.','c','s','s'),
+    EXT_TXT = MULTICHAR_CONSTANT('.','t','x','t'),
+    EXT_JS  = MULTICHAR_CONSTANT('.','j','s',0),
+} lwan_mime_ext_t;
 
 struct lwan_response_t_ {
     char *content;

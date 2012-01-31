@@ -70,24 +70,19 @@ const char *
 lwan_determine_mime_type_for_file_name(char *file_name)
 {
     char *last_dot = strrchr(file_name, '.');
-
     if (!last_dot)
-        return "application/octet-stream";
+        goto fallback;
 
-    ++last_dot;
-    if (!strncmp(last_dot, "jpg", 3))
-        return "image/jpeg";
-    if (!strncmp(last_dot, "png", 3))
-        return "image/png";
-    if (!strncmp(last_dot, "htm", 3))
-        return "text/html";
-    if (!strncmp(last_dot, "txt", 3))
-        return "text/plain";
-    if (!strncmp(last_dot, "css", 3))
-        return "text/css";
-    if (!strncmp(last_dot, "js", 2))
-        return "application/javascript";
+    STRING_SWITCH(last_dot) {
+    case EXT_CSS: return "text/css";
+    case EXT_HTM: return "text/html";
+    case EXT_JPG: return "image/jpeg";
+    case EXT_JS:  return "application/javascript";
+    case EXT_PNG: return "image/png";
+    case EXT_TXT: return "text/plain";
+    }
 
+fallback:
     return "application/octet-stream";
 }
 
