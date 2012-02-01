@@ -22,6 +22,7 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
