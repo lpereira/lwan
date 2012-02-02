@@ -36,6 +36,8 @@
 
 #define STRING_SWITCH(s) switch (*((int32_t *)(s)))
 
+#define ALWAYS_INLINE inline __attribute__((always_inline))
+
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
