@@ -183,7 +183,7 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
      * - query string
      * - fragment
      */
-    char *end_of_line = strchr(buffer, '\r');
+    char *end_of_line = memchr(buffer, '\r', limit);
     if (!end_of_line)
         return NULL;
     *end_of_line = '\0';
@@ -245,8 +245,9 @@ _process_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
     char buffer[8192], *p_buffer;
+    size_t bytes_read;
 
-    switch (read(request->fd, buffer, sizeof(buffer))) {
+    switch (bytes_read = read(request->fd, buffer, sizeof(buffer))) {
     case 0:
         return false;
     case -1:
@@ -261,7 +262,7 @@ _process_request(lwan_t *l, lwan_request_t *request)
         return lwan_default_response(l, request, HTTP_NOT_ALLOWED);
     }
 
-    p_buffer = _identify_http_path(request, p_buffer);
+    p_buffer = _identify_http_path(request, p_buffer, bytes_read);
     if (!p_buffer)
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
