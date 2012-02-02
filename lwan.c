@@ -207,8 +207,20 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
 static ALWAYS_INLINE char *
 _identify_http_header_end(lwan_request_t *request, char *buffer, size_t buffer_size)
 {
-    char *end_of_header = strstr(buffer, "\r\n\r\n");
-    return end_of_header ? end_of_header + 4 : NULL;
+    char *header_end;
+    for (header_end = strstr(buffer, "\r\n\r\n");
+         !header_end;
+         header_end = strstr(buffer, "\r\n\r\n")) {
+        switch (read(request->fd, buffer, buffer_size)) {
+        case -1:
+            perror("read");
+            return NULL;
+        case 0:
+            goto end;
+        }
+    }
+end:
+    return header_end ? header_end + 4 : NULL;
 }
 
 static ALWAYS_INLINE lwan_url_map_t *
@@ -254,7 +266,7 @@ _process_request(lwan_t *l, lwan_request_t *request)
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
     if (REQUEST_SUPPORTS_KEEP_ALIVE(request)) {
-        p_buffer = _identify_http_header_end(request, p_buffer);
+        p_buffer = _identify_http_header_end(request, p_buffer, sizeof(buffer));
         if (!p_buffer)
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
     }
