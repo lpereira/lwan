@@ -536,7 +536,6 @@ _push_request_fd(lwan_t *l, int fd)
         .data.fd = fd
     };
 
-    fcntl(fd, F_SETFL, O_RDWR | O_NONBLOCK);
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0) {
         perror("epoll_ctl");
         exit(-1);
@@ -561,10 +560,9 @@ lwan_main_loop(lwan_t *l)
     signal(SIGINT, _cleanup);
 
     for (;;) {
-        int child_fd = accept(l->main_socket, NULL, NULL);
+        int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
         if (child_fd < 0) {
             perror("accept");
-            close(child_fd);
             continue;
         }
 
