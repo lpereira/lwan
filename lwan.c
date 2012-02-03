@@ -559,15 +559,37 @@ lwan_main_loop(lwan_t *l)
 
     signal(SIGINT, _cleanup);
 
-    for (;;) {
-        int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
-        if (child_fd < 0) {
-            perror("accept");
-            continue;
-        }
+    int epoll_fd = epoll_create1(0);
+    struct epoll_event events[128];
+    struct epoll_event ev = {
+        .events = EPOLLIN,
+    };
 
-        _push_request_fd(l, child_fd);
+    fcntl(l->main_socket, F_SETFL, O_NONBLOCK);
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &ev) < 0) {
+        perror("epoll_ctl");
+        exit(-1);
     }
+
+    for (;;) {
+        int n_fds;
+        if ((n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1)) <= 0) {
+            if (errno == EINTR)
+                continue;
+            perror("epoll_wait");
+            break;
+        } else {
+            int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+            if (child_fd < 0) {
+                perror("accept");
+                continue;
+            }
+
+            _push_request_fd(l, child_fd);
+        }
+    }
+
+    close(epoll_fd);
 }
 
 int
