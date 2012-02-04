@@ -534,11 +534,11 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
     return lwan_response(l, request, status);
 }
 
-static void
+static ALWAYS_INLINE void
 _push_request_fd(lwan_t *l, int fd)
 {
     static int current_thread = 0;
-    int epoll_fd = l->thread.threads[current_thread % l->thread.count].epoll_fd;
+    int epoll_fd = l->thread.threads[current_thread++ % l->thread.count].epoll_fd;
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET,
         .data.fd = fd
@@ -548,8 +548,6 @@ _push_request_fd(lwan_t *l, int fd)
         perror("epoll_ctl");
         exit(-1);
     }
-
-    current_thread++;
 }
 
 static void
