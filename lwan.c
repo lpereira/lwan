@@ -571,7 +571,10 @@ lwan_main_loop(lwan_t *l)
         .events = EPOLLIN,
     };
 
-    fcntl(l->main_socket, F_SETFL, O_NONBLOCK);
+    if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0) {
+        perror("fcntl: main socket");
+        exit(-1);
+    }
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &ev) < 0) {
         perror("epoll_ctl");
         exit(-1);
