@@ -409,6 +409,14 @@ lwan_init(lwan_t *l)
         perror("getrlimit");
         exit(-1);
     }
+    if (r.rlim_max == RLIM_INFINITY)
+        r.rlim_cur *= 8;
+    else if (r.rlim_cur < r.rlim_max)
+        r.rlim_cur = r.rlim_max;
+    if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
+        perror("setrlimit");
+        exit(-1);
+    }
 
     l->thread.max_fd = r.rlim_cur / l->thread.count;
     printf("Using %d threads, maximum %d sockets per thread.\n",
