@@ -231,6 +231,7 @@ _find_url_map_for_request(lwan_t *l, lwan_request_t *request)
     /* FIXME
      * - bsearch if url_map is too large
      * - regex maybe? this might hurt performance
+     * - trie? radix tree?
      */
     for (url_map = l->url_map; url_map->prefix; url_map++) {
         if (!strncmp(request->url, url_map->prefix, url_map->prefix_len))
