@@ -38,12 +38,12 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
     int file_fd;
     struct stat st;
 
-    if ((file_fd = open(data, O_RDONLY)) < 0) {
+    if (UNLIKELY((file_fd = open(data, O_RDONLY)) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
         goto end_no_close;
     }
 
-    if (fstat(file_fd, &st) < 0) {
+    if (UNLIKELY(fstat(file_fd, &st) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
         goto end;
     }
@@ -65,7 +65,7 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
 
     lwan_request_set_corked(request, true);
     request->response->content_length = st.st_size;
-    if (!lwan_response_header(l, request, HTTP_OK)) {
+    if (UNLIKELY(!lwan_response_header(l, request, HTTP_OK))) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end_corked;
     }
@@ -75,7 +75,7 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         goto end_corked;
     }
 
-    if (sendfile(request->fd, file_fd, NULL, st.st_size) < 0)
+    if (UNLIKELY(sendfile(request->fd, file_fd, NULL, st.st_size) < 0))
         return_status = HTTP_INTERNAL_ERROR;
     else
         return_status = HTTP_OK;
@@ -105,8 +105,8 @@ serve_files(lwan_request_t *request, void *root_directory)
     if (!canonical_root)
         return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
 
-    if (snprintf(path_to_canonicalize, PATH_MAX,
-                    "%s/%s", (char *)root_directory, request->url) < 0) {
+    if (UNLIKELY(snprintf(path_to_canonicalize, PATH_MAX,
+                    "%s/%s", (char *)root_directory, request->url) < 0)) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }

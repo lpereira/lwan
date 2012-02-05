@@ -38,6 +38,9 @@
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
+#define LIKELY(x)       __builtin_expect((x), 1)
+#define UNLIKELY(x)     __builtin_expect((x), 0)
+
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;

@@ -61,8 +61,8 @@ static jmp_buf cleanup_jmp_buf;
 void
 lwan_request_set_corked(lwan_request_t *request, bool setting)
 {
-    if (setsockopt(request->fd, IPPROTO_TCP, TCP_CORK,
-                        (int[]){ setting }, sizeof(int)) < 0)
+    if (UNLIKELY(setsockopt(request->fd, IPPROTO_TCP, TCP_CORK,
+                        (int[]){ setting }, sizeof(int)) < 0))
         perror("setsockopt");
 }
 
@@ -70,7 +70,7 @@ const char *
 lwan_determine_mime_type_for_file_name(char *file_name)
 {
     char *last_dot = strrchr(file_name, '.');
-    if (!last_dot)
+    if (UNLIKELY(!last_dot))
         goto fallback;
 
     STRING_SWITCH(last_dot) {
@@ -189,11 +189,11 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
     *end_of_line = '\0';
 
     char *space = end_of_line - sizeof("HTTP/X.X");
-    if (*(space + 1) != 'H') /* assume HTTP/X.Y */
+    if (UNLIKELY(*(space + 1) != 'H')) /* assume HTTP/X.Y */
         return NULL;
     *space = '\0';
 
-    if (*(space + 6) >= '1')
+    if (LIKELY(*(space + 6) >= '1'))
         request->http_version = *(space + 8) == '0' ? HTTP_1_0 : HTTP_1_1;
     else
         return NULL;
@@ -256,19 +256,19 @@ _process_request(lwan_t *l, lwan_request_t *request)
     }
 
     p_buffer = _identify_http_method(request, buffer);
-    if (!p_buffer) {
+    if (UNLIKELY(!p_buffer)) {
         if (*buffer == '\r' || *buffer == '\n')
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
         return lwan_default_response(l, request, HTTP_NOT_ALLOWED);
     }
 
     p_buffer = _identify_http_path(request, p_buffer, bytes_read);
-    if (!p_buffer)
+    if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
     if (REQUEST_SUPPORTS_KEEP_ALIVE(request)) {
         p_buffer = _identify_http_header_end(request, p_buffer, sizeof(buffer));
-        if (!p_buffer)
+        if (UNLIKELY(!p_buffer))
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
     }
 
@@ -465,12 +465,12 @@ lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t stat
                    request->response->content_length,
                    request->response->mime_type,
                    _http_connection_policy[request->http_version]);
-    if (len < 0) {
+    if (UNLIKELY(len < 0)) {
         lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
         return false;
     }
 
-    if (write(request->fd, headers, len) < 0) {
+    if (UNLIKELY(write(request->fd, headers, len) < 0)) {
         perror("write header");
         return false;
     }
@@ -481,7 +481,7 @@ lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t stat
 bool
 lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
-    if (!request->response) {
+    if (UNLIKELY(!request->response)) {
         lwan_default_response(l, request, status);
         return false;
     }
@@ -498,15 +498,15 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
         return false;
     }
 
-    if (!lwan_response_header(l, request, status))
+    if (UNLIKELY(!lwan_response_header(l, request, status)))
         return false;
 
     if (request->method == HTTP_HEAD)
         return true;
 
-    if (write(request->fd,
-               request->response->content,
-               request->response->content_length) < 0) {
+    if (UNLIKELY(write(request->fd,
+                       request->response->content,
+                       request->response->content_length) < 0)) {
         perror("write response");
         return false;
     }
@@ -520,7 +520,7 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
     char output[256];
     int len = snprintf(output, sizeof(output), "HTTP Status %d (%s)",
                             status, lwan_http_status_as_string(status));
-    if (len < 0) {
+    if (UNLIKELY(len < 0)) {
         perror("snprintf");
         exit(-1);
     }
@@ -544,7 +544,7 @@ _push_request_fd(lwan_t *l, int fd)
         .data.fd = fd
     };
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0) {
+    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
         perror("epoll_ctl");
         exit(-1);
     }
@@ -582,14 +582,14 @@ lwan_main_loop(lwan_t *l)
 
     for (;;) {
         int n_fds;
-        if ((n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1)) <= 0) {
+        if (UNLIKELY((n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1)) <= 0)) {
             if (errno == EINTR)
                 continue;
             perror("epoll_wait");
             break;
         } else {
             int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
-            if (child_fd < 0) {
+            if (UNLIKELY(child_fd < 0)) {
                 perror("accept");
                 continue;
             }
