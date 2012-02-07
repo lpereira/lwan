@@ -136,7 +136,7 @@ _socket_init(lwan_t *l)
         goto handle_error;
     }
 
-    if (listen(fd, (3 * (l->thread.count * l->thread.max_fd)) / 2) < 0) {
+    if (listen(fd, 128 * 1024) < 0) {
         perror("listen");
         goto handle_error;
     }
