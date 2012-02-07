@@ -344,6 +344,16 @@ _create_thread(lwan_t *l, int thread_n)
         exit(-1);
     }
 
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
+        perror("pthread_attr_setscope");
+        exit(-1);
+    }
+
+    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE)) {
+        perror("pthread_attr_setdetachstate");
+        exit(-1);
+    }
+
     if (pthread_create(&thread->id, &attr, _thread, thread)) {
         perror("pthread_create");
         pthread_attr_destroy(&attr);
