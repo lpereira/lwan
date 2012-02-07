@@ -593,12 +593,9 @@ lwan_main_loop(lwan_t *l)
 
     for (;;) {
         int n_fds;
-        if (UNLIKELY((n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1)) <= 0)) {
-            if (errno == EINTR)
-                continue;
-            perror("epoll_wait");
-            break;
-        } else {
+        for (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
+                n_fds > 0;
+                --n_fds) {
             int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
             if (UNLIKELY(child_fd < 0)) {
                 perror("accept");
