@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lwan-trie.h"
+
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -114,7 +116,7 @@ struct lwan_thread_t_ {
 };
 
 struct lwan_t_ {
-    lwan_url_map_t *url_map;
+    lwan_trie_t *url_map_trie;
     int main_socket;
 
     struct {

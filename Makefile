@@ -1,5 +1,5 @@
 CFLAGS=-g -Wall -Wextra
-OBJECTS=lwan.o lwan-serve-files.o lwan-hello-world.o
+OBJECTS=lwan.o lwan-trie.o lwan-serve-files.o lwan-hello-world.o
 
 all: lwan
 

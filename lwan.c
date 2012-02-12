@@ -223,24 +223,6 @@ end:
     return header_end ? header_end + 4 : NULL;
 }
 
-static ALWAYS_INLINE lwan_url_map_t *
-_find_url_map_for_request(lwan_t *l, lwan_request_t *request)
-{
-    lwan_url_map_t *url_map;
-
-    /* FIXME
-     * - bsearch if url_map is too large
-     * - regex maybe? this might hurt performance
-     * - trie? radix tree?
-     */
-    for (url_map = l->url_map; url_map->prefix; url_map++) {
-        if (!strncmp(request->url, url_map->prefix, url_map->prefix_len))
-            return url_map;
-    }
-
-    return NULL;
-}
-
 static bool
 _process_request(lwan_t *l, lwan_request_t *request)
 {
@@ -273,7 +255,7 @@ _process_request(lwan_t *l, lwan_request_t *request)
             return lwan_default_response(l, request, HTTP_BAD_REQUEST);
     }
 
-    if ((url_map = _find_url_map_for_request(l, request))) {
+    if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url))) {
         request->url += url_map->prefix_len;
         return lwan_response(l, request, url_map->callback(request, url_map->data));
     }
@@ -441,6 +423,7 @@ lwan_init(lwan_t *l)
 void
 lwan_shutdown(lwan_t *l)
 {
+    lwan_trie_destroy(l->url_map_trie);
     _thread_shutdown(l);
     _socket_shutdown(l);
 }
@@ -448,8 +431,18 @@ lwan_shutdown(lwan_t *l)
 void
 lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 {
-    for (l->url_map = url_map; url_map->prefix; url_map++)
+    lwan_trie_destroy(l->url_map_trie);
+
+    l->url_map_trie = lwan_trie_new();
+    if (!l->url_map_trie) {
+        perror("lwan_trie_new");
+        exit(-1);
+    }
+
+    for (; url_map->prefix; url_map++) {
         url_map->prefix_len = strlen(url_map->prefix);
+        lwan_trie_add(l->url_map_trie, url_map->prefix, url_map);
+    }
 }
 
 void
