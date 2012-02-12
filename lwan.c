@@ -203,6 +203,9 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
     request->url = buffer;
     request->url_len = space - buffer;
 
+    if (*request->url != '/')
+        return NULL;
+
     return end_of_line + 1;
 }
 
