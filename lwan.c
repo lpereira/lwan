@@ -238,6 +238,8 @@ _process_request(lwan_t *l, lwan_request_t *request)
         return lwan_default_response(l, request, HTTP_TOO_LARGE);
     }
 
+    buffer[bytes_read] = '\0';
+
     p_buffer = _identify_http_method(request, buffer);
     if (UNLIKELY(!p_buffer)) {
         if (*buffer == '\r' || *buffer == '\n')
