@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -221,6 +222,14 @@ _identify_http_header_end(lwan_request_t *request, char *buffer, size_t buffer_s
     }
 }
 
+ALWAYS_INLINE static char *
+_ignore_leading_whitespace(char *buffer)
+{
+    while (*buffer && isspace(*buffer))
+        buffer++;
+    return buffer;
+}
+
 static bool
 _process_request(lwan_t *l, lwan_request_t *request)
 {
@@ -240,12 +249,13 @@ _process_request(lwan_t *l, lwan_request_t *request)
 
     buffer[bytes_read] = '\0';
 
-    p_buffer = _identify_http_method(request, buffer);
-    if (UNLIKELY(!p_buffer)) {
-        if (*buffer == '\r' || *buffer == '\n')
-            return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+    p_buffer = _ignore_leading_whitespace(buffer);
+    if (!*p_buffer)
+        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+
+    p_buffer = _identify_http_method(request, p_buffer);
+    if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_NOT_ALLOWED);
-    }
 
     p_buffer = _identify_http_path(request, p_buffer, bytes_read);
     if (UNLIKELY(!p_buffer))
