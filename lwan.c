@@ -209,19 +209,16 @@ static ALWAYS_INLINE char *
 _identify_http_header_end(lwan_request_t *request, char *buffer, size_t buffer_size)
 {
     char *header_end;
-    for (header_end = strstr(buffer, "\r\n\r\n");
-         !header_end;
-         header_end = strstr(buffer, "\r\n\r\n")) {
-        switch (read(request->fd, buffer, buffer_size)) {
-        case -1:
+
+    for (;;) {
+        header_end = strstr(buffer, "\r\n\r\n");
+        if (header_end)
+            return header_end + 4;
+        if (UNLIKELY(read(request->fd, buffer, buffer_size) < 0)) {
             perror("read");
             return NULL;
-        case 0:
-            goto end;
         }
     }
-end:
-    return header_end ? header_end + 4 : NULL;
 }
 
 static bool
