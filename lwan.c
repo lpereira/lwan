@@ -95,6 +95,7 @@ lwan_http_status_as_string(lwan_http_status_t status)
     case HTTP_NOT_FOUND: return "Not found";
     case HTTP_FORBIDDEN: return "Forbidden";
     case HTTP_NOT_ALLOWED: return "Not allowed";
+    case HTTP_TOO_LARGE: return "Request too large";
     case HTTP_INTERNAL_ERROR: return "Internal server error";
     }
     return "Invalid";
@@ -227,7 +228,7 @@ static bool
 _process_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_url_map_t *url_map;
-    char buffer[8192], *p_buffer;
+    char buffer[6 * 1024], *p_buffer;
     size_t bytes_read;
 
     switch (bytes_read = read(request->fd, buffer, sizeof(buffer))) {
@@ -236,6 +237,8 @@ _process_request(lwan_t *l, lwan_request_t *request)
     case -1:
         perror("read");
         return false;
+    case sizeof(buffer):
+        return lwan_default_response(l, request, HTTP_TOO_LARGE);
     }
 
     p_buffer = _identify_http_method(request, buffer);
