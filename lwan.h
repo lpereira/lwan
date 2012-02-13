@@ -83,6 +83,15 @@ enum {
     HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
 } lwan_http_method_str_t;
 
+enum {
+    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT('C','o','n','n'),
+    HTTP_HDR_HOST              = MULTICHAR_CONSTANT('H','o','s','t'),
+    HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT('C','o','o','k'),
+    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT('R','a','n','g'),
+    HTTP_HDR_REFERER           = MULTICHAR_CONSTANT('R','e','f','e'),
+    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','m')
+} lwan_http_header_str_t;
+
 struct lwan_response_t_ {
     char *content;
     char *mime_type;
@@ -101,6 +110,14 @@ struct lwan_request_t_ {
     char *url;
     int url_len;
     int fd;
+
+    struct {
+        char connection;
+    } header;
+
+    struct {
+        bool is_keep_alive;
+    } flags;
 };
 
 struct lwan_url_map_t_ {

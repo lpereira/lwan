@@ -40,15 +40,13 @@
 #include "lwan-hello-world.h"
 #include "lwan-serve-files.h"
 
-#define REQUEST_SUPPORTS_KEEP_ALIVE(r) ((r)->http_version == HTTP_1_1)
-
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
     [HTTP_1_1] = "1.1"
 };
-static const char* const _http_connection_policy[] = {
-    [HTTP_1_0] = "Close",
-    [HTTP_1_1] = "Keep-Alive"
+static const char* const _http_connection_type[] = {
+    "Close",
+    "Keep-Alive"
 };
 
 static lwan_url_map_t default_map[] = {
@@ -209,21 +207,63 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
     return end_of_line + 1;
 }
 
-static ALWAYS_INLINE char *
-_identify_http_header_end(lwan_request_t *request, char *buffer, size_t buffer_size)
-{
-    char *header_end;
+#define MATCH_HEADER(hdr) \
+  do { \
+        char *end; \
+        p += sizeof(hdr) - 1; \
+        if (UNLIKELY(*p++ != ':'))	/* not the header we're looking for */ \
+          goto did_not_match; \
+        if (UNLIKELY(*p++ != ' '))	/* not the header we're looking for */ \
+          goto did_not_match; \
+        if (LIKELY(end = strchr(p, '\r'))) {      /* couldn't find line end */ \
+          *end = '\0'; \
+          value = p; \
+          p = end + 1; \
+          if (UNLIKELY(*p != '\n')) \
+            goto did_not_match; \
+        } else \
+          goto did_not_match; \
+  } while (0)
 
-    for (;;) {
-        header_end = strstr(buffer, "\r\n\r\n");
-        if (header_end)
-            return header_end + 4;
-        if (UNLIKELY(read(request->fd, buffer, buffer_size) < 0)) {
-            perror("read");
-            return NULL;
+#define CASE_HEADER(hdr_const,hdr_name) case hdr_const: MATCH_HEADER(hdr_name);
+
+ALWAYS_INLINE static char *
+_parse_headers(lwan_request_t *request, char *buffer)
+{
+    char *p;
+
+    for (p = buffer; p && *p; buffer = ++p) {
+        char *value;
+
+        STRING_SWITCH(p) {
+        CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
+            request->header.connection = (*value | 0x20);
+            break;
+        CASE_HEADER(HTTP_HDR_HOST, "Host")
+            /* Virtual hosts are not supported yet; ignore */
+            break;
+        CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
+            /* Ignore */
+            break;
+        CASE_HEADER(HTTP_HDR_RANGE, "Range")
+            /* Ignore */
+            break;
+        CASE_HEADER(HTTP_HDR_REFERER, "Referer")
+            /* Ignore */
+            break;
+        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
+            /* Ignore */
+            break;
         }
+did_not_match:
+        p = strchr(p, '\n');
     }
+
+    return buffer;
 }
+
+#undef CASE_HEADER
+#undef MATCH_HEADER
 
 ALWAYS_INLINE static char *
 _ignore_leading_whitespace(char *buffer)
@@ -231,6 +271,15 @@ _ignore_leading_whitespace(char *buffer)
     while (*buffer && memchr(" \t\r\n", *buffer, 4))
         buffer++;
     return buffer;
+}
+
+ALWAYS_INLINE static void
+_compute_flags(lwan_request_t *request)
+{
+    if (request->http_version == HTTP_1_1)
+        request->flags.is_keep_alive = (request->header.connection != 'c');
+    else
+        request->flags.is_keep_alive = (request->header.connection == 'k');
 }
 
 static bool
@@ -264,11 +313,11 @@ _process_request(lwan_t *l, lwan_request_t *request)
     if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
-    if (REQUEST_SUPPORTS_KEEP_ALIVE(request)) {
-        p_buffer = _identify_http_header_end(request, p_buffer, sizeof(buffer));
-        if (UNLIKELY(!p_buffer))
-            return lwan_default_response(l, request, HTTP_BAD_REQUEST);
-    }
+    p_buffer = _parse_headers(request, p_buffer);
+    if (UNLIKELY(!p_buffer))
+        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+
+    _compute_flags(request);
 
     if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url))) {
         request->url += url_map->prefix_len;
@@ -307,7 +356,7 @@ _thread(void *data)
                 lwan_request_t request = {.fd = events[n].data.fd};
 
                 if (_process_request(t->lwan, &request)) {
-                    if (REQUEST_SUPPORTS_KEEP_ALIVE(&request)) {
+                    if (request.flags.is_keep_alive) {
                         fds[fd_wrptr++] = events[n].data.fd;
                         fd_wrptr %= t->lwan->thread.max_fd;
                         continue;
@@ -483,7 +532,7 @@ lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t stat
                    lwan_http_status_as_string(status),
                    request->response->content_length,
                    request->response->mime_type,
-                   _http_connection_policy[request->http_version]);
+                   _http_connection_type[request->flags.is_keep_alive]);
     if (UNLIKELY(len < 0)) {
         lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
         return false;
