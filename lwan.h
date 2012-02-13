@@ -40,8 +40,9 @@
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
-#define LIKELY(x)       __builtin_expect((x), 1)
-#define UNLIKELY(x)     __builtin_expect((x), 0)
+#define LIKELY_IS(x,y)	__builtin_expect((x), (y))
+#define LIKELY(x)	LIKELY_IS(!!(x), 1)
+#define UNLIKELY(x)	LIKELY_IS((x), 0)
 
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
