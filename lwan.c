@@ -228,7 +228,7 @@ _identify_http_header_end(lwan_request_t *request, char *buffer, size_t buffer_s
 ALWAYS_INLINE static char *
 _ignore_leading_whitespace(char *buffer)
 {
-    while (*buffer && isspace(*buffer))
+    while (*buffer && memchr(" \t\r\n", *buffer, 4))
         buffer++;
     return buffer;
 }
