@@ -39,6 +39,7 @@
 #include "lwan.h"
 #include "lwan-hello-world.h"
 #include "lwan-serve-files.h"
+#include "int-to-str.h"
 
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
@@ -515,36 +516,57 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
     request->response = response;
 }
 
+#define APPEND_STRING_LEN(const_str_,len_) \
+    memcpy(p_headers, (const_str_), (len_)); \
+    p_headers += (len_)
+#define APPEND_INT8(value_) \
+    APPEND_CHAR(decimal_digits[((value_) / 100) % 10]); \
+    APPEND_CHAR(decimal_digits[((value_) / 10) % 10]); \
+    APPEND_CHAR(decimal_digits[(value_) % 10])
+#define APPEND_INT(value_) \
+    len = int_to_string((value_), buffer); \
+    APPEND_STRING_LEN(buffer, len)
+#define APPEND_CHAR(value_) \
+    *p_headers++ = (value_)
+#define APPEND_CONSTANT(const_str_) \
+    APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
+
 bool
-lwan_response_header(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
+lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request, lwan_http_status_t status)
 {
-    char headers[512];
-    int len;
+    char headers[512], *p_headers;
+    char buffer[32];
+    int32_t len;
 
-    len = snprintf(headers, sizeof(headers),
-                   "HTTP/%s %d %s\r\n"
-                   "Content-Length: %d\r\n"
-                   "Content-Type: %s\r\n"
-                   "Connection: %s\r\n"
-                   "\r\n",
-                   _http_versions[request->http_version],
-                   status,
-                   lwan_http_status_as_string(status),
-                   request->response->content_length,
-                   request->response->mime_type,
-                   _http_connection_type[request->flags.is_keep_alive]);
-    if (UNLIKELY(len < 0)) {
-        lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
-        return false;
-    }
+    p_headers = headers;
 
-    if (UNLIKELY(write(request->fd, headers, len) < 0)) {
+    APPEND_CONSTANT("HTTP/");
+    APPEND_STRING_LEN(_http_versions[request->http_version], 3);
+    APPEND_CHAR(' ');
+    APPEND_INT8(status);
+    APPEND_CHAR(' ');
+    APPEND_STRING_LEN(lwan_http_status_as_string(status), 2);
+    APPEND_CONSTANT("\r\nContent-Length: ");
+    APPEND_INT(request->response->content_length);
+    APPEND_CONSTANT("\r\nContent-Type: ");
+    APPEND_STRING_LEN(request->response->mime_type, strlen(request->response->mime_type));
+    APPEND_CONSTANT("\r\nConnection: ");
+    APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
+        (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
+    APPEND_CONSTANT("\r\n\r\n\0");
+
+    if (UNLIKELY(write(request->fd, headers, strlen(headers)) < 0)) {
         perror("write header");
         return false;
     }
 
     return true;
 }
+
+#undef APPEND_STRING_LEN
+#undef APPEND_CONSTANT
+#undef APPEND_CHAR
+#undef APPEND_INT
 
 bool
 lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
