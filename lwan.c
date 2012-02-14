@@ -193,7 +193,7 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
         return NULL;
     *space = '\0';
 
-    if (LIKELY(*(space + 6) >= '1'))
+    if (LIKELY(*(space + 6) == '1'))
         request->http_version = *(space + 8) == '0' ? HTTP_1_0 : HTTP_1_1;
     else
         return NULL;
