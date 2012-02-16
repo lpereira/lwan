@@ -26,6 +26,8 @@
 
 #include "lwan-trie.h"
 
+#define USE_LORENTZ_WATERWHEEL_SCHEDULER 0
+
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__

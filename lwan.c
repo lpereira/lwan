@@ -33,6 +33,7 @@
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -480,6 +481,7 @@ lwan_init(lwan_t *l)
     printf("Using %d threads, maximum %d sockets per thread.\n",
         l->thread.count, l->thread.max_fd);
 
+    srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);
     _socket_init(l);
     _thread_init(l);
@@ -624,11 +626,22 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
     return lwan_response(l, request, status);
 }
 
-static ALWAYS_INLINE void
+ALWAYS_INLINE static int
+_schedule_request(lwan_t *l)
+{
+#if defined(USE_LORENTZ_WATERWHEEL_SCHEDULER) && USE_LORENTZ_WATERWHEEL_SCHEDULER==1
+    static unsigned int counter = 0;
+    return ((rand() & 15) > 7 ? ++counter : --counter) % l->thread.count;
+#else
+    static int counter = 0;
+    return counter++ % l->thread.count;
+#endif
+}
+
+ALWAYS_INLINE static void
 _push_request_fd(lwan_t *l, int fd)
 {
-    static int current_thread = 0;
-    int epoll_fd = l->thread.threads[current_thread++ % l->thread.count].epoll_fd;
+    int epoll_fd = l->thread.threads[_schedule_request(l)].epoll_fd;
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET,
         .data.fd = fd
