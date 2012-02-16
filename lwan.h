@@ -38,9 +38,18 @@
 
 #define STRING_SWITCH(s) switch (*((int32_t *)(s)))
 
-#define ALWAYS_INLINE inline __attribute__((always_inline))
+#ifdef DISABLE_INLINE_FUNCTIONS
+#  define ALWAYS_INLINE
+#else
+#  define ALWAYS_INLINE inline __attribute__((always_inline))
+#endif
 
-#define LIKELY_IS(x,y)	__builtin_expect((x), (y))
+#ifdef DISABLE_BRANCH_PREDICTION
+#  define LIKELY_IS(x,y) (x)
+#else
+#  define LIKELY_IS(x,y)	__builtin_expect((x), (y))
+#endif
+
 #define LIKELY(x)	LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x)	LIKELY_IS((x), 0)
 
