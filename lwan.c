@@ -535,6 +535,8 @@ lwan_init(lwan_t *l)
 
     srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);
+    close(STDIN_FILENO);
+
     _socket_init(l);
     _thread_init(l);
 }
