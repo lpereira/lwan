@@ -376,8 +376,11 @@ _thread(void *data)
             for (i = 0; i < n_fds; ++i) {
                 lwan_request_t *request = &requests[events[i].data.fd];
 
-                if (events[i].events & EPOLLRDHUP)
+                if (events[i].events & (EPOLLRDHUP | EPOLLHUP)) {
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]) < 0)
+                        perror("epoll_ctl");
                     goto invalidate_request;
+                }
 
                 if (!request->flags.alive) {
                     /* Reset the whole thing. */
