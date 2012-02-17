@@ -334,43 +334,94 @@ _thread(void *data)
 {
     lwan_thread_t *t = data;
     struct epoll_event events[t->lwan->thread.max_fd];
-    int epoll_fd = t->epoll_fd, nfds, n;
-    int *fds = calloc(1, t->lwan->thread.max_fd * sizeof(int));
-    int fd_wrptr, fd_rdptr;
+    int epoll_fd = t->epoll_fd, n_fds, i;
+    unsigned int death_time = 0;
 
-    for (fd_wrptr = fd_rdptr = 0; ; ) {
-        switch (nfds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
-                            t->lwan->config.keep_alive_timeout)) {
+    lwan_request_t *requests = t->lwan->requests;
+    int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
+    int death_queue_last = 0, death_queue_first = 0;
+
+    for (; ; ) {
+        switch (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), 1000)) {
         case -1:
-            if (errno == EBADF || errno == EINVAL)
+            switch (errno) {
+            case EBADF:
+            case EINVAL:
                 goto epoll_fd_closed;
-            if (errno != EINTR)
+            case EINTR:
                 perror("epoll_wait");
+            }
             continue;
         case 0: /* timeout: shutdown waiting sockets */
-            while (fd_wrptr != fd_rdptr) {
-                close(fds[fd_rdptr++]);
-                fd_rdptr %= t->lwan->thread.max_fd;
+            death_time++;
+
+            /* FIXME: last == first might mean we're either empty or full */
+            while (death_queue_last != death_queue_first) {
+                lwan_request_t *request = &requests[death_queue[death_queue_first]];
+
+                if (request->time_to_die <= death_time) {
+                    /* One request just died, advance the queue. */
+                    ++death_queue_first;
+                    death_queue_first %= t->lwan->thread.max_fd;
+
+                    request->flags.alive = false;
+                    close(request->fd);
+                } else {
+                    /* Next time. Next time. */
+                    break;
+                }
             }
             break;
         default: /* activity in some of this poller's file descriptor */
-            for (n = 0; n < nfds; ++n) {
-                lwan_request_t request = {.fd = events[n].data.fd};
+            for (i = 0; i < n_fds; ++i) {
+                lwan_request_t *request = &requests[events[i].data.fd];
 
-                if (_process_request(t->lwan, &request)) {
-                    if (request.flags.is_keep_alive) {
-                        fds[fd_wrptr++] = events[n].data.fd;
-                        fd_wrptr %= t->lwan->thread.max_fd;
-                        continue;
-                    }
+                if (events[i].events & EPOLLRDHUP)
+                    goto invalidate_request;
+
+                if (!request->flags.alive) {
+                    /* Reset the whole thing. */
+                    memset(request, 0, sizeof(*request));
+                    request->fd = events[i].data.fd;
                 }
-                close(events[n].data.fd);
+
+                /*
+                 * Even if the request couldn't be handled correctly,
+                 * we still need to see if this is a keep-alive connection and
+                 * act accordingly.
+                 */
+                _process_request(t->lwan, request);
+
+                if (request->flags.is_keep_alive) {
+                    /*
+                     * Update the time to die. This might overflow in ~136 years,
+                     * so plan ahead.
+                     */
+                    request->time_to_die = death_time + t->lwan->config.keep_alive_timeout;
+
+                    /*
+                     * The connection hasn't been added to the keep-alive
+                     * list-to-kill. Do it now and mark it as alive so that
+                     * we know what to do whenever there's activity on its
+                     * socket again. Or not. Mwahahaha.
+                     */
+                    if (!request->flags.alive) {
+                        death_queue[death_queue_last++] = events[i].data.fd;
+                        death_queue_last %= t->lwan->thread.max_fd;
+                        request->flags.alive = true;
+                    }
+                    continue;
+                }
+
+                close(events[i].data.fd);
+invalidate_request:
+                request->flags.alive = false;
             }
         }
     }
 
 epoll_fd_closed:
-    free(fds);
+    free(death_queue);
 
     return NULL;
 }
@@ -477,6 +528,7 @@ lwan_init(lwan_t *l)
         exit(-1);
     }
 
+    l->requests = calloc(r.rlim_cur, sizeof(lwan_request_t));
     l->thread.max_fd = r.rlim_cur / l->thread.count;
     printf("Using %d threads, maximum %d sockets per thread.\n",
         l->thread.count, l->thread.max_fd);
@@ -643,7 +695,7 @@ _push_request_fd(lwan_t *l, int fd)
 {
     int epoll_fd = l->thread.threads[_schedule_request(l)].epoll_fd;
     struct epoll_event event = {
-        .events = EPOLLIN | EPOLLET,
+        .events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET,
         .data.fd = fd
     };
 
@@ -707,7 +759,7 @@ main(void)
     lwan_t l = {
         .config = {
             .port = 8080,
-            .keep_alive_timeout = 5000,
+            .keep_alive_timeout = 5 /*seconds */,
             .enable_thread_affinity = false,
             .enable_tcp_defer_accept = true,
             .enable_linger = false

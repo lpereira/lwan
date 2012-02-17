@@ -122,6 +122,7 @@ struct lwan_request_t_ {
     char *url;
     int url_len;
     int fd;
+    unsigned int time_to_die;
 
     struct {
         char connection;
@@ -129,6 +130,7 @@ struct lwan_request_t_ {
 
     struct {
         bool is_keep_alive;
+        bool alive;
     } flags;
 };
 
@@ -147,6 +149,7 @@ struct lwan_thread_t_ {
 
 struct lwan_t_ {
     lwan_trie_t *url_map_trie;
+    lwan_request_t *requests;
     int main_socket;
 
     struct {
