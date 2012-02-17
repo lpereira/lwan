@@ -575,6 +575,10 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
 #define APPEND_STRING_LEN(const_str_,len_) \
     memcpy(p_headers, (const_str_), (len_)); \
     p_headers += (len_)
+#define APPEND_STRING(str_) \
+    len = strlen(str_); \
+    memcpy(p_headers, (str_), len); \
+    p_headers += len
 #define APPEND_INT8(value_) \
     APPEND_CHAR(decimal_digits[((value_) / 100) % 10]); \
     APPEND_CHAR(decimal_digits[((value_) / 10) % 10]); \
@@ -601,11 +605,11 @@ lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request,
     APPEND_CHAR(' ');
     APPEND_INT8(status);
     APPEND_CHAR(' ');
-    APPEND_STRING_LEN(lwan_http_status_as_string(status), 2);
+    APPEND_STRING(lwan_http_status_as_string(status));
     APPEND_CONSTANT("\r\nContent-Length: ");
     APPEND_INT(request->response->content_length);
     APPEND_CONSTANT("\r\nContent-Type: ");
-    APPEND_STRING_LEN(request->response->mime_type, strlen(request->response->mime_type));
+    APPEND_STRING(request->response->mime_type);
     APPEND_CONSTANT("\r\nConnection: ");
     APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
@@ -620,6 +624,7 @@ lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request,
 }
 
 #undef APPEND_STRING_LEN
+#undef APPEND_STRING
 #undef APPEND_CONSTANT
 #undef APPEND_CHAR
 #undef APPEND_INT
