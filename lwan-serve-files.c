@@ -127,12 +127,16 @@ serve_files(lwan_request_t *request, void *root_directory)
 
     canonical_path = canonicalize_file_name(path_to_canonicalize);
     if (!canonical_path) {
-        if (errno == EACCES)
+        switch (errno) {
+        case EACCES:
             return_status = HTTP_FORBIDDEN;
-        else if (errno == ENOENT || errno == ENOTDIR)
+            goto end;
+        case ENOENT:
+        case ENOTDIR:
             return_status = HTTP_NOT_FOUND;
-        else
-            return_status = HTTP_BAD_REQUEST;
+            goto end;
+        }
+        return_status = HTTP_BAD_REQUEST;
         goto end;
     }
 
