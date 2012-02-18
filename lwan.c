@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "lwan.h"
@@ -596,10 +597,11 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
 #define APPEND_CONSTANT(const_str_) \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
-bool
-lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request, lwan_http_status_t status)
+ALWAYS_INLINE size_t
+lwan_prepare_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request, lwan_http_status_t status,
+                    char headers[])
 {
-    char headers[512], *p_headers;
+    char *p_headers;
     char buffer[32];
     int32_t len;
 
@@ -620,12 +622,7 @@ lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request,
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
     APPEND_CONSTANT("\r\n\r\n\0");
 
-    if (UNLIKELY(write(request->fd, headers, strlen(headers)) < 0)) {
-        perror("write header");
-        return false;
-    }
-
-    return true;
+    return p_headers - headers - 1;
 }
 
 #undef APPEND_STRING_LEN
@@ -637,6 +634,8 @@ lwan_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request,
 bool
 lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
+    char headers[512];
+
     if (UNLIKELY(!request->response)) {
         lwan_default_response(l, request, status);
         return false;
@@ -654,16 +653,25 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
         return false;
     }
 
-    if (UNLIKELY(!lwan_response_header(l, request, status)))
-        return false;
+    size_t header_len = lwan_prepare_response_header(l, request, status, headers);
+    if (!header_len)
+        return lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
 
-    if (request->method == HTTP_HEAD)
+    if (request->method == HTTP_HEAD) {
+        if (write(request->fd, headers, header_len) < 0) {
+            perror("write");
+            return false;
+        }
         return true;
+    }
 
-    if (UNLIKELY(write(request->fd,
-                       request->response->content,
-                       request->response->content_length) < 0)) {
-        perror("write response");
+    struct iovec response_vec[] = {
+        { .iov_base = headers, .iov_len = header_len },
+        { .iov_base = request->response->content, .iov_len = request->response->content_length }
+    };
+
+    if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0)) {
+        perror("writev");
         return false;
     }
 

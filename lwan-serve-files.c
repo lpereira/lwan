@@ -34,9 +34,11 @@
 static lwan_http_status_t
 _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
 {
+    char headers[512];
     lwan_http_status_t return_status;
     int file_fd;
     struct stat st;
+    size_t header_len;
 
     if (UNLIKELY((file_fd = open(data, O_RDONLY)) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
@@ -63,15 +65,27 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         return _serve_file_stream(l, request, index_file);
     }
 
-    lwan_request_set_corked(request, true);
     request->response->content_length = st.st_size;
-    if (UNLIKELY(!lwan_response_header(l, request, HTTP_OK))) {
+    header_len = lwan_prepare_response_header(l, request, HTTP_OK, headers);
+    if (!header_len) {
         return_status = HTTP_INTERNAL_ERROR;
-        goto end_corked;
+        goto end;
     }
 
     if (request->method == HTTP_HEAD) {
-        return_status = HTTP_OK;
+        if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+            perror("write");
+            return_status = HTTP_INTERNAL_ERROR;
+        } else
+            return_status = HTTP_OK;
+        goto end;
+    }
+
+    lwan_request_set_corked(request, true);
+
+    if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+        perror("write");
+        return_status = HTTP_INTERNAL_ERROR;
         goto end_corked;
     }
 
