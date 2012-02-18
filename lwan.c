@@ -339,10 +339,11 @@ _thread(void *data)
 
     lwan_request_t *requests = t->lwan->requests;
     int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
-    int death_queue_last = 0, death_queue_first = 0;
+    int death_queue_last = 0, death_queue_first = 0, death_queue_population = 0;
 
     for (; ; ) {
-        switch (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), 1000)) {
+        switch (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
+                                            death_queue_population ? 1000 : -1)) {
         case -1:
             switch (errno) {
             case EBADF:
@@ -355,13 +356,13 @@ _thread(void *data)
         case 0: /* timeout: shutdown waiting sockets */
             death_time++;
 
-            /* FIXME: last == first might mean we're either empty or full */
-            while (death_queue_last != death_queue_first) {
+            while (death_queue_population) {
                 lwan_request_t *request = &requests[death_queue[death_queue_first]];
 
                 if (request->time_to_die <= death_time) {
                     /* One request just died, advance the queue. */
                     ++death_queue_first;
+                    --death_queue_population;
                     death_queue_first %= t->lwan->thread.max_fd;
 
                     request->flags.alive = false;
@@ -410,6 +411,7 @@ _thread(void *data)
                      */
                     if (!request->flags.alive) {
                         death_queue[death_queue_last++] = events[i].data.fd;
+                        ++death_queue_population;
                         death_queue_last %= t->lwan->thread.max_fd;
                         request->flags.alive = true;
                     }
