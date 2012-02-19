@@ -576,7 +576,7 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
     }
 }
 
-void
+ALWAYS_INLINE void
 lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
 {
     request->response = response;
