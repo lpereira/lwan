@@ -117,7 +117,7 @@ serve_files(lwan_request_t *request, void *root_directory)
     lwan_request_set_response(request, response);
 
     /* FIXME: ``canonical_root'' should be cached somewhere. */
-    canonical_root = canonicalize_file_name(root_directory);
+    canonical_root = realpath(root_directory, NULL);
     if (!canonical_root)
         return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
 
@@ -127,7 +127,7 @@ serve_files(lwan_request_t *request, void *root_directory)
         goto end;
     }
 
-    canonical_path = canonicalize_file_name(path_to_canonicalize);
+    canonical_path = realpath(path_to_canonicalize, NULL);
     if (!canonical_path) {
         switch (errno) {
         case EACCES:
