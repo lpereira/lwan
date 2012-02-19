@@ -129,8 +129,8 @@ struct lwan_request_t_ {
     } header;
 
     struct {
-        bool is_keep_alive;
-        bool alive;
+        bool is_keep_alive : 1,
+             alive: 1;
     } flags;
 };
 
