@@ -232,12 +232,15 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
 #define CASE_HEADER(hdr_const,hdr_name) case hdr_const: MATCH_HEADER(hdr_name);
 
 ALWAYS_INLINE static char *
-_parse_headers(lwan_request_t *request, char *buffer)
+_parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
 {
     char *p;
 
     for (p = buffer; p && *p; buffer = ++p) {
         char *value;
+
+        if ((p + sizeof(int32_t)) >= buffer_end)
+            break;
 
         STRING_SWITCH(p) {
         CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
@@ -317,7 +320,7 @@ _process_request(lwan_t *l, lwan_request_t *request)
     if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
-    p_buffer = _parse_headers(request, p_buffer);
+    p_buffer = _parse_headers(request, p_buffer, buffer + bytes_read);
     if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
