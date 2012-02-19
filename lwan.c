@@ -624,7 +624,7 @@ lwan_prepare_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *
     APPEND_CONSTANT("\r\nConnection: ");
     APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
-    APPEND_CONSTANT("\r\n\r\n\0");
+    APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
     return p_headers - headers - 1;
 }
