@@ -60,6 +60,7 @@ typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
+typedef struct lwan_http_header_t_	lwan_http_header_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -104,10 +105,16 @@ enum {
     HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','m')
 } lwan_http_header_str_t;
 
+struct lwan_http_header_t_ {
+    char *name;
+    char *value;
+};
+
 struct lwan_response_t_ {
     char *content;
     char *mime_type;
     int content_length;
+    lwan_http_header_t *headers;
 
     struct {
         lwan_http_status_t (*callback)(lwan_t *lwan, lwan_request_t *request, void *data);

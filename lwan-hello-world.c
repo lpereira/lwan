@@ -22,10 +22,15 @@
 lwan_http_status_t
 hello_world(lwan_request_t *request, void *data __attribute__((unused)))
 {
+    static lwan_http_header_t headers[] = {
+        { .name = "X-The-Answer-To-The-Universal-Question", .value = "42" },
+        { NULL, NULL }
+    };
     static lwan_response_t response = {
         .mime_type = "text/plain",
         .content = "Hello, world!",
-        .content_length = sizeof("Hello, world!") - 1
+        .content_length = sizeof("Hello, world!") - 1,
+        .headers = headers
     };
 
     lwan_request_set_response(request, &response);
