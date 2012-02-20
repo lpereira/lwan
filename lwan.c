@@ -554,10 +554,10 @@ lwan_init(lwan_t *l)
 void
 lwan_shutdown(lwan_t *l)
 {
-    free(l->requests);
-    lwan_trie_destroy(l->url_map_trie);
     _thread_shutdown(l);
     _socket_shutdown(l);
+    lwan_trie_destroy(l->url_map_trie);
+    free(l->requests);
 }
 
 void
