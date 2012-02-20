@@ -66,7 +66,7 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
     }
 
     request->response->content_length = st.st_size;
-    header_len = lwan_prepare_response_header(l, request, HTTP_OK, headers);
+    header_len = lwan_prepare_response_header(request, HTTP_OK, headers);
     if (!header_len) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;

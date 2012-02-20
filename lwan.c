@@ -603,8 +603,7 @@ lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 ALWAYS_INLINE size_t
-lwan_prepare_response_header(lwan_t *l __attribute__((unused)), lwan_request_t *request, lwan_http_status_t status,
-                    char headers[])
+lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[])
 {
     char *p_headers;
     char buffer[32];
@@ -670,7 +669,7 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
         return false;
     }
 
-    size_t header_len = lwan_prepare_response_header(l, request, status, headers);
+    size_t header_len = lwan_prepare_response_header(request, status, headers);
     if (!header_len)
         return lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
 
