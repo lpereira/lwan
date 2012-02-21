@@ -39,8 +39,6 @@
 #include <unistd.h>
 
 #include "lwan.h"
-#include "lwan-hello-world.h"
-#include "lwan-serve-files.h"
 #include "int-to-str.h"
 
 static const char* const _http_versions[] = {
@@ -50,12 +48,6 @@ static const char* const _http_versions[] = {
 static const char* const _http_connection_type[] = {
     "Close",
     "Keep-Alive"
-};
-
-static lwan_url_map_t default_map[] = {
-    { .prefix = "/hello", .callback = hello_world, .data = NULL },
-    { .prefix = "/", .callback = serve_files, .data = "./files_root" },
-    { .prefix = NULL },
 };
 
 static jmp_buf cleanup_jmp_buf;
@@ -787,25 +779,4 @@ lwan_main_loop(lwan_t *l)
     }
 
     close(epoll_fd);
-}
-
-int
-main(void)
-{
-    lwan_t l = {
-        .config = {
-            .port = 8080,
-            .keep_alive_timeout = 5 /*seconds */,
-            .enable_thread_affinity = false,
-            .enable_tcp_defer_accept = true,
-            .enable_linger = true
-        }
-    };
-
-    lwan_init(&l);
-    lwan_set_url_map(&l, default_map);
-    lwan_main_loop(&l);
-    lwan_shutdown(&l);
-
-    return 0;
 }

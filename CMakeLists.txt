@@ -5,14 +5,22 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Werror")
 
 find_package(Threads)
 
-add_executable(lwan
+add_library(wan
 	lwan.c
 	lwan-trie.c
 	lwan-sendfile.c
 	lwan-serve-files.c
 	lwan-hello-world.c
 	int-to-str.c)
-target_link_libraries(lwan
-	${CMAKE_THREAD_LIBS_INIT})
 
-	
+target_link_libraries(wan
+	${CMAKE_THREAD_LIBS_INIT})
+set_target_properties(wan
+	PROPERTIES PREFIX "l")
+
+add_executable(lwan
+	main.c)
+
+target_link_libraries(lwan
+	wan
+	${CMAKE_THREAD_LIBS_INIT})
