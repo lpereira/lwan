@@ -21,6 +21,29 @@
 #include "lwan-serve-files.h"
 
 lwan_http_status_t
+gif_beacon(lwan_request_t *request, void *data __attribute__((unused)))
+{
+    /*
+     * 1x1 transparent GIF image generated with tinygif
+     * http://www.perlmonks.org/?node_id=7974
+     */
+    static char gif_beacon_data[] = {
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x90,
+        0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0xF9, 0x04,
+        0x05, 0x10, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01,
+        0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x04, 0x01
+    };
+    static lwan_response_t response = {
+        .mime_type = "image/gif",
+        .content = gif_beacon_data,
+        .content_length = sizeof(gif_beacon_data)
+    };
+
+    lwan_request_set_response(request, &response);
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request, void *data __attribute__((unused)))
 {
     static lwan_http_header_t headers[] = {
@@ -43,6 +66,7 @@ main(void)
 {
     lwan_url_map_t default_map[] = {
         { .prefix = "/hello", .callback = hello_world, .data = NULL },
+        { .prefix = "/beacon", .callback = gif_beacon, .data = NULL },
         { .prefix = "/", .callback = serve_files, .data = "./files_root" },
         { .prefix = NULL },
     };
