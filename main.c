@@ -18,18 +18,34 @@
  */
 
 #include "lwan.h"
-#include "lwan-hello-world.h"
 #include "lwan-serve-files.h"
 
-static lwan_url_map_t default_map[] = {
-    { .prefix = "/hello", .callback = hello_world, .data = NULL },
-    { .prefix = "/", .callback = serve_files, .data = "./files_root" },
-    { .prefix = NULL },
-};
+lwan_http_status_t
+hello_world(lwan_request_t *request, void *data __attribute__((unused)))
+{
+    static lwan_http_header_t headers[] = {
+        { .name = "X-The-Answer-To-The-Universal-Question", .value = "42" },
+        { NULL, NULL }
+    };
+    static lwan_response_t response = {
+        .mime_type = "text/plain",
+        .content = "Hello, world!",
+        .content_length = sizeof("Hello, world!") - 1,
+        .headers = headers
+    };
+
+    lwan_request_set_response(request, &response);
+    return HTTP_OK;
+}
 
 int
 main(void)
 {
+    lwan_url_map_t default_map[] = {
+        { .prefix = "/hello", .callback = hello_world, .data = NULL },
+        { .prefix = "/", .callback = serve_files, .data = "./files_root" },
+        { .prefix = NULL },
+    };
     lwan_t l = {
         .config = {
             .port = 8080,

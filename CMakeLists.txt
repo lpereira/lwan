@@ -10,8 +10,8 @@ add_library(wan
 	lwan-trie.c
 	lwan-sendfile.c
 	lwan-serve-files.c
-	lwan-hello-world.c
-	int-to-str.c)
+	int-to-str.c
+)
 
 target_link_libraries(wan
 	${CMAKE_THREAD_LIBS_INIT})
