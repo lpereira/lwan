@@ -119,8 +119,6 @@ _socket_init(lwan_t *l)
     if (l->config.enable_linger)
         SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
             ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
-    if (l->config.enable_tcp_defer_accept)
-        SET_SOCKET_OPTION(SOL_TCP, TCP_DEFER_ACCEPT, (int[]){ 1 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);

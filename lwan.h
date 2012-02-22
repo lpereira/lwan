@@ -163,7 +163,6 @@ struct lwan_t_ {
         int port;
         int keep_alive_timeout;
         unsigned char enable_thread_affinity : 1,
-                      enable_tcp_defer_accept : 1,
                       enable_linger : 1;
     } config;
 

@@ -51,7 +51,6 @@ main(void)
             .port = 8080,
             .keep_alive_timeout = 5 /*seconds */,
             .enable_thread_affinity = false,
-            .enable_tcp_defer_accept = true,
             .enable_linger = true
         }
     };
