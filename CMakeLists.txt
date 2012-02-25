@@ -8,6 +8,8 @@ find_package(Threads)
 add_library(wan
 	lwan.c
 	lwan-trie.c
+	lwan-request.c
+	lwan-response.c
 	lwan-sendfile.c
 	lwan-serve-files.c
 	int-to-str.c
