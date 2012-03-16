@@ -133,6 +133,17 @@ _socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
+ALWAYS_INLINE void
+_reset_request(lwan_request_t *request, int fd)
+{
+    strbuf_t *response_buffer = request->response.buffer;
+
+    memset(request, 0, sizeof(*request));
+    request->fd = fd;
+    request->response.buffer = response_buffer;
+    strbuf_reset(request->response.buffer);
+}
+
 static void *
 _thread(void *data)
 {
@@ -187,11 +198,8 @@ _thread(void *data)
                     goto invalidate_request;
                 }
 
-                if (!request->flags.alive) {
-                    /* Reset the whole thing. */
-                    memset(request, 0, sizeof(*request));
-                    request->fd = events[i].data.fd;
-                }
+                if (!request->flags.alive)
+                    _reset_request(request, events[i].data.fd);
 
                 /*
                  * Even if the request couldn't be handled correctly,
@@ -342,6 +350,9 @@ lwan_init(lwan_t *l)
     printf("Using %d threads, maximum %d sockets per thread.\n",
         l->thread.count, l->thread.max_fd);
 
+    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
+        l->requests[r.rlim_cur].response.buffer = strbuf_new();
+
     srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);
     close(STDIN_FILENO);
@@ -356,6 +367,11 @@ lwan_shutdown(lwan_t *l)
     _thread_shutdown(l);
     _socket_shutdown(l);
     lwan_trie_destroy(l->url_map_trie);
+
+    int i;
+    for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
+        strbuf_free(l->requests[i].response.buffer);
+
     free(l->requests);
 }
 

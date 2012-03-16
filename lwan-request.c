@@ -205,30 +205,36 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
     return lwan_default_response(l, request, HTTP_NOT_FOUND);
 }
 
-ALWAYS_INLINE void
-lwan_request_set_response(lwan_request_t *request, lwan_response_t *response)
-{
-    request->response = response;
-}
-
 #define APPEND_STRING_LEN(const_str_,len_) \
-    memcpy(p_headers, (const_str_), (len_)); \
-    p_headers += (len_)
+    do { \
+        memcpy(p_headers, (const_str_), (len_)); \
+        p_headers += (len_); \
+    } while(0)
 #define APPEND_STRING(str_) \
-    len = strlen(str_); \
-    memcpy(p_headers, (str_), len); \
-    p_headers += len
+    do { \
+        len = strlen(str_); \
+        memcpy(p_headers, (str_), len); \
+        p_headers += len; \
+    } while(0)
 #define APPEND_INT8(value_) \
-    APPEND_CHAR(decimal_digits[((value_) / 100) % 10]); \
-    APPEND_CHAR(decimal_digits[((value_) / 10) % 10]); \
-    APPEND_CHAR(decimal_digits[(value_) % 10])
+    do { \
+        APPEND_CHAR(decimal_digits[((value_) / 100) % 10]); \
+        APPEND_CHAR(decimal_digits[((value_) / 10) % 10]); \
+        APPEND_CHAR(decimal_digits[(value_) % 10]); \
+    } while(0)
 #define APPEND_INT(value_) \
-    len = int_to_string((value_), buffer); \
-    APPEND_STRING_LEN(buffer, len)
+    do { \
+        len = int_to_string((value_), buffer); \
+        APPEND_STRING_LEN(buffer, len); \
+    } while(0)
 #define APPEND_CHAR(value_) \
-    *p_headers++ = (value_)
+    do { \
+        *p_headers++ = (value_); \
+    } while(0)
 #define APPEND_CONSTANT(const_str_) \
-    APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
+    do { \
+        APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1); \
+    } while(0)
 
 ALWAYS_INLINE size_t
 lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[])
@@ -246,16 +252,19 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_CHAR(' ');
     APPEND_STRING(lwan_http_status_as_string(status));
     APPEND_CONSTANT("\r\nContent-Length: ");
-    APPEND_INT(request->response->content_length);
+    if (request->response.stream_content.callback)
+        APPEND_INT(request->response.content_length);
+    else
+        APPEND_INT(strbuf_get_length(request->response.buffer));
     APPEND_CONSTANT("\r\nContent-Type: ");
-    APPEND_STRING(request->response->mime_type);
+    APPEND_STRING(request->response.mime_type);
     APPEND_CONSTANT("\r\nConnection: ");
     APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
-    if (request->response->headers) {
+    if (request->response.headers) {
         lwan_http_header_t *header;
 
-        for (header = request->response->headers; header->name; header++) {
+        for (header = request->response.headers; header->name; header++) {
             APPEND_CHAR('\r');
             APPEND_CHAR('\n');
             APPEND_STRING(header->name);

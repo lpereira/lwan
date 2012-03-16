@@ -62,11 +62,11 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         close(file_fd);
         free(data);
 
-        request->response->mime_type = "text/html";
+        request->response.mime_type = "text/html";
         return _serve_file_stream(l, request, index_file);
     }
 
-    request->response->content_length = st.st_size;
+    request->response.content_length = st.st_size;
     header_len = lwan_prepare_response_header(request, HTTP_OK, headers);
     if (!header_len) {
         return_status = HTTP_INTERNAL_ERROR;
@@ -101,7 +101,6 @@ end:
     close(file_fd);
 end_no_close:
     free(data);
-    free(request->response);
 
     return return_status;
 }
@@ -109,13 +108,10 @@ end_no_close:
 lwan_http_status_t
 serve_files(lwan_request_t *request, void *root_directory)
 {
-    lwan_response_t *response = NULL;
     lwan_http_status_t return_status = HTTP_OK;
     char path_to_canonicalize[PATH_MAX];
     char *canonical_path;
     char *canonical_root;
-
-    lwan_request_set_response(request, response);
 
     /* FIXME: ``canonical_root'' should be cached somewhere. */
     canonical_root = realpath(root_directory, NULL);
@@ -149,23 +145,14 @@ serve_files(lwan_request_t *request, void *root_directory)
         goto end;
     }
 
-    response = calloc(1, sizeof(*response));
-    if (!response) {
-        free(canonical_path);
-        return_status = HTTP_INTERNAL_ERROR;
-        goto end_no_reset_stream_content;
-    }
+    request->response.mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
+    request->response.stream_content.callback = _serve_file_stream;
+    request->response.stream_content.data = canonical_path;
 
-    response->mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
-    response->stream_content.callback = _serve_file_stream;
-    response->stream_content.data = canonical_path;
-
-    lwan_request_set_response(request, response);
     goto end_no_reset_stream_content;
 
 end:
-    if (response)
-        request->response->stream_content.callback = NULL;
+    request->response.stream_content.callback = NULL;
 
 end_no_reset_stream_content:
     free(canonical_root);

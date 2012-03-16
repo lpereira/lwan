@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "lwan-trie.h"
+#include "strbuf.h"
 
 #define USE_LORENTZ_WATERWHEEL_SCHEDULER 0
 
@@ -111,7 +112,7 @@ struct lwan_http_header_t_ {
 };
 
 struct lwan_response_t_ {
-    char *content;
+    strbuf_t *buffer;
     char *mime_type;
     int content_length;
     lwan_http_header_t *headers;
@@ -125,7 +126,8 @@ struct lwan_response_t_ {
 struct lwan_request_t_ {
     lwan_http_method_t method;
     lwan_http_version_t http_version;
-    lwan_response_t *response;
+    lwan_response_t response;
+
     char *url;
     int url_len;
     int fd;
@@ -176,7 +178,6 @@ struct lwan_t_ {
 void lwan_init(lwan_t *l);
 void lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map);
 void lwan_main_loop(lwan_t *l);
-void lwan_request_set_response(lwan_request_t *request, lwan_response_t *response);
 bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[]);
 bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);

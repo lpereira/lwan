@@ -33,13 +33,10 @@ gif_beacon(lwan_request_t *request, void *data __attribute__((unused)))
         0x05, 0x10, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01,
         0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x04, 0x01
     };
-    static lwan_response_t response = {
-        .mime_type = "image/gif",
-        .content = gif_beacon_data,
-        .content_length = sizeof(gif_beacon_data)
-    };
 
-    lwan_request_set_response(request, &response);
+    request->response.mime_type = "image/gif";
+    strbuf_set_static(request->response.buffer, gif_beacon_data, sizeof(gif_beacon_data));
+
     return HTTP_OK;
 }
 
@@ -50,14 +47,10 @@ hello_world(lwan_request_t *request, void *data __attribute__((unused)))
         { .name = "X-The-Answer-To-The-Universal-Question", .value = "42" },
         { NULL, NULL }
     };
-    static lwan_response_t response = {
-        .mime_type = "text/plain",
-        .content = "Hello, world!",
-        .content_length = sizeof("Hello, world!") - 1,
-        .headers = headers
-    };
+    request->response.headers = headers;
+    request->response.mime_type = "text/plain";
+    strbuf_set_static(request->response.buffer, "Hello, world!", sizeof("Hello, world!") -1);
 
-    lwan_request_set_response(request, &response);
     return HTTP_OK;
 }
 

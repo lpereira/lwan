@@ -29,16 +29,16 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
 
-    if (UNLIKELY(!request->response)) {
+    if (UNLIKELY(!request->response.mime_type)) {
         lwan_default_response(l, request, status);
         return false;
     }
 
-    if (request->response->stream_content.callback) {
+    if (request->response.stream_content.callback) {
         lwan_http_status_t callback_status;
 
-        callback_status = request->response->stream_content.callback(l, request,
-                    request->response->stream_content.data);
+        callback_status = request->response.stream_content.callback(l, request,
+                    request->response.stream_content.data);
         if (callback_status == HTTP_OK)
             return true;
 
@@ -60,7 +60,7 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 
     struct iovec response_vec[] = {
         { .iov_base = headers, .iov_len = header_len },
-        { .iov_base = request->response->content, .iov_len = request->response->content_length }
+        { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = strbuf_get_length(request->response.buffer) }
     };
 
     if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0)) {
@@ -74,20 +74,9 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 bool
 lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
-    char output[256];
-    int len = snprintf(output, sizeof(output), "HTTP Status %d (%s)",
-                            status, lwan_http_status_as_string(status));
-    if (UNLIKELY(len < 0)) {
-        perror("snprintf");
-        exit(-1);
-    }
-
-    lwan_request_set_response(request, (lwan_response_t[]) {{
-        .mime_type = "text/plain",
-        .content = output,
-        .content_length = len,
-    }});
+    request->response.mime_type = "text/plain";
+    strbuf_printf(request->response.buffer, "HTTP Status %d (%s)",
+        status, lwan_http_status_as_string(status));
 
     return lwan_response(l, request, status);
 }
-

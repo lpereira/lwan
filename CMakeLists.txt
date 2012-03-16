@@ -13,6 +13,8 @@ add_library(wan
 	lwan-sendfile.c
 	lwan-serve-files.c
 	int-to-str.c
+	lwan-trie.c
+	strbuf.c
 )
 
 target_link_libraries(wan
