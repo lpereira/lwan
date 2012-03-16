@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.6)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Werror")
 
 find_package(Threads)
+find_library(TCMALLOC_LIBRARY NAMES tcmalloc /usr/lib /usr/local/lib)
 
 add_library(wan
 	lwan.c
@@ -27,4 +28,6 @@ add_executable(lwan
 
 target_link_libraries(lwan
 	wan
-	${CMAKE_THREAD_LIBS_INIT})
+	${CMAKE_THREAD_LIBS_INIT}
+	${TCMALLOC_LIBRARY}
+)
