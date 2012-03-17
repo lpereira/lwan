@@ -134,7 +134,7 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
             break;
         }
 did_not_match:
-        p = strchr(p, '\n');
+        p = memchr(p, '\n', buffer_end - p);
     }
 
     return buffer;
