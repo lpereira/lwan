@@ -429,12 +429,13 @@ _cleanup(int signal_number)
 void
 lwan_main_loop(lwan_t *l)
 {
+    int epoll_fd = epoll_create1(0);
+
     if (setjmp(cleanup_jmp_buf))
-        return;
+        goto end;
 
     signal(SIGINT, _cleanup);
 
-    int epoll_fd = epoll_create1(0);
     struct epoll_event events[128];
     struct epoll_event ev = {
         .events = EPOLLIN,
@@ -464,5 +465,6 @@ lwan_main_loop(lwan_t *l)
         }
     }
 
+end:
     close(epoll_fd);
 }
