@@ -218,23 +218,19 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
     } while(0)
 #define APPEND_INT8(value_) \
     do { \
-        APPEND_CHAR(decimal_digits[((value_) / 100) % 10]); \
-        APPEND_CHAR(decimal_digits[((value_) / 10) % 10]); \
-        APPEND_CHAR(decimal_digits[(value_) % 10]); \
+        APPEND_CHAR("0123456789"[((value_) / 100) % 10]); \
+        APPEND_CHAR("0123456789"[((value_) / 10) % 10]); \
+        APPEND_CHAR("0123456789"[(value_) % 10]); \
     } while(0)
 #define APPEND_INT(value_) \
     do { \
-        len = int_to_string((value_), buffer); \
-        APPEND_STRING_LEN(buffer, len); \
+        char *tmp = int_to_string((value_), buffer, &len); \
+        APPEND_STRING_LEN(tmp, len); \
     } while(0)
 #define APPEND_CHAR(value_) \
-    do { \
-        *p_headers++ = (value_); \
-    } while(0)
+    *p_headers++ = (value_)
 #define APPEND_CONSTANT(const_str_) \
-    do { \
-        APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1); \
-    } while(0)
+    APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 ALWAYS_INLINE size_t
 lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[])

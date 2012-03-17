@@ -1,66 +1,46 @@
 /*
- * Copyright 2005, 2006, 2007
- * Nick Galbreath -- nickg [at] modp [dot] com
- * All rights reserved.
+ * lwan - simple web server
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
  *
- *   Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- *   Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- *   Neither the name of the modp.com nor the names of its
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * This is the standard "new" BSD license:
- * http://www.opensource.org/licenses/bsd-license.php
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "int-to-str.h"
 
-const char *decimal_digits = "0123456789";
-
-ALWAYS_INLINE static void
-strreverse(char* begin, char* end)
+ALWAYS_INLINE char *
+int_to_string(int32_t value, char *buf16, int32_t *len)
 {
-    char aux;
-    while (end > begin)
-        aux = *end, *end-- = *begin, *begin++ = aux;
-}
+    bool negative;
 
-ALWAYS_INLINE int32_t
-int_to_string(int32_t value, char *str)
-{
-    char *wstr = str;
-    // Take care of sign
-    unsigned int uvalue = (value < 0) ? -value : value;
-    // Conversion. Number is reversed.
-    do
-	*wstr++ = (char) decimal_digits[uvalue % 10];
-    while (uvalue /= 10);
-    if (value < 0)
-	*wstr++ = '-';
-    *wstr = '\0';
-    // Reverse string
-    strreverse(str, wstr - 1);
+    if (value < 0) {
+        negative = true;
+        value = -value;
+    } else
+        negative = false;
 
-    return wstr - str;
+    char *p = buf16 + 15;
+    *p = '\0';
+    do {
+        *--p = "0123456789"[value % 10];
+    } while (value /= 10);
+
+    if (negative)
+        *--p = '-';
+
+    if (len)
+        *len = 15 - (p - buf16);
+
+    return p;
 }
