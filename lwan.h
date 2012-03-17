@@ -146,7 +146,7 @@ struct lwan_request_t_ {
 struct lwan_url_map_t_ {
     const char *prefix;
     int prefix_len;
-    lwan_http_status_t (*callback)(lwan_request_t *request, void *data);
+    lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
 };
 

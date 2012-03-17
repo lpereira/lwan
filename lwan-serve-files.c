@@ -106,7 +106,7 @@ end_no_close:
 }
 
 lwan_http_status_t
-serve_files(lwan_request_t *request, void *root_directory)
+serve_files(lwan_request_t *request, lwan_response_t *response, void *root_directory)
 {
     lwan_http_status_t return_status = HTTP_OK;
     char path_to_canonicalize[PATH_MAX];
@@ -145,14 +145,14 @@ serve_files(lwan_request_t *request, void *root_directory)
         goto end;
     }
 
-    request->response.mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
-    request->response.stream_content.callback = _serve_file_stream;
-    request->response.stream_content.data = canonical_path;
+    response->mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
+    response->stream_content.callback = _serve_file_stream;
+    response->stream_content.data = canonical_path;
 
     goto end_no_reset_stream_content;
 
 end:
-    request->response.stream_content.callback = NULL;
+    response->stream_content.callback = NULL;
 
 end_no_reset_stream_content:
     free(canonical_root);

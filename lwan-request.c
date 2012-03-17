@@ -199,7 +199,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
 
     if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url))) {
         request->url += url_map->prefix_len;
-        return lwan_response(l, request, url_map->callback(request, url_map->data));
+        return lwan_response(l, request, url_map->callback(request, &request->response, url_map->data));
     }
 
     return lwan_default_response(l, request, HTTP_NOT_FOUND);

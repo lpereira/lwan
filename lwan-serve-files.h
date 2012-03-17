@@ -22,6 +22,6 @@
 
 #include "lwan.h"
 
-lwan_http_status_t serve_files(lwan_request_t *request, void *root_directory);
+lwan_http_status_t serve_files(lwan_request_t *request, lwan_response_t *response, void *root_directory);
 
 #endif /* __LWAN_SERVE_FILES_H__ */

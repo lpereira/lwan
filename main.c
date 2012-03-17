@@ -17,11 +17,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <stdlib.h>
 #include "lwan.h"
 #include "lwan-serve-files.h"
 
 lwan_http_status_t
-gif_beacon(lwan_request_t *request, void *data __attribute__((unused)))
+gif_beacon(lwan_request_t *request __attribute__((unused)),
+           lwan_response_t *response,
+           void *data __attribute__((unused)))
 {
     /*
      * 1x1 transparent GIF image generated with tinygif
@@ -34,22 +37,24 @@ gif_beacon(lwan_request_t *request, void *data __attribute__((unused)))
         0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x04, 0x01
     };
 
-    request->response.mime_type = "image/gif";
-    strbuf_set_static(request->response.buffer, gif_beacon_data, sizeof(gif_beacon_data));
+    response->mime_type = "image/gif";
+    strbuf_set_static(response->buffer, gif_beacon_data, sizeof(gif_beacon_data));
 
     return HTTP_OK;
 }
 
 lwan_http_status_t
-hello_world(lwan_request_t *request, void *data __attribute__((unused)))
+hello_world(lwan_request_t *request __attribute__((unused)),
+            lwan_response_t *response,
+            void *data __attribute__((unused)))
 {
     static lwan_http_header_t headers[] = {
         { .name = "X-The-Answer-To-The-Universal-Question", .value = "42" },
         { NULL, NULL }
     };
-    request->response.headers = headers;
-    request->response.mime_type = "text/plain";
-    strbuf_set_static(request->response.buffer, "Hello, world!", sizeof("Hello, world!") -1);
+    response->headers = headers;
+    response->mime_type = "text/plain";
+    strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
 
     return HTTP_OK;
 }
