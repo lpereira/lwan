@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
@@ -78,6 +79,25 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
 
     request->url.value = buffer;
     request->url.len = space - buffer;
+
+    /* Most of the time, fragments are small -- so search backwards */
+    char *fragment = memrchr(buffer, '#', request->url.len);
+    if (fragment) {
+        *fragment = '\0';
+        request->fragment.value = fragment + 1;
+        request->fragment.len = space - fragment - 1;
+        request->url.len -= request->fragment.len + 1;
+    }
+
+    /* Most of the time, query string values are larger than the URL, so
+       search from the beginning */
+    char *query_string = memchr(buffer, '?', request->url.len);
+    if (query_string) {
+        *query_string = '\0';
+        request->query_string.value = query_string + 1;
+        request->query_string.len = (fragment ? fragment : space) - query_string - 1;
+        request->url.len -= request->query_string.len + 1;
+    }
 
     return end_of_line + 1;
 }

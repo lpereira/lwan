@@ -134,7 +134,7 @@ struct lwan_request_t_ {
     struct {
       char *value;
       int len;
-    } url;
+    } url, query_string, fragment;
 
     struct {
         char connection;

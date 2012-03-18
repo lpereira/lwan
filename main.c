@@ -44,7 +44,7 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
 }
 
 lwan_http_status_t
-hello_world(lwan_request_t *request __attribute__((unused)),
+hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))
 {
@@ -54,7 +54,11 @@ hello_world(lwan_request_t *request __attribute__((unused)),
     };
     response->headers = headers;
     response->mime_type = "text/plain";
-    strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
+
+    if (request->query_string.value)
+        strbuf_printf(response->buffer, "Hello, %s!", request->query_string.value);
+    else
+        strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
 
     return HTTP_OK;
 }
