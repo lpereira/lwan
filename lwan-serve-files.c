@@ -119,7 +119,7 @@ serve_files(lwan_request_t *request, lwan_response_t *response, void *root_direc
         return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
 
     if (UNLIKELY(snprintf(path_to_canonicalize, PATH_MAX,
-                    "%s/%s", (char *)root_directory, request->url) < 0)) {
+                    "%s/%s", (char *)root_directory, request->url.value) < 0)) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }

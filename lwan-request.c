@@ -73,11 +73,11 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
     else
         return NULL;
 
-    request->url = buffer;
-    request->url_len = space - buffer;
-
-    if (UNLIKELY(*request->url != '/'))
+    if (UNLIKELY(*buffer != '/'))
         return NULL;
+
+    request->url.value = buffer;
+    request->url.len = space - buffer;
 
     return end_of_line + 1;
 }
@@ -197,8 +197,8 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
 
     _compute_flags(request);
 
-    if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url))) {
-        request->url += url_map->prefix_len;
+    if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value))) {
+        request->url.value += url_map->prefix_len;
         return lwan_response(l, request, url_map->callback(request, &request->response, url_map->data));
     }
 

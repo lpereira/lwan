@@ -128,10 +128,13 @@ struct lwan_request_t_ {
     lwan_http_version_t http_version;
     lwan_response_t response;
 
-    char *url;
-    int url_len;
     int fd;
     unsigned int time_to_die;
+
+    struct {
+      char *value;
+      int len;
+    } url;
 
     struct {
         char connection;
