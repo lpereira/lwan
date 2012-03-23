@@ -163,10 +163,22 @@ did_not_match:
 #undef CASE_HEADER
 #undef MATCH_HEADER
 
+ALWAYS_INLINE static unsigned long
+_has_zero_byte(unsigned long n)
+{
+    return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
+}
+
+ALWAYS_INLINE static unsigned long
+_is_space(char ch)
+{
+    return _has_zero_byte((0x1010101 * ch) ^ 0x090a0d20);
+}
+
 ALWAYS_INLINE static char *
 _ignore_leading_whitespace(char *buffer)
 {
-    while (*buffer && memchr(" \t\r\n", *buffer, 4))
+    while (*buffer && _is_space(*buffer))
         buffer++;
     return buffer;
 }
