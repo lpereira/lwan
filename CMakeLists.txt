@@ -5,6 +5,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Werror")
 
 find_package(Threads)
 find_library(TCMALLOC_LIBRARY NAMES tcmalloc /usr/lib /usr/local/lib)
+if (TCMALLOC_LIBRARY)
+	message(STATUS "TCMalloc found: ${TCMALLOC_LIBRARY}")
+else ()
+	message(STATUS "TCMalloc not found, using system malloc")
+	set(TCMALLOC_LIBRARY "")
+endif()
 
 add_library(wan
 	lwan.c
