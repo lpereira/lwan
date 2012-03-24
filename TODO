@@ -10,7 +10,5 @@
 - Optimize trie to use less memory
 - Create epoll() implementation for FreeBSD (based on kqueue) or see if
   libevent/libev are worth trying
-- Do not use libc's ucontext stuff; they make calls to rt_setsigprocmask()
-  while there's no need for that in lwan's case
 - Status screen (uptime, number of connections, keep-alive connections,
   memory usage, etc)

@@ -90,7 +90,7 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         goto end_corked;
     }
 
-    if (UNLIKELY(lwan_sendfile(request->fd, file_fd, NULL, st.st_size) < 0))
+    if (UNLIKELY(lwan_sendfile(request, file_fd, 0, st.st_size) < 0))
         return_status = HTTP_INTERNAL_ERROR;
     else
         return_status = HTTP_OK;

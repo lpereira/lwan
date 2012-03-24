@@ -134,14 +134,84 @@ _socket_shutdown(lwan_t *l)
 }
 
 ALWAYS_INLINE void
-_reset_request(lwan_request_t *request, int fd)
+_reset_request(lwan_request_t *request)
 {
     strbuf_t *response_buffer = request->response.buffer;
+    lwan_t *lwan = request->lwan;
+    coro_t *coro = request->coro;
+    int fd = request->fd;
 
     memset(request, 0, sizeof(*request));
+
     request->fd = fd;
+    request->lwan = lwan;
+    request->coro = coro;
     request->response.buffer = response_buffer;
     strbuf_reset(request->response.buffer);
+}
+
+static int
+_process_request_coro(coro_t *coro)
+{
+    lwan_request_t *request = coro_get_data(coro);
+
+    _reset_request(request);
+    lwan_process_request(request);
+
+    return 0;
+}
+
+static ALWAYS_INLINE void
+_handle_hangup(int epoll_fd, struct epoll_event *event, lwan_request_t *request)
+{
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event->data.fd, event) < 0)
+        perror("epoll_ctl");
+    close(event->data.fd);
+    request->flags.alive = false;
+}
+
+static ALWAYS_INLINE void
+_cleanup_coro(lwan_request_t *request)
+{
+    if (!request->coro || request->flags.should_resume_coro)
+        return;
+    /* FIXME: Reuse coro? */
+    coro_free(request->coro);
+    request->coro = NULL;
+}
+
+static ALWAYS_INLINE void
+_spawn_coro_if_needed(lwan_request_t *request, coro_switcher_t *switcher)
+{
+    if (request->coro)
+        return;
+    request->coro = coro_new(switcher, _process_request_coro, request);
+    request->flags.should_resume_coro = true;
+    request->flags.write_events = false;
+}
+
+static ALWAYS_INLINE void
+_resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
+{
+    if (!request->flags.should_resume_coro)
+        return;
+
+    request->flags.should_resume_coro = coro_resume(request->coro);
+    if (request->flags.should_resume_coro == request->flags.write_events)
+        return;
+
+    struct epoll_event event;
+    static const int const events_by_write_flag[] = {
+        EPOLLOUT | EPOLLRDHUP | EPOLLERR,
+        EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
+    };
+    event.events = events_by_write_flag[request->flags.write_events];
+    event.data.fd = request->fd;
+
+    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, request->fd, &event) < 0))
+        perror("epoll_ctl");
+
+    request->flags.write_events ^= 1;
 }
 
 static void *
@@ -151,12 +221,12 @@ _thread(void *data)
     struct epoll_event events[t->lwan->thread.max_fd];
     int epoll_fd = t->epoll_fd, n_fds, i;
     unsigned int death_time = 0;
-
     lwan_request_t *requests = t->lwan->requests;
     int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
     int death_queue_last = 0, death_queue_first = 0, death_queue_population = 0;
+    coro_switcher_t switcher;
 
-    for (; ; ) {
+    for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
                                             death_queue_population ? 1000 : -1)) {
         case -1:
@@ -180,8 +250,18 @@ _thread(void *data)
                     --death_queue_population;
                     death_queue_first %= t->lwan->thread.max_fd;
 
+                    /* A request might have died from a hangup event */
+                    if (!request->flags.alive)
+                        continue;
+
+                    if (request->coro) {
+                        coro_free(request->coro);
+                        request->coro = NULL;
+                    }
+
                     request->flags.alive = false;
-                    close(request->fd);
+                    if (request->flags.is_keep_alive)
+                        close(request->fd);
                 } else {
                     /* Next time. Next time. */
                     break;
@@ -192,23 +272,22 @@ _thread(void *data)
             for (i = 0; i < n_fds; ++i) {
                 lwan_request_t *request = &requests[events[i].data.fd];
 
+                request->fd = events[i].data.fd;
+
                 if (events[i].events & (EPOLLRDHUP | EPOLLHUP)) {
-                    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]) < 0)
-                        perror("epoll_ctl");
-                    goto invalidate_request;
+                    _handle_hangup(epoll_fd, &events[i], request);
+                    continue;
                 }
 
-                if (!request->flags.alive)
-                    _reset_request(request, events[i].data.fd);
+                _cleanup_coro(request);
+                _spawn_coro_if_needed(request, &switcher);
+                _resume_coro_if_needed(request, epoll_fd);
 
                 /*
-                 * Even if the request couldn't be handled correctly,
-                 * we still need to see if this is a keep-alive connection and
-                 * act accordingly.
+                 * If the response handler is a coroutine, consider the request as a
+                 * keep-alive one.
                  */
-                lwan_process_request(t->lwan, request);
-
-                if (request->flags.is_keep_alive) {
+                if (request->flags.is_keep_alive || request->flags.should_resume_coro) {
                     /*
                      * Update the time to die. This might overflow in ~136 years,
                      * so plan ahead.
@@ -231,8 +310,10 @@ _thread(void *data)
                 }
 
                 close(events[i].data.fd);
-invalidate_request:
+                coro_free(request->coro);
+                request->coro = NULL;
                 request->flags.alive = false;
+                request->flags.should_resume_coro = false;
             }
         }
     }
@@ -350,8 +431,10 @@ lwan_init(lwan_t *l)
     printf("Using %d threads, maximum %d sockets per thread.\n",
         l->thread.count, l->thread.max_fd);
 
-    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
+    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur) {
         l->requests[r.rlim_cur].response.buffer = strbuf_new();
+        l->requests[r.rlim_cur].lwan = l;
+    }
 
     srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);

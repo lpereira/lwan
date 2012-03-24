@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lwan-coro.h"
 #include "lwan-trie.h"
 #include "strbuf.h"
 
@@ -127,6 +128,8 @@ struct lwan_request_t_ {
     lwan_http_method_t method;
     lwan_http_version_t http_version;
     lwan_response_t response;
+    lwan_t *lwan;
+    coro_t *coro;
 
     int fd;
     unsigned int time_to_die;
@@ -141,8 +144,10 @@ struct lwan_request_t_ {
     } header;
 
     struct {
-        bool is_keep_alive : 1,
-             alive: 1;
+        unsigned char is_keep_alive : 1,
+                      alive: 1,
+                      should_resume_coro: 1,
+                      write_events: 1;
     } flags;
 };
 
@@ -187,7 +192,7 @@ bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
 void lwan_request_set_corked(lwan_request_t *request, bool setting);
-bool lwan_process_request(lwan_t *l, lwan_request_t *request);
+bool lwan_process_request(lwan_request_t *request);
 void lwan_shutdown(lwan_t *l);
 
 #endif /* __LWAN_H__ */

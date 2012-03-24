@@ -17,13 +17,36 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_SENDFILE_H__
-#define __LWAN_SENDFILE_H__
+#ifndef __LWAN_CORO_H__
+#define __LWAN_CORO_H__
 
 #include <unistd.h>
-#include "lwan.h"
+#include <ucontext.h>
 
-ssize_t lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count);
+typedef struct coro_t_			coro_t;
+typedef struct coro_switcher_t_		coro_switcher_t;
 
-#endif /* __LWAN_SENDFILE_H__ */
+typedef int    (*coro_function_t)	(coro_t *coro);
 
+struct coro_switcher_t_ {
+    ucontext_t caller;
+    ucontext_t callee;
+};
+
+typedef enum {
+    CORO_NEW,
+    CORO_RUNNING,
+    CORO_FINISHED
+} coro_state_t;
+
+coro_t *coro_new(coro_switcher_t *switcher, coro_function_t function, void *data);
+coro_t *coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data);
+void	coro_free(coro_t *coro);
+
+int	coro_resume(coro_t *coro);
+void	coro_yield(coro_t *coro, int value);
+
+void   		*coro_get_data(coro_t *coro);
+coro_state_t	 coro_get_state(coro_t *coro);
+
+#endif /* __LWAN_CORO_H__ */

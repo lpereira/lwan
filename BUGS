@@ -1,5 +1,3 @@
 - If a connection is open but no request is made, it will continue to use
   resources until lwan is shut down
-- sendfile() is transferring the whole file at a time; this:
-  - blocks the whole worker thread while a file is being served
-  - does not support resuming downloads
+- Downloads can't be resumed

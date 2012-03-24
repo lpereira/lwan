@@ -193,8 +193,9 @@ _compute_flags(lwan_request_t *request)
 }
 
 bool
-lwan_process_request(lwan_t *l, lwan_request_t *request)
+lwan_process_request(lwan_request_t *request)
 {
+    lwan_t *l = request->lwan;
     lwan_url_map_t *url_map;
     char buffer[6 * 1024], *p_buffer;
     size_t bytes_read;
