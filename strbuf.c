@@ -159,7 +159,7 @@ strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
     return result == 0 ? s1->len.buffer - s2->len.buffer : result;
 }
 
-ALWAYS_INLINE static bool
+static ALWAYS_INLINE bool
 internal_printf(strbuf_t *s1, bool append, const char *fmt, va_list values)
 {
     char *s2;

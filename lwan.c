@@ -392,7 +392,7 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
     }
 }
 
-ALWAYS_INLINE static int
+static ALWAYS_INLINE int
 _schedule_request(lwan_t *l)
 {
 #if defined(USE_LORENTZ_WATERWHEEL_SCHEDULER) && USE_LORENTZ_WATERWHEEL_SCHEDULER==1
@@ -404,7 +404,7 @@ _schedule_request(lwan_t *l)
 #endif
 }
 
-ALWAYS_INLINE static void
+static ALWAYS_INLINE void
 _push_request_fd(lwan_t *l, int fd)
 {
     int epoll_fd = l->thread.threads[_schedule_request(l)].epoll_fd;

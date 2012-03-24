@@ -122,7 +122,7 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
 
 #define CASE_HEADER(hdr_const,hdr_name) case hdr_const: MATCH_HEADER(hdr_name);
 
-ALWAYS_INLINE static char *
+static ALWAYS_INLINE char *
 _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
 {
     char *p;
@@ -163,19 +163,19 @@ did_not_match:
 #undef CASE_HEADER
 #undef MATCH_HEADER
 
-ALWAYS_INLINE static unsigned long
+static ALWAYS_INLINE unsigned long
 _has_zero_byte(unsigned long n)
 {
     return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
 }
 
-ALWAYS_INLINE static unsigned long
+static ALWAYS_INLINE unsigned long
 _is_space(char ch)
 {
     return _has_zero_byte((0x1010101 * ch) ^ 0x090a0d20);
 }
 
-ALWAYS_INLINE static char *
+static ALWAYS_INLINE char *
 _ignore_leading_whitespace(char *buffer)
 {
     while (*buffer && _is_space(*buffer))
@@ -183,7 +183,7 @@ _ignore_leading_whitespace(char *buffer)
     return buffer;
 }
 
-ALWAYS_INLINE static void
+static ALWAYS_INLINE void
 _compute_flags(lwan_request_t *request)
 {
     if (request->http_version == HTTP_1_1)
