@@ -55,10 +55,6 @@ _identify_http_method(lwan_request_t *request, char *buffer)
 static ALWAYS_INLINE char *
 _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
 {
-    /* FIXME
-     * - query string
-     * - fragment
-     */
     char *end_of_line = memchr(buffer, '\r', limit);
     if (!end_of_line)
         return NULL;

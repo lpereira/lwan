@@ -1,5 +1,4 @@
 - Logging
-- Correct parsing of URL (query string, fragment, etc)
 - Support for POST requests
 - Support for SSL sockets
 - Support for some kind of scripting language
