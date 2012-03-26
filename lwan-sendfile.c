@@ -75,20 +75,22 @@ static ALWAYS_INLINE ssize_t
 _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     size_t total_bytes_written = 0;
+    bool should_continue;
 
     if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
         perror("lseek");
         return -1;
     }
 
-    while (total_bytes_written < count) {
+    do {
         ssize_t written = sendfile(out_fd, in_fd, NULL, buffer_size);
-        if (written < 0)
+        if (UNLIKELY(written < 0))
             break;
 
         total_bytes_written += written;
-        coro_yield(coro, 1);
-    }
+        if ((should_continue = total_bytes_written < count))
+            coro_yield(coro, 1);
+    } while (should_continue);
 
     return total_bytes_written;
 }
@@ -101,7 +103,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
     ssize_t written_bytes = -1;
     written_bytes = _sendfile_linux_sendfile(request->coro, in_fd, request->fd, offset, count);
 
-    if (written_bytes < 0) {
+    if (UNLIKELY(written_bytes < 0)) {
         switch (errno) {
         case ENOSYS:
         case EINVAL:
