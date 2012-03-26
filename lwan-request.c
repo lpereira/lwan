@@ -312,6 +312,10 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 void
 lwan_request_set_corked(lwan_request_t *request, bool setting)
 {
+    /* Connection: Close; no need to uncork the socket as it will be closed. */
+    if (!setting && !request->flags.is_keep_alive)
+        return;
+
     if (UNLIKELY(setsockopt(request->fd, IPPROTO_TCP, TCP_CORK,
                         (int[]){ setting }, sizeof(int)) < 0))
         perror("setsockopt");
