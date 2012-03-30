@@ -19,15 +19,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lwan.h"
 
 typedef struct lwan_trie_node_t_	lwan_trie_node_t;
+typedef struct lwan_trie_leaf_t_	lwan_trie_leaf_t;
 
 struct lwan_trie_node_t_ {
-    void *data;
     int ref_count;
-    lwan_trie_node_t *next[256];
+    lwan_trie_node_t *next[8];
+    lwan_trie_leaf_t *leaf;
+};
+
+struct lwan_trie_leaf_t_ {
+    char *key;
+    void *data;
+    lwan_trie_leaf_t *next;
 };
 
 struct lwan_trie_t_ {
@@ -40,6 +48,25 @@ lwan_trie_new(void)
     return calloc(1, sizeof(lwan_trie_t));
 }
 
+static ALWAYS_INLINE lwan_trie_leaf_t *
+_find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
+{
+    lwan_trie_leaf_t *leaf = node->leaf;
+
+    if (!leaf)
+        return NULL;
+
+    if (!leaf->next) /* No collisions -- no need to strncmp() */
+        return leaf;
+
+    for (; leaf; leaf = leaf->next) {
+        if (!strncmp(leaf->key, key, len - 1))
+            return leaf;
+    }
+
+    return NULL;
+}
+
 void
 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
 {
@@ -47,8 +74,9 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
         return;
 
     lwan_trie_node_t **knode, *node;
+    const char *orig_key = key;
 
-    for (knode = &trie->root; ; knode = &node->next[(int)*key++]) {
+    for (knode = &trie->root; ; knode = &node->next[(int)(*key++ & 7)]) {
         if (!(node = *knode)) {
             *knode = node = calloc(1, sizeof(*node));
             if (!node) {
@@ -59,23 +87,37 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
         ++node->ref_count;
 
         if (!*key) {
-            node->data = data;
+            lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, key - orig_key);
+            bool had_key = !!leaf;
+            if (!leaf)
+                leaf = malloc(sizeof(*leaf));
+
+            leaf->data = data;
+            if (!had_key) {
+                leaf->key = strdup(orig_key);
+                leaf->next = node->leaf;
+                node->leaf = leaf;
+            }
             return;
         }
     }
 }
 
-static void *
-_lookup_node(lwan_trie_node_t *root, const char *key, bool prefix)
+static lwan_trie_node_t *
+_lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
 {
     if (!root)
         return NULL;
 
     lwan_trie_node_t *node, *previous_node = NULL;
+    const char *orig_key = key;
 
-    for (node = root; node && *key; node = node->next[(int)*key++])
-        previous_node = node;
+    for (node = root; node && *key; node = node->next[(int)(*key++ & 7)]) {
+        if (node->leaf)
+            previous_node = node;
+    }
 
+    *prefix_len = (key - orig_key);
     if (node)
         return node;
     if (prefix && previous_node)
@@ -83,14 +125,19 @@ _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix)
     return NULL;
 }
 
+
 ALWAYS_INLINE void *
 lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix)
 {
     if (!trie)
         return NULL;
 
-    lwan_trie_node_t *node = _lookup_node(trie->root, key, prefix);
-    return node ? node->data : NULL;
+    size_t prefix_len;
+    lwan_trie_node_t *node = _lookup_node(trie->root, key, prefix, &prefix_len);
+    if (!node)
+        return NULL;
+    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, key, prefix_len);
+    return leaf ? leaf->data : NULL;
 }
 
 ALWAYS_INLINE void *
@@ -120,7 +167,15 @@ lwan_trie_node_destroy(lwan_trie_node_t *node)
     int32_t i;
     int32_t nodes_destroyed = node->ref_count;
 
-    for (i = 0; nodes_destroyed > 0 && i < 256; i++) {
+    lwan_trie_leaf_t *leaf;
+    for (leaf = node->leaf; leaf;) {
+        lwan_trie_leaf_t *tmp = leaf->next;
+        free(leaf->key);
+        free(leaf);
+        leaf = tmp;
+    }
+
+    for (i = 0; nodes_destroyed > 0 && i < 8; i++) {
         if (node->next[i]) {
             lwan_trie_node_destroy(node->next[i]);
             --nodes_destroyed;

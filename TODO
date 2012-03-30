@@ -6,7 +6,6 @@
   - Use libtcc?
 - VirtualHost
 - Ditch configuration and try to pick sane defaults
-- Optimize trie to use less memory
 - Create epoll() implementation for FreeBSD (based on kqueue) or see if
   libevent/libev are worth trying
 - Status screen (uptime, number of connections, keep-alive connections,
