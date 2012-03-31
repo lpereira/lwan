@@ -190,6 +190,7 @@ bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[]);
 bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
+const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
 void lwan_request_set_corked(lwan_request_t *request, bool setting);
 bool lwan_process_request(lwan_request_t *request);

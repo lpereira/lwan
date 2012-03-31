@@ -72,6 +72,21 @@ lwan_http_status_as_string(lwan_http_status_t status)
     return "Invalid";
 }
 
+const char *
+lwan_http_status_as_descriptive_string(lwan_http_status_t status)
+{
+    switch (status) {
+    case HTTP_OK: return "Success!";
+    case HTTP_BAD_REQUEST: return "The client has issued a bad request.";
+    case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
+    case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
+    case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";
+    case HTTP_TOO_LARGE: return "The request entity is too large.";
+    case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
+    }
+    return "Invalid";
+}
+
 #define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
     do { \
         if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) { \

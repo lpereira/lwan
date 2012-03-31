@@ -74,9 +74,35 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 bool
 lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 {
-    request->response.mime_type = "text/plain";
-    strbuf_printf(request->response.buffer, "HTTP Status %d (%s)",
-        status, lwan_http_status_as_string(status));
+    static const char *default_response = "<html><head><style>" \
+        "body{" \
+        "background:#627d4d;" \
+        "background:-moz-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+        "background:-webkit-gradient(radial,center center,0px,center center,100\%,color-stop(15\%,#627d4d),color-stop(100\%,#1f3b08));" \
+        "background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+        "background:-o-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+        "background:-ms-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+        "background:radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+        "height:100\%;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:center;border:0;letter-spacing:-1px;margin:0;padding:0}.sorry{color:#244837;font-size:18px;line-height:24px;text-shadow:0" \
+        "1px 1px rgba(255,255,255,0.33)}h1{color:#fff;font-size:30px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,0.68);letter-spacing:-1px;margin:0}" \
+        "</style>" \
+        "</head>" \
+        "<body>" \
+        "<table height=\"100\%\" width=\"100\%\"><tr><td align=\"center\" valign=\"middle\">" \
+        "<div id=\"container\">" \
+        "<h1 id=\"l10n_title\">%s</h1>" \
+        "<div class=\"sorry\">" \
+        "<p>%s</p>" \
+        "</div>" \
+        "</div>" \
+        "</td></tr></table>" \
+        "</body>" \
+        "</html>";
+
+    request->response.mime_type = "text/html";
+    strbuf_printf(request->response.buffer, default_response,
+        lwan_http_status_as_string(status),
+        lwan_http_status_as_descriptive_string(status));
 
     return lwan_response(l, request, status);
 }
