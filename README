@@ -6,7 +6,7 @@ It is meant to be only an exercise in writing a server using BSD sockets and
 other auxilliary APIs, like epoll. It is not meant to serve things on the
 Internet, as it isn't resilient enough.
 
-This can yield around 175000 requests/s on a dual-core Core i7 processor. 
+This can yield around 390000+ requests/s on a dual-core Core i7 processor. 
 Not too shabby for something written in about 20 days.  I'm open to
 suggestions that can improve performance; better yet if you can fork it and
 actually make it happen.
