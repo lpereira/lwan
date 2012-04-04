@@ -44,7 +44,7 @@ grow_buffer_if_needed(strbuf_t *s, int size)
 {
     if (s->is_static) {
         s->is_static = 0;
-        s->value.buffer = strdup(s->value.static_buffer);
+        s->value.buffer = strndup(s->value.static_buffer, s->len.buffer);
     }
     if (UNLIKELY(s->len.allocated < size)) {
         s->len.allocated = find_next_power_of_two(size);
