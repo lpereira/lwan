@@ -30,7 +30,7 @@
 #include <valgrind/valgrind.h>
 #endif
 
-static const int const default_stack_size = 20*1024;
+static const int const default_stack_size = 16*1024;
 
 #ifdef __x86_64__
 union ptr_splitter {
