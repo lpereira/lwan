@@ -30,7 +30,7 @@
 #include <valgrind/valgrind.h>
 #endif
 
-static const int const default_stack_size = 16*1024;
+static const int const default_stack_size = 16 * 1024;
 
 #ifdef __x86_64__
 union ptr_splitter {
@@ -189,7 +189,8 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     getcontext(&coro->context);
     coro->context.uc_stack.ss_sp = coro->stack;
     coro->context.uc_stack.ss_size = stack_size;
-    coro->context.uc_link = 0;
+    coro->context.uc_stack.ss_flags = 0;
+    coro->context.uc_link = NULL;
 
 #ifdef __x86_64__
     union ptr_splitter p;
