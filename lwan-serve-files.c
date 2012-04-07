@@ -109,7 +109,7 @@ lwan_http_status_t
 serve_files(lwan_request_t *request, lwan_response_t *response, void *root_directory)
 {
     lwan_http_status_t return_status = HTTP_OK;
-    char path_to_canonicalize[PATH_MAX];
+    char *path_to_canonicalize;
     char *canonical_path;
     char *canonical_root;
 
@@ -118,13 +118,14 @@ serve_files(lwan_request_t *request, lwan_response_t *response, void *root_direc
     if (!canonical_root)
         return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
 
-    if (UNLIKELY(snprintf(path_to_canonicalize, PATH_MAX,
-                    "%s/%s", (char *)root_directory, request->url.value) < 0)) {
+    if (UNLIKELY(asprintf(&path_to_canonicalize, "%s/%s",
+                (char *)root_directory, request->url.value) < 0)) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }
 
     canonical_path = realpath(path_to_canonicalize, NULL);
+    free(path_to_canonicalize);
     if (!canonical_path) {
         switch (errno) {
         case EACCES:
