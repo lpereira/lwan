@@ -103,7 +103,7 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     }
 }
 
-static lwan_trie_node_t *
+static ALWAYS_INLINE lwan_trie_node_t *
 _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
 {
     if (!root)
