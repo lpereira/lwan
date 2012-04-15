@@ -221,7 +221,7 @@ coro_get_state(coro_t *coro)
     return coro->state;
 }
 
-int
+ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
     if (coro->state == CORO_NEW)
@@ -237,7 +237,7 @@ coro_resume(coro_t *coro)
     return coro->yield_value;
 }
 
-void
+ALWAYS_INLINE void
 coro_yield(coro_t *coro, int value)
 {
     coro->yield_value = value;
