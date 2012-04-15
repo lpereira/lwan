@@ -233,16 +233,16 @@ static void *
 _thread(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event events[t->lwan->thread.max_fd];
+    struct epoll_event *events = calloc(t->lwan->thread.max_fd, sizeof(*events));
+    int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
     int epoll_fd = t->epoll_fd, n_fds, i;
     unsigned int death_time = 0;
     lwan_request_t *requests = t->lwan->requests;
-    int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
     int death_queue_last = 0, death_queue_first = 0, death_queue_population = 0;
     coro_switcher_t switcher;
 
     for (;;) {
-        switch (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events),
+        switch (n_fds = epoll_wait(epoll_fd, events, t->lwan->thread.max_fd,
                                             death_queue_population ? 1000 : -1)) {
         case -1:
             switch (errno) {
@@ -335,6 +335,7 @@ _thread(void *data)
 
 epoll_fd_closed:
     free(death_queue);
+    free(events);
 
     return NULL;
 }
