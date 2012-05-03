@@ -529,6 +529,10 @@ void
 lwan_main_loop(lwan_t *l)
 {
     int epoll_fd = epoll_create1(0);
+    if (epoll_fd < 0) {
+        perror("epoll_create1");
+        return;
+    }
 
     if (setjmp(cleanup_jmp_buf))
         goto end;
