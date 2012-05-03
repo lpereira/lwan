@@ -208,7 +208,7 @@ _spawn_coro_if_needed(lwan_request_t *request, coro_switcher_t *switcher)
 static ALWAYS_INLINE void
 _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
 {
-    if (!request->flags.should_resume_coro)
+    if (!request->flags.should_resume_coro || UNLIKELY(!request->coro))
         return;
 
     request->flags.should_resume_coro = coro_resume(request->coro);

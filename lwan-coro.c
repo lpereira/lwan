@@ -212,18 +212,20 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 ALWAYS_INLINE void *
 coro_get_data(coro_t *coro)
 {
-    return coro->data;
+    return LIKELY(coro) ? coro->data : NULL;
 }
 
 ALWAYS_INLINE coro_state_t
 coro_get_state(coro_t *coro)
 {
-    return coro->state;
+    return LIKELY(coro) ? coro->state : CORO_FINISHED;
 }
 
 ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
+    if (UNLIKELY(!coro))
+        return 0;
     if (coro->state == CORO_NEW)
         coro->state = CORO_RUNNING;
     else if (coro->state == CORO_FINISHED)
@@ -240,6 +242,8 @@ coro_resume(coro_t *coro)
 ALWAYS_INLINE void
 coro_yield(coro_t *coro, int value)
 {
+    if (UNLIKELY(!coro))
+        return;
     coro->yield_value = value;
     _coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
 }
@@ -247,6 +251,8 @@ coro_yield(coro_t *coro, int value)
 void
 coro_free(coro_t *coro)
 {
+    if (UNLIKELY(!coro))
+        return;
 #ifdef USE_VALGRIND
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
