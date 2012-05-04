@@ -181,8 +181,8 @@ _handle_hangup(int epoll_fd, struct epoll_event *event, lwan_request_t *request)
 {
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event->data.fd, event) < 0)
         perror("epoll_ctl");
-    close(event->data.fd);
     request->flags.alive = false;
+    close(event->data.fd);
 }
 
 static ALWAYS_INLINE void
@@ -324,11 +324,11 @@ _thread(void *data)
                     continue;
                 }
 
-                close(events[i].data.fd);
                 coro_free(request->coro);
                 request->coro = NULL;
                 request->flags.alive = false;
                 request->flags.should_resume_coro = false;
+                close(events[i].data.fd);
             }
         }
     }
