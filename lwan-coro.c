@@ -110,44 +110,8 @@ void _coro_swapcontext(ucontext_t *current, ucontext_t *other);
     "mov    0x30(%rsi),%r9\n\t"
     "mov    0x70(%rsi),%rsi\n\t"
     "retq\n\t");
-#elif __i386__
-    asm(
-    ".text\n\t"
-    ".p2align 2,,3\n\t"
-    ".globl _coro_swapcontext\n\t"
-    ".globl __coro_swapcontext\n\t"
-    "_coro_swapcontext:\n\t"
-    "__coro_swapcontext:\n\t"
-    "mov    0x4(%esp),%eax\n\t"
-    "movl   $0x0,0x40(%eax)\n\t"
-    "mov    %ecx,0x3c(%eax)\n\t"
-    "mov    %edx,0x38(%eax)\n\t"
-    "mov    %edi,0x24(%eax)\n\t"
-    "mov    %esi,0x28(%eax)\n\t"
-    "mov    %ebp,0x2c(%eax)\n\t"
-    "mov    (%esp),%ecx\n\t"
-    "mov    %ecx,0x4c(%eax)\n\t"
-    "lea    0x4(%esp),%ecx\n\t"
-    "mov    %ecx,0x30(%eax)\n\t"
-    "mov    %ebx,0x34(%eax)\n\t"
-    "xor    %edx,%edx\n\t"
-    "mov    %fs,%dx\n\t"
-    "mov    %edx,0x18(%eax)\n\t"
-    "mov    0x18(%eax),%edx\n\t"
-    "mov    %edx,%fs\n\t"
-    "mov    0x4c(%eax),%ecx\n\t"
-    "mov    0x30(%eax),%esp\n\t"
-    "push   %ecx\n\t"
-    "mov    0x24(%eax),%edi\n\t"
-    "mov    0x28(%eax),%esi\n\t"
-    "mov    0x2c(%eax),%ebp\n\t"
-    "mov    0x34(%eax),%ebx\n\t"
-    "mov    0x38(%eax),%edx\n\t"
-    "mov    0x3c(%eax),%ecx\n\t"
-    "mov    0x40(%eax),%eax\n\t"
-    "ret    \n\t");
 #else
-static ALWAYS_INLINE void
+ALWAYS_INLINE void
 _coro_swapcontext(ucontext_t *current, ucontext_t *other)
 {
     swapcontext(current, other);
