@@ -321,14 +321,17 @@ _thread(void *data)
                         death_queue_last %= t->lwan->thread.max_fd;
                         request->flags.alive = true;
                     }
-                    continue;
+                } else {
+                    /*
+                     * Either the request has a Connection: Close header, or its
+                     * associated coroutine shouldn't be resumed.
+                     */
+                    coro_free(request->coro);
+                    request->coro = NULL;
+                    request->flags.alive = false;
+                    request->flags.should_resume_coro = false;
+                    close(events[i].data.fd);
                 }
-
-                coro_free(request->coro);
-                request->coro = NULL;
-                request->flags.alive = false;
-                request->flags.should_resume_coro = false;
-                close(events[i].data.fd);
             }
         }
     }
