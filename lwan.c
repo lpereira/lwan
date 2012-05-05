@@ -265,14 +265,14 @@ _thread(void *data)
                     --death_queue_population;
                     death_queue_first %= t->lwan->thread.max_fd;
 
-                    /* A request might have died from a hangup event */
-                    if (!request->flags.alive)
-                        continue;
-
                     if (request->coro) {
                         coro_free(request->coro);
                         request->coro = NULL;
                     }
+
+                    /* A request might have died from a hangup event */
+                    if (!request->flags.alive)
+                        continue;
 
                     request->flags.alive = false;
                     if (request->flags.is_keep_alive)
