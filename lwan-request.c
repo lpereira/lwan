@@ -193,22 +193,22 @@ lwan_process_request(lwan_request_t *request)
 {
     lwan_t *l = request->lwan;
     lwan_url_map_t *url_map;
-    char buffer[6 * 1024], *p_buffer;
+    char *p_buffer;
     size_t bytes_read;
 
-    switch (bytes_read = read(request->fd, buffer, sizeof(buffer))) {
+    switch (bytes_read = read(request->fd, request->buffer, sizeof(request->buffer))) {
     case 0:
         return false;
     case -1:
         perror("read");
         return false;
-    case sizeof(buffer):
+    case sizeof(request->buffer):
         return lwan_default_response(l, request, HTTP_TOO_LARGE);
     }
 
-    buffer[bytes_read] = '\0';
+    request->buffer[bytes_read] = '\0';
 
-    p_buffer = _ignore_leading_whitespace(buffer);
+    p_buffer = _ignore_leading_whitespace(request->buffer);
     if (!*p_buffer)
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
@@ -220,7 +220,7 @@ lwan_process_request(lwan_request_t *request)
     if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 
-    p_buffer = _parse_headers(request, p_buffer, buffer + bytes_read);
+    p_buffer = _parse_headers(request, p_buffer, request->buffer + bytes_read);
     if (UNLIKELY(!p_buffer))
         return lwan_default_response(l, request, HTTP_BAD_REQUEST);
 

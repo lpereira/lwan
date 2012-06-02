@@ -133,6 +133,7 @@ struct lwan_request_t_ {
 
     int fd;
     unsigned int time_to_die;
+    char buffer[4 * 1024];
 
     struct {
       char *value;
