@@ -17,9 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -189,6 +190,18 @@ coro_get_state(coro_t *coro)
     return LIKELY(coro) ? coro->state : CORO_FINISHED;
 }
 
+static ALWAYS_INLINE void
+_context_copy(ucontext_t *dest, ucontext_t *src)
+{
+#ifdef __x86_64__
+    /* Copy only what is used by our x86-64 swapcontext() implementation */
+    dest->uc_stack.ss_sp = src->uc_stack.ss_sp;
+    memcpy(&dest->uc_mcontext.gregs, &src->uc_mcontext.gregs, sizeof(gregset_t));
+#else
+    *dest = *src;
+#endif
+}
+
 ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
@@ -199,10 +212,11 @@ coro_resume(coro_t *coro)
     else if (coro->state == CORO_FINISHED)
         return 0;
 
-    ucontext_t prev_caller = coro->switcher->caller;
+    ucontext_t prev_caller;
+    _context_copy(&prev_caller, &coro->switcher->caller);
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
-    coro->context = coro->switcher->callee;
-    coro->switcher->caller = prev_caller;
+    _context_copy(&coro->context, &coro->switcher->callee);
+    _context_copy(&coro->switcher->caller, &prev_caller);
 
     return coro->yield_value;
 }
