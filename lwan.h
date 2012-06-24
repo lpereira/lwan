@@ -63,6 +63,7 @@ typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_http_header_t_	lwan_http_header_t;
+typedef struct lwan_query_string_t_	lwan_query_string_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -112,6 +113,11 @@ struct lwan_http_header_t_ {
     char *value;
 };
 
+struct lwan_query_string_t_ {
+    char *key;
+    char *value;
+};
+
 struct lwan_response_t_ {
     strbuf_t *buffer;
     char *mime_type;
@@ -130,6 +136,7 @@ struct lwan_request_t_ {
     lwan_response_t response;
     lwan_t *lwan;
     coro_t *coro;
+    lwan_query_string_t *query_string_kv;
 
     int fd;
     unsigned int time_to_die;
@@ -194,6 +201,7 @@ const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__(
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
 void lwan_request_set_corked(lwan_request_t *request, bool setting);
+const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 bool lwan_process_request(lwan_request_t *request);
 void lwan_shutdown(lwan_t *l);
 

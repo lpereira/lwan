@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -28,6 +29,9 @@
 
 #include "lwan.h"
 #include "int-to-str.h"
+
+static char _decode_hex_digit(char ch) __attribute__((pure));
+static bool _is_hex_digit(char ch) __attribute__((pure));
 
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
@@ -51,6 +55,89 @@ _identify_http_method(lwan_request_t *request, char *buffer)
     }
     return NULL;
 }
+
+static ALWAYS_INLINE char
+_decode_hex_digit(char ch)
+{
+    return (ch <= '9') ? ch - '0' : 10 + (ch | 0x20) - 'a';
+}
+
+static ALWAYS_INLINE bool
+_is_hex_digit(char ch)
+{
+    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+}
+
+static size_t
+_url_decode(char *str)
+{
+    if (!str)
+        return 0;
+
+    char *ch, *decoded;
+    for (decoded = ch = str; *ch; ch++) {
+        if (*ch == '%' && LIKELY(_is_hex_digit(ch[1]) && _is_hex_digit(ch[2]))) {
+            *decoded++ = _decode_hex_digit(ch[1]) << 4 | _decode_hex_digit(ch[2]);
+            ch += 2;
+        } else if (*ch == '+')
+            *decoded++ = ' ';
+        else
+            *decoded++ = *ch;
+    }
+
+    *decoded = '\0';
+    return decoded - str;
+}
+
+#define DECODE_AND_ADD() \
+    do { \
+        if (LIKELY(_url_decode(key))) { \
+            qs[values].key = key; \
+            if (LIKELY(_url_decode(value))) \
+                qs[values].value = value; \
+            else \
+                qs[values].value = ""; \
+            ++values; \
+            if (UNLIKELY(values >= N_ELEMENTS(qs))) \
+                goto oom; \
+        } \
+    } while(0)
+
+static void
+_parse_query_string(lwan_request_t *request)
+{
+    char *key = request->query_string.value;
+    char *value = NULL;
+    char *ch;
+    size_t values = 0;
+    lwan_query_string_t qs[256];
+
+    for (ch = request->query_string.value; *ch; ch++) {
+        switch (*ch) {
+        case '=':
+            *ch = '\0';
+            value = ch + 1;
+            break;
+        case '&':
+        case ';':
+            *ch = '\0';
+            DECODE_AND_ADD();
+            key = ch + 1;
+            value = NULL;
+        }
+    }
+
+    DECODE_AND_ADD();
+oom:
+    qs[values].key = qs[values].value = NULL;
+
+    free(request->query_string_kv);
+    request->query_string_kv = malloc((1 + values) * sizeof(lwan_query_string_t));
+    if (LIKELY(request->query_string_kv))
+        memcpy(request->query_string_kv, qs, (1 + values) * sizeof(lwan_query_string_t));
+}
+
+#undef DECODE_AND_ADD
 
 static ALWAYS_INLINE char *
 _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
@@ -93,6 +180,7 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
         request->query_string.value = query_string + 1;
         request->query_string.len = (fragment ? fragment : space) - query_string - 1;
         request->url.len -= request->query_string.len + 1;
+        _parse_query_string(request);
     }
 
     return end_of_line + 1;
@@ -319,4 +407,20 @@ lwan_request_set_corked(lwan_request_t *request, bool setting)
     if (UNLIKELY(setsockopt(request->fd, IPPROTO_TCP, TCP_CORK,
                         (int[]){ setting }, sizeof(int)) < 0))
         perror("setsockopt");
+}
+
+const char *
+lwan_request_get_query_param(lwan_request_t *request, const char *key)
+{
+    lwan_query_string_t *qs = request->query_string_kv;
+    if (UNLIKELY(!qs))
+        return NULL;
+
+    size_t key_len = strlen(key);
+    for (; qs->key; qs++) {
+        if (!strncmp(qs->key, key, key_len))
+            return qs->value;
+    }
+
+    return NULL;
 }

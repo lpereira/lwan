@@ -55,11 +55,27 @@ hello_world(lwan_request_t *request,
     response->headers = headers;
     response->mime_type = "text/plain";
 
-    if (request->query_string.value)
-        strbuf_printf(response->buffer, "Hello, %s!", request->query_string.value);
+    const char *name = lwan_request_get_query_param(request, "name");
+    if (name)
+        strbuf_printf(response->buffer, "Hello, %s!", name);
     else
         strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
 
+    const char *dump_vars = lwan_request_get_query_param(request, "dump_vars");
+    if (!dump_vars)
+        goto end;
+
+    strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
+    strbuf_append_str(response->buffer, "----------------------\n\n", 0);
+
+    lwan_query_string_t *qs = request->query_string_kv;
+    if (!qs)
+        goto end;
+    for (; qs->key; qs++)
+        strbuf_append_printf(response->buffer,
+                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
+
+end:
     return HTTP_OK;
 }
 

@@ -155,6 +155,7 @@ _reset_request(lwan_request_t *request)
     lwan_t *lwan = request->lwan;
     coro_t *coro = request->coro;
     int fd = request->fd;
+    free(request->query_string_kv);
 
     memset(request, 0, sizeof(*request));
 
