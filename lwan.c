@@ -215,13 +215,14 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
     if (request->flags.should_resume_coro == request->flags.write_events)
         return;
 
-    struct epoll_event event;
     static const int const events_by_write_flag[] = {
         EPOLLOUT | EPOLLRDHUP | EPOLLERR,
         EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
     };
-    event.events = events_by_write_flag[request->flags.write_events];
-    event.data.fd = request->fd;
+    struct epoll_event event = {
+        .events = events_by_write_flag[request->flags.write_events],
+        .data.fd = request->fd
+    };
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, request->fd, &event) < 0))
         perror("epoll_ctl");
