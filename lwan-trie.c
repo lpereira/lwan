@@ -67,6 +67,16 @@ _find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
     return NULL;
 }
 
+#define GET_NODE() \
+    do { \
+        if (!(node = *knode)) { \
+            *knode = node = calloc(1, sizeof(*node)); \
+            if (!node) \
+                goto oom; \
+        } \
+        ++node->ref_count; \
+    } while(0)
+
 void
 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
 {
@@ -76,32 +86,32 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     lwan_trie_node_t **knode, *node;
     const char *orig_key = key;
 
-    for (knode = &trie->root; ; knode = &node->next[(int)(*key++ & 7)]) {
-        if (!(node = *knode)) {
-            *knode = node = calloc(1, sizeof(*node));
-            if (!node) {
-                perror("calloc: trie node");
-                exit(-1);
-            }
-        }
-        ++node->ref_count;
+    /* Traverse the trie, allocating nodes if necessary */
+    for (knode = &trie->root; *key; knode = &node->next[(int)(*key++ & 7)])
+        GET_NODE();
 
-        if (!*key) {
-            lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, key - orig_key);
-            bool had_key = !!leaf;
-            if (!leaf)
-                leaf = malloc(sizeof(*leaf));
+    /* Get the leaf node (allocate it if necessary) */
+    GET_NODE();
 
-            leaf->data = data;
-            if (!had_key) {
-                leaf->key = strdup(orig_key);
-                leaf->next = node->leaf;
-                node->leaf = leaf;
-            }
-            return;
-        }
+    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, key - orig_key);
+    bool had_key = !!leaf;
+    if (!leaf)
+        leaf = malloc(sizeof(*leaf));
+
+    leaf->data = data;
+    if (!had_key) {
+        leaf->key = strdup(orig_key);
+        leaf->next = node->leaf;
+        node->leaf = leaf;
     }
+    return;
+
+oom:
+    perror("calloc: trie node");
+    exit(-1);
 }
+
+#undef GET_NODE
 
 static ALWAYS_INLINE lwan_trie_node_t *
 _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
