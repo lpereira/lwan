@@ -168,7 +168,7 @@ internal_printf(strbuf_t *s1, bool append, const char *fmt, va_list values)
     if (UNLIKELY((len = vasprintf(&s2, fmt, values)) < 0))
         return false;
 
-    bool success = append ? strbuf_append_str(s1, s2, len) : strbuf_set(s1, s2, len);
+    bool success = (append ? strbuf_append_str : strbuf_set)(s1, s2, len);
     free(s2);
 
     return success;
