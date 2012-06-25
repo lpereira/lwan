@@ -323,16 +323,9 @@ lwan_process_request(lwan_request_t *request)
 }
 
 #define APPEND_STRING_LEN(const_str_,len_) \
-    do { \
-        memcpy(p_headers, (const_str_), (len_)); \
-        p_headers += (len_); \
-    } while(0)
+    p_headers = mempcpy(p_headers, (const_str_), (len_))
 #define APPEND_STRING(str_) \
-    do { \
-        len = strlen(str_); \
-        memcpy(p_headers, (str_), len); \
-        p_headers += len; \
-    } while(0)
+    p_headers = mempcpy(p_headers, (str_), strlen(str_))
 #define APPEND_INT8(value_) \
     do { \
         APPEND_CHAR("0123456789"[((value_) / 100) % 10]); \
