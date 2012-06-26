@@ -131,7 +131,6 @@ _parse_query_string(lwan_request_t *request)
 oom:
     qs[values].key = qs[values].value = NULL;
 
-    free(request->query_string_kv);
     request->query_string_kv = malloc((1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(request->query_string_kv))
         memcpy(request->query_string_kv, qs, (1 + values) * sizeof(lwan_key_value_t));

@@ -36,6 +36,9 @@
 #include "lwan.h"
 
 static jmp_buf cleanup_jmp_buf;
+static lwan_key_value_t empty_query_string_kv[] = {
+    { .key = NULL, .value = NULL }
+};
 
 const char *
 lwan_determine_mime_type_for_file_name(char *file_name)
@@ -148,6 +151,7 @@ _socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
+
 ALWAYS_INLINE void
 _reset_request(lwan_request_t *request)
 {
@@ -155,7 +159,9 @@ _reset_request(lwan_request_t *request)
     lwan_t *lwan = request->lwan;
     coro_t *coro = request->coro;
     int fd = request->fd;
-    free(request->query_string_kv);
+
+    if (request->query_string_kv != empty_query_string_kv)
+        free(request->query_string_kv);
 
     memset(request, 0, sizeof(*request));
 
@@ -163,6 +169,7 @@ _reset_request(lwan_request_t *request)
     request->lwan = lwan;
     request->coro = coro;
     request->response.buffer = response_buffer;
+    request->query_string_kv = empty_query_string_kv;
     strbuf_reset(request->response.buffer);
 }
 

@@ -69,8 +69,6 @@ hello_world(lwan_request_t *request,
     strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
     lwan_key_value_t *qs = request->query_string_kv;
-    if (!qs)
-        goto end;
     for (; qs->key; qs++)
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
