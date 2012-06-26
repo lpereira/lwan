@@ -110,7 +110,7 @@ _parse_query_string(lwan_request_t *request)
     char *value = NULL;
     char *ch;
     size_t values = 0;
-    lwan_query_string_t qs[256];
+    lwan_key_value_t qs[256];
 
     for (ch = request->query_string.value; *ch; ch++) {
         switch (*ch) {
@@ -132,9 +132,9 @@ oom:
     qs[values].key = qs[values].value = NULL;
 
     free(request->query_string_kv);
-    request->query_string_kv = malloc((1 + values) * sizeof(lwan_query_string_t));
+    request->query_string_kv = malloc((1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(request->query_string_kv))
-        memcpy(request->query_string_kv, qs, (1 + values) * sizeof(lwan_query_string_t));
+        memcpy(request->query_string_kv, qs, (1 + values) * sizeof(lwan_key_value_t));
 }
 
 #undef DECODE_AND_ADD
@@ -368,12 +368,12 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
     if (request->response.headers) {
-        lwan_http_header_t *header;
+        lwan_key_value_t *header;
 
-        for (header = request->response.headers; header->name; header++) {
+        for (header = request->response.headers; header->key; header++) {
             APPEND_CHAR('\r');
             APPEND_CHAR('\n');
-            APPEND_STRING(header->name);
+            APPEND_STRING(header->key);
             APPEND_CHAR(':');
             APPEND_CHAR(' ');
             APPEND_STRING(header->value);
@@ -405,7 +405,7 @@ lwan_request_set_corked(lwan_request_t *request, bool setting)
 const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
-    lwan_query_string_t *qs = request->query_string_kv;
+    lwan_key_value_t *qs = request->query_string_kv;
     if (UNLIKELY(!qs))
         return NULL;
 

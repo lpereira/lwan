@@ -62,8 +62,7 @@ typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
-typedef struct lwan_http_header_t_	lwan_http_header_t;
-typedef struct lwan_query_string_t_	lwan_query_string_t;
+typedef struct lwan_key_value_t_	lwan_key_value_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -108,12 +107,7 @@ enum {
     HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','m')
 } lwan_http_header_str_t;
 
-struct lwan_http_header_t_ {
-    char *name;
-    char *value;
-};
-
-struct lwan_query_string_t_ {
+struct lwan_key_value_t_ {
     char *key;
     char *value;
 };
@@ -122,7 +116,7 @@ struct lwan_response_t_ {
     strbuf_t *buffer;
     char *mime_type;
     int content_length;
-    lwan_http_header_t *headers;
+    lwan_key_value_t *headers;
 
     struct {
         lwan_http_status_t (*callback)(lwan_t *lwan, lwan_request_t *request, void *data);
@@ -136,7 +130,7 @@ struct lwan_request_t_ {
     lwan_response_t response;
     lwan_t *lwan;
     coro_t *coro;
-    lwan_query_string_t *query_string_kv;
+    lwan_key_value_t *query_string_kv;
 
     int fd;
     unsigned int time_to_die;

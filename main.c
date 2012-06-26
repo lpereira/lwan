@@ -48,8 +48,8 @@ hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))
 {
-    static lwan_http_header_t headers[] = {
-        { .name = "X-The-Answer-To-The-Universal-Question", .value = "42" },
+    static lwan_key_value_t headers[] = {
+        { .key = "X-The-Answer-To-The-Universal-Question", .value = "42" },
         { NULL, NULL }
     };
     response->headers = headers;
@@ -68,7 +68,7 @@ hello_world(lwan_request_t *request,
     strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
     strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
-    lwan_query_string_t *qs = request->query_string_kv;
+    lwan_key_value_t *qs = request->query_string_kv;
     if (!qs)
         goto end;
     for (; qs->key; qs++)
