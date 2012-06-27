@@ -130,15 +130,19 @@ struct lwan_request_t_ {
     lwan_response_t response;
     lwan_t *lwan;
     coro_t *coro;
-    lwan_key_value_t *query_string_kv;
-
+    
     int fd;
     unsigned int time_to_die;
     char buffer[4 * 1024];
 
     struct {
+      lwan_key_value_t *base;
+      size_t len;
+    } query_string_kv;
+
+    struct {
       char *value;
-      int len;
+      size_t len;
     } url, query_string, fragment;
 
     struct {

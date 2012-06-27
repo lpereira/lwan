@@ -89,6 +89,12 @@ _url_decode(char *str)
     return decoded - str;
 }
 
+static int
+_key_value_compare_qsort_key(const void *a, const void *b)
+{
+    return strcmp(((lwan_key_value_t *)a)->key, ((lwan_key_value_t *)b)->key);
+}
+
 #define DECODE_AND_ADD() \
     do { \
         if (LIKELY(_url_decode(key))) { \
@@ -132,8 +138,11 @@ oom:
     qs[values].key = qs[values].value = NULL;
 
     lwan_key_value_t *kv = malloc((1 + values) * sizeof(lwan_key_value_t));
-    if (LIKELY(kv))
-        request->query_string_kv = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
+    if (LIKELY(kv)) {
+        qsort(qs, values, sizeof(lwan_key_value_t), _key_value_compare_qsort_key);
+        request->query_string_kv.base = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
+        request->query_string_kv.len = values;
+    }
 }
 
 #undef DECODE_AND_ADD
@@ -404,14 +413,25 @@ lwan_request_set_corked(lwan_request_t *request, bool setting)
 const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
-    lwan_key_value_t *qs = request->query_string_kv;
-    if (UNLIKELY(!qs))
+    if (UNLIKELY(!request->query_string_kv.len))
         return NULL;
 
+    size_t lower_bound = 0;
+    size_t upper_bound = request->query_string_kv.len;
     size_t key_len = strlen(key);
-    for (; qs->key; qs++) {
-        if (!strncmp(qs->key, key, key_len))
-            return qs->value;
+    lwan_key_value_t *base = request->query_string_kv.base;
+
+    while (lower_bound < upper_bound) {
+        /* lower_bound + upper_bound will never overflow */
+        size_t idx = (lower_bound + upper_bound) / 2;
+        lwan_key_value_t *ptr = base + idx;
+        int cmp = strncmp(key, ptr->key, key_len);
+        if (LIKELY(!cmp))
+            return ptr->value;
+        if (cmp > 0)
+            lower_bound = idx + 1;
+        else
+            upper_bound = idx;
     }
 
     return NULL;

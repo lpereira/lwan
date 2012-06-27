@@ -160,8 +160,8 @@ _reset_request(lwan_request_t *request)
     coro_t *coro = request->coro;
     int fd = request->fd;
 
-    if (request->query_string_kv != empty_query_string_kv)
-        free(request->query_string_kv);
+    if (request->query_string_kv.base != empty_query_string_kv)
+        free(request->query_string_kv.base);
 
     memset(request, 0, sizeof(*request));
 
@@ -169,7 +169,7 @@ _reset_request(lwan_request_t *request)
     request->lwan = lwan;
     request->coro = coro;
     request->response.buffer = response_buffer;
-    request->query_string_kv = empty_query_string_kv;
+    request->query_string_kv.base = empty_query_string_kv;
     strbuf_reset(request->response.buffer);
 }
 
