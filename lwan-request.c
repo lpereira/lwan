@@ -32,6 +32,9 @@
 
 static char _decode_hex_digit(char ch) __attribute__((pure));
 static bool _is_hex_digit(char ch) __attribute__((pure));
+static unsigned long _has_zero_byte(unsigned long n) __attribute__((pure));
+static unsigned long _is_space(char ch) __attribute__((pure));
+static char *_ignore_leading_whitespace(char *buffer) __attribute__((pure));
 
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
