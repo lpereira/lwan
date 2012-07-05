@@ -44,10 +44,19 @@ union ptr_splitter {
 };
 #endif
 
+typedef struct coro_defer_t_	coro_defer_t;
+
+struct coro_defer_t_ {
+    coro_defer_t *next;
+    void (*func)(void *data);
+    void *data;
+};
+
 struct coro_t_ {
     coro_state_t state;
     coro_function_t function;
     coro_switcher_t *switcher;
+    coro_defer_t *defer;
     void *data;
 
     ucontext_t context;
@@ -154,6 +163,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->switcher = switcher;
     coro->function = function;
     coro->data = data;
+    coro->defer = NULL;
 
     getcontext(&coro->context);
     coro->context.uc_stack.ss_sp = coro->stack;
@@ -238,6 +248,35 @@ coro_free(coro_t *coro)
 #ifdef USE_VALGRIND
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
-    // FIXME: Deallocate stuff allocated inside a coroutine
+    coro_defer_t *defer;
+    for (defer = coro->defer; defer;) {
+        coro_defer_t *tmp = defer;
+        defer->func(defer->data);
+        defer = tmp->next;
+        free(tmp);
+    }
     free(coro);
+}
+
+void
+coro_defer(coro_t *coro, void (*func)(void *data), void *data)
+{
+    coro_defer_t *defer = malloc(sizeof(*defer));
+    if (UNLIKELY(!defer))
+        return;
+    if (UNLIKELY(!func))
+        return;
+    defer->next = coro->defer;
+    defer->func = func;
+    defer->data = data;
+    coro->defer = defer;
+}
+
+void *
+coro_malloc(coro_t *coro, size_t size)
+{
+    void *ptr = malloc(size);
+    if (LIKELY(ptr))
+        coro_defer(coro, free, ptr);
+    return ptr;
 }

@@ -49,4 +49,7 @@ void	coro_yield(coro_t *coro, int value);
 void   		*coro_get_data(coro_t *coro);
 coro_state_t	 coro_get_state(coro_t *coro);
 
+void    coro_defer(coro_t *coro, void (*func)(void *data), void *data);
+void   *coro_malloc(coro_t *coro, size_t sz);
+
 #endif /* __LWAN_CORO_H__ */
