@@ -18,6 +18,7 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -30,7 +31,7 @@
 #include "lwan.h"
 #include "lwan-sendfile.h"
 
-static const int const buffer_size = 1400;
+static const size_t const buffer_size = 1400;
 
 static ALWAYS_INLINE ssize_t
 _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
@@ -99,6 +100,9 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
 ssize_t
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 {
+    if (count > buffer_size * 5)
+        posix_fadvise(in_fd, offset, count, POSIX_FADV_SEQUENTIAL);
+
 #ifdef __linux__
     ssize_t written_bytes = -1;
     written_bytes = _sendfile_linux_sendfile(request->coro, in_fd, request->fd, offset, count);
