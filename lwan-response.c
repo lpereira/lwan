@@ -25,30 +25,30 @@
 #include "lwan.h"
 
 bool
-lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
+lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
 
     if (UNLIKELY(!request->response.mime_type)) {
-        lwan_default_response(l, request, status);
+        lwan_default_response(request, status);
         return false;
     }
 
     if (request->response.stream_content.callback) {
         lwan_http_status_t callback_status;
 
-        callback_status = request->response.stream_content.callback(l, request,
+        callback_status = request->response.stream_content.callback(request,
                     request->response.stream_content.data);
         if (callback_status == HTTP_OK)
             return true;
 
-        lwan_default_response(l, request, callback_status);
+        lwan_default_response(request, callback_status);
         return false;
     }
 
     size_t header_len = lwan_prepare_response_header(request, status, headers);
     if (!header_len)
-        return lwan_default_response(l, request, HTTP_INTERNAL_ERROR);
+        return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
     if (request->method == HTTP_HEAD) {
         if (write(request->fd, headers, header_len) < 0) {
@@ -72,7 +72,7 @@ lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
 }
 
 bool
-lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status)
+lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 {
     static const char *default_response = "<html><head><style>" \
         "body{" \
@@ -104,5 +104,5 @@ lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t sta
         lwan_http_status_as_string(status),
         lwan_http_status_as_descriptive_string(status));
 
-    return lwan_response(l, request, status);
+    return lwan_response(request, status);
 }

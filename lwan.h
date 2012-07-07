@@ -119,7 +119,7 @@ struct lwan_response_t_ {
     lwan_key_value_t *headers;
 
     struct {
-        lwan_http_status_t (*callback)(lwan_t *lwan, lwan_request_t *request, void *data);
+        lwan_http_status_t (*callback)(lwan_request_t *request, void *data);
         void *data;
     } stream_content;
 };
@@ -192,9 +192,9 @@ struct lwan_t_ {
 void lwan_init(lwan_t *l);
 void lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map);
 void lwan_main_loop(lwan_t *l);
-bool lwan_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+bool lwan_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[]);
-bool lwan_default_response(lwan_t *l, lwan_request_t *request, lwan_http_status_t status);
+bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));

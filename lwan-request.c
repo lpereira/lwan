@@ -290,7 +290,6 @@ _compute_flags(lwan_request_t *request)
 bool
 lwan_process_request(lwan_request_t *request)
 {
-    lwan_t *l = request->lwan;
     lwan_url_map_t *url_map;
     char *p_buffer;
     size_t bytes_read;
@@ -302,35 +301,35 @@ lwan_process_request(lwan_request_t *request)
         perror("read");
         return false;
     case sizeof(request->buffer):
-        return lwan_default_response(l, request, HTTP_TOO_LARGE);
+        return lwan_default_response(request, HTTP_TOO_LARGE);
     }
 
     request->buffer[bytes_read] = '\0';
 
     p_buffer = _ignore_leading_whitespace(request->buffer);
     if (!*p_buffer)
-        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+        return lwan_default_response(request, HTTP_BAD_REQUEST);
 
     p_buffer = _identify_http_method(request, p_buffer);
     if (UNLIKELY(!p_buffer))
-        return lwan_default_response(l, request, HTTP_NOT_ALLOWED);
+        return lwan_default_response(request, HTTP_NOT_ALLOWED);
 
     p_buffer = _identify_http_path(request, p_buffer, bytes_read);
     if (UNLIKELY(!p_buffer))
-        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+        return lwan_default_response(request, HTTP_BAD_REQUEST);
 
     p_buffer = _parse_headers(request, p_buffer, request->buffer + bytes_read);
     if (UNLIKELY(!p_buffer))
-        return lwan_default_response(l, request, HTTP_BAD_REQUEST);
+        return lwan_default_response(request, HTTP_BAD_REQUEST);
 
     _compute_flags(request);
 
-    if ((url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value))) {
+    if ((url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie, request->url.value))) {
         request->url.value += url_map->prefix_len;
-        return lwan_response(l, request, url_map->callback(request, &request->response, url_map->data));
+        return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
     }
 
-    return lwan_default_response(l, request, HTTP_NOT_FOUND);
+    return lwan_default_response(request, HTTP_NOT_FOUND);
 }
 
 #define APPEND_STRING_LEN(const_str_,len_) \

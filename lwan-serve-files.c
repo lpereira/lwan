@@ -33,7 +33,7 @@
 #include "lwan-sendfile.h"
 
 static lwan_http_status_t
-_serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
+_serve_file_stream(lwan_request_t *request, void *data)
 {
     char headers[512];
     lwan_http_status_t return_status;
@@ -63,7 +63,7 @@ _serve_file_stream(lwan_t* l, lwan_request_t *request, void *data)
         free(data);
 
         request->response.mime_type = "text/html";
-        return _serve_file_stream(l, request, index_file);
+        return _serve_file_stream(request, index_file);
     }
 
     request->response.content_length = st.st_size;
