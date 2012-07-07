@@ -46,7 +46,7 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
     }
 
     while (total_bytes_written < count) {
-        ssize_t read_bytes = read(in_fd, buffer, sizeof(buffer));
+        ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
             perror("read");
             goto error;
