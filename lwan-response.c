@@ -39,11 +39,12 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 
         callback_status = request->response.stream_content.callback(request,
                     request->response.stream_content.data);
+
         if (callback_status == HTTP_OK)
             return true;
 
-        lwan_default_response(request, callback_status);
-        return false;
+        request->response.stream_content.callback = NULL;
+        return !lwan_default_response(request, callback_status);
     }
 
     size_t header_len = lwan_prepare_response_header(request, status, headers);
