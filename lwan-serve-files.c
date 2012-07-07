@@ -41,7 +41,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
     struct stat st;
     size_t header_len;
 
-    if (UNLIKELY((file_fd = open(data, O_RDONLY)) < 0)) {
+    if (UNLIKELY((file_fd = open(data, O_RDONLY | O_NOATIME)) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
         goto end_no_close;
     }
