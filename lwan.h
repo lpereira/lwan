@@ -63,6 +63,7 @@ typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
+typedef struct lwan_handler_t_		lwan_handler_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -121,6 +122,7 @@ struct lwan_response_t_ {
     struct {
         lwan_http_status_t (*callback)(lwan_request_t *request, void *data);
         void *data;
+        void *priv;
     } stream_content;
 };
 
@@ -130,7 +132,7 @@ struct lwan_request_t_ {
     lwan_response_t response;
     lwan_t *lwan;
     coro_t *coro;
-    
+
     int fd;
     unsigned int time_to_die;
     char buffer[4 * 1024];
@@ -157,9 +159,19 @@ struct lwan_request_t_ {
     } flags;
 };
 
+struct lwan_handler_t_ {
+    void *(*init)(void *args);
+    void (*shutdown)(void *data);
+    lwan_http_status_t (*handle)(lwan_request_t *request, lwan_response_t *response, void *data);
+};
+
 struct lwan_url_map_t_ {
     const char *prefix;
     int prefix_len;
+
+    lwan_handler_t *handler;
+    void *args;
+
     lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
 };
@@ -187,6 +199,8 @@ struct lwan_t_ {
         int max_fd;
         lwan_thread_t *threads;
     } thread;
+
+    lwan_url_map_t *url_map;
 };
 
 void lwan_init(lwan_t *l);

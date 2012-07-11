@@ -476,12 +476,28 @@ lwan_init(lwan_t *l)
     _thread_init(l);
 }
 
+static void
+_url_map_free(lwan_t *l)
+{
+    if (!l->url_map)
+        return;
+
+    lwan_trie_destroy(l->url_map_trie);
+    lwan_url_map_t *url_map = l->url_map;
+    for (; url_map->prefix; url_map++) {
+        lwan_handler_t *handler = url_map->handler;
+
+        if (handler && handler->shutdown)
+            handler->shutdown(url_map->data);
+    }
+}
+
 void
 lwan_shutdown(lwan_t *l)
 {
     _thread_shutdown(l);
     _socket_shutdown(l);
-    lwan_trie_destroy(l->url_map_trie);
+    _url_map_free(l);
 
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
@@ -493,8 +509,9 @@ lwan_shutdown(lwan_t *l)
 void
 lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 {
-    lwan_trie_destroy(l->url_map_trie);
+    _url_map_free(l);
 
+    l->url_map = url_map;
     l->url_map_trie = lwan_trie_new();
     if (!l->url_map_trie) {
         perror("lwan_trie_new");
@@ -502,8 +519,15 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
     }
 
     for (; url_map->prefix; url_map++) {
+        lwan_handler_t *handler = url_map->handler;
+
         url_map->prefix_len = strlen(url_map->prefix);
         lwan_trie_add(l->url_map_trie, url_map->prefix, url_map);
+
+        if (!handler || !handler->init)
+            continue;
+        url_map->data = handler->init(url_map->args);
+        url_map->callback = handler->handle;
     }
 }
 
