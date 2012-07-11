@@ -32,6 +32,68 @@
 #include "lwan.h"
 #include "lwan-sendfile.h"
 
+static void *serve_files_init(void *args);
+static void serve_files_shutdown(void *data);
+static lwan_http_status_t serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data);
+
+lwan_handler_t serve_files = {
+    .init = serve_files_init,
+    .shutdown = serve_files_shutdown,
+    .handle = serve_files_handle_cb
+};
+
+struct serve_files_priv_t {
+    char *root_path;
+    size_t root_path_len;
+    int root_fd;
+};
+
+static void *
+serve_files_init(void *args)
+{
+    const char *root_path = args;
+    char *canonical_root;
+    int root_fd;
+    struct serve_files_priv_t *priv;
+
+    canonical_root = realpath(root_path, NULL);
+    if (!canonical_root) {
+        perror("serve_files_init");
+        return false;
+    }
+
+    root_fd = open(canonical_root, O_RDONLY | O_NOATIME);
+    if (root_fd < 0) {
+        free(canonical_root);
+
+        perror("serve_files_init");
+        return NULL;
+    }
+
+    priv = malloc(sizeof(*priv));
+    if (!priv) {
+        free(canonical_root);
+        close(root_fd);
+        perror("serve_files_init");
+        return NULL;
+    }
+
+    priv->root_path = canonical_root;
+    priv->root_path_len = strlen(canonical_root);
+    priv->root_fd = root_fd;
+    return priv;
+}
+
+static void
+serve_files_shutdown(void *data)
+{
+    struct serve_files_priv_t *priv = data;
+
+    close(priv->root_fd);
+    free(priv->root_path);
+    free(priv);
+}
+
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
@@ -40,8 +102,19 @@ _serve_file_stream(lwan_request_t *request, void *data)
     int file_fd;
     struct stat st;
     size_t header_len;
+    struct serve_files_priv_t *priv = request->response.stream_content.priv;
+    char *path = (char *)data + priv->root_path_len;
 
-    if (UNLIKELY((file_fd = open(data, O_RDONLY | O_NOATIME)) < 0)) {
+    if (*path)
+        /* Non-empty path: skip first '/' so that openat() works as expected */
+        ++path;
+    else {
+        /* Empty path: try serving up index.html by default */
+        request->response.mime_type = "text/html";
+        path = "index.html";
+    }
+
+    if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
         goto end_no_close;
     }
@@ -105,23 +178,23 @@ end_no_close:
     return return_status;
 }
 
-lwan_http_status_t
-serve_files(lwan_request_t *request, lwan_response_t *response, void *root_directory)
+static lwan_http_status_t
+serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
     lwan_http_status_t return_status = HTTP_OK;
     char *path_to_canonicalize;
     char *canonical_path;
-    char *canonical_root;
+    struct serve_files_priv_t *priv = data;
 
-    /* FIXME: ``canonical_root'' should be cached somewhere. */
-    canonical_root = realpath(root_directory, NULL);
-    if (!canonical_root)
-        return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_INTERNAL_ERROR;
+    if (UNLIKELY(!priv)) {
+        return_status = HTTP_INTERNAL_ERROR;
+        goto fail;
+    }
 
     if (UNLIKELY(asprintf(&path_to_canonicalize, "%s/%s",
-                (char *)root_directory, request->url.value) < 0)) {
+                 priv->root_path, request->url.value) < 0)) {
         return_status = HTTP_INTERNAL_ERROR;
-        goto end;
+        goto fail;
     }
 
     canonical_path = realpath(path_to_canonicalize, NULL);
@@ -130,33 +203,30 @@ serve_files(lwan_request_t *request, lwan_response_t *response, void *root_direc
         switch (errno) {
         case EACCES:
             return_status = HTTP_FORBIDDEN;
-            goto end;
+            goto fail;
         case ENOENT:
         case ENOTDIR:
             return_status = HTTP_NOT_FOUND;
-            goto end;
+            goto fail;
         }
         return_status = HTTP_BAD_REQUEST;
-        goto end;
+        goto fail;
     }
 
-    if (strncmp(canonical_path, canonical_root, strlen(canonical_root))) {
+    if (strncmp(canonical_path, priv->root_path, priv->root_path_len)) {
         free(canonical_path);
         return_status = HTTP_FORBIDDEN;
-        goto end;
+        goto fail;
     }
 
     response->mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
     response->stream_content.callback = _serve_file_stream;
     response->stream_content.data = canonical_path;
+    response->stream_content.priv = priv;
 
-    goto end_no_reset_stream_content;
+    return return_status;
 
-end:
+fail:
     response->stream_content.callback = NULL;
-
-end_no_reset_stream_content:
-    free(canonical_root);
-
     return return_status;
 }

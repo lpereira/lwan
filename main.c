@@ -81,12 +81,13 @@ int
 main(void)
 {
     lwan_url_map_t default_map[] = {
-        { .prefix = "/hello", .callback = hello_world, .data = NULL },
-        { .prefix = "/beacon", .callback = gif_beacon, .data = NULL },
-        { .prefix = "/favicon.ico", .callback = gif_beacon, .data = NULL },
-        { .prefix = "/", .callback = serve_files, .data = "./files_root" },
-        { .prefix = NULL },
+        { .prefix = "/hello", .callback = hello_world },
+        { .prefix = "/beacon", .callback = gif_beacon },
+        { .prefix = "/favicon.ico", .callback = gif_beacon },
+        { .prefix = "/", .handler = &serve_files, .args = "./files_root" },
+        { .prefix = NULL }
     };
+
     lwan_t l = {
         .config = {
             .port = 8080,
