@@ -114,14 +114,22 @@ _serve_file_stream(lwan_request_t *request, void *data)
         path = "index.html";
     }
 
-    if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
-        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-        goto end_no_close;
-    }
+    if (request->method == HTTP_HEAD) {
+        /* No need to open the file if we're just interested in its metadata */
+        if (UNLIKELY(fstatat(priv->root_fd, path, &st, 0) < 0)) {
+            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+            goto end_no_close;
+        }
+    } else {
+        if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
+            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+            goto end_no_close;
+        }
 
-    if (UNLIKELY(fstat(file_fd, &st) < 0)) {
-        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-        goto end;
+        if (UNLIKELY(fstat(file_fd, &st) < 0)) {
+            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+            goto end;
+        }
     }
 
     if (S_ISDIR(st.st_mode)) {
@@ -152,7 +160,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
             return_status = HTTP_INTERNAL_ERROR;
         } else
             return_status = HTTP_OK;
-        goto end;
+        goto end_no_close;
     }
 
     lwan_request_set_corked(request, true);
