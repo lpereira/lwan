@@ -62,7 +62,7 @@ _identify_http_method(lwan_request_t *request, char *buffer)
 static ALWAYS_INLINE char
 _decode_hex_digit(char ch)
 {
-    return (ch <= '9') ? ch - '0' : 10 + (ch | 0x20) - 'a';
+    return (ch <= '9') ? ch - '0' : (ch & 7) + 9;
 }
 
 static ALWAYS_INLINE bool
