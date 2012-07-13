@@ -75,8 +75,8 @@ error:
 static ALWAYS_INLINE ssize_t
 _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
-    size_t total_bytes_written = 0;
-    bool should_continue;
+    size_t total_written = 0;
+    ssize_t written;
 
     if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
         perror("lseek");
@@ -84,16 +84,16 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
     }
 
     do {
-        ssize_t written = sendfile(out_fd, in_fd, NULL, buffer_size);
-        if (UNLIKELY(written < 0))
-            break;
-
-        total_bytes_written += written;
-        if ((should_continue = total_bytes_written < count))
+        written = sendfile(out_fd, in_fd, NULL, count - total_written);
+        if (written < 0) {
+            if (UNLIKELY(errno != EAGAIN))
+                break;
             coro_yield(coro, 1);
-    } while (should_continue);
+        } else
+            total_written += written;
+    } while (count > total_written);
 
-    return total_bytes_written;
+    return total_written;
 }
 #endif
 
