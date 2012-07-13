@@ -95,6 +95,26 @@ serve_files_shutdown(void *data)
     free(priv);
 }
 
+static ALWAYS_INLINE bool
+_rfc_time(time_t t, char buffer[32])
+{
+    time_t tt;
+    if (t <= 3600 * 24 * 31)
+        tt = time(0) + t;
+    else
+        tt = t;
+    return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
+}
+
+#define ADD_DATE_HEADER(d,b,n) \
+        do { \
+            if (LIKELY(_rfc_time((d), (b)))) { \
+                hdr->key = (n); \
+                hdr->value = (b); \
+                ++hdr; \
+            } \
+        } while(0)
+
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
@@ -148,7 +168,18 @@ _serve_file_stream(lwan_request_t *request, void *data)
         return _serve_file_stream(request, index_file);
     }
 
+    lwan_key_value_t date_headers[4], *hdr = date_headers;
+    char last_modified_buf[32], date_buf[32], expires_buf[32];
+    ADD_DATE_HEADER(st.st_mtime, last_modified_buf, "Last-Modified");
+    ADD_DATE_HEADER(0, date_buf, "Date");
+    ADD_DATE_HEADER(3600 * 24 * 7, expires_buf, "Expires");
+    if (LIKELY(date_headers != hdr)) {
+        hdr->key = hdr->value = NULL;
+        request->response.headers = date_headers;
+    }
+
     request->response.content_length = st.st_size;
+
     header_len = lwan_prepare_response_header(request, HTTP_OK, headers);
     if (!header_len) {
         return_status = HTTP_INTERNAL_ERROR;
@@ -187,6 +218,8 @@ end_no_close:
 
     return return_status;
 }
+
+#undef ADD_DATE_HEADER
 
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
