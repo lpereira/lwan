@@ -31,6 +31,7 @@
 
 #include "lwan.h"
 #include "lwan-sendfile.h"
+#include "realpathat.h"
 
 static void *serve_files_init(void *args);
 static void serve_files_shutdown(void *data);
@@ -181,7 +182,8 @@ end_corked:
 end:
     close(file_fd);
 end_no_close:
-    free(data);
+    if (data != priv->root_path)
+        free(data);
 
     return return_status;
 }
@@ -190,7 +192,6 @@ static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
     lwan_http_status_t return_status = HTTP_OK;
-    char *path_to_canonicalize;
     char *canonical_path;
     struct serve_files_priv_t *priv = data;
 
@@ -199,14 +200,12 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    if (UNLIKELY(asprintf(&path_to_canonicalize, "%s/%s",
-                 priv->root_path, request->url.value) < 0)) {
-        return_status = HTTP_INTERNAL_ERROR;
-        goto fail;
+    if (!*request->url.value) {
+        canonical_path = priv->root_path;
+        goto serve;
     }
 
-    canonical_path = realpath(path_to_canonicalize, NULL);
-    free(path_to_canonicalize);
+    canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);
     if (!canonical_path) {
         switch (errno) {
         case EACCES:
@@ -227,6 +226,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
+serve:
     response->mime_type = (char*)lwan_determine_mime_type_for_file_name(canonical_path);
     response->stream_content.callback = _serve_file_stream;
     response->stream_content.data = canonical_path;
