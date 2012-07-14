@@ -132,9 +132,9 @@ _coro_swapcontext(ucontext_t *current, ucontext_t *other)
 static void
 _coro_entry_point(uint32_t part0, uint32_t part1)
 {
-    union ptr_splitter p;
-    p.part[0] = part0;
-    p.part[1] = part1;
+    union ptr_splitter p = {
+        .part = { part0, part1 }
+    };
     coro_t *coro = p.ptr;
     int return_value = coro->function(coro);
     coro->state = CORO_FINISHED;
@@ -172,8 +172,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->context.uc_link = NULL;
 
 #ifdef __x86_64__
-    union ptr_splitter p;
-    p.ptr = coro;
+    union ptr_splitter p = { .ptr = coro };
     makecontext(&coro->context, (void (*)())_coro_entry_point, 2, p.part[0], p.part[1]);
 #else
     makecontext(&coro->context, (void (*)())_coro_entry_point, 1, coro);
