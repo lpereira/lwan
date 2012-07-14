@@ -90,12 +90,12 @@ typedef enum {
 } lwan_http_version_t;
 
 enum {
-    EXT_JPG = MULTICHAR_CONSTANT('.','j','p','g'),
-    EXT_PNG = MULTICHAR_CONSTANT('.','p','n','g'),
-    EXT_HTM = MULTICHAR_CONSTANT('.','h','t','m'),
-    EXT_CSS = MULTICHAR_CONSTANT('.','c','s','s'),
-    EXT_TXT = MULTICHAR_CONSTANT('.','t','x','t'),
-    EXT_JS  = MULTICHAR_CONSTANT('.','j','s',0),
+    EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
+    EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
+    EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
+    EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
+    EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
+    EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
 } lwan_mime_ext_t;
 
 enum {

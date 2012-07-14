@@ -47,7 +47,7 @@ lwan_determine_mime_type_for_file_name(char *file_name)
     if (UNLIKELY(!last_dot))
         goto fallback;
 
-    STRING_SWITCH(last_dot) {
+    STRING_SWITCH_L(last_dot) {
     case EXT_CSS: return "text/css";
     case EXT_HTM: return "text/html";
     case EXT_JPG: return "image/jpeg";
