@@ -161,7 +161,8 @@ _serve_file_stream(lwan_request_t *request, void *data)
             goto end;
         }
 
-        close(file_fd);
+        if (request->method != HTTP_HEAD)
+            close(file_fd);
         free(data);
 
         request->response.mime_type = "text/html";
