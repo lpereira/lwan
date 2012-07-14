@@ -217,7 +217,6 @@ bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
-void lwan_request_set_corked(lwan_request_t *request, bool setting);
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 bool lwan_process_request(lwan_request_t *request);
 void lwan_shutdown(lwan_t *l);

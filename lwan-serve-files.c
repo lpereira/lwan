@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sendfile.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -203,12 +204,9 @@ _serve_file_stream(lwan_request_t *request, void *data)
         goto end;
     }
 
-    lwan_request_set_corked(request, true);
-
-    if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+    if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
         perror("write");
         return_status = HTTP_INTERNAL_ERROR;
-        goto end_corked;
     }
 
     if (UNLIKELY(lwan_sendfile(request, file_fd, 0, st.st_size) < 0))
@@ -216,8 +214,6 @@ _serve_file_stream(lwan_request_t *request, void *data)
     else
         return_status = HTTP_OK;
 
-end_corked:
-    lwan_request_set_corked(request, false);
 end:
     close(file_fd);
 end_no_close:
