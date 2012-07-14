@@ -228,7 +228,7 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
 
-        STRING_SWITCH(p) {
+        STRING_SWITCH_L(p) {
         CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
             request->header.connection = (*value | 0x20);
             break;

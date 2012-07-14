@@ -40,7 +40,10 @@
 #  error A PDP? Seriously?
 #endif
 
+#define MULTICHAR_CONSTANT_L(a,b,c,d) (MULTICHAR_CONSTANT(a,b,c,d) | 0x20202020)
+
 #define STRING_SWITCH(s) switch (*((int32_t *)(s)))
+#define STRING_SWITCH_L(s) switch (*((int32_t *)(s)) | 0x20202020)
 
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
@@ -101,12 +104,12 @@ enum {
 } lwan_http_method_str_t;
 
 enum {
-    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT('C','o','n','n'),
-    HTTP_HDR_HOST              = MULTICHAR_CONSTANT('H','o','s','t'),
-    HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT('C','o','o','k'),
-    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT('R','a','n','g'),
-    HTTP_HDR_REFERER           = MULTICHAR_CONSTANT('R','e','f','e'),
-    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','M')
+    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
+    HTTP_HDR_HOST              = MULTICHAR_CONSTANT_L('H','o','s','t'),
+    HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k'),
+    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
+    HTTP_HDR_REFERER           = MULTICHAR_CONSTANT_L('R','e','f','e'),
+    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M')
 } lwan_http_header_str_t;
 
 struct lwan_key_value_t_ {
