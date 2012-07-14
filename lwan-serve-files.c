@@ -180,19 +180,26 @@ _serve_file_stream(lwan_request_t *request, void *data)
 
     request->response.content_length = st.st_size;
 
-    header_len = lwan_prepare_response_header(request, HTTP_OK, headers);
+    if (request->header.if_modified_since && st.st_mtime <= request->header.if_modified_since)
+        return_status = HTTP_NOT_MODIFIED;
+    else
+        return_status = HTTP_OK;
+
+    header_len = lwan_prepare_response_header(request, return_status, headers);
     if (!header_len) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }
 
-    if (request->method == HTTP_HEAD) {
+    if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
             perror("write");
             return_status = HTTP_INTERNAL_ERROR;
         } else
             return_status = HTTP_OK;
-        goto end_no_close;
+        if (request->method == HTTP_HEAD)
+            goto end_no_close;
+        goto end;
     }
 
     lwan_request_set_corked(request, true);

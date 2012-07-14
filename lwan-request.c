@@ -236,7 +236,15 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
             /* Virtual hosts are not supported yet; ignore */
             break;
         CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
-            /* Ignore */
+            {
+                struct tm t;
+                char *processed = strptime(value, "%a, %d %b %Y %H:%M:%S GMT", &t);
+                if (UNLIKELY(!processed))
+                    goto did_not_match;
+                if (UNLIKELY(*processed))
+                    goto did_not_match;
+                request->header.if_modified_since = timegm(&t);
+            }
             break;
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             /* Ignore */

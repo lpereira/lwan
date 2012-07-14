@@ -67,6 +67,7 @@ typedef struct lwan_handler_t_		lwan_handler_t;
 
 typedef enum {
     HTTP_OK = 200,
+    HTTP_NOT_MODIFIED = 304,
     HTTP_BAD_REQUEST = 400,
     HTTP_NOT_FOUND = 404,
     HTTP_FORBIDDEN = 403,
@@ -105,7 +106,7 @@ enum {
     HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT('C','o','o','k'),
     HTTP_HDR_RANGE             = MULTICHAR_CONSTANT('R','a','n','g'),
     HTTP_HDR_REFERER           = MULTICHAR_CONSTANT('R','e','f','e'),
-    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','m')
+    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT('I','f','-','M')
 } lwan_http_header_str_t;
 
 struct lwan_key_value_t_ {
@@ -149,6 +150,7 @@ struct lwan_request_t_ {
 
     struct {
         char connection;
+        time_t if_modified_since;
     } header;
 
     struct {
