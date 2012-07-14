@@ -39,11 +39,11 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 
         callback_status = request->response.stream_content.callback(request,
                     request->response.stream_content.data);
+        /* Reset it after it has been called to avoid eternal recursion on errors */
+        request->response.stream_content.callback = NULL;
 
         if (callback_status == HTTP_OK)
             return true;
-
-        request->response.stream_content.callback = NULL;
         return !lwan_default_response(request, callback_status);
     }
 
