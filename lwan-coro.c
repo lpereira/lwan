@@ -70,13 +70,13 @@ struct coro_t_ {
 };
 
 /*
- * These swapcontext() implementations were obtained from glibc and
- * modified slightly to not save/restore the floating point registers
- * and signal mask. They're Copyright (C) 2001, 2002, 2003 Free Software
+ * These swapcontext()/getcontext() implementations were obtained from glibc
+ * and modified slightly to not save/restore the floating point registers
+ * and signal mask.  They're Copyright (C) 2001, 2002, 2003 Free Software
  * Foundation, Inc and are distributed under GNU LGPL version 2.1 (or
- * later). I'm not sure if I can distribute them inside a GPL program;
- * they're straightforward so I'm assuming there won't be any problem;
- * if there is, I'll just roll my own.
+ * later).  I'm not sure if I can distribute them inside a GPL program;
+ * they're straightforward so I'm assuming there won't be any problem; if
+ * there is, I'll just roll my own.
  *     -- Leandro
  */
 void _coro_swapcontext(ucontext_t *current, ucontext_t *other);
@@ -128,6 +128,41 @@ _coro_swapcontext(ucontext_t *current, ucontext_t *other)
 }
 #endif
 
+int _coro_getcontext(ucontext_t *current);
+#ifdef __x86_64__
+    asm(
+    ".text\n\t"
+    ".p2align 4,,15\n\t"
+    ".globl _coro_getcontext\n\t"
+    ".globl __coro_getcontext\n\t"
+    "_coro_getcontext:\n\t"
+    "__coro_getcontext:\n\t"
+    "mov    %rbx,0x80(%rdi)\n\t"
+    "mov    %rbp,0x78(%rdi)\n\t"
+    "mov    %r12,0x48(%rdi)\n\t"
+    "mov    %r13,0x50(%rdi)\n\t"
+    "mov    %r14,0x58(%rdi)\n\t"
+    "mov    %r15,0x60(%rdi)\n\t"
+    "mov    %rdi,0x68(%rdi)\n\t"
+    "mov    %rsi,0x70(%rdi)\n\t"
+    "mov    %rdx,0x88(%rdi)\n\t"
+    "mov    %rcx,0x98(%rdi)\n\t"
+    "mov    %r8,0x28(%rdi)\n\t"
+    "mov    %r9,0x30(%rdi)\n\t"
+    "mov    (%rsp),%rcx\n\t"
+    "mov    %rcx,0xa8(%rdi)\n\t"
+    "lea    0x8(%rsp),%rcx\n\t"
+    "mov    %rcx,0xa0(%rdi)\n\t"
+    "xor    %eax,%eax\n\t"
+    "retq\n\t");
+#else
+ALWAYS_INLINE int
+_coro_getcontext(ucontext_t *current);
+{
+    return getcontext(current);
+}
+#endif
+
 #ifdef __x86_64__
 static void
 _coro_entry_point(uint32_t part0, uint32_t part1)
@@ -165,7 +200,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->data = data;
     coro->defer = NULL;
 
-    getcontext(&coro->context);
+    _coro_getcontext(&coro->context);
     coro->context.uc_stack.ss_sp = coro->stack;
     coro->context.uc_stack.ss_size = stack_size;
     coro->context.uc_stack.ss_flags = 0;
