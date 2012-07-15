@@ -300,7 +300,7 @@ _thread(void *data)
 
                 request->fd = events[i].data.fd;
 
-                if (events[i].events & (EPOLLRDHUP | EPOLLHUP)) {
+                if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
                     _handle_hangup(epoll_fd, &events[i], request);
                     continue;
                 }
@@ -313,7 +313,7 @@ _thread(void *data)
                  * If the response handler is a coroutine, consider the request as a
                  * keep-alive one.
                  */
-                if (request->flags.is_keep_alive || request->flags.should_resume_coro) {
+                if (LIKELY(request->flags.is_keep_alive || request->flags.should_resume_coro)) {
                     /*
                      * Update the time to die. This might overflow in ~136 years,
                      * so plan ahead.

@@ -222,7 +222,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     }
 
     canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);
-    if (!canonical_path) {
+    if (UNLIKELY(!canonical_path)) {
         switch (errno) {
         case EACCES:
             return_status = HTTP_FORBIDDEN;
@@ -236,7 +236,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    if (strncmp(canonical_path, priv->root_path, priv->root_path_len)) {
+    if (UNLIKELY(strncmp(canonical_path, priv->root_path, priv->root_path_len))) {
         free(canonical_path);
         return_status = HTTP_FORBIDDEN;
         goto fail;
