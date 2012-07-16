@@ -29,10 +29,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
 
-    if (UNLIKELY(!request->response.mime_type)) {
-        lwan_default_response(request, status);
-        return false;
-    }
+    if (UNLIKELY(!request->response.mime_type))
+        return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
     if (request->response.stream_content.callback) {
         lwan_http_status_t callback_status;
