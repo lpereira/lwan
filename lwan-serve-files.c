@@ -158,12 +158,10 @@ _serve_file_stream(lwan_request_t *request, void *data)
     struct serve_files_priv_t *priv = request->response.stream_content.priv;
     char *path;
 
-    if (data != priv->root_path) {
+    if (data != priv->root_path)
         path = (char *)data + priv->root_path_len + 1;
-    } else {
-        request->response.mime_type = "text/html";
+    else
         path = "index.html";
-    }
 
     if (UNLIKELY(fstatat(priv->root_fd, path, &st, 0) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
@@ -234,6 +232,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
 
     if (!request->url.len) {
         canonical_path = priv->root_path;
+        response->mime_type = "text/html";
         goto serve;
     }
 
@@ -258,8 +257,8 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-serve:
     response->mime_type = (char*)lwan_determine_mime_type_for_file_name(request->url.value);
+serve:
     response->stream_content.callback = _serve_file_stream;
     response->stream_content.data = canonical_path;
     response->stream_content.priv = priv;
