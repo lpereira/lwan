@@ -216,7 +216,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    if (request->url.len == 1) { /* When length = 1, path is guaranteed to be '/' */
+    if (!request->url.len) {
         canonical_path = priv->root_path;
         goto serve;
     }

@@ -334,6 +334,7 @@ lwan_process_request(lwan_request_t *request)
 
     if ((url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie, request->url.value))) {
         request->url.value += url_map->prefix_len;
+        request->url.len -= url_map->prefix_len;
         return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
     }
 
