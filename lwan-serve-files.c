@@ -67,29 +67,32 @@ serve_files_init(void *args)
     canonical_root = realpath(root_path, NULL);
     if (!canonical_root) {
         perror("serve_files_init");
-        return false;
+        goto out_realpath;
     }
 
     root_fd = open(canonical_root, O_RDONLY | O_NOATIME);
     if (root_fd < 0) {
-        free(canonical_root);
-
         perror("serve_files_init");
-        return NULL;
+        goto out_open;
     }
 
     priv = malloc(sizeof(*priv));
     if (!priv) {
-        free(canonical_root);
-        close(root_fd);
         perror("serve_files_init");
-        return NULL;
+        goto out_malloc;
     }
 
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
     return priv;
+
+out_malloc:
+    close(root_fd);
+out_open:
+    free(canonical_root);
+out_realpath:
+    return NULL;
 }
 
 static void
