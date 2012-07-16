@@ -46,11 +46,11 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     }
 
     size_t header_len = lwan_prepare_response_header(request, status, headers);
-    if (!header_len)
+    if (UNLIKELY(!header_len))
         return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
     if (request->method == HTTP_HEAD) {
-        if (write(request->fd, headers, header_len) < 0) {
+        if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
             perror("write");
             return false;
         }
