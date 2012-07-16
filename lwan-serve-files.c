@@ -147,13 +147,6 @@ _prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
 
 #undef ADD_DATE_HEADER
 
-#define CLEANUP(http_code) \
-    do { \
-        return_status = http_code; \
-        goto end; \
-    } while (0)
-
-
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
@@ -163,31 +156,36 @@ _serve_file_stream(lwan_request_t *request, void *data)
     struct stat st;
     size_t header_len;
     struct serve_files_priv_t *priv = request->response.stream_content.priv;
-    char *path = (char *)data + priv->root_path_len;
+    char *path;
 
-    if (*path) /* Non-empty path: skip first '/' so that openat() works as expected */
-        ++path;
-    else {
-        /* Empty path: try serving up index.html by default */
+    if (data != priv->root_path) {
+        path = (char *)data + priv->root_path_len + 1;
+    } else {
         request->response.mime_type = "text/html";
         path = "index.html";
     }
 
-    if (UNLIKELY(fstatat(priv->root_fd, path, &st, 0) < 0))
-        CLEANUP((errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND);
+    if (UNLIKELY(fstatat(priv->root_fd, path, &st, 0) < 0)) {
+        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+        goto end;
+    }
 
-    if (_client_has_fresh_content(request, st.st_mtime))
+    if (_client_has_fresh_content(request, st.st_mtime)) {
         return_status = HTTP_NOT_MODIFIED;
-    else if (request->method != HTTP_HEAD) {
-        if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0))
-            CLEANUP((errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND);
+    } else if (request->method != HTTP_HEAD) {
+        if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
+            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+            goto end;
+        }
     }
 
     if (S_ISDIR(st.st_mode)) {
         char *index_file;
 
-        if (asprintf(&index_file, "%s/index.html", (char *)data) < 0)
-            CLEANUP(HTTP_INTERNAL_ERROR);
+        if (asprintf(&index_file, "%s/index.html", (char *)data) < 0) {
+            return_status = HTTP_INTERNAL_ERROR;
+            goto end;
+        }
 
         free(data);
         close(file_fd);
@@ -196,12 +194,16 @@ _serve_file_stream(lwan_request_t *request, void *data)
         return _serve_file_stream(request, index_file);
     }
 
-    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers))))
-        CLEANUP(HTTP_INTERNAL_ERROR);
+    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers)))) {
+        return_status = HTTP_INTERNAL_ERROR;
+        goto end;
+    }
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
-            CLEANUP(HTTP_INTERNAL_ERROR);
+        if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+            return_status = HTTP_INTERNAL_ERROR;
+            goto end;
+        }
     } else {
         if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
             return_status = HTTP_INTERNAL_ERROR;
@@ -217,8 +219,6 @@ end:
 
     return return_status;
 }
-
-#undef CLEANUP
 
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
