@@ -34,6 +34,12 @@
 #include "lwan-sendfile.h"
 #include "realpathat.h"
 
+#define NOW 0
+#define ONE_HOUR 3600
+#define ONE_DAY (ONE_HOUR * 24)
+#define ONE_WEEK (ONE_DAY * 7)
+#define ONE_MONTH (ONE_DAY * 31)
+
 static void *serve_files_init(void *args);
 static void serve_files_shutdown(void *data);
 static lwan_http_status_t serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data);
@@ -99,7 +105,7 @@ serve_files_shutdown(void *data)
 static ALWAYS_INLINE bool
 _rfc_time(time_t t, char buffer[32])
 {
-    time_t tt = (t <= 3600 * 24 * 31) ? time(NULL) + t : t;
+    time_t tt = (t <= ONE_MONTH) ? time(NULL) + t : t;
     return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
 }
 
@@ -118,11 +124,35 @@ _client_has_fresh_content(lwan_request_t *request, time_t mtime)
         } \
     } while(0)
 
+static size_t
+_prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
+                 struct stat *st, char *headers)
+{
+    lwan_key_value_t date_headers[4], *hdr = date_headers;
+    char last_modified_buf[32], date_buf[32], expires_buf[32];
+
+    ADD_DATE_HEADER(st->st_mtime, last_modified_buf, "Last-Modified");
+    ADD_DATE_HEADER(NOW, date_buf, "Date");
+    ADD_DATE_HEADER(ONE_WEEK, expires_buf, "Expires");
+
+    if (LIKELY(date_headers != hdr)) {
+        hdr->key = hdr->value = NULL;
+        request->response.headers = date_headers;
+    }
+
+    request->response.content_length = st->st_size;
+
+    return lwan_prepare_response_header(request, return_status, headers);
+}
+
+#undef ADD_DATE_HEADER
+
 #define CLEANUP(http_code) \
     do { \
         return_status = http_code; \
         goto end; \
     } while (0)
+
 
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
@@ -166,20 +196,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
         return _serve_file_stream(request, index_file);
     }
 
-    lwan_key_value_t date_headers[4], *hdr = date_headers;
-    char last_modified_buf[32], date_buf[32], expires_buf[32];
-    ADD_DATE_HEADER(st.st_mtime, last_modified_buf, "Last-Modified");
-    ADD_DATE_HEADER(0, date_buf, "Date");
-    ADD_DATE_HEADER(3600 * 24 * 7, expires_buf, "Expires");
-    if (LIKELY(date_headers != hdr)) {
-        hdr->key = hdr->value = NULL;
-        request->response.headers = date_headers;
-    }
-
-    request->response.content_length = st.st_size;
-
-    header_len = lwan_prepare_response_header(request, return_status, headers);
-    if (UNLIKELY(!header_len))
+    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers))))
         CLEANUP(HTTP_INTERNAL_ERROR);
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
@@ -201,7 +218,6 @@ end:
     return return_status;
 }
 
-#undef ADD_DATE_HEADER
 #undef CLEANUP
 
 static lwan_http_status_t
