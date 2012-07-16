@@ -121,11 +121,7 @@ void _coro_swapcontext(ucontext_t *current, ucontext_t *other);
     "mov    0x70(%rsi),%rsi\n\t"
     "retq\n\t");
 #else
-ALWAYS_INLINE void
-_coro_swapcontext(ucontext_t *current, ucontext_t *other)
-{
-    swapcontext(current, other);
-}
+#define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
 
 int _coro_getcontext(ucontext_t *current);
@@ -156,11 +152,7 @@ int _coro_getcontext(ucontext_t *current);
     "xor    %eax,%eax\n\t"
     "retq\n\t");
 #else
-ALWAYS_INLINE int
-_coro_getcontext(ucontext_t *current);
-{
-    return getcontext(current);
-}
+#define _coro_getcontext(cur) getcontext(cur)
 #endif
 
 #ifdef __x86_64__
