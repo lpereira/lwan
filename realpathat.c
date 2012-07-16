@@ -37,9 +37,8 @@
 char *
 realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
 {
-    char *rpath, *dest, *extra_buf = NULL;
+    char *rpath, *dest, extra_buf[PATH_MAX];
     const char *start, *end, *rpath_limit;
-    long int path_max;
     int num_links = 0;
     ptrdiff_t dirfdlen;
     char *pathat;
@@ -65,21 +64,14 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
         errno = ENOENT;
         return NULL;
     }
-#ifdef PATH_MAX
-    path_max = PATH_MAX;
-#else
-    path_max = pathconf(name, _PC_PATH_MAX);
-    if (path_max <= 0)
-        path_max = 1024;
-#endif
 
     if (LIKELY(resolved == NULL)) {
-        rpath = malloc(path_max);
+        rpath = malloc(PATH_MAX);
         if (UNLIKELY(rpath == NULL))
             return NULL;
     } else
         rpath = resolved;
-    rpath_limit = rpath + path_max;
+    rpath_limit = rpath + PATH_MAX;
 
     strcpy(rpath, dirfdpath);
     dest = rawmemchr(rpath, '\0');
@@ -124,10 +116,10 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
                 }
 
                 new_size = rpath_limit - rpath;
-                if (end - start + 1 > path_max)
+                if (end - start + 1 > PATH_MAX)
                     new_size += end - start + 1;
                 else
-                    new_size += path_max;
+                    new_size += PATH_MAX;
                 new_rpath = (char *) realloc(rpath, new_size);
                 if (UNLIKELY(new_rpath == NULL))
                     goto error;
@@ -149,7 +141,7 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
                 goto error;
 
             if (UNLIKELY(S_ISLNK(st.st_mode))) {
-                char *buf = alloca(path_max);
+                char buf[PATH_MAX];
                 size_t len;
 
                 if (UNLIKELY(++num_links > MAXSYMLINKS)) {
@@ -157,16 +149,13 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
                     goto error;
                 }
 
-                n = readlinkat(dirfd, pathat, buf, path_max - 1);
+                n = readlinkat(dirfd, pathat, buf, PATH_MAX - 1);
                 if (UNLIKELY(n < 0))
                     goto error;
                 buf[n] = '\0';
 
-                if (!extra_buf)
-                    extra_buf = alloca(path_max);
-
                 len = strlen(end);
-                if (UNLIKELY((long int) (n + len) >= path_max)) {
+                if (UNLIKELY((long int) (n + len) >= PATH_MAX)) {
                     errno = ENAMETOOLONG;
                     goto error;
                 }
