@@ -29,8 +29,10 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[512];
 
+    /* Requests without a MIME Type are errors from handlers that
+       should just be handled by lwan_default_response(). */
     if (UNLIKELY(!request->response.mime_type))
-        return lwan_default_response(request, HTTP_INTERNAL_ERROR);
+        return lwan_default_response(request, status);
 
     if (request->response.stream_content.callback) {
         lwan_http_status_t callback_status;
