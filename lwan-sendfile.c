@@ -78,14 +78,9 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
     size_t total_written = 0;
     ssize_t written;
 
-    if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
-        perror("lseek");
-        return -1;
-    }
-
     ssize_t to_be_written = count - total_written;
     do {
-        written = sendfile(out_fd, in_fd, NULL, to_be_written);
+        written = sendfile(out_fd, in_fd, &offset, to_be_written);
         if (written < 0) {
             if (UNLIKELY(errno != EAGAIN))
                 break;
