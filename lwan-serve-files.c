@@ -132,7 +132,7 @@ _client_has_fresh_content(lwan_request_t *request, time_t mtime)
 
 static size_t
 _prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
-                 struct stat *st, char *headers)
+                 struct stat *st, char *headers, size_t header_buf_size)
 {
     lwan_key_value_t date_headers[4], *hdr = date_headers;
     char last_modified_buf[32], date_buf[32], expires_buf[32];
@@ -148,7 +148,7 @@ _prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
 
     request->response.content_length = st->st_size;
 
-    return lwan_prepare_response_header(request, return_status, headers);
+    return lwan_prepare_response_header(request, return_status, headers, header_buf_size);
 }
 
 #undef ADD_DATE_HEADER
@@ -195,7 +195,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
         }
     }
 
-    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers)))) {
+    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers, sizeof(headers))))) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }

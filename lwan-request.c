@@ -341,30 +341,48 @@ lwan_process_request(lwan_request_t *request)
     return lwan_default_response(request, HTTP_NOT_FOUND);
 }
 
+
+#define RETURN_0_ON_OVERFLOW(len_) \
+    if (p_headers + (len_) >= p_headers_end) return 0
 #define APPEND_STRING_LEN(const_str_,len_) \
-    p_headers = mempcpy(p_headers, (const_str_), (len_))
+    do { \
+        RETURN_0_ON_OVERFLOW(len_); \
+        p_headers = mempcpy(p_headers, (const_str_), (len_)); \
+    } while(0)
 #define APPEND_STRING(str_) \
-    p_headers = mempcpy(p_headers, (str_), strlen(str_))
+    do { \
+        len = strlen(str_); \
+        RETURN_0_ON_OVERFLOW(len); \
+        p_headers = mempcpy(p_headers, (str_), len); \
+    } while(0)
+#define APPEND_CHAR(value_) \
+    do { \
+        RETURN_0_ON_OVERFLOW(1); \
+        *p_headers++ = (value_); \
+    } while(0)
+#define APPEND_CHAR_NOCHECK(value_) \
+    *p_headers++ = (value_)
 #define APPEND_INT8(value_) \
     do { \
-        APPEND_CHAR(((value_) / 100) % 10 + '0'); \
-        APPEND_CHAR(((value_) / 10) % 10 + '0'); \
-        APPEND_CHAR((value_) % 10 + '0'); \
+        RETURN_0_ON_OVERFLOW(3); \
+        APPEND_CHAR_NOCHECK(((value_) / 100) % 10 + '0'); \
+        APPEND_CHAR_NOCHECK(((value_) / 10) % 10 + '0'); \
+        APPEND_CHAR_NOCHECK((value_) % 10 + '0'); \
     } while(0)
 #define APPEND_INT(value_) \
     do { \
         char *tmp = int_to_string((value_), buffer, &len); \
+        RETURN_0_ON_OVERFLOW(len); \
         APPEND_STRING_LEN(tmp, len); \
     } while(0)
-#define APPEND_CHAR(value_) \
-    *p_headers++ = (value_)
 #define APPEND_CONSTANT(const_str_) \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 ALWAYS_INLINE size_t
-lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[])
+lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[], size_t headers_buf_size)
 {
     char *p_headers;
+    char *p_headers_end = headers + headers_buf_size;
     char buffer[32];
     int32_t len;
 

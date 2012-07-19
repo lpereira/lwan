@@ -47,7 +47,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         return !lwan_default_response(request, callback_status);
     }
 
-    size_t header_len = lwan_prepare_response_header(request, status, headers);
+    size_t header_len = lwan_prepare_response_header(request, status, headers, sizeof(headers));
     if (UNLIKELY(!header_len))
         return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
