@@ -100,6 +100,9 @@ serve_files_shutdown(void *data)
 {
     struct serve_files_priv_t *priv = data;
 
+    if (!priv)
+        return;
+
     close(priv->root_fd);
     free(priv->root_path);
     free(priv);
