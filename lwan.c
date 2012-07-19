@@ -260,8 +260,6 @@ _thread(void *data)
             case EBADF:
             case EINVAL:
                 goto epoll_fd_closed;
-            case EINTR:
-                perror("epoll_wait");
             }
             continue;
         case 0: /* timeout: shutdown waiting sockets */
