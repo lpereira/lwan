@@ -174,9 +174,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
         goto end;
     }
 
-    if (_client_has_fresh_content(request, st.st_mtime)) {
-        return_status = HTTP_NOT_MODIFIED;
-    } else if (S_ISDIR(st.st_mode)) {
+    if (S_ISDIR(st.st_mode)) {
         char *index_file;
 
         if (asprintf(&index_file, "%s/index.html", (char *)data) < 0) {
@@ -188,6 +186,8 @@ _serve_file_stream(lwan_request_t *request, void *data)
 
         request->response.mime_type = "text/html";
         return _serve_file_stream(request, index_file);
+    } else if (_client_has_fresh_content(request, st.st_mtime)) {
+        return_status = HTTP_NOT_MODIFIED;
     } else if (request->method != HTTP_HEAD) {
         if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
             return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
