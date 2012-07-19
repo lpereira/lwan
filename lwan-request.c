@@ -347,9 +347,9 @@ lwan_process_request(lwan_request_t *request)
     p_headers = mempcpy(p_headers, (str_), strlen(str_))
 #define APPEND_INT8(value_) \
     do { \
-        APPEND_CHAR("0123456789"[((value_) / 100) % 10]); \
-        APPEND_CHAR("0123456789"[((value_) / 10) % 10]); \
-        APPEND_CHAR("0123456789"[(value_) % 10]); \
+        APPEND_CHAR(((value_) / 100) % 10 + '0'); \
+        APPEND_CHAR(((value_) / 10) % 10 + '0'); \
+        APPEND_CHAR((value_) % 10 + '0'); \
     } while(0)
 #define APPEND_INT(value_) \
     do { \

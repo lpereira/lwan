@@ -33,7 +33,7 @@ int_to_string(int32_t value, char *buf16, int32_t *len)
     char *p = buf16 + 15;
     *p = '\0';
     do {
-        *--p = "0123456789"[value % 10];
+        *--p = '0' + (value % 10);
     } while (value /= 10);
 
     if (negative)
