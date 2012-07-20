@@ -94,8 +94,9 @@ typedef enum {
 typedef enum {
     HANDLER_PARSE_QUERY_STRING = 1<<0,
     HANDLER_PARSE_IF_MODIFIED_SINCE = 1<<1,
+    HANDLER_PARSE_RANGE = 1<<2,
 
-    HANDLER_PARSE_MASK = 1<<0 | 1<<1
+    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2
 } lwan_handler_flags_t;
 
 enum {
@@ -158,11 +159,15 @@ struct lwan_request_t_ {
     struct {
       char *value;
       size_t len;
-    } url, query_string, fragment, if_modified_since;
+    } url, query_string, fragment, if_modified_since, range;
 
     struct {
         char connection;
         time_t if_modified_since;
+        struct {
+          off_t from;
+          off_t to;
+        } range;
     } header;
 
     struct {

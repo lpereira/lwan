@@ -244,7 +244,8 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
             request->if_modified_since.len = length;
             break;
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
-            /* Ignore */
+            request->range.value = value;
+            request->range.len = length;
             break;
         CASE_HEADER(HTTP_HDR_REFERER, "Referer")
             /* Ignore */
@@ -266,7 +267,7 @@ did_not_match:
 static ALWAYS_INLINE void
 _parse_if_modified_since(lwan_request_t *request)
 {
-    if (!request->if_modified_since.len)
+    if (UNLIKELY(!request->if_modified_since.len))
         return;
 
     struct tm t;
@@ -278,6 +279,31 @@ _parse_if_modified_since(lwan_request_t *request)
         return;
 
     request->header.if_modified_since = timegm(&t);
+}
+
+static ALWAYS_INLINE void
+_parse_range(lwan_request_t *request)
+{
+    if (request->range.len <= (sizeof("bytes=") - 1))
+        return;
+
+    char *range = request->range.value;
+    if (UNLIKELY(strncmp(range, "bytes=", sizeof("bytes=") - 1)))
+        return;
+
+    range += sizeof("bytes=") - 1;
+    off_t from, to;
+
+    if (sscanf(range, "%ld-%ld", &from, &to) == 2) {
+        request->header.range.from = from;
+        request->header.range.to = to;
+    } else if (sscanf(range, "-%ld", &to) == 1) {
+        request->header.range.from = 0;
+        request->header.range.to = to;
+    } else if (sscanf(range, "%ld-", &from) == 1) {
+        request->header.range.from = from;
+        request->header.range.to = -1;
+    }
 }
 
 static ALWAYS_INLINE unsigned long
@@ -354,6 +380,8 @@ lwan_process_request(lwan_request_t *request)
             _parse_query_string(request);
         if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
             _parse_if_modified_since(request);
+        if (url_map->flags & HANDLER_PARSE_RANGE)
+            _parse_range(request);
 
         return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
     }

@@ -48,7 +48,7 @@ lwan_handler_t serve_files = {
     .init = serve_files_init,
     .shutdown = serve_files_shutdown,
     .handle = serve_files_handle_cb,
-    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE
+    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE
 };
 
 struct serve_files_priv_t {
@@ -196,16 +196,19 @@ _serve_file_stream(lwan_request_t *request, void *data)
         }
     }
 
+    if (UNLIKELY(!_compute_range(request, &from, &to, &st))) {
+        return_status = HTTP_RANGE_UNSATISFIABLE;
+        goto end;
+    }
+
     if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers, sizeof(headers))))) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
-            goto end;
-        }
     } else {
         if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
             return_status = HTTP_INTERNAL_ERROR;
