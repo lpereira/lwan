@@ -115,6 +115,9 @@ _key_value_compare_qsort_key(const void *a, const void *b)
 static void
 _parse_query_string(lwan_request_t *request)
 {
+    if (!request->query_string.value)
+        return;
+
     char *key = request->query_string.value;
     char *value = NULL;
     char *ch;
@@ -191,7 +194,6 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
         request->query_string.value = query_string + 1;
         request->query_string.len = (fragment ? fragment : space) - query_string - 1;
         request->url.len -= request->query_string.len + 1;
-        _parse_query_string(request);
     }
 
     return end_of_line + 1;
@@ -205,13 +207,14 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
           goto did_not_match; \
         if (UNLIKELY(*p++ != ' '))	/* not the header we're looking for */ \
           goto did_not_match; \
-        if (LIKELY(end = strchr(p, '\r'))) {      /* couldn't find line end */ \
+        if (LIKELY(end = strchr(p, '\r'))) { \
           *end = '\0'; \
           value = p; \
           p = end + 1; \
+          length = end - value - 1; \
           if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
-        } else \
+        } else /* couldn't find line end */ \
           goto did_not_match; \
   } while (0)
 
@@ -224,6 +227,7 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
 
     for (p = buffer; p && *p; buffer = ++p) {
         char *value;
+        size_t length;
 
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
@@ -236,15 +240,8 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
             /* Virtual hosts are not supported yet; ignore */
             break;
         CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
-            {
-                struct tm t;
-                char *processed = strptime(value, "%a, %d %b %Y %H:%M:%S GMT", &t);
-                if (UNLIKELY(!processed))
-                    goto did_not_match;
-                if (UNLIKELY(*processed))
-                    goto did_not_match;
-                request->header.if_modified_since = timegm(&t);
-            }
+            request->if_modified_since.value = value;
+            request->if_modified_since.len = length;
             break;
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             /* Ignore */
@@ -265,6 +262,23 @@ did_not_match:
 
 #undef CASE_HEADER
 #undef MATCH_HEADER
+
+static ALWAYS_INLINE void
+_parse_if_modified_since(lwan_request_t *request)
+{
+    if (!request->if_modified_since.len)
+        return;
+
+    struct tm t;
+    char *processed = strptime(request->if_modified_since.value, "%a, %d %b %Y %H:%M:%S GMT", &t);
+
+    if (UNLIKELY(!processed))
+        return;
+    if (UNLIKELY(*processed))
+        return;
+
+    request->header.if_modified_since = timegm(&t);
+}
 
 static ALWAYS_INLINE unsigned long
 _has_zero_byte(unsigned long n)
@@ -335,6 +349,12 @@ lwan_process_request(lwan_request_t *request)
     if ((url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie, request->url.value))) {
         request->url.value += url_map->prefix_len;
         request->url.len -= url_map->prefix_len;
+
+        if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
+            _parse_query_string(request);
+        if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
+            _parse_if_modified_since(request);
+
         return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
     }
 

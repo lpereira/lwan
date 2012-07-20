@@ -524,10 +524,13 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
         url_map->prefix_len = strlen(url_map->prefix);
         lwan_trie_add(l->url_map_trie, url_map->prefix, url_map);
 
-        if (!handler || !handler->init)
+        if (!handler || !handler->init) {
+            url_map->flags = HANDLER_PARSE_MASK;
             continue;
+        }
         url_map->data = handler->init(url_map->args);
         url_map->callback = handler->handle;
+        url_map->flags = handler->flags;
     }
 }
 

@@ -47,7 +47,8 @@ static lwan_http_status_t serve_files_handle_cb(lwan_request_t *request, lwan_re
 lwan_handler_t serve_files = {
     .init = serve_files_init,
     .shutdown = serve_files_shutdown,
-    .handle = serve_files_handle_cb
+    .handle = serve_files_handle_cb,
+    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE
 };
 
 struct serve_files_priv_t {

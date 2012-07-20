@@ -91,6 +91,13 @@ typedef enum {
     HTTP_1_1
 } lwan_http_version_t;
 
+typedef enum {
+    HANDLER_PARSE_QUERY_STRING = 1<<0,
+    HANDLER_PARSE_IF_MODIFIED_SINCE = 1<<1,
+
+    HANDLER_PARSE_MASK = 1<<0 | 1<<1
+} lwan_handler_flags_t;
+
 enum {
     EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
     EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
@@ -151,7 +158,7 @@ struct lwan_request_t_ {
     struct {
       char *value;
       size_t len;
-    } url, query_string, fragment;
+    } url, query_string, fragment, if_modified_since;
 
     struct {
         char connection;
@@ -170,6 +177,7 @@ struct lwan_handler_t_ {
     void *(*init)(void *args);
     void (*shutdown)(void *data);
     lwan_http_status_t (*handle)(lwan_request_t *request, lwan_response_t *response, void *data);
+    lwan_handler_flags_t flags;
 };
 
 struct lwan_url_map_t_ {
@@ -178,6 +186,8 @@ struct lwan_url_map_t_ {
 
     lwan_handler_t *handler;
     void *args;
+
+    lwan_handler_flags_t flags;
 
     lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
