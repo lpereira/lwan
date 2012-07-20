@@ -404,7 +404,12 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_CONSTANT("\r\nConnection: ");
     APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
         (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
-    if (request->response.headers) {
+
+    /*
+     * Custom headers are not added to Internal Errors so that the responses are
+     * as short as possible.
+     */
+    if (status != HTTP_INTERNAL_ERROR && request->response.headers) {
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {
