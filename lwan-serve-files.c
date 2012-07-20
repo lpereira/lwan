@@ -156,7 +156,7 @@ _prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
-    char headers[512];
+    char headers[DEFAULT_HEADERS_SIZE];
     lwan_http_status_t return_status = HTTP_OK;
     int file_fd;
     struct stat st;

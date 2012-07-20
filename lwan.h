@@ -28,6 +28,8 @@
 #include "lwan-trie.h"
 #include "strbuf.h"
 
+#define DEFAULT_HEADERS_SIZE 512
+
 #define USE_LORENTZ_WATERWHEEL_SCHEDULER 0
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))

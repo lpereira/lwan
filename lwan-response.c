@@ -27,7 +27,7 @@
 bool
 lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
-    char headers[512];
+    char headers[DEFAULT_HEADERS_SIZE];
 
     /* Requests without a MIME Type are errors from handlers that
        should just be handled by lwan_default_response(). */
