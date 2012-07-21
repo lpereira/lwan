@@ -358,7 +358,7 @@ lwan_process_request(lwan_request_t *request)
     request->buffer[bytes_read] = '\0';
 
     p_buffer = _ignore_leading_whitespace(request->buffer);
-    if (!UNLIKELY(*p_buffer))
+    if (UNLIKELY(!*p_buffer))
         return lwan_default_response(request, HTTP_BAD_REQUEST);
 
     p_buffer = _identify_http_method(request, p_buffer);
