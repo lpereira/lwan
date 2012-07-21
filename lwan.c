@@ -71,6 +71,7 @@ lwan_http_status_as_string(lwan_http_status_t status)
     case HTTP_FORBIDDEN: return "Forbidden";
     case HTTP_NOT_ALLOWED: return "Not allowed";
     case HTTP_TOO_LARGE: return "Request too large";
+    case HTTP_RANGE_UNSATISFIABLE: return "Requested range unsatisfiable";
     case HTTP_INTERNAL_ERROR: return "Internal server error";
     }
     return "Invalid";
@@ -87,6 +88,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
     case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";
     case HTTP_TOO_LARGE: return "The request entity is too large.";
+    case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
     case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
     }
     return "Invalid";

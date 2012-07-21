@@ -78,6 +78,7 @@ typedef enum {
     HTTP_FORBIDDEN = 403,
     HTTP_NOT_ALLOWED = 405,
     HTTP_TOO_LARGE = 413,
+    HTTP_RANGE_UNSATISFIABLE = 416,
     HTTP_INTERNAL_ERROR = 500,
 } lwan_http_status_t;
 

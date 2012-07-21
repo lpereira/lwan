@@ -154,16 +154,72 @@ _prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
 
 #undef ADD_DATE_HEADER
 
+static ALWAYS_INLINE bool
+_compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
+{
+    off_t f, t;
+
+    f = request->header.range.from;
+    t = request->header.range.to;
+
+    /*
+     * No Range: header present: both t and f are -1
+     */
+    if (LIKELY(t <= 0 && f <= 0)) {
+        *from = 0;
+        *to = st->st_size;
+        return true;
+    }
+
+    /*
+     * To goes beyond from or To and From are the same: this is unsatisfiable.
+     */
+    if (UNLIKELY(t >= f))
+        return false;
+
+    /*
+     * Range goes beyond the size of the file
+     */
+    if (UNLIKELY(f >= st->st_size || t >= st->st_size))
+        return false;
+
+    /*
+     * t < 0 means ranges from f to the file size
+     */
+    if (t < 0)
+        t = st->st_size - f;
+    else
+        t -= f;
+
+    /*
+     * If for some reason the previous calculations yields something
+     * less than zero, the range is unsatisfiable.
+     */
+    if (UNLIKELY(t <= 0))
+        return false;
+
+    st->st_size = t;
+    *from = f;
+    *to = t;
+
+    return true;
+}
+
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
+    /* GCC seems to disagree with me over file_fd being defined before use.
+       Just in the case that GCC is right, file_fd being initialized to an
+       invalid value will cause sendfile() and close() to fail -- not much
+       of a problem. And it keeps GCC's mouth shut. */
+    int file_fd = -1;
     char headers[DEFAULT_HEADERS_SIZE];
     lwan_http_status_t return_status = HTTP_OK;
-    int file_fd;
     struct stat st;
     size_t header_len;
     struct serve_files_priv_t *priv = request->response.stream_content.priv;
     char *path;
+    off_t from, to;
 
     if (data != priv->root_path)
         path = (char *)data + priv->root_path_len + 1;
@@ -187,7 +243,9 @@ _serve_file_stream(lwan_request_t *request, void *data)
 
         request->response.mime_type = "text/html";
         return _serve_file_stream(request, index_file);
-    } else if (_client_has_fresh_content(request, st.st_mtime)) {
+    }
+
+    if (_client_has_fresh_content(request, st.st_mtime)) {
         return_status = HTTP_NOT_MODIFIED;
     } else if (request->method != HTTP_HEAD) {
         if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
@@ -212,7 +270,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
     } else {
         if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
             return_status = HTTP_INTERNAL_ERROR;
-        else if (UNLIKELY(lwan_sendfile(request, file_fd, 0, st.st_size) < 0))
+        else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
             return_status = HTTP_INTERNAL_ERROR;
 
         close(file_fd);

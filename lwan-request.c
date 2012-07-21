@@ -303,6 +303,9 @@ _parse_range(lwan_request_t *request)
     } else if (sscanf(range, "%ld-", &from) == 1) {
         request->header.range.from = from;
         request->header.range.to = -1;
+    } else {
+        request->header.range.from = -1;
+        request->header.range.to = -1;
     }
 }
 
