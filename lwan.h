@@ -211,9 +211,8 @@ struct lwan_t_ {
     int main_socket;
 
     struct {
-        int port;
-        int keep_alive_timeout;
-        unsigned char enable_linger : 1;
+        short port;
+        short keep_alive_timeout;
     } config;
 
     struct {
