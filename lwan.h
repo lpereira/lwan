@@ -213,8 +213,7 @@ struct lwan_t_ {
     struct {
         int port;
         int keep_alive_timeout;
-        unsigned char enable_thread_affinity : 1,
-                      enable_linger : 1;
+        unsigned char enable_linger : 1;
     } config;
 
     struct {

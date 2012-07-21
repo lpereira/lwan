@@ -387,17 +387,6 @@ _create_thread(lwan_t *l, int thread_n)
         exit(-1);
     }
 
-    if (l->config.enable_thread_affinity) {
-        cpu_set_t cpuset;
-
-        CPU_ZERO(&cpuset);
-        CPU_SET(thread_n, &cpuset);
-        if (pthread_setaffinity_np(thread->id, sizeof(cpu_set_t), &cpuset)) {
-            perror("pthread_setaffinity_np");
-            exit(-1);
-        }
-    }
-
     if (pthread_attr_destroy(&attr)) {
         perror("pthread_attr_destroy");
         exit(-1);
