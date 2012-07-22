@@ -24,4 +24,7 @@
 
 extern lwan_handler_t serve_files;
 
+#define SERVE_FILES(root_directory) \
+  .handler = &serve_files, .args = root_directory
+
 #endif /* __LWAN_SERVE_FILES_H__ */

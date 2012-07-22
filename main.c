@@ -84,7 +84,7 @@ main(void)
         { .prefix = "/hello", .callback = hello_world },
         { .prefix = "/beacon", .callback = gif_beacon },
         { .prefix = "/favicon.ico", .callback = gif_beacon },
-        { .prefix = "/", .handler = &serve_files, .args = "./files_root" },
+        { .prefix = "/", SERVE_FILES("./files_root") },
         { .prefix = NULL }
     };
 
