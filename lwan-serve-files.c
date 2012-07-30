@@ -208,11 +208,6 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
 static lwan_http_status_t
 _serve_file_stream(lwan_request_t *request, void *data)
 {
-    /* GCC seems to disagree with me over file_fd being defined before use.
-       Just in the case that GCC is right, file_fd being initialized to an
-       invalid value will cause sendfile() and close() to fail -- not much
-       of a problem. And it keeps GCC's mouth shut. */
-    int file_fd = -1;
     char headers[DEFAULT_HEADERS_SIZE];
     lwan_http_status_t return_status = HTTP_OK;
     struct stat st;
@@ -245,19 +240,13 @@ _serve_file_stream(lwan_request_t *request, void *data)
         return _serve_file_stream(request, index_file);
     }
 
-    if (_client_has_fresh_content(request, st.st_mtime)) {
-        return_status = HTTP_NOT_MODIFIED;
-    } else if (request->method != HTTP_HEAD) {
-        if (UNLIKELY((file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME)) < 0)) {
-            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-            goto end;
-        }
-    }
-
     if (UNLIKELY(!_compute_range(request, &from, &to, &st))) {
         return_status = HTTP_RANGE_UNSATISFIABLE;
         goto end;
     }
+
+    if (_client_has_fresh_content(request, st.st_mtime))
+        return_status = HTTP_NOT_MODIFIED;
 
     if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers, sizeof(headers))))) {
         return_status = HTTP_INTERNAL_ERROR;
@@ -268,7 +257,11 @@ _serve_file_stream(lwan_request_t *request, void *data)
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
-        if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
+        int file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME);
+
+        if (UNLIKELY(file_fd < 0))
+            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+        else if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
             return_status = HTTP_INTERNAL_ERROR;
         else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
             return_status = HTTP_INTERNAL_ERROR;
