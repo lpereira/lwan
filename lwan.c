@@ -154,7 +154,6 @@ _socket_shutdown(lwan_t *l)
     close(l->main_socket);
 }
 
-
 ALWAYS_INLINE void
 _reset_request(lwan_request_t *request)
 {
@@ -188,12 +187,10 @@ _process_request_coro(coro_t *coro)
 }
 
 static ALWAYS_INLINE void
-_handle_hangup(int epoll_fd, struct epoll_event *event, lwan_request_t *request)
+_handle_hangup(lwan_request_t *request)
 {
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event->data.fd, event) < 0)
-        perror("epoll_ctl");
     request->flags.alive = false;
-    close(event->data.fd);
+    close(request->fd);
 }
 
 static ALWAYS_INLINE void
@@ -300,7 +297,7 @@ _thread(void *data)
                 request->fd = events[i].data.fd;
 
                 if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
-                    _handle_hangup(epoll_fd, &events[i], request);
+                    _handle_hangup(request);
                     continue;
                 }
 
