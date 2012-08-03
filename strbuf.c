@@ -160,7 +160,7 @@ strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
 }
 
 static ALWAYS_INLINE bool
-internal_printf(strbuf_t *s1, bool append, const char *fmt, va_list values)
+internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, char *, size_t), const char *fmt, va_list values)
 {
     char *s2;
     int len;
@@ -168,7 +168,7 @@ internal_printf(strbuf_t *s1, bool append, const char *fmt, va_list values)
     if (UNLIKELY((len = vasprintf(&s2, fmt, values)) < 0))
         return false;
 
-    bool success = (append ? strbuf_append_str : strbuf_set)(s1, s2, len);
+    bool success = save_str(s1, s2, len);
     free(s2);
 
     return success;
@@ -181,7 +181,7 @@ strbuf_printf(strbuf_t *s, const char *fmt, ...)
     va_list values;
 
     va_start(values, fmt);
-    could_printf = internal_printf(s, false, fmt, values);
+    could_printf = internal_printf(s, strbuf_set, fmt, values);
     va_end(values);
 
     return could_printf;
@@ -194,7 +194,7 @@ strbuf_append_printf(strbuf_t *s, const char *fmt, ...)
     va_list values;
 
     va_start(values, fmt);
-    could_printf = internal_printf(s, true, fmt, values);
+    could_printf = internal_printf(s, strbuf_append_str, fmt, values);
     va_end(values);
 
     return could_printf;
