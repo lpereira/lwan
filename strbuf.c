@@ -61,7 +61,7 @@ strbuf_new_with_size(int size)
 {
     strbuf_t *s = calloc(1, sizeof(*s));
 
-    if (!s)
+    if (UNLIKELY(!s))
         return NULL;
 
     if (UNLIKELY(!grow_buffer_if_needed(s, size))) {
@@ -84,7 +84,7 @@ strbuf_new()
 void
 strbuf_free(strbuf_t *s)
 {
-    if (!s)
+    if (UNLIKELY(!s))
         return;
     if (!s->is_static)
         free(s->value.buffer);
