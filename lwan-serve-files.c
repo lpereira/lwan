@@ -311,7 +311,19 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
 
     if (UNLIKELY(strncmp(canonical_path, priv->root_path, priv->root_path_len))) {
         free(canonical_path);
-        return_status = HTTP_FORBIDDEN;
+        /*
+         * The reason a HTTP_NOT_FOUND is yielded here instead of a HTTP_FORBIDDEN
+         * is that yielding HTTP_FORBIDDEN might lead to unwanted information
+         * disclosure with malicious requests. For example, if the request:
+         *     GET /../../../../../../../../../../etc/debian_version HTTP/1.0
+         * Yields a different response from:
+         *     GET /../../../../../../../../../../etc/something_else HTTP/1.0
+         * Then an attacker might know that this system is probably Debian based.
+         *
+         * So just return HTTP_NOT_FOUND here -- which isn't wrong anyway, since
+         * the requested resource is outside the root directory.
+         */
+        return_status = HTTP_NOT_FOUND;
         goto fail;
     }
 
