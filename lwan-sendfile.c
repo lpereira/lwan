@@ -83,7 +83,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
         written = sendfile(out_fd, in_fd, &offset, to_be_written);
         if (written < 0) {
             if (UNLIKELY(errno != EAGAIN))
-                break;
+                return -1;
             coro_yield(coro, 1);
 
             /* Try sending less stuff next time */
