@@ -272,18 +272,14 @@ _thread(void *data)
                     --death_queue_population;
                     death_queue_first %= t->lwan->thread.max_fd;
 
-                    if (request->coro) {
-                        coro_free(request->coro);
-                        request->coro = NULL;
-                    }
+                    _cleanup_coro(request);
 
                     /* A request might have died from a hangup event */
                     if (!request->flags.alive)
                         continue;
 
                     request->flags.alive = false;
-                    if (request->flags.is_keep_alive)
-                        close(request->fd);
+                    close(request->fd);
                 } else {
                     /* Next time. Next time. */
                     break;
@@ -306,38 +302,31 @@ _thread(void *data)
                 _resume_coro_if_needed(request, epoll_fd);
 
                 /*
-                 * If the response handler is a coroutine, consider the request as a
-                 * keep-alive one.
+                 * If the connection isn't keep alive, it might have a
+                 * coroutine that should be resumed.  If that's the case,
+                 * schedule for this request to die according to the keep
+                 * alive timeout.
+                 *
+                 * If it's not a keep alive connection, or the coroutine
+                 * shouldn't be resumed -- then just mark it to be reaped
+                 * right away.
                  */
-                if (LIKELY(request->flags.is_keep_alive || request->flags.should_resume_coro)) {
-                    /*
-                     * Update the time to die. This might overflow in ~136 years,
-                     * so plan ahead.
-                     */
+                if (LIKELY(request->flags.is_keep_alive || request->flags.should_resume_coro))
                     request->time_to_die = death_time + t->lwan->config.keep_alive_timeout;
+                else
+                    request->time_to_die = death_time;
 
-                    /*
-                     * The connection hasn't been added to the keep-alive
-                     * list-to-kill. Do it now and mark it as alive so that
-                     * we know what to do whenever there's activity on its
-                     * socket again. Or not. Mwahahaha.
-                     */
-                    if (!request->flags.alive) {
-                        death_queue[death_queue_last++] = events[i].data.fd;
-                        ++death_queue_population;
-                        death_queue_last %= t->lwan->thread.max_fd;
-                        request->flags.alive = true;
-                    }
-                } else {
-                    /*
-                     * Either the request has a Connection: Close header, or its
-                     * associated coroutine shouldn't be resumed.
-                     */
-                    coro_free(request->coro);
-                    request->coro = NULL;
-                    request->flags.alive = false;
-                    request->flags.should_resume_coro = false;
-                    close(events[i].data.fd);
+                /*
+                 * The connection hasn't been added to the keep-alive and
+                 * resumable coro list-to-kill.  Do it now and mark it as
+                 * alive so that we know what to do whenever there's
+                 * activity on its socket again.  Or not.  Mwahahaha.
+                 */
+                if (!request->flags.alive) {
+                    death_queue[death_queue_last++] = events[i].data.fd;
+                    ++death_queue_population;
+                    death_queue_last %= t->lwan->thread.max_fd;
+                    request->flags.alive = true;
                 }
             }
         }
