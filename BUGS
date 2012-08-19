@@ -1,2 +1,8 @@
 - If a connection is open but no request is made, it will continue to use
   resources until lwan is shut down
+- Assume these url maps:
+	/test
+	/
+  If one request '/tes' -- lwan will 404 because it is a substring of the
+  first map, even though it should try the other one before giving up.
+
