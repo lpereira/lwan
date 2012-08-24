@@ -86,6 +86,9 @@ serve_files_init(void *args)
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
+
+    /* Make sure time stuff has been loaded */
+    (void)gmtime((time_t[]){ time(NULL) });
     return priv;
 
 out_malloc:
