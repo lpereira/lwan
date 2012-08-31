@@ -44,3 +44,8 @@ target_link_libraries(lwan
 	${CMAKE_THREAD_LIBS_INIT}
 	${TCMALLOC_LIBRARY}
 )
+
+add_executable(template
+	template.c
+	strbuf.c
+)
