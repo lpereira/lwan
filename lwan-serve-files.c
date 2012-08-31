@@ -291,6 +291,11 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
+    while (UNLIKELY(*request->url.value == '/' && request->url.len > 0)) {
+        ++request->url.value;
+        --request->url.len;
+    }
+
     if (!request->url.len) {
         canonical_path = priv->root_path;
         response->mime_type = "text/html";
