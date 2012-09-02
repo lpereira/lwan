@@ -128,7 +128,7 @@ _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefi
     }
 
     *prefix_len = (key - orig_key);
-    if (node)
+    if (node && node->leaf)
         return node;
     if (prefix && previous_node)
         return previous_node;
