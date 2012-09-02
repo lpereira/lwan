@@ -80,7 +80,7 @@ _find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
 void
 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
 {
-    if (!trie || !key || !data)
+    if (UNLIKELY(!trie || !key || !data))
         return;
 
     lwan_trie_node_t **knode, *node;
@@ -116,9 +116,6 @@ oom:
 static ALWAYS_INLINE lwan_trie_node_t *
 _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
 {
-    if (!root)
-        return NULL;
-
     lwan_trie_node_t *node, *previous_node = NULL;
     const char *orig_key = key;
 
@@ -139,7 +136,7 @@ _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefi
 ALWAYS_INLINE void *
 lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix)
 {
-    if (!trie)
+    if (UNLIKELY(!trie))
         return NULL;
 
     size_t prefix_len;
