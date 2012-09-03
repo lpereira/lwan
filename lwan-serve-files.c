@@ -262,12 +262,14 @@ _serve_file_stream(lwan_request_t *request, void *data)
     } else {
         int file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME);
 
-        if (UNLIKELY(file_fd < 0))
+        if (UNLIKELY(file_fd < 0)) {
             return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-        else if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
+            goto end;
+        } else if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
-        else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
+        } else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
+        }
 
         close(file_fd);
     }
