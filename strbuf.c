@@ -219,6 +219,7 @@ strbuf_shrink_to(strbuf_t *s, int new_size)
         return true;
 
     int next_power_of_two = find_next_power_of_two(new_size);
+    /* FIXME: What if s->is_static? */
     char *buffer = realloc(s->value.buffer, next_power_of_two + 1);
     if (UNLIKELY(!buffer))
         return false;
