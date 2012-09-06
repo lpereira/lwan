@@ -446,7 +446,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_CHAR(' ');
     APPEND_STRING(lwan_http_status_as_string(status));
     APPEND_CONSTANT("\r\nContent-Length: ");
-    if (request->response.stream_content.callback)
+    if (request->response.stream.callback)
         APPEND_INT(request->response.content_length);
     else
         APPEND_INT(strbuf_get_length(request->response.buffer));

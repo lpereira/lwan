@@ -215,7 +215,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
     lwan_http_status_t return_status = HTTP_OK;
     struct stat st;
     size_t header_len;
-    struct serve_files_priv_t *priv = request->response.stream_content.priv;
+    struct serve_files_priv_t *priv = request->response.stream.priv;
     char *path;
     off_t from, to;
 
@@ -339,13 +339,13 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
 
     response->mime_type = (char*)lwan_determine_mime_type_for_file_name(request->url.value);
 serve:
-    response->stream_content.callback = _serve_file_stream;
-    response->stream_content.data = canonical_path;
-    response->stream_content.priv = priv;
+    response->stream.callback = _serve_file_stream;
+    response->stream.data = canonical_path;
+    response->stream.priv = priv;
 
     return return_status;
 
 fail:
-    response->stream_content.callback = NULL;
+    response->stream.callback = NULL;
     return return_status;
 }

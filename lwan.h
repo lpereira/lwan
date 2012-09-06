@@ -138,7 +138,7 @@ struct lwan_response_t_ {
         lwan_http_status_t (*callback)(lwan_request_t *request, void *data);
         void *data;
         void *priv;
-    } stream_content;
+    } stream;
 };
 
 struct lwan_request_t_ {
