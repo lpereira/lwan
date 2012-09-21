@@ -108,8 +108,10 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf)
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
 
         lwan_tpl_t *included = lwan_tpl_compile(template_file);
-        if (!included)
+        if (!included) {
+            free(chunk);
             return -ENOENT;
+        }
         chunk->action = TPL_ACTION_APPLY_TPL;
         chunk->data = included;
         break;
