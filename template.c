@@ -348,13 +348,13 @@ error:
 #undef PARSE_ERROR
 
 static bool
-until_end(lwan_tpl_chunk_t *chunk, void *data)
+until_end(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
 {
     return chunk->action == TPL_ACTION_LAST;
 }
 
 static bool
-until_not_empty(lwan_tpl_chunk_t *chunk, void *data)
+until_not_empty(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
 {
     return !(chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(data, chunk->data));
 }
@@ -419,6 +419,10 @@ lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
                 strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
                 strbuf_free(tmp);
             }
+            break;
+        case TPL_ACTION_LAST:
+            /* Shouldn't happen */
+            break;
         }
     }
 
@@ -435,7 +439,7 @@ lwan_tpl_apply(lwan_tpl_t *tpl,
 }
 
 static char *
-var_getter(const char *name, void *data)
+var_getter(const char *name, void *data __attribute__((unused)))
 {
     if (!strcmp(name, "empty_test"))
         return strdup("");
