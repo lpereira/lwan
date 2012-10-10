@@ -18,12 +18,14 @@
  */
 
 #define _GNU_SOURCE
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -55,7 +57,94 @@ struct serve_files_priv_t {
     char *root_path;
     size_t root_path_len;
     int root_fd;
+    lwan_trie_t *cache; /* FIXME trie isn't the best structure for this */
 };
+
+struct cache_entry_t {
+    /* TODO compressed contents */
+    void *contents;
+    off_t size;
+    const char *mime_type;
+};
+
+static void
+cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
+{
+    DIR *dir;
+    struct dirent *entry;
+    int fd;
+
+    if (levels > 16)
+        return;
+
+    dir = opendir(root);
+    if (UNLIKELY(!dir))
+        return;
+
+    fd = dirfd(dir);
+    if (UNLIKELY(fd < 0))
+        goto error;
+
+    while ((entry = readdir(dir))) {
+        char full_path[PATH_MAX];
+        struct cache_entry_t *ce;
+        struct stat st;
+        int file_fd;
+
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            continue;
+
+        if (UNLIKELY(fstatat(fd, entry->d_name, &st, 0) < 0))
+            continue;
+
+        snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name);
+        if (S_ISDIR(st.st_mode)) {
+            cache_small_files_recurse(priv, full_path, levels + 1);
+            continue;
+        }
+
+        if (st.st_size > 16384)
+            continue;
+
+        file_fd = openat(fd, entry->d_name, O_RDONLY | O_NOATIME);
+        if (UNLIKELY(file_fd < 0))
+            continue;
+
+        ce = malloc(sizeof(*entry));
+        if (UNLIKELY(!entry))
+            goto close_file;
+
+        ce->contents = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
+        if (UNLIKELY(ce->contents == MAP_FAILED)) {
+            free(ce);
+            goto close_file;
+        }
+
+        if (UNLIKELY(madvise(ce->contents, st.st_size, MADV_WILLNEED) < 0))
+            perror("madvise");
+
+        ce->size = st.st_size;
+        ce->mime_type = lwan_determine_mime_type_for_file_name(entry->d_name);
+
+        lwan_trie_add(priv->cache, full_path + priv->root_path_len, ce);
+
+close_file:
+        close(file_fd);
+    }
+
+error:
+    closedir(dir);
+}
+
+static void
+cache_small_files(struct serve_files_priv_t *priv)
+{
+    priv->cache = lwan_trie_new();
+    if (UNLIKELY(!priv->cache))
+        return;
+
+    cache_small_files_recurse(priv, priv->root_path, 0);
+}
 
 static void *
 serve_files_init(void *args)
@@ -89,6 +178,9 @@ serve_files_init(void *args)
 
     /* Make sure time stuff has been loaded */
     (void)gmtime((time_t[]){ time(NULL) });
+
+    cache_small_files(priv);
+
     return priv;
 
 out_malloc:
@@ -107,6 +199,7 @@ serve_files_shutdown(void *data)
     if (!priv)
         return;
 
+    /* FIXME: Destroy cache */
     close(priv->root_fd);
     free(priv->root_path);
     free(priv);
@@ -287,6 +380,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     lwan_http_status_t return_status = HTTP_OK;
     char *canonical_path;
     struct serve_files_priv_t *priv = data;
+    struct cache_entry_t *cache_entry;
 
     if (UNLIKELY(!priv)) {
         return_status = HTTP_INTERNAL_ERROR;
@@ -302,6 +396,14 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         canonical_path = priv->root_path;
         response->mime_type = "text/html";
         goto serve;
+    }
+
+    cache_entry = lwan_trie_lookup_exact(priv->cache, request->url.value - 1);
+    if (cache_entry) {
+        /* FIXME: Date headers */
+        strbuf_set_static(response->buffer, cache_entry->contents, cache_entry->size);
+        response->mime_type = (char *)cache_entry->mime_type;
+        return HTTP_OK;
     }
 
     canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);
