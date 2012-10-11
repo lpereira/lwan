@@ -262,7 +262,10 @@ serve_files_init(void *args)
     /* Make sure time stuff has been loaded */
     (void)gmtime((time_t[]){ time(NULL) });
 
+    printf("Caching small files in \"%s\": ", canonical_root);
+    fflush(stdout);
     _cache_small_files(priv);
+    printf("done.\n");
 
     return priv;
 
