@@ -8,6 +8,7 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Release")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto")
 endif ()
 
+find_package(ZLIB REQUIRED)
 find_package(Threads)
 find_library(TCMALLOC_LIBRARY NAMES tcmalloc /usr/lib /usr/local/lib)
 if (TCMALLOC_LIBRARY)
@@ -43,6 +44,7 @@ add_executable(lwan
 target_link_libraries(lwan
 	${CMAKE_THREAD_LIBS_INIT}
 	${TCMALLOC_LIBRARY}
+	${ZLIB_LIBRARIES}
 )
 
 add_executable(template

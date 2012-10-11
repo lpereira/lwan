@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <zlib.h>
 
 #include "lwan.h"
 #include "lwan-sendfile.h"
@@ -61,14 +62,85 @@ struct serve_files_priv_t {
 };
 
 struct cache_entry_t {
-    /* TODO compressed contents */
-    void *contents;
-    off_t size;
+    struct {
+        void *contents;
+        off_t size;
+    } compressed, uncompressed;
     const char *mime_type;
 };
 
+static void *
+_my_zalloc(void *opaque __attribute__((unused)), uInt items, uInt size)
+{
+    return malloc(items * size);
+}
+
 static void
-cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
+_my_zfree(void *opaque __attribute__((unused)), void *address)
+{
+    free(address);
+}
+
+static void
+_compress_cached_entry(struct cache_entry_t *ce)
+{
+    z_stream zs = {
+        .zalloc = _my_zalloc,
+        .zfree = _my_zfree,
+        .opaque = Z_NULL,
+        .next_in = Z_NULL
+    };
+    void *tailored = NULL;
+    void *copy;
+
+    copy = malloc(ce->uncompressed.size);
+    if (UNLIKELY(!copy))
+        goto error_zero_out;
+
+    if (UNLIKELY(deflateInit(&zs, 8) != Z_OK))
+        goto error_zero_out_and_free_copy;
+
+    ce->compressed.contents = malloc(ce->uncompressed.size);
+    if (!ce->compressed.contents)
+        goto error;
+
+    memcpy(copy, ce->uncompressed.contents, ce->uncompressed.size);
+    zs.next_in = copy;
+    zs.avail_in = ce->uncompressed.size;
+    zs.next_out = ce->compressed.contents;
+    zs.avail_out = ce->uncompressed.size;
+
+    deflate(&zs, Z_FULL_FLUSH);
+    if (UNLIKELY(zs.msg != NULL))
+        goto error;
+
+    deflateEnd(&zs);
+    if (UNLIKELY(zs.msg != NULL))
+        goto error;
+
+    tailored = realloc(ce->compressed.contents, ce->uncompressed.size - zs.avail_out);
+    if (UNLIKELY(!tailored))
+        goto error;
+
+    ce->compressed.contents = tailored;
+    ce->compressed.size = ce->uncompressed.size - zs.avail_out;
+
+    free(copy);
+
+    return;
+
+error:
+    free(tailored);
+    free(ce->compressed.contents);
+error_zero_out_and_free_copy:
+    free(copy);
+error_zero_out:
+    ce->compressed.contents = NULL;
+    ce->compressed.size = 0;
+}
+
+static void
+_cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
 {
     DIR *dir;
     struct dirent *entry;
@@ -99,7 +171,7 @@ cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int level
 
         snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name);
         if (S_ISDIR(st.st_mode)) {
-            cache_small_files_recurse(priv, full_path, levels + 1);
+            _cache_small_files_recurse(priv, full_path, levels + 1);
             continue;
         }
 
@@ -110,24 +182,25 @@ cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int level
         if (UNLIKELY(file_fd < 0))
             continue;
 
-        ce = malloc(sizeof(*entry));
+        ce = calloc(1, sizeof(*entry));
         if (UNLIKELY(!entry))
             goto close_file;
 
-        ce->contents = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-        if (UNLIKELY(ce->contents == MAP_FAILED)) {
+        ce->uncompressed.contents = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
+        if (UNLIKELY(ce->uncompressed.contents == MAP_FAILED)) {
             free(ce);
             goto close_file;
         }
 
-        if (UNLIKELY(madvise(ce->contents, st.st_size, MADV_WILLNEED) < 0))
+        if (UNLIKELY(madvise(ce->uncompressed.contents, st.st_size, MADV_WILLNEED) < 0))
             perror("madvise");
 
-        ce->size = st.st_size;
+        ce->uncompressed.size = st.st_size;
         ce->mime_type = lwan_determine_mime_type_for_file_name(entry->d_name);
 
-        lwan_trie_add(priv->cache, full_path + priv->root_path_len, ce);
+        _compress_cached_entry(ce);
 
+        lwan_trie_add(priv->cache, full_path + priv->root_path_len, ce);
 close_file:
         close(file_fd);
     }
@@ -137,13 +210,13 @@ error:
 }
 
 static void
-cache_small_files(struct serve_files_priv_t *priv)
+_cache_small_files(struct serve_files_priv_t *priv)
 {
     priv->cache = lwan_trie_new();
     if (UNLIKELY(!priv->cache))
         return;
 
-    cache_small_files_recurse(priv, priv->root_path, 0);
+    _cache_small_files_recurse(priv, priv->root_path, 0);
 }
 
 static void *
@@ -179,7 +252,7 @@ serve_files_init(void *args)
     /* Make sure time stuff has been loaded */
     (void)gmtime((time_t[]){ time(NULL) });
 
-    cache_small_files(priv);
+    _cache_small_files(priv);
 
     return priv;
 
@@ -374,13 +447,42 @@ end:
     return return_status;
 }
 
+static bool
+_serve_cached_file(lwan_trie_t *trie, lwan_request_t *request)
+{
+    struct cache_entry_t *cache_entry;
+    const char *contents;
+    size_t size;
+
+    cache_entry = lwan_trie_lookup_exact(trie, request->url.value - 1);
+    if (!cache_entry)
+        return false;
+
+    request->response.mime_type = (char *)cache_entry->mime_type;
+
+    if (cache_entry->compressed.size) {
+        /*
+         * TODO: check Accept-Encoding header
+         * TODO: send Transfer-Encoding header
+         * TODO: send date headers
+         */
+        contents = cache_entry->compressed.contents;
+        size = cache_entry->compressed.size;
+    } else {
+        contents = cache_entry->uncompressed.contents;
+        size = cache_entry->uncompressed.size;
+    }
+
+    strbuf_set_static(request->response.buffer, contents, size);
+    return true;
+}
+
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
     lwan_http_status_t return_status = HTTP_OK;
     char *canonical_path;
     struct serve_files_priv_t *priv = data;
-    struct cache_entry_t *cache_entry;
 
     if (UNLIKELY(!priv)) {
         return_status = HTTP_INTERNAL_ERROR;
@@ -398,13 +500,8 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto serve;
     }
 
-    cache_entry = lwan_trie_lookup_exact(priv->cache, request->url.value - 1);
-    if (cache_entry) {
-        /* FIXME: Date headers */
-        strbuf_set_static(response->buffer, cache_entry->contents, cache_entry->size);
-        response->mime_type = (char *)cache_entry->mime_type;
+    if (_serve_cached_file(priv->cache, request))
         return HTTP_OK;
-    }
 
     canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);
     if (UNLIKELY(!canonical_path)) {
