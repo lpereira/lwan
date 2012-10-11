@@ -67,7 +67,15 @@ struct cache_entry_t {
         off_t size;
     } compressed, uncompressed;
     const char *mime_type;
+    char last_modified[32];
 };
+
+static ALWAYS_INLINE bool
+_rfc_time(time_t t, char buffer[32])
+{
+    time_t tt = (t <= ONE_MONTH) ? time(NULL) + t : t;
+    return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
+}
 
 static void *
 _my_zalloc(void *opaque __attribute__((unused)), uInt items, uInt size)
@@ -198,6 +206,8 @@ _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int leve
         ce->uncompressed.size = st.st_size;
         ce->mime_type = lwan_determine_mime_type_for_file_name(entry->d_name);
 
+        _rfc_time(st.st_mtime, ce->last_modified);
+
         _compress_cached_entry(ce);
 
         lwan_trie_add(priv->cache, full_path + priv->root_path_len, ce);
@@ -278,12 +288,6 @@ serve_files_shutdown(void *data)
     free(priv);
 }
 
-static ALWAYS_INLINE bool
-_rfc_time(time_t t, char buffer[32])
-{
-    time_t tt = (t <= ONE_MONTH) ? time(NULL) + t : t;
-    return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-}
 
 static ALWAYS_INLINE bool
 _client_has_fresh_content(lwan_request_t *request, time_t mtime)
