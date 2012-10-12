@@ -36,6 +36,7 @@
 #include "lwan.h"
 #include "lwan-sendfile.h"
 #include "realpathat.h"
+#include "hash.h"
 
 #define NOW 0
 #define ONE_HOUR 3600
@@ -58,7 +59,7 @@ struct serve_files_priv_t {
     char *root_path;
     size_t root_path_len;
     int root_fd;
-    lwan_trie_t *cache; /* FIXME trie isn't the best structure for this */
+    struct hash *cache;
 };
 
 struct cache_entry_t {
@@ -148,6 +149,16 @@ error_zero_out:
 }
 
 static void
+_free_cached_entry(void *data)
+{
+    struct cache_entry_t *ce = data;
+
+    munmap(ce->uncompressed.contents, ce->uncompressed.size);
+    free(ce->compressed.contents);
+    free(ce);
+}
+
+static void
 _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
 {
     DIR *dir;
@@ -210,7 +221,7 @@ _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int leve
 
         _compress_cached_entry(ce);
 
-        lwan_trie_add(priv->cache, full_path + priv->root_path_len, ce);
+        hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
 close_file:
         close(file_fd);
     }
@@ -222,7 +233,7 @@ error:
 static void
 _cache_small_files(struct serve_files_priv_t *priv)
 {
-    priv->cache = lwan_trie_new();
+    priv->cache = hash_str_new(256, free, _free_cached_entry);
     if (UNLIKELY(!priv->cache))
         return;
 
@@ -285,12 +296,11 @@ serve_files_shutdown(void *data)
     if (!priv)
         return;
 
-    /* FIXME: Destroy cache */
+    hash_free(priv->cache);
     close(priv->root_fd);
     free(priv->root_path);
     free(priv);
 }
-
 
 static ALWAYS_INLINE bool
 _client_has_fresh_content(lwan_request_t *request, time_t mtime)
@@ -455,13 +465,13 @@ end:
 }
 
 static bool
-_serve_cached_file(lwan_trie_t *trie, lwan_request_t *request)
+_serve_cached_file(struct hash *h, lwan_request_t *request)
 {
     struct cache_entry_t *cache_entry;
     const char *contents;
     size_t size;
 
-    cache_entry = lwan_trie_lookup_exact(trie, request->url.value - 1);
+    cache_entry = hash_find(h, request->url.value);
     if (!cache_entry)
         return false;
 
