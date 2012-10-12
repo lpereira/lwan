@@ -256,7 +256,8 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 	for (; entry < entry_end; entry++) {
 		int c = hash->key_compare(key, entry->key, keylen);
 		if (c == 0) {
-			hash->free_value((void *)entry->value);
+			if (hash->free_value)
+				hash->free_value((void *)entry->value);
 			entry->value = value;
 			return 0;
 		} else if (c < 0) {
