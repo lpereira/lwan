@@ -285,7 +285,13 @@ _cache_small_files(struct serve_files_priv_t *priv)
     if (UNLIKELY(!priv->cache))
         return;
 
+    if (UNLIKELY(pthread_mutex_lock(&priv->cache_mutex) < 0))
+        return;
+
     _cache_small_files_recurse(priv, priv->root_path, 0);
+
+    if (UNLIKELY(pthread_mutex_unlock(&priv->cache_mutex) < 0))
+        perror("pthread_mutex_unlock");
 }
 
 static void *
