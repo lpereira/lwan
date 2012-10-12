@@ -41,7 +41,7 @@ struct hash {
 	unsigned int step;
 	unsigned int n_buckets;
 	unsigned int (*hash_value)(const void *key, unsigned int len);
-	int (*key_compare)(const void *k1, const void *k2);
+	int (*key_compare)(const void *k1, const void *k2, size_t len);
 	int (*entry_compare)(const void *e1, const void *e2);
 	int (*key_length)(const void *key);
 	void (*free_value)(void *value);
@@ -137,7 +137,7 @@ static int hash_int_entry_cmp(const void *pa, const void *pb)
 	return (int)(long)(a->key) - (int)(long)(b->key);
 }
 
-static inline int hash_int_key_cmp(const void *k1, const void *k2)
+static inline int hash_int_key_cmp(const void *k1, const void *k2, size_t len __attribute__((unused)))
 {
 	int a = (int)(long)k1;
 	int b = (int)(long)k2;
@@ -151,7 +151,7 @@ static int hash_int_length(const void *key __attribute__((unused)))
 
 static struct hash *hash_internal_new(unsigned int n_buckets,
 					unsigned int (*hash_value)(const void *key, unsigned int len),
-					int (*key_compare)(const void *k1, const void *k2),
+					int (*key_compare)(const void *k1, const void *k2, size_t len),
 					int (*entry_compare)(const void *e1, const void *e2),
 					int (*key_length)(const void *key),
 					void (*free_key)(void *value),
@@ -195,7 +195,7 @@ struct hash *hash_str_new(unsigned int n_buckets,
 {
 	return hash_internal_new(n_buckets,
 			hash_superfast,
-			(int (*)(const void *, const void *))strcmp,
+			(int (*)(const void *, const void *, size_t))strncmp,
 			hash_str_entry_cmp,
 			(int (*)(const void *))strlen,
 			free_key,
@@ -254,7 +254,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key);
+		int c = hash->key_compare(key, entry->key, keylen);
 		if (c == 0) {
 			hash->free_value((void *)entry->value);
 			entry->value = value;
@@ -295,7 +295,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key);
+		int c = hash->key_compare(key, entry->key, keylen);
 		if (c == 0)
 			return -EEXIST;
 		else if (c < 0) {
@@ -312,22 +312,40 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 	return 0;
 }
 
-void *hash_find(const struct hash *hash, const void *key)
+static inline struct hash_entry *hash_find_entry(const struct hash *hash,
+								const char *key,
+								unsigned int hashval,
+								unsigned int keylen)
 {
-	unsigned int keylen = hash->key_length(key);
-	unsigned int hashval = hash->hash_value(key, keylen);
 	unsigned int pos = hashval % hash->n_buckets;
 	const struct hash_bucket *bucket = hash->buckets + pos;
-	const struct hash_entry se = {
-		.key = key,
-		.value = NULL
-	};
-	const struct hash_entry *entry = bsearch(
-		&se, bucket->entries, bucket->used,
-		sizeof(struct hash_entry), hash->entry_compare);
-	if (entry == NULL)
-		return NULL;
-	return (void *)entry->value;
+	size_t lower_bound = 0;
+	size_t upper_bound = bucket->used;
+
+	while (lower_bound < upper_bound) {
+		size_t idx = (lower_bound + upper_bound) / 2;
+		const struct hash_entry *ptr = bucket->entries + idx;
+		int cmp = hash->key_compare(key, ptr->key, keylen);
+		if (!cmp)
+			return (void *)ptr;
+		if (cmp > 0)
+			lower_bound = idx + 1;
+		else
+			upper_bound = idx;
+	}
+
+	return NULL;
+}
+
+void *hash_find(const struct hash *hash, const void *key)
+{
+	const struct hash_entry *entry;
+	unsigned int keylen = hash->key_length(key);
+
+	entry = hash_find_entry(hash, key, hash->hash_value(key, keylen), keylen);
+	if (entry)
+		return (void *)entry->value;
+	return NULL;
 }
 
 int hash_del(struct hash *hash, const void *key)
@@ -338,13 +356,8 @@ int hash_del(struct hash *hash, const void *key)
 	unsigned int steps_used, steps_total;
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
-	const struct hash_entry se = {
-		.key = key,
-		.value = NULL
-	};
 
-	entry = bsearch(&se, bucket->entries, bucket->used,
-		sizeof(struct hash_entry), hash->entry_compare);
+	entry = hash_find_entry(hash, key, hashval, keylen);
 	if (entry == NULL)
 		return -ENOENT;
 
