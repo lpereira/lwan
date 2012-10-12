@@ -202,6 +202,8 @@ close_file:
     close(file_fd);
 }
 
+static void _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels);
+
 static void
 _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void *data)
 {
@@ -223,7 +225,10 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
             if (UNLIKELY(stat(path, &st) < 0))
                 goto end;
 
-            _cache_one_file(priv, path, st.st_size, st.st_mtime);
+            if (S_ISDIR(st.st_mode))
+                _cache_small_files_recurse(priv, path, 0);
+            else if (st.st_size)
+                _cache_one_file(priv, path, st.st_size, st.st_mtime);
         }
         break;
     case DIR_WATCH_DEL:
