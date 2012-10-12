@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-dir-watch.h"
 
 static jmp_buf cleanup_jmp_buf;
 static lwan_key_value_t empty_query_string_kv[] = {
@@ -450,6 +451,11 @@ lwan_init(lwan_t *l)
 
     _socket_init(l);
     _thread_init(l);
+
+    if (!lwan_dir_watch_init()) {
+        perror("dir_watch_init");
+        exit(-1);
+    }
 }
 
 static void
@@ -474,6 +480,7 @@ lwan_shutdown(lwan_t *l)
     _thread_shutdown(l);
     _socket_shutdown(l);
     _url_map_free(l);
+    lwan_dir_watch_shutdown();
 
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
@@ -559,15 +566,25 @@ lwan_main_loop(lwan_t *l)
     signal(SIGINT, _cleanup);
 
     struct epoll_event events[128];
-    struct epoll_event ev = {
-        .events = EPOLLIN,
-    };
 
     if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0) {
         perror("fcntl: main socket");
         exit(-1);
     }
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &ev) < 0) {
+    struct epoll_event socket_ev = {
+        .events = EPOLLIN,
+        .data.u32 = 0
+    };
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0) {
+        perror("epoll_ctl");
+        exit(-1);
+    }
+
+    struct epoll_event dir_watch_ev = {
+        .events = EPOLLIN,
+        .data.u32 = 1
+    };
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, lwan_dir_watch_get_fd(), &dir_watch_ev) < 0) {
         perror("epoll_ctl");
         exit(-1);
     }
@@ -577,13 +594,17 @@ lwan_main_loop(lwan_t *l)
         for (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
                 n_fds > 0;
                 --n_fds) {
-            int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
-            if (UNLIKELY(child_fd < 0)) {
-                perror("accept");
-                continue;
-            }
+            if (LIKELY(!events[n_fds - 1].data.u32)) {
+                int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+                if (UNLIKELY(child_fd < 0)) {
+                    perror("accept");
+                    continue;
+                }
 
-            _push_request_fd(l, child_fd);
+                _push_request_fd(l, child_fd);
+            } else {
+                lwan_dir_watch_process_events();
+            }
         }
     }
 

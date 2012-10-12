@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +36,7 @@
 
 #include "lwan.h"
 #include "lwan-sendfile.h"
+#include "lwan-dir-watch.h"
 #include "realpathat.h"
 #include "hash.h"
 
@@ -60,6 +62,7 @@ struct serve_files_priv_t {
     size_t root_path_len;
     int root_fd;
     struct hash *cache;
+    pthread_mutex_t cache_mutex;
 };
 
 struct cache_entry_t {
@@ -159,8 +162,84 @@ _free_cached_entry(void *data)
 }
 
 static void
+_cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, time_t mtime)
+{
+    /* Assumes priv->cache_mutex locked */
+    struct cache_entry_t *ce;
+    int file_fd;
+
+    if (size > 16384)
+        return;
+
+    file_fd = open(full_path, O_RDONLY | O_NOATIME);
+    if (UNLIKELY(file_fd < 0))
+        return;
+
+    ce = malloc(sizeof(*ce));
+    if (UNLIKELY(!ce)) {
+        close(file_fd);
+        return;
+    }
+
+    ce->uncompressed.contents = mmap(NULL, size, PROT_READ, MAP_SHARED, file_fd, 0);
+    if (UNLIKELY(ce->uncompressed.contents == MAP_FAILED)) {
+        free(ce);
+        goto close_file;
+    }
+
+    if (UNLIKELY(madvise(ce->uncompressed.contents, size, MADV_WILLNEED) < 0))
+        perror("madvise");
+
+    ce->uncompressed.size = size;
+    ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
+
+    _rfc_time(mtime, ce->last_modified);
+    _compress_cached_entry(ce);
+
+    hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
+
+close_file:
+    close(file_fd);
+}
+
+static void
+_watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void *data)
+{
+    struct serve_files_priv_t *priv = data;
+
+    if (UNLIKELY(pthread_mutex_lock(&priv->cache_mutex) < 0))
+        return;
+
+    switch (event) {
+    case DIR_WATCH_MOD:
+        hash_del(priv->cache, name);
+        /* Fallthrough */
+    case DIR_WATCH_ADD: {
+            char path[PATH_MAX];
+            struct stat st;
+
+            if (UNLIKELY(snprintf(path, PATH_MAX, "%s/%s", root, name) < 0))
+                goto end;
+            if (UNLIKELY(stat(path, &st) < 0))
+                goto end;
+
+            _cache_one_file(priv, path, st.st_size, st.st_mtime);
+        }
+        break;
+    case DIR_WATCH_DEL:
+        hash_del(priv->cache, name);
+        break;
+    }
+
+end:
+    if (UNLIKELY(pthread_mutex_unlock(&priv->cache_mutex) < 0))
+        perror("pthread_mutex_unlock");
+}
+
+static void
 _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
 {
+    /* Assumes priv->cache_mutex locked */
     DIR *dir;
     struct dirent *entry;
     int fd;
@@ -178,9 +257,7 @@ _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int leve
 
     while ((entry = readdir(dir))) {
         char full_path[PATH_MAX];
-        struct cache_entry_t *ce;
         struct stat st;
-        int file_fd;
 
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
@@ -189,42 +266,13 @@ _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int leve
             continue;
 
         snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name);
-        if (S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st.st_mode))
             _cache_small_files_recurse(priv, full_path, levels + 1);
-            continue;
-        }
-
-        if (st.st_size > 16384)
-            continue;
-
-        file_fd = openat(fd, entry->d_name, O_RDONLY | O_NOATIME);
-        if (UNLIKELY(file_fd < 0))
-            continue;
-
-        ce = calloc(1, sizeof(*entry));
-        if (UNLIKELY(!entry))
-            goto close_file;
-
-        ce->uncompressed.contents = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-        if (UNLIKELY(ce->uncompressed.contents == MAP_FAILED)) {
-            free(ce);
-            goto close_file;
-        }
-
-        if (UNLIKELY(madvise(ce->uncompressed.contents, st.st_size, MADV_WILLNEED) < 0))
-            perror("madvise");
-
-        ce->uncompressed.size = st.st_size;
-        ce->mime_type = lwan_determine_mime_type_for_file_name(entry->d_name);
-
-        _rfc_time(st.st_mtime, ce->last_modified);
-
-        _compress_cached_entry(ce);
-
-        hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
-close_file:
-        close(file_fd);
+        else
+            _cache_one_file(priv, full_path, st.st_size, st.st_mtime);
     }
+
+    lwan_dir_watch_add(root, _watched_dir_changed, priv);
 
 error:
     closedir(dir);
@@ -269,6 +317,7 @@ serve_files_init(void *args)
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
+    pthread_mutex_init(&priv->cache_mutex, NULL);
 
     /* Make sure time stuff has been loaded */
     (void)gmtime((time_t[]){ time(NULL) });
@@ -465,19 +514,29 @@ end:
 }
 
 static bool
-_serve_cached_file(struct hash *h, lwan_request_t *request)
+_serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 {
     struct cache_entry_t *cache_entry;
     const char *contents;
     size_t size;
+    bool served;
 
-    cache_entry = hash_find(h, request->url.value);
-    if (!cache_entry)
+    /*
+     * The mutex will be locked while the cache is being updated. To be on
+     * the safe side, just serve the file using regular disk I/O this time.
+     */
+    if (UNLIKELY(pthread_mutex_trylock(&priv->cache_mutex) < 0))
         return false;
+
+    cache_entry = hash_find(priv->cache, request->url.value);
+    if (!cache_entry) {
+        served = false;
+        goto end;
+    }
 
     request->response.mime_type = (char *)cache_entry->mime_type;
 
-    if (cache_entry->compressed.size) {
+    if (LIKELY(cache_entry->compressed.size)) {
         /*
          * TODO: check Accept-Encoding header
          * TODO: send Transfer-Encoding header
@@ -491,7 +550,11 @@ _serve_cached_file(struct hash *h, lwan_request_t *request)
     }
 
     strbuf_set_static(request->response.buffer, contents, size);
-    return true;
+    served = true;
+
+end:
+    pthread_mutex_unlock(&priv->cache_mutex);
+    return served;
 }
 
 static lwan_http_status_t
@@ -517,7 +580,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto serve;
     }
 
-    if (_serve_cached_file(priv->cache, request))
+    if (_serve_cached_file(priv, request))
         return HTTP_OK;
 
     canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);

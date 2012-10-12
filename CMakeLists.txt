@@ -35,6 +35,7 @@ add_executable(lwan
 	lwan-response.c
 	lwan-sendfile.c
 	lwan-serve-files.c
+	lwan-dir-watch.c
 	int-to-str.c
 	lwan-trie.c
 	strbuf.c
