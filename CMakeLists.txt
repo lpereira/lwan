@@ -9,7 +9,7 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Release")
 endif ()
 
 find_package(ZLIB REQUIRED)
-find_package(Threads)
+find_package(Threads REQUIRED)
 find_library(TCMALLOC_LIBRARY NAMES tcmalloc /usr/lib /usr/local/lib)
 if (TCMALLOC_LIBRARY)
 	message(STATUS "TCMalloc found: ${TCMALLOC_LIBRARY}")
