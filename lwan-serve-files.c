@@ -46,6 +46,12 @@
 #define ONE_WEEK (ONE_DAY * 7)
 #define ONE_MONTH (ONE_DAY * 31)
 
+#define SET_NTH_HEADER(number_, key_, value_) \
+    do { \
+        headers[number_].key = (key_); \
+        headers[number_].value = (value_); \
+    } while(0)
+
 static void *serve_files_init(void *args);
 static void serve_files_shutdown(void *data);
 static lwan_http_status_t serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data);
@@ -333,37 +339,27 @@ _client_has_fresh_content(lwan_request_t *request, time_t mtime)
     return request->header.if_modified_since && mtime <= request->header.if_modified_since;
 }
 
-#define ADD_DATE_HEADER(d,b,n) \
-    do { \
-        if (LIKELY(_rfc_time((d), (b)))) { \
-            hdr->key = (n); \
-            hdr->value = (b); \
-            ++hdr; \
-        } \
-    } while(0)
-
 static size_t
-_prepare_headers(lwan_request_t *request, lwan_http_status_t return_status,
-                 struct stat *st, char *headers, size_t header_buf_size)
+_prepare_headers(struct serve_files_priv_t *priv, lwan_request_t *request,
+                 lwan_http_status_t return_status, struct stat *st,
+                 char *header_buf,size_t header_buf_size)
 {
-    lwan_key_value_t date_headers[4], *hdr = date_headers;
-    char last_modified_buf[32], date_buf[32], expires_buf[32];
+    lwan_key_value_t headers[4];
+    char last_modified_buf[32];
 
-    ADD_DATE_HEADER(st->st_mtime, last_modified_buf, "Last-Modified");
-    ADD_DATE_HEADER(NOW, date_buf, "Date");
-    ADD_DATE_HEADER(ONE_WEEK, expires_buf, "Expires");
+    _rfc_time(st->st_mtime, last_modified_buf);
+    _update_date_cache(priv);
 
-    if (LIKELY(date_headers != hdr)) {
-        hdr->key = hdr->value = NULL;
-        request->response.headers = date_headers;
-    }
+    SET_NTH_HEADER(0, "Last-Modified", last_modified_buf);
+    SET_NTH_HEADER(1, "Date", priv->date);
+    SET_NTH_HEADER(2, "Expires", priv->expires);
+    SET_NTH_HEADER(3, NULL, NULL);
 
+    request->response.headers = headers;
     request->response.content_length = st->st_size;
 
-    return lwan_prepare_response_header(request, return_status, headers, header_buf_size);
+    return lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
 }
-
-#undef ADD_DATE_HEADER
 
 static ALWAYS_INLINE bool
 _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
@@ -459,7 +455,8 @@ _serve_file_stream(lwan_request_t *request, void *data)
     if (_client_has_fresh_content(request, st.st_mtime))
         return_status = HTTP_NOT_MODIFIED;
 
-    if (UNLIKELY(!(header_len = _prepare_headers(request, return_status, &st, headers, sizeof(headers))))) {
+    if (UNLIKELY(!(header_len = _prepare_headers(priv, request, return_status,
+                            &st, headers, sizeof(headers))))) {
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }
@@ -489,12 +486,6 @@ end:
     return return_status;
 }
 
-#define HDR(number_, key_, value_) \
-    do { \
-        headers[number_].key = (key_); \
-        headers[number_].value = (value_); \
-    } while(0)
-
 static bool
 _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 {
@@ -522,21 +513,21 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 
     _update_date_cache(priv);
 
-    HDR(0, "Date", priv->date);
-    HDR(1, "Expires", priv->expires);
-    HDR(2, "Last-Modified", cache_entry->last_modified);
+    SET_NTH_HEADER(0, "Date", priv->date);
+    SET_NTH_HEADER(1, "Expires", priv->expires);
+    SET_NTH_HEADER(2, "Last-Modified", cache_entry->last_modified);
 
     if (LIKELY(request->header.accept_encoding.deflate && cache_entry->compressed.size)) {
         contents = cache_entry->compressed.contents;
         size = cache_entry->compressed.size;
 
-        HDR(3, "Content-Encoding", "deflate");
-        HDR(4, NULL, NULL);
+        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
+        SET_NTH_HEADER(4, NULL, NULL);
     } else {
         contents = cache_entry->uncompressed.contents;
         size = cache_entry->uncompressed.size;
 
-        HDR(3, NULL, NULL);
+        SET_NTH_HEADER(3, NULL, NULL);
     }
 
     strbuf_set_static(request->response.buffer, contents, size);
@@ -546,8 +537,6 @@ end:
     pthread_mutex_unlock(&priv->cache_mutex);
     return served;
 }
-
-#undef HDR
 
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
