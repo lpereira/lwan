@@ -85,9 +85,9 @@ struct cache_entry_t {
 };
 
 static ALWAYS_INLINE bool
-_rfc_time(time_t t, char buffer[32])
+_rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
 {
-    time_t tt = (t <= ONE_MONTH) ? time(NULL) + t : t;
+    time_t tt = (t <= ONE_MONTH) ? priv->last_date + t : t;
     return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
 }
 
@@ -151,7 +151,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
     ce->uncompressed.size = size;
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
 
-    _rfc_time(mtime, ce->last_modified);
+    _rfc_time(priv, mtime, ce->last_modified);
     _compress_cached_entry(ce);
 
     hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
@@ -265,9 +265,9 @@ _update_date_cache(struct serve_files_priv_t *priv)
     if (now == priv->last_date)
         return;
 
-    _rfc_time(NOW, priv->date);
-    _rfc_time(ONE_WEEK, priv->expires);
     priv->last_date = now;
+    _rfc_time(priv, NOW, priv->date);
+    _rfc_time(priv, ONE_WEEK, priv->expires);
 }
 
 static void *
@@ -347,8 +347,8 @@ _prepare_headers(struct serve_files_priv_t *priv, lwan_request_t *request,
     lwan_key_value_t headers[4];
     char last_modified_buf[32];
 
-    _rfc_time(st->st_mtime, last_modified_buf);
     _update_date_cache(priv);
+    _rfc_time(priv, st->st_mtime, last_modified_buf);
 
     SET_NTH_HEADER(0, "Last-Modified", last_modified_buf);
     SET_NTH_HEADER(1, "Date", priv->date);
