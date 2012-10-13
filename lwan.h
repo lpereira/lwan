@@ -96,8 +96,9 @@ typedef enum {
     HANDLER_PARSE_QUERY_STRING = 1<<0,
     HANDLER_PARSE_IF_MODIFIED_SINCE = 1<<1,
     HANDLER_PARSE_RANGE = 1<<2,
+    HANDLER_PARSE_ACCEPT_ENCODING = 1<<3,
 
-    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2
+    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3
 } lwan_handler_flags_t;
 
 enum {
@@ -120,7 +121,9 @@ enum {
     HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k'),
     HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
     HTTP_HDR_REFERER           = MULTICHAR_CONSTANT_L('R','e','f','e'),
-    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M')
+    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
+    HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
+    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
 } lwan_http_header_str_t;
 
 struct lwan_key_value_t_ {
@@ -160,7 +163,7 @@ struct lwan_request_t_ {
     struct {
       char *value;
       size_t len;
-    } url, query_string, fragment, if_modified_since, range;
+    } url, query_string, fragment, if_modified_since, range, accept_encoding;
 
     struct {
         char connection;

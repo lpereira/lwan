@@ -203,6 +203,8 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
   do { \
         char *end; \
         p += sizeof(hdr) - 1; \
+        if (p >= buffer_end)            /* reached the end of header blocks */ \
+          goto end; \
         if (UNLIKELY(*p++ != ':'))	/* not the header we're looking for */ \
           goto did_not_match; \
         if (UNLIKELY(*p++ != ' '))	/* not the header we're looking for */ \
@@ -214,11 +216,11 @@ _identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
           length = end - value - 1; \
           if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
-        } else /* couldn't find line end */ \
-          goto did_not_match; \
+        } else goto did_not_match;      /* couldn't find line end */ \
   } while (0)
 
-#define CASE_HEADER(hdr_const,hdr_name) case hdr_const: MATCH_HEADER(hdr_name);
+#define CASE_HEADER(hdr_const,hdr_name) \
+    case hdr_const: MATCH_HEADER(hdr_name);
 
 static ALWAYS_INLINE char *
 _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
@@ -229,6 +231,7 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
         char *value;
         size_t length;
 
+retry:
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
 
@@ -253,11 +256,19 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
         CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
             /* Ignore */
             break;
+        CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
+            request->accept_encoding.value = value;
+            request->accept_encoding.len = length;
+            break;
+        case HTTP_HDR_ACCEPT:
+            p += sizeof("Accept") - 1;
+            goto retry;
         }
 did_not_match:
         p = memchr(p, '\n', buffer_end - p);
     }
 
+end:
     return buffer;
 }
 
@@ -306,6 +317,34 @@ _parse_range(lwan_request_t *request)
     } else {
         request->header.range.from = -1;
         request->header.range.to = -1;
+    }
+}
+
+static ALWAYS_INLINE void
+_parse_accept_encoding(lwan_request_t *request)
+{
+    char *p;
+
+    if (!request->accept_encoding.len)
+        return;
+
+    enum {
+        ENCODING_DEFL1 = MULTICHAR_CONSTANT('d','e','f','l'),
+        ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f')
+    };
+
+    for (p = request->accept_encoding.value; p && *p;) {
+        STRING_SWITCH(p) {
+        case ENCODING_DEFL1:
+        case ENCODING_DEFL2:
+            request->header.accept_encoding.deflate = true;
+            return;
+        }
+
+        if (!(p = strchr(p, ',')))
+            break;
+
+        p++;
     }
 }
 
@@ -385,6 +424,8 @@ lwan_process_request(lwan_request_t *request)
             _parse_if_modified_since(request);
         if (url_map->flags & HANDLER_PARSE_RANGE)
             _parse_range(request);
+        if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
+            _parse_accept_encoding(request);
 
         return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
     }

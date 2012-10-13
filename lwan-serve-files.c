@@ -54,7 +54,7 @@ lwan_handler_t serve_files = {
     .init = serve_files_init,
     .shutdown = serve_files_shutdown,
     .handle = serve_files_handle_cb,
-    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE
+    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
 };
 
 struct serve_files_priv_t {
