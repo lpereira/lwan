@@ -72,7 +72,7 @@ struct serve_files_priv_t {
 struct cache_entry_t {
     struct {
         void *contents;
-        off_t size;
+        unsigned long size;
     } compressed, uncompressed;
     const char *mime_type;
     char last_modified[32];
@@ -85,71 +85,19 @@ _rfc_time(time_t t, char buffer[32])
     return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
 }
 
-static void *
-_my_zalloc(void *opaque __attribute__((unused)), uInt items, uInt size)
-{
-    return malloc(items * size);
-}
-
-static void
-_my_zfree(void *opaque __attribute__((unused)), void *address)
-{
-    free(address);
-}
-
 static void
 _compress_cached_entry(struct cache_entry_t *ce)
 {
-    z_stream zs = {
-        .zalloc = _my_zalloc,
-        .zfree = _my_zfree,
-        .opaque = Z_NULL,
-        .next_in = Z_NULL
-    };
-    void *tailored = NULL;
-    void *copy;
+    ce->compressed.size = compressBound(ce->uncompressed.size);
 
-    copy = malloc(ce->uncompressed.size);
-    if (UNLIKELY(!copy))
+    if (UNLIKELY(!(ce->compressed.contents = malloc(ce->compressed.size))))
         goto error_zero_out;
 
-    if (UNLIKELY(deflateInit(&zs, 8) != Z_OK))
-        goto error_zero_out_and_free_copy;
+    if (LIKELY(compress(ce->compressed.contents, &ce->compressed.size,
+                        ce->uncompressed.contents, ce->uncompressed.size) == Z_OK))
+        return;
 
-    ce->compressed.contents = malloc(ce->uncompressed.size);
-    if (!ce->compressed.contents)
-        goto error;
-
-    memcpy(copy, ce->uncompressed.contents, ce->uncompressed.size);
-    zs.next_in = copy;
-    zs.avail_in = ce->uncompressed.size;
-    zs.next_out = ce->compressed.contents;
-    zs.avail_out = ce->uncompressed.size;
-
-    deflate(&zs, Z_FULL_FLUSH);
-    if (UNLIKELY(zs.msg != NULL))
-        goto error;
-
-    deflateEnd(&zs);
-    if (UNLIKELY(zs.msg != NULL))
-        goto error;
-
-    tailored = realloc(ce->compressed.contents, ce->uncompressed.size - zs.avail_out);
-    if (UNLIKELY(!tailored))
-        goto error;
-
-    ce->compressed.contents = tailored;
-    ce->compressed.size = ce->uncompressed.size - zs.avail_out;
-
-    free(copy);
-
-    return;
-
-error:
-    free(tailored);
     free(ce->compressed.contents);
-error_zero_out_and_free_copy:
-    free(copy);
 error_zero_out:
     ce->compressed.contents = NULL;
     ce->compressed.size = 0;
@@ -578,7 +526,7 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
     HDR(1, "Expires", priv->expires);
     HDR(2, "Last-Modified", cache_entry->last_modified);
 
-    if (request->header.accept_encoding.deflate && LIKELY(cache_entry->compressed.size)) {
+    if (LIKELY(request->header.accept_encoding.deflate && cache_entry->compressed.size)) {
         contents = cache_entry->compressed.contents;
         size = cache_entry->compressed.size;
 
