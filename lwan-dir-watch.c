@@ -96,7 +96,7 @@ lwan_dir_watch_add(const char *pathname,
         return NULL;
 
     dw->wd = inotify_add_watch(self.fd, pathname,
-            IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY);
+            IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY | IN_MOVED_FROM | IN_MOVED_TO);
     if (UNLIKELY(dw->wd < 0)) {
         free(dw);
         return NULL;
@@ -137,9 +137,9 @@ lwan_dir_watch_process_events()
         if (!dw)
             goto next_event;
 
-        if (event->mask & IN_CREATE)
+        if (event->mask & (IN_CREATE | IN_MOVED_TO))
             dw->cb(event->name, dw->path, DIR_WATCH_ADD, dw->data);
-        else if (event->mask & IN_DELETE)
+        else if (event->mask & (IN_DELETE | IN_MOVED_FROM))
             dw->cb(event->name, dw->path, DIR_WATCH_DEL, dw->data);
         else if (event->mask & IN_MODIFY)
             dw->cb(event->name, dw->path, DIR_WATCH_MOD, dw->data);
