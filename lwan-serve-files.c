@@ -63,6 +63,10 @@ struct serve_files_priv_t {
     int root_fd;
     struct hash *cache;
     pthread_mutex_t cache_mutex;
+
+    char date[32];
+    char expires[32];
+    time_t last_date;
 };
 
 struct cache_entry_t {
@@ -299,6 +303,19 @@ _cache_small_files(struct serve_files_priv_t *priv)
         perror("pthread_mutex_unlock");
 }
 
+static void
+_update_date_cache(struct serve_files_priv_t *priv)
+{
+    time_t now = time(NULL);
+
+    if (now == priv->last_date)
+        return;
+
+    _rfc_time(NOW, priv->date);
+    _rfc_time(ONE_WEEK, priv->expires);
+    priv->last_date = now;
+}
+
 static void *
 serve_files_init(void *args)
 {
@@ -328,10 +345,10 @@ serve_files_init(void *args)
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
+    priv->last_date = 0;
     pthread_mutex_init(&priv->cache_mutex, NULL);
 
-    /* Make sure time stuff has been loaded */
-    (void)gmtime((time_t[]){ time(NULL) });
+    _update_date_cache(priv);
 
     printf("Caching small files in \"%s\": ", canonical_root);
     fflush(stdout);
@@ -524,9 +541,16 @@ end:
     return return_status;
 }
 
+#define HDR(number_, key_, value_) \
+    do { \
+        headers[number_].key = (key_); \
+        headers[number_].value = (value_); \
+    } while(0)
+
 static bool
 _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 {
+    lwan_key_value_t *headers = (lwan_key_value_t *)request->buffer;
     struct cache_entry_t *cache_entry;
     const char *contents;
     size_t size;
@@ -546,18 +570,25 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
     }
 
     request->response.mime_type = (char *)cache_entry->mime_type;
+    request->response.headers = headers;
 
-    if (LIKELY(cache_entry->compressed.size)) {
-        /*
-         * TODO: check Accept-Encoding header
-         * TODO: send Transfer-Encoding header
-         * TODO: send date headers
-         */
+    _update_date_cache(priv);
+
+    HDR(0, "Date", priv->date);
+    HDR(1, "Expires", priv->expires);
+    HDR(2, "Last-Modified", cache_entry->last_modified);
+
+    if (request->header.accept_encoding.deflate && LIKELY(cache_entry->compressed.size)) {
         contents = cache_entry->compressed.contents;
         size = cache_entry->compressed.size;
+
+        HDR(3, "Content-Encoding", "deflate");
+        HDR(4, NULL, NULL);
     } else {
         contents = cache_entry->uncompressed.contents;
         size = cache_entry->uncompressed.size;
+
+        HDR(3, NULL, NULL);
     }
 
     strbuf_set_static(request->response.buffer, contents, size);
@@ -567,6 +598,8 @@ end:
     pthread_mutex_unlock(&priv->cache_mutex);
     return served;
 }
+
+#undef HDR
 
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)

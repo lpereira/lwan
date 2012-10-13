@@ -169,6 +169,9 @@ struct lwan_request_t_ {
           off_t from;
           off_t to;
         } range;
+        struct {
+          unsigned char deflate : 1;
+        } accept_encoding;
     } header;
 
     struct {
