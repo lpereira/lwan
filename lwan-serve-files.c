@@ -534,6 +534,16 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
     served = true;
 
 end:
+    /*
+     * FIXME
+     * There is a race condition here, that will happen when we're about
+     * to serve a file and there was a change in the cache. The mutex
+     * will be unlocked by the time writev() is called with a possibly
+     * munmap'd pointer.
+     *
+     * It's possible to fix this using coro_defer(), but that's quite
+     * slow. Will need to find a better alternative.
+     */
     pthread_mutex_unlock(&priv->cache_mutex);
     return served;
 }
