@@ -10,4 +10,3 @@
   libevent/libev are worth trying
 - Status screen (uptime, number of connections, keep-alive connections,
   memory usage, etc)
-- Gzip
