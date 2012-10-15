@@ -111,13 +111,19 @@ lwan_dir_watch_add(const char *pathname,
     return dw;
 }
 
+static void
+dir_watch_del_internal(lwan_dir_watch_t *dw)
+{
+    hash_del(self.wd_table, (const void *)(long)dw->wd);
+    free(dw->path);
+    free(dw);
+}
+
 void
 lwan_dir_watch_del(lwan_dir_watch_t *dw)
 {
-    hash_del(self.wd_table, (const void *)(long)dw->wd);
+    dir_watch_del_internal(dw);
     inotify_rm_watch(self.fd, dw->wd);
-    free(dw->path);
-    free(dw);
 }
 
 void
@@ -143,8 +149,10 @@ lwan_dir_watch_process_events()
             dw->cb(event->name, dw->path, DIR_WATCH_DEL, dw->data);
         else if (event->mask & IN_MODIFY)
             dw->cb(event->name, dw->path, DIR_WATCH_MOD, dw->data);
-        else if (event->mask & IN_DELETE_SELF)
-            lwan_dir_watch_del(dw);
+        else if (event->mask & IN_DELETE_SELF) {
+            dw->cb(dw->path, dw->path, DIR_WATCH_DEL_SELF, dw->data);
+            dir_watch_del_internal(dw);
+        }
 
 next_event:
         ++event;

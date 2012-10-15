@@ -27,6 +27,7 @@ typedef struct lwan_dir_watch_t_ lwan_dir_watch_t;
 typedef enum {
     DIR_WATCH_ADD,
     DIR_WATCH_DEL,
+    DIR_WATCH_DEL_SELF,
     DIR_WATCH_MOD
 } lwan_dir_watch_event_t;
 
