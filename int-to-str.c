@@ -20,27 +20,30 @@
 #include "int-to-str.h"
 
 ALWAYS_INLINE char *
-int_to_string(int32_t value, char *buf16, int32_t *len)
+uint_to_string(uint32_t value, char *buf16, int32_t *len)
 {
-    bool negative;
-
-    if (value < 0) {
-        negative = true;
-        value = -value;
-    } else
-        negative = false;
-
     char *p = buf16 + 15;
     *p = '\0';
     do {
         *--p = '0' + (value % 10);
     } while (value /= 10);
 
-    if (negative)
-        *--p = '-';
-
     if (len)
         *len = 15 - (p - buf16);
 
     return p;
+}
+
+ALWAYS_INLINE char *
+int_to_string(int32_t value, char *buf16, int32_t *len)
+{
+    if (value < 0) {
+        char *p = uint_to_string((uint32_t) -value, buf16, len);
+        *--p = '-';
+        ++*len;
+
+        return p;
+    }
+
+    return uint_to_string((uint32_t) value, buf16, len);
 }

@@ -461,12 +461,14 @@ lwan_process_request(lwan_request_t *request)
         APPEND_CHAR_NOCHECK(((value_) / 10) % 10 + '0'); \
         APPEND_CHAR_NOCHECK((value_) % 10 + '0'); \
     } while(0)
-#define APPEND_INT(value_) \
+
+#define APPEND_UINT(value_) \
     do { \
-        char *tmp = int_to_string((value_), buffer, &len); \
+        char *tmp = uint_to_string((value_), buffer, &len); \
         RETURN_0_ON_OVERFLOW(len); \
         APPEND_STRING_LEN(tmp, len); \
     } while(0)
+
 #define APPEND_CONSTANT(const_str_) \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
@@ -488,9 +490,9 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_STRING(lwan_http_status_as_string(status));
     APPEND_CONSTANT("\r\nContent-Length: ");
     if (request->response.stream.callback)
-        APPEND_INT(request->response.content_length);
+        APPEND_UINT(request->response.content_length);
     else
-        APPEND_INT(strbuf_get_length(request->response.buffer));
+        APPEND_UINT(strbuf_get_length(request->response.buffer));
     APPEND_CONSTANT("\r\nContent-Type: ");
     APPEND_STRING(request->response.mime_type);
     APPEND_CONSTANT("\r\nConnection: ");

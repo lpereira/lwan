@@ -22,6 +22,7 @@
 #include "lwan.h"
 
 char *int_to_string(int32_t value, char *buf16, int32_t *len);
+char *uint_to_string(uint32_t value, char *buf16, int32_t *len);
 
 #endif /* __INT_TO_STR_H__ */
 
