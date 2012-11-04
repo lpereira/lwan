@@ -40,10 +40,6 @@ static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
     [HTTP_1_1] = "1.1"
 };
-static const char* const _http_connection_type[] = {
-    "Close",
-    "Keep-Alive"
-};
 
 static ALWAYS_INLINE char *
 _identify_http_method(lwan_request_t *request, char *buffer)
@@ -495,9 +491,10 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_UINT(strbuf_get_length(request->response.buffer));
     APPEND_CONSTANT("\r\nContent-Type: ");
     APPEND_STRING(request->response.mime_type);
-    APPEND_CONSTANT("\r\nConnection: ");
-    APPEND_STRING_LEN(_http_connection_type[request->flags.is_keep_alive],
-        (request->flags.is_keep_alive ? sizeof("Keep-Alive") : sizeof("Close")) - 1);
+    if (request->flags.is_keep_alive)
+        APPEND_CONSTANT("\r\nConnection: keep-alive");
+    else
+        APPEND_CONSTANT("\r\nConnection: close");
 
     if (status < HTTP_BAD_REQUEST && request->response.headers) {
         lwan_key_value_t *header;
