@@ -431,25 +431,30 @@ lwan_process_request(lwan_request_t *request)
 
 
 #define RETURN_0_ON_OVERFLOW(len_) \
-    if (p_headers + (len_) >= p_headers_end) return 0
+    if (UNLIKELY(p_headers + (len_) >= p_headers_end)) return 0
+
 #define APPEND_STRING_LEN(const_str_,len_) \
     do { \
         RETURN_0_ON_OVERFLOW(len_); \
         p_headers = mempcpy(p_headers, (const_str_), (len_)); \
     } while(0)
+
 #define APPEND_STRING(str_) \
     do { \
         len = strlen(str_); \
         RETURN_0_ON_OVERFLOW(len); \
         p_headers = mempcpy(p_headers, (str_), len); \
     } while(0)
+
 #define APPEND_CHAR(value_) \
     do { \
         RETURN_0_ON_OVERFLOW(1); \
         *p_headers++ = (value_); \
     } while(0)
+
 #define APPEND_CHAR_NOCHECK(value_) \
     *p_headers++ = (value_)
+
 #define APPEND_INT8(value_) \
     do { \
         RETURN_0_ON_OVERFLOW(3); \
