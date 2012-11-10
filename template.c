@@ -22,17 +22,21 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "strbuf.h"
+#include "hash.h"
+#include "int-to-str.h"
 
 typedef struct lwan_tpl_t_ lwan_tpl_t;
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
+typedef struct lwan_var_descriptor_t_ lwan_var_descriptor_t;
 
-lwan_tpl_t *lwan_tpl_compile(const char *filename);
+lwan_tpl_t *lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor);
 void lwan_tpl_free(lwan_tpl_t *tpl);
-strbuf_t *lwan_tpl_apply(lwan_tpl_t *, char *(*)(const char *, void *), void *data);
+strbuf_t *lwan_tpl_apply(lwan_tpl_t *, void *variables);
 
 typedef enum {
     TPL_ACTION_APPEND,
@@ -63,7 +67,70 @@ struct lwan_tpl_chunk_t_ {
 struct lwan_tpl_t_ {
     lwan_tpl_chunk_t *chunks;  
     size_t minimum_size;
+    struct hash *descriptor_hash;
 };
+
+struct lwan_var_descriptor_t_ {
+    const char *name;
+    const off_t offset;
+    char *(*get_as_string)(void *ptr, bool *allocated, size_t *length);
+    bool (*get_is_empty)(void *ptr);
+};
+
+#define TPL_VAR(struct_, var_, get_as_string_, get_is_empty_) \
+    { \
+        .name = #var_, \
+        .offset = offsetof(struct_, var_), \
+        .get_as_string = get_as_string_, \
+        .get_is_empty = get_is_empty_ \
+    }
+
+#define TPL_VAR_INT(struct_, var_) \
+    TPL_VAR(struct_, var_, _int_to_str, _int_is_empty)
+
+#define TPL_VAR_STR(struct_, var_) \
+    TPL_VAR(struct_, var_, _str_to_str, _str_is_empty)
+
+#define TPL_VAR_SENTINEL \
+    { NULL, 0, NULL, NULL }
+
+
+static char *
+_int_to_str(void *ptr, bool *allocated, size_t *length)
+{
+    char buf[32];
+    char *ret;
+
+    ret = int_to_string(*(int *)ptr, buf, length);
+    *allocated = true;
+
+    return strdup(ret);
+}
+
+static bool
+_int_is_empty(void *ptr)
+{
+    return (*(int *)ptr) == 0;
+}
+
+static char *
+_str_to_str(void *ptr, bool *allocated, size_t *length)
+{
+    struct v {
+        char *str;
+    } *v = ptr;
+
+    *length = strlen(v->str);
+    *allocated = false;
+    return v->str;
+}
+
+bool
+_str_is_empty(void *ptr)
+{
+    char *str = ptr;
+    return !str || !*str;
+}
 
 static int
 compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
@@ -93,7 +160,7 @@ compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
 }
 
 static int
-compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf)
+compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_chunk_t *chunk = malloc(sizeof(*chunk));
     if (!chunk)
@@ -107,7 +174,7 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf)
         char template_file[PATH_MAX];
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
 
-        lwan_tpl_t *included = lwan_tpl_compile(template_file);
+        lwan_tpl_t *included = lwan_tpl_compile(template_file, descriptor);
         if (!included) {
             free(chunk);
             return -ENOENT;
@@ -136,7 +203,7 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf)
         } else {
             chunk->action = TPL_ACTION_VARIABLE;
         }
-        chunk->data = strdup(variable);
+        chunk->data = hash_find(tpl->descriptor_hash, variable);
     }
 
     chunk->next = tpl->chunks;
@@ -159,6 +226,9 @@ free_chunk(lwan_tpl_chunk_t *chunk)
         break;
     case TPL_ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
+        break;
+    case TPL_ACTION_VARIABLE:
+        /* do nothing */
         break;
     default:
         free(chunk->data);
@@ -188,7 +258,7 @@ lwan_tpl_free(lwan_tpl_t *tpl)
     } while(0)
 
 lwan_tpl_t *
-lwan_tpl_compile(const char *filename)
+lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_t *tpl;
     strbuf_t *buf;
@@ -200,6 +270,16 @@ lwan_tpl_compile(const char *filename)
     if (!tpl)
         return NULL;
 
+    tpl->descriptor_hash = hash_str_new(64, NULL, NULL);
+    if (!tpl->descriptor_hash) {
+        free(tpl);
+        return NULL;
+    }
+
+    int i;
+    for (i = 0; descriptor[i].name; i++)
+        hash_add(tpl->descriptor_hash, descriptor[i].name, &descriptor[i]);
+
     buf = strbuf_new();
     if (!buf) {
         free(tpl);
@@ -208,6 +288,7 @@ lwan_tpl_compile(const char *filename)
     
     file = fopen(filename, "r");
     if (!file) {
+        hash_free(tpl->descriptor_hash);
         strbuf_free(buf);
         free(tpl);
         return NULL;
@@ -275,11 +356,17 @@ lwan_tpl_compile(const char *filename)
             if (strbuf_get_length(buf) == 0)
                 PARSE_ERROR("Expecting variable name.");
 
-            switch (compile_append_var(tpl, buf)) {
+            if (strbuf_get_buffer(buf)[0] != '>' &&
+                    !hash_find(tpl->descriptor_hash, strbuf_get_buffer(buf)))
+                PARSE_ERROR("Variable not found in descriptor: ``%s''.",
+                    strbuf_get_buffer(buf));
+
+            switch (compile_append_var(tpl, buf, descriptor)) {
             case -ENOMEM:
                 PARSE_ERROR("Out of memory while appending variable.");
             case -ENOENT:
-                PARSE_ERROR("Cannot find included template: ``%s''.", strbuf_get_buffer(buf) + 1);
+                PARSE_ERROR("Cannot find template to include: ``%s''.",
+                    strbuf_get_buffer(buf) + 1);
             }
 
             if (ch == '{') {
@@ -308,7 +395,12 @@ lwan_tpl_compile(const char *filename)
         if (strbuf_get_length(buf) == 0)
             PARSE_ERROR("Expecting variable name.");
 
-        switch (compile_append_var(tpl, buf)) {
+        if (strbuf_get_buffer(buf)[0] != '>' &&
+                !hash_find(tpl->descriptor_hash, strbuf_get_buffer(buf)))
+            PARSE_ERROR("Variable not found in descriptor: ``%s''.",
+                strbuf_get_buffer(buf));
+
+        switch (compile_append_var(tpl, buf, descriptor)) {
         case -ENOMEM:
             PARSE_ERROR("Out of memory while appending variable.");
         case -ENOENT:
@@ -334,9 +426,11 @@ lwan_tpl_compile(const char *filename)
     tpl->chunks = prev;
 
     strbuf_free(buf);
+    hash_free(tpl->descriptor_hash);
     return tpl;
 
 error:
+    hash_free(tpl->descriptor_hash);
     lwan_tpl_free(tpl);
     strbuf_free(buf);
     fclose(file);
@@ -359,9 +453,46 @@ until_not_empty(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
     return !(chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(data, chunk->data));
 }
 
+static char*
+var_get_as_string(lwan_tpl_chunk_t *chunk,
+                  void *variables,
+                  bool *allocated,
+                  size_t *length)
+{
+    lwan_var_descriptor_t *descriptor = chunk->data;
+    if (!descriptor)
+        goto end;
+
+    char *value;
+    value = descriptor->get_as_string((void *)(variables + descriptor->offset),
+                allocated, length);
+    if (value)
+        return value;
+
+end:
+    if (allocated)
+        *allocated = false;
+
+    if (length)
+        *length = 0;
+    return NULL;
+}
+
+static bool
+var_get_is_empty(lwan_tpl_chunk_t *chunk,
+                 void *variables)
+{
+    lwan_var_descriptor_t *descriptor = chunk->data;
+    if (!descriptor)
+        return true;
+
+    return descriptor->get_is_empty((void *)(variables + descriptor->offset));
+}
+
 lwan_tpl_chunk_t *
-lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
-    char *(*var_get)(const char *name, void *data), void *var_get_data,
+lwan_tpl_apply_until(lwan_tpl_t *tpl,
+    lwan_tpl_chunk_t *chunks, strbuf_t *buf,
+    void *variables,
     bool (*until)(lwan_tpl_chunk_t *chunk, void *data), void *until_data)
 {
     lwan_tpl_chunk_t *chunk = chunks;
@@ -379,9 +510,15 @@ lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
             break;
         case TPL_ACTION_VARIABLE:
             {
-                char *tmp = var_get((const char*)chunk->data, var_get_data);
-                strbuf_append_str(buf, tmp, 0);
-                free(tmp);
+                bool allocated;
+                size_t length;
+                char *value;
+
+                value = var_get_as_string(chunk, variables,
+                        &allocated, &length);
+                strbuf_append_str(buf, value, length);
+                if (allocated)
+                    free(value);
             }
             break;
         case TPL_ACTION_LIST_START_ITER:
@@ -397,17 +534,19 @@ lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
             {
                 const char *var_name = (const char*)chunk->data;
-                char *tmp = var_get(var_name, var_get_data);
-                if (tmp && *tmp) {
-                    chunk = lwan_tpl_apply_until(chunk->next, buf, var_get, var_get_data, 
-                                        until_not_empty, chunk->data);
+                if (var_get_is_empty(chunk, variables)) {
+                    chunk = lwan_tpl_apply_until(tpl,
+                                        chunk->next,
+                                        buf,
+                                        variables,
+                                        until_not_empty,
+                                        chunk->data);
                 } else {
                     for (chunk = chunk->next; chunk; chunk = chunk->next) {
                         if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(chunk->data, var_name))
                             break;
                     }
                 }
-                free(tmp);
             }
             break;
         case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
@@ -415,7 +554,7 @@ lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
             break;
         case TPL_ACTION_APPLY_TPL:
             {
-                strbuf_t *tmp = lwan_tpl_apply(chunk->data, var_get, var_get_data);
+                strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
                 strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
                 strbuf_free(tmp);
             }
@@ -430,21 +569,17 @@ lwan_tpl_apply_until(lwan_tpl_chunk_t *chunks, strbuf_t *buf,
 }
 
 strbuf_t *
-lwan_tpl_apply(lwan_tpl_t *tpl,
-    char *(*var_get)(const char *name, void *data), void *var_get_data)
+lwan_tpl_apply(lwan_tpl_t *tpl, void *variables)
 {
     strbuf_t *buf = strbuf_new_with_size(tpl->minimum_size);
-    lwan_tpl_apply_until(tpl->chunks, buf, var_get, var_get_data, until_end, NULL);
+    lwan_tpl_apply_until(tpl, tpl->chunks, buf, variables, until_end, NULL);
     return buf;
 }
 
-static char *
-var_getter(const char *name, void *data __attribute__((unused)))
-{
-    if (!strcmp(name, "empty_test"))
-        return strdup("");
-    return strdup("var!");
-}
+struct test_struct {
+    int some_int;
+    char *a_string;
+};
 
 int main(int argc, char *argv[])
 {
@@ -454,12 +589,20 @@ int main(int argc, char *argv[])
     }
 
     printf("*** Compiling template...\n");
-    lwan_tpl_t *tpl = lwan_tpl_compile(argv[1]);
+    lwan_var_descriptor_t desc[] = {
+        TPL_VAR_INT(struct test_struct, some_int),
+        TPL_VAR_STR(struct test_struct, a_string),
+        TPL_VAR_SENTINEL
+    };
+    lwan_tpl_t *tpl = lwan_tpl_compile(argv[1], desc);
     if (!tpl)
         return 1;
 
     printf("*** Applying template...\n");
-    strbuf_t *applied = lwan_tpl_apply(tpl, var_getter, NULL);
+    strbuf_t *applied = lwan_tpl_apply(tpl, (struct test_struct[]) {{
+        .some_int = 42,
+        .a_string = "some string"
+    }});
     puts(strbuf_get_buffer(applied));
 
     strbuf_free(applied);

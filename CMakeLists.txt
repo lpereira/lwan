@@ -52,4 +52,6 @@ target_link_libraries(lwan
 add_executable(template
 	template.c
 	strbuf.c
+	hash.c
+	int-to-str.c
 )
