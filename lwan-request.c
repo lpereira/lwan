@@ -479,7 +479,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
     char buffer[32];
-    int32_t len;
+    size_t len;
 
     p_headers = headers;
 

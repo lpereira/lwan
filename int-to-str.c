@@ -20,9 +20,10 @@
 #include "int-to-str.h"
 
 ALWAYS_INLINE char *
-uint_to_string(uint32_t value, char *buf16, int32_t *len)
+uint_to_string(uint32_t value, char *buf16, size_t *len)
 {
     char *p = buf16 + 15;
+
     *p = '\0';
     do {
         *--p = '0' + (value % 10);
@@ -35,7 +36,7 @@ uint_to_string(uint32_t value, char *buf16, int32_t *len)
 }
 
 ALWAYS_INLINE char *
-int_to_string(int32_t value, char *buf16, int32_t *len)
+int_to_string(int32_t value, char *buf16, size_t *len)
 {
     if (value < 0) {
         char *p = uint_to_string((uint32_t) -value, buf16, len);
