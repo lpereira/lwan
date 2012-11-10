@@ -11,10 +11,10 @@ struct hash_iter {
 };
 
 struct hash *hash_int_new(unsigned int n_buckets,
-					void (*key_value)(void *value),
+					void (*free_key)(void *value),
 					void (*free_value)(void *value));
 struct hash *hash_str_new(unsigned int n_buckets,
-					void (*key_value)(void *value),
+					void (*free_key)(void *value),
 					void (*free_value)(void *value));
 void hash_free(struct hash *hash);
 int hash_add(struct hash *hash, const void *key, const void *value);
