@@ -148,7 +148,8 @@ compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
         chunk->data = (void *)((uintptr_t)strbuf_get_buffer(buf)[0]);
     } else {
         chunk->action = TPL_ACTION_APPEND;
-        chunk->data = strdup(strbuf_get_buffer(buf));
+        chunk->data = strbuf_new_with_size(strbuf_get_length(buf));
+        strbuf_set(chunk->data, strbuf_get_buffer(buf), strbuf_get_length(buf));
     }
 
     chunk->next = tpl->chunks;
@@ -222,13 +223,14 @@ free_chunk(lwan_tpl_chunk_t *chunk)
 
     switch (chunk->action) {
     case TPL_ACTION_APPEND_CHAR:
+    case TPL_ACTION_VARIABLE:
         /* do nothing */
+        break;
+    case TPL_ACTION_APPEND:
+        strbuf_free(chunk->data);
         break;
     case TPL_ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
-        break;
-    case TPL_ACTION_VARIABLE:
-        /* do nothing */
         break;
     default:
         free(chunk->data);
@@ -503,7 +505,8 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
 
         switch (chunk->action) {
         case TPL_ACTION_APPEND:
-            strbuf_append_str(buf, chunk->data, 0);
+            strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
+                        strbuf_get_length(chunk->data));
             break;
         case TPL_ACTION_APPEND_CHAR:
             strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
