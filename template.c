@@ -450,7 +450,7 @@ until_end(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
 }
 
 static bool
-until_not_empty(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
+until_not_empty(lwan_tpl_chunk_t *chunk, void *data)
 {
     return !(chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(data, chunk->data));
 }
@@ -552,9 +552,6 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                 }
             }
             break;
-        case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
-            /* Shouldn't happen */
-            break;
         case TPL_ACTION_APPLY_TPL:
             {
                 strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
@@ -562,6 +559,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                 strbuf_free(tmp);
             }
             break;
+        case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         case TPL_ACTION_LAST:
             /* Shouldn't happen */
             break;
