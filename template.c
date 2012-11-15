@@ -55,7 +55,8 @@ enum {
     STATE_FIRST_BRACE,
     STATE_SECOND_BRACE,
     STATE_FIRST_CLOSING_BRACE,
-    STATE_SECOND_CLOSING_BRACE
+    STATE_SECOND_CLOSING_BRACE,
+    STATE_PARSE_ERROR
 };
 
 struct lwan_tpl_chunk_t_ {
@@ -205,6 +206,10 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
             chunk->action = TPL_ACTION_VARIABLE;
         }
         chunk->data = hash_find(tpl->descriptor_hash, variable);
+        if (!chunk->data) {
+            free(chunk);
+            return -ENOKEY;
+        }
     }
 
     chunk->next = tpl->chunks;
@@ -255,9 +260,98 @@ lwan_tpl_free(lwan_tpl_t *tpl)
 
 #define PARSE_ERROR(msg,...) \
     do { \
-        snprintf(error_msg, sizeof(error_msg), msg, ##__VA_ARGS__); \
-        goto error; \
+        snprintf(error_msg, 512, msg, ##__VA_ARGS__); \
+        return STATE_PARSE_ERROR; \
     } while(0)
+
+static int
+feed_into_compiler(lwan_tpl_t *tpl,
+    lwan_var_descriptor_t *descriptor,
+    int state,
+    strbuf_t *buf,
+    int ch,
+    char *error_msg)
+{
+    bool last_pass = ch == EOF;
+
+    switch (state) {
+    case STATE_DEFAULT:
+        if (ch == '{')
+            return STATE_FIRST_BRACE;
+        if (last_pass)
+            goto append_text;
+
+        strbuf_append_char(buf, ch);
+        break;
+
+    case STATE_FIRST_BRACE:
+        if (ch == '{') {
+            state = STATE_SECOND_BRACE;
+            goto append_text;
+        }
+
+        strbuf_append_char(buf, '{');
+
+        if (last_pass)
+            goto append_text;
+
+        strbuf_append_char(buf, ch);
+
+        return STATE_DEFAULT;
+
+    case STATE_SECOND_BRACE:
+        if (ch == '{')
+            PARSE_ERROR("Unexpected open brace.");
+        if (ch == '}')
+            return STATE_FIRST_CLOSING_BRACE;
+        if (last_pass)
+            PARSE_ERROR("Missing close brace.");
+
+        strbuf_append_char(buf, ch);
+        break;
+
+    case STATE_FIRST_CLOSING_BRACE:
+        if (ch == '}')
+            return STATE_SECOND_CLOSING_BRACE;
+
+        PARSE_ERROR("Closing brace expected.");
+
+    case STATE_SECOND_CLOSING_BRACE:
+        if (ch == '}')
+            PARSE_ERROR("Unexpected close brace.");
+
+        if (strbuf_get_length(buf) == 0)
+            PARSE_ERROR("Expecting variable name.");
+
+        switch (compile_append_var(tpl, buf, descriptor)) {
+        case -ENOKEY:
+            PARSE_ERROR("Unknown variable: ``%s''.", strbuf_get_buffer(buf));
+        case -ENOMEM:
+            PARSE_ERROR("Out of memory while appending variable.");
+        case -ENOENT:
+            PARSE_ERROR("Cannot find template to include: ``%s''.",
+                strbuf_get_buffer(buf) + 1);
+        }
+
+        if (last_pass)
+            return STATE_DEFAULT;
+        if (ch == '{')
+            return STATE_FIRST_BRACE;
+
+        strbuf_append_char(buf, ch);
+        return STATE_DEFAULT;
+    }
+
+    return state;
+
+append_text:
+    switch (compile_append_text(tpl, buf)) {
+    case -ENOMEM:
+        PARSE_ERROR("Out of memory while appending text.");
+    }
+
+    return state;
+}
 
 lwan_tpl_t *
 lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
@@ -270,31 +364,23 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
     
     tpl = calloc(1, sizeof(*tpl));
     if (!tpl)
-        return NULL;
+        goto error_allocate_tpl;
 
     tpl->descriptor_hash = hash_str_new(64, NULL, NULL);
-    if (!tpl->descriptor_hash) {
-        free(tpl);
-        return NULL;
-    }
+    if (!tpl->descriptor_hash)
+        goto error_allocate_hash;
 
     int i;
     for (i = 0; descriptor[i].name; i++)
         hash_add(tpl->descriptor_hash, descriptor[i].name, &descriptor[i]);
 
     buf = strbuf_new();
-    if (!buf) {
-        free(tpl);
-        return NULL;
-    }
+    if (!buf)
+        goto error_allocate_strbuf;
     
     file = fopen(filename, "r");
-    if (!file) {
-        hash_free(tpl->descriptor_hash);
-        strbuf_free(buf);
-        free(tpl);
-        return NULL;
-    }
+    if (!file)
+        goto error_open_file;
 
     int line = 1;
     int column = 1;
@@ -310,109 +396,19 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
         }
         ++column;
 
-        switch (state) {
-        case STATE_DEFAULT:
-            if (ch == '{') {
-                state = STATE_FIRST_BRACE;
-                continue;
-            }
-
-            strbuf_append_char(buf, ch);
-            break;
-        case STATE_FIRST_BRACE:
-            if (ch == '{') {
-                switch (compile_append_text(tpl, buf)) {
-                case -ENOMEM:
-                    PARSE_ERROR("Out of memory while appending text.");
-                }
-
-                state = STATE_SECOND_BRACE;
-                continue;
-            }
-
-            strbuf_append_char(buf, '{');
-            strbuf_append_char(buf, ch);
-            state = STATE_DEFAULT;
-            break;
-        case STATE_SECOND_BRACE:
-            if (ch == '{')
-                PARSE_ERROR("Unexpected open brace.");
-
-            if (ch == '}') {
-                state = STATE_FIRST_CLOSING_BRACE;
-                continue;
-            }
-
-            strbuf_append_char(buf, ch);
-            break;
-        case STATE_FIRST_CLOSING_BRACE:
-            if (ch == '}') {
-                state = STATE_SECOND_CLOSING_BRACE;
-                continue;
-            }
-            PARSE_ERROR("Closing brace expected.");
-        case STATE_SECOND_CLOSING_BRACE:
-            if (ch == '}')
-                PARSE_ERROR("Unexpected close brace.");
-
-            if (strbuf_get_length(buf) == 0)
-                PARSE_ERROR("Expecting variable name.");
-
-            if (strbuf_get_buffer(buf)[0] != '>' &&
-                    !hash_find(tpl->descriptor_hash, strbuf_get_buffer(buf)))
-                PARSE_ERROR("Variable not found in descriptor: ``%s''.",
-                    strbuf_get_buffer(buf));
-
-            switch (compile_append_var(tpl, buf, descriptor)) {
-            case -ENOMEM:
-                PARSE_ERROR("Out of memory while appending variable.");
-            case -ENOENT:
-                PARSE_ERROR("Cannot find template to include: ``%s''.",
-                    strbuf_get_buffer(buf) + 1);
-            }
-
-            if (ch == '{') {
-                state = STATE_FIRST_BRACE;
-                continue;
-            }
-
-            strbuf_append_char(buf, ch);
-            state = STATE_DEFAULT;
-        }
+        state = feed_into_compiler(tpl, descriptor, state, buf, ch, error_msg);
+        if (state == STATE_PARSE_ERROR)
+            goto parse_error;
     }
 
-    switch (state) {
-    case STATE_DEFAULT:
-        switch (compile_append_text(tpl, buf)) {
-        case -ENOMEM:
-            PARSE_ERROR("Out of memory while appending text.");
-        }
-        break;
-    case STATE_FIRST_BRACE:
-    case STATE_SECOND_BRACE:
-        PARSE_ERROR("Expecting close brace.");
-    case STATE_FIRST_CLOSING_BRACE:
-        PARSE_ERROR("Expecting second close brace.");
-    case STATE_SECOND_CLOSING_BRACE:
-        if (strbuf_get_length(buf) == 0)
-            PARSE_ERROR("Expecting variable name.");
-
-        if (strbuf_get_buffer(buf)[0] != '>' &&
-                !hash_find(tpl->descriptor_hash, strbuf_get_buffer(buf)))
-            PARSE_ERROR("Variable not found in descriptor: ``%s''.",
-                strbuf_get_buffer(buf));
-
-        switch (compile_append_var(tpl, buf, descriptor)) {
-        case -ENOMEM:
-            PARSE_ERROR("Out of memory while appending variable.");
-        case -ENOENT:
-            PARSE_ERROR("Cannot find included template: ``%s''.", strbuf_get_buffer(buf));
-        }
-    }
+    state = feed_into_compiler(tpl, descriptor, state, buf, ch, error_msg);
+    if (state == STATE_PARSE_ERROR)
+        goto parse_error;
 
     lwan_tpl_chunk_t *last = malloc(sizeof(*last));
     if (!last)
-        goto error;
+        goto error_last_minute;
+
     last->action = TPL_ACTION_LAST;
     last->data = NULL;
     last->next = tpl->chunks;
@@ -429,15 +425,26 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
 
     strbuf_free(buf);
     hash_free(tpl->descriptor_hash);
+    fclose(file);
+
     return tpl;
 
-error:
-    hash_free(tpl->descriptor_hash);
-    lwan_tpl_free(tpl);
-    strbuf_free(buf);
-    fclose(file);
-    
+parse_error:
     printf("Line %d, column %d: %s\n", line, column, error_msg);
+
+error_last_minute:
+    fclose(file);
+
+error_open_file:
+    strbuf_free(buf);
+
+error_allocate_strbuf:
+    hash_free(tpl->descriptor_hash);
+
+error_allocate_hash:
+    lwan_tpl_free(tpl);
+
+error_allocate_tpl:
     return NULL;
 }
 
@@ -511,53 +518,53 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         case TPL_ACTION_APPEND_CHAR:
             strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
             break;
-        case TPL_ACTION_VARIABLE:
-            {
-                bool allocated;
-                size_t length;
-                char *value;
+        case TPL_ACTION_VARIABLE: {
+            bool allocated;
+            size_t length;
+            char *value;
 
-                value = var_get_as_string(chunk, variables,
-                        &allocated, &length);
-                strbuf_append_str(buf, value, length);
-                if (allocated)
-                    free(value);
-            }
+            value = var_get_as_string(chunk, variables,
+                    &allocated, &length);
+            strbuf_append_str(buf, value, length);
+            if (allocated)
+                free(value);
             break;
+        }
+        case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
+            const char *var_name = (const char*)chunk->data;
+
+            if (UNLIKELY(!chunk->data))
+                break;
+
+            if (!var_get_is_empty(chunk, variables)) {
+                chunk = lwan_tpl_apply_until(tpl,
+                                    chunk->next,
+                                    buf,
+                                    variables,
+                                    until_not_empty,
+                                    chunk->data);
+                break;
+            }
+
+            for (chunk = chunk->next; chunk; chunk = chunk->next) {
+                if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY &&
+                        !strcmp(chunk->data, var_name))
+                    break;
+            }
+
+            break;
+        }
+        case TPL_ACTION_APPLY_TPL: {
+            strbuf_t *tmp;
+
+            tmp = lwan_tpl_apply(chunk->data, variables);
+            strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
+            strbuf_free(tmp);
+            break;
+        }
         case TPL_ACTION_LIST_START_ITER:
-            strbuf_append_str(buf, "[begin_iter:", 0);
-            strbuf_append_str(buf, chunk->data, 0);
-            strbuf_append_str(buf, "]", 0);
-            break;
         case TPL_ACTION_LIST_END_ITER:
-            strbuf_append_str(buf, "[end_iter:", 0);
-            strbuf_append_str(buf, chunk->data, 0);
-            strbuf_append_str(buf, "]", 0);
-            break;
-        case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
-            {
-                const char *var_name = (const char*)chunk->data;
-                if (var_get_is_empty(chunk, variables)) {
-                    chunk = lwan_tpl_apply_until(tpl,
-                                        chunk->next,
-                                        buf,
-                                        variables,
-                                        until_not_empty,
-                                        chunk->data);
-                } else {
-                    for (chunk = chunk->next; chunk; chunk = chunk->next) {
-                        if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(chunk->data, var_name))
-                            break;
-                    }
-                }
-            }
-            break;
-        case TPL_ACTION_APPLY_TPL:
-            {
-                strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
-                strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
-                strbuf_free(tmp);
-            }
+            /* Not implemented */
             break;
         case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         case TPL_ACTION_LAST:
