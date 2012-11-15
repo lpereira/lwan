@@ -469,20 +469,20 @@ var_get_as_string(lwan_tpl_chunk_t *chunk,
                   size_t *length)
 {
     lwan_var_descriptor_t *descriptor = chunk->data;
-    if (!descriptor)
+    if (UNLIKELY(!descriptor))
         goto end;
 
     char *value;
     value = descriptor->get_as_string((void *)(variables + descriptor->offset),
                 allocated, length);
-    if (value)
+    if (LIKELY(value))
         return value;
 
 end:
-    if (allocated)
+    if (LIKELY(allocated))
         *allocated = false;
 
-    if (length)
+    if (LIKELY(length))
         *length = 0;
     return NULL;
 }
@@ -492,7 +492,7 @@ var_get_is_empty(lwan_tpl_chunk_t *chunk,
                  void *variables)
 {
     lwan_var_descriptor_t *descriptor = chunk->data;
-    if (!descriptor)
+    if (UNLIKELY(!descriptor))
         return true;
 
     return descriptor->get_is_empty((void *)(variables + descriptor->offset));
