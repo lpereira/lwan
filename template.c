@@ -148,13 +148,13 @@ compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
         chunk->data = (void *)((uintptr_t)strbuf_get_buffer(buf)[0]);
     } else {
         chunk->action = TPL_ACTION_APPEND;
-        chunk->data = strbuf_new_with_size(strbuf_get_length(buf));
-        strbuf_set(chunk->data, strbuf_get_buffer(buf), strbuf_get_length(buf));
+        chunk->data = strbuf_new_with_size(length);
+        strbuf_set(chunk->data, strbuf_get_buffer(buf), length);
     }
 
     chunk->next = tpl->chunks;
     tpl->chunks = chunk;
-    tpl->minimum_size += strbuf_get_length(buf);
+    tpl->minimum_size += length;
     strbuf_reset(buf);
 
     return 0;
@@ -209,7 +209,7 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
 
     chunk->next = tpl->chunks;
     tpl->chunks = chunk;
-    tpl->minimum_size += strbuf_get_length(buf);
+    tpl->minimum_size += length + 1;
     strbuf_reset(buf);
 
     return 0;
