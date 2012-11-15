@@ -69,6 +69,7 @@ struct serve_files_priv_t {
     int root_fd;
     struct hash *cache;
     pthread_mutex_t cache_mutex;
+    int extra_modes;
 
     char date[32];
     char expires[32];
@@ -129,7 +130,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
     if (size > 16384)
         return;
 
-    file_fd = open(full_path, O_RDONLY | O_NOATIME);
+    file_fd = open(full_path, O_RDONLY | priv->extra_modes);
     if (UNLIKELY(file_fd < 0))
         return;
 
@@ -277,6 +278,7 @@ serve_files_init(void *args)
     char *canonical_root;
     int root_fd;
     struct serve_files_priv_t *priv;
+    int extra_modes = O_NOATIME;
 
     canonical_root = realpath(root_path, NULL);
     if (!canonical_root) {
@@ -284,7 +286,11 @@ serve_files_init(void *args)
         goto out_realpath;
     }
 
-    root_fd = open(canonical_root, O_RDONLY | O_NOATIME);
+    root_fd = open(canonical_root, O_RDONLY | O_DIRECTORY | extra_modes);
+    if (root_fd < 0) {
+        root_fd = open(canonical_root, O_RDONLY | O_DIRECTORY);
+        extra_modes &= ~O_NOATIME;
+    }
     if (root_fd < 0) {
         perror("serve_files_init");
         goto out_open;
@@ -300,6 +306,7 @@ serve_files_init(void *args)
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
     priv->last_date = 0;
+    priv->extra_modes = extra_modes;
     pthread_mutex_init(&priv->cache_mutex, NULL);
 
     _update_date_cache(priv);
@@ -465,7 +472,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
-        int file_fd = openat(priv->root_fd, path, O_RDONLY | O_NOATIME);
+        int file_fd = openat(priv->root_fd, path, O_RDONLY | priv->extra_modes);
 
         if (UNLIKELY(file_fd < 0)) {
             return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
