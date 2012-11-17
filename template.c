@@ -384,13 +384,13 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
 
     int line = 1;
     int column = 1;
-    char ch;
+    int ch;
     while ((ch = fgetc(file)) != EOF) {
         if (ch == '\n') {
             if (state == STATE_DEFAULT)
                 strbuf_append_char(buf, '\n');
 
-            line++;
+            ++line;
             column = 1;
             continue;
         }
