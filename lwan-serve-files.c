@@ -95,18 +95,24 @@ _rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
 static void
 _compress_cached_entry(struct cache_entry_t *ce)
 {
+    static const int deflated_header_size = sizeof("Content-Encoding: deflate");
+
     ce->compressed.size = compressBound(ce->uncompressed.size);
 
     if (UNLIKELY(!(ce->compressed.contents = malloc(ce->compressed.size))))
         goto error_zero_out;
 
     if (LIKELY(compress(ce->compressed.contents, &ce->compressed.size,
-                        ce->uncompressed.contents, ce->uncompressed.size) == Z_OK))
+                        ce->uncompressed.contents, ce->uncompressed.size) != Z_OK))
+        goto error_free_compressed;
+
+    if ((ce->compressed.size + deflated_header_size) < ce->uncompressed.size)
         return;
 
+error_free_compressed:
     free(ce->compressed.contents);
-error_zero_out:
     ce->compressed.contents = NULL;
+error_zero_out:
     ce->compressed.size = 0;
 }
 
