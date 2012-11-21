@@ -17,12 +17,20 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/uio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "lwan.h"
+#include "int-to-str.h"
+
+static const char* const _http_versions[] = {
+    [HTTP_1_0] = "1.0",
+    [HTTP_1_1] = "1.1"
+};
 
 bool
 lwan_response(lwan_request_t *request, lwan_http_status_t status)
@@ -107,3 +115,97 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 
     return lwan_response(request, status);
 }
+
+#define RETURN_0_ON_OVERFLOW(len_) \
+    if (UNLIKELY(p_headers + (len_) >= p_headers_end)) return 0
+
+#define APPEND_STRING_LEN(const_str_,len_) \
+    do { \
+        RETURN_0_ON_OVERFLOW(len_); \
+        p_headers = mempcpy(p_headers, (const_str_), (len_)); \
+    } while(0)
+
+#define APPEND_STRING(str_) \
+    do { \
+        len = strlen(str_); \
+        RETURN_0_ON_OVERFLOW(len); \
+        p_headers = mempcpy(p_headers, (str_), len); \
+    } while(0)
+
+#define APPEND_CHAR(value_) \
+    do { \
+        RETURN_0_ON_OVERFLOW(1); \
+        *p_headers++ = (value_); \
+    } while(0)
+
+#define APPEND_CHAR_NOCHECK(value_) \
+    *p_headers++ = (value_)
+
+#define APPEND_INT8(value_) \
+    do { \
+        RETURN_0_ON_OVERFLOW(3); \
+        APPEND_CHAR_NOCHECK(((value_) / 100) % 10 + '0'); \
+        APPEND_CHAR_NOCHECK(((value_) / 10) % 10 + '0'); \
+        APPEND_CHAR_NOCHECK((value_) % 10 + '0'); \
+    } while(0)
+
+#define APPEND_UINT(value_) \
+    do { \
+        char *tmp = uint_to_string((value_), buffer, &len); \
+        RETURN_0_ON_OVERFLOW(len); \
+        APPEND_STRING_LEN(tmp, len); \
+    } while(0)
+
+#define APPEND_CONSTANT(const_str_) \
+    APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
+
+ALWAYS_INLINE size_t
+lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[], size_t headers_buf_size)
+{
+    char *p_headers;
+    char *p_headers_end = headers + headers_buf_size;
+    char buffer[32];
+    size_t len;
+
+    p_headers = headers;
+
+    APPEND_CONSTANT("HTTP/");
+    APPEND_STRING_LEN(_http_versions[request->http_version], 3);
+    APPEND_CHAR(' ');
+    APPEND_INT8(status);
+    APPEND_CHAR(' ');
+    APPEND_STRING(lwan_http_status_as_string(status));
+    APPEND_CONSTANT("\r\nContent-Length: ");
+    if (request->response.stream.callback)
+        APPEND_UINT(request->response.content_length);
+    else
+        APPEND_UINT(strbuf_get_length(request->response.buffer));
+    APPEND_CONSTANT("\r\nContent-Type: ");
+    APPEND_STRING(request->response.mime_type);
+    if (request->flags.is_keep_alive)
+        APPEND_CONSTANT("\r\nConnection: keep-alive");
+    else
+        APPEND_CONSTANT("\r\nConnection: close");
+
+    if (status < HTTP_BAD_REQUEST && request->response.headers) {
+        lwan_key_value_t *header;
+
+        for (header = request->response.headers; header->key; header++) {
+            APPEND_CHAR('\r');
+            APPEND_CHAR('\n');
+            APPEND_STRING(header->key);
+            APPEND_CHAR(':');
+            APPEND_CHAR(' ');
+            APPEND_STRING(header->value);
+        }
+    }
+    APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
+
+    return p_headers - headers - 1;
+}
+
+#undef APPEND_STRING_LEN
+#undef APPEND_STRING
+#undef APPEND_CONSTANT
+#undef APPEND_CHAR
+#undef APPEND_INT
