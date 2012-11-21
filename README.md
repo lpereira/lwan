@@ -18,7 +18,7 @@ lwan's goal is to provide a testbed for multithreaded, event-based programs.  It
 Usage
 -----
 
-Although lwan is [Free Software](http://www.gnu.org/philosophy/free-sw.html), released under GNU GPL version 2, keep in mind that it is extensively research-quality software.  It **has not been tested beyond synthetic and symplistic benchmarks**, so it may not work as expected when faced with real life workloads.  If you're looking for a web server, try [Apache](http://apache.org), [Cherokee](http://www.cherokee-project.com) or [Nginx](http://nginx.org).
+Although lwan is [Free Software](http://www.gnu.org/philosophy/free-sw.html), released under GNU GPL version 2, keep in mind that it is extensively research-quality software.  It **has not been tested beyond synthetic and simplistic benchmarks**, so it may not work as expected when faced with real life workloads.  If you're looking for a web server, try [Apache](http://apache.org), [Cherokee](http://www.cherokee-project.com) or [Nginx](http://nginx.org).
 
 If even with that warning you'd like to try lwan: there is no configuration file.  All settings are made in the `main()` function located in the `main.c` file; you'll need to recompile and restart lwan so that these settings take effect.  Things should be pretty self-explanatory.  Also, `main.c` serves as an example of how you could embed lwan in your program; the embedding API isn't ready yet, so there is no way to integrate main loops.
 
