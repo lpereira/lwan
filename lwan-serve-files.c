@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -83,7 +84,14 @@ struct cache_entry_t {
     } compressed, uncompressed;
     const char *mime_type;
     char last_modified[32];
+    time_t mtime;
+
+    unsigned int serving_count;
+    unsigned int deleted;
 };
+
+#define ATOMIC_READ(V)		(*(volatile typeof(V) *)&(V))
+#define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
 
 static ALWAYS_INLINE bool
 _rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
@@ -121,6 +129,26 @@ _free_cached_entry(void *data)
 {
     struct cache_entry_t *ce = data;
 
+    if (ATOMIC_READ(ce->serving_count) > 0) {
+        /*
+         * After this function returns, this cache entry has been removed
+         * from the hash table.  Do not free it as someone is still using
+         * it; just mark it as deleted, so when the last serving thread that
+         * has a reference to this entry can actually free this.
+         *
+         * When this function is being called, the hash table is also
+         * locked.  The reason atomic reads and writes is that the serving
+         * threads do not lock the hash table: only the directory watcher
+         * (while modifying it) and the request handler (while looking up).
+         * Ideally we should be using a better hash table implementation
+         * with hazard pointers or something like that.
+         */
+        ATOMIC_AAF(&ce->deleted, 1);
+        return;
+    }
+
+    assert(ATOMIC_READ(ce->serving_count) == 0);
+
     munmap(ce->uncompressed.contents, ce->uncompressed.size);
     free(ce->compressed.contents);
     free(ce);
@@ -157,6 +185,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
 
     ce->uncompressed.size = size;
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
+    ce->mtime = mtime;
 
     _rfc_time(priv, mtime, ce->last_modified);
     _compress_cached_entry(ce);
@@ -499,14 +528,80 @@ end:
     return return_status;
 }
 
+static lwan_http_status_t
+_serve_cached_file_stream(lwan_request_t *request, void *data)
+{
+    struct serve_files_priv_t *priv = request->response.stream.priv;
+    struct cache_entry_t *ce = data;
+    char header_buf[DEFAULT_HEADERS_SIZE];
+    lwan_key_value_t *headers = (lwan_key_value_t *)request->buffer;
+    size_t size;
+    void *contents;
+    lwan_http_status_t return_status = HTTP_OK;
+    size_t header_len;
+
+    if (_client_has_fresh_content(request, ce->mtime))
+        return_status = HTTP_NOT_MODIFIED;
+
+    _update_date_cache(priv);
+    SET_NTH_HEADER(0, "Date", priv->date);
+    SET_NTH_HEADER(1, "Expires", priv->expires);
+    SET_NTH_HEADER(2, "Last-Modified", ce->last_modified);
+
+    if (LIKELY(request->header.accept_encoding.deflate && ce->compressed.size)) {
+        contents = ce->compressed.contents;
+        size = ce->compressed.size;
+
+        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
+        SET_NTH_HEADER(4, NULL, NULL);
+    } else {
+        contents = ce->uncompressed.contents;
+        size = ce->uncompressed.size;
+
+        SET_NTH_HEADER(3, NULL, NULL);
+    }
+
+    request->response.content_length = size;
+    request->response.headers = headers;
+
+    header_len = lwan_prepare_response_header(request, return_status, header_buf, sizeof(header_buf));
+    if (UNLIKELY(!header_len)) {
+        return_status = HTTP_INTERNAL_ERROR;
+        goto end;
+    }
+
+    if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
+        if (UNLIKELY(write(request->fd, header_buf, header_len) < 0))
+            return_status = HTTP_INTERNAL_ERROR;
+    } else {
+        struct iovec response_vec[] = {
+            { .iov_base = header_buf, .iov_len = header_len },
+            { .iov_base = contents, .iov_len = size }
+        };
+
+        if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
+            return_status = HTTP_INTERNAL_ERROR;
+    }
+
+end:
+    if (ATOMIC_AAF(&ce->serving_count, -1) == 0 && ATOMIC_READ(ce->deleted)) {
+        /*
+         * If ce->deleted, then it has been already removed from the hash
+         * table -- this is just a dangling reference and at this point it
+         * is safe to free it.
+         */
+
+        _free_cached_entry(ce);
+    }
+
+    return return_status;
+}
+
 static bool
 _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 {
-    lwan_key_value_t *headers = (lwan_key_value_t *)request->buffer;
     struct cache_entry_t *cache_entry;
-    const char *contents;
-    size_t size;
-    bool served;
+    bool served = false;
 
     /*
      * The mutex will be locked while the cache is being updated. To be on
@@ -516,47 +611,19 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
         return false;
 
     cache_entry = hash_find(priv->cache, request->url.value);
-    if (!cache_entry) {
-        served = false;
-        goto end;
-    }
+    if (!cache_entry)
+        goto unlock_and_exit;
+
+    ATOMIC_AAF(&cache_entry->serving_count, 1);
 
     request->response.mime_type = (char *)cache_entry->mime_type;
-    request->response.headers = headers;
+    request->response.stream.callback = _serve_cached_file_stream;
+    request->response.stream.data = cache_entry;
+    request->response.stream.priv = priv;
 
-    _update_date_cache(priv);
-
-    SET_NTH_HEADER(0, "Date", priv->date);
-    SET_NTH_HEADER(1, "Expires", priv->expires);
-    SET_NTH_HEADER(2, "Last-Modified", cache_entry->last_modified);
-
-    if (LIKELY(request->header.accept_encoding.deflate && cache_entry->compressed.size)) {
-        contents = cache_entry->compressed.contents;
-        size = cache_entry->compressed.size;
-
-        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
-        SET_NTH_HEADER(4, NULL, NULL);
-    } else {
-        contents = cache_entry->uncompressed.contents;
-        size = cache_entry->uncompressed.size;
-
-        SET_NTH_HEADER(3, NULL, NULL);
-    }
-
-    strbuf_set_static(request->response.buffer, contents, size);
     served = true;
 
-end:
-    /*
-     * FIXME
-     * There is a race condition here, that will happen when we're about
-     * to serve a file and there was a change in the cache. The mutex
-     * will be unlocked by the time writev() is called with a possibly
-     * munmap'd pointer.
-     *
-     * It's possible to fix this using coro_defer(), but that's quite
-     * slow. Will need to find a better alternative.
-     */
+unlock_and_exit:
     pthread_mutex_unlock(&priv->cache_mutex);
     return served;
 }
