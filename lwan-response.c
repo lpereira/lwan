@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/uio.h>
@@ -26,11 +27,69 @@
 
 #include "lwan.h"
 #include "int-to-str.h"
+#include "template.h"
 
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",
     [HTTP_1_1] = "1.1"
 };
+
+static lwan_tpl_t *error_template = NULL;
+
+static const char *error_template_str = "<html><head><style>" \
+    "body{" \
+    "background:#627d4d;" \
+    "background:-moz-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+    "background:-webkit-gradient(radial,center center,0px,center center,100\%,color-stop(15\%,#627d4d),color-stop(100\%,#1f3b08));" \
+    "background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+    "background:-o-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+    "background:-ms-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+    "background:radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
+    "height:100\%;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:center;border:0;letter-spacing:-1px;margin:0;padding:0}.sorry{color:#244837;font-size:18px;line-height:24px;text-shadow:0" \
+    "1px 1px rgba(255,255,255,0.33)}h1{color:#fff;font-size:30px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,0.68);letter-spacing:-1px;margin:0}" \
+    "</style>" \
+    "</head>" \
+    "<body>" \
+    "<table height=\"100\%\" width=\"100\%\"><tr><td align=\"center\" valign=\"middle\">" \
+    "<div id=\"container\">" \
+    "<h1 id=\"l10n_title\">{{short_message}}</h1>" \
+    "<div class=\"sorry\">" \
+    "<p>{{long_message}}</p>" \
+    "</div>" \
+    "</div>" \
+    "</td></tr></table>" \
+    "</body>" \
+    "</html>";
+
+struct error_template_t {
+    const char *short_message;
+    const char *long_message;
+};
+
+void
+lwan_response_init(void)
+{
+    static lwan_var_descriptor_t error_descriptor[] = {
+        TPL_VAR_STR(struct error_template_t, short_message),
+        TPL_VAR_STR(struct error_template_t, long_message),
+        TPL_VAR_SENTINEL
+    };
+
+    assert(!error_template);
+
+    error_template = lwan_tpl_compile_string(error_template_str, error_descriptor);
+    if (!error_template) {
+        perror("lwan_tpl_compile_string");
+        exit(1);
+    }
+}
+
+void
+lwan_response_shutdown(void)
+{
+    assert(error_template);
+    lwan_tpl_free(error_template);
+}
 
 bool
 lwan_response(lwan_request_t *request, lwan_http_status_t status)
@@ -83,35 +142,13 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 bool
 lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 {
-    static const char *default_response = "<html><head><style>" \
-        "body{" \
-        "background:#627d4d;" \
-        "background:-moz-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
-        "background:-webkit-gradient(radial,center center,0px,center center,100\%,color-stop(15\%,#627d4d),color-stop(100\%,#1f3b08));" \
-        "background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
-        "background:-o-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
-        "background:-ms-radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
-        "background:radial-gradient(center,ellipse cover,#627d4d 15\%,#1f3b08 100\%);" \
-        "height:100\%;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:center;border:0;letter-spacing:-1px;margin:0;padding:0}.sorry{color:#244837;font-size:18px;line-height:24px;text-shadow:0" \
-        "1px 1px rgba(255,255,255,0.33)}h1{color:#fff;font-size:30px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,0.68);letter-spacing:-1px;margin:0}" \
-        "</style>" \
-        "</head>" \
-        "<body>" \
-        "<table height=\"100\%\" width=\"100\%\"><tr><td align=\"center\" valign=\"middle\">" \
-        "<div id=\"container\">" \
-        "<h1 id=\"l10n_title\">%s</h1>" \
-        "<div class=\"sorry\">" \
-        "<p>%s</p>" \
-        "</div>" \
-        "</div>" \
-        "</td></tr></table>" \
-        "</body>" \
-        "</html>";
-
     request->response.mime_type = "text/html";
-    strbuf_printf(request->response.buffer, default_response,
-        lwan_http_status_as_string(status),
-        lwan_http_status_as_descriptive_string(status));
+
+    lwan_tpl_apply_with_buffer(error_template, request->response.buffer,
+        (struct error_template_t[]) {{
+            .short_message = lwan_http_status_as_string(status),
+            .long_message = lwan_http_status_as_descriptive_string(status)
+        }});
 
     return lwan_response(request, status);
 }

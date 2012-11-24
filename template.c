@@ -23,7 +23,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,10 +33,9 @@
 #include "strbuf.h"
 #include "hash.h"
 #include "int-to-str.h"
+#include "template.h"
 
-typedef struct lwan_tpl_t_ lwan_tpl_t;
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
-typedef struct lwan_var_descriptor_t_ lwan_var_descriptor_t;
 
 lwan_tpl_t *lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor);
 void lwan_tpl_free(lwan_tpl_t *tpl);
@@ -76,33 +74,8 @@ struct lwan_tpl_t_ {
     struct hash *descriptor_hash;
 };
 
-struct lwan_var_descriptor_t_ {
-    const char *name;
-    const off_t offset;
-    char *(*get_as_string)(void *ptr, bool *allocated, size_t *length);
-    bool (*get_is_empty)(void *ptr);
-};
-
-#define TPL_VAR(struct_, var_, get_as_string_, get_is_empty_) \
-    { \
-        .name = #var_, \
-        .offset = offsetof(struct_, var_), \
-        .get_as_string = get_as_string_, \
-        .get_is_empty = get_is_empty_ \
-    }
-
-#define TPL_VAR_INT(struct_, var_) \
-    TPL_VAR(struct_, var_, _int_to_str, _int_is_empty)
-
-#define TPL_VAR_STR(struct_, var_) \
-    TPL_VAR(struct_, var_, _str_to_str, _str_is_empty)
-
-#define TPL_VAR_SENTINEL \
-    { NULL, 0, NULL, NULL }
-
-
-static char *
-_int_to_str(void *ptr, bool *allocated, size_t *length)
+char *
+_lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length)
 {
     char buf[32];
     char *ret;
@@ -113,14 +86,14 @@ _int_to_str(void *ptr, bool *allocated, size_t *length)
     return strdup(ret);
 }
 
-static bool
-_int_is_empty(void *ptr)
+bool
+_lwan_tpl_int_is_empty(void *ptr)
 {
     return (*(int *)ptr) == 0;
 }
 
-static char *
-_str_to_str(void *ptr, bool *allocated, size_t *length)
+char *
+_lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length)
 {
     struct v {
         char *str;
@@ -132,7 +105,7 @@ _str_to_str(void *ptr, bool *allocated, size_t *length)
 }
 
 bool
-_str_is_empty(void *ptr)
+_lwan_tpl_str_is_empty(void *ptr)
 {
     char *str = ptr;
     return !str || !*str;
@@ -602,12 +575,26 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
 }
 
 strbuf_t *
-lwan_tpl_apply(lwan_tpl_t *tpl, void *variables)
+lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
 {
-    strbuf_t *buf = strbuf_new_with_size(tpl->minimum_size);
+    if (UNLIKELY(!strbuf_reset_length(buf)))
+        return NULL;
+
+    if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
+        return NULL;
+
     lwan_tpl_apply_until(tpl, tpl->chunks, buf, variables, until_end, NULL);
     return buf;
 }
+
+strbuf_t *
+lwan_tpl_apply(lwan_tpl_t *tpl, void *variables)
+{
+    strbuf_t *buf = strbuf_new_with_size(tpl->minimum_size);
+    return lwan_tpl_apply_with_buffer(tpl, buf, variables);
+}
+
+#ifdef TEMPLATE_TEST
 
 struct test_struct {
     int some_int;
@@ -642,3 +629,5 @@ int main(int argc, char *argv[])
     lwan_tpl_free(tpl);    
     return 0;
 }
+
+#endif /* TEMPLATE_TEST */

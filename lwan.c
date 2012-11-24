@@ -451,6 +451,7 @@ lwan_init(lwan_t *l)
 
     _socket_init(l);
     _thread_init(l);
+    lwan_response_init();
 
     if (!lwan_dir_watch_init()) {
         perror("dir_watch_init");
@@ -481,6 +482,7 @@ lwan_shutdown(lwan_t *l)
     _socket_shutdown(l);
     _url_map_free(l);
     lwan_dir_watch_shutdown();
+    lwan_response_shutdown();
 
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)

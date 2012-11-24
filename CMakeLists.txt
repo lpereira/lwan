@@ -41,17 +41,11 @@ add_executable(lwan
 	strbuf.c
 	realpathat.c
 	hash.c
+	template.c
 )
 
 target_link_libraries(lwan
 	${CMAKE_THREAD_LIBS_INIT}
 	${TCMALLOC_LIBRARY}
 	${ZLIB_LIBRARIES}
-)
-
-add_executable(template
-	template.c
-	strbuf.c
-	hash.c
-	int-to-str.c
 )

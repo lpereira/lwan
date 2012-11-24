@@ -50,6 +50,8 @@ int		 strbuf_get_length(strbuf_t *s);
 char		*strbuf_get_buffer(strbuf_t *s);
 bool		 strbuf_shrink_to(strbuf_t *s, int new_size);
 bool		 strbuf_shrink_to_default(strbuf_t *s);
+bool		 strbuf_grow_to(strbuf_t *s, int new_size);
 bool		 strbuf_reset(strbuf_t *s);
+bool		 strbuf_reset_length(strbuf_t *s);
 
 #endif /* __STRBUF_H__ */

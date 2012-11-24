@@ -241,4 +241,8 @@ const char *lwan_request_get_query_param(lwan_request_t *request, const char *ke
 bool lwan_process_request(lwan_request_t *request);
 void lwan_shutdown(lwan_t *l);
 
+void lwan_response_init(void);
+void lwan_response_shutdown(void);
+
+
 #endif /* __LWAN_H__ */

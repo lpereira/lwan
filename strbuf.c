@@ -249,3 +249,25 @@ strbuf_reset(strbuf_t *s)
     s->len.buffer = 0;
     return false;
 }
+
+bool
+strbuf_grow_to(strbuf_t *s, int new_size)
+{
+    return grow_buffer_if_needed(s, new_size + 1);
+}
+
+bool
+strbuf_reset_length(strbuf_t *s)
+{
+    if (s->is_static) {
+        s->is_static = false;
+        s->value.buffer = malloc(s->len.allocated);
+        if (UNLIKELY(!s->value.buffer))
+            return false;
+    }
+
+    s->len.buffer = 0;
+    s->value.buffer[0] = '\0';
+
+    return true;
+}
