@@ -20,12 +20,17 @@
  * Ideas from Mustache logic-less templates: http://mustache.github.com/
  */
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "strbuf.h"
 #include "hash.h"
 #include "int-to-str.h"
@@ -34,7 +39,7 @@ typedef struct lwan_tpl_t_ lwan_tpl_t;
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
 typedef struct lwan_var_descriptor_t_ lwan_var_descriptor_t;
 
-lwan_tpl_t *lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor);
+lwan_tpl_t *lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor);
 void lwan_tpl_free(lwan_tpl_t *tpl);
 strbuf_t *lwan_tpl_apply(lwan_tpl_t *, void *variables);
 
@@ -176,7 +181,7 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
         char template_file[PATH_MAX];
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
 
-        lwan_tpl_t *included = lwan_tpl_compile(template_file, descriptor);
+        lwan_tpl_t *included = lwan_tpl_compile_file(template_file, descriptor);
         if (!included) {
             free(chunk);
             return -ENOENT;
@@ -354,11 +359,10 @@ append_text:
 }
 
 lwan_tpl_t *
-lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
+lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_t *tpl;
     strbuf_t *buf;
-    FILE *file;
     int state = STATE_DEFAULT;
     char error_msg[512];
     
@@ -378,15 +382,10 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
     if (!buf)
         goto error_allocate_strbuf;
     
-    file = fopen(filename, "r");
-    if (!file)
-        goto error_open_file;
-
     int line = 1;
     int column = 1;
-    int ch;
-    while ((ch = fgetc(file)) != EOF) {
-        if (ch == '\n') {
+    for (; *string; string++) {
+        if (*string == '\n') {
             if (state == STATE_DEFAULT)
                 strbuf_append_char(buf, '\n');
 
@@ -396,18 +395,18 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
         }
         ++column;
 
-        state = feed_into_compiler(tpl, descriptor, state, buf, ch, error_msg);
+        state = feed_into_compiler(tpl, descriptor, state, buf, *string, error_msg);
         if (state == STATE_PARSE_ERROR)
             goto parse_error;
     }
 
-    state = feed_into_compiler(tpl, descriptor, state, buf, ch, error_msg);
+    state = feed_into_compiler(tpl, descriptor, state, buf, EOF, error_msg);
     if (state == STATE_PARSE_ERROR)
         goto parse_error;
 
     lwan_tpl_chunk_t *last = malloc(sizeof(*last));
     if (!last)
-        goto error_last_minute;
+        goto free_strbuf;
 
     last->action = TPL_ACTION_LAST;
     last->data = NULL;
@@ -425,17 +424,13 @@ lwan_tpl_compile(const char *filename, lwan_var_descriptor_t *descriptor)
 
     strbuf_free(buf);
     hash_free(tpl->descriptor_hash);
-    fclose(file);
 
     return tpl;
 
 parse_error:
     printf("Line %d, column %d: %s\n", line, column, error_msg);
 
-error_last_minute:
-    fclose(file);
-
-error_open_file:
+free_strbuf:
     strbuf_free(buf);
 
 error_allocate_strbuf:
@@ -449,6 +444,36 @@ error_allocate_tpl:
 }
 
 #undef PARSE_ERROR
+
+lwan_tpl_t *
+lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor)
+{
+    int fd;
+    struct stat st;
+    char *mapped;
+    lwan_tpl_t *tpl = NULL;
+
+    fd = open(filename, O_RDONLY);
+    if (fd < 0)
+        goto end;
+
+    if (fstat(fd, &st) < 0)
+        goto close_file;
+
+    mapped = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (mapped == MAP_FAILED)
+        goto close_file;
+
+    tpl = lwan_tpl_compile_string(mapped, descriptor);
+
+    if (munmap(mapped, st.st_size) < 0)
+        perror("munmap");
+
+close_file:
+    close(fd);
+end:
+    return tpl;
+}
 
 static bool
 until_end(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
@@ -602,7 +627,7 @@ int main(int argc, char *argv[])
         TPL_VAR_STR(struct test_struct, a_string),
         TPL_VAR_SENTINEL
     };
-    lwan_tpl_t *tpl = lwan_tpl_compile(argv[1], desc);
+    lwan_tpl_t *tpl = lwan_tpl_compile_file(argv[1], desc);
     if (!tpl)
         return 1;
 
