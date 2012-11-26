@@ -603,7 +603,6 @@ static bool
 _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
 {
     struct cache_entry_t *cache_entry;
-    bool served = false;
 
     /*
      * The mutex will be locked while the cache is being updated. To be on
@@ -613,21 +612,20 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
         return false;
 
     cache_entry = hash_find(priv->cache, request->url.value);
-    if (!cache_entry)
-        goto unlock_and_exit;
+    if (!cache_entry) {
+        pthread_mutex_unlock(&priv->cache_mutex);
+        return false;
+    }
 
     ATOMIC_AAF(&cache_entry->serving_count, 1);
+    pthread_mutex_unlock(&priv->cache_mutex);
 
     request->response.mime_type = (char *)cache_entry->mime_type;
     request->response.stream.callback = _serve_cached_file_stream;
     request->response.stream.data = cache_entry;
     request->response.stream.priv = priv;
 
-    served = true;
-
-unlock_and_exit:
-    pthread_mutex_unlock(&priv->cache_mutex);
-    return served;
+    return true;
 }
 
 static lwan_http_status_t
