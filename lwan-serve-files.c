@@ -186,6 +186,8 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
     ce->uncompressed.size = size;
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
     ce->mtime = mtime;
+    ce->deleted = false;
+    ce->serving_count = 0;
 
     _rfc_time(priv, mtime, ce->last_modified);
     _compress_cached_entry(ce);
