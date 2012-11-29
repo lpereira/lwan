@@ -69,7 +69,7 @@ struct serve_files_priv_t {
     size_t root_path_len;
     int root_fd;
     struct hash *cache;
-    pthread_mutex_t cache_mutex;
+    pthread_rwlock_t cache_rwlock;
     int extra_modes;
 
     char date[32];
@@ -205,7 +205,7 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
 {
     struct serve_files_priv_t *priv = data;
 
-    if (UNLIKELY(pthread_mutex_lock(&priv->cache_mutex) < 0))
+    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache_rwlock) < 0))
         return;
 
     switch (event) {
@@ -233,7 +233,7 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
     }
 
 end:
-    if (UNLIKELY(pthread_mutex_unlock(&priv->cache_mutex) < 0))
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache_rwlock) < 0))
         perror("pthread_mutex_unlock");
 }
 
@@ -286,12 +286,12 @@ _cache_small_files(struct serve_files_priv_t *priv)
     if (UNLIKELY(!priv->cache))
         return;
 
-    if (UNLIKELY(pthread_mutex_lock(&priv->cache_mutex) < 0))
+    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache_rwlock) < 0))
         return;
 
     _cache_small_files_recurse(priv, priv->root_path, 0);
 
-    if (UNLIKELY(pthread_mutex_unlock(&priv->cache_mutex) < 0))
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache_rwlock) < 0))
         perror("pthread_mutex_unlock");
 }
 
@@ -344,7 +344,7 @@ serve_files_init(void *args)
     priv->root_fd = root_fd;
     priv->last_date = 0;
     priv->extra_modes = extra_modes;
-    pthread_mutex_init(&priv->cache_mutex, NULL);
+    pthread_rwlock_init(&priv->cache_rwlock, NULL);
 
     _update_date_cache(priv);
 
@@ -371,7 +371,9 @@ serve_files_shutdown(void *data)
     if (!priv)
         return;
 
+    /* FIXME: Some thread might be holding the lock. Wait? */
     hash_free(priv->cache);
+    pthread_rwlock_destroy(&priv->cache_rwlock);
     close(priv->root_fd);
     free(priv->root_path);
     free(priv);
@@ -608,17 +610,17 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
      * The mutex will be locked while the cache is being updated. To be on
      * the safe side, just serve the file using regular disk I/O this time.
      */
-    if (UNLIKELY(pthread_mutex_trylock(&priv->cache_mutex) < 0))
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&priv->cache_rwlock) < 0))
         return false;
 
     cache_entry = hash_find(priv->cache, request->url.value);
     if (!cache_entry) {
-        pthread_mutex_unlock(&priv->cache_mutex);
+        pthread_rwlock_unlock(&priv->cache_rwlock);
         return false;
     }
 
     ATOMIC_AAF(&cache_entry->serving_count, 1);
-    pthread_mutex_unlock(&priv->cache_mutex);
+    pthread_rwlock_unlock(&priv->cache_rwlock);
 
     request->response.mime_type = (char *)cache_entry->mime_type;
     request->response.stream.callback = _serve_cached_file_stream;
