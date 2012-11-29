@@ -72,8 +72,8 @@ struct serve_files_priv_t {
     pthread_rwlock_t cache_rwlock;
     int extra_modes;
 
-    char date[32];
-    char expires[32];
+    char date[31];
+    char expires[31];
     time_t last_date;
 };
 
@@ -83,7 +83,7 @@ struct cache_entry_t {
         unsigned long size;
     } compressed, uncompressed;
     const char *mime_type;
-    char last_modified[32];
+    char last_modified[31];
     time_t mtime;
 
     unsigned int serving_count;
