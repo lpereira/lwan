@@ -140,11 +140,17 @@ _free_cached_entry(void *data)
          * locked.  The reason atomic reads and writes is that the serving
          * threads do not lock the hash table: only the directory watcher
          * (while modifying it) and the request handler (while looking up).
-         * Ideally we should be using a better hash table implementation
-         * with hazard pointers or something like that.
          */
         ATOMIC_AAF(&ce->deleted, 1);
-        return;
+
+        /*
+         * The serving count is read again to ensure that, if preemption
+         * occurred before the ce->deleted increment, and the serving count
+         * dropped to zero from another thread, this node still gets freed
+         * if it's not being used anymore.
+         */
+        if (ATOMIC_READ(ce->serving_count) != 0)
+            return;
     }
 
     assert(ATOMIC_READ(ce->serving_count) == 0);
