@@ -65,8 +65,6 @@ struct coro_t_ {
 #ifdef USE_VALGRIND
     int vg_stack_id;
 #endif
-
-    char stack[1];
 };
 
 /*
@@ -181,10 +179,7 @@ coro_t *
 coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data)
 {
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
-
-#ifdef USE_VALGRIND
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(coro->stack, coro->stack + stack_size);
-#endif
+    void *stack = (coro_t *)coro + 1;
 
     coro->state = CORO_NEW;
     coro->switcher = switcher;
@@ -192,8 +187,12 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->data = data;
     coro->defer = NULL;
 
+#ifdef USE_VALGRIND
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + stack_size);
+#endif
+
     _coro_getcontext(&coro->context);
-    coro->context.uc_stack.ss_sp = coro->stack;
+    coro->context.uc_stack.ss_sp = stack;
     coro->context.uc_stack.ss_size = stack_size;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
