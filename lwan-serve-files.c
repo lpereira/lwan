@@ -65,9 +65,12 @@ lwan_handler_t serve_files = {
 };
 
 struct serve_files_priv_t {
-    char *root_path;
-    size_t root_path_len;
-    int root_fd;
+    struct {
+        char *path;
+        size_t path_len;
+        int fd;
+    } root;
+
     int extra_modes;
 
     struct {
@@ -198,7 +201,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
         perror("madvise");
 
     ce->uncompressed.size = size;
-    ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
+    ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root.path_len);
     ce->last_modified.integer = mtime;
     ce->deleted = false;
     ce->serving_count = 0;
@@ -206,7 +209,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
     _rfc_time(priv, mtime, ce->last_modified.string);
     _compress_cached_entry(ce);
 
-    hash_add(priv->cache.entries, strdup(full_path + priv->root_path_len + 1), ce);
+    hash_add(priv->cache.entries, strdup(full_path + priv->root.path_len + 1), ce);
 
 close_file:
     close(file_fd);
@@ -303,7 +306,7 @@ _cache_small_files(struct serve_files_priv_t *priv)
     if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0))
         return;
 
-    _cache_small_files_recurse(priv, priv->root_path, 0);
+    _cache_small_files_recurse(priv, priv->root.path, 0);
 
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
         perror("pthread_mutex_unlock");
@@ -360,9 +363,9 @@ serve_files_init(void *args)
         goto out_malloc;
     }
 
-    priv->root_path = canonical_root;
-    priv->root_path_len = strlen(canonical_root);
-    priv->root_fd = root_fd;
+    priv->root.path = canonical_root;
+    priv->root.path_len = strlen(canonical_root);
+    priv->root.fd = root_fd;
     priv->extra_modes = extra_modes;
 
     pthread_rwlock_init(&priv->date.lock, NULL);
@@ -396,8 +399,8 @@ serve_files_shutdown(void *data)
     /* FIXME: Some thread might be holding the lock. Wait? */
     hash_free(priv->cache.entries);
     pthread_rwlock_destroy(&priv->cache.lock);
-    close(priv->root_fd);
-    free(priv->root_path);
+    close(priv->root.fd);
+    free(priv->root.path);
     free(priv);
 }
 
@@ -500,12 +503,12 @@ _serve_file_stream(lwan_request_t *request, void *data)
     char *path;
     off_t from, to;
 
-    if (data != priv->root_path)
-        path = (char *)data + priv->root_path_len + 1;
+    if (data != priv->root.path)
+        path = (char *)data + priv->root.path_len + 1;
     else
         path = "index.html";
 
-    if (UNLIKELY(fstatat(priv->root_fd, path, &st, 0) < 0)) {
+    if (UNLIKELY(fstatat(priv->root.fd, path, &st, 0) < 0)) {
         return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
         goto end;
     }
@@ -542,7 +545,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
-        int file_fd = openat(priv->root_fd, path, O_RDONLY | priv->extra_modes);
+        int file_fd = openat(priv->root.fd, path, O_RDONLY | priv->extra_modes);
 
         if (UNLIKELY(file_fd < 0)) {
             return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
@@ -557,7 +560,7 @@ _serve_file_stream(lwan_request_t *request, void *data)
     }
 
 end:
-    if (data != priv->root_path)
+    if (data != priv->root.path)
         free(data);
 
     return return_status;
@@ -691,7 +694,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     }
 
     if (!request->url.len) {
-        canonical_path = priv->root_path;
+        canonical_path = priv->root.path;
         response->mime_type = "text/html";
         goto serve;
     }
@@ -699,7 +702,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     if (_serve_cached_file(priv, request))
         return HTTP_OK;
 
-    canonical_path = realpathat(priv->root_fd, priv->root_path, request->url.value, NULL);
+    canonical_path = realpathat(priv->root.fd, priv->root.path, request->url.value, NULL);
     if (UNLIKELY(!canonical_path)) {
         switch (errno) {
         case EACCES:
@@ -714,7 +717,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    if (UNLIKELY(strncmp(canonical_path, priv->root_path, priv->root_path_len))) {
+    if (UNLIKELY(strncmp(canonical_path, priv->root.path, priv->root.path_len))) {
         free(canonical_path);
         /*
          * The reason a HTTP_NOT_FOUND is yielded here instead of a HTTP_FORBIDDEN
