@@ -86,7 +86,7 @@ struct serve_files_priv_t {
 struct cache_entry_t {
     struct {
         void *contents;
-        unsigned long size;
+        size_t size;
     } compressed, uncompressed;
 
     struct {
