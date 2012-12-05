@@ -109,8 +109,23 @@ struct cache_entry_t {
 static ALWAYS_INLINE bool
 _rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
 {
-    time_t tt = (t <= ONE_MONTH) ? priv->date.last + t : t;
-    return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
+    bool ret;
+    time_t tt;
+
+    if (pthread_rwlock_rdlock(&priv->date.lock) < 0) {
+        perror("pthread_wrlock_rdlock");
+        return false;
+    }
+
+    tt = (t <= ONE_MONTH) ? priv->date.last + t : t;
+    ret = !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
+
+    if (pthread_rwlock_unlock(&priv->date.lock) < 0) {
+        perror("pthread_wrlock_unlock");
+        return false;
+    }
+
+    return ret;
 }
 
 static void
