@@ -82,9 +82,13 @@ struct cache_entry_t {
         void *contents;
         unsigned long size;
     } compressed, uncompressed;
+
+    struct {
+        char string[31];
+        time_t integer;
+    } last_modified;
+
     const char *mime_type;
-    char last_modified[31];
-    time_t mtime;
 
     unsigned int serving_count;
     unsigned int deleted;
@@ -189,11 +193,11 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
 
     ce->uncompressed.size = size;
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
-    ce->mtime = mtime;
+    ce->last_modified.integer = mtime;
     ce->deleted = false;
     ce->serving_count = 0;
 
-    _rfc_time(priv, mtime, ce->last_modified);
+    _rfc_time(priv, mtime, ce->last_modified.string);
     _compress_cached_entry(ce);
 
     hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
@@ -548,7 +552,7 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
     lwan_http_status_t return_status = HTTP_OK;
     size_t header_len;
 
-    if (_client_has_fresh_content(request, ce->mtime))
+    if (_client_has_fresh_content(request, ce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
     _update_date_cache(priv);
