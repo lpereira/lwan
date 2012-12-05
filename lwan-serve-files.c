@@ -68,13 +68,19 @@ struct serve_files_priv_t {
     char *root_path;
     size_t root_path_len;
     int root_fd;
-    struct hash *cache;
-    pthread_rwlock_t cache_rwlock;
     int extra_modes;
 
-    char date[31];
-    char expires[31];
-    time_t last_date;
+    struct {
+        struct hash *entries;
+        pthread_rwlock_t lock;
+    } cache;
+
+    struct {
+        char date[31];
+        char expires[31];
+        time_t last;
+        pthread_rwlock_t lock;
+    } date;
 };
 
 struct cache_entry_t {
@@ -100,7 +106,7 @@ struct cache_entry_t {
 static ALWAYS_INLINE bool
 _rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
 {
-    time_t tt = (t <= ONE_MONTH) ? priv->last_date + t : t;
+    time_t tt = (t <= ONE_MONTH) ? priv->date.last + t : t;
     return !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
 }
 
@@ -167,7 +173,7 @@ _free_cached_entry(void *data)
 static void
 _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, time_t mtime)
 {
-    /* Assumes priv->cache_mutex locked */
+    /* Assumes priv->cache.lock locked */
     struct cache_entry_t *ce;
     int file_fd;
 
@@ -200,7 +206,7 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
     _rfc_time(priv, mtime, ce->last_modified.string);
     _compress_cached_entry(ce);
 
-    hash_add(priv->cache, strdup(full_path + priv->root_path_len + 1), ce);
+    hash_add(priv->cache.entries, strdup(full_path + priv->root_path_len + 1), ce);
 
 close_file:
     close(file_fd);
@@ -213,12 +219,12 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
 {
     struct serve_files_priv_t *priv = data;
 
-    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache_rwlock) < 0))
+    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0))
         return;
 
     switch (event) {
     case DIR_WATCH_MOD:
-        hash_del(priv->cache, name);
+        hash_del(priv->cache.entries, name);
         /* Fallthrough */
     case DIR_WATCH_ADD: {
             char path[PATH_MAX];
@@ -236,19 +242,19 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
         }
         break;
     case DIR_WATCH_DEL:
-        hash_del(priv->cache, name);
+        hash_del(priv->cache.entries, name);
         break;
     }
 
 end:
-    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache_rwlock) < 0))
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
         perror("pthread_mutex_unlock");
 }
 
 static void
 _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
 {
-    /* Assumes priv->cache_mutex locked */
+    /* Assumes priv->cache.lock locked */
     DIR *dir;
     struct dirent *entry;
     int fd;
@@ -290,30 +296,37 @@ error:
 static void
 _cache_small_files(struct serve_files_priv_t *priv)
 {
-    priv->cache = hash_str_new(256, free, _free_cached_entry);
-    if (UNLIKELY(!priv->cache))
+    priv->cache.entries = hash_str_new(256, free, _free_cached_entry);
+    if (UNLIKELY(!priv->cache.entries))
         return;
 
-    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache_rwlock) < 0))
+    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0))
         return;
 
     _cache_small_files_recurse(priv, priv->root_path, 0);
 
-    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache_rwlock) < 0))
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
         perror("pthread_mutex_unlock");
 }
 
 static void
 _update_date_cache(struct serve_files_priv_t *priv)
 {
-    time_t now = time(NULL);
-
-    if (now == priv->last_date)
+    if (pthread_rwlock_trywrlock(&priv->date.lock) < 0)
         return;
 
-    priv->last_date = now;
-    _rfc_time(priv, NOW, priv->date);
-    _rfc_time(priv, ONE_WEEK, priv->expires);
+    time_t now = time(NULL);
+
+    if (now == priv->date.last)
+        goto unlock;
+
+    priv->date.last = now;
+    _rfc_time(priv, NOW, priv->date.date);
+    _rfc_time(priv, ONE_WEEK, priv->date.expires);
+
+unlock:
+    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
+        perror("pthread_rwlock_unlock");
 }
 
 static void *
@@ -350,14 +363,15 @@ serve_files_init(void *args)
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
-    priv->last_date = 0;
     priv->extra_modes = extra_modes;
-    pthread_rwlock_init(&priv->cache_rwlock, NULL);
 
+    pthread_rwlock_init(&priv->date.lock, NULL);
+    priv->date.last = 0;
     _update_date_cache(priv);
 
     printf("Caching small files in \"%s\": ", canonical_root);
     fflush(stdout);
+    pthread_rwlock_init(&priv->cache.lock, NULL);
     _cache_small_files(priv);
     printf("done.\n");
 
@@ -380,8 +394,8 @@ serve_files_shutdown(void *data)
         return;
 
     /* FIXME: Some thread might be holding the lock. Wait? */
-    hash_free(priv->cache);
-    pthread_rwlock_destroy(&priv->cache_rwlock);
+    hash_free(priv->cache.entries);
+    pthread_rwlock_destroy(&priv->cache.lock);
     close(priv->root_fd);
     free(priv->root_path);
     free(priv);
@@ -400,19 +414,28 @@ _prepare_headers(struct serve_files_priv_t *priv, lwan_request_t *request,
 {
     lwan_key_value_t headers[4];
     char last_modified_buf[32];
+    size_t prepped_buffer_size;
 
-    _update_date_cache(priv);
     _rfc_time(priv, st->st_mtime, last_modified_buf);
 
     SET_NTH_HEADER(0, "Last-Modified", last_modified_buf);
-    SET_NTH_HEADER(1, "Date", priv->date);
-    SET_NTH_HEADER(2, "Expires", priv->expires);
-    SET_NTH_HEADER(3, NULL, NULL);
 
     request->response.headers = headers;
     request->response.content_length = st->st_size;
 
-    return lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
+    if (pthread_rwlock_rdlock(&priv->date.lock) < 0)
+        perror("pthread_wrlock_rdlock");
+
+    SET_NTH_HEADER(1, "Date", priv->date.date);
+    SET_NTH_HEADER(2, "Expires", priv->date.expires);
+    SET_NTH_HEADER(3, NULL, NULL);
+
+    prepped_buffer_size = lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
+
+    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
+        perror("pthread_wrlock_unlock");
+
+    return prepped_buffer_size;
 }
 
 static ALWAYS_INLINE bool
@@ -555,10 +578,6 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
     if (_client_has_fresh_content(request, ce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    _update_date_cache(priv);
-    SET_NTH_HEADER(0, "Date", priv->date);
-    SET_NTH_HEADER(1, "Expires", priv->expires);
-    SET_NTH_HEADER(2, "Last-Modified", ce->last_modified);
 
     if (LIKELY(request->header.accept_encoding.deflate && ce->compressed.size)) {
         contents = ce->compressed.contents;
@@ -576,11 +595,25 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
     request->response.content_length = size;
     request->response.headers = headers;
 
+    SET_NTH_HEADER(2, "Last-Modified", ce->last_modified.string);
+
+    if (pthread_rwlock_rdlock(&priv->date.lock) < 0)
+        perror("pthread_rwlock_rdlock");
+
+    SET_NTH_HEADER(0, "Date", priv->date.date);
+    SET_NTH_HEADER(1, "Expires", priv->date.expires);
+
     header_len = lwan_prepare_response_header(request, return_status, header_buf, sizeof(header_buf));
     if (UNLIKELY(!header_len)) {
+        if (pthread_rwlock_unlock(&priv->date.lock) < 0)
+            perror("pthread_rwlock_unlock");
+
         return_status = HTTP_INTERNAL_ERROR;
         goto end;
     }
+
+    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
+        perror("pthread_rwlock_unlock");
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
         if (UNLIKELY(write(request->fd, header_buf, header_len) < 0))
@@ -618,17 +651,17 @@ _serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
      * The mutex will be locked while the cache is being updated. To be on
      * the safe side, just serve the file using regular disk I/O this time.
      */
-    if (UNLIKELY(pthread_rwlock_tryrdlock(&priv->cache_rwlock) < 0))
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&priv->cache.lock) < 0))
         return false;
 
-    cache_entry = hash_find(priv->cache, request->url.value);
+    cache_entry = hash_find(priv->cache.entries, request->url.value);
     if (!cache_entry) {
-        pthread_rwlock_unlock(&priv->cache_rwlock);
+        pthread_rwlock_unlock(&priv->cache.lock);
         return false;
     }
 
     ATOMIC_AAF(&cache_entry->serving_count, 1);
-    pthread_rwlock_unlock(&priv->cache_rwlock);
+    pthread_rwlock_unlock(&priv->cache.lock);
 
     request->response.mime_type = (char *)cache_entry->mime_type;
     request->response.stream.callback = _serve_cached_file_stream;
@@ -649,6 +682,8 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         return_status = HTTP_INTERNAL_ERROR;
         goto fail;
     }
+
+    _update_date_cache(priv);
 
     while (UNLIKELY(*request->url.value == '/' && request->url.len > 0)) {
         ++request->url.value;
