@@ -175,10 +175,8 @@ _cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, ti
         return;
 
     ce = malloc(sizeof(*ce));
-    if (UNLIKELY(!ce)) {
-        close(file_fd);
-        return;
-    }
+    if (UNLIKELY(!ce))
+        goto close_file;
 
     ce->uncompressed.contents = mmap(NULL, size, PROT_READ, MAP_SHARED, file_fd, 0);
     if (UNLIKELY(ce->uncompressed.contents == MAP_FAILED)) {
