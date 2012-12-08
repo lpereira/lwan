@@ -38,8 +38,8 @@
 #include "lwan.h"
 #include "lwan-sendfile.h"
 #include "lwan-dir-watch.h"
-#include "realpathat.h"
 #include "hash.h"
+#include "realpathat.h"
 
 #define NOW 0
 #define ONE_HOUR 3600
@@ -53,18 +53,16 @@
         headers[number_].value = (value_); \
     } while(0)
 
-static void *serve_files_init(void *args);
-static void serve_files_shutdown(void *data);
-static lwan_http_status_t serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data);
+#define ATOMIC_READ(V)		(*(volatile typeof(V) *)&(V))
+#define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
 
-lwan_handler_t serve_files = {
-    .init = serve_files_init,
-    .shutdown = serve_files_shutdown,
-    .handle = serve_files_handle_cb,
-    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
-};
+typedef struct serve_files_priv_t_	serve_files_priv_t;
+typedef struct cache_entry_t_		cache_entry_t;
+typedef struct cache_funcs_t_		cache_funcs_t;
+typedef struct mmap_cache_data_t_	mmap_cache_data_t;
+typedef struct sendfile_cache_data_t_	sendfile_cache_data_t;
 
-struct serve_files_priv_t {
+struct serve_files_priv_t_ {
     struct {
         char *path;
         size_t path_len;
@@ -86,11 +84,42 @@ struct serve_files_priv_t {
     } date;
 };
 
-struct cache_entry_t {
+struct cache_funcs_t_ {
+    bool (*init)(cache_entry_t *ce,
+                 serve_files_priv_t *priv,
+                 char *full_path,
+                 struct stat *st);
+    void (*free)(void *data);
+
+    lwan_http_status_t (*serve)(cache_entry_t *ce,
+                                serve_files_priv_t *priv,
+                                lwan_request_t *request);
+};
+
+struct mmap_cache_data_t_ {
     struct {
         void *contents;
-        size_t size;
+        /* zlib expects unsigned longs instead of size_t */
+        unsigned long size;
     } compressed, uncompressed;
+};
+
+struct sendfile_cache_data_t_ {
+    /*
+     * FIXME Investigate if keeping files open and dup()ing them
+     *       is faster than openat()ing. This won't scale as well,
+     *       but might be a good alternative for popular files.
+     */
+
+    char *filename;
+    size_t size;
+};
+
+struct cache_entry_t_ {
+    union {
+        mmap_cache_data_t mmap;
+        sendfile_cache_data_t sendfile;
+    } data;
 
     struct {
         char string[31];
@@ -101,13 +130,114 @@ struct cache_entry_t {
 
     unsigned int serving_count;
     unsigned int deleted;
+
+    const cache_funcs_t *funcs;
 };
 
-#define ATOMIC_READ(V)		(*(volatile typeof(V) *)&(V))
-#define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
+static void _cache_files_recurse(serve_files_priv_t *priv,
+                                 char *root, int levels);
+
+static bool _mmap_init(cache_entry_t *ce, serve_files_priv_t *priv,
+                       char *full_path, struct stat *st);
+static void _mmap_free(void *data);
+static lwan_http_status_t _mmap_serve(cache_entry_t *ce,
+                                      serve_files_priv_t *priv,
+                                      lwan_request_t *request);
+static bool _sendfile_init(cache_entry_t *ce, serve_files_priv_t *priv,
+                           char *full_path, struct stat *st);
+static void _sendfile_free(void *data);
+static lwan_http_status_t _sendfile_serve(cache_entry_t *ce,
+                                          serve_files_priv_t *priv,
+                                          lwan_request_t *request);
+
+static const cache_funcs_t mmap_funcs = {
+    .init = _mmap_init,
+    .free = _mmap_free,
+    .serve = _mmap_serve
+};
+
+static const cache_funcs_t sendfile_funcs = {
+    .init = _sendfile_init,
+    .free = _sendfile_free,
+    .serve = _sendfile_serve
+};
+
+static void
+_compress_cached_entry(mmap_cache_data_t *md)
+{
+    static const int deflated_header_size = sizeof("Content-Encoding: deflate");
+
+    md->compressed.size = compressBound(md->uncompressed.size);
+
+    if (UNLIKELY(!(md->compressed.contents = malloc(md->compressed.size))))
+        goto error_zero_out;
+
+    if (LIKELY(compress(md->compressed.contents, &md->compressed.size,
+                        md->uncompressed.contents, md->uncompressed.size) != Z_OK))
+        goto error_free_compressed;
+
+    if ((md->compressed.size + deflated_header_size) < md->uncompressed.size)
+        return;
+
+error_free_compressed:
+    free(md->compressed.contents);
+    md->compressed.contents = NULL;
+error_zero_out:
+    md->compressed.size = 0;
+}
+
+static bool
+_mmap_init(cache_entry_t *ce,
+           serve_files_priv_t *priv,
+           char *full_path,
+           struct stat *st)
+{
+    mmap_cache_data_t *md = (mmap_cache_data_t *)&ce->data;
+    int file_fd;
+    bool success;
+
+    file_fd = open(full_path, O_RDONLY | priv->extra_modes);
+    if (UNLIKELY(file_fd < 0))
+        return false;
+
+    md->uncompressed.contents = mmap(NULL, st->st_size, PROT_READ,
+                                     MAP_SHARED, file_fd, 0);
+    if (UNLIKELY(md->uncompressed.contents == MAP_FAILED)) {
+        success = false;
+        goto close_file;
+    }
+
+    if (UNLIKELY(madvise(md->uncompressed.contents, st->st_size,
+                         MADV_WILLNEED) < 0))
+        perror("madvise");
+
+    md->uncompressed.size = st->st_size;
+    _compress_cached_entry(md);
+
+    success = true;
+
+close_file:
+    close(file_fd);
+
+    return success;
+}
+
+static bool
+_sendfile_init(cache_entry_t *ce,
+               serve_files_priv_t *priv,
+               char *full_path,
+               struct stat *st)
+{
+    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)&ce->data;
+
+    sd->size = st->st_size;
+    sd->filename = strdup(full_path + priv->root.path_len + 1);
+
+    return true;
+}
 
 static ALWAYS_INLINE bool
-_rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
+_rfc_time(serve_files_priv_t *priv, time_t t, char buffer[32])
 {
     bool ret;
     time_t tt;
@@ -129,116 +259,92 @@ _rfc_time(struct serve_files_priv_t *priv, time_t t, char buffer[32])
 }
 
 static void
-_compress_cached_entry(struct cache_entry_t *ce)
-{
-    static const int deflated_header_size = sizeof("Content-Encoding: deflate");
-
-    ce->compressed.size = compressBound(ce->uncompressed.size);
-
-    if (UNLIKELY(!(ce->compressed.contents = malloc(ce->compressed.size))))
-        goto error_zero_out;
-
-    if (LIKELY(compress(ce->compressed.contents, &ce->compressed.size,
-                        ce->uncompressed.contents, ce->uncompressed.size) != Z_OK))
-        goto error_free_compressed;
-
-    if ((ce->compressed.size + deflated_header_size) < ce->uncompressed.size)
-        return;
-
-error_free_compressed:
-    free(ce->compressed.contents);
-    ce->compressed.contents = NULL;
-error_zero_out:
-    ce->compressed.size = 0;
-}
-
-static void
-_free_cached_entry(void *data)
-{
-    struct cache_entry_t *ce = data;
-
-    if (ATOMIC_READ(ce->serving_count) > 0) {
-        /*
-         * After this function returns, this cache entry has been removed
-         * from the hash table.  Do not free it as someone is still using
-         * it; just mark it as deleted, so when the last serving thread that
-         * has a reference to this entry can actually free this.
-         *
-         * When this function is being called, the hash table is also
-         * locked.  The reason atomic reads and writes is that the serving
-         * threads do not lock the hash table: only the directory watcher
-         * (while modifying it) and the request handler (while looking up).
-         */
-        ATOMIC_AAF(&ce->deleted, 1);
-
-        /*
-         * The serving count is read again to ensure that, if preemption
-         * occurred before the ce->deleted increment, and the serving count
-         * dropped to zero from another thread, this node still gets freed
-         * if it's not being used anymore.
-         */
-        if (ATOMIC_READ(ce->serving_count) != 0)
-            return;
-    }
-
-    assert(ATOMIC_READ(ce->serving_count) == 0);
-
-    munmap(ce->uncompressed.contents, ce->uncompressed.size);
-    free(ce->compressed.contents);
-    free(ce);
-}
-
-static void
-_cache_one_file(struct serve_files_priv_t *priv, char *full_path, off_t size, time_t mtime)
+_cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
 {
     /* Assumes priv->cache.lock locked */
-    struct cache_entry_t *ce;
-    int file_fd;
+    cache_entry_t *ce;
+    struct stat dir_st;
+    char *should_free = NULL;
+    char *key = full_path + priv->root.path_len + 1;
+    bool is_caching_directory;
 
-    if (size > 16384)
+    if (!strcmp(full_path + priv->root.path_len, priv->root.path + priv->root.path_len))
         return;
 
-    file_fd = open(full_path, O_RDONLY | priv->extra_modes);
-    if (UNLIKELY(file_fd < 0))
-        return;
+    if (st) {
+        is_caching_directory = false;
+    } else {
+        char *tmp;
+
+        /*
+         * FIXME Use the template engine to create a directory listing if
+         *       index.html isn't available.
+         */
+        if (asprintf(&tmp, "%s/index.html", full_path) < 0)
+            return;
+        if (fstatat(priv->root.fd, tmp, &dir_st, 0) < 0) {
+            free(tmp);
+            return;
+        }
+
+        st = &dir_st;
+        should_free = full_path = tmp;
+        is_caching_directory = true;
+    }
 
     ce = malloc(sizeof(*ce));
     if (UNLIKELY(!ce))
-        goto close_file;
+        goto error;
 
-    ce->uncompressed.contents = mmap(NULL, size, PROT_READ, MAP_SHARED, file_fd, 0);
-    if (UNLIKELY(ce->uncompressed.contents == MAP_FAILED)) {
-        free(ce);
-        goto close_file;
-    }
+    if (st->st_size <= 16384)
+        ce->funcs = &mmap_funcs;
+    else
+        ce->funcs = &sendfile_funcs;
 
-    if (UNLIKELY(madvise(ce->uncompressed.contents, size, MADV_WILLNEED) < 0))
-        perror("madvise");
+    if (!ce->funcs->init(ce, priv, full_path, st))
+        goto error;
 
-    ce->uncompressed.size = size;
+    _rfc_time(priv, st->st_mtime, ce->last_modified.string);
+
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root.path_len);
-    ce->last_modified.integer = mtime;
+    ce->last_modified.integer = st->st_mtime;
     ce->deleted = false;
     ce->serving_count = 0;
 
-    _rfc_time(priv, mtime, ce->last_modified.string);
-    _compress_cached_entry(ce);
+    if (!is_caching_directory) {
+        char *tmp;
 
-    hash_add(priv->cache.entries, strdup(full_path + priv->root.path_len + 1), ce);
+        hash_add(priv->cache.entries, strdup(key), ce);
 
-close_file:
-    close(file_fd);
+        tmp = strrchr(key, '/');
+        if (tmp && !strcmp(tmp + 1, "index.html")) {
+            tmp[0] = '\0';
+            _cache_one_file(priv, full_path, NULL);
+        }
+    } else {
+        char *tmp;
+
+        if (asprintf(&tmp, "%s/", key) > 0)
+            hash_add(priv->cache.entries, tmp, ce);
+    }
+
+    free(should_free);
+    return;
+
+error:
+    free(ce);
+    free(should_free);
 }
-
-static void _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels);
 
 static void
 _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void *data)
 {
-    struct serve_files_priv_t *priv = data;
+    serve_files_priv_t *priv = data;
 
-    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0))
+    if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0)) {
+        perror("pthread_rwlock_wrlock");
         return;
+    }
 
     switch (event) {
     case DIR_WATCH_MOD:
@@ -254,23 +360,31 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
                 goto end;
 
             if (S_ISDIR(st.st_mode))
-                _cache_small_files_recurse(priv, path, 0);
+                _cache_files_recurse(priv, path, 0);
             else if (st.st_size)
-                _cache_one_file(priv, path, st.st_size, st.st_mtime);
+                _cache_one_file(priv, path, &st);
         }
         break;
-    case DIR_WATCH_DEL:
-        hash_del(priv->cache.entries, name);
+    case DIR_WATCH_DEL: {
+            char name_with_slash[PATH_MAX];
+
+            hash_del(priv->cache.entries, name);
+
+            if (UNLIKELY(snprintf(name_with_slash, PATH_MAX, "%s/", name) < 0))
+                goto end;
+
+            hash_del(priv->cache.entries, name_with_slash);
+        }
         break;
     }
 
 end:
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
-        perror("pthread_mutex_unlock");
+        perror("pthread_rwlock_unlock");
 }
 
 static void
-_cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int levels)
+_cache_files_recurse(serve_files_priv_t *priv, char *root, int levels)
 {
     /* Assumes priv->cache.lock locked */
     DIR *dir;
@@ -300,10 +414,13 @@ _cache_small_files_recurse(struct serve_files_priv_t *priv, char *root, int leve
 
         snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name);
         if (S_ISDIR(st.st_mode))
-            _cache_small_files_recurse(priv, full_path, levels + 1);
+            _cache_files_recurse(priv, full_path, levels + 1);
         else
-            _cache_one_file(priv, full_path, st.st_size, st.st_mtime);
+            _cache_one_file(priv, full_path, &st);
     }
+
+    /* Cache the index for this directory as well. */
+    _cache_one_file(priv, root, NULL);
 
     lwan_dir_watch_add(root, _watched_dir_changed, priv);
 
@@ -312,7 +429,59 @@ error:
 }
 
 static void
-_cache_small_files(struct serve_files_priv_t *priv)
+_mmap_free(void *data)
+{
+    mmap_cache_data_t *md = data;
+
+    munmap(md->uncompressed.contents, md->uncompressed.size);
+    free(md->compressed.contents);
+}
+
+static void
+_sendfile_free(void *data)
+{
+    sendfile_cache_data_t *sd = data;
+
+    free(sd->filename);
+}
+
+static void
+_free_cached_entry(void *data)
+{
+    cache_entry_t *ce = data;
+
+    if (ATOMIC_READ(ce->serving_count) > 0) {
+        /*
+         * After this function returns, this cache entry has been removed
+         * from the hash table.  Do not free it as someone is still using
+         * it; just mark it as deleted, so when the last serving thread that
+         * has a reference to this entry can actually free this.
+         *
+         * When this function is being called, the hash table is also
+         * locked.  The reason atomic reads and writes is that the serving
+         * threads do not lock the hash table: only the directory watcher
+         * (while modifying it) and the request handler (while looking up).
+         */
+        ATOMIC_AAF(&ce->deleted, 1);
+
+        /*
+         * The serving count is read again to ensure that, if preemption
+         * occurred before the ce->deleted increment, and the serving count
+         * dropped to zero from another thread, this node still gets freed
+         * if it's not being used anymore.
+         */
+        if (ATOMIC_READ(ce->serving_count) != 0)
+            return;
+    }
+
+    assert(ATOMIC_READ(ce->serving_count) == 0);
+
+    ce->funcs->free((void *)&ce->data);
+    free(ce);
+}
+
+static void
+_cache_files(serve_files_priv_t *priv)
 {
     priv->cache.entries = hash_str_new(256, free, _free_cached_entry);
     if (UNLIKELY(!priv->cache.entries))
@@ -321,14 +490,14 @@ _cache_small_files(struct serve_files_priv_t *priv)
     if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0))
         return;
 
-    _cache_small_files_recurse(priv, priv->root.path, 0);
+    _cache_files_recurse(priv, priv->root.path, 0);
 
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
         perror("pthread_mutex_unlock");
 }
 
 static void
-_update_date_cache(struct serve_files_priv_t *priv)
+_update_date_cache(serve_files_priv_t *priv)
 {
     if (pthread_rwlock_trywrlock(&priv->date.lock) < 0)
         return;
@@ -353,7 +522,7 @@ serve_files_init(void *args)
     const char *root_path = args;
     char *canonical_root;
     int root_fd;
-    struct serve_files_priv_t *priv;
+    serve_files_priv_t *priv;
     int extra_modes = O_NOATIME;
 
     canonical_root = realpath(root_path, NULL);
@@ -387,10 +556,10 @@ serve_files_init(void *args)
     priv->date.last = 0;
     _update_date_cache(priv);
 
-    printf("Caching small files in \"%s\": ", canonical_root);
+    printf("Caching files in \"%s\": ", canonical_root);
     fflush(stdout);
     pthread_rwlock_init(&priv->cache.lock, NULL);
-    _cache_small_files(priv);
+    _cache_files(priv);
     printf("done.\n");
 
     return priv;
@@ -406,7 +575,7 @@ out_realpath:
 static void
 serve_files_shutdown(void *data)
 {
-    struct serve_files_priv_t *priv = data;
+    serve_files_priv_t *priv = data;
 
     if (!priv)
         return;
@@ -426,27 +595,35 @@ _client_has_fresh_content(lwan_request_t *request, time_t mtime)
 }
 
 static size_t
-_prepare_headers(struct serve_files_priv_t *priv, lwan_request_t *request,
-                 lwan_http_status_t return_status, struct stat *st,
-                 char *header_buf,size_t header_buf_size)
+_prepare_headers(serve_files_priv_t *priv,
+                 lwan_request_t *request,
+                 lwan_http_status_t return_status,
+                 cache_entry_t *ce,
+                 size_t size,
+                 bool deflated,
+                 char *header_buf,
+                 size_t header_buf_size)
 {
-    lwan_key_value_t headers[4];
-    char last_modified_buf[32];
+    lwan_key_value_t headers[5];
     size_t prepped_buffer_size;
 
-    _rfc_time(priv, st->st_mtime, last_modified_buf);
-
-    SET_NTH_HEADER(0, "Last-Modified", last_modified_buf);
+    SET_NTH_HEADER(0, "Last-Modified", ce->last_modified.string);
 
     request->response.headers = headers;
-    request->response.content_length = st->st_size;
+    request->response.content_length = size;
 
     if (pthread_rwlock_rdlock(&priv->date.lock) < 0)
         perror("pthread_wrlock_rdlock");
 
     SET_NTH_HEADER(1, "Date", priv->date.date);
     SET_NTH_HEADER(2, "Expires", priv->date.expires);
-    SET_NTH_HEADER(3, NULL, NULL);
+
+    if (deflated) {
+        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
+        SET_NTH_HEADER(4, NULL, NULL);
+    } else {
+        SET_NTH_HEADER(3, NULL, NULL);
+    }
 
     prepped_buffer_size = lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
 
@@ -457,7 +634,7 @@ _prepare_headers(struct serve_files_priv_t *priv, lwan_request_t *request,
 }
 
 static ALWAYS_INLINE bool
-_compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
+_compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 {
     off_t f, t;
 
@@ -469,7 +646,7 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
      */
     if (LIKELY(t <= 0 && f <= 0)) {
         *from = 0;
-        *to = st->st_size;
+        *to = size;
         return true;
     }
 
@@ -482,14 +659,14 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
     /*
      * Range goes beyond the size of the file
      */
-    if (UNLIKELY(f >= st->st_size || t >= st->st_size))
+    if (UNLIKELY(f >= size || t >= size))
         return false;
 
     /*
      * t < 0 means ranges from f to the file size
      */
     if (t < 0)
-        t = st->st_size - f;
+        t = size - f;
     else
         t -= f;
 
@@ -500,7 +677,7 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
     if (UNLIKELY(t <= 0))
         return false;
 
-    st->st_size = t;
+    size = t;
     *from = f;
     *to = t;
 
@@ -508,64 +685,39 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, struct stat *st)
 }
 
 static lwan_http_status_t
-_serve_file_stream(lwan_request_t *request, void *data)
+_sendfile_serve(cache_entry_t *ce,
+                serve_files_priv_t *priv,
+                lwan_request_t *request)
 {
-    char headers[DEFAULT_HEADERS_SIZE];
-    lwan_http_status_t return_status = HTTP_OK;
-    struct stat st;
+    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)&ce->data;
+    char *headers = request->buffer;
     size_t header_len;
-    struct serve_files_priv_t *priv = request->response.stream.priv;
-    char *path;
+    lwan_http_status_t return_status = HTTP_OK;
     off_t from, to;
 
-    if (data != priv->root.path)
-        path = (char *)data + priv->root.path_len + 1;
-    else
-        path = "index.html";
+    if (UNLIKELY(!_compute_range(request, &from, &to, sd->size)))
+        return HTTP_RANGE_UNSATISFIABLE;
 
-    if (UNLIKELY(fstatat(priv->root.fd, path, &st, 0) < 0)) {
-        return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-        goto end;
-    }
-
-    if (S_ISDIR(st.st_mode)) {
-        char *index_file;
-
-        if (asprintf(&index_file, "%s/index.html", (char *)data) < 0) {
-            return_status = HTTP_INTERNAL_ERROR;
-            goto end;
-        }
-
-        free(data);
-
-        request->response.mime_type = "text/html";
-        return _serve_file_stream(request, index_file);
-    }
-
-    if (UNLIKELY(!_compute_range(request, &from, &to, &st))) {
-        return_status = HTTP_RANGE_UNSATISFIABLE;
-        goto end;
-    }
-
-    if (_client_has_fresh_content(request, st.st_mtime))
+    if (_client_has_fresh_content(request, ce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    if (UNLIKELY(!(header_len = _prepare_headers(priv, request, return_status,
-                            &st, headers, sizeof(headers))))) {
-        return_status = HTTP_INTERNAL_ERROR;
-        goto end;
-    }
+    header_len = _prepare_headers(priv, request, return_status,
+                                  ce, sd->size, false,
+                                  headers, DEFAULT_HEADERS_SIZE);
+    if (UNLIKELY(!header_len))
+        return HTTP_INTERNAL_ERROR;
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
-            return_status = HTTP_INTERNAL_ERROR;
+            return HTTP_INTERNAL_ERROR;
     } else {
-        int file_fd = openat(priv->root.fd, path, O_RDONLY | priv->extra_modes);
+        int file_fd = openat(priv->root.fd, sd->filename,
+                             O_RDONLY | priv->extra_modes);
 
-        if (UNLIKELY(file_fd < 0)) {
-            return_status = (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
-            goto end;
-        } else if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
+        if (UNLIKELY(file_fd < 0))
+            return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+
+        if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
         } else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
@@ -574,71 +726,46 @@ _serve_file_stream(lwan_request_t *request, void *data)
         close(file_fd);
     }
 
-end:
-    if (data != priv->root.path)
-        free(data);
-
     return return_status;
 }
 
 static lwan_http_status_t
-_serve_cached_file_stream(lwan_request_t *request, void *data)
+_mmap_serve(cache_entry_t *ce,
+            serve_files_priv_t *priv,
+            lwan_request_t *request)
 {
-    struct serve_files_priv_t *priv = request->response.stream.priv;
-    struct cache_entry_t *ce = data;
-    char header_buf[DEFAULT_HEADERS_SIZE];
-    lwan_key_value_t *headers = (lwan_key_value_t *)request->buffer;
+    mmap_cache_data_t *md = (mmap_cache_data_t *)&ce->data;
+    char *headers = request->buffer;
+    size_t header_len;
     size_t size;
     void *contents;
     lwan_http_status_t return_status = HTTP_OK;
-    size_t header_len;
+    bool deflated;
 
     if (_client_has_fresh_content(request, ce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-
-    if (LIKELY(request->header.accept_encoding.deflate && ce->compressed.size)) {
-        contents = ce->compressed.contents;
-        size = ce->compressed.size;
-
-        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
-        SET_NTH_HEADER(4, NULL, NULL);
+    deflated = request->header.accept_encoding.deflate && md->compressed.size;
+    if (LIKELY(deflated)) {
+        contents = md->compressed.contents;
+        size = md->compressed.size;
     } else {
-        contents = ce->uncompressed.contents;
-        size = ce->uncompressed.size;
-
-        SET_NTH_HEADER(3, NULL, NULL);
+        contents = md->uncompressed.contents;
+        size = md->uncompressed.size;
     }
 
-    request->response.content_length = size;
-    request->response.headers = headers;
-
-    SET_NTH_HEADER(2, "Last-Modified", ce->last_modified.string);
-
-    if (pthread_rwlock_rdlock(&priv->date.lock) < 0)
-        perror("pthread_rwlock_rdlock");
-
-    SET_NTH_HEADER(0, "Date", priv->date.date);
-    SET_NTH_HEADER(1, "Expires", priv->date.expires);
-
-    header_len = lwan_prepare_response_header(request, return_status, header_buf, sizeof(header_buf));
-    if (UNLIKELY(!header_len)) {
-        if (pthread_rwlock_unlock(&priv->date.lock) < 0)
-            perror("pthread_rwlock_unlock");
-
-        return_status = HTTP_INTERNAL_ERROR;
-        goto end;
-    }
-
-    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
-        perror("pthread_rwlock_unlock");
+    header_len = _prepare_headers(priv, request, return_status,
+                                  ce, size, deflated,
+                                  headers, DEFAULT_HEADERS_SIZE);
+    if (UNLIKELY(!header_len))
+        return HTTP_INTERNAL_ERROR;
 
     if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, header_buf, header_len) < 0))
+        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
         struct iovec response_vec[] = {
-            { .iov_base = header_buf, .iov_len = header_len },
+            { .iov_base = headers, .iov_len = header_len },
             { .iov_base = contents, .iov_len = size }
         };
 
@@ -646,7 +773,100 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
             return_status = HTTP_INTERNAL_ERROR;
     }
 
-end:
+    return return_status;
+}
+
+static cache_entry_t *
+_create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
+{
+    cache_entry_t *ce;
+    sendfile_cache_data_t *sd;
+    struct stat st;
+    char *real;
+
+    if (UNLIKELY(fstatat(priv->root.fd, path, &st, 0) < 0))
+        return NULL;
+
+    if (S_ISDIR(st.st_mode)) {
+        char *tmp;
+
+        if (asprintf(&tmp, "%s/index.html", path) < 0)
+            return NULL;
+
+        ce = _create_temporary_cache_entry(priv, tmp);
+        free(tmp);
+
+        return ce;
+    }
+
+    ce = malloc(sizeof(*ce));
+    if (UNLIKELY(!ce))
+        return NULL;
+
+    sd = (sendfile_cache_data_t *)&ce->data;
+    sd->size = st.st_size;
+
+    real = realpathat(priv->root.fd, priv->root.path, path, NULL);
+    if (!real) {
+        free(ce);
+        return NULL;
+    }
+    if (strncmp(real, priv->root.path, priv->root.path_len)) {
+        free(real);
+        free(ce);
+        return NULL;
+    }
+    sd->filename = real;
+
+    _rfc_time(priv, st.st_mtime, ce->last_modified.string);
+    ce->last_modified.integer = st.st_mtime;
+    ce->mime_type = lwan_determine_mime_type_for_file_name(path);
+    ce->funcs = &sendfile_funcs;
+
+    /*
+     * This cache entry is temporary: the serving count begins at 1, so that
+     * it will be unreffed after serving, and the entry freed because it is
+     * also marked as deleted.
+     */
+    ce->serving_count = 1;
+    ce->deleted = 1;
+
+    return ce;
+}
+
+static cache_entry_t *
+_fetch_from_cache_and_ref(serve_files_priv_t *priv, char *path)
+{
+    cache_entry_t *ce;
+
+    /*
+     * If the cache is locked, don't block waiting for it to be unlocked:
+     * just serve the file using sendfile().
+     */
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&priv->cache.lock) < 0))
+        return _create_temporary_cache_entry(priv, path);
+
+    ce = hash_find(priv->cache.entries, path);
+    if (!ce) {
+        pthread_rwlock_unlock(&priv->cache.lock);
+        return NULL;
+    }
+
+    ATOMIC_AAF(&ce->serving_count, 1);
+    pthread_rwlock_unlock(&priv->cache.lock);
+
+    return ce;
+}
+
+static lwan_http_status_t
+_serve_cached_file_stream(lwan_request_t *request, void *data)
+{
+    cache_entry_t *ce = data;
+    serve_files_priv_t *priv = request->response.stream.priv;
+    lwan_http_status_t return_status;
+
+    return_status = ce->funcs->serve(ce, priv, request);
+
     if (ATOMIC_AAF(&ce->serving_count, -1) == 0 && ATOMIC_READ(ce->deleted)) {
         /*
          * If ce->deleted, then it has been already removed from the hash
@@ -660,105 +880,70 @@ end:
     return return_status;
 }
 
-static bool
-_serve_cached_file(struct serve_files_priv_t *priv, lwan_request_t *request)
-{
-    struct cache_entry_t *cache_entry;
-
-    /*
-     * The mutex will be locked while the cache is being updated. To be on
-     * the safe side, just serve the file using regular disk I/O this time.
-     */
-    if (UNLIKELY(pthread_rwlock_tryrdlock(&priv->cache.lock) < 0))
-        return false;
-
-    cache_entry = hash_find(priv->cache.entries, request->url.value);
-    if (!cache_entry) {
-        pthread_rwlock_unlock(&priv->cache.lock);
-        return false;
-    }
-
-    ATOMIC_AAF(&cache_entry->serving_count, 1);
-    pthread_rwlock_unlock(&priv->cache.lock);
-
-    request->response.mime_type = (char *)cache_entry->mime_type;
-    request->response.stream.callback = _serve_cached_file_stream;
-    request->response.stream.data = cache_entry;
-    request->response.stream.priv = priv;
-
-    return true;
-}
-
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
     lwan_http_status_t return_status = HTTP_OK;
-    char *canonical_path;
-    struct serve_files_priv_t *priv = data;
+    char *path;
+    serve_files_priv_t *priv = data;
+    cache_entry_t *ce;
 
     if (UNLIKELY(!priv)) {
         return_status = HTTP_INTERNAL_ERROR;
         goto fail;
     }
 
-    _update_date_cache(priv);
-
     while (UNLIKELY(*request->url.value == '/' && request->url.len > 0)) {
         ++request->url.value;
         --request->url.len;
     }
 
-    if (!request->url.len) {
-        canonical_path = priv->root.path;
-        response->mime_type = "text/html";
-        goto serve;
-    }
+    if (!request->url.len)
+        path = "index.html";
+    else
+        path = request->url.value;
 
-    if (_serve_cached_file(priv, request))
-        return HTTP_OK;
+    ce = _fetch_from_cache_and_ref(priv, path);
+    if (!ce) {
+        char *tmp;
 
-    canonical_path = realpathat(priv->root.fd, priv->root.path, request->url.value, NULL);
-    if (UNLIKELY(!canonical_path)) {
-        switch (errno) {
-        case EACCES:
-            return_status = HTTP_FORBIDDEN;
-            goto fail;
-        case ENOENT:
-        case ENOTDIR:
+        if (!strstr(path, "/../")) {
             return_status = HTTP_NOT_FOUND;
             goto fail;
         }
-        return_status = HTTP_BAD_REQUEST;
-        goto fail;
-    }
 
-    if (UNLIKELY(strncmp(canonical_path, priv->root.path, priv->root.path_len))) {
-        free(canonical_path);
-        /*
-         * The reason a HTTP_NOT_FOUND is yielded here instead of a HTTP_FORBIDDEN
-         * is that yielding HTTP_FORBIDDEN might lead to unwanted information
-         * disclosure with malicious requests. For example, if the request:
-         *     GET /../../../../../../../../../../etc/debian_version HTTP/1.0
-         * Yields a different response from:
-         *     GET /../../../../../../../../../../etc/something_else HTTP/1.0
-         * Then an attacker might know that this system is probably Debian based.
-         *
-         * So just return HTTP_NOT_FOUND here -- which isn't wrong anyway, since
-         * the requested resource is outside the root directory.
-         */
+        tmp = realpathat(priv->root.fd, priv->root.path, path, NULL);
+        if (!tmp) {
+            return_status = HTTP_NOT_FOUND;
+            goto fail;
+        }
+        if (!strncmp(tmp, priv->root.path, priv->root.path_len))
+            ce = _fetch_from_cache_and_ref(priv, tmp + priv->root.path_len + 1);
+
+        free(tmp);
+    }
+    if (!ce) {
         return_status = HTTP_NOT_FOUND;
         goto fail;
     }
 
-    response->mime_type = (char*)lwan_determine_mime_type_for_file_name(request->url.value);
-serve:
-    response->stream.callback = _serve_file_stream;
-    response->stream.data = canonical_path;
+    _update_date_cache(priv);
+
+    response->mime_type = (char *)ce->mime_type;
+    response->stream.callback = _serve_cached_file_stream;
+    response->stream.data = ce;
     response->stream.priv = priv;
 
-    return return_status;
+    return HTTP_OK;
 
 fail:
     response->stream.callback = NULL;
     return return_status;
 }
+
+lwan_handler_t serve_files = {
+    .init = serve_files_init,
+    .shutdown = serve_files_shutdown,
+    .handle = serve_files_handle_cb,
+    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
+};

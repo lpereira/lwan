@@ -132,10 +132,13 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
             dest = mempcpy(dest, start, end - start);
             *dest = '\0';
 
-            if (LIKELY(!strncmp(rpath, dirfdpath, dirfdlen)))
+            if (LIKELY(!strncmp(rpath, dirfdpath, dirfdlen))) {
                 pathat = rpath + dirfdlen + 1;
-            else
+                if (*pathat == '\0')
+                    pathat = rpath;
+            } else {
                 pathat = rpath;
+            }
 
             if (UNLIKELY(fstatat(dirfd, pathat, &st, AT_SYMLINK_NOFOLLOW) < 0))
                 goto error;

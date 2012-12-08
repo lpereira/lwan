@@ -39,9 +39,9 @@ add_executable(lwan
 	int-to-str.c
 	lwan-trie.c
 	strbuf.c
-	realpathat.c
 	hash.c
 	template.c
+	realpathat.c
 )
 
 target_link_libraries(lwan
