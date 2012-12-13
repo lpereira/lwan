@@ -807,11 +807,11 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
     sd->size = st.st_size;
 
     real = realpathat(priv->root.fd, priv->root.path, path, NULL);
-    if (!real) {
+    if (UNLIKELY(!real)) {
         free(ce);
         return NULL;
     }
-    if (strncmp(real, priv->root.path, priv->root.path_len)) {
+    if (UNLIKELY(strncmp(real, priv->root.path, priv->root.path_len))) {
         free(real);
         free(ce);
         return NULL;
@@ -913,11 +913,11 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         }
 
         tmp = realpathat(priv->root.fd, priv->root.path, path, NULL);
-        if (!tmp) {
+        if (UNLIKELY(!tmp)) {
             return_status = HTTP_NOT_FOUND;
             goto fail;
         }
-        if (!strncmp(tmp, priv->root.path, priv->root.path_len))
+        if (LIKELY(!strncmp(tmp, priv->root.path, priv->root.path_len)))
             ce = _fetch_from_cache_and_ref(priv, tmp + priv->root.path_len + 1);
 
         free(tmp);
