@@ -10,3 +10,7 @@
   libevent/libev are worth trying
 - Status screen (uptime, number of connections, keep-alive connections,
   memory usage, etc)
+- shave a pointer from strbuf_t (less fragmentation!)
+- Directory listing
+- Memory pool for coroutines
+- dup() vs openat()
