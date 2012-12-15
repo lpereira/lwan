@@ -51,8 +51,8 @@ static const char *error_template_str = "<html><head><style>" \
     "</head>" \
     "<body>" \
     "<table height=\"100\%\" width=\"100\%\"><tr><td align=\"center\" valign=\"middle\">" \
-    "<div id=\"container\">" \
-    "<h1 id=\"l10n_title\">{{short_message}}</h1>" \
+    "<div>" \
+    "<h1>{{short_message}}</h1>" \
     "<div class=\"sorry\">" \
     "<p>{{long_message}}</p>" \
     "</div>" \
