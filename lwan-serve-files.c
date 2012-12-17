@@ -677,7 +677,6 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
     if (UNLIKELY(t <= 0))
         return false;
 
-    size = t;
     *from = f;
     *to = t;
 
