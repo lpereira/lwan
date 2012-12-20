@@ -116,11 +116,6 @@ struct sendfile_cache_data_t_ {
 };
 
 struct cache_entry_t_ {
-    union {
-        mmap_cache_data_t mmap;
-        sendfile_cache_data_t sendfile;
-    } data;
-
     struct {
         char string[31];
         time_t integer;
@@ -192,7 +187,7 @@ _mmap_init(cache_entry_t *ce,
            char *full_path,
            struct stat *st)
 {
-    mmap_cache_data_t *md = (mmap_cache_data_t *)&ce->data;
+    mmap_cache_data_t *md = (mmap_cache_data_t *)(ce + 1);
     int file_fd;
     bool success;
 
@@ -228,7 +223,7 @@ _sendfile_init(cache_entry_t *ce,
                char *full_path,
                struct stat *st)
 {
-    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)&ce->data;
+    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(ce + 1);
 
     sd->size = st->st_size;
     sd->filename = strdup(full_path + priv->root.path_len + 1);
@@ -267,6 +262,8 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
     char *should_free = NULL;
     char *key = full_path + priv->root.path_len + 1;
     bool is_caching_directory;
+    size_t data_size;
+    const cache_funcs_t *funcs;
 
     if (!strcmp(full_path + priv->root.path_len, priv->root.path + priv->root.path_len))
         return;
@@ -292,14 +289,19 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
         is_caching_directory = true;
     }
 
-    ce = malloc(sizeof(*ce));
+    if (st->st_size <= 16384) {
+        data_size = sizeof(mmap_cache_data_t);
+        funcs = &mmap_funcs;
+    } else {
+        data_size = sizeof(sendfile_cache_data_t);
+        funcs = &sendfile_funcs;
+    }
+
+    ce = malloc(sizeof(*ce) + data_size);
     if (UNLIKELY(!ce))
         goto error;
 
-    if (st->st_size <= 16384)
-        ce->funcs = &mmap_funcs;
-    else
-        ce->funcs = &sendfile_funcs;
+    ce->funcs = funcs;
 
     if (!ce->funcs->init(ce, priv, full_path, st))
         goto error;
@@ -476,7 +478,7 @@ _free_cached_entry(void *data)
 
     assert(ATOMIC_READ(ce->serving_count) == 0);
 
-    ce->funcs->free((void *)&ce->data);
+    ce->funcs->free(ce + 1);
     free(ce);
 }
 
@@ -688,7 +690,7 @@ _sendfile_serve(cache_entry_t *ce,
                 serve_files_priv_t *priv,
                 lwan_request_t *request)
 {
-    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)&ce->data;
+    sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(ce + 1);
     char *headers = request->buffer;
     size_t header_len;
     lwan_http_status_t return_status = HTTP_OK;
@@ -733,7 +735,7 @@ _mmap_serve(cache_entry_t *ce,
             serve_files_priv_t *priv,
             lwan_request_t *request)
 {
-    mmap_cache_data_t *md = (mmap_cache_data_t *)&ce->data;
+    mmap_cache_data_t *md = (mmap_cache_data_t *)(ce + 1);
     char *headers = request->buffer;
     size_t header_len;
     size_t size;
@@ -802,7 +804,7 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
     if (UNLIKELY(!ce))
         return NULL;
 
-    sd = (sendfile_cache_data_t *)&ce->data;
+    sd = (sendfile_cache_data_t *)(ce + 1);
     sd->size = st.st_size;
 
     real = realpathat(priv->root.fd, priv->root.path, path, NULL);
