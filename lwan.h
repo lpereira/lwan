@@ -171,15 +171,15 @@ struct lwan_request_t_ {
           off_t to;
         } range;
         struct {
-          unsigned char deflate : 1;
+          unsigned int deflate : 1;
         } accept_encoding;
     } header;
 
     struct {
-        unsigned char is_keep_alive : 1,
-                      alive: 1,
-                      should_resume_coro: 1,
-                      write_events: 1;
+        unsigned int is_keep_alive : 1,
+                     alive: 1,
+                     should_resume_coro: 1,
+                     write_events: 1;
     } flags;
 };
 
