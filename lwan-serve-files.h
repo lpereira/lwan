@@ -22,9 +22,22 @@
 
 #include "lwan.h"
 
+struct lwan_serve_files_settings_t {
+  char *root_path;
+  char *index_html;
+};
+
 extern lwan_handler_t serve_files;
 
-#define SERVE_FILES(root_directory) \
-  .handler = &serve_files, .args = root_directory
+#define SERVE_FILES_SETTINGS(root_path_, index_html_) \
+  .handler = &serve_files, \
+  .args = ((struct lwan_serve_files_settings_t[]) {{ \
+    .root_path = root_path_, \
+    .index_html = index_html_ \
+  }}), \
+  .flags = 0
+
+#define SERVE_FILES(root_path) \
+  SERVE_FILES_SETTINGS(root_path, NULL)
 
 #endif /* __LWAN_SERVE_FILES_H__ */

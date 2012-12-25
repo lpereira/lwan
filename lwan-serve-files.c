@@ -36,6 +36,7 @@
 #include <zlib.h>
 
 #include "lwan.h"
+#include "lwan-serve-files.h"
 #include "lwan-sendfile.h"
 #include "lwan-dir-watch.h"
 #include "hash.h"
@@ -70,6 +71,7 @@ struct serve_files_priv_t_ {
     } root;
 
     int extra_modes;
+    char *index_html;
 
     struct {
         struct hash *entries;
@@ -156,6 +158,8 @@ static const cache_funcs_t sendfile_funcs = {
     .free = _sendfile_free,
     .serve = _sendfile_serve
 };
+
+static char *index_html = "index.html";
 
 static void
 _compress_cached_entry(mmap_cache_data_t *md)
@@ -277,7 +281,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
          * FIXME Use the template engine to create a directory listing if
          *       index.html isn't available.
          */
-        if (asprintf(&tmp, "%s/index.html", full_path) < 0)
+        if (asprintf(&tmp, "%s/%s", full_path, priv->index_html) < 0)
             return;
         if (fstatat(priv->root.fd, tmp, &dir_st, 0) < 0) {
             free(tmp);
@@ -319,7 +323,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
         hash_add(priv->cache.entries, strdup(key), ce);
 
         tmp = strrchr(key, '/');
-        if (tmp && !strcmp(tmp + 1, "index.html")) {
+        if (tmp && !strcmp(tmp + 1, priv->index_html)) {
             tmp[0] = '\0';
             _cache_one_file(priv, full_path, NULL);
         }
@@ -521,13 +525,13 @@ unlock:
 static void *
 serve_files_init(void *args)
 {
-    const char *root_path = args;
+    struct lwan_serve_files_settings_t *settings = args;
     char *canonical_root;
     int root_fd;
     serve_files_priv_t *priv;
     int extra_modes = O_NOATIME;
 
-    canonical_root = realpath(root_path, NULL);
+    canonical_root = realpath(settings->root_path, NULL);
     if (!canonical_root) {
         perror("serve_files_init");
         goto out_realpath;
@@ -553,6 +557,7 @@ serve_files_init(void *args)
     priv->root.path_len = strlen(canonical_root);
     priv->root.fd = root_fd;
     priv->extra_modes = extra_modes;
+    priv->index_html = settings->index_html ? settings->index_html : index_html;
 
     pthread_rwlock_init(&priv->date.lock, NULL);
     priv->date.last = 0;
@@ -791,7 +796,7 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
     if (S_ISDIR(st.st_mode)) {
         char *tmp;
 
-        if (asprintf(&tmp, "%s/index.html", path) < 0)
+        if (UNLIKELY(asprintf(&tmp, "%s/%s", path, priv->index_html) < 0))
             return NULL;
 
         ce = _create_temporary_cache_entry(priv, tmp);
@@ -900,7 +905,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     }
 
     if (!request->url.len)
-        path = "index.html";
+        path = priv->index_html;
     else
         path = request->url.value;
 
