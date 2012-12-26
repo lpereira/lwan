@@ -232,7 +232,7 @@ _sendfile_init(cache_entry_t *ce,
     sd->size = st->st_size;
     sd->filename = strdup(full_path + priv->root.path_len + 1);
 
-    return true;
+    return !!sd->filename;
 }
 
 static ALWAYS_INLINE bool
@@ -305,9 +305,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
     if (UNLIKELY(!ce))
         goto error;
 
-    ce->funcs = funcs;
-
-    if (!ce->funcs->init(ce, priv, full_path, st))
+    if (UNLIKELY(!funcs->init(ce, priv, full_path, st)))
         goto error;
 
     _rfc_time(priv, st->st_mtime, ce->last_modified.string);
@@ -316,6 +314,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
     ce->last_modified.integer = st->st_mtime;
     ce->deleted = false;
     ce->serving_count = 0;
+    ce->funcs = funcs;
 
     if (!is_caching_directory) {
         char *tmp;
@@ -330,7 +329,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
     } else {
         char *tmp;
 
-        if (asprintf(&tmp, "%s/", key) > 0)
+        if (LIKELY(asprintf(&tmp, "%s/", key) > 0))
             hash_add(priv->cache.entries, tmp, ce);
     }
 
@@ -418,7 +417,9 @@ _cache_files_recurse(serve_files_priv_t *priv, char *root, int levels)
         if (UNLIKELY(fstatat(fd, entry->d_name, &st, 0) < 0))
             continue;
 
-        snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name);
+        if (UNLIKELY(snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name) < 0))
+            continue;
+
         if (S_ISDIR(st.st_mode))
             _cache_files_recurse(priv, full_path, levels + 1);
         else
@@ -619,8 +620,10 @@ _prepare_headers(serve_files_priv_t *priv,
     request->response.headers = headers;
     request->response.content_length = size;
 
-    if (pthread_rwlock_rdlock(&priv->date.lock) < 0)
+    if (UNLIKELY(pthread_rwlock_rdlock(&priv->date.lock) < 0)) {
         perror("pthread_wrlock_rdlock");
+        return 0;
+    }
 
     SET_NTH_HEADER(1, "Date", priv->date.date);
     SET_NTH_HEADER(2, "Expires", priv->date.expires);
@@ -634,7 +637,7 @@ _prepare_headers(serve_files_priv_t *priv,
 
     prepped_buffer_size = lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
 
-    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->date.lock) < 0))
         perror("pthread_wrlock_unlock");
 
     return prepped_buffer_size;
