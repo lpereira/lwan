@@ -62,6 +62,7 @@ typedef struct cache_entry_t_		cache_entry_t;
 typedef struct cache_funcs_t_		cache_funcs_t;
 typedef struct mmap_cache_data_t_	mmap_cache_data_t;
 typedef struct sendfile_cache_data_t_	sendfile_cache_data_t;
+typedef struct redir_cache_data_t_	redir_cache_data_t;
 
 struct serve_files_priv_t_ {
     struct {
@@ -117,6 +118,10 @@ struct sendfile_cache_data_t_ {
     size_t size;
 };
 
+struct redir_cache_data_t_ {
+    char *redir_to;
+};
+
 struct cache_entry_t_ {
     struct {
         char string[31];
@@ -147,6 +152,11 @@ static lwan_http_status_t _sendfile_serve(cache_entry_t *ce,
                                           serve_files_priv_t *priv,
                                           lwan_request_t *request);
 
+static void _redir_free(void *data);
+static lwan_http_status_t _redir_serve(cache_entry_t *ce,
+                                       serve_files_priv_t *priv,
+                                       lwan_request_t *request);
+
 static const cache_funcs_t mmap_funcs = {
     .init = _mmap_init,
     .free = _mmap_free,
@@ -157,6 +167,12 @@ static const cache_funcs_t sendfile_funcs = {
     .init = _sendfile_init,
     .free = _sendfile_free,
     .serve = _sendfile_serve
+};
+
+static const cache_funcs_t redir_funcs = {
+    .init = NULL,
+    .free = _redir_free,
+    .serve = _redir_serve
 };
 
 static char *index_html = "index.html";
@@ -258,6 +274,66 @@ _rfc_time(serve_files_priv_t *priv, time_t t, char buffer[32])
 }
 
 static void
+_redir_free(void *data)
+{
+    redir_cache_data_t *rd = data;
+
+    free(rd->redir_to);
+}
+
+static lwan_http_status_t
+_redir_serve(cache_entry_t *ce, serve_files_priv_t *priv __attribute__((unused)), lwan_request_t *request)
+{
+    redir_cache_data_t *rd = (redir_cache_data_t *)(ce + 1);
+    lwan_key_value_t headers[2];
+    size_t header_len;
+    char header_buf[DEFAULT_HEADERS_SIZE];
+
+    strbuf_printf(request->response.buffer, "Redirecting to %s", rd->redir_to);
+    request->response.content_length = strbuf_get_length(request->response.buffer);
+    request->response.headers = headers;
+
+    SET_NTH_HEADER(0, "Location", rd->redir_to);
+    SET_NTH_HEADER(1, NULL, NULL);
+
+    header_len = lwan_prepare_response_header(request,
+            HTTP_MOVED_PERMANENTLY, header_buf, sizeof(header_buf));
+    if (UNLIKELY(!header_len))
+        return HTTP_INTERNAL_ERROR;
+
+    struct iovec response_vec[] = {
+        { .iov_base = header_buf, .iov_len = header_len },
+        { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = strbuf_get_length(request->response.buffer) }
+    };
+
+    if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
+        return HTTP_INTERNAL_ERROR;
+
+    return HTTP_MOVED_PERMANENTLY;
+}
+
+static void
+_cache_redir_to_directory(serve_files_priv_t *priv, char *dir)
+{
+    cache_entry_t *ce;
+    redir_cache_data_t *rd;
+
+    ce = malloc(sizeof(*ce) + sizeof(redir_cache_data_t));
+    if (UNLIKELY(!ce))
+        return;
+
+    rd = (redir_cache_data_t *)(ce + 1);
+    if (UNLIKELY(asprintf(&rd->redir_to, "%s/", dir) < 0)) {
+        free(ce);
+        return;
+    }
+
+    ce->funcs = &redir_funcs;
+
+    hash_add(priv->cache.entries, strdup(dir), ce);
+}
+
+static void
 _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
 {
     /* Assumes priv->cache.lock locked */
@@ -324,7 +400,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
         tmp = strrchr(key, '/');
         if (tmp && !strcmp(tmp + 1, priv->index_html)) {
             tmp[0] = '\0';
-            _cache_one_file(priv, full_path, NULL);
+            _cache_redir_to_directory(priv, key);
         }
     } else {
         char *tmp;

@@ -66,6 +66,7 @@ lwan_http_status_as_string(lwan_http_status_t status)
 {
     switch (status) {
     case HTTP_OK: return "OK";
+    case HTTP_MOVED_PERMANENTLY: return "Moved permanently";
     case HTTP_NOT_MODIFIED: return "Not modified";
     case HTTP_BAD_REQUEST: return "Bad request";
     case HTTP_NOT_FOUND: return "Not found";
@@ -83,6 +84,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
 {
     switch (status) {
     case HTTP_OK: return "Success!";
+    case HTTP_MOVED_PERMANENTLY: return "This content has moved to another place.";
     case HTTP_NOT_MODIFIED: return "The content has not changed since previous request.";
     case HTTP_BAD_REQUEST: return "The client has issued a bad request.";
     case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
