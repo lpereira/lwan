@@ -122,8 +122,8 @@ dir_watch_del_internal(lwan_dir_watch_t *dw)
 void
 lwan_dir_watch_del(lwan_dir_watch_t *dw)
 {
-    dir_watch_del_internal(dw);
     inotify_rm_watch(self.fd, dw->wd);
+    dir_watch_del_internal(dw);
 }
 
 void
