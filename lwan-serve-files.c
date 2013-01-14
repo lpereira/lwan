@@ -884,7 +884,7 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
         return ce;
     }
 
-    ce = malloc(sizeof(*ce));
+    ce = malloc(sizeof(*ce) + sizeof(*sd));
     if (UNLIKELY(!ce))
         return NULL;
 
