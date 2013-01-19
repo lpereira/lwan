@@ -18,6 +18,7 @@
  */
 
 #include "hash.h"
+#include "murmur3.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -69,58 +70,6 @@ static inline unsigned int hash_int(const void *keyptr, unsigned int len __attri
 	key *= c2;
 	key ^= key >> 15;
 	return key;
-}
-
-static inline unsigned int hash_superfast(const void *keyptr, unsigned int len)
-{
-	/* Paul Hsieh (http://www.azillionmonkeys.com/qed/hash.html)
-	 * used by WebCore (http://webkit.org/blog/8/hashtables-part-2/)
-	 * EFL's eina and possible others.
-	 */
-	unsigned int tmp, hash = len, rem = len & 3;
-	const char *key = keyptr;
-
-	len /= 4;
-
-	/* Main loop */
-	for (; len > 0; len--) {
-		hash += get_unaligned((uint16_t *) key);
-		tmp = (get_unaligned((uint16_t *)(key + 2)) << 11) ^ hash;
-		hash = (hash << 16) ^ tmp;
-		key += 4;
-		hash += hash >> 11;
-	}
-
-	/* Handle end cases */
-	switch (rem) {
-	case 3:
-		hash += get_unaligned((uint16_t *) key);
-		hash ^= hash << 16;
-		hash ^= key[2] << 18;
-		hash += hash >> 11;
-		break;
-
-	case 2:
-		hash += get_unaligned((uint16_t *) key);
-		hash ^= hash << 11;
-		hash += hash >> 17;
-		break;
-
-	case 1:
-		hash += *key;
-		hash ^= hash << 10;
-		hash += hash >> 1;
-	}
-
-	/* Force "avalanching" of final 127 bits */
-	hash ^= hash << 3;
-	hash += hash >> 5;
-	hash ^= hash << 4;
-	hash += hash >> 17;
-	hash ^= hash << 25;
-	hash += hash >> 6;
-
-	return hash;
 }
 
 static int hash_str_entry_cmp(const void *pa, const void *pb)
@@ -194,7 +143,7 @@ struct hash *hash_str_new(unsigned int n_buckets,
 					void (*free_value)(void *value))
 {
 	return hash_internal_new(n_buckets,
-			hash_superfast,
+			murmur3_simple,
 			(int (*)(const void *, const void *, size_t))strncmp,
 			hash_str_entry_cmp,
 			(int (*)(const void *))strlen,

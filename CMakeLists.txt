@@ -42,6 +42,7 @@ add_executable(lwan
 	hash.c
 	template.c
 	realpathat.c
+	murmur3.c
 )
 
 target_link_libraries(lwan
