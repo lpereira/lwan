@@ -229,21 +229,28 @@ struct lwan_t_ {
     lwan_url_map_t *url_map;
 };
 
-void lwan_init(lwan_t *l);
 void lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map);
 void lwan_main_loop(lwan_t *l);
 bool lwan_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);
 bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
+const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
+bool lwan_process_request(lwan_request_t *request);
+
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
-const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
-bool lwan_process_request(lwan_request_t *request);
+
+void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
 
 void lwan_response_init(void);
 void lwan_response_shutdown(void);
 
+void lwan_socket_init(lwan_t *l);
+void lwan_socket_shutdown(lwan_t *l);
+
+void lwan_thread_init(lwan_t *l);
+void lwan_thread_shutdown(lwan_t *l);
 
 #endif /* __LWAN_H__ */

@@ -27,22 +27,25 @@ else ()
 endif()
 
 add_executable(lwan
-	main.c
 	lwan.c
 	lwan-coro.c
-	lwan-trie.c
+	lwan-dir-watch.c
 	lwan-request.c
 	lwan-response.c
 	lwan-sendfile.c
 	lwan-serve-files.c
-	lwan-dir-watch.c
-	int-to-str.c
+	lwan-socket.c
+	lwan-tables.c
+	lwan-thread.c
 	lwan-trie.c
-	strbuf.c
+	lwan-trie.c
 	hash.c
-	template.c
-	realpathat.c
+	int-to-str.c
 	murmur3.c
+	realpathat.c
+	strbuf.c
+	template.c
+	main.c
 )
 
 target_link_libraries(lwan
