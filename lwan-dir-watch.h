@@ -31,14 +31,14 @@ typedef enum {
     DIR_WATCH_MOD
 } lwan_dir_watch_event_t;
 
-bool lwan_dir_watch_init();
-void lwan_dir_watch_shutdown();
+bool lwan_dir_watch_init(void);
+void lwan_dir_watch_shutdown(void);
 
-int lwan_dir_watch_get_fd();
+int lwan_dir_watch_get_fd(void);
 lwan_dir_watch_t *lwan_dir_watch_add(const char *pathname,
                                      void (*cb)(char *name, char *root, lwan_dir_watch_event_t event, void *data),
                                      void *data);
 void lwan_dir_watch_del(lwan_dir_watch_t *dw);
-void lwan_dir_watch_process_events();
+void lwan_dir_watch_process_events(void);
 
 #endif

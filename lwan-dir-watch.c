@@ -45,7 +45,7 @@ struct lwan_dir_watch_t_ {
 };
 
 bool
-lwan_dir_watch_init()
+lwan_dir_watch_init(void)
 {
     if (self.init_count)
         goto increment_init_count;
@@ -66,7 +66,7 @@ increment_init_count:
 }
 
 void
-lwan_dir_watch_shutdown()
+lwan_dir_watch_shutdown(void)
 {
     if (--self.init_count)
         return;
@@ -76,7 +76,7 @@ lwan_dir_watch_shutdown()
 }
 
 int
-lwan_dir_watch_get_fd()
+lwan_dir_watch_get_fd(void)
 {
     return self.fd;
 }
@@ -127,7 +127,7 @@ lwan_dir_watch_del(lwan_dir_watch_t *dw)
 }
 
 void
-lwan_dir_watch_process_events()
+lwan_dir_watch_process_events(void)
 {
     struct inotify_event events[16];
     struct inotify_event *event = events;

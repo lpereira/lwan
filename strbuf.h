@@ -37,7 +37,7 @@ struct strbuf_t_ {
 };
 
 strbuf_t	*strbuf_new_with_size(int size);
-strbuf_t	*strbuf_new();
+strbuf_t	*strbuf_new(void);
 void		 strbuf_free(strbuf_t *s);
 bool		 strbuf_append_char(strbuf_t *s, char c);
 bool		 strbuf_append_str(strbuf_t *s1, char *s2, size_t sz);

@@ -76,7 +76,7 @@ strbuf_new_with_size(int size)
 }
 
 ALWAYS_INLINE strbuf_t *
-strbuf_new()
+strbuf_new(void)
 {
     return strbuf_new_with_size(default_buf_size);
 }
