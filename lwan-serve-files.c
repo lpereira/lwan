@@ -1006,10 +1006,11 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
             ce = _fetch_from_cache_and_ref(priv, tmp + priv->root.path_len + 1);
 
         free(tmp);
-    }
-    if (!ce) {
-        return_status = HTTP_NOT_FOUND;
-        goto fail;
+
+        if (UNLIKELY(!ce)) {
+            return_status = HTTP_NOT_FOUND;
+            goto fail;
+        }
     }
 
     _update_date_cache(priv);
