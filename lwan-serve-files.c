@@ -978,7 +978,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    while (UNLIKELY(*request->url.value == '/' && request->url.len > 0)) {
+    while (*request->url.value == '/' && request->url.len > 0) {
         ++request->url.value;
         --request->url.len;
     }
