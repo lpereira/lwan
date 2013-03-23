@@ -26,7 +26,10 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-add_executable(lwan
+include(FindPkgConfig)
+pkg_check_modules(SQLITE REQUIRED sqlite3>=3.7.15.2)
+
+add_library(lwan-common STATIC
 	lwan.c
 	lwan-coro.c
 	lwan-dir-watch.c
@@ -45,11 +48,24 @@ add_executable(lwan
 	realpathat.c
 	strbuf.c
 	template.c
-	main.c
+	memcache.c
 )
+
+add_executable(lwan main.c)
 
 target_link_libraries(lwan
 	${CMAKE_THREAD_LIBS_INIT}
 	${TCMALLOC_LIBRARY}
 	${ZLIB_LIBRARIES}
+	lwan-common
+)
+
+add_executable(freegeoip freegeoip.c)
+
+target_link_libraries(freegeoip
+	${CMAKE_THREAD_LIBS_INIT}
+	${TCMALLOC_LIBRARY}
+	${ZLIB_LIBRARIES}
+	${SQLITE_LIBRARIES}
+	lwan-common
 )
