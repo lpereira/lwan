@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <netinet/in.h>
 #include "lwan.h"
 
 static lwan_key_value_t empty_query_string_kv[] = {
@@ -36,6 +37,7 @@ _reset_request(lwan_request_t *request)
     lwan_t *lwan = request->lwan;
     coro_t *coro = request->coro;
     int fd = request->fd;
+    struct sockaddr_in remote_address = request->remote_address;
 
     if (request->query_string_kv.base != empty_query_string_kv)
         free(request->query_string_kv.base);
@@ -47,6 +49,7 @@ _reset_request(lwan_request_t *request)
     request->coro = coro;
     request->response.buffer = response_buffer;
     request->query_string_kv.base = empty_query_string_kv;
+    request->remote_address = remote_address;
     strbuf_reset(request->response.buffer);
 }
 

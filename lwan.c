@@ -25,6 +25,7 @@
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "lwan.h"
 #include "lwan-dir-watch.h"
@@ -137,7 +138,7 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 }
 
 static ALWAYS_INLINE void
-_push_request_fd(lwan_t *l, int fd)
+_push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_size)
 {
     static int counter = 0;
     int epoll_fd = l->thread.threads[counter++ % l->thread.count].epoll_fd;
@@ -150,6 +151,8 @@ _push_request_fd(lwan_t *l, int fd)
         perror("epoll_ctl");
         exit(-1);
     }
+
+    memcpy(&l->requests[fd].remote_address, addr, addr_size);
 }
 
 static void
@@ -203,13 +206,18 @@ lwan_main_loop(lwan_t *l)
                 n_fds > 0;
                 --n_fds) {
             if (LIKELY(!events[n_fds - 1].data.u32)) {
-                int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+                struct sockaddr_in addr;
+                int child_fd;
+                socklen_t addr_size = sizeof(struct sockaddr_in);
+
+                child_fd = accept4(l->main_socket, (struct sockaddr *)&addr,
+                                   &addr_size, SOCK_NONBLOCK);
                 if (UNLIKELY(child_fd < 0)) {
                     perror("accept");
                     continue;
                 }
 
-                _push_request_fd(l, child_fd);
+                _push_request_fd(l, child_fd, &addr, addr_size);
             } else {
                 lwan_dir_watch_process_events();
             }

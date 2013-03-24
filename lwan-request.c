@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
@@ -448,4 +449,16 @@ lwan_request_get_query_param(lwan_request_t *request, const char *key)
     }
 
     return NULL;
+}
+
+const char *
+lwan_request_get_remote_address(lwan_request_t *request,
+                                char *buffer,
+                                size_t buffer_len)
+{
+    if (UNLIKELY(buffer_len < INET_ADDRSTRLEN))
+        return NULL;
+
+    return inet_ntop(AF_INET, &request->remote_address.sin_addr,
+                     buffer, buffer_len);
 }

@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <netinet/in.h>
 
 #include "lwan-coro.h"
 #include "lwan-trie.h"
@@ -150,6 +151,8 @@ struct lwan_request_t_ {
     lwan_t *lwan;
     coro_t *coro;
 
+    struct sockaddr_in remote_address;
+
     int fd;
     unsigned int time_to_die;
     char buffer[4 * 1024];
@@ -235,6 +238,7 @@ bool lwan_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);
 bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
+const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer, size_t buffer_len);
 bool lwan_process_request(lwan_request_t *request);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));

@@ -144,14 +144,18 @@ internal_query(lwan_request_t *request)
     const char *ip_address;
     struct in_addr addr;
 
-    if (request->url.len < 7)
+    if (request->url.len == 0)
+        ip_address = lwan_request_get_remote_address(request,
+                                                     request->buffer,
+                                                     INET_ADDRSTRLEN);
+    else if (request->url.len < 7)
+        ip_address = NULL;
+    else
+        ip_address = request->url.value;
+    if (UNLIKELY(!ip_address))
         return NULL;
 
-    ip_address = request->url.value;
-    if (!ip_address)
-        return NULL;
-
-    if (!inet_aton(ip_address, &addr))
+    if (UNLIKELY(!inet_aton(ip_address, &addr)))
         return NULL;
 
     info = memcache_get(mc, (void *)(unsigned long)addr.s_addr);
