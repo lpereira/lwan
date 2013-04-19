@@ -76,7 +76,7 @@ free_ip_info_t(void *data)
     free(ip_info->country.code);
     free(ip_info->country.name);
     free(ip_info->region.code);
-    free(ip_info->region.code);
+    free(ip_info->region.name);
     free(ip_info->city.name);
     free(ip_info->city.zip_code);
     free(ip_info->metro.code);
