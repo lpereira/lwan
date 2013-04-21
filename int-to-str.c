@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <assert.h>
 #include "int-to-str.h"
 
 ALWAYS_INLINE char *
@@ -24,13 +25,14 @@ uint_to_string(uint32_t value, char buf16[static 16], size_t *len)
 {
     char *p = buf16 + 15;
 
+    assert(len);
+
     *p = '\0';
     do {
         *--p = '0' + (value % 10);
     } while (value /= 10);
 
-    if (len)
-        *len = 15 - (p - buf16);
+    *len = 15 - (p - buf16);
 
     return p;
 }

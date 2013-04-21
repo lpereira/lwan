@@ -233,9 +233,7 @@ _context_copy(ucontext_t *dest, ucontext_t *src)
 ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
-    if (UNLIKELY(!coro))
-        return 0;
-
+    assert(coro);
     assert(coro->state != CORO_FINISHED);
 
     ucontext_t prev_caller;
@@ -250,8 +248,7 @@ coro_resume(coro_t *coro)
 ALWAYS_INLINE void
 coro_yield(coro_t *coro, int value)
 {
-    if (UNLIKELY(!coro))
-        return;
+    assert(coro);
     coro->yield_value = value;
     _coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
 }
@@ -259,8 +256,7 @@ coro_yield(coro_t *coro, int value)
 void
 coro_free(coro_t *coro)
 {
-    if (UNLIKELY(!coro))
-        return;
+    assert(coro);
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
@@ -280,8 +276,9 @@ coro_defer(coro_t *coro, void (*func)(void *data), void *data)
     coro_defer_t *defer = malloc(sizeof(*defer));
     if (UNLIKELY(!defer))
         return;
-    if (UNLIKELY(!func))
-        return;
+
+    assert(func);
+
     defer->next = coro->defer;
     defer->func = func;
     defer->data = data;
