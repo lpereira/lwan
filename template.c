@@ -69,7 +69,7 @@ struct lwan_tpl_chunk_t_ {
 };
 
 struct lwan_tpl_t_ {
-    lwan_tpl_chunk_t *chunks;  
+    lwan_tpl_chunk_t *chunks;
     size_t minimum_size;
     struct hash *descriptor_hash;
 };
@@ -227,7 +227,7 @@ lwan_tpl_free(lwan_tpl_t *tpl)
 {
     if (!tpl)
         return;
-    
+
     while (tpl->chunks) {
         lwan_tpl_chunk_t *next = tpl->chunks->next;
         free_chunk(tpl->chunks);
@@ -338,7 +338,7 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     strbuf_t *buf;
     int state = STATE_DEFAULT;
     char error_msg[512];
-    
+
     tpl = calloc(1, sizeof(*tpl));
     if (!tpl)
         goto error_allocate_tpl;
@@ -354,7 +354,7 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     buf = strbuf_new();
     if (!buf)
         goto error_allocate_strbuf;
-    
+
     int line = 1;
     int column = 1;
     for (; *string; string++) {
@@ -504,7 +504,10 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
 {
     lwan_tpl_chunk_t *chunk = chunks;
 
-    for (; chunk; chunk = chunk->next) {
+    if (UNLIKELY(!chunk))
+        goto out;
+
+    do {
         if (until(chunk, until_data))
             break;
 
@@ -531,7 +534,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
             const char *var_name = (const char*)chunk->data;
 
-            if (UNLIKELY(!chunk->data))
+            if (UNLIKELY(!var_name))
                 break;
 
             if (!var_get_is_empty(chunk, variables)) {
@@ -545,8 +548,9 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             }
 
             for (chunk = chunk->next; chunk; chunk = chunk->next) {
-                if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY &&
-                        !strcmp(chunk->data, var_name))
+                if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
+                    continue;
+                if (!strcmp(chunk->data, var_name))
                     break;
             }
 
@@ -569,8 +573,13 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             /* Shouldn't happen */
             break;
         }
-    }
 
+        if (!chunk)
+            break;
+        chunk = chunk->next;
+    } while (chunk);
+
+out:
     return chunk;
 }
 
@@ -626,7 +635,7 @@ int main(int argc, char *argv[])
     puts(strbuf_get_buffer(applied));
 
     strbuf_free(applied);
-    lwan_tpl_free(tpl);    
+    lwan_tpl_free(tpl);
     return 0;
 }
 
