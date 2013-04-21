@@ -65,7 +65,7 @@ _is_hex_digit(char ch)
 static size_t
 _url_decode(char *str)
 {
-    if (!str)
+    if (UNLIKELY(!str))
         return 0;
 
     char *ch, *decoded;
