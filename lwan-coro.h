@@ -33,12 +33,6 @@ struct coro_switcher_t_ {
     ucontext_t callee;
 };
 
-typedef enum {
-    CORO_NEW,
-    CORO_RUNNING,
-    CORO_FINISHED
-} coro_state_t;
-
 coro_t *coro_new(coro_switcher_t *switcher, coro_function_t function, void *data);
 coro_t *coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data);
 void	coro_free(coro_t *coro);
@@ -46,8 +40,7 @@ void	coro_free(coro_t *coro);
 int	coro_resume(coro_t *coro);
 void	coro_yield(coro_t *coro, int value);
 
-void   		*coro_get_data(coro_t *coro);
-coro_state_t	 coro_get_state(coro_t *coro);
+void   *coro_get_data(coro_t *coro);
 
 void    coro_defer(coro_t *coro, void (*func)(void *data), void *data);
 void   *coro_malloc(coro_t *coro, size_t sz);

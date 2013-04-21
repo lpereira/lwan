@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,10 +53,15 @@ struct coro_defer_t_ {
     void *data;
 };
 
+typedef enum {
+    CORO_NEW,
+    CORO_RUNNING,
+    CORO_FINISHED
+} coro_state_t;
+
 struct coro_t_ {
-    coro_state_t state;
-    coro_function_t function;
     coro_switcher_t *switcher;
+    coro_function_t function;
     coro_defer_t *defer;
     void *data;
 
@@ -64,6 +70,9 @@ struct coro_t_ {
 
 #ifdef USE_VALGRIND
     int vg_stack_id;
+#endif
+#ifndef NDEBUG
+    coro_state_t state;
 #endif
 };
 
@@ -150,7 +159,9 @@ _coro_entry_point(uint32_t part0, uint32_t part1)
     };
     coro_t *coro = p.ptr;
     int return_value = coro->function(coro);
+#ifndef NDEBUG
     coro->state = CORO_FINISHED;
+#endif
     coro_yield(coro, return_value);
 }
 #else
@@ -158,7 +169,9 @@ static void
 _coro_entry_point(coro_t *coro)
 {
     int return_value = coro->function(coro);
+#ifndef NDEBUG
     coro->state = CORO_FINISHED;
+#endif
     coro_yield(coro, return_value);
 }
 #endif
@@ -169,7 +182,9 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
     void *stack = (coro_t *)coro + 1;
 
+#ifndef NDEBUG
     coro->state = CORO_NEW;
+#endif
     coro->switcher = switcher;
     coro->function = function;
     coro->data = data;
@@ -207,12 +222,6 @@ coro_get_data(coro_t *coro)
     return LIKELY(coro) ? coro->data : NULL;
 }
 
-ALWAYS_INLINE coro_state_t
-coro_get_state(coro_t *coro)
-{
-    return LIKELY(coro) ? coro->state : CORO_FINISHED;
-}
-
 static ALWAYS_INLINE void
 _context_copy(ucontext_t *dest, ucontext_t *src)
 {
@@ -230,10 +239,8 @@ coro_resume(coro_t *coro)
 {
     if (UNLIKELY(!coro))
         return 0;
-    if (coro->state == CORO_NEW)
-        coro->state = CORO_RUNNING;
-    else if (coro->state == CORO_FINISHED)
-        return 0;
+
+    assert(coro->state != CORO_FINISHED);
 
     ucontext_t prev_caller;
     _context_copy(&prev_caller, &coro->switcher->caller);
