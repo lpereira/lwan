@@ -417,6 +417,12 @@ error:
     free(should_free);
 }
 
+static bool
+_key_match_prefix(const void *key, const size_t key_len, const void *data)
+{
+    return !strncmp(key, data, key_len);
+}
+
 static void
 _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void *data)
 {
@@ -428,6 +434,9 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
     }
 
     switch (event) {
+    case DIR_WATCH_DEL_SELF:
+        hash_del_predicate(priv->cache.entries, _key_match_prefix, name);
+        break;
     case DIR_WATCH_MOD:
         hash_del(priv->cache.entries, name);
         /* Fallthrough */

@@ -382,3 +382,42 @@ bool hash_iter_next(struct hash_iter *iter, const void **key,
 
 	return true;
 }
+
+struct del_list {
+	struct del_list *next;
+	const void *key;
+};
+
+void hash_del_predicate(struct hash *hash,
+			bool (*predicate)(const void *key, const size_t key_len, const void *data),
+			const void *data)
+{
+	struct hash_iter iter;
+	struct del_list *del_list = NULL;
+	const void *key;
+
+	hash_iter_init(hash, &iter);
+	while (hash_iter_next(&iter, &key, NULL)) {
+		struct del_list *node;
+
+		if (!predicate(key, hash->key_length(key), data))
+			continue;
+
+		node = malloc(sizeof(*node));
+		if (!node)
+			goto out;
+		node->key = key;
+		node->next = del_list;
+		del_list = node;
+	}
+
+out:
+
+	while (del_list) {
+		struct del_list *tmp = del_list->next;
+
+		hash_del(hash, del_list->key);
+		free(del_list);
+		del_list = tmp;
+	}
+}
