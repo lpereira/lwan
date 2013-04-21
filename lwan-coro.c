@@ -68,10 +68,10 @@ struct coro_t_ {
     ucontext_t context;
     int yield_value;
 
+#ifndef NDEBUG
 #ifdef USE_VALGRIND
     int vg_stack_id;
 #endif
-#ifndef NDEBUG
     coro_state_t state;
 #endif
 };
@@ -190,7 +190,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->data = data;
     coro->defer = NULL;
 
-#ifdef USE_VALGRIND
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
     coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + stack_size);
 #endif
 
@@ -265,7 +265,7 @@ coro_free(coro_t *coro)
 {
     if (UNLIKELY(!coro))
         return;
-#ifdef USE_VALGRIND
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_defer_t *defer;
