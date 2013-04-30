@@ -941,14 +941,10 @@ _fetch_from_cache_and_ref(serve_files_priv_t *priv, char *path)
         return _create_temporary_cache_entry(priv, path);
 
     ce = hash_find(priv->cache.entries, path);
-    if (!ce) {
-        pthread_rwlock_unlock(&priv->cache.lock);
-        return NULL;
-    }
+    if (ce)
+        ATOMIC_AAF(&ce->serving_count, 1);
 
-    ATOMIC_AAF(&ce->serving_count, 1);
     pthread_rwlock_unlock(&priv->cache.lock);
-
     return ce;
 }
 
