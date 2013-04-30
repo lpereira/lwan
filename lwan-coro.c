@@ -140,7 +140,6 @@ int _coro_getcontext(ucontext_t *current);
     "mov    %rcx,0xa8(%rdi)\n\t"
     "lea    0x8(%rsp),%rcx\n\t"
     "mov    %rcx,0xa0(%rdi)\n\t"
-    "xor    %eax,%eax\n\t"
     "retq\n\t");
 #else
 #define _coro_getcontext(cur) getcontext(cur)
