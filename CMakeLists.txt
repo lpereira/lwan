@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow")
 
-if (${CMAKE_BUILD_TYPE} MATCHES "Release")
+if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto")
 endif ()
