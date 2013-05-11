@@ -19,6 +19,7 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <netinet/tcp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -32,6 +33,10 @@
             goto handle_error; \
         } \
     } while(0)
+
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN 23
+#endif
 
 void
 lwan_socket_init(lwan_t *l)
@@ -48,6 +53,9 @@ lwan_socket_init(lwan_t *l)
     SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
         ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
+
+    /* This might fail if running on an old kernel, so don't use the macro */
+    setsockopt(fd, SOL_TCP, TCP_FASTOPEN, (int[]){ 5 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
