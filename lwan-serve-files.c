@@ -180,7 +180,7 @@ static char *index_html = "index.html";
 static void
 _compress_cached_entry(mmap_cache_data_t *md)
 {
-    static const int deflated_header_size = sizeof("Content-Encoding: deflate");
+    static const size_t deflated_header_size = sizeof("Content-Encoding: deflate");
 
     md->compressed.size = compressBound(md->uncompressed.size);
 
