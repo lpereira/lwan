@@ -27,6 +27,16 @@
 #include <netinet/in.h>
 #include "lwan.h"
 
+struct death_queue_t {
+    unsigned last;
+    unsigned first;
+    unsigned population;
+    unsigned max;
+    unsigned time;
+    int *queue;
+    lwan_request_t *requests;
+};
+
 static lwan_key_value_t empty_query_string_kv[] = {
     { .key = NULL, .value = NULL }
 };
@@ -119,21 +129,97 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
     request->flags.write_events ^= 1;
 }
 
+static void
+_death_queue_init(struct death_queue_t *dq, lwan_request_t *requests, unsigned max)
+{
+    dq->queue = calloc(1, max * sizeof(int));
+    dq->last = 0;
+    dq->first = 0;
+    dq->population = 0;
+    dq->time = 0;
+    dq->max = max;
+    dq->requests = requests;
+}
+
+static void
+_death_queue_shutdown(struct death_queue_t *dq)
+{
+    if (!dq)
+        return;
+    free(dq->queue);
+}
+
+static void
+_death_queue_pop(struct death_queue_t *dq)
+{
+    dq->first++;
+    dq->population--;
+    dq->first %= dq->max;
+}
+
+static void
+_death_queue_push(struct death_queue_t *dq, lwan_request_t *request)
+{
+    dq->queue[dq->last] = request->fd;
+    dq->last++;
+    dq->population++;
+    dq->last %= dq->max;
+    request->flags.alive = true;
+}
+
+static ALWAYS_INLINE lwan_request_t *
+_death_queue_first(struct death_queue_t *dq)
+{
+    return &dq->requests[dq->queue[dq->first]];
+}
+
+static ALWAYS_INLINE int
+_death_queue_epoll_timeout(struct death_queue_t *dq)
+{
+    return dq->population ? 1000 : -1;
+}
+
+static void
+_death_queue_kill_waiting(struct death_queue_t *dq)
+{
+    dq->time++;
+
+    while (dq->population) {
+        lwan_request_t *request = _death_queue_first(dq);
+
+        if (request->time_to_die > dq->time)
+            break;
+
+        _death_queue_pop(dq);
+
+        /* This request might have died from a hangup event */
+        if (!request->flags.alive)
+            continue;
+
+        _cleanup_coro(request);
+
+        request->flags.alive = false;
+        close(request->fd);
+    }
+}
+
 static void *
 _thread(void *data)
 {
     lwan_thread_t *t = data;
     struct epoll_event *events = calloc(t->lwan->thread.max_fd, sizeof(*events));
-    int *death_queue = calloc(1, t->lwan->thread.max_fd * sizeof(int));
-    int epoll_fd = t->epoll_fd, n_fds, i;
-    unsigned int death_time = 0;
     lwan_request_t *requests = t->lwan->requests;
-    int death_queue_last = 0, death_queue_first = 0, death_queue_population = 0;
     coro_switcher_t switcher;
+    struct death_queue_t dq;
+    int epoll_fd = t->epoll_fd;
+    int n_fds;
+    int i;
+
+    _death_queue_init(&dq, requests, t->lwan->thread.max_fd);
 
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, t->lwan->thread.max_fd,
-                                            death_queue_population ? 1000 : -1)) {
+                                   _death_queue_epoll_timeout(&dq))) {
         case -1:
             switch (errno) {
             case EBADF:
@@ -142,30 +228,7 @@ _thread(void *data)
             }
             continue;
         case 0: /* timeout: shutdown waiting sockets */
-            death_time++;
-
-            while (death_queue_population) {
-                lwan_request_t *request = &requests[death_queue[death_queue_first]];
-
-                if (request->time_to_die <= death_time) {
-                    /* One request just died, advance the queue. */
-                    ++death_queue_first;
-                    --death_queue_population;
-                    death_queue_first %= t->lwan->thread.max_fd;
-
-                    /* A request might have died from a hangup event */
-                    if (!request->flags.alive)
-                        continue;
-
-                    _cleanup_coro(request);
-
-                    request->flags.alive = false;
-                    close(request->fd);
-                } else {
-                    /* Next time. Next time. */
-                    break;
-                }
-            }
+            _death_queue_kill_waiting(&dq);
             break;
         default: /* activity in some of this poller's file descriptor */
             for (i = 0; i < n_fds; ++i) {
@@ -193,9 +256,9 @@ _thread(void *data)
                  * right away.
                  */
                 if (LIKELY(request->flags.is_keep_alive || request->flags.should_resume_coro))
-                    request->time_to_die = death_time + t->lwan->config.keep_alive_timeout;
+                    request->time_to_die = dq.time + t->lwan->config.keep_alive_timeout;
                 else
-                    request->time_to_die = death_time;
+                    request->time_to_die = dq.time;
 
                 /*
                  * The connection hasn't been added to the keep-alive and
@@ -203,18 +266,14 @@ _thread(void *data)
                  * alive so that we know what to do whenever there's
                  * activity on its socket again.  Or not.  Mwahahaha.
                  */
-                if (!request->flags.alive) {
-                    death_queue[death_queue_last++] = events[i].data.fd;
-                    ++death_queue_population;
-                    death_queue_last %= t->lwan->thread.max_fd;
-                    request->flags.alive = true;
-                }
+                if (!request->flags.alive)
+                    _death_queue_push(&dq, request);
             }
         }
     }
 
 epoll_fd_closed:
-    free(death_queue);
+    _death_queue_shutdown(&dq);
     free(events);
 
     return NULL;
