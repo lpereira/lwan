@@ -187,8 +187,8 @@ _compress_cached_entry(mmap_cache_data_t *md)
     if (UNLIKELY(!(md->compressed.contents = malloc(md->compressed.size))))
         goto error_zero_out;
 
-    if (LIKELY(compress(md->compressed.contents, &md->compressed.size,
-                        md->uncompressed.contents, md->uncompressed.size) != Z_OK))
+    if (UNLIKELY(compress(md->compressed.contents, &md->compressed.size,
+                          md->uncompressed.contents, md->uncompressed.size) != Z_OK))
         goto error_free_compressed;
 
     if ((md->compressed.size + deflated_header_size) < md->uncompressed.size)
