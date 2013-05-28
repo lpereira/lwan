@@ -676,6 +676,7 @@ serve_files_shutdown(void *data)
     /* FIXME: Some thread might be holding the lock. Wait? */
     hash_free(priv->cache.entries);
     pthread_rwlock_destroy(&priv->cache.lock);
+    pthread_rwlock_destroy(&priv->date.lock);
     close(priv->root.fd);
     free(priv->root.path);
     free(priv);
