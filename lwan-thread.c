@@ -64,15 +64,14 @@ _reset_request(lwan_request_t *request)
     strbuf_reset(request->response.buffer);
 }
 
-static int
-_process_request_coro(coro_t *coro)
+static ALWAYS_INLINE void
+_cleanup_coro(lwan_request_t *request)
 {
-    lwan_request_t *request = coro_get_data(coro);
-
-    _reset_request(request);
-    lwan_process_request(request);
-
-    return 0;
+    if (!request->coro || request->flags.should_resume_coro)
+        return;
+    /* FIXME: Reuse coro? */
+    coro_free(request->coro);
+    request->coro = NULL;
 }
 
 static ALWAYS_INLINE void
@@ -82,14 +81,31 @@ _handle_hangup(lwan_request_t *request)
     close(request->fd);
 }
 
-static ALWAYS_INLINE void
-_cleanup_coro(lwan_request_t *request)
+static int
+_process_request_coro(coro_t *coro)
 {
-    if (!request->coro || request->flags.should_resume_coro)
-        return;
-    /* FIXME: Reuse coro? */
-    coro_free(request->coro);
-    request->coro = NULL;
+    lwan_request_t *request = coro_get_data(coro);
+
+    _reset_request(request);
+    if (LIKELY(lwan_process_request(request)))
+        return 0;
+
+    /*
+     * If we fail sending the request (such as the connection has been reset by
+     * peer), just forcefully kill it from our side as well, as there's probably
+     * no point in keep their resources further.
+     *
+     * FIXME: Check if lwan_process_request() actually returns false only on non-
+     *        recoverable errors; EWOULDBLOCK, EAGAIN, EINTR and such should just
+     *        yield from the coroutine and processing the request should be tried
+     *        again. Maybe a boolean doesn't suffice here.
+     * FIXME: Double-check if the request socket will be removed from the epoll.
+     * FIXME: Double-check that the coroutine's resources are really freed.
+     */
+    _reset_request(request);
+    _handle_hangup(request);
+
+    return 0;
 }
 
 static ALWAYS_INLINE void
