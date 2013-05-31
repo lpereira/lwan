@@ -15,3 +15,5 @@
 - Memory pool for coroutines
   - Or some other stackless coroutine thing, like Simon Tatham's?
 - dup() vs openat()
+- Investigate TCP_DEFER_ACCEPT and TCP_QUICKACK flags
+- Win the C10M challenge
