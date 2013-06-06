@@ -44,5 +44,6 @@ void   *coro_get_data(coro_t *coro);
 
 void    coro_defer(coro_t *coro, void (*func)(void *data), void *data);
 void   *coro_malloc(coro_t *coro, size_t sz);
+void    coro_defer_close_file(coro_t *coro, int fd);
 
 #endif /* __LWAN_CORO_H__ */

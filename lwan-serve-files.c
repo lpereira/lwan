@@ -812,13 +812,20 @@ _sendfile_serve(cache_entry_t *ce,
         if (UNLIKELY(file_fd < 0))
             return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
 
+        /*
+         * The file close is deferred since lwan_sendfile() might yield and
+         * the coroutine might get killed by the main loop (for instance, if
+         * the connection is closed by the peer) -- and thus leaving the
+         * file open.  This ensures the file will be closed regardless of
+         * what happens.
+         */
+        coro_defer_close_file(request->coro, file_fd);
+
         if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
         } else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0)) {
             return_status = HTTP_INTERNAL_ERROR;
         }
-
-        close(file_fd);
     }
 
     return return_status;

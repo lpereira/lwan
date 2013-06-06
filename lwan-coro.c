@@ -292,3 +292,15 @@ coro_malloc(coro_t *coro, size_t size)
         coro_defer(coro, free, ptr);
     return ptr;
 }
+
+static void
+_coro_close(void *data)
+{
+    close((int)(intptr_t) data);
+}
+
+void
+coro_defer_close_file(coro_t *coro, int fd)
+{
+    coro_defer(coro, _coro_close, (void *)(intptr_t)fd);
+}
