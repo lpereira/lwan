@@ -36,6 +36,7 @@
 #include <zlib.h>
 
 #include "lwan.h"
+#include "lwan-openat.h"
 #include "lwan-serve-files.h"
 #include "lwan-sendfile.h"
 #include "lwan-dir-watch.h"
@@ -806,11 +807,25 @@ _sendfile_serve(cache_entry_t *ce,
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return HTTP_INTERNAL_ERROR;
     } else {
-        int file_fd = openat(priv->root.fd, sd->filename,
-                             O_RDONLY | priv->extra_modes);
+        int file_fd;
 
-        if (UNLIKELY(file_fd < 0))
-            return (errno == EACCES) ? HTTP_FORBIDDEN : HTTP_NOT_FOUND;
+        /*
+         * lwan_openat() will yield from the coroutine if openat()
+         * can't open the file due to not having free file descriptors
+         * around. This will happen just a handful of times.
+         */
+        file_fd = lwan_openat(request, priv->root.fd, sd->filename,
+                                O_RDONLY | priv->extra_modes);
+        if (UNLIKELY(file_fd < 0)) {
+            switch (file_fd) {
+            case -EACCES:
+                return HTTP_FORBIDDEN;
+            case -ENFILE:
+                return HTTP_UNAVAILABLE;
+            default:
+                return HTTP_NOT_FOUND;
+            }
+        }
 
         /*
          * The file close is deferred since lwan_sendfile() might yield and
@@ -821,11 +836,11 @@ _sendfile_serve(cache_entry_t *ce,
          */
         coro_defer_close_file(request->coro, file_fd);
 
-        if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0)) {
-            return_status = HTTP_INTERNAL_ERROR;
-        } else if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0)) {
-            return_status = HTTP_INTERNAL_ERROR;
-        }
+        if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
+            return HTTP_INTERNAL_ERROR;
+
+        if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
+            return HTTP_INTERNAL_ERROR;
     }
 
     return return_status;

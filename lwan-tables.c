@@ -54,6 +54,7 @@ lwan_http_status_as_string(lwan_http_status_t status)
     case HTTP_TOO_LARGE: return "Request too large";
     case HTTP_RANGE_UNSATISFIABLE: return "Requested range unsatisfiable";
     case HTTP_INTERNAL_ERROR: return "Internal server error";
+    case HTTP_UNAVAILABLE: return "Service unavailable";
     }
     return "Invalid";
 }
@@ -72,6 +73,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_TOO_LARGE: return "The request entity is too large.";
     case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
     case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
+    case HTTP_UNAVAILABLE: return "The server is either overloaded or down for maintenance.";
     }
     return "Invalid";
 }

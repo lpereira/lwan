@@ -33,6 +33,7 @@ add_library(lwan-common STATIC
 	lwan.c
 	lwan-coro.c
 	lwan-dir-watch.c
+	lwan-openat.c
 	lwan-request.c
 	lwan-response.c
 	lwan-sendfile.c
