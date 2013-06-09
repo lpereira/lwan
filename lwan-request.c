@@ -145,9 +145,9 @@ oom:
 #undef DECODE_AND_ADD
 
 static ALWAYS_INLINE char *
-_identify_http_path(lwan_request_t *request, char *buffer, size_t limit)
+_identify_http_path(lwan_request_t *request, char *buffer)
 {
-    char *end_of_line = memchr(buffer, '\r', limit);
+    char *end_of_line = memchr(buffer, '\r', request->buffer_len - (buffer - request->buffer));
     if (!end_of_line)
         return NULL;
     *end_of_line = '\0';
@@ -360,7 +360,7 @@ _ignore_leading_whitespace(char *buffer)
 }
 
 static ALWAYS_INLINE void
-_compute_flags(lwan_request_t *request)
+_compute_keep_alive_flag(lwan_request_t *request)
 {
     if (request->http_version == HTTP_1_1)
         request->flags.is_keep_alive = (request->header.connection != 'c');
@@ -368,60 +368,93 @@ _compute_flags(lwan_request_t *request)
         request->flags.is_keep_alive = (request->header.connection == 'k');
 }
 
+static ALWAYS_INLINE lwan_http_status_t
+_parse_http_request(lwan_request_t *request)
+{
+    char *buffer;
+
+    buffer = _ignore_leading_whitespace(request->buffer);
+    if (UNLIKELY(!*buffer))
+        return HTTP_BAD_REQUEST;
+
+    buffer = _identify_http_method(request, buffer);
+    if (UNLIKELY(!buffer))
+        return HTTP_NOT_ALLOWED;
+
+    buffer = _identify_http_path(request, buffer);
+    if (UNLIKELY(!buffer))
+        return HTTP_BAD_REQUEST;
+
+    buffer = _parse_headers(request, buffer, request->buffer + request->buffer_len);
+    if (UNLIKELY(!buffer))
+        return HTTP_BAD_REQUEST;
+
+    _compute_keep_alive_flag(request);
+
+    return HTTP_OK;
+}
+
+static ALWAYS_INLINE lwan_http_status_t
+_read_request(lwan_request_t *request)
+{
+    size_t bytes_read;
+
+    bytes_read = read(request->fd, request->buffer, sizeof(request->buffer));
+    if (UNLIKELY(bytes_read <= 0))
+        return HTTP_BAD_REQUEST;
+    if (UNLIKELY(bytes_read == sizeof(request->buffer)))
+        return HTTP_TOO_LARGE;
+
+    request->buffer[bytes_read] = '\0';
+    request->buffer_len = bytes_read;
+    return HTTP_OK;
+}
+
 bool
 lwan_process_request(lwan_request_t *request)
 {
+    lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    char *p_buffer;
-    size_t bytes_read;
 
-    switch (bytes_read = read(request->fd, request->buffer, sizeof(request->buffer))) {
-    case 0:
-        return false;
-    case -1:
-        perror("read");
-        return false;
-    case sizeof(request->buffer):
-        return lwan_default_response(request, HTTP_TOO_LARGE);
+    status = _read_request(request);
+    if (UNLIKELY(status != HTTP_OK)) {
+        if (status == HTTP_BAD_REQUEST) {
+            /*
+             * If it is a Bad Request at this moment, there's not much we can
+             * do. Just give up.
+             */
+            return false;
+        }
+
+        return lwan_default_response(request, status);
     }
 
-    request->buffer[bytes_read] = '\0';
+    status = _parse_http_request(request);
+    if (UNLIKELY(status != HTTP_OK))
+        return lwan_default_response(request, status);
 
-    p_buffer = _ignore_leading_whitespace(request->buffer);
-    if (UNLIKELY(!*p_buffer))
-        return lwan_default_response(request, HTTP_BAD_REQUEST);
+    url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie,
+            request->url.value);
+    if (UNLIKELY(!url_map))
+        return lwan_default_response(request, HTTP_NOT_FOUND);
 
-    p_buffer = _identify_http_method(request, p_buffer);
-    if (UNLIKELY(!p_buffer))
-        return lwan_default_response(request, HTTP_NOT_ALLOWED);
+    request->url.value += url_map->prefix_len;
+    request->url.len -= url_map->prefix_len;
 
-    p_buffer = _identify_http_path(request, p_buffer, bytes_read);
-    if (UNLIKELY(!p_buffer))
-        return lwan_default_response(request, HTTP_BAD_REQUEST);
+    if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
+        _parse_query_string(request);
 
-    p_buffer = _parse_headers(request, p_buffer, request->buffer + bytes_read);
-    if (UNLIKELY(!p_buffer))
-        return lwan_default_response(request, HTTP_BAD_REQUEST);
+    if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
+        _parse_if_modified_since(request);
 
-    _compute_flags(request);
+    if (url_map->flags & HANDLER_PARSE_RANGE)
+        _parse_range(request);
 
-    if ((url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie, request->url.value))) {
-        request->url.value += url_map->prefix_len;
-        request->url.len -= url_map->prefix_len;
+    if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
+        _parse_accept_encoding(request);
 
-        if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
-            _parse_query_string(request);
-        if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
-            _parse_if_modified_since(request);
-        if (url_map->flags & HANDLER_PARSE_RANGE)
-            _parse_range(request);
-        if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
-            _parse_accept_encoding(request);
-
-        return lwan_response(request, url_map->callback(request, &request->response, url_map->data));
-    }
-
-    return lwan_default_response(request, HTTP_NOT_FOUND);
+    status = url_map->callback(request, &request->response, url_map->data);
+    return lwan_response(request, status);
 }
 
 const char *
