@@ -218,7 +218,10 @@ _parse_headers(lwan_request_t *request, char *buffer, char *buffer_end)
 {
     char *p;
 
-    for (p = buffer; p && *p; buffer = ++p) {
+    if (UNLIKELY(!buffer))
+        return NULL;
+
+    for (p = buffer; *p; buffer = ++p) {
         char *value;
         size_t length;
 
@@ -257,6 +260,8 @@ retry:
         }
 did_not_match:
         p = memchr(p, '\n', buffer_end - p);
+        if (UNLIKELY(!p))
+            return NULL;
     }
 
 end:
