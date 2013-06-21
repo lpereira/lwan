@@ -967,7 +967,9 @@ _fetch_from_cache_and_ref(serve_files_priv_t *priv, char *path)
     if (ce)
         ATOMIC_AAF(&ce->serving_count, 1);
 
-    pthread_rwlock_unlock(&priv->cache.lock);
+    if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
+        perror("pthread_rwlock_unlock");
+
     return ce;
 }
 

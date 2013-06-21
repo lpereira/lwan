@@ -55,7 +55,9 @@ lwan_socket_init(lwan_t *l)
         ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
 
     /* This might fail if running on an old kernel, so don't use the macro */
-    setsockopt(fd, SOL_TCP, TCP_FASTOPEN, (int[]){ 5 }, sizeof(int));
+    if (UNLIKELY(setsockopt(fd, SOL_TCP, TCP_FASTOPEN,
+                                            (int[]){ 5 }, sizeof(int)) < 0))
+        perror("TCP_FASTOPEN not supported by kernel");
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
