@@ -397,7 +397,7 @@ _parse_http_request(lwan_request_t *request)
 static ALWAYS_INLINE lwan_http_status_t
 _read_request(lwan_request_t *request)
 {
-    size_t bytes_read;
+    ssize_t bytes_read;
 
     bytes_read = read(request->fd, request->buffer, sizeof(request->buffer));
     if (UNLIKELY(bytes_read <= 0))

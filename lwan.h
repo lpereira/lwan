@@ -157,7 +157,7 @@ struct lwan_request_t_ {
     int fd;
     unsigned int time_to_die;
     char buffer[4 * 1024];
-    size_t buffer_len;
+    ssize_t buffer_len;
 
     struct {
       lwan_key_value_t *base;
