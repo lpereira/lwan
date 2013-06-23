@@ -42,7 +42,6 @@ add_library(lwan-common STATIC
 	lwan-tables.c
 	lwan-thread.c
 	lwan-trie.c
-	lwan-trie.c
 	hash.c
 	int-to-str.c
 	murmur3.c
