@@ -43,12 +43,6 @@
 #include "hash.h"
 #include "realpathat.h"
 
-#define NOW 0
-#define ONE_HOUR 3600
-#define ONE_DAY (ONE_HOUR * 24)
-#define ONE_WEEK (ONE_DAY * 7)
-#define ONE_MONTH (ONE_DAY * 31)
-
 #define SET_NTH_HEADER(number_, key_, value_) \
     do { \
         headers[number_].key = (key_); \
@@ -79,13 +73,6 @@ struct serve_files_priv_t_ {
         struct hash *entries;
         pthread_rwlock_t lock;
     } cache;
-
-    struct {
-        char date[31];
-        char expires[31];
-        time_t last;
-        pthread_rwlock_t lock;
-    } date;
 };
 
 struct cache_funcs_t_ {
@@ -252,28 +239,6 @@ _sendfile_init(cache_entry_t *ce,
     return !!sd->filename;
 }
 
-static ALWAYS_INLINE bool
-_rfc_time(serve_files_priv_t *priv, time_t t, char buffer[32])
-{
-    bool ret;
-    time_t tt;
-
-    if (pthread_rwlock_rdlock(&priv->date.lock) < 0) {
-        lwan_status_perror("pthread_wrlock_rdlock");
-        return false;
-    }
-
-    tt = (t <= ONE_MONTH) ? priv->date.last + t : t;
-    ret = !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-
-    if (pthread_rwlock_unlock(&priv->date.lock) < 0) {
-        lwan_status_perror("pthread_wrlock_unlock");
-        return false;
-    }
-
-    return ret;
-}
-
 static void
 _redir_free(void *data)
 {
@@ -385,7 +350,7 @@ _cache_one_file(serve_files_priv_t *priv, char *full_path, struct stat *st)
     if (UNLIKELY(!funcs->init(ce, priv, full_path, st)))
         goto error;
 
-    _rfc_time(priv, st->st_mtime, ce->last_modified.string);
+    lwan_format_rfc_time(st->st_mtime, ce->last_modified.string);
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root.path_len);
     ce->last_modified.integer = st->st_mtime;
@@ -589,26 +554,6 @@ _cache_files(serve_files_priv_t *priv)
         lwan_status_perror("pthread_mutex_unlock");
 }
 
-static void
-_update_date_cache(serve_files_priv_t *priv)
-{
-    if (pthread_rwlock_trywrlock(&priv->date.lock) < 0)
-        return;
-
-    time_t now = time(NULL);
-
-    if (now == priv->date.last)
-        goto unlock;
-
-    priv->date.last = now;
-    _rfc_time(priv, NOW, priv->date.date);
-    _rfc_time(priv, ONE_WEEK, priv->date.expires);
-
-unlock:
-    if (pthread_rwlock_unlock(&priv->date.lock) < 0)
-        lwan_status_perror("pthread_rwlock_unlock");
-}
-
 static void *
 serve_files_init(void *args)
 {
@@ -648,10 +593,6 @@ serve_files_init(void *args)
     priv->extra_modes = extra_modes;
     priv->index_html = settings->index_html ? settings->index_html : index_html;
 
-    pthread_rwlock_init(&priv->date.lock, NULL);
-    priv->date.last = 0;
-    _update_date_cache(priv);
-
     lwan_status_info("Caching files in \"%s\"", canonical_root);
     pthread_rwlock_init(&priv->cache.lock, NULL);
     _cache_files(priv);
@@ -677,7 +618,6 @@ serve_files_shutdown(void *data)
     /* FIXME: Some thread might be holding the lock. Wait? */
     hash_free(priv->cache.entries);
     pthread_rwlock_destroy(&priv->cache.lock);
-    pthread_rwlock_destroy(&priv->date.lock);
     close(priv->root.fd);
     free(priv->root.path);
     free(priv);
@@ -690,8 +630,7 @@ _client_has_fresh_content(lwan_request_t *request, time_t mtime)
 }
 
 static size_t
-_prepare_headers(serve_files_priv_t *priv,
-                 lwan_request_t *request,
+_prepare_headers(lwan_request_t *request,
                  lwan_http_status_t return_status,
                  cache_entry_t *ce,
                  size_t size,
@@ -700,20 +639,13 @@ _prepare_headers(serve_files_priv_t *priv,
                  size_t header_buf_size)
 {
     lwan_key_value_t headers[5];
-    size_t prepped_buffer_size;
-
-    SET_NTH_HEADER(0, "Last-Modified", ce->last_modified.string);
 
     request->response.headers = headers;
     request->response.content_length = size;
 
-    if (UNLIKELY(pthread_rwlock_rdlock(&priv->date.lock) < 0)) {
-        lwan_status_perror("pthread_wrlock_rdlock");
-        return 0;
-    }
-
-    SET_NTH_HEADER(1, "Date", priv->date.date);
-    SET_NTH_HEADER(2, "Expires", priv->date.expires);
+    SET_NTH_HEADER(0, "Last-Modified", ce->last_modified.string);
+    SET_NTH_HEADER(1, "Date", request->thread->date.date);
+    SET_NTH_HEADER(2, "Expires", request->thread->date.expires);
 
     if (deflated) {
         SET_NTH_HEADER(3, "Content-Encoding", "deflate");
@@ -722,12 +654,8 @@ _prepare_headers(serve_files_priv_t *priv,
         SET_NTH_HEADER(3, NULL, NULL);
     }
 
-    prepped_buffer_size = lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
-
-    if (UNLIKELY(pthread_rwlock_unlock(&priv->date.lock) < 0))
-        lwan_status_perror("pthread_wrlock_unlock");
-
-    return prepped_buffer_size;
+    return lwan_prepare_response_header(request, return_status,
+                                    header_buf, header_buf_size);
 }
 
 static ALWAYS_INLINE bool
@@ -797,7 +725,7 @@ _sendfile_serve(cache_entry_t *ce,
     if (_client_has_fresh_content(request, ce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    header_len = _prepare_headers(priv, request, return_status,
+    header_len = _prepare_headers(request, return_status,
                                   ce, sd->size, false,
                                   headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
@@ -848,7 +776,7 @@ _sendfile_serve(cache_entry_t *ce,
 
 static lwan_http_status_t
 _mmap_serve(cache_entry_t *ce,
-            serve_files_priv_t *priv,
+            serve_files_priv_t *priv __attribute__((unused)),
             lwan_request_t *request)
 {
     mmap_cache_data_t *md = (mmap_cache_data_t *)(ce + 1);
@@ -871,7 +799,7 @@ _mmap_serve(cache_entry_t *ce,
         size = md->uncompressed.size;
     }
 
-    header_len = _prepare_headers(priv, request, return_status,
+    header_len = _prepare_headers(request, return_status,
                                   ce, size, deflated,
                                   headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
@@ -935,7 +863,7 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
     }
     sd->filename = real;
 
-    _rfc_time(priv, st.st_mtime, ce->last_modified.string);
+    lwan_format_rfc_time(st.st_mtime, ce->last_modified.string);
     ce->last_modified.integer = st.st_mtime;
     ce->mime_type = lwan_determine_mime_type_for_file_name(path);
     ce->funcs = &sendfile_funcs;
@@ -1042,8 +970,6 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
             goto fail;
         }
     }
-
-    _update_date_cache(priv);
 
     response->mime_type = (char *)ce->mime_type;
     response->stream.callback = _serve_cached_file_stream;

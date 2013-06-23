@@ -148,13 +148,15 @@ static ALWAYS_INLINE void
 _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_size)
 {
     static int counter = 0;
-    int epoll_fd = l->thread.threads[counter++ % l->thread.count].epoll_fd;
+    unsigned thread = counter++ % l->thread.count;
+    int epoll_fd = l->thread.threads[thread].epoll_fd;
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET,
         .data.fd = fd
     };
 
     memcpy(&l->requests[fd].remote_address, addr, addr_size);
+    l->requests[fd].thread = &l->thread.threads[thread];
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
         lwan_status_perror("epoll_ctl");

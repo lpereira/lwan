@@ -151,6 +151,7 @@ struct lwan_request_t_ {
     lwan_http_version_t http_version;
     lwan_response_t response;
     lwan_t *lwan;
+    lwan_thread_t *thread;
     coro_t *coro;
 
     struct sockaddr_in remote_address;
@@ -215,6 +216,12 @@ struct lwan_thread_t_ {
     int epoll_fd;
     int id;
     pthread_t self;
+
+    struct {
+        char date[31];
+        char expires[31];
+        time_t last;
+    } date;
 };
 
 struct lwan_t_ {
@@ -245,6 +252,8 @@ bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer, size_t buffer_len);
 bool lwan_process_request(lwan_request_t *request);
+
+void lwan_format_rfc_time(time_t t, char buffer[static 31]);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));

@@ -41,11 +41,17 @@ static lwan_key_value_t empty_query_string_kv[] = {
     { .key = NULL, .value = NULL }
 };
 
+#define ONE_HOUR 3600
+#define ONE_DAY (ONE_HOUR * 24)
+#define ONE_WEEK (ONE_DAY * 7)
+#define ONE_MONTH (ONE_DAY * 31)
+
 ALWAYS_INLINE void
 _reset_request(lwan_request_t *request)
 {
     strbuf_t *response_buffer = request->response.buffer;
     lwan_t *lwan = request->lwan;
+    lwan_thread_t *thread = request->thread;
     coro_t *coro = request->coro;
     int fd = request->fd;
     struct sockaddr_in remote_address = request->remote_address;
@@ -57,6 +63,7 @@ _reset_request(lwan_request_t *request)
 
     request->fd = fd;
     request->lwan = lwan;
+    request->thread = thread;
     request->coro = coro;
     request->response.buffer = response_buffer;
     request->query_string_kv.base = empty_query_string_kv;
@@ -219,6 +226,24 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
     }
 }
 
+void
+lwan_format_rfc_time(time_t t, char buffer[32])
+{
+    if (UNLIKELY(!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&t))))
+        lwan_status_perror("strftime");
+}
+
+static void
+_update_date_cache(lwan_thread_t *thread)
+{
+    time_t now = time(NULL);
+    if (now != thread->date.last) {
+        thread->date.last = now;
+        lwan_format_rfc_time(now, thread->date.date);
+        lwan_format_rfc_time(now + ONE_WEEK, thread->date.expires);
+    }
+}
+
 static void *
 _thread_io_loop(void *data)
 {
@@ -253,6 +278,8 @@ _thread_io_loop(void *data)
             _death_queue_kill_waiting(&dq);
             break;
         default: /* activity in some of this poller's file descriptor */
+            _update_date_cache(t);
+
             for (i = 0; i < n_fds; ++i) {
                 lwan_request_t *request = &requests[events[i].data.fd];
 
