@@ -401,7 +401,7 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     return tpl;
 
 parse_error:
-    printf("Line %d, column %d: %s\n", line, column, error_msg);
+    lwan_status_error("Line %d, column %d: %s\n", line, column, error_msg);
 
 free_strbuf:
     strbuf_free(buf);
@@ -440,7 +440,7 @@ lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor)
     tpl = lwan_tpl_compile_string(mapped, descriptor);
 
     if (munmap(mapped, st.st_size) < 0)
-        perror("munmap");
+        lwan_status_perror("munmap");
 
 close_file:
     close(fd);

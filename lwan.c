@@ -38,24 +38,28 @@ lwan_init(lwan_t *l)
     int max_threads = sysconf(_SC_NPROCESSORS_ONLN);
     struct rlimit r;
 
+    lwan_status_init(l);
+    lwan_status_debug("Initializing lwan web server");
+
     l->thread.count = max_threads > 0 ? max_threads : 2;
 
     if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
-        perror("getrlimit");
-        exit(-1);
+        lwan_status_perror("getrlimit");
+        exit(1);
     }
+
     if (r.rlim_max == RLIM_INFINITY)
         r.rlim_cur *= 8;
     else if (r.rlim_cur < r.rlim_max)
         r.rlim_cur = r.rlim_max;
     if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
-        perror("setrlimit");
-        exit(-1);
+        lwan_status_perror("setrlimit");
+        exit(1);
     }
 
     l->requests = calloc(r.rlim_cur, sizeof(lwan_request_t));
     l->thread.max_fd = r.rlim_cur / l->thread.count;
-    printf("Using %d threads, maximum %d sockets per thread.\n",
+    lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
 
     for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur) {
@@ -70,11 +74,8 @@ lwan_init(lwan_t *l)
     lwan_socket_init(l);
     lwan_thread_init(l);
     lwan_response_init();
-
-    if (!lwan_dir_watch_init()) {
-        perror("dir_watch_init");
-        exit(-1);
-    }
+    if (!lwan_dir_watch_init())
+        lwan_status_critical("Could not initialize directory watch");
 }
 
 static void
@@ -96,11 +97,17 @@ _url_map_free(lwan_t *l)
 void
 lwan_shutdown(lwan_t *l)
 {
+    lwan_status_info("Shutting down");
+
     lwan_thread_shutdown(l);
     lwan_socket_shutdown(l);
+
+    lwan_status_debug("Shutting down URL handlers");
     _url_map_free(l);
+
     lwan_dir_watch_shutdown();
     lwan_response_shutdown();
+    lwan_status_shutdown(l);
 
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
@@ -117,7 +124,7 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
     l->url_map = url_map;
     l->url_map_trie = lwan_trie_new();
     if (!l->url_map_trie) {
-        perror("lwan_trie_new");
+        lwan_status_perror("lwan_trie_new");
         exit(-1);
     }
 
@@ -148,7 +155,7 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
     };
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
-        perror("epoll_ctl");
+        lwan_status_perror("epoll_ctl");
         exit(-1);
     }
 
@@ -158,7 +165,7 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
 static void
 _cleanup(int signal_number)
 {
-    printf("Signal %d received.\n", signal_number);
+    lwan_status_info("Signal %d received", signal_number);
     longjmp(cleanup_jmp_buf, 1);
 }
 
@@ -167,7 +174,7 @@ lwan_main_loop(lwan_t *l)
 {
     int epoll_fd = epoll_create1(0);
     if (epoll_fd < 0) {
-        perror("epoll_create1");
+        lwan_status_critical("epoll_create1");
         return;
     }
 
@@ -179,7 +186,7 @@ lwan_main_loop(lwan_t *l)
     struct epoll_event events[128];
 
     if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0) {
-        perror("fcntl: main socket");
+        lwan_status_perror("fcntl: main socket");
         exit(-1);
     }
     struct epoll_event socket_ev = {
@@ -187,7 +194,7 @@ lwan_main_loop(lwan_t *l)
         .data.u32 = 0
     };
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0) {
-        perror("epoll_ctl");
+        lwan_status_perror("epoll_ctl");
         exit(-1);
     }
 
@@ -196,9 +203,11 @@ lwan_main_loop(lwan_t *l)
         .data.u32 = 1
     };
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, lwan_dir_watch_get_fd(), &dir_watch_ev) < 0) {
-        perror("epoll_ctl");
+        lwan_status_perror("epoll_ctl");
         exit(-1);
     }
+
+    lwan_status_info("Ready to serve");
 
     for (;;) {
         int n_fds;
@@ -213,7 +222,7 @@ lwan_main_loop(lwan_t *l)
                 child_fd = accept4(l->main_socket, (struct sockaddr *)&addr,
                                    &addr_size, SOCK_NONBLOCK);
                 if (UNLIKELY(child_fd < 0)) {
-                    perror("accept");
+                    lwan_status_perror("accept");
                     continue;
                 }
 

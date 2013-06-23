@@ -29,7 +29,7 @@
 #define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
     do { \
         if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) { \
-            perror("setsockopt"); \
+            lwan_status_perror("setsockopt"); \
             goto handle_error; \
         } \
     } while(0)
@@ -44,9 +44,11 @@ lwan_socket_init(lwan_t *l)
     struct sockaddr_in sin;
     int fd;
 
+    lwan_status_debug("Initializing sockets");
+
     fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0) {
-        perror("socket");
+        lwan_status_perror("socket");
         exit(-1);
     }
 
@@ -57,7 +59,7 @@ lwan_socket_init(lwan_t *l)
     /* This might fail if running on an old kernel, so don't use the macro */
     if (UNLIKELY(setsockopt(fd, SOL_TCP, TCP_FASTOPEN,
                                             (int[]){ 5 }, sizeof(int)) < 0))
-        perror("TCP_FASTOPEN not supported by kernel");
+        lwan_status_warning("TCP_FASTOPEN not supported by kernel");
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
@@ -65,16 +67,18 @@ lwan_socket_init(lwan_t *l)
     sin.sin_family = AF_INET;
 
     if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-        perror("bind");
+        lwan_status_perror("bind");
         goto handle_error;
     }
 
     if (listen(fd, l->thread.count * l->thread.max_fd) < 0) {
-        perror("listen");
+        lwan_status_perror("listen");
         goto handle_error;
     }
 
     l->main_socket = fd;
+
+    lwan_status_info("Listening on http://0.0.0.0:%d", l->config.port);
     return;
 
 handle_error:
@@ -87,8 +91,9 @@ handle_error:
 void
 lwan_socket_shutdown(lwan_t *l)
 {
+    lwan_status_debug("Shutting down sockets");
     if (shutdown(l->main_socket, SHUT_RDWR) < 0) {
-        perror("shutdown");
+        lwan_status_perror("shutdown");
         close(l->main_socket);
         exit(-4);
     }

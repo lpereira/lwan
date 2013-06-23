@@ -27,6 +27,7 @@
 
 #include "lwan-coro.h"
 #include "lwan-trie.h"
+#include "lwan-status.h"
 #include "strbuf.h"
 
 #define DEFAULT_HEADERS_SIZE 512
@@ -212,7 +213,8 @@ struct lwan_url_map_t_ {
 struct lwan_thread_t_ {
     lwan_t *lwan;
     int epoll_fd;
-    pthread_t id;
+    int id;
+    pthread_t self;
 };
 
 struct lwan_t_ {
@@ -223,6 +225,7 @@ struct lwan_t_ {
     struct {
         short port;
         short keep_alive_timeout;
+        bool quiet;
     } config;
 
     struct {

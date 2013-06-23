@@ -42,20 +42,20 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
     char *buffer = malloc(buffer_size);
 
     if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
-        perror("lseek");
+        lwan_status_perror("lseek");
         goto error;
     }
 
     while (total_bytes_written < count) {
         ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
-            perror("read");
+            lwan_status_perror("read");
             goto error;
         }
 
         ssize_t bytes_written = write(out_fd, buffer, read_bytes);
         if (bytes_written < 0) {
-            perror("write");
+            lwan_status_perror("write");
             goto error;
         }
 
@@ -103,7 +103,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
     if (count > buffer_size * 5) {
         if (UNLIKELY(posix_fadvise(in_fd, offset, count,
                                             POSIX_FADV_SEQUENTIAL) < 0))
-            perror("posix_fadvise");
+            lwan_status_perror("posix_fadvise");
     }
 
 #ifdef __linux__

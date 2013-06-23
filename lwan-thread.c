@@ -140,7 +140,7 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
     };
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, request->fd, &event) < 0))
-        perror("epoll_ctl");
+        lwan_status_perror("epoll_ctl");
 
     request->flags.write_events ^= 1;
 }
@@ -220,16 +220,22 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
 }
 
 static void *
-_thread(void *data)
+_thread_io_loop(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event *events = calloc(t->lwan->thread.max_fd, sizeof(*events));
+    struct epoll_event *events;
     lwan_request_t *requests = t->lwan->requests;
     coro_switcher_t switcher;
     struct death_queue_t dq;
     int epoll_fd = t->epoll_fd;
     int n_fds;
     int i;
+
+    lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
+
+    events = calloc(t->lwan->thread.max_fd, sizeof(*events));
+    if (UNLIKELY(!events))
+        lwan_status_critical("Could not allocate memory for events");
 
     _death_queue_init(&dq, requests, t->lwan->thread.max_fd);
 
@@ -302,34 +308,35 @@ _create_thread(lwan_t *l, int thread_n)
     lwan_thread_t *thread = &l->thread.threads[thread_n];
 
     thread->lwan = l;
+    thread->id = thread_n;
     if ((thread->epoll_fd = epoll_create1(0)) < 0) {
-        perror("epoll_create");
+        lwan_status_perror("epoll_create");
         exit(-1);
     }
 
     if (pthread_attr_init(&attr)) {
-        perror("pthread_attr_init");
+        lwan_status_perror("pthread_attr_init");
         exit(-1);
     }
 
     if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        perror("pthread_attr_setscope");
+        lwan_status_perror("pthread_attr_setscope");
         exit(-1);
     }
 
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE)) {
-        perror("pthread_attr_setdetachstate");
+        lwan_status_perror("pthread_attr_setdetachstate");
         exit(-1);
     }
 
-    if (pthread_create(&thread->id, &attr, _thread, thread)) {
-        perror("pthread_create");
+    if (pthread_create(&thread->self, &attr, _thread_io_loop, thread)) {
+        lwan_status_perror("pthread_create");
         pthread_attr_destroy(&attr);
         exit(-1);
     }
 
     if (pthread_attr_destroy(&attr)) {
-        perror("pthread_attr_destroy");
+        lwan_status_perror("pthread_attr_destroy");
         exit(-1);
     }
 }
@@ -338,6 +345,8 @@ void
 lwan_thread_init(lwan_t *l)
 {
     int i;
+
+    lwan_status_debug("Initializing threads");
 
     l->thread.threads = malloc(sizeof(lwan_thread_t) * l->thread.count);
 
@@ -350,6 +359,8 @@ lwan_thread_shutdown(lwan_t *l)
 {
     int i;
 
+    lwan_status_debug("Shutting down threads");
+
     /*
      * Closing epoll_fd makes the thread gracefully finish; it might
      * take a while to notice this if keep-alive timeout is high.
@@ -361,9 +372,9 @@ lwan_thread_shutdown(lwan_t *l)
         close(l->thread.threads[i].epoll_fd);
     for (i = l->thread.count - 1; i >= 0; i--)
 #ifdef __linux__
-        pthread_tryjoin_np(l->thread.threads[i].id, NULL);
+        pthread_tryjoin_np(l->thread.threads[i].self, NULL);
 #else
-        pthread_join(l->thread.threads[i].id, NULL);
+        pthread_join(l->thread.threads[i].self, NULL);
 #endif /* __linux__ */
 
     free(l->thread.threads);

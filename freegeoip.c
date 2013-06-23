@@ -227,11 +227,9 @@ main(void)
 
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
                                  SQLITE_OPEN_READONLY, NULL);
-    if (result != SQLITE_OK) {
-        fprintf(stderr, "Could not open database: %s\n",
+    if (result != SQLITE_OK)
+        lwan_status_critical("Could not open database: %s",
                     sqlite3_errstr(result));
-        return 1;
-    }
 
     mc = memcache_new_int32(256, free_ip_info_t);
 

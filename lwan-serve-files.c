@@ -225,7 +225,7 @@ _mmap_init(cache_entry_t *ce,
 
     if (UNLIKELY(madvise(md->uncompressed.contents, st->st_size,
                          MADV_WILLNEED) < 0))
-        perror("madvise");
+        lwan_status_perror("madvise");
 
     md->uncompressed.size = st->st_size;
     _compress_cached_entry(md);
@@ -259,7 +259,7 @@ _rfc_time(serve_files_priv_t *priv, time_t t, char buffer[32])
     time_t tt;
 
     if (pthread_rwlock_rdlock(&priv->date.lock) < 0) {
-        perror("pthread_wrlock_rdlock");
+        lwan_status_perror("pthread_wrlock_rdlock");
         return false;
     }
 
@@ -267,7 +267,7 @@ _rfc_time(serve_files_priv_t *priv, time_t t, char buffer[32])
     ret = !!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
 
     if (pthread_rwlock_unlock(&priv->date.lock) < 0) {
-        perror("pthread_wrlock_unlock");
+        lwan_status_perror("pthread_wrlock_unlock");
         return false;
     }
 
@@ -430,7 +430,7 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
     serve_files_priv_t *priv = data;
 
     if (UNLIKELY(pthread_rwlock_wrlock(&priv->cache.lock) < 0)) {
-        perror("pthread_rwlock_wrlock");
+        lwan_status_perror("pthread_rwlock_wrlock");
         return;
     }
 
@@ -471,7 +471,7 @@ _watched_dir_changed(char *name, char *root, lwan_dir_watch_event_t event, void 
 
 end:
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
-        perror("pthread_rwlock_unlock");
+        lwan_status_perror("pthread_rwlock_unlock");
 }
 
 static void
@@ -586,7 +586,7 @@ _cache_files(serve_files_priv_t *priv)
     _cache_files_recurse(priv, priv->root.path, 0);
 
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
-        perror("pthread_mutex_unlock");
+        lwan_status_perror("pthread_mutex_unlock");
 }
 
 static void
@@ -606,7 +606,7 @@ _update_date_cache(serve_files_priv_t *priv)
 
 unlock:
     if (pthread_rwlock_unlock(&priv->date.lock) < 0)
-        perror("pthread_rwlock_unlock");
+        lwan_status_perror("pthread_rwlock_unlock");
 }
 
 static void *
@@ -620,7 +620,8 @@ serve_files_init(void *args)
 
     canonical_root = realpath(settings->root_path, NULL);
     if (!canonical_root) {
-        perror("serve_files_init");
+        lwan_status_perror("Could not obtain real path of \"%s\"",
+                            settings->root_path);
         goto out_realpath;
     }
 
@@ -630,13 +631,14 @@ serve_files_init(void *args)
         extra_modes &= ~O_NOATIME;
     }
     if (root_fd < 0) {
-        perror("serve_files_init");
+        lwan_status_perror("Could not open directory \"%s\"",
+                            canonical_root);
         goto out_open;
     }
 
     priv = malloc(sizeof(*priv));
     if (!priv) {
-        perror("serve_files_init");
+        lwan_status_perror("malloc");
         goto out_malloc;
     }
 
@@ -650,11 +652,9 @@ serve_files_init(void *args)
     priv->date.last = 0;
     _update_date_cache(priv);
 
-    printf("Caching files in \"%s\": ", canonical_root);
-    fflush(stdout);
+    lwan_status_info("Caching files in \"%s\"", canonical_root);
     pthread_rwlock_init(&priv->cache.lock, NULL);
     _cache_files(priv);
-    printf("done.\n");
 
     return priv;
 
@@ -708,7 +708,7 @@ _prepare_headers(serve_files_priv_t *priv,
     request->response.content_length = size;
 
     if (UNLIKELY(pthread_rwlock_rdlock(&priv->date.lock) < 0)) {
-        perror("pthread_wrlock_rdlock");
+        lwan_status_perror("pthread_wrlock_rdlock");
         return 0;
     }
 
@@ -725,7 +725,7 @@ _prepare_headers(serve_files_priv_t *priv,
     prepped_buffer_size = lwan_prepare_response_header(request, return_status, header_buf, header_buf_size);
 
     if (UNLIKELY(pthread_rwlock_unlock(&priv->date.lock) < 0))
-        perror("pthread_wrlock_unlock");
+        lwan_status_perror("pthread_wrlock_unlock");
 
     return prepped_buffer_size;
 }
@@ -968,7 +968,7 @@ _fetch_from_cache_and_ref(serve_files_priv_t *priv, char *path)
         ATOMIC_AAF(&ce->serving_count, 1);
 
     if (UNLIKELY(pthread_rwlock_unlock(&priv->cache.lock) < 0))
-        perror("pthread_rwlock_unlock");
+        lwan_status_perror("pthread_rwlock_unlock");
 
     return ce;
 }

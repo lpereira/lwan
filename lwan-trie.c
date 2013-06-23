@@ -107,7 +107,7 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     return;
 
 oom:
-    perror("calloc: trie node");
+    lwan_status_perror("calloc: trie node");
     exit(-1);
 }
 

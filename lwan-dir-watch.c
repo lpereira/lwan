@@ -50,6 +50,8 @@ lwan_dir_watch_init(void)
     if (self.init_count)
         goto increment_init_count;
 
+    lwan_status_debug("Initializing directory watcher");
+
     self.fd = inotify_init1(IN_NONBLOCK);
     if (self.fd < 0)
         return false;
@@ -71,6 +73,7 @@ lwan_dir_watch_shutdown(void)
     if (--self.init_count)
         return;
 
+    lwan_status_debug("Shutting down directory watcher");
     close(self.fd);
     hash_free(self.wd_table);
 }

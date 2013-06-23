@@ -77,9 +77,11 @@ lwan_response_init(void)
 
     assert(!error_template);
 
+    lwan_status_debug("Initializing default response");
+
     error_template = lwan_tpl_compile_string(error_template_str, error_descriptor);
     if (!error_template) {
-        perror("lwan_tpl_compile_string");
+        lwan_status_perror("lwan_tpl_compile_string");
         exit(1);
     }
 }
@@ -87,6 +89,7 @@ lwan_response_init(void)
 void
 lwan_response_shutdown(void)
 {
+    lwan_status_debug("Shutting down response");
     assert(error_template);
     lwan_tpl_free(error_template);
 }
@@ -120,7 +123,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 
     if (request->method == HTTP_HEAD) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
-            perror("write");
+            lwan_status_perror("write");
             return false;
         }
         return true;
@@ -132,7 +135,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     };
 
     if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0)) {
-        perror("writev");
+        lwan_status_perror("writev");
         return false;
     }
 
