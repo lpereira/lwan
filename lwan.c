@@ -154,12 +154,12 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
         .data.fd = fd
     };
 
+    memcpy(&l->requests[fd].remote_address, addr, addr_size);
+
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
         lwan_status_perror("epoll_ctl");
         exit(-1);
     }
-
-    memcpy(&l->requests[fd].remote_address, addr, addr_size);
 }
 
 static void
