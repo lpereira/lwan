@@ -33,9 +33,10 @@ lwan_openat(lwan_request_t *request,
 
     for (tries = OPEN_FILE_TRIES; tries; tries--) {
         fd = openat(dirfd, pathname, flags);
-
-        if (LIKELY(fd >= 0))
+        if (LIKELY(fd >= 0)) {
+            coro_defer_close_file(request->coro, fd);
             return fd;
+        }
 
         switch (errno) {
         case EMFILE:

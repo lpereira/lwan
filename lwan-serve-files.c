@@ -735,15 +735,15 @@ _sendfile_serve(cache_entry_t *ce,
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return HTTP_INTERNAL_ERROR;
     } else {
-        int file_fd;
-
         /*
          * lwan_openat() will yield from the coroutine if openat()
          * can't open the file due to not having free file descriptors
          * around. This will happen just a handful of times.
+         * The file will be automatically closed whenever this
+         * coroutine is freed.
          */
-        file_fd = lwan_openat(request, priv->root.fd, sd->filename,
-                                O_RDONLY | priv->extra_modes);
+        int file_fd = lwan_openat(request, priv->root.fd, sd->filename,
+                                  O_RDONLY | priv->extra_modes);
         if (UNLIKELY(file_fd < 0)) {
             switch (file_fd) {
             case -EACCES:
@@ -754,15 +754,6 @@ _sendfile_serve(cache_entry_t *ce,
                 return HTTP_NOT_FOUND;
             }
         }
-
-        /*
-         * The file close is deferred since lwan_sendfile() might yield and
-         * the coroutine might get killed by the main loop (for instance, if
-         * the connection is closed by the peer) -- and thus leaving the
-         * file open.  This ensures the file will be closed regardless of
-         * what happens.
-         */
-        coro_defer_close_file(request->coro, file_fd);
 
         if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
             return HTTP_INTERNAL_ERROR;
