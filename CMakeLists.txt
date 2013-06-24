@@ -49,7 +49,6 @@ add_library(lwan-common STATIC
 	realpathat.c
 	strbuf.c
 	template.c
-	memcache.c
 )
 
 add_executable(lwan main.c)
@@ -61,7 +60,10 @@ target_link_libraries(lwan
 	lwan-common
 )
 
-add_executable(freegeoip freegeoip.c)
+add_executable(freegeoip
+	freegeoip.c
+	memcache.c
+)
 
 target_link_libraries(freegeoip
 	${CMAKE_THREAD_LIBS_INIT}
