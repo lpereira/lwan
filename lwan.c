@@ -165,9 +165,10 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
 }
 
 static void
-_cleanup(int signal_number)
+_signal_handler(int signal_number)
 {
-    lwan_status_info("Signal %d received", signal_number);
+    lwan_status_info("Signal %d (%s) received",
+                                signal_number, strsignal(signal_number));
     longjmp(cleanup_jmp_buf, 1);
 }
 
@@ -183,7 +184,7 @@ lwan_main_loop(lwan_t *l)
     if (setjmp(cleanup_jmp_buf))
         goto end;
 
-    signal(SIGINT, _cleanup);
+    signal(SIGINT, _signal_handler);
 
     struct epoll_event events[128];
 
