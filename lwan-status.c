@@ -33,12 +33,12 @@
 #include "lwan.h"
 
 typedef enum {
-  STATUS_INFO,
-  STATUS_WARNING,
-  STATUS_ERROR,
-  STATUS_PERROR,
-  STATUS_CRITICAL,
-  STATUS_DEBUG
+  STATUS_INFO = 1<<0,
+  STATUS_WARNING = 1<<1,
+  STATUS_ERROR = 1<<2,
+  STATUS_PERROR = 1<<3,
+  STATUS_CRITICAL = 1<<4,
+  STATUS_DEBUG = 1<<5,
 } lwan_status_type_t;
 
 static volatile bool quiet = false;
@@ -58,40 +58,24 @@ lwan_status_shutdown(lwan_t *l __attribute__((unused)))
 static const char *
 _get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
 {
-  switch (type) {
-  case STATUS_INFO: {
-      static const char *retval = "\033[40;36m";
-      *len_out = strlen(retval);
-      return retval;
-    }
-    break;
-  case STATUS_WARNING: {
-      static const char *retval = "\033[40;33m";
-      *len_out = strlen(retval);
-      return retval;
-    }
-    break;
-  case STATUS_CRITICAL: {
-      static const char *retval = "\033[40;31;1m";
-      *len_out = strlen(retval);
-      return retval;
-    }
-    break;
-  case STATUS_DEBUG: {
-      static const char *retval = "\033[40;34m";
-      *len_out = strlen(retval);
-      return retval;
-    }
-    break;
+  const char *retval;
 
-  case STATUS_PERROR:
-  default: {
-      static const char *retval = "\033[40;35m";
-      *len_out = strlen(retval);
-      return retval;
-    }
-    break;
-  }
+  if (type & STATUS_INFO)
+    retval = "\033[40;36m";
+  else if (type & STATUS_WARNING)
+    retval = "\033[40;33m";
+  else if (type & STATUS_CRITICAL)
+    retval = "\033[40;31;1m";
+  else if (type & STATUS_DEBUG)
+    retval = "\033[40;34m";
+  else if (type & STATUS_PERROR)
+    retval = "\033[40;35m";
+  else
+    retval = "\033[40;32m";
+
+  *len_out = strlen(retval);
+
+  return retval;
 }
 
 static const char *
@@ -129,7 +113,7 @@ _status_out_msg(const char *file, const int line, const char *func,
   fwrite(start_color, start_len, 1, stdout);
   fwrite(msg, msg_len, 1, stdout);
 
-  if (type == STATUS_PERROR) {
+  if (type & STATUS_PERROR) {
     char *error_msg = strerror(error_number);
     fputc(':', stdout);
     fputc(' ', stdout);
@@ -165,7 +149,7 @@ _status_out(const char *file, const int line, const char *func,
     free(output);
   }
 
-  if (type == STATUS_CRITICAL)
+  if (type & STATUS_CRITICAL)
     abort();
 }
 
@@ -202,6 +186,7 @@ IMPLEMENT_FUNCTION(warning, STATUS_WARNING)
 IMPLEMENT_FUNCTION(error, STATUS_ERROR)
 IMPLEMENT_FUNCTION(perror, STATUS_PERROR)
 IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL)
+IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR)
 
 #undef IMPLEMENT_FUNCTION
 

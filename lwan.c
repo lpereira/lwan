@@ -43,19 +43,15 @@ lwan_init(lwan_t *l)
 
     l->thread.count = max_threads > 0 ? max_threads : 2;
 
-    if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
-        lwan_status_perror("getrlimit");
-        exit(1);
-    }
+    if (getrlimit(RLIMIT_NOFILE, &r) < 0)
+        lwan_status_critical_perror("getrlimit");
 
     if (r.rlim_max == RLIM_INFINITY)
         r.rlim_cur *= 8;
     else if (r.rlim_cur < r.rlim_max)
         r.rlim_cur = r.rlim_max;
-    if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
-        lwan_status_perror("setrlimit");
-        exit(1);
-    }
+    if (setrlimit(RLIMIT_NOFILE, &r) < 0)
+        lwan_status_critical_perror("setrlimit");
 
     l->requests = calloc(r.rlim_cur, sizeof(lwan_request_t));
     l->thread.max_fd = r.rlim_cur / l->thread.count;
@@ -123,10 +119,8 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 
     l->url_map = url_map;
     l->url_map_trie = lwan_trie_new();
-    if (!l->url_map_trie) {
-        lwan_status_perror("lwan_trie_new");
-        exit(-1);
-    }
+    if (!l->url_map_trie)
+        lwan_status_critical_perror("lwan_trie_new");
 
     for (; url_map->prefix; url_map++) {
         lwan_handler_t *handler = url_map->handler;
@@ -158,10 +152,8 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
     memcpy(&l->requests[fd].remote_address, addr, addr_size);
     l->requests[fd].thread = &l->thread.threads[thread];
 
-    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
-        lwan_status_perror("epoll_ctl");
-        exit(-1);
-    }
+    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+        lwan_status_critical_perror("epoll_ctl");
 }
 
 static void
@@ -176,10 +168,8 @@ void
 lwan_main_loop(lwan_t *l)
 {
     int epoll_fd = epoll_create1(0);
-    if (epoll_fd < 0) {
-        lwan_status_critical("epoll_create1");
-        return;
-    }
+    if (epoll_fd < 0)
+        lwan_status_critical_perror("epoll_create1");
 
     if (setjmp(cleanup_jmp_buf))
         goto end;
@@ -188,27 +178,22 @@ lwan_main_loop(lwan_t *l)
 
     struct epoll_event events[128];
 
-    if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0) {
-        lwan_status_perror("fcntl: main socket");
-        exit(-1);
-    }
+    if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0)
+        lwan_status_critical_perror("fcntl");
+
     struct epoll_event socket_ev = {
         .events = EPOLLIN,
         .data.u32 = 0
     };
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0) {
-        lwan_status_perror("epoll_ctl");
-        exit(-1);
-    }
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0)
+        lwan_status_critical_perror("epoll_ctl");
 
     struct epoll_event dir_watch_ev = {
         .events = EPOLLIN,
         .data.u32 = 1
     };
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, lwan_dir_watch_get_fd(), &dir_watch_ev) < 0) {
-        lwan_status_perror("epoll_ctl");
-        exit(-1);
-    }
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, lwan_dir_watch_get_fd(), &dir_watch_ev) < 0)
+        lwan_status_critical_perror("epoll_ctl");
 
     lwan_status_info("Ready to serve");
 

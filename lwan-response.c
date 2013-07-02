@@ -80,10 +80,8 @@ lwan_response_init(void)
     lwan_status_debug("Initializing default response");
 
     error_template = lwan_tpl_compile_string(error_template_str, error_descriptor);
-    if (!error_template) {
-        lwan_status_perror("lwan_tpl_compile_string");
-        exit(1);
-    }
+    if (!error_template)
+        lwan_status_critical_perror("lwan_tpl_compile_string");
 }
 
 void

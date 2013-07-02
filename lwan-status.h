@@ -47,6 +47,8 @@ void lwan_status_shutdown(lwan_t *l);
   lwan_status_perror_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
 #define lwan_status_critical(fmt, ...) \
   lwan_status_critical_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
+#define lwan_status_critical_perror(fmt, ...) \
+  lwan_status_critical_perror_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
 #define lwan_status_debug(fmt, ...) \
   lwan_status_debug_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
 
@@ -58,5 +60,6 @@ DECLARE_STATUS_PROTO(warning)
 DECLARE_STATUS_PROTO(error)
 DECLARE_STATUS_PROTO(perror)
 DECLARE_STATUS_PROTO(critical)
+DECLARE_STATUS_PROTO(critical_perror)
 
 #endif /* _LWAN_STATUS_H_ */
