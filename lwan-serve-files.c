@@ -289,7 +289,11 @@ _cache_redir_to_directory(serve_files_priv_t *priv, char *dir)
         return;
 
     rd = (redir_cache_data_t *)(ce + 1);
-    if (UNLIKELY(asprintf(&rd->redir_to, "%s/", dir) < 0)) {
+    /*
+     * FIXME Pass the prefix from lwan_url_map_t to module init
+     *       functions and keep it around.
+     */
+    if (UNLIKELY(asprintf(&rd->redir_to, "/%s/", dir) < 0)) {
         free(ce);
         return;
     }
