@@ -114,7 +114,8 @@ _status_out_msg(const char *file, const int line, const char *func,
   fwrite(msg, msg_len, 1, stdout);
 
   if (type & STATUS_PERROR) {
-    char *error_msg = strerror(error_number);
+    char buffer[512];
+    char *error_msg = strerror_r(error_number, buffer, sizeof(buffer) - 1);
     fputc(':', stdout);
     fputc(' ', stdout);
     fwrite(error_msg, strlen(error_msg), 1, stdout);
