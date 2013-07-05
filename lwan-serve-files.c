@@ -448,7 +448,7 @@ _cache_files_recurse(serve_files_priv_t *priv, char *root, int levels)
 {
     /* Assumes priv->cache.lock locked */
     DIR *dir;
-    struct dirent *entry;
+    struct dirent entry, *buffer;
     int fd;
 
     if (levels > 16)
@@ -462,17 +462,20 @@ _cache_files_recurse(serve_files_priv_t *priv, char *root, int levels)
     if (UNLIKELY(fd < 0))
         goto error;
 
-    while ((entry = readdir(dir))) {
+    while (!readdir_r(dir, &entry, &buffer)) {
         char full_path[PATH_MAX];
         struct stat st;
 
-        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+        if (!buffer)
+            break;
+
+        if (!strcmp(entry.d_name, ".") || !strcmp(entry.d_name, ".."))
             continue;
 
-        if (UNLIKELY(fstatat(fd, entry->d_name, &st, 0) < 0))
+        if (UNLIKELY(fstatat(fd, entry.d_name, &st, 0) < 0))
             continue;
 
-        if (UNLIKELY(snprintf(full_path, PATH_MAX, "%s/%s", root, entry->d_name) < 0))
+        if (UNLIKELY(snprintf(full_path, PATH_MAX, "%s/%s", root, entry.d_name) < 0))
             continue;
 
         if (S_ISDIR(st.st_mode))
