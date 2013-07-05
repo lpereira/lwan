@@ -1,9 +1,9 @@
 lwan Web Server
 ===============
 
-Lwan is a **simple**, **embeddable**, **event-based** web server written in C for glibc/Linux platforms.  It is not designed to be standards compliant; only a small subset of HTTP/1.1 is supported (to enable keep-alive connections).
+Lwan is a **high-performance** & **scalable** web server written in C for glibc/Linux platforms.  It is not designed to be standards compliant; only a small subset of HTTP/1.1 is supported (to enable keep-alive connections).
 
-It can achieve good performance, yielding about **250000 requests/second** on a Core i7 laptop for requests without disk access, and 160000 requests/second when disk I/O is involved; this, of course, with keep-alive connections.  Without keep-alive, these numbers drop dramatically to about 50000 and 45000 respectively.
+It can achieve good performance, yielding about **300000 requests/second** on a Core i7 laptop for requests without disk access. When disk I/O is required, for files up to 16KiB, it yields about **285000 requests/second**; for larger files, this drops to **185000 requests/second**, which isn't too shabby either. These results, of course, with keep-alive connections, and with weighttp running on the same machine (and thus using resources that could be used for the webserver itself).  Without keep-alive, these numbers drop around 6-fold.
 
 Portability
 -----------
@@ -22,7 +22,7 @@ Although lwan is [Free Software](http://www.gnu.org/philosophy/free-sw.html), re
 
 If even with that warning you'd like to try lwan: there is no configuration file.  All settings are made in the `main()` function located in the `main.c` file; you'll need to recompile and restart lwan so that these settings take effect.  Things should be pretty self-explanatory.  Also, `main.c` serves as an example of how you could embed lwan in your program; the embedding API isn't ready yet, so there is no way to integrate main loops.
 
-If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.  No indexes will be provided, so if you'd like to use lwan to serve files, either provide the index yourself (by writing a simple shell script) or give whole links to people.
+If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.  No indexes will be provided, so if you'd like to use lwan to serve files, either provide the index yourself (by writing a simple shell script) or give full links to people.
 
 Building
 --------
