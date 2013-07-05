@@ -341,8 +341,10 @@ _create_thread(lwan_t *l, int thread_n)
     pthread_attr_t attr;
     lwan_thread_t *thread = &l->thread.threads[thread_n];
 
+    memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
     thread->id = thread_n;
+
     if ((thread->epoll_fd = epoll_create1(0)) < 0) {
         lwan_status_perror("epoll_create");
         exit(-1);
