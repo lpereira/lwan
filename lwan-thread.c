@@ -229,7 +229,14 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
 void
 lwan_format_rfc_time(time_t t, char buffer[32])
 {
-    if (UNLIKELY(!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&t))))
+    struct tm tm;
+
+    if (UNLIKELY(!gmtime_r(&t, &tm))) {
+        lwan_status_perror("gmtime_r");
+        return;
+    }
+
+    if (UNLIKELY(!strftime(buffer, 31, "%a, %d %b %Y %H:%M:%S GMT", &tm)))
         lwan_status_perror("strftime");
 }
 
