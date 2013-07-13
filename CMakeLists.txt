@@ -6,6 +6,15 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow")
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto")
+
+	include(CheckCCompilerFlag)
+	check_c_compiler_flag(-mcrc32 HAS_CRC32)
+	check_c_compiler_flag(-mpopcnt HAS_POPCNT)
+	if (HAS_CRC32 AND HAS_POPCNT)
+		set(USE_HARDWARE_CRC32 1)
+		add_definitions("-DUSE_HARDWARE_CRC32=1")
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32 -mpopcnt")
+	endif ()
 endif ()
 
 find_package(ZLIB REQUIRED)
@@ -29,6 +38,12 @@ endif()
 include(FindPkgConfig)
 pkg_check_modules(SQLITE REQUIRED sqlite3>=3.7.15.2)
 
+if (NOT USE_HARDWARE_CRC32)
+	set(GENERIC_SOURCES
+		murmur3.c
+	)
+endif ()
+
 add_library(lwan-common STATIC
 	lwan.c
 	lwan-coro.c
@@ -45,10 +60,10 @@ add_library(lwan-common STATIC
 	lwan-status.c
 	hash.c
 	int-to-str.c
-	murmur3.c
 	realpathat.c
 	strbuf.c
 	template.c
+	${GENERIC_SOURCES}
 )
 
 add_executable(lwan main.c)

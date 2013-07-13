@@ -1,6 +1,7 @@
 /*
  * Based on libkmod-hash.c from libkmod - interface to kernel module operations
  * Copyright (C) 2011-2012  ProFUSION embedded systems
+ * Copyright (C) 2013 Leandro Pereira <leandro@hardinfo.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,7 +19,10 @@
  */
 
 #include "hash.h"
+
+#ifndef USE_HARDWARE_CRC32
 #include "murmur3.h"
+#endif
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -33,32 +37,23 @@ struct hash_entry {
 
 struct hash_bucket {
 	struct hash_entry *entries;
-	unsigned int used;
-	unsigned int total;
+	unsigned used;
+	unsigned total;
 };
 
 struct hash {
-	unsigned int count;
-	unsigned int step;
-	unsigned int n_buckets;
-	unsigned int (*hash_value)(const void *key, unsigned int len);
+	unsigned count;
+	unsigned step;
+	unsigned n_buckets;
+	unsigned (*hash_value)(const void *key, unsigned len);
 	int (*key_compare)(const void *k1, const void *k2, size_t len);
-	int (*entry_compare)(const void *e1, const void *e2);
 	int (*key_length)(const void *key);
 	void (*free_value)(void *value);
 	void (*free_key)(void *value);
 	struct hash_bucket buckets[];
 };
 
-#define get_unaligned(ptr)			\
-({						\
-	struct __attribute__((packed)) {	\
-		typeof(*(ptr)) __v;		\
-	} *__p = (typeof(__p)) (ptr);		\
-	__p->__v;				\
-})
-
-static inline unsigned int hash_int(const void *keyptr, unsigned int len __attribute__((unused)))
+static inline unsigned hash_int(const void *keyptr, unsigned len __attribute__((unused)))
 {
 	/* http://www.concentric.net/~Ttwang/tech/inthash.htm */
 	int key = (int)(long)keyptr;
@@ -72,19 +67,39 @@ static inline unsigned int hash_int(const void *keyptr, unsigned int len __attri
 	return key;
 }
 
-static int hash_str_entry_cmp(const void *pa, const void *pb)
+#ifdef USE_HARDWARE_CRC32
+static inline unsigned hash_crc32(const void *keyptr, unsigned len)
 {
-	const struct hash_entry *a = pa;
-	const struct hash_entry *b = pb;
-	return strcmp(a->key, b->key);
+	unsigned hash = 0xABAD1DEA;
+	const char *key = keyptr;
+
+	while (len >= sizeof(uint32_t)) {
+		hash = __builtin_ia32_crc32si(hash, *((uint32_t *)key));
+		key += sizeof(uint32_t);
+		len -= sizeof(uint32_t);
+	}
+	if (len >= sizeof(uint16_t)) {
+		hash = __builtin_ia32_crc32hi(hash, *((uint16_t *)key));
+		key += sizeof(uint16_t);
+		len -= sizeof(uint16_t);
+	}
+	if (len)
+		hash = __builtin_ia32_crc32qi(hash, *key);
+
+	return hash;
 }
 
-static int hash_int_entry_cmp(const void *pa, const void *pb)
+static inline unsigned calculate_pos(unsigned hash,
+			unsigned n_buckets __attribute__((unused)))
 {
-	const struct hash_entry *a = pa;
-	const struct hash_entry *b = pb;
-	return (int)(long)(a->key) - (int)(long)(b->key);
+	return __builtin_popcount(hash);
 }
+#else
+static inline unsigned calculate_pos(unsigned hash, unsigned n_buckets)
+{
+	return hash % n_buckets;
+}
+#endif
 
 static inline int hash_int_key_cmp(const void *k1, const void *k2, size_t len __attribute__((unused)))
 {
@@ -98,10 +113,9 @@ static int hash_int_length(const void *key __attribute__((unused)))
 	return sizeof(int);
 }
 
-static struct hash *hash_internal_new(unsigned int n_buckets,
-					unsigned int (*hash_value)(const void *key, unsigned int len),
+static struct hash *hash_internal_new(unsigned n_buckets,
+					unsigned (*hash_value)(const void *key, unsigned len),
 					int (*key_compare)(const void *k1, const void *k2, size_t len),
-					int (*entry_compare)(const void *e1, const void *e2),
 					int (*key_length)(const void *key),
 					void (*free_key)(void *value),
 					void (*free_value)(void *value))
@@ -110,42 +124,49 @@ static struct hash *hash_internal_new(unsigned int n_buckets,
 				n_buckets * sizeof(struct hash_bucket));
 	if (hash == NULL)
 		return NULL;
-	hash->n_buckets = n_buckets;
 	hash->hash_value = hash_value;
 	hash->key_compare = key_compare;
-	hash->entry_compare = entry_compare;
 	hash->key_length = key_length;
 	hash->free_value = free_value;
 	hash->free_key = free_key;
+
+#ifdef USE_HARDWARE_CRC32
+	hash->n_buckets = 32;
+	hash->step = 8;
+#else
+	hash->n_buckets = n_buckets;
 	hash->step = n_buckets / 32;
 	if (hash->step == 0)
 		hash->step = 4;
 	else if (hash->step > 64)
 		hash->step = 64;
+#endif
 	return hash;
 }
 
-struct hash *hash_int_new(unsigned int n_buckets,
+struct hash *hash_int_new(unsigned n_buckets,
 					void (*free_key)(void *value),
 					void (*free_value)(void *value))
 {
 	return hash_internal_new(n_buckets,
 			hash_int,
 			hash_int_key_cmp,
-			hash_int_entry_cmp,
 			hash_int_length,
 			free_key,
 			free_value);
 }
 
-struct hash *hash_str_new(unsigned int n_buckets,
+struct hash *hash_str_new(unsigned n_buckets,
 					void (*free_key)(void *value),
 					void (*free_value)(void *value))
 {
 	return hash_internal_new(n_buckets,
+#ifdef USE_HARDWARE_CRC32
+			hash_crc32,
+#else
 			murmur3_simple,
+#endif
 			(int (*)(const void *, const void *, size_t))strncmp,
-			hash_str_entry_cmp,
 			(int (*)(const void *))strlen,
 			free_key,
 			free_value);
@@ -184,9 +205,9 @@ void hash_free(struct hash *hash)
  */
 int hash_add(struct hash *hash, const void *key, const void *value)
 {
-	unsigned int keylen = hash->key_length(key);
-	unsigned int hashval = hash->hash_value(key, keylen);
-	unsigned int pos = hashval % hash->n_buckets;
+	unsigned keylen = hash->key_length(key);
+	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned pos = calculate_pos(hashval, hash->n_buckets);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
@@ -226,9 +247,9 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 /* similar to hash_add(), but fails if key already exists */
 int hash_add_unique(struct hash *hash, const void *key, const void *value)
 {
-	unsigned int keylen = hash->key_length(key);
-	unsigned int hashval = hash->hash_value(key, keylen);
-	unsigned int pos = hashval % hash->n_buckets;
+	unsigned keylen = hash->key_length(key);
+	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned pos = calculate_pos(hashval, hash->n_buckets);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
@@ -264,10 +285,10 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 
 static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 								const char *key,
-								unsigned int hashval,
-								unsigned int keylen)
+								unsigned hashval,
+								unsigned keylen)
 {
-	unsigned int pos = hashval % hash->n_buckets;
+	unsigned pos = calculate_pos(hashval, hash->n_buckets);
 	const struct hash_bucket *bucket = hash->buckets + pos;
 	size_t lower_bound = 0;
 	size_t upper_bound = bucket->used;
@@ -290,7 +311,7 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 void *hash_find(const struct hash *hash, const void *key)
 {
 	const struct hash_entry *entry;
-	unsigned int keylen = hash->key_length(key);
+	unsigned keylen = hash->key_length(key);
 
 	entry = hash_find_entry(hash, key, hash->hash_value(key, keylen), keylen);
 	if (entry)
@@ -300,10 +321,10 @@ void *hash_find(const struct hash *hash, const void *key)
 
 int hash_del(struct hash *hash, const void *key)
 {
-	unsigned int keylen = hash->key_length(key);
-	unsigned int hashval = hash->hash_value(key, keylen);
-	unsigned int pos = hashval % hash->n_buckets;
-	unsigned int steps_used, steps_total;
+	unsigned keylen = hash->key_length(key);
+	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned pos = calculate_pos(hashval, hash->n_buckets);
+	unsigned steps_used, steps_total;
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
@@ -338,7 +359,7 @@ int hash_del(struct hash *hash, const void *key)
 	return 0;
 }
 
-unsigned int hash_get_count(const struct hash *hash)
+unsigned hash_get_count(const struct hash *hash)
 {
 	return hash->count;
 }
