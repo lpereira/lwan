@@ -49,9 +49,6 @@
         headers[number_].value = (value_); \
     } while(0)
 
-#define ATOMIC_READ(V)		(*(volatile typeof(V) *)&(V))
-#define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
-
 typedef struct serve_files_priv_t_	serve_files_priv_t;
 typedef struct cache_entry_t_		cache_entry_t;
 typedef struct cache_funcs_t_		cache_funcs_t;

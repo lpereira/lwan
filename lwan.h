@@ -62,6 +62,11 @@
 #define LIKELY(x)	LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x)	LIKELY_IS((x), 0)
 
+#define ATOMIC_READ(V)		(*(volatile typeof(V) *)&(V))
+#define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
+#define ATOMIC_INC(V)		ATOMIC_AAF(&(V), 1)
+#define ATOMIC_DEC(V)		ATOMIC_AAF(&(V), -1)
+
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;

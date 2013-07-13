@@ -46,6 +46,7 @@ endif ()
 
 add_library(lwan-common STATIC
 	lwan.c
+	lwan-cache.c
 	lwan-coro.c
 	lwan-dir-watch.c
 	lwan-openat.c
