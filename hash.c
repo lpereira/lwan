@@ -30,6 +30,9 @@
 #include <string.h>
 #include <errno.h>
 
+static const unsigned n_buckets = 32;
+static const unsigned steps = 8;
+
 struct hash_entry {
 	const char *key;
 	const void *value;
@@ -43,8 +46,6 @@ struct hash_bucket {
 
 struct hash {
 	unsigned count;
-	unsigned step;
-	unsigned n_buckets;
 	unsigned (*hash_value)(const void *key, unsigned len);
 	int (*key_compare)(const void *k1, const void *k2, size_t len);
 	int (*key_length)(const void *key);
@@ -89,13 +90,12 @@ static inline unsigned hash_crc32(const void *keyptr, unsigned len)
 	return hash;
 }
 
-static inline unsigned calculate_pos(unsigned hash,
-			unsigned n_buckets __attribute__((unused)))
+static inline unsigned calculate_pos(unsigned hash)
 {
 	return __builtin_popcount(hash);
 }
 #else
-static inline unsigned calculate_pos(unsigned hash, unsigned n_buckets)
+static inline unsigned calculate_pos(unsigned hash)
 {
 	return hash % n_buckets;
 }
@@ -113,12 +113,11 @@ static int hash_int_length(const void *key __attribute__((unused)))
 	return sizeof(int);
 }
 
-static struct hash *hash_internal_new(unsigned n_buckets,
-					unsigned (*hash_value)(const void *key, unsigned len),
-					int (*key_compare)(const void *k1, const void *k2, size_t len),
-					int (*key_length)(const void *key),
-					void (*free_key)(void *value),
-					void (*free_value)(void *value))
+static struct hash *hash_internal_new(unsigned (*hash_value)(const void *key, unsigned len),
+			int (*key_compare)(const void *k1, const void *k2, size_t len),
+			int (*key_length)(const void *key),
+			void (*free_key)(void *value),
+			void (*free_value)(void *value))
 {
 	struct hash *hash = calloc(1, sizeof(struct hash) +
 				n_buckets * sizeof(struct hash_bucket));
@@ -129,38 +128,23 @@ static struct hash *hash_internal_new(unsigned n_buckets,
 	hash->key_length = key_length;
 	hash->free_value = free_value;
 	hash->free_key = free_key;
-
-#ifdef USE_HARDWARE_CRC32
-	hash->n_buckets = 32;
-	hash->step = 8;
-#else
-	hash->n_buckets = n_buckets;
-	hash->step = n_buckets / 32;
-	if (hash->step == 0)
-		hash->step = 4;
-	else if (hash->step > 64)
-		hash->step = 64;
-#endif
 	return hash;
 }
 
-struct hash *hash_int_new(unsigned n_buckets,
-					void (*free_key)(void *value),
-					void (*free_value)(void *value))
+struct hash *hash_int_new(void (*free_key)(void *value),
+			void (*free_value)(void *value))
 {
-	return hash_internal_new(n_buckets,
-			hash_int,
+	return hash_internal_new(hash_int,
 			hash_int_key_cmp,
 			hash_int_length,
 			free_key,
 			free_value);
 }
 
-struct hash *hash_str_new(unsigned n_buckets,
-					void (*free_key)(void *value),
-					void (*free_value)(void *value))
+struct hash *hash_str_new(void (*free_key)(void *value),
+			void (*free_value)(void *value))
 {
-	return hash_internal_new(n_buckets,
+	return hash_internal_new(
 #ifdef USE_HARDWARE_CRC32
 			hash_crc32,
 #else
@@ -180,7 +164,7 @@ void hash_free(struct hash *hash)
 		return;
 
 	bucket = hash->buckets;
-	bucket_end = bucket + hash->n_buckets;
+	bucket_end = bucket + n_buckets;
 	for (; bucket < bucket_end; bucket++) {
 		if (hash->free_value) {
 			struct hash_entry *entry, *entry_end;
@@ -207,12 +191,12 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 {
 	unsigned keylen = hash->key_length(key);
 	unsigned hashval = hash->hash_value(key, keylen);
-	unsigned pos = calculate_pos(hashval, hash->n_buckets);
+	unsigned pos = calculate_pos(hashval);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
 	if (bucket->used + 1 >= bucket->total) {
-		unsigned new_total = bucket->total + hash->step;
+		unsigned new_total = bucket->total + steps;
 		size_t size = new_total * sizeof(struct hash_entry);
 		struct hash_entry *tmp = realloc(bucket->entries, size);
 		if (tmp == NULL)
@@ -249,12 +233,12 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 {
 	unsigned keylen = hash->key_length(key);
 	unsigned hashval = hash->hash_value(key, keylen);
-	unsigned pos = calculate_pos(hashval, hash->n_buckets);
+	unsigned pos = calculate_pos(hashval);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
 	if (bucket->used + 1 >= bucket->total) {
-		unsigned new_total = bucket->total + hash->step;
+		unsigned new_total = bucket->total + steps;
 		size_t size = new_total * sizeof(struct hash_entry);
 		struct hash_entry *tmp = realloc(bucket->entries, size);
 		if (tmp == NULL)
@@ -288,7 +272,7 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 								unsigned hashval,
 								unsigned keylen)
 {
-	unsigned pos = calculate_pos(hashval, hash->n_buckets);
+	unsigned pos = calculate_pos(hashval);
 	const struct hash_bucket *bucket = hash->buckets + pos;
 	size_t lower_bound = 0;
 	size_t upper_bound = bucket->used;
@@ -323,7 +307,7 @@ int hash_del(struct hash *hash, const void *key)
 {
 	unsigned keylen = hash->key_length(key);
 	unsigned hashval = hash->hash_value(key, keylen);
-	unsigned pos = calculate_pos(hashval, hash->n_buckets);
+	unsigned pos = calculate_pos(hashval);
 	unsigned steps_used, steps_total;
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
@@ -344,15 +328,15 @@ int hash_del(struct hash *hash, const void *key)
 	bucket->used--;
 	hash->count--;
 
-	steps_used = bucket->used / hash->step;
-	steps_total = bucket->total / hash->step;
+	steps_used = bucket->used / steps;
+	steps_total = bucket->total / steps;
 	if (steps_used + 1 < steps_total) {
 		size_t size = (steps_used + 1) *
-			hash->step * sizeof(struct hash_entry);
+			steps * sizeof(struct hash_entry);
 		struct hash_entry *tmp = realloc(bucket->entries, size);
 		if (tmp) {
 			bucket->entries = tmp;
-			bucket->total = (steps_used + 1) * hash->step;
+			bucket->total = (steps_used + 1) * steps;
 		}
 	}
 
@@ -382,7 +366,7 @@ bool hash_iter_next(struct hash_iter *iter, const void **key,
 	if (iter->entry >= b->used) {
 		iter->entry = 0;
 
-		for (iter->bucket++; iter->bucket < iter->hash->n_buckets;
+		for (iter->bucket++; iter->bucket < n_buckets;
 							iter->bucket++) {
 			b = iter->hash->buckets + iter->bucket;
 
@@ -390,7 +374,7 @@ bool hash_iter_next(struct hash_iter *iter, const void **key,
 				break;
 		}
 
-		if (iter->bucket >= iter->hash->n_buckets)
+		if (iter->bucket >= n_buckets)
 			return false;
 	}
 

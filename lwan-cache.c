@@ -73,7 +73,7 @@ struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
   if (!cache)
     return NULL;
 
-  cache->hash.table = hash_str_new(64, free, NULL);
+  cache->hash.table = hash_str_new(free, NULL);
   if (!cache->hash.table)
     goto error_no_hash;
 

@@ -545,7 +545,7 @@ _free_cached_entry(void *data)
 static void
 _cache_files(serve_files_priv_t *priv)
 {
-    priv->cache.entries = hash_str_new(256, free, _free_cached_entry);
+    priv->cache.entries = hash_str_new(free, _free_cached_entry);
     if (UNLIKELY(!priv->cache.entries))
         return;
 

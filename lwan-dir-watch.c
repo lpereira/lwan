@@ -56,7 +56,7 @@ lwan_dir_watch_init(void)
     if (self.fd < 0)
         return false;
 
-    self.wd_table = hash_int_new(128, NULL, NULL);
+    self.wd_table = hash_int_new(NULL, NULL);
     if (!self.wd_table) {
         close(self.fd);
         return false;

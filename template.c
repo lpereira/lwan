@@ -343,7 +343,7 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     if (!tpl)
         goto error_allocate_tpl;
 
-    tpl->descriptor_hash = hash_str_new(64, NULL, NULL);
+    tpl->descriptor_hash = hash_str_new(NULL, NULL);
     if (!tpl->descriptor_hash)
         goto error_allocate_hash;
 
