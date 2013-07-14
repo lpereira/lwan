@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "lwan.h"
 #include "lwan-status.h"
 
 struct job_t {

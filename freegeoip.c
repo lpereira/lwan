@@ -26,10 +26,11 @@
 #include <stdlib.h>
 #include <sqlite3.h>
 #include "lwan.h"
+#include "lwan-cache.h"
 #include "lwan-serve-files.h"
-#include "memcache.h"
 
 struct ip_info_t {
+    struct cache_entry_t base;
     struct {
         char *code;
         char *name;
@@ -44,7 +45,7 @@ struct ip_info_t {
     } metro;
 };
 
-static memcache_t *mc;
+static struct cache_t *cache;
 static sqlite3 *db;
 static const char const ip_to_city_query[] = \
     "SELECT " \
@@ -66,9 +67,10 @@ static const char const ip_to_city_query[] = \
 
 
 static void
-free_ip_info_t(void *data)
+destroy_ipinfo(struct cache_entry_t *entry,
+            void *context __attribute__((unused)))
 {
-    struct ip_info_t *ip_info = data;
+    struct ip_info_t *ip_info = (struct ip_info_t *)entry;
 
     if (!ip_info)
         return;
@@ -93,11 +95,12 @@ text_column_helper(sqlite3_stmt *stmt, int index)
     return value ? strdup((char *)value) : NULL;
 }
 
-static struct ip_info_t *
-geoip_query(unsigned int ip)
+static struct cache_entry_t *
+create_ipinfo(const char *key, void *context __attribute__((unused)))
 {
     sqlite3_stmt *stmt;
     struct ip_info_t *ip_info;
+    struct in_addr addr;
     
     ip_info = NULL;
 
@@ -106,7 +109,10 @@ geoip_query(unsigned int ip)
                         &stmt, NULL) != SQLITE_OK)
         goto end_no_finalize;
 
-    if (sqlite3_bind_int64(stmt, 1, ntohl(ip)) != SQLITE_OK)
+    if (UNLIKELY(!inet_aton(key, &addr)))
+        goto end;
+
+    if (sqlite3_bind_int64(stmt, 1, ntohl(addr.s_addr)) != SQLITE_OK)
         goto end;
 
     if (sqlite3_step(stmt) != SQLITE_ROW)
@@ -134,13 +140,12 @@ geoip_query(unsigned int ip)
 end:
     sqlite3_finalize(stmt);
 end_no_finalize:
-    return ip_info;
+    return (struct cache_entry_t *)ip_info;
 }
 
 static struct ip_info_t *
 internal_query(lwan_request_t *request)
 {
-    struct ip_info_t *info;
     const char *ip_address;
     struct in_addr addr;
 
@@ -158,16 +163,8 @@ internal_query(lwan_request_t *request)
     if (UNLIKELY(!inet_aton(ip_address, &addr)))
         return NULL;
 
-    info = memcache_get(mc, (void *)(unsigned long)addr.s_addr);
-    if (!info) {
-        info = geoip_query(addr.s_addr);
-        if (!info)
-            return NULL;
-
-        memcache_put(mc, (void *)(unsigned long)addr.s_addr, info);
-    }
-
-    return info;
+    int error;
+    return (struct ip_info_t *)cache_get_and_ref_entry(cache, ip_address, &error);
 }
 
 static lwan_http_status_t
@@ -206,6 +203,8 @@ as_json(lwan_request_t *request,
             info->metro.code,
             info->metro.area);
 
+    cache_entry_unref(cache, (struct cache_entry_t *)info);
+
     return HTTP_OK;
 }
 
@@ -231,14 +230,14 @@ main(void)
         lwan_status_critical("Could not open database: %s",
                     sqlite3_errstr(result));
 
-    mc = memcache_new_int32(256, free_ip_info_t);
+    cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
-    memcache_free(mc);
+    cache_destroy(cache);
     sqlite3_close(db);
 
     return 0;

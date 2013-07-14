@@ -78,7 +78,6 @@ target_link_libraries(lwan
 
 add_executable(freegeoip
 	freegeoip.c
-	memcache.c
 )
 
 target_link_libraries(freegeoip
