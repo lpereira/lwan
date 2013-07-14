@@ -29,7 +29,7 @@
 #include "lwan-status.h"
 
 struct job_t {
-  void (*cb)(void *data);
+  bool (*cb)(void *data);
   void *data;
   struct job_t *next;
 };
@@ -42,15 +42,21 @@ static struct job_t *jobs = NULL;
 static void*
 job_thread(void *data __attribute__((unused)))
 {
-  static const struct timespec rgtp = { 1, 0 };
+  static struct timespec rgtp = { 1, 0 };
 
   while (running) {
     struct job_t *job;
+    bool had_job = false;
 
     pthread_mutex_lock(&queue_mutex);
     for (job = jobs; job; job = job->next)
-      job->cb(job->data);
+      had_job |= job->cb(job->data);
     pthread_mutex_unlock(&queue_mutex);
+
+    if (had_job)
+      rgtp.tv_sec = 1;
+    else if (rgtp.tv_sec <= 15)
+      rgtp.tv_sec++;
 
     if (UNLIKELY(nanosleep(&rgtp, NULL) < 0)) {
       if (errno == EINTR)
@@ -89,7 +95,7 @@ void lwan_job_thread_shutdown(void)
   pthread_mutex_unlock(&queue_mutex);
 }
 
-void lwan_job_add(void (*cb)(void *data), void *data)
+void lwan_job_add(bool (*cb)(void *data), void *data)
 {
   assert(cb);
 
@@ -108,7 +114,7 @@ void lwan_job_add(void (*cb)(void *data), void *data)
   pthread_mutex_unlock(&queue_mutex);
 }
 
-void lwan_job_del(void (*cb)(void *data), void *data __attribute__((unused)))
+void lwan_job_del(bool (*cb)(void *data), void *data __attribute__((unused)))
 {
   struct job_t *curr, *prev;
 

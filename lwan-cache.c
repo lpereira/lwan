@@ -58,7 +58,7 @@ struct cache_t {
   } stats;
 };
 
-static void cache_pruner_job(void *data);
+static bool cache_pruner_job(void *data);
 
 struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
       DestroyEntryCallback destroy_entry_cb,
@@ -248,16 +248,21 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
     cache->cb.destroy_entry(entry, cache->cb.context);
 }
 
-static void cache_pruner_job(void *data)
+static bool cache_pruner_job(void *data)
 {
   struct cache_t *cache = data;
   struct cache_entry_t *node, *next;
   time_t now;
+  bool had_job = false;
 
-  if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0)
-    return;
-  if (pthread_rwlock_wrlock(&cache->hash.lock) < 0)
+  if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0) {
+    lwan_status_perror("pthread_rwlock_trywrlock");
+    return false;
+  }
+  if (pthread_rwlock_wrlock(&cache->hash.lock) < 0) {
+    lwan_status_perror("pthread_rwlock_wrlock");
     goto unlock_queue_lock;
+  }
 
   now = time(NULL);
   for (node = cache->queue.head; node && now > node->time_to_die; node = next) {
@@ -276,13 +281,16 @@ static void cache_pruner_job(void *data)
      */
     hash_del(cache->hash.table, key);
     ATOMIC_INC(cache->stats.evicted);
+    had_job = true;
   }
 
   if (pthread_rwlock_unlock(&cache->hash.lock) < 0)
-    return;
+    lwan_status_perror("pthread_rwlock_unlock");
 unlock_queue_lock:
   if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
-    return;
+    lwan_status_perror("pthread_rwlock_unlock");
+
+  return had_job;
 }
 
 void cache_get_stats(struct cache_t *cache, unsigned *hits,
