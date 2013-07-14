@@ -605,6 +605,8 @@ _create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
     fce->mime_type = lwan_determine_mime_type_for_file_name(path);
     fce->funcs = &sendfile_funcs;
 
+    cache_entry_set_floating((struct cache_entry_t *)fce, true);
+
     return (struct cache_entry_t *)fce;
 
 error_not_in_canonical_path:
