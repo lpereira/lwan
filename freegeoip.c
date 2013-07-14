@@ -237,6 +237,11 @@ main(void)
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
+    unsigned hits, misses, evictions;
+    cache_get_stats(cache, &hits, &misses, &evictions);
+    lwan_status_info("Cache stats: %d hits, %d misses, %d evictions",
+            hits, misses, evictions);
+
     cache_destroy(cache);
     sqlite3_close(db);
 
