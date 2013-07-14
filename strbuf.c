@@ -27,8 +27,8 @@
 
 static const int const default_buf_size = 64;
 
-static int
-find_next_power_of_two(int number)
+static size_t
+find_next_power_of_two(size_t number)
 {
     number--;
     number |= number >> 1;
@@ -39,25 +39,46 @@ find_next_power_of_two(int number)
     return number + 1;
 }
 
+static ALWAYS_INLINE size_t
+max(size_t one, size_t another)
+{
+    return (one > another) ? one : another;
+}
+
 static bool
-grow_buffer_if_needed(strbuf_t *s, int size)
+grow_buffer_if_needed(strbuf_t *s, size_t size)
 {
     if (s->is_static) {
+        const size_t next_power = find_next_power_of_two(max(size + 1,
+                    s->len.buffer));
+        char *buffer = malloc(next_power);
+        if (!buffer)
+            return false;
+
+        memcpy(buffer, s->value.static_buffer, s->len.buffer);
+        buffer[s->len.buffer + 1] = '\0';
+
         s->is_static = 0;
-        s->value.buffer = strndup(s->value.static_buffer, s->len.buffer);
+        s->len.allocated = next_power;
+        s->value.buffer = buffer;
+
+        return true;
     }
+
     if (UNLIKELY(s->len.allocated < size)) {
-        s->len.allocated = find_next_power_of_two(size);
-        char *buffer = realloc(s->value.buffer, s->len.allocated + 1);
+        const size_t next_power = find_next_power_of_two(size);
+        char *buffer = realloc(s->value.buffer, next_power + 1);
         if (UNLIKELY(!buffer))
             return false;
+        s->len.allocated = next_power;
         s->value.buffer = buffer;
     }
+
     return true;
 }
 
 strbuf_t *
-strbuf_new_with_size(int size)
+strbuf_new_with_size(size_t size)
 {
     strbuf_t *s = calloc(1, sizeof(*s));
 
@@ -156,7 +177,9 @@ strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
     if (s1 == s2)
         return 0;
     int result = memcmp(s1->value.buffer, s2->value.buffer, s1->len.buffer < s2->len.buffer ? s1->len.buffer : s2->len.buffer);
-    return result == 0 ? s1->len.buffer - s2->len.buffer : result;
+    if (!result)
+        return (int)(s1->len.buffer - s2->len.buffer);
+    return result;
 }
 
 static ALWAYS_INLINE bool
@@ -213,7 +236,7 @@ strbuf_get_buffer(strbuf_t *s)
 }
 
 bool
-strbuf_shrink_to(strbuf_t *s, int new_size)
+strbuf_shrink_to(strbuf_t *s, size_t new_size)
 {
     if (s->len.allocated <= new_size)
         return true;
@@ -221,7 +244,7 @@ strbuf_shrink_to(strbuf_t *s, int new_size)
     if (s->is_static)
         return true;
 
-    int next_power_of_two = find_next_power_of_two(new_size);
+    size_t next_power_of_two = find_next_power_of_two(new_size);
     char *buffer = realloc(s->value.buffer, next_power_of_two + 1);
     if (UNLIKELY(!buffer))
         return false;
@@ -251,7 +274,7 @@ strbuf_reset(strbuf_t *s)
 }
 
 bool
-strbuf_grow_to(strbuf_t *s, int new_size)
+strbuf_grow_to(strbuf_t *s, size_t new_size)
 {
     return grow_buffer_if_needed(s, new_size + 1);
 }

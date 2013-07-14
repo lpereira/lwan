@@ -27,7 +27,7 @@ typedef struct strbuf_t_		strbuf_t;
 
 struct strbuf_t_ {
     struct {
-        int allocated, buffer;
+        size_t allocated, buffer;
     } len;
     union {
         char *buffer;
@@ -36,7 +36,7 @@ struct strbuf_t_ {
     unsigned char is_static : 1;
 };
 
-strbuf_t	*strbuf_new_with_size(int size);
+strbuf_t	*strbuf_new_with_size(size_t size);
 strbuf_t	*strbuf_new(void);
 void		 strbuf_free(strbuf_t *s);
 bool		 strbuf_append_char(strbuf_t *s, char c);
@@ -48,9 +48,9 @@ bool		 strbuf_append_printf(strbuf_t *s, const char *fmt, ...);
 bool		 strbuf_printf(strbuf_t *s1, const char *fmt, ...);
 int		 strbuf_get_length(strbuf_t *s);
 char		*strbuf_get_buffer(strbuf_t *s);
-bool		 strbuf_shrink_to(strbuf_t *s, int new_size);
+bool		 strbuf_shrink_to(strbuf_t *s, size_t new_size);
 bool		 strbuf_shrink_to_default(strbuf_t *s);
-bool		 strbuf_grow_to(strbuf_t *s, int new_size);
+bool		 strbuf_grow_to(strbuf_t *s, size_t new_size);
 bool		 strbuf_reset(strbuf_t *s);
 bool		 strbuf_reset_length(strbuf_t *s);
 
