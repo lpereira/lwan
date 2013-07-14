@@ -76,6 +76,9 @@ lwan_socket_init(lwan_t *l)
         goto handle_error;
     }
 
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
+        lwan_status_critical_perror("fcntl");
+
     l->main_socket = fd;
 
     lwan_status_info("Listening on http://0.0.0.0:%d", l->config.port);

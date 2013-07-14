@@ -28,7 +28,6 @@
 #include <netinet/in.h>
 
 #include "lwan.h"
-#include "lwan-dir-watch.h"
 
 static jmp_buf cleanup_jmp_buf;
 
@@ -69,9 +68,8 @@ lwan_init(lwan_t *l)
 
     lwan_socket_init(l);
     lwan_thread_init(l);
+    lwan_job_thread_init();
     lwan_response_init();
-    if (!lwan_dir_watch_init())
-        lwan_status_critical("Could not initialize directory watch");
 }
 
 static void
@@ -95,13 +93,13 @@ lwan_shutdown(lwan_t *l)
 {
     lwan_status_info("Shutting down");
 
+    lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);
     lwan_socket_shutdown(l);
 
     lwan_status_debug("Shutting down URL handlers");
     _url_map_free(l);
 
-    lwan_dir_watch_shutdown();
     lwan_response_shutdown();
     lwan_status_shutdown(l);
 
@@ -177,10 +175,6 @@ lwan_main_loop(lwan_t *l)
     signal(SIGINT, _signal_handler);
 
     struct epoll_event events[128];
-
-    if (fcntl(l->main_socket, F_SETFL, O_NONBLOCK) < 0)
-        lwan_status_critical_perror("fcntl");
-
     struct epoll_event socket_ev = {
         .events = EPOLLIN,
         .data.u32 = 0
@@ -188,36 +182,23 @@ lwan_main_loop(lwan_t *l)
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0)
         lwan_status_critical_perror("epoll_ctl");
 
-    struct epoll_event dir_watch_ev = {
-        .events = EPOLLIN,
-        .data.u32 = 1
-    };
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, lwan_dir_watch_get_fd(), &dir_watch_ev) < 0)
-        lwan_status_critical_perror("epoll_ctl");
-
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int n_fds;
-        for (n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
-                n_fds > 0;
-                --n_fds) {
-            if (LIKELY(!events[n_fds - 1].data.u32)) {
-                struct sockaddr_in addr;
-                int child_fd;
-                socklen_t addr_size = sizeof(struct sockaddr_in);
+        int n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
+        for (; n_fds > 0; --n_fds) {
+            struct sockaddr_in addr;
+            int child_fd;
+            socklen_t addr_size = sizeof(struct sockaddr_in);
 
-                child_fd = accept4(l->main_socket, (struct sockaddr *)&addr,
-                                   &addr_size, SOCK_NONBLOCK);
-                if (UNLIKELY(child_fd < 0)) {
-                    lwan_status_perror("accept");
-                    continue;
-                }
-
-                _push_request_fd(l, child_fd, &addr, addr_size);
-            } else {
-                lwan_dir_watch_process_events();
+            child_fd = accept4(l->main_socket, (struct sockaddr *)&addr,
+                               &addr_size, SOCK_NONBLOCK);
+            if (UNLIKELY(child_fd < 0)) {
+                lwan_status_perror("accept");
+                continue;
             }
+
+            _push_request_fd(l, child_fd, &addr, addr_size);
         }
     }
 

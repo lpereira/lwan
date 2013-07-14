@@ -46,6 +46,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
       const char *key, int *error);
 void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry);
 
-int cache_timer_expired(struct cache_t *cache);
+void cache_get_stats(struct cache_t *cache, unsigned *hits,
+      unsigned *misses, unsigned *evicted);
 
 #endif /* LWAN_CACHE_H */

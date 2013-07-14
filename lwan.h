@@ -262,7 +262,7 @@ void lwan_format_rfc_time(time_t t, char buffer[static 31]);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
-const char *lwan_determine_mime_type_for_file_name(char *file_name) __attribute__((pure));
+const char *lwan_determine_mime_type_for_file_name(const char *file_name) __attribute__((pure));
 
 void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
@@ -275,5 +275,11 @@ void lwan_socket_shutdown(lwan_t *l);
 
 void lwan_thread_init(lwan_t *l);
 void lwan_thread_shutdown(lwan_t *l);
+
+void lwan_job_thread_init(void);
+void lwan_job_thread_shutdown(void);
+void lwan_job_add(void (*cb)(void *data), void *data);
+void lwan_job_del(void (*cb)(void *data), void *data);
+
 
 #endif /* __LWAN_H__ */

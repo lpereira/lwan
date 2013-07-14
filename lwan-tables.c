@@ -21,7 +21,7 @@
 #include "lwan.h"
 
 const char *
-lwan_determine_mime_type_for_file_name(char *file_name)
+lwan_determine_mime_type_for_file_name(const char *file_name)
 {
     char *last_dot = strrchr(file_name, '.');
     if (UNLIKELY(!last_dot))

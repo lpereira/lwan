@@ -45,22 +45,22 @@ if (NOT USE_HARDWARE_CRC32)
 endif ()
 
 add_library(lwan-common STATIC
+	hash.c
+	int-to-str.c
 	lwan.c
 	lwan-cache.c
 	lwan-coro.c
-	lwan-dir-watch.c
+	lwan-job.c
 	lwan-openat.c
 	lwan-request.c
 	lwan-response.c
 	lwan-sendfile.c
 	lwan-serve-files.c
 	lwan-socket.c
+	lwan-status.c
 	lwan-tables.c
 	lwan-thread.c
 	lwan-trie.c
-	lwan-status.c
-	hash.c
-	int-to-str.c
 	realpathat.c
 	strbuf.c
 	template.c

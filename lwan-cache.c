@@ -58,6 +58,8 @@ struct cache_t {
   } stats;
 };
 
+static void cache_pruner_job(void *data);
+
 struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
       DestroyEntryCallback destroy_entry_cb,
       void *cb_context,
@@ -88,6 +90,8 @@ struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
 
   cache->settings.time_to_live = time_to_live;
 
+  lwan_job_add(cache_pruner_job, cache);
+
   return cache;
 
 error_no_queue_lock:
@@ -104,6 +108,7 @@ void cache_destroy(struct cache_t *cache)
 {
   assert(cache);
 
+  lwan_job_del(cache_pruner_job, cache);
   pthread_rwlock_destroy(&cache->hash.lock);
   pthread_rwlock_destroy(&cache->queue.lock);
   hash_free(cache->hash.table);
@@ -243,13 +248,14 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
     cache->cb.destroy_entry(entry, cache->cb.context);
 }
 
-int cache_timer_expired(struct cache_t *cache)
+static void cache_pruner_job(void *data)
 {
+  struct cache_t *cache = data;
   struct cache_entry_t *node, *next;
   time_t now;
 
   if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0)
-    return -EWOULDBLOCK;
+    return;
   if (pthread_rwlock_wrlock(&cache->hash.lock) < 0)
     goto unlock_queue_lock;
 
@@ -273,10 +279,20 @@ int cache_timer_expired(struct cache_t *cache)
   }
 
   if (pthread_rwlock_unlock(&cache->hash.lock) < 0)
-    return -errno;
+    return;
 unlock_queue_lock:
   if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
-    return -errno;
+    return;
+}
 
-  return 0;
+void cache_get_stats(struct cache_t *cache, unsigned *hits,
+      unsigned *misses, unsigned *evicted)
+{
+  assert(cache);
+  if (hits)
+    *hits = cache->stats.hits;
+  if (misses)
+    *misses = cache->stats.misses;
+  if (evicted)
+    *evicted = cache->stats.evicted;
 }
