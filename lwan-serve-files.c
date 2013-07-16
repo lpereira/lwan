@@ -215,13 +215,10 @@ _create_cache_entry(const char *key, void *context)
     const cache_funcs_t *funcs;
     char *full_path;
 
-    full_path = realpathat(priv->root.fd, priv->root.path, key, NULL);
+    full_path = realpathat2(priv->root.fd, priv->root.path, key, NULL, &st);
     if (UNLIKELY(!full_path))
         return NULL;
     if (strncmp(full_path, priv->root.path, priv->root.path_len))
-        goto error;
-
-    if (UNLIKELY(fstatat(priv->root.fd, key, &st, 0) < 0))
         goto error;
 
     if (S_ISDIR(st.st_mode)) {

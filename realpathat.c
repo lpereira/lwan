@@ -35,7 +35,8 @@
 #include "lwan.h"
 
 char *
-realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
+realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
+        struct stat *st)
 {
     char *rpath, *dest, extra_buf[PATH_MAX];
     const char *start, *end, *rpath_limit;
@@ -78,7 +79,6 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
     dirfdlen = dest - rpath;
 
     for (start = end = name; *start; start = end) {
-        struct stat st;
         int n;
 
         /* Skip sequence of multiple path-separators.  */
@@ -140,10 +140,10 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
                 pathat = rpath;
             }
 
-            if (UNLIKELY(fstatat(dirfd, pathat, &st, AT_SYMLINK_NOFOLLOW) < 0))
+            if (UNLIKELY(fstatat(dirfd, pathat, st, AT_SYMLINK_NOFOLLOW) < 0))
                 goto error;
 
-            if (UNLIKELY(S_ISLNK(st.st_mode))) {
+            if (UNLIKELY(S_ISLNK(st->st_mode))) {
                 char buf[PATH_MAX];
                 size_t len;
 
@@ -173,7 +173,7 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
                     /* Back up to previous component, ignore if at root already: */
                     if (dest > rpath + 1)
                         while ((--dest)[-1] != '/');
-            } else if (UNLIKELY(!S_ISDIR(st.st_mode) && *end != '\0')) {
+            } else if (UNLIKELY(!S_ISDIR(st->st_mode) && *end != '\0')) {
                 errno = ENOTDIR;
                 goto error;
             }
@@ -192,4 +192,11 @@ realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
     if (resolved == NULL)
         free(rpath);
     return NULL;
+}
+
+char *
+realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved)
+{
+    struct stat st;
+    return realpathat2(dirfd, dirfdpath, name, resolved, &st);
 }

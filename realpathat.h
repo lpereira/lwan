@@ -21,6 +21,10 @@
 
 #ifndef __REALPATHAT_H__
 
+#include <sys/stat.h>
+
 char *realpathat(int dirfd, char *dirfdpath, const char *name, char *resolved);
+char *realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
+         struct stat *st);
 
 #endif /* __REALPATHAT_H__ */
