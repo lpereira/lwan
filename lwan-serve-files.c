@@ -236,6 +236,18 @@ _create_cache_entry(const char *key, void *context)
     if (UNLIKELY(fstatat(priv->root.fd, key, &st, 0) < 0))
         goto error;
 
+    if (S_ISDIR(st.st_mode)) {
+        char *tmp;
+
+        if (UNLIKELY(asprintf(&tmp, "%s/%s", key, priv->index_html) < 0))
+            return NULL;
+
+        fce = (file_cache_entry_t *)_create_cache_entry(tmp, context);
+        free(tmp);
+
+        return (struct cache_entry_t *)fce;
+    }
+
     if (st.st_size <= 16384) {
         data_size = sizeof(mmap_cache_data_t);
         funcs = &mmap_funcs;
@@ -563,76 +575,27 @@ _mmap_serve(file_cache_entry_t *fce,
 }
 
 static struct cache_entry_t *
-_create_temporary_cache_entry(serve_files_priv_t *priv, char *path)
-{
-    file_cache_entry_t *fce;
-    sendfile_cache_data_t *sd;
-    struct stat st;
-    char *real;
-
-    if (UNLIKELY(fstatat(priv->root.fd, path, &st, 0) < 0))
-        return NULL;
-
-    if (S_ISDIR(st.st_mode)) {
-        char *tmp;
-
-        if (UNLIKELY(asprintf(&tmp, "%s/%s", path, priv->index_html) < 0))
-            return NULL;
-
-        fce = (file_cache_entry_t *)_create_temporary_cache_entry(priv, tmp);
-        free(tmp);
-
-        return (struct cache_entry_t *)fce;
-    }
-
-    fce = malloc(sizeof(*fce) + sizeof(*sd));
-    if (UNLIKELY(!fce))
-        return NULL;
-
-    sd = (sendfile_cache_data_t *)(fce + 1);
-    sd->size = st.st_size;
-
-    real = realpathat(priv->root.fd, priv->root.path, path, NULL);
-    if (UNLIKELY(!real))
-        goto error_realpath_failed;
-    if (UNLIKELY(strncmp(real, priv->root.path, priv->root.path_len)))
-        goto error_not_in_canonical_path;
-
-    sd->filename = real;
-
-    lwan_format_rfc_time(st.st_mtime, fce->last_modified.string);
-    fce->last_modified.integer = st.st_mtime;
-    fce->mime_type = lwan_determine_mime_type_for_file_name(path);
-    fce->funcs = &sendfile_funcs;
-
-    cache_entry_set_floating((struct cache_entry_t *)fce, true);
-
-    return (struct cache_entry_t *)fce;
-
-error_not_in_canonical_path:
-    free(real);
-error_realpath_failed:
-    free(fce);
-    return NULL;
-}
-
-static struct cache_entry_t *
-_fetch_from_cache_and_ref(serve_files_priv_t *priv, char *path)
+_fetch_from_cache_and_ref(coro_t *coro, struct cache_t *cache, char *path)
 {
     struct cache_entry_t *ce;
     int error;
 
-    /*
-     * If the cache is locked, don't block waiting for it to be unlocked:
-     * just serve the file using sendfile().
-     */
-    ce = cache_get_and_ref_entry(priv->cache, path, &error);
-    if (LIKELY(ce))
-        return ce;
-    if (UNLIKELY(error == EWOULDBLOCK))
-        return _create_temporary_cache_entry(priv, path);
+    while (true) {
+        ce = cache_get_and_ref_entry(cache, path, &error);
+        if (LIKELY(ce))
+            break;
 
-    return NULL;
+        /*
+         * If the cache would block while reading its hash table, yield and
+         * try again. On any other error, just return NULL.
+         */
+        if (UNLIKELY(error != EWOULDBLOCK))
+            break;
+
+        coro_yield(coro, 1);
+    }
+
+    return ce;
 }
 
 static lwan_http_status_t
@@ -671,7 +634,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     else
         path = request->url.value;
 
-    ce = _fetch_from_cache_and_ref(priv, path);
+    ce = _fetch_from_cache_and_ref(request->coro, priv->cache, path);
     if (!ce) {
         char *tmp;
 
@@ -686,7 +649,8 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
             goto fail;
         }
         if (LIKELY(!strncmp(tmp, priv->root.path, priv->root.path_len)))
-            ce = _fetch_from_cache_and_ref(priv, tmp + priv->root.path_len + 1);
+            ce = _fetch_from_cache_and_ref(request->coro, priv->cache,
+                        tmp + priv->root.path_len + 1);
 
         free(tmp);
 
