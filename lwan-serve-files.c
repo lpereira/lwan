@@ -600,7 +600,7 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
-    lwan_http_status_t return_status = HTTP_OK;
+    lwan_http_status_t return_status = HTTP_NOT_FOUND;
     char *path;
     serve_files_priv_t *priv = data;
     struct cache_entry_t *ce;
@@ -629,8 +629,6 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
 
         return HTTP_OK;
     }
-
-    return_status = HTTP_NOT_FOUND;
 
 fail:
     response->stream.callback = NULL;
