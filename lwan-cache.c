@@ -310,3 +310,35 @@ void cache_get_stats(struct cache_t *cache, unsigned *hits,
   if (evicted)
     *evicted = cache->stats.evicted;
 }
+
+struct cache_entry_t *
+cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
+      const char *key)
+{
+    struct cache_entry_t *ce;
+    int error;
+
+    while (true) {
+        ce = cache_get_and_ref_entry(cache, key, &error);
+        if (LIKELY(ce)) {
+            /*
+             * This is deferred here so that, if the coroutine is killed
+             * after it has been yielded, this cache entry is properly
+             * freed.
+             */
+            coro_defer2(coro, CORO_DEFER2(cache_entry_unref), cache, ce);
+            break;
+        }
+
+        /*
+         * If the cache would block while reading its hash table, yield and
+         * try again. On any other error, just return NULL.
+         */
+        if (UNLIKELY(error != EWOULDBLOCK))
+            break;
+
+        coro_yield(coro, 1);
+    }
+
+    return ce;
+}

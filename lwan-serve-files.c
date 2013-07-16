@@ -67,8 +67,8 @@ struct cache_funcs_t_ {
                  struct stat *st);
     void (*free)(void *data);
 
-    lwan_http_status_t (*serve)(file_cache_entry_t *ce,
-                                lwan_request_t *request);
+    lwan_http_status_t (*serve)(lwan_request_t *request,
+                                void *data);
 };
 
 struct mmap_cache_data_t_ {
@@ -109,13 +109,11 @@ struct file_cache_entry_t_ {
 static bool _mmap_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
 static void _mmap_free(void *data);
-static lwan_http_status_t _mmap_serve(file_cache_entry_t *ce,
-                                      lwan_request_t *request);
+static lwan_http_status_t _mmap_serve(lwan_request_t *request, void *data);
 static bool _sendfile_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                            const char *full_path, struct stat *st);
 static void _sendfile_free(void *data);
-static lwan_http_status_t _sendfile_serve(file_cache_entry_t *ce,
-                                          lwan_request_t *request);
+static lwan_http_status_t _sendfile_serve(lwan_request_t *request, void *data);
 
 static const cache_funcs_t mmap_funcs = {
     .init = _mmap_init,
@@ -458,9 +456,9 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 }
 
 static lwan_http_status_t
-_sendfile_serve(file_cache_entry_t *fce,
-                lwan_request_t *request)
+_sendfile_serve(lwan_request_t *request, void *data)
 {
+    file_cache_entry_t *fce = data;
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(fce + 1);
     char *headers = request->buffer;
     size_t header_len;
@@ -515,9 +513,9 @@ _sendfile_serve(file_cache_entry_t *fce,
 }
 
 static lwan_http_status_t
-_mmap_serve(file_cache_entry_t *fce,
-            lwan_request_t *request)
+_mmap_serve(lwan_request_t *request, void *data)
 {
+    file_cache_entry_t *fce = data;
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
     char *headers = request->buffer;
     size_t header_len;
@@ -560,48 +558,11 @@ _mmap_serve(file_cache_entry_t *fce,
     return return_status;
 }
 
-static struct cache_entry_t *
-_fetch_from_cache_and_ref(coro_t *coro, struct cache_t *cache, char *path)
-{
-    struct cache_entry_t *ce;
-    int error;
-
-    while (true) {
-        ce = cache_get_and_ref_entry(cache, path, &error);
-        if (LIKELY(ce))
-            break;
-
-        /*
-         * If the cache would block while reading its hash table, yield and
-         * try again. On any other error, just return NULL.
-         */
-        if (UNLIKELY(error != EWOULDBLOCK))
-            break;
-
-        coro_yield(coro, 1);
-    }
-
-    return ce;
-}
-
-static lwan_http_status_t
-_serve_cached_file_stream(lwan_request_t *request, void *data)
-{
-    file_cache_entry_t *fce = data;
-    serve_files_priv_t *priv = request->response.stream.priv;
-    lwan_http_status_t return_status;
-
-    return_status = fce->funcs->serve(fce, request);
-    cache_entry_unref(priv->cache, (struct cache_entry_t *)fce);
-
-    return return_status;
-}
-
 static lwan_http_status_t
 serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *data)
 {
     lwan_http_status_t return_status = HTTP_NOT_FOUND;
-    char *path;
+    const char *path;
     serve_files_priv_t *priv = data;
     struct cache_entry_t *ce;
 
@@ -620,10 +581,11 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     else
         path = request->url.value;
 
-    ce = _fetch_from_cache_and_ref(request->coro, priv->cache, path);
+    ce = cache_coro_get_and_ref_entry(priv->cache, request->coro, path);
     if (LIKELY(ce)) {
-        response->mime_type = (char *)((file_cache_entry_t *)ce)->mime_type;
-        response->stream.callback = _serve_cached_file_stream;
+        file_cache_entry_t *fce = (file_cache_entry_t *)ce;
+        response->mime_type = (char *)fce->mime_type;
+        response->stream.callback = fce->funcs->serve;
         response->stream.data = ce;
         response->stream.priv = priv;
 

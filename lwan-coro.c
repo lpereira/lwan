@@ -49,8 +49,12 @@ typedef struct coro_defer_t_	coro_defer_t;
 
 struct coro_defer_t_ {
     coro_defer_t *next;
-    void (*func)(void *data);
-    void *data;
+    union {
+        void (*one)(void *data);
+        void (*two)(void *data1, void *data2);
+    } funcs;
+    void *data1;
+    void *data2;
 };
 
 typedef enum {
@@ -262,7 +266,10 @@ coro_free(coro_t *coro)
     coro_defer_t *defer;
     for (defer = coro->defer; defer;) {
         coro_defer_t *tmp = defer;
-        defer->func(defer->data);
+        if (!defer->data2)
+            defer->funcs.one(defer->data1);
+        else
+            defer->funcs.two(defer->data1, defer->data2);
         defer = tmp->next;
         free(tmp);
     }
@@ -279,11 +286,28 @@ coro_defer(coro_t *coro, void (*func)(void *data), void *data)
     assert(func);
 
     defer->next = coro->defer;
-    defer->func = func;
-    defer->data = data;
+    defer->funcs.one = func;
+    defer->data1 = data;
+    defer->data2 = NULL;
     coro->defer = defer;
 }
 
+void
+coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
+            void *data1, void *data2)
+{
+    coro_defer_t *defer = malloc(sizeof(*defer));
+    if (UNLIKELY(!defer))
+        return;
+
+    assert(func);
+
+    defer->next = coro->defer;
+    defer->funcs.two = func;
+    defer->data1 = data1;
+    defer->data2 = data2;
+    coro->defer = defer;
+}
 void *
 coro_malloc(coro_t *coro, size_t size)
 {

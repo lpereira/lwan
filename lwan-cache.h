@@ -45,6 +45,8 @@ void cache_destroy(struct cache_t *cache);
 struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
       const char *key, int *error);
 void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry);
+struct cache_entry_t *cache_coro_get_and_ref_entry(struct cache_t *cache,
+      coro_t *coro, const char *key);
 
 void cache_get_stats(struct cache_t *cache, unsigned *hits,
       unsigned *misses, unsigned *evicted);
