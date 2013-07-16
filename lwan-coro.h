@@ -46,7 +46,6 @@ void    coro_defer(coro_t *coro, void (*func)(void *data), void *data);
 void    coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
             void *data1, void *data2);
 void   *coro_malloc(coro_t *coro, size_t sz);
-void    coro_defer_close_file(coro_t *coro, int fd);
 
 #define CORO_DEFER(fn)		((void (*)(void *))(fn))
 #define CORO_DEFER2(fn)		((void (*)(void *, void *))(fn))
