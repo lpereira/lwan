@@ -254,15 +254,6 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
     cache->cb.destroy_entry(entry, cache->cb.context);
 }
 
-void cache_entry_set_floating(struct cache_entry_t *entry, bool setting)
-{
-  assert(entry);
-  if (setting)
-    __sync_and_and_fetch(&entry->flags, FLOATING);
-  else
-    __sync_or_and_fetch(&entry->flags, ~FLOATING);
-}
-
 static bool cache_pruner_job(void *data)
 {
   struct cache_t *cache = data;
