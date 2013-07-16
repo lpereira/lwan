@@ -45,7 +45,6 @@ typedef struct file_cache_entry_t_	file_cache_entry_t;
 typedef struct cache_funcs_t_		cache_funcs_t;
 typedef struct mmap_cache_data_t_	mmap_cache_data_t;
 typedef struct sendfile_cache_data_t_	sendfile_cache_data_t;
-typedef struct redir_cache_data_t_	redir_cache_data_t;
 
 struct serve_files_priv_t_ {
     struct {
