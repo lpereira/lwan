@@ -226,6 +226,11 @@ try_adding_again:
       pthread_rwlock_unlock(&cache->hash.lock);
       goto try_adding_again;
     }
+  default:
+    entry->flags = FLOATING;
+    entry->time_to_die = time(NULL);
+    entry->refs = 1;
+    goto unlock_and_return;
   case 0:
     entry->time_to_die = time(NULL) + cache->settings.time_to_live;
     pthread_rwlock_wrlock(&cache->queue.lock);
@@ -235,6 +240,7 @@ try_adding_again:
 
 end:
   ATOMIC_INC(entry->refs);
+unlock_and_return:
   pthread_rwlock_unlock(&cache->hash.lock);
 
   return entry;
