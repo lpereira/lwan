@@ -233,7 +233,7 @@ _create_cache_entry(const char *key, void *context)
         fce = (file_cache_entry_t *)_create_cache_entry(tmp, context);
         free(tmp);
 
-        return (struct cache_entry_t *)fce;
+        goto success;
     }
 
     if (st.st_size <= 16384) {
@@ -257,8 +257,8 @@ _create_cache_entry(const char *key, void *context)
     fce->last_modified.integer = st.st_mtime;
     fce->funcs = funcs;
 
+success:
     free(full_path);
-
     return (struct cache_entry_t *)fce;
 
 error_init:
