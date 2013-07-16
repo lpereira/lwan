@@ -269,6 +269,8 @@ _create_cache_entry(const char *key, void *context)
     fce->last_modified.integer = st.st_mtime;
     fce->funcs = funcs;
 
+    free(full_path);
+
     return (struct cache_entry_t *)fce;
 
 error_init:
