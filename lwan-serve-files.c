@@ -18,21 +18,13 @@
  */
 
 #define _GNU_SOURCE
-#include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/sendfile.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <zlib.h>
 
 #include "lwan.h"
@@ -40,7 +32,6 @@
 #include "lwan-openat.h"
 #include "lwan-serve-files.h"
 #include "lwan-sendfile.h"
-#include "hash.h"
 #include "realpathat.h"
 
 #define SET_NTH_HEADER(number_, key_, value_) \
