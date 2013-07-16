@@ -230,7 +230,7 @@ _create_cache_entry(const char *key, void *context)
     full_path = realpathat(priv->root.fd, priv->root.path, key, NULL);
     if (UNLIKELY(!full_path))
         return NULL;
-    if (!strcmp(full_path + priv->root.path_len, priv->root.path + priv->root.path_len))
+    if (strncmp(full_path, priv->root.path, priv->root.path_len))
         goto error;
 
     if (UNLIKELY(fstatat(priv->root.fd, key, &st, 0) < 0))
@@ -635,37 +635,16 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         path = request->url.value;
 
     ce = _fetch_from_cache_and_ref(request->coro, priv->cache, path);
-    if (!ce) {
-        char *tmp;
+    if (LIKELY(ce)) {
+        response->mime_type = (char *)((file_cache_entry_t *)ce)->mime_type;
+        response->stream.callback = _serve_cached_file_stream;
+        response->stream.data = ce;
+        response->stream.priv = priv;
 
-        if (!strstr(path, "/../")) {
-            return_status = HTTP_NOT_FOUND;
-            goto fail;
-        }
-
-        tmp = realpathat(priv->root.fd, priv->root.path, path, NULL);
-        if (UNLIKELY(!tmp)) {
-            return_status = HTTP_NOT_FOUND;
-            goto fail;
-        }
-        if (LIKELY(!strncmp(tmp, priv->root.path, priv->root.path_len)))
-            ce = _fetch_from_cache_and_ref(request->coro, priv->cache,
-                        tmp + priv->root.path_len + 1);
-
-        free(tmp);
-
-        if (UNLIKELY(!ce)) {
-            return_status = HTTP_NOT_FOUND;
-            goto fail;
-        }
+        return HTTP_OK;
     }
 
-    response->mime_type = (char *)((file_cache_entry_t *)ce)->mime_type;
-    response->stream.callback = _serve_cached_file_stream;
-    response->stream.data = ce;
-    response->stream.priv = priv;
-
-    return HTTP_OK;
+    return_status = HTTP_NOT_FOUND;
 
 fail:
     response->stream.callback = NULL;
