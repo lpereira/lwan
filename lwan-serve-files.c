@@ -584,7 +584,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
     ce = cache_coro_get_and_ref_entry(priv->cache, request->coro, path);
     if (LIKELY(ce)) {
         file_cache_entry_t *fce = (file_cache_entry_t *)ce;
-        response->mime_type = (char *)fce->mime_type;
+        response->mime_type = fce->mime_type;
         response->stream.callback = fce->funcs->serve;
         response->stream.data = ce;
         response->stream.priv = priv;

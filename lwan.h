@@ -140,7 +140,7 @@ struct lwan_key_value_t_ {
 
 struct lwan_response_t_ {
     strbuf_t *buffer;
-    char *mime_type;
+    const char *mime_type;
     size_t content_length;
     lwan_key_value_t *headers;
 
