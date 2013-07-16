@@ -77,7 +77,6 @@ struct cache_funcs_t_ {
     void (*free)(void *data);
 
     lwan_http_status_t (*serve)(file_cache_entry_t *ce,
-                                serve_files_priv_t *priv,
                                 lwan_request_t *request);
 };
 
@@ -120,13 +119,11 @@ static bool _mmap_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
 static void _mmap_free(void *data);
 static lwan_http_status_t _mmap_serve(file_cache_entry_t *ce,
-                                      serve_files_priv_t *priv,
                                       lwan_request_t *request);
 static bool _sendfile_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                            const char *full_path, struct stat *st);
 static void _sendfile_free(void *data);
 static lwan_http_status_t _sendfile_serve(file_cache_entry_t *ce,
-                                          serve_files_priv_t *priv,
                                           lwan_request_t *request);
 
 static const cache_funcs_t mmap_funcs = {
@@ -474,7 +471,6 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 
 static lwan_http_status_t
 _sendfile_serve(file_cache_entry_t *fce,
-                serve_files_priv_t *priv,
                 lwan_request_t *request)
 {
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(fce + 1);
@@ -499,6 +495,7 @@ _sendfile_serve(file_cache_entry_t *fce,
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return HTTP_INTERNAL_ERROR;
     } else {
+        serve_files_priv_t *priv = request->response.stream.priv;
         /*
          * lwan_openat() will yield from the coroutine if openat()
          * can't open the file due to not having free file descriptors
@@ -531,7 +528,6 @@ _sendfile_serve(file_cache_entry_t *fce,
 
 static lwan_http_status_t
 _mmap_serve(file_cache_entry_t *fce,
-            serve_files_priv_t *priv __attribute__((unused)),
             lwan_request_t *request)
 {
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
@@ -607,7 +603,7 @@ _serve_cached_file_stream(lwan_request_t *request, void *data)
     serve_files_priv_t *priv = request->response.stream.priv;
     lwan_http_status_t return_status;
 
-    return_status = fce->funcs->serve(fce, priv, request);
+    return_status = fce->funcs->serve(fce, request);
     cache_entry_unref(priv->cache, (struct cache_entry_t *)fce);
 
     return return_status;
