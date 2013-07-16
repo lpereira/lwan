@@ -84,6 +84,10 @@ _cleanup_coro(lwan_request_t *request)
 static ALWAYS_INLINE void
 _handle_hangup(lwan_request_t *request)
 {
+    if (LIKELY(request->coro)) {
+        coro_free(request->coro);
+        request->coro = NULL;
+    }
     request->flags.alive = false;
     close(request->fd);
 }
@@ -220,7 +224,6 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
             continue;
 
         _cleanup_coro(request);
-
         request->flags.alive = false;
         close(request->fd);
     }
