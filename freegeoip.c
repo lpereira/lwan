@@ -28,6 +28,7 @@
 #include "lwan.h"
 #include "lwan-cache.h"
 #include "lwan-serve-files.h"
+#include "template.h"
 
 struct ip_info_t {
     struct cache_entry_t base;
@@ -66,6 +67,22 @@ static const char const ip_to_city_query[] = \
     "WHERE city_blocks.ip_start <= ? " \
     "ORDER BY city_blocks.ip_start DESC LIMIT 1";
 
+static const char const json_template_str[] = \
+    "{" \
+    "\"country_code\":\"{{country.code}}\"," \
+    "\"country_name\":\"{{country.name}}\"," \
+    "\"region_code\":\"{{region.code}}\"," \
+    "\"region_name\":\"{{region.name}}\"," \
+    "\"city\":\"{{city.name}}\"," \
+    "\"zipcode\":\"{{city.zip_code}}\"," \
+    "\"latitude\":{{latitude}}," \
+    "\"longitude\":{{longitude}}," \
+    "\"metro_code\":\"{{metro.code}}\"," \
+    "\"areacode\":\"{{metro.area}}\"," \
+    "\"ip\":\"{{ip}}\"" \
+    "}";
+
+static lwan_tpl_t *json_template = NULL;
 
 static void
 destroy_ipinfo(struct cache_entry_t *entry,
@@ -172,53 +189,57 @@ internal_query(lwan_request_t *request)
 }
 
 static lwan_http_status_t
-as_json(lwan_request_t *request,
-        lwan_response_t *response,
-        void *data __attribute__((unused)))
+templated_output(lwan_request_t *request,
+                 lwan_response_t *response,
+                 void *data)
 {
-    struct ip_info_t *info;
+    struct ip_info_t *info = internal_query(request);
+    if (LIKELY(info)) {
+        lwan_tpl_t *tpl = data;
 
-    info = internal_query(request);
-    if (!info)
-        return HTTP_NOT_FOUND;
+        /* FIXME: Different MIME types per template */
+        response->mime_type = "application/json; charset=UTF-8";
+        lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
+        cache_entry_unref(cache, &info->base);
 
-    response->mime_type = "application/json; charset=UTF-8";
-    strbuf_printf(response->buffer,
-        "{" \
-        "\"country_code\":\"%s\"," \
-        "\"country_name\":\"%s\"," \
-        "\"region_code\":\"%s\"," \
-        "\"region_name\":\"%s\"," \
-        "\"city\":\"%s\"," \
-        "\"zipcode\":\"%s\"," \
-        "\"latitude\":%f," \
-        "\"longitude\":%f," \
-        "\"metro_code\":\"%s\"," \
-        "\"areacode\":\"%s\"," \
-        "\"ip\":\"%s\"" \
-        "}",
-            info->country.code,
-            info->country.name,
-            info->region.code,
-            info->region.name,
-            info->city.name,
-            info->city.zip_code,
-            info->latitude,
-            info->longitude,
-            info->metro.code,
-            info->metro.area,
-            info->ip);
+        return HTTP_OK;
+    }
 
-    cache_entry_unref(cache, (struct cache_entry_t *)info);
-
-    return HTTP_OK;
+    return HTTP_NOT_FOUND;
 }
 
 int
 main(void)
 {
+    static lwan_var_descriptor_t json_descriptor[] = {
+        TPL_VAR_STR(struct ip_info_t, country.code),
+        TPL_VAR_STR(struct ip_info_t, country.name),
+        TPL_VAR_STR(struct ip_info_t, region.code),
+        TPL_VAR_STR(struct ip_info_t, region.name),
+        TPL_VAR_STR(struct ip_info_t, city.name),
+        TPL_VAR_STR(struct ip_info_t, city.zip_code),
+        TPL_VAR_DOUBLE(struct ip_info_t, latitude),
+        TPL_VAR_DOUBLE(struct ip_info_t, longitude),
+        TPL_VAR_STR(struct ip_info_t, metro.code),
+        TPL_VAR_STR(struct ip_info_t, metro.area),
+        TPL_VAR_STR(struct ip_info_t, ip),
+        TPL_VAR_SENTINEL
+    };
+
+    json_template = lwan_tpl_compile_string(json_template_str, json_descriptor);
+    if (!json_template)
+        lwan_status_critical("Could not compile JSON template");
+
+    int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
+                                 SQLITE_OPEN_READONLY, NULL);
+    if (result != SQLITE_OK)
+        lwan_status_critical("Could not open database: %s",
+                    sqlite3_errstr(result));
+
+    cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
+
     lwan_url_map_t default_map[] = {
-        { .prefix = "/json/", .callback = as_json },
+        { .prefix = "/json/", .callback = templated_output, .data = json_template },
         { .prefix = "/", SERVE_FILES("./static") },
         { .prefix = NULL }
     };
@@ -230,14 +251,6 @@ main(void)
         }
     };
 
-    int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
-                                 SQLITE_OPEN_READONLY, NULL);
-    if (result != SQLITE_OK)
-        lwan_status_critical("Could not open database: %s",
-                    sqlite3_errstr(result));
-
-    cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
-
     lwan_init(&l);
     lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
@@ -248,6 +261,7 @@ main(void)
     lwan_status_info("Cache stats: %d hits, %d misses, %d evictions",
             hits, misses, evictions);
 
+    lwan_tpl_free(json_template);
     cache_destroy(cache);
     sqlite3_close(db);
 

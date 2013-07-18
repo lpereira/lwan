@@ -93,6 +93,23 @@ _lwan_tpl_int_is_empty(void *ptr)
 }
 
 char *
+_lwan_tpl_double_to_str(void *ptr, bool *allocated, size_t *length __attribute__((unused)))
+{
+    char buf[32];
+
+    snprintf(buf, 32, "%f", *(double *)ptr);
+    *allocated = true;
+
+    return strdup(buf);
+}
+
+bool
+_lwan_tpl_double_is_empty(void *ptr)
+{
+    return (*(double *)ptr) == 0.0f;
+}
+
+char *
 _lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length)
 {
     struct v {

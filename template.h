@@ -43,6 +43,9 @@ struct lwan_var_descriptor_t_ {
 #define TPL_VAR_INT(struct_, var_) \
     TPL_VAR(struct_, var_, _lwan_tpl_int_to_str, _lwan_tpl_int_is_empty)
 
+#define TPL_VAR_DOUBLE(struct_, var_) \
+    TPL_VAR(struct_, var_, _lwan_tpl_double_to_str, _lwan_tpl_double_is_empty)
+
 #define TPL_VAR_STR(struct_, var_) \
     TPL_VAR(struct_, var_, _lwan_tpl_str_to_str, _lwan_tpl_str_is_empty)
 
@@ -58,6 +61,8 @@ char	*_lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_int_is_empty(void *ptr);
 char	*_lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_str_is_empty(void *ptr);
+char	*_lwan_tpl_double_to_str(void *ptr, bool *allocated, size_t *length);
+bool	 _lwan_tpl_double_is_empty(void *ptr);
 
 lwan_tpl_t	*lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor);
 lwan_tpl_t	*lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor);
