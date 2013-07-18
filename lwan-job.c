@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -96,7 +97,11 @@ void lwan_job_thread_shutdown(void)
   }
   jobs = NULL;
   running = false;
+#ifdef __linux__
+  if (pthread_tryjoin_np(self, NULL) < 0)
+#else
   if (pthread_join(self, NULL) < 0)
+#endif
     lwan_status_critical_perror("pthread_join");
   pthread_mutex_unlock(&queue_mutex);
 }
