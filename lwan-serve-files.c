@@ -162,7 +162,8 @@ _mmap_init(file_cache_entry_t *ce,
     int file_fd;
     bool success;
 
-    file_fd = open(full_path, O_RDONLY | priv->extra_modes);
+    file_fd = openat(priv->root.fd, full_path + priv->root.path_len + 1,
+                O_RDONLY | priv->extra_modes);
     if (UNLIKELY(file_fd < 0))
         return false;
 
