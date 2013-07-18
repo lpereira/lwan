@@ -182,7 +182,7 @@ as_json(lwan_request_t *request,
     if (!info)
         return HTTP_NOT_FOUND;
 
-    response->mime_type = "text/plain";
+    response->mime_type = "application/json; charset=UTF-8";
     strbuf_printf(response->buffer,
         "{" \
         "\"country_code\":\"%s\"," \
