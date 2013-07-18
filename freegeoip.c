@@ -43,6 +43,7 @@ struct ip_info_t {
     struct {
         char *code, *area;
     } metro;
+    char *ip;
 };
 
 static struct cache_t *cache;
@@ -83,6 +84,7 @@ destroy_ipinfo(struct cache_entry_t *entry,
     free(ip_info->city.zip_code);
     free(ip_info->metro.code);
     free(ip_info->metro.area);
+    free(ip_info->ip);
     free(ip_info);
 }
 
@@ -137,6 +139,8 @@ create_ipinfo(const char *key, void *context __attribute__((unused)))
 
 #undef TEXT_COLUMN
 
+    ip_info->ip = strdup(key);
+
 end:
     sqlite3_finalize(stmt);
 end_no_finalize:
@@ -190,7 +194,8 @@ as_json(lwan_request_t *request,
         "\"latitude\":%f," \
         "\"longitude\":%f," \
         "\"metro_code\":\"%s\"," \
-        "\"areacode\":\"%s\"" \
+        "\"areacode\":\"%s\"," \
+        "\"ip\":\"%s\"" \
         "}",
             info->country.code,
             info->country.name,
@@ -201,7 +206,8 @@ as_json(lwan_request_t *request,
             info->latitude,
             info->longitude,
             info->metro.code,
-            info->metro.area);
+            info->metro.area,
+            info->ip);
 
     cache_entry_unref(cache, (struct cache_entry_t *)info);
 
