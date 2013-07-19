@@ -277,8 +277,8 @@ static bool cache_pruner_job(void *data)
     if (!node->refs) {
       cache_entry_remove(cache, node, true);
     } else {
-      cache_entry_remove(cache, node, false);
       __sync_and_and_fetch(&node->flags, FLOATING);
+      cache_entry_remove(cache, node, false);
     }
 
     /*
