@@ -61,9 +61,9 @@ add_library(lwan-common STATIC
 	lwan-tables.c
 	lwan-thread.c
 	lwan-trie.c
+	lwan-template.c
 	realpathat.c
 	strbuf.c
-	template.c
 	${GENERIC_SOURCES}
 )
 

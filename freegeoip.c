@@ -28,7 +28,7 @@
 #include "lwan.h"
 #include "lwan-cache.h"
 #include "lwan-serve-files.h"
-#include "template.h"
+#include "lwan-template.h"
 
 struct ip_info_t {
     struct cache_entry_t base;

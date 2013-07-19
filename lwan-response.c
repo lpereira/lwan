@@ -27,7 +27,7 @@
 
 #include "lwan.h"
 #include "int-to-str.h"
-#include "template.h"
+#include "lwan-template.h"
 
 static const char* const _http_versions[] = {
     [HTTP_1_0] = "1.0",

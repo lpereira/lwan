@@ -33,7 +33,7 @@
 #include "strbuf.h"
 #include "hash.h"
 #include "int-to-str.h"
-#include "template.h"
+#include "lwan-template.h"
 
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
 
