@@ -82,7 +82,38 @@ static const char const json_template_str[] = \
     "\"ip\":\"{{ip}}\"" \
     "}";
 
+static const char const xml_template_str[] = \
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" \
+    "<Response>" \
+    "<Ip>{{ip}}</Ip>" \
+    "<CountryCode>{{country.code}}</CountryCode>" \
+    "<CountryName>{{country.name}}</CountryName>" \
+    "<RegionCode>{{region.code}}</RegionCode>" \
+    "<RegionName>{{region.name}}</RegionName>" \
+    "<City>{{city.name}}</City>" \
+    "<ZipCode>{{city.zip_code}}</ZipCode>" \
+    "<Latitude>{{latitude}}</Latitude>" \
+    "<Longitude>{{longitude}}</Longitude>" \
+    "<MetroCode>{{metro.code}}</MetroCode>" \
+    "<AreaCode>{{metro.area}}</AreaCode>" \
+    "</Response>";
+
+static const char const csv_template_str[] = \
+    "\"{{ip}}\"," \
+    "\"{{country.code}}\"," \
+    "\"{{country.name}}\"," \
+    "\"{{region.code}}\"," \
+    "\"{{region.name}}\"," \
+    "\"{{city.name}}\","
+    "\"{{city.zip_code}}\"," \
+    "\"{{latitude}}\"," \
+    "\"{{longitude}}\"," \
+    "\"{{metro.code}}\"," \
+    "\"{{metro.area}}\"";
+
 static lwan_tpl_t *json_template = NULL;
+static lwan_tpl_t *xml_template = NULL;
+static lwan_tpl_t *csv_template = NULL;
 
 static void
 destroy_ipinfo(struct cache_entry_t *entry,
@@ -197,8 +228,13 @@ templated_output(lwan_request_t *request,
     if (LIKELY(info)) {
         lwan_tpl_t *tpl = data;
 
-        /* FIXME: Different MIME types per template */
-        response->mime_type = "application/json; charset=UTF-8";
+        if (data == json_template)
+            response->mime_type = "application/json; charset=UTF-8";
+        else if (data == xml_template)
+            response->mime_type = "application/xml; charset=UTF-8";
+        else
+            response->mime_type = "text/plain; charset=UTF-8";
+
         lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
         cache_entry_unref(cache, &info->base);
 
@@ -211,7 +247,7 @@ templated_output(lwan_request_t *request,
 int
 main(void)
 {
-    static lwan_var_descriptor_t json_descriptor[] = {
+    static lwan_var_descriptor_t template_descriptor[] = {
         TPL_VAR_STR(struct ip_info_t, country.code),
         TPL_VAR_STR(struct ip_info_t, country.name),
         TPL_VAR_STR(struct ip_info_t, region.code),
@@ -226,9 +262,15 @@ main(void)
         TPL_VAR_SENTINEL
     };
 
-    json_template = lwan_tpl_compile_string(json_template_str, json_descriptor);
+    json_template = lwan_tpl_compile_string(json_template_str, template_descriptor);
     if (!json_template)
         lwan_status_critical("Could not compile JSON template");
+    xml_template = lwan_tpl_compile_string(xml_template_str, template_descriptor);
+    if (!xml_template)
+        lwan_status_critical("Could not compile XML template");
+    csv_template = lwan_tpl_compile_string(csv_template_str, template_descriptor);
+    if (!csv_template)
+        lwan_status_critical("Could not compile CSV template");
 
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
                                  SQLITE_OPEN_READONLY, NULL);
@@ -240,6 +282,8 @@ main(void)
 
     lwan_url_map_t default_map[] = {
         { .prefix = "/json/", .callback = templated_output, .data = json_template },
+        { .prefix = "/xml/", .callback = templated_output, .data = xml_template },
+        { .prefix = "/csv/", .callback = templated_output, .data = csv_template },
         { .prefix = "/", SERVE_FILES("./static") },
         { .prefix = NULL }
     };
@@ -262,6 +306,8 @@ main(void)
             hits, misses, evictions);
 
     lwan_tpl_free(json_template);
+    lwan_tpl_free(xml_template);
+    lwan_tpl_free(csv_template);
     cache_destroy(cache);
     sqlite3_close(db);
 
