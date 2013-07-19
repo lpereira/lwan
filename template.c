@@ -296,11 +296,11 @@ feed_into_compiler(lwan_tpl_t *tpl,
 
     case STATE_SECOND_BRACE:
         if (ch == '{')
-            PARSE_ERROR("Unexpected open brace.");
+            PARSE_ERROR("Unexpected open brace");
         if (ch == '}')
             return STATE_FIRST_CLOSING_BRACE;
         if (last_pass)
-            PARSE_ERROR("Missing close brace.");
+            PARSE_ERROR("Missing close brace");
 
         strbuf_append_char(buf, ch);
         break;
@@ -309,22 +309,22 @@ feed_into_compiler(lwan_tpl_t *tpl,
         if (ch == '}')
             return STATE_SECOND_CLOSING_BRACE;
 
-        PARSE_ERROR("Closing brace expected.");
+        PARSE_ERROR("Closing brace expected");
 
     case STATE_SECOND_CLOSING_BRACE:
         if (ch == '}')
-            PARSE_ERROR("Unexpected close brace.");
+            PARSE_ERROR("Unexpected close brace");
 
         if (strbuf_get_length(buf) == 0)
-            PARSE_ERROR("Expecting variable name.");
+            PARSE_ERROR("Expecting variable name");
 
         switch (compile_append_var(tpl, buf, descriptor)) {
         case -ENOKEY:
-            PARSE_ERROR("Unknown variable: ``%s''.", strbuf_get_buffer(buf));
+            PARSE_ERROR("Unknown variable: ``%s''", strbuf_get_buffer(buf));
         case -ENOMEM:
-            PARSE_ERROR("Out of memory while appending variable.");
+            PARSE_ERROR("Out of memory while appending variable");
         case -ENOENT:
-            PARSE_ERROR("Cannot find template to include: ``%s''.",
+            PARSE_ERROR("Cannot find template to include: ``%s''",
                 strbuf_get_buffer(buf) + 1);
         }
 
@@ -342,7 +342,7 @@ feed_into_compiler(lwan_tpl_t *tpl,
 append_text:
     switch (compile_append_text(tpl, buf)) {
     case -ENOMEM:
-        PARSE_ERROR("Out of memory while appending text.");
+        PARSE_ERROR("Out of memory while appending text");
     }
 
     return state;
@@ -418,7 +418,7 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     return tpl;
 
 parse_error:
-    lwan_status_error("Line %d, column %d: %s\n", line, column, error_msg);
+    lwan_status_error("Line %d, column %d: %s", line, column, error_msg);
 
 free_strbuf:
     strbuf_free(buf);
