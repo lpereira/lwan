@@ -17,3 +17,7 @@
 - dup() vs openat()
 - Investigate TCP_DEFER_ACCEPT and TCP_QUICKACK flags
 - Win the C10M challenge
+- Use list.h more
+  - Template engine
+  - Coroutine?
+  - Hash table?
