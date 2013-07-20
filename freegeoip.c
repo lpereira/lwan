@@ -272,12 +272,20 @@ main(void)
     if (!csv_template)
         lwan_status_critical("Could not compile CSV template");
 
+    lwan_t l = {
+        .config = {
+            .port = 8080,
+            .keep_alive_timeout = 15 /*seconds */
+        }
+    };
+
+    lwan_init(&l);
+
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
                                  SQLITE_OPEN_READONLY, NULL);
     if (result != SQLITE_OK)
         lwan_status_critical("Could not open database: %s",
                     sqlite3_errstr(result));
-
     cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
     lwan_url_map_t default_map[] = {
@@ -288,14 +296,6 @@ main(void)
         { .prefix = NULL }
     };
 
-    lwan_t l = {
-        .config = {
-            .port = 8080,
-            .keep_alive_timeout = 15 /*seconds */
-        }
-    };
-
-    lwan_init(&l);
     lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
     lwan_shutdown(&l);
