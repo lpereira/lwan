@@ -391,6 +391,8 @@ static inline void list_del_from(struct list_head *h, struct list_node *n)
 		for (i = h->n.next; i != n; i = i->next)
 			assert(i != &h->n);
 	}
+#else
+        (void)h;
 #endif /* _LIST_DEBUG */
 
 	/* Quick test that catches a surprising number of bugs. */
