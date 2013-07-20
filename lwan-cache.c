@@ -204,6 +204,7 @@ static bool cache_pruner_job(void *data)
   time_t now;
   bool had_job = false;
   bool shutting_down = cache->shutting_down;
+  unsigned evicted = 0;
 
   if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0) {
     lwan_status_perror("pthread_rwlock_trywrlock");
@@ -233,7 +234,7 @@ static bool cache_pruner_job(void *data)
      *        a reference to the item itself.
      */
     hash_del(cache->hash.table, key);
-    ATOMIC_INC(cache->stats.evicted);
+    evicted++;
     had_job = true;
   }
 
@@ -242,6 +243,8 @@ static bool cache_pruner_job(void *data)
 unlock_queue_lock:
   if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
     lwan_status_perror("pthread_rwlock_unlock");
+
+  ATOMIC_AAF(&cache->stats.evicted, evicted);
 
   return had_job;
 }
