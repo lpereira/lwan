@@ -28,17 +28,18 @@
 
 #include "lwan.h"
 #include "lwan-status.h"
+#include "list.h"
 
 struct job_t {
+  struct list_node jobs;
   bool (*cb)(void *data);
   void *data;
-  struct job_t *next;
 };
 
 static pthread_t self;
 static pthread_mutex_t queue_mutex;
 static bool running = false;
-static struct job_t *jobs = NULL;
+static struct list_head jobs;
 
 static void*
 job_thread(void *data __attribute__((unused)))
@@ -50,7 +51,7 @@ job_thread(void *data __attribute__((unused)))
     bool had_job = false;
 
     pthread_mutex_lock(&queue_mutex);
-    for (job = jobs; job; job = job->next)
+    list_for_each(&jobs, job, jobs)
       had_job |= job->cb(job->data);
     pthread_mutex_unlock(&queue_mutex);
 
@@ -78,6 +79,8 @@ void lwan_job_thread_init(void)
 
   lwan_status_debug("Initializing low priority job thread");
 
+  list_head_init(&jobs);
+
   running = true;
   if (pthread_create(&self, NULL, job_thread, NULL) < 0)
     lwan_status_critical_perror("pthread_create");
@@ -90,12 +93,11 @@ void lwan_job_thread_shutdown(void)
   lwan_status_debug("Shutting down job thread");
 
   pthread_mutex_lock(&queue_mutex);
-  struct job_t *job = jobs, *next;
-  for (; job; job = next) {
-    next = job->next;
-    free(job);
+  struct job_t *node, *next;
+  list_for_each_safe(&jobs, node, next, jobs) {
+    list_del(&node->jobs);
+    free(node);
   }
-  jobs = NULL;
   running = false;
 #ifdef __linux__
   if (pthread_tryjoin_np(self, NULL) < 0)
@@ -120,30 +122,22 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
   job->data = data;
 
   pthread_mutex_lock(&queue_mutex);
-  job->next = jobs;
-  jobs = job;
+  list_add(&jobs, &job->jobs);
   pthread_mutex_unlock(&queue_mutex);
 }
 
 void lwan_job_del(bool (*cb)(void *data), void *data __attribute__((unused)))
 {
-  struct job_t *curr, *prev;
+  struct job_t *node, *next;
 
   assert(cb);
 
   pthread_mutex_lock(&queue_mutex);
-
-  prev = NULL;
-  for (curr = jobs; curr; prev = curr, curr = curr->next) {
-    if (cb == curr->cb && data == curr->data) {
-      if (!prev)
-        jobs = curr->next;
-      else
-        prev->next = curr->next;
-      free(curr);
-      break;
+  list_for_each_safe(&jobs, node, next, jobs) {
+    if (cb == node->cb && data == node->data) {
+      list_del(&node->jobs);
+      free(node);
     }
   }
-
   pthread_mutex_unlock(&queue_mutex);
 }
