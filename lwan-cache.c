@@ -44,8 +44,7 @@ struct cache_t {
     pthread_rwlock_t lock;
   } hash;
   struct {
-    struct cache_entry_t *head;
-    struct cache_entry_t *tail;
+    struct list_head list;
     pthread_rwlock_t lock;
   } queue;
   struct {
@@ -56,6 +55,7 @@ struct cache_t {
     unsigned misses;
     unsigned evicted;
   } stats;
+  bool shutting_down : 1;
 };
 
 static bool cache_pruner_job(void *data);
@@ -90,6 +90,8 @@ struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
 
   cache->settings.time_to_live = time_to_live;
 
+  list_head_init(&cache->queue.list);
+
   lwan_job_add(cache_pruner_job, cache);
 
   return cache;
@@ -109,71 +111,12 @@ void cache_destroy(struct cache_t *cache)
   assert(cache);
 
   lwan_job_del(cache_pruner_job, cache);
+  cache->shutting_down = true;
+  cache_pruner_job(cache);
   pthread_rwlock_destroy(&cache->hash.lock);
   pthread_rwlock_destroy(&cache->queue.lock);
   hash_free(cache->hash.table);
   free(cache);
-}
-
-static void cache_entry_insert_after(struct cache_t *cache,
-      struct cache_entry_t *node, struct cache_entry_t *new_node)
-{
-  new_node->prev = node;
-  new_node->next = node->next;
-  if (!node->next)
-    cache->queue.tail = new_node;
-  else
-    node->next->prev = new_node;
-  node->next = new_node;
-}
-
-static void cache_entry_insert_before(struct cache_t *cache,
-      struct cache_entry_t *node, struct cache_entry_t *new_node)
-{
-  new_node->prev = node->prev;
-  new_node->next = node;
-  if (!node->prev)
-    cache->queue.head = new_node;
-  else
-    node->prev->next = new_node;
-  node->prev = new_node;
-}
-
-static void cache_entry_insert_beginning(struct cache_t *cache,
-      struct cache_entry_t *new_node)
-{
-  if (!cache->queue.head) {
-    cache->queue.head = new_node;
-    cache->queue.tail = new_node;
-    new_node->prev = NULL;
-    new_node->next = NULL;
-  } else {
-    cache_entry_insert_before(cache, cache->queue.head, new_node);
-  }
-}
-
-static void cache_entry_insert_end(struct cache_t *cache,
-      struct cache_entry_t *new_node)
-{
-  if (!cache->queue.tail)
-    cache_entry_insert_beginning(cache, new_node);
-  else
-    cache_entry_insert_after(cache, cache->queue.tail, new_node);
-}
-
-static void cache_entry_remove(struct cache_t *cache,
-      struct cache_entry_t *node, bool destroy)
-{
-  if (!node->prev)
-    cache->queue.head = node->next;
-  else
-    node->prev->next = node->next;
-  if (!node->next)
-    cache->queue.tail = node->prev;
-  else
-    node->next->prev = node->prev;
-  if (destroy)
-    cache->cb.destroy_entry(node, cache->cb.context);
 }
 
 struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
@@ -234,7 +177,7 @@ try_adding_again:
   case 0:
     entry->time_to_die = time(NULL) + cache->settings.time_to_live;
     pthread_rwlock_wrlock(&cache->queue.lock);
-    cache_entry_insert_end(cache, entry);
+    list_add_tail(&cache->queue.list, &entry->entries);
     pthread_rwlock_unlock(&cache->queue.lock);
   }
 
@@ -260,6 +203,7 @@ static bool cache_pruner_job(void *data)
   struct cache_entry_t *node, *next;
   time_t now;
   bool had_job = false;
+  bool shutting_down = cache->shutting_down;
 
   if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0) {
     lwan_status_perror("pthread_rwlock_trywrlock");
@@ -271,15 +215,18 @@ static bool cache_pruner_job(void *data)
   }
 
   now = time(NULL);
-  for (node = cache->queue.head; node && now > node->time_to_die; node = next) {
-    next = node->next;
+  list_for_each_safe(&cache->queue.list, node, next, entries) {
     char *key = node->key;
-    if (!node->refs) {
-      cache_entry_remove(cache, node, true);
-    } else {
+
+    if (LIKELY(!shutting_down) && now > node->time_to_die)
+      break;
+
+    list_del(&node->entries);
+
+    if (!ATOMIC_READ(node->refs))
+      cache->cb.destroy_entry(node, cache->cb.context);
+    else
       __sync_and_and_fetch(&node->flags, FLOATING);
-      cache_entry_remove(cache, node, false);
-    }
 
     /*
      * FIXME: Find a way to avoid this hash lookup, as we already have

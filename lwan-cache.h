@@ -20,9 +20,10 @@
 #ifndef LWAN_CACHE_H
 #define LWAN_CACHE_H
 
+#include "list.h"
+
 struct cache_entry_t {
-  struct cache_entry_t *next;
-  struct cache_entry_t *prev;
+  struct list_node entries;
   char *key;
   unsigned refs;
   unsigned flags;
