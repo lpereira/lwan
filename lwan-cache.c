@@ -219,7 +219,7 @@ static bool cache_pruner_job(void *data)
   list_for_each_safe(&cache->queue.list, node, next, entries) {
     char *key = node->key;
 
-    if (LIKELY(!shutting_down) && now > node->time_to_die)
+    if (now < node->time_to_die && LIKELY(!shutting_down))
       break;
 
     list_del(&node->entries);
