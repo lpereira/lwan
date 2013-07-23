@@ -47,6 +47,16 @@ struct ip_info_t {
     char *ip;
 };
 
+union ip_to_octet {
+    unsigned char octet[sizeof(in_addr_t)];
+    in_addr_t ip;
+};
+
+struct ip_net_t {
+    union ip_to_octet ip;
+    union ip_to_octet mask;
+};
+
 static struct cache_t *cache;
 static sqlite3 *db;
 static const char const ip_to_city_query[] = \
@@ -111,9 +121,55 @@ static const char const csv_template_str[] = \
     "\"{{metro.code}}\"," \
     "\"{{metro.area}}\"";
 
+/* http://en.wikipedia.org/wiki/Reserved_IP_addresses */
+#define ADDRESS(o1, o2, o3, o4) \
+    { .octet[0] = o1, .octet[1] = o2, .octet[2] = o3, .octet[3] = o4 }
+
+static const struct ip_net_t reserved_ips[] = {
+    {ADDRESS(0, 0, 0, 0), ADDRESS(255, 0, 0, 0)},
+    {ADDRESS(10, 0, 0, 0), ADDRESS(255, 0, 0, 0)},
+    {ADDRESS(100, 64, 0, 0), ADDRESS(255, 192, 0, 0)},
+    {ADDRESS(127, 0, 0, 0), ADDRESS(255, 0, 0, 0)},
+    {ADDRESS(169, 254, 0, 0), ADDRESS(255, 255, 0, 0)},
+    {ADDRESS(172, 16, 0, 0), ADDRESS(255, 240, 0, 0)},
+    {ADDRESS(192, 0, 0, 0), ADDRESS(255, 255, 255, 248)},
+    {ADDRESS(192, 0, 2, 0), ADDRESS(255, 255, 255, 0)},
+    {ADDRESS(192, 88, 99, 0), ADDRESS(255, 255, 255, 0)},
+    {ADDRESS(192, 168, 0, 0), ADDRESS(255, 255, 0, 0)},
+    {ADDRESS(198, 18, 0, 0), ADDRESS(255, 254, 0, 0)},
+    {ADDRESS(198, 51, 100, 0), ADDRESS(255, 255, 255, 0)},
+    {ADDRESS(203, 0, 113, 0), ADDRESS(255, 255, 255, 0)},
+    {ADDRESS(224, 0, 0, 0), ADDRESS(240, 0, 0, 0)},
+    {ADDRESS(240, 0, 0, 0), ADDRESS(240, 0, 0, 0)},
+    {ADDRESS(255, 255, 255, 255), ADDRESS(255, 255, 255, 255)},
+};
+
+#undef ADDRESS
+
 static lwan_tpl_t *json_template = NULL;
 static lwan_tpl_t *xml_template = NULL;
 static lwan_tpl_t *csv_template = NULL;
+
+static bool
+net_contains_ip(const struct ip_net_t *net, in_addr_t ip)
+{
+    union ip_to_octet _ip = { .ip = ip };
+    return (net->ip.octet[0] & net->mask.octet[0]) == (_ip.octet[0] & net->mask.octet[0]) && \
+        (net->ip.octet[1] & net->mask.octet[1]) == (_ip.octet[1] & net->mask.octet[1]) && \
+        (net->ip.octet[2] & net->mask.octet[2]) == (_ip.octet[2] & net->mask.octet[2]) && \
+        (net->ip.octet[3] & net->mask.octet[3]) == (_ip.octet[3] & net->mask.octet[3]);
+}
+
+static bool
+is_reserved_ip(in_addr_t ip)
+{
+    size_t i;
+    for (i = 0; i < (sizeof(reserved_ips) / sizeof(reserved_ips[0])); i++) {
+        if (net_contains_ip(&reserved_ips[i], ip))
+            return true;
+    }
+    return false;
+}
 
 static void
 destroy_ipinfo(struct cache_entry_t *entry,
@@ -149,18 +205,26 @@ static struct cache_entry_t *
 create_ipinfo(const char *key, void *context __attribute__((unused)))
 {
     sqlite3_stmt *stmt;
-    struct ip_info_t *ip_info;
+    struct ip_info_t *ip_info = NULL;
     struct in_addr addr;
     
-    ip_info = NULL;
+    if (UNLIKELY(!inet_aton(key, &addr)))
+        goto end;
+
+    if (is_reserved_ip(addr.s_addr)) {
+        ip_info = calloc(1, sizeof(*ip_info));
+        if (LIKELY(ip_info)) {
+            ip_info->country.code = strdup("RD");
+            ip_info->country.name = strdup("Reserved");
+            ip_info->ip = strdup(key);
+        }
+        goto end_no_finalize;
+    }
 
     if (sqlite3_prepare(db, ip_to_city_query,
                         sizeof(ip_to_city_query) - 1,
                         &stmt, NULL) != SQLITE_OK)
         goto end_no_finalize;
-
-    if (UNLIKELY(!inet_aton(key, &addr)))
-        goto end;
 
     if (sqlite3_bind_int64(stmt, 1, ntohl(addr.s_addr)) != SQLITE_OK)
         goto end;
@@ -199,7 +263,6 @@ static struct ip_info_t *
 internal_query(lwan_request_t *request)
 {
     const char *ip_address;
-    struct in_addr addr;
 
     if (request->url.len == 0)
         ip_address = lwan_request_get_remote_address(request,
@@ -210,9 +273,6 @@ internal_query(lwan_request_t *request)
     else
         ip_address = request->url.value;
     if (UNLIKELY(!ip_address))
-        return NULL;
-
-    if (UNLIKELY(!inet_aton(ip_address, &addr)))
         return NULL;
 
     int error;
