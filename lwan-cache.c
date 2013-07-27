@@ -255,7 +255,8 @@ static bool cache_pruner_job(void *data)
     goto end;
 
   if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
-    list_append_list(&cache->queue.list, &queue);
+    list_append_list(&queue, &cache->queue.list);
+    cache->queue.list = queue;
 
     if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
       lwan_status_perror("pthread_rwlock_unlock");
