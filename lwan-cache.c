@@ -204,18 +204,30 @@ static bool cache_pruner_job(void *data)
   time_t now;
   bool shutting_down = cache->shutting_down;
   unsigned evicted = 0;
+  struct list_head queue;
 
-  if (pthread_rwlock_trywrlock(&cache->queue.lock) < 0) {
+  if (LIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) >= 0)) {
+    if (list_empty(&cache->queue.list)) {
+      if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
+        lwan_status_perror("pthread_rwlock_unlock");
+      return false;
+    }
+
+    list_head_init(&queue);
+    list_append_list(&queue, &cache->queue.list);
+    list_head_init(&cache->queue.list);
+
+    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
+      lwan_status_perror("pthread_rwlock_unlock");
+      goto end;
+    }
+  } else {
     lwan_status_perror("pthread_rwlock_trywrlock");
-    return false;
-  }
-  if (pthread_rwlock_wrlock(&cache->hash.lock) < 0) {
-    lwan_status_perror("pthread_rwlock_wrlock");
-    goto unlock_queue_lock;
+    goto end;
   }
 
   now = time(NULL);
-  list_for_each_safe(&cache->queue.list, node, next, entries) {
+  list_for_each_safe(&queue, node, next, entries) {
     char *key = node->key;
 
     if (now < node->time_to_die && LIKELY(!shutting_down))
@@ -223,27 +235,34 @@ static bool cache_pruner_job(void *data)
 
     list_del(&node->entries);
 
-    if (!ATOMIC_READ(node->refs))
-      cache->cb.destroy_entry(node, cache->cb.context);
-    else
-      __sync_and_and_fetch(&node->flags, FLOATING);
+    if (LIKELY(pthread_rwlock_wrlock(&cache->hash.lock) >= 0)) {
+      if (!ATOMIC_READ(node->refs))
+        cache->cb.destroy_entry(node, cache->cb.context);
+      else
+        __sync_and_and_fetch(&node->flags, FLOATING);
 
-    /*
-     * FIXME: Find a way to avoid this hash lookup, as we already have
-     *        a reference to the item itself.
-     */
-    hash_del(cache->hash.table, key);
-    evicted++;
+      hash_del(cache->hash.table, key);
+
+      if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
+        lwan_status_perror("pthread_rwlock_unlock");
+
+      evicted++;
+    } else {
+      lwan_status_perror("pthread_rwlock_wrlock");
+    }
   }
 
-  if (pthread_rwlock_unlock(&cache->hash.lock) < 0)
-    lwan_status_perror("pthread_rwlock_unlock");
-unlock_queue_lock:
-  if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
-    lwan_status_perror("pthread_rwlock_unlock");
+  if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
+    list_append_list(&cache->queue.list, &queue);
 
+    if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
+      lwan_status_perror("pthread_rwlock_unlock");
+  } else {
+    lwan_status_perror("pthread_rwlock_trywrlock");
+  }
+
+end:
   ATOMIC_AAF(&cache->stats.evicted, evicted);
-
   return !!evicted;
 }
 
