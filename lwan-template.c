@@ -116,6 +116,12 @@ _lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length)
         char *str;
     } *v = ptr;
 
+    if (UNLIKELY(!v->str)) {
+        *length = 0;
+        *allocated = false;
+        return "";
+    }
+
     *length = strlen(v->str);
     *allocated = false;
     return v->str;
