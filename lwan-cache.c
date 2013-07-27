@@ -206,23 +206,21 @@ static bool cache_pruner_job(void *data)
   unsigned evicted = 0;
   struct list_head queue;
 
-  if (LIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) >= 0)) {
-    if (list_empty(&cache->queue.list)) {
-      if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
-        lwan_status_perror("pthread_rwlock_unlock");
-      return false;
-    }
+  if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
+    return false;
 
-    list_head_init(&queue);
-    list_append_list(&queue, &cache->queue.list);
-    list_head_init(&cache->queue.list);
-
-    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
+  if (list_empty(&cache->queue.list)) {
+    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
       lwan_status_perror("pthread_rwlock_unlock");
-      goto end;
-    }
-  } else {
-    lwan_status_perror("pthread_rwlock_trywrlock");
+    return false;
+  }
+
+  list_head_init(&queue);
+  list_append_list(&queue, &cache->queue.list);
+  list_head_init(&cache->queue.list);
+
+  if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
+    lwan_status_perror("pthread_rwlock_unlock");
     goto end;
   }
 
