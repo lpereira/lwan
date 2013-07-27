@@ -251,6 +251,9 @@ static bool cache_pruner_job(void *data)
     evicted++;
   }
 
+  if (list_empty(&queue))
+    goto end;
+
   if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
     list_append_list(&cache->queue.list, &queue);
 
