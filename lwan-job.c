@@ -126,7 +126,7 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
   pthread_mutex_unlock(&queue_mutex);
 }
 
-void lwan_job_del(bool (*cb)(void *data), void *data __attribute__((unused)))
+void lwan_job_del(bool (*cb)(void *data), void *data)
 {
   struct job_t *node, *next;
 
