@@ -233,21 +233,22 @@ static bool cache_pruner_job(void *data)
 
     list_del(&node->entries);
 
-    if (LIKELY(pthread_rwlock_wrlock(&cache->hash.lock) >= 0)) {
-      if (!ATOMIC_READ(node->refs))
-        cache->cb.destroy_entry(node, cache->cb.context);
-      else
-        ATOMIC_BITWISE(&node->flags, and, FLOATING);
-
-      hash_del(cache->hash.table, key);
-
-      if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
-        lwan_status_perror("pthread_rwlock_unlock");
-
-      evicted++;
-    } else {
+    if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock) < 0)) {
       lwan_status_perror("pthread_rwlock_wrlock");
+      continue;
     }
+
+    if (!ATOMIC_READ(node->refs))
+      cache->cb.destroy_entry(node, cache->cb.context);
+    else
+      ATOMIC_BITWISE(&node->flags, and, FLOATING);
+
+    hash_del(cache->hash.table, key);
+
+    if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
+      lwan_status_perror("pthread_rwlock_unlock");
+
+    evicted++;
   }
 
   if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
