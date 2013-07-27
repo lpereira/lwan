@@ -202,7 +202,6 @@ static bool cache_pruner_job(void *data)
   struct cache_t *cache = data;
   struct cache_entry_t *node, *next;
   time_t now;
-  bool had_job = false;
   bool shutting_down = cache->shutting_down;
   unsigned evicted = 0;
 
@@ -235,7 +234,6 @@ static bool cache_pruner_job(void *data)
      */
     hash_del(cache->hash.table, key);
     evicted++;
-    had_job = true;
   }
 
   if (pthread_rwlock_unlock(&cache->hash.lock) < 0)
@@ -246,7 +244,7 @@ unlock_queue_lock:
 
   ATOMIC_AAF(&cache->stats.evicted, evicted);
 
-  return had_job;
+  return !!evicted;
 }
 
 void cache_get_stats(struct cache_t *cache, unsigned *hits,
