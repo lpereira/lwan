@@ -21,3 +21,4 @@
   - Template engine
   - Coroutine?
   - Hash table?
+- Use RCU (liburcu?) instead of rwlocks
