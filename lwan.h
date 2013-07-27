@@ -66,6 +66,7 @@
 #define ATOMIC_AAF(P, V) 	(__sync_add_and_fetch((P), (V)))
 #define ATOMIC_INC(V)		ATOMIC_AAF(&(V), 1)
 #define ATOMIC_DEC(V)		ATOMIC_AAF(&(V), -1)
+#define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;

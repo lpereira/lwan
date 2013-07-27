@@ -239,7 +239,7 @@ static bool cache_pruner_job(void *data)
       if (!ATOMIC_READ(node->refs))
         cache->cb.destroy_entry(node, cache->cb.context);
       else
-        __sync_and_and_fetch(&node->flags, FLOATING);
+        ATOMIC_BITWISE(&node->flags, and, FLOATING);
 
       hash_del(cache->hash.table, key);
 
