@@ -241,15 +241,21 @@ static bool cache_pruner_job(void *data)
       continue;
     }
 
-    if (!ATOMIC_READ(node->refs))
-      cache->cb.destroy_entry(node, cache->cb.context);
-    else
-      ATOMIC_BITWISE(&node->flags, and, FLOATING);
-
     hash_del(cache->hash.table, key);
 
     if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
       lwan_status_perror("pthread_rwlock_unlock");
+
+    if (!ATOMIC_READ(node->refs)) {
+      cache->cb.destroy_entry(node, cache->cb.context);
+    } else {
+      ATOMIC_BITWISE(&node->flags, and, FLOATING);
+
+      /* If preemption occurred before setting item to FLOATING, check
+       * if item still have refs; destroy if not */
+      if (UNLIKELY(!ATOMIC_READ(node->refs)))
+        cache->cb.destroy_entry(node, cache->cb.context);
+    }
 
     evicted++;
   }
