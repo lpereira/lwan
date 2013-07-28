@@ -29,6 +29,8 @@
 #include "lwan-cache.h"
 #include "hash.h"
 
+#define GET_AND_REF_TRIES 5
+
 enum {
   FLOATING = 1<<0
 };
@@ -302,8 +304,9 @@ cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
 {
     struct cache_entry_t *ce;
     int error;
+    int tries;
 
-    while (true) {
+    for (tries = GET_AND_REF_TRIES; tries; tries--) {
         ce = cache_get_and_ref_entry(cache, key, &error);
         if (LIKELY(ce)) {
             /*
@@ -312,18 +315,19 @@ cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
              * freed.
              */
             coro_defer2(coro, CORO_DEFER2(cache_entry_unref), cache, ce);
-            break;
+            return ce;
         }
 
         /*
          * If the cache would block while reading its hash table, yield and
          * try again. On any other error, just return NULL.
          */
-        if (UNLIKELY(error != EWOULDBLOCK))
-            break;
-
-        coro_yield(coro, 1);
+        if (error == EWOULDBLOCK) {
+          coro_yield(coro, 1);
+        } else {
+          break;
+        }
     }
 
-    return ce;
+    return NULL;
 }
