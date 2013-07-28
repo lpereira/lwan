@@ -209,12 +209,15 @@ static bool cache_pruner_job(void *data)
   if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
     return false;
 
+  /* If the queue is empty, there's nothing to do; unlock/return*/
   if (list_empty(&cache->queue.list)) {
     if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
       lwan_status_perror("pthread_rwlock_unlock");
     return false;
   }
 
+  /* There are things to do; assign cache queue to a local queue,
+   * initialize cache queue to an empty queue. Then unlock */
   list_head_init(&queue);
   list_append_list(&queue, &cache->queue.list);
   list_head_init(&cache->queue.list);
@@ -251,9 +254,15 @@ static bool cache_pruner_job(void *data)
     evicted++;
   }
 
+  /* If local queue has been entirely processed, there's no need to
+   * append items in the cache queue to it; just update statistics and
+   * return */
   if (list_empty(&queue))
     goto end;
 
+  /* Append current queue items to the local queue. Since the cache item
+   * TTL is constant, items created later will be destroyed later. Set
+   * cache queue head/tail to point to local queue's */
   if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
     list_append_list(&queue, &cache->queue.list);
     cache->queue.list = queue;
