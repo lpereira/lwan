@@ -52,6 +52,7 @@ struct coro_defer_t_ {
     union {
         void (*one)(void *data);
         void (*two)(void *data1, void *data2);
+        void (*any)();
     } funcs;
     void *data1;
     void *data2;
@@ -266,10 +267,7 @@ coro_free(coro_t *coro)
     coro_defer_t *defer;
     for (defer = coro->defer; defer;) {
         coro_defer_t *tmp = defer;
-        if (!defer->data2)
-            defer->funcs.one(defer->data1);
-        else
-            defer->funcs.two(defer->data1, defer->data2);
+        defer->funcs.any(defer->data1, defer->data2);
         defer = tmp->next;
         free(tmp);
     }
