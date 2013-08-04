@@ -44,7 +44,7 @@ static struct list_head jobs;
 static void*
 job_thread(void *data __attribute__((unused)))
 {
-  static struct timespec rgtp = { 1, 0 };
+  struct timespec rgtp = { 1, 0 };
 
   while (running) {
     struct job_t *job;
