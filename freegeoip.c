@@ -209,7 +209,7 @@ create_ipinfo(const char *key, void *context __attribute__((unused)))
     struct in_addr addr;
     
     if (UNLIKELY(!inet_aton(key, &addr)))
-        goto end;
+        goto end_no_finalize;
 
     if (is_reserved_ip(addr.s_addr)) {
         ip_info = calloc(1, sizeof(*ip_info));
