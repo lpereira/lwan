@@ -91,7 +91,7 @@ main(void)
     lwan_t l = {
         .config = {
             .port = 8080,
-            .keep_alive_timeout = 5 /*seconds */,
+            .keep_alive_timeout = 15 /*seconds */,
             .quiet = false
         }
     };
