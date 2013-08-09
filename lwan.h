@@ -30,6 +30,7 @@
 #include "lwan-status.h"
 #include "strbuf.h"
 
+#define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
@@ -164,8 +165,6 @@ struct lwan_request_t_ {
 
     int fd;
     unsigned int time_to_die;
-    char buffer[4 * 1024];
-    ssize_t buffer_len;
 
     struct {
       lwan_key_value_t *base;
@@ -175,7 +174,7 @@ struct lwan_request_t_ {
     struct {
       char *value;
       size_t len;
-    } url, query_string, fragment, if_modified_since, range, accept_encoding;
+    } buffer, url, query_string, fragment, if_modified_since, range, accept_encoding;
 
     struct {
         char connection;

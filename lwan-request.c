@@ -147,7 +147,7 @@ oom:
 static ALWAYS_INLINE char *
 _identify_http_path(lwan_request_t *request, char *buffer)
 {
-    char *end_of_line = memchr(buffer, '\r', request->buffer_len - (buffer - request->buffer));
+    char *end_of_line = memchr(buffer, '\r', request->buffer.len - (buffer - request->buffer.value));
     if (!end_of_line)
         return NULL;
     *end_of_line = '\0';
@@ -378,7 +378,7 @@ _parse_http_request(lwan_request_t *request)
 {
     char *buffer;
 
-    buffer = _ignore_leading_whitespace(request->buffer);
+    buffer = _ignore_leading_whitespace(request->buffer.value);
     if (UNLIKELY(!*buffer))
         return HTTP_BAD_REQUEST;
 
@@ -390,7 +390,7 @@ _parse_http_request(lwan_request_t *request)
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    buffer = _parse_headers(request, buffer, request->buffer + request->buffer_len);
+    buffer = _parse_headers(request, buffer, request->buffer.value + request->buffer.len);
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
@@ -404,14 +404,14 @@ _read_request(lwan_request_t *request)
 {
     ssize_t bytes_read;
 
-    bytes_read = read(request->fd, request->buffer, sizeof(request->buffer));
+    bytes_read = read(request->fd, request->buffer.value, DEFAULT_BUFFER_SIZE);
     if (UNLIKELY(bytes_read <= 0))
         return HTTP_BAD_REQUEST;
-    if (UNLIKELY(bytes_read == sizeof(request->buffer)))
+    if (UNLIKELY(bytes_read == DEFAULT_BUFFER_SIZE))
         return HTTP_TOO_LARGE;
 
-    request->buffer[bytes_read] = '\0';
-    request->buffer_len = bytes_read;
+    request->buffer.value[bytes_read] = '\0';
+    request->buffer.len = bytes_read;
     return HTTP_OK;
 }
 
@@ -420,6 +420,10 @@ lwan_process_request(lwan_request_t *request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
+    char buffer[DEFAULT_BUFFER_SIZE];
+
+    request->buffer.value = buffer;
+    request->buffer.len = 0;
 
     status = _read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {

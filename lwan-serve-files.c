@@ -460,7 +460,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(fce + 1);
-    char *headers = request->buffer;
+    char *headers = request->buffer.value;
     size_t header_len;
     lwan_http_status_t return_status = HTTP_OK;
     off_t from, to;
@@ -517,7 +517,7 @@ _mmap_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
-    char *headers = request->buffer;
+    char *headers = request->buffer.value;
     size_t header_len;
     size_t size;
     void *contents;

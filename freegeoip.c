@@ -266,7 +266,7 @@ internal_query(lwan_request_t *request)
 
     if (request->url.len == 0)
         ip_address = lwan_request_get_remote_address(request,
-                                                     request->buffer,
+                                                     request->buffer.value,
                                                      INET_ADDRSTRLEN);
     else if (request->url.len < 7)
         ip_address = NULL;
