@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
@@ -402,16 +403,34 @@ _parse_http_request(lwan_request_t *request)
 static ALWAYS_INLINE lwan_http_status_t
 _read_request(lwan_request_t *request)
 {
-    ssize_t bytes_read;
+    ssize_t n;
+    ssize_t total_read = 0;
 
-    bytes_read = read(request->fd, request->buffer.value, DEFAULT_BUFFER_SIZE);
-    if (UNLIKELY(bytes_read <= 0))
-        return HTTP_BAD_REQUEST;
-    if (UNLIKELY(bytes_read == DEFAULT_BUFFER_SIZE))
-        return HTTP_TOO_LARGE;
+    do {
+        do {
+            n = read(request->fd, request->buffer.value + total_read,
+                        DEFAULT_BUFFER_SIZE - total_read);
+            if (UNLIKELY(n == 0))
+                return HTTP_BAD_REQUEST;
+            if (UNLIKELY(n < 0)) {
+                if (UNLIKELY(!total_read || errno != EAGAIN))
+                    return HTTP_BAD_REQUEST;
 
-    request->buffer.value[bytes_read] = '\0';
-    request->buffer.len = bytes_read;
+                request->flags.write_events ^= 1;
+                coro_yield(request->coro, 1);
+                request->flags.write_events ^= 1;
+            }
+        } while (UNLIKELY(n < 0));
+
+        total_read += n;
+        if (UNLIKELY(total_read == DEFAULT_BUFFER_SIZE))
+            return HTTP_TOO_LARGE;
+        if (UNLIKELY(total_read <= 4))
+            return HTTP_BAD_REQUEST;
+    } while (UNLIKELY(!strstr(request->buffer.value + total_read - 4, "\r\n\r\n")));
+
+    request->buffer.value[total_read] = '\0';
+    request->buffer.len = total_read;
     return HTTP_OK;
 }
 
