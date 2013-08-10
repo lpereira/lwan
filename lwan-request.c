@@ -461,7 +461,7 @@ lwan_process_request(lwan_request_t *request)
     if (UNLIKELY(status != HTTP_OK))
         return lwan_default_response(request, status);
 
-    url_map = lwan_trie_lookup_prefix(request->lwan->url_map_trie,
+    url_map = lwan_trie_lookup_prefix(request->thread->lwan->url_map_trie,
             request->url.value);
     if (UNLIKELY(!url_map))
         return lwan_default_response(request, HTTP_NOT_FOUND);

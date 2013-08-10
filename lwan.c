@@ -57,10 +57,8 @@ lwan_init(lwan_t *l)
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
 
-    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur) {
+    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
         l->requests[r.rlim_cur].response.buffer = strbuf_new();
-        l->requests[r.rlim_cur].lwan = l;
-    }
 
     srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);

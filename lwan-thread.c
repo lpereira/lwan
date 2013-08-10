@@ -50,7 +50,6 @@ ALWAYS_INLINE void
 _reset_request(lwan_request_t *request)
 {
     strbuf_t *response_buffer = request->response.buffer;
-    lwan_t *lwan = request->lwan;
     lwan_thread_t *thread = request->thread;
     coro_t *coro = request->coro;
     int fd = request->fd;
@@ -62,7 +61,6 @@ _reset_request(lwan_request_t *request)
     memset(request, 0, sizeof(*request));
 
     request->fd = fd;
-    request->lwan = lwan;
     request->thread = thread;
     request->coro = coro;
     request->response.buffer = response_buffer;

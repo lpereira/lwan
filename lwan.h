@@ -157,7 +157,6 @@ struct lwan_request_t_ {
     lwan_http_method_t method;
     lwan_http_version_t http_version;
     lwan_response_t response;
-    lwan_t *lwan;
     lwan_thread_t *thread;
     coro_t *coro;
 
