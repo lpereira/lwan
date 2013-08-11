@@ -33,9 +33,9 @@
 #endif
 
 #ifdef __x86_64__
-static const int const default_stack_size = 17920;
+static const int const default_stack_size = 16 * 1024;
 #else
-static const int const default_stack_size = 13824;
+static const int const default_stack_size = 12 * 1024;
 #endif
 
 #ifdef __x86_64__
@@ -306,11 +306,21 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
     defer->data2 = data2;
     coro->defer = defer;
 }
+
+static void nothing(void *dummy __attribute__((unused)))
+{
+}
+
 void *
 coro_malloc(coro_t *coro, size_t size)
 {
-    void *ptr = malloc(size);
-    if (LIKELY(ptr))
-        coro_defer(coro, free, ptr);
-    return ptr;
+    coro_defer_t *defer = malloc(sizeof(*defer) + size);
+    if (UNLIKELY(!defer))
+        return NULL;
+
+    defer->next = coro->defer;
+    defer->funcs.one = nothing;
+    coro->defer = defer;
+
+    return defer + 1;
 }

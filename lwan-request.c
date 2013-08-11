@@ -439,10 +439,12 @@ lwan_process_request(lwan_request_t *request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    char buffer[DEFAULT_BUFFER_SIZE];
 
-    request->buffer.value = buffer;
+    request->buffer.value = coro_malloc(request->coro, DEFAULT_BUFFER_SIZE);
     request->buffer.len = 0;
+
+    if (UNLIKELY(!request->buffer.value))
+        return false;
 
     status = _read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
