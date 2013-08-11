@@ -112,7 +112,6 @@ _process_request_coro(coro_t *coro)
      * FIXME: Double-check that the coroutine's resources are really freed.
      */
     _reset_request(request);
-    _handle_hangup(request);
 
     return 0;
 }
