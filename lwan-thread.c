@@ -96,8 +96,7 @@ _process_request_coro(coro_t *coro)
     lwan_request_t *request = coro_get_data(coro);
 
     _reset_request(request);
-    if (LIKELY(lwan_process_request(request)))
-        return 0;
+    lwan_process_request(request);
 
     /*
      * If we fail sending the request (such as the connection has been reset by
@@ -108,10 +107,7 @@ _process_request_coro(coro_t *coro)
      *        recoverable errors; EWOULDBLOCK, EAGAIN, EINTR and such should just
      *        yield from the coroutine and processing the request should be tried
      *        again. Maybe a boolean doesn't suffice here.
-     * FIXME: Double-check if the request socket will be removed from the epoll.
-     * FIXME: Double-check that the coroutine's resources are really freed.
      */
-    _reset_request(request);
 
     return 0;
 }
