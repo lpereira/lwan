@@ -268,12 +268,10 @@ static bool cache_pruner_job(void *data)
   if (list_empty(&queue))
     goto end;
 
-  /* Append current queue items to the local queue. Since the cache item
-   * TTL is constant, items created later will be destroyed later. Set
-   * cache queue head/tail to point to local queue's */
+  /* Prepend local, unprocessed queue, to the cache queue. Since the cache
+   * item TTL is constant, items created later will be destroyed later. */
   if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
-    list_append_list(&queue, &cache->queue.list);
-    cache->queue.list = queue;
+    list_prepend_list(&cache->queue.list, &queue);
 
     if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
       lwan_status_perror("pthread_rwlock_unlock");
