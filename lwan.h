@@ -79,6 +79,7 @@ typedef struct lwan_handler_t_		lwan_handler_t;
 
 typedef enum {
     HTTP_OK = 200,
+    HTTP_PARTIAL_CONTENT = 206,
     HTTP_MOVED_PERMANENTLY = 301,
     HTTP_NOT_MODIFIED = 304,
     HTTP_BAD_REQUEST = 400,

@@ -105,6 +105,12 @@ struct file_cache_entry_t_ {
     const cache_funcs_t *funcs;
 };
 
+typedef enum {
+    NO_RANGE,
+    VALID_RANGE,
+    INVALID_RANGE
+} range_compute_result_t;
+
 static bool _mmap_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
 static void _mmap_free(void *data);
@@ -405,7 +411,7 @@ _prepare_headers(lwan_request_t *request,
                                     header_buf, header_buf_size);
 }
 
-static ALWAYS_INLINE bool
+static ALWAYS_INLINE range_compute_result_t
 _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 {
     off_t f, t;
@@ -419,20 +425,20 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
     if (LIKELY(t <= 0 && f <= 0)) {
         *from = 0;
         *to = size;
-        return true;
+        return NO_RANGE;
     }
 
     /*
      * To goes beyond from or To and From are the same: this is unsatisfiable.
      */
     if (UNLIKELY(t >= f))
-        return false;
+        return INVALID_RANGE;
 
     /*
      * Range goes beyond the size of the file
      */
     if (UNLIKELY(f >= size || t >= size))
-        return false;
+        return INVALID_RANGE;
 
     /*
      * t < 0 means ranges from f to the file size
@@ -447,12 +453,12 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
      * less than zero, the range is unsatisfiable.
      */
     if (UNLIKELY(t <= 0))
-        return false;
+        return INVALID_RANGE;
 
     *from = f;
     *to = t;
 
-    return true;
+    return VALID_RANGE;
 }
 
 static lwan_http_status_t
@@ -465,8 +471,15 @@ _sendfile_serve(lwan_request_t *request, void *data)
     lwan_http_status_t return_status = HTTP_OK;
     off_t from, to;
 
-    if (UNLIKELY(!_compute_range(request, &from, &to, sd->size)))
+    switch (_compute_range(request, &from, &to, sd->size)) {
+    case INVALID_RANGE:
         return HTTP_RANGE_UNSATISFIABLE;
+    case VALID_RANGE:
+        return_status = HTTP_PARTIAL_CONTENT;
+        break;
+    case NO_RANGE:
+        break;
+    }
 
     if (_client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
