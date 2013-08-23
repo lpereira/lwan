@@ -341,36 +341,23 @@ _create_thread(lwan_t *l, int thread_n)
     thread->lwan = l;
     thread->id = thread_n;
 
-    if ((thread->epoll_fd = epoll_create1(0)) < 0) {
-        lwan_status_perror("epoll_create");
-        exit(-1);
-    }
+    if ((thread->epoll_fd = epoll_create1(0)) < 0)
+        lwan_status_critical_perror("epoll_create");
 
-    if (pthread_attr_init(&attr)) {
-        lwan_status_perror("pthread_attr_init");
-        exit(-1);
-    }
+    if (pthread_attr_init(&attr))
+        lwan_status_critical_perror("pthread_attr_init");
 
-    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        lwan_status_perror("pthread_attr_setscope");
-        exit(-1);
-    }
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM))
+        lwan_status_critical_perror("pthread_attr_setscope");
 
-    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE)) {
-        lwan_status_perror("pthread_attr_setdetachstate");
-        exit(-1);
-    }
+    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
+        lwan_status_critical_perror("pthread_attr_setdetachstate");
 
-    if (pthread_create(&thread->self, &attr, _thread_io_loop, thread)) {
-        lwan_status_perror("pthread_create");
-        pthread_attr_destroy(&attr);
-        exit(-1);
-    }
+    if (pthread_create(&thread->self, &attr, _thread_io_loop, thread))
+        lwan_status_critical_perror("pthread_create");
 
-    if (pthread_attr_destroy(&attr)) {
-        lwan_status_perror("pthread_attr_destroy");
-        exit(-1);
-    }
+    if (pthread_attr_destroy(&attr))
+        lwan_status_critical_perror("pthread_attr_destroy");
 }
 
 void
@@ -381,6 +368,8 @@ lwan_thread_init(lwan_t *l)
     lwan_status_debug("Initializing threads");
 
     l->thread.threads = malloc(sizeof(lwan_thread_t) * l->thread.count);
+    if (!l->thread.threads)
+        lwan_status_critical("Could not allocate memory for threads");
 
     for (i = l->thread.count - 1; i >= 0; i--)
         _create_thread(l, i);
