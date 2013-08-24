@@ -115,7 +115,7 @@ strbuf_free(strbuf_t *s)
 bool
 strbuf_append_char(strbuf_t *s, char c)
 {
-    if (UNLIKELY(!grow_buffer_if_needed(s, s->len.buffer + 1)))
+    if (UNLIKELY(!grow_buffer_if_needed(s, s->len.buffer + 2)))
         return false;
 
     *(s->value.buffer + s->len.buffer++) = c;
@@ -130,7 +130,7 @@ strbuf_append_str(strbuf_t *s1, char *s2, size_t sz)
     if (!sz)
         sz = strlen(s2);
 
-    if (UNLIKELY(!grow_buffer_if_needed(s1, s1->len.buffer + sz)))
+    if (UNLIKELY(!grow_buffer_if_needed(s1, s1->len.buffer + sz + 2)))
         return false;
 
     memcpy(s1->value.buffer + s1->len.buffer, s2, sz);
