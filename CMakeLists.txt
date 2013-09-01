@@ -46,7 +46,7 @@ endif ()
 
 add_library(lwan-common STATIC
 	hash.c
-       list.c
+	list.c
 	int-to-str.c
 	lwan.c
 	lwan-cache.c

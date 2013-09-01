@@ -19,6 +19,34 @@
 
 #include <string.h>
 #include "lwan.h"
+#include "hash.h"
+#include "mime-types.h"
+
+static struct hash *mime_types;
+
+void
+lwan_tables_init(void)
+{
+    lwan_status_debug("Initializing tables");
+    if (mime_types)
+        return;
+
+    mime_types = hash_str_new(NULL, NULL);
+    if (!mime_types)
+        return;
+
+    size_t i = 0;
+    for (i = 0; i < N_ELEMENTS(mime_type_array); i++)
+        hash_add(mime_types, mime_type_array[i].extension,
+                    mime_type_array[i].mime_type);
+}
+
+void
+lwan_tables_shutdown(void)
+{
+    lwan_status_debug("Shutting down tables");
+    hash_free(mime_types);
+}
 
 const char *
 lwan_determine_mime_type_for_file_name(const char *file_name)
@@ -34,6 +62,12 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     case EXT_JS:  return "application/javascript";
     case EXT_PNG: return "image/png";
     case EXT_TXT: return "text/plain";
+    }
+
+    if (LIKELY(*last_dot)) {
+        const char *mime_type = hash_find(mime_types, last_dot + 1);
+        if (LIKELY(mime_type))
+            return mime_type;
     }
 
 fallback:

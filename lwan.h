@@ -281,5 +281,8 @@ void lwan_job_thread_shutdown(void);
 void lwan_job_add(bool (*cb)(void *data), void *data);
 void lwan_job_del(bool (*cb)(void *data), void *data);
 
+void lwan_tables_init(void);
+void lwan_tables_shutdown(void);
+
 
 #endif /* __LWAN_H__ */

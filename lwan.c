@@ -68,6 +68,7 @@ lwan_init(lwan_t *l)
     lwan_thread_init(l);
     lwan_job_thread_init();
     lwan_response_init();
+    lwan_tables_init();
 }
 
 static void
@@ -98,14 +99,15 @@ lwan_shutdown(lwan_t *l)
     lwan_status_debug("Shutting down URL handlers");
     _url_map_free(l);
 
-    lwan_response_shutdown();
-    lwan_status_shutdown(l);
-
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
         strbuf_free(l->requests[i].response.buffer);
 
     free(l->requests);
+
+    lwan_response_shutdown();
+    lwan_tables_shutdown();
+    lwan_status_shutdown(l);
 }
 
 void
