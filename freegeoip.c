@@ -45,6 +45,7 @@ struct ip_info_t {
         char *code, *area;
     } metro;
     char *ip;
+    const char *callback;
 };
 
 union ip_to_octet {
@@ -78,6 +79,7 @@ static const char const ip_to_city_query[] = \
     "ORDER BY city_blocks.ip_start DESC LIMIT 1";
 
 static const char const json_template_str[] = \
+    "{{callback?}}{{callback}}({{/callback?}}" \
     "{" \
     "\"country_code\":\"{{country.code}}\"," \
     "\"country_name\":\"{{country.name}}\"," \
@@ -90,7 +92,8 @@ static const char const json_template_str[] = \
     "\"metro_code\":\"{{metro.code}}\"," \
     "\"areacode\":\"{{metro.area}}\"," \
     "\"ip\":\"{{ip}}\"" \
-    "}";
+    "}"
+    "{{callback?}});{{/callback?}}";
 
 static const char const xml_template_str[] = \
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" \
@@ -295,7 +298,16 @@ templated_output(lwan_request_t *request,
         else
             response->mime_type = "text/plain; charset=UTF-8";
 
-        lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
+        const char *callback = lwan_request_get_query_param(request, "callback");
+        if (!callback) {
+            lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
+        } else {
+            struct ip_info_t info_with_callback = *info;
+            info_with_callback.callback = callback;
+
+            lwan_tpl_apply_with_buffer(tpl, response->buffer,
+                        &info_with_callback);
+        }
         cache_entry_unref(cache, &info->base);
 
         return HTTP_OK;
@@ -319,6 +331,7 @@ main(void)
         TPL_VAR_STR(struct ip_info_t, metro.code),
         TPL_VAR_STR(struct ip_info_t, metro.area),
         TPL_VAR_STR(struct ip_info_t, ip),
+        TPL_VAR_STR(struct ip_info_t, callback),
         TPL_VAR_SENTINEL
     };
 
