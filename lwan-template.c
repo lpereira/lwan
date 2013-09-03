@@ -499,7 +499,7 @@ var_get_as_string(lwan_tpl_chunk_t *chunk,
         goto end;
 
     char *value;
-    value = descriptor->get_as_string((void *)(variables + descriptor->offset),
+    value = descriptor->get_as_string((void *)((char *)variables + descriptor->offset),
                 allocated, length);
     if (LIKELY(value))
         return value;
@@ -521,7 +521,7 @@ var_get_is_empty(lwan_tpl_chunk_t *chunk,
     if (UNLIKELY(!descriptor))
         return true;
 
-    return descriptor->get_is_empty((void *)(variables + descriptor->offset));
+    return descriptor->get_is_empty((void *)((char *)variables + descriptor->offset));
 }
 
 lwan_tpl_chunk_t *
