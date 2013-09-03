@@ -33,7 +33,7 @@ struct strbuf_t_ {
         char *buffer;
         const char *static_buffer;
     } value;
-    unsigned char is_static : 1;
+    unsigned int is_static : 1;
 };
 
 strbuf_t	*strbuf_new_with_size(size_t size);
