@@ -131,7 +131,11 @@ bool
 _lwan_tpl_str_is_empty(void *ptr)
 {
     char *str = ptr;
-    return !str || !*str;
+    if (!str)
+        return true;
+    if (*str == '\0')
+        return true;
+    return false;
 }
 
 static int
@@ -194,10 +198,15 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
         if (variable[length] == '?') {
             chunk->action = TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY;
             variable[length] = '\0';
+            chunk->data = hash_find(tpl->descriptor_hash, variable + 1);
+            if (!chunk->data) {
+                free(chunk);
+                return -ENOKEY;
+            }
         } else {
             chunk->action = TPL_ACTION_LIST_END_ITER;
+            chunk->data = strdup(variable + 1);
         }
-        chunk->data = strdup(variable + 1);
         break;
     default:
         if (variable[length] == '?') {
@@ -232,6 +241,7 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
+    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         /* do nothing */
         break;
     case TPL_ACTION_APPEND:
@@ -242,7 +252,6 @@ free_chunk(lwan_tpl_chunk_t *chunk)
         break;
     case TPL_ACTION_LIST_START_ITER:
     case TPL_ACTION_LIST_END_ITER:
-    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         free(chunk->data);
         break;
     }
@@ -483,9 +492,13 @@ until_end(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
 }
 
 static bool
-until_not_empty(lwan_tpl_chunk_t *chunk, void *data)
+until_found_end_if(lwan_tpl_chunk_t *chunk, void *data)
 {
-    return !(chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY && !strcmp(data, chunk->data));
+    if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
+        return false;
+    if (data != chunk->data)
+        return false;
+    return true;
 }
 
 static char*
@@ -560,25 +573,21 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             break;
         }
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
-            const char *var_name = (const char*)chunk->data;
-
-            if (UNLIKELY(!var_name))
-                break;
-
             if (!var_get_is_empty(chunk, variables)) {
                 chunk = lwan_tpl_apply_until(tpl,
                                     chunk->next,
                                     buf,
                                     variables,
-                                    until_not_empty,
+                                    until_found_end_if,
                                     chunk->data);
                 break;
             }
 
+            void *variable = chunk->data;
             for (chunk = chunk->next; chunk; chunk = chunk->next) {
                 if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
                     continue;
-                if (!strcmp(chunk->data, var_name))
+                if (chunk->data == variable)
                     break;
             }
 

@@ -22,3 +22,5 @@
   - Coroutine?
   - Hash table?
 - Use RCU (liburcu?) instead of rwlocks
+- Postprocess compiled template so that IF and ITER chunks points
+  directly to the actual END chunks
