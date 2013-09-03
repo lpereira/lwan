@@ -24,3 +24,11 @@
 - Use RCU (liburcu?) instead of rwlocks
 - Postprocess compiled template so that IF and ITER chunks points
   directly to the actual END chunks
+- Tune SQLite usage for Freegeoip sample app:
+  - Open one connection per thread, set MULTITHREADED mode
+  - Disable locking, journal
+  - Set MMAP sizes to database size
+
+     - or -
+ 
+  - Write a custom on-disk trie to lookup IP addresses
