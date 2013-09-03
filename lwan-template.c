@@ -228,8 +228,10 @@ free_chunk(lwan_tpl_chunk_t *chunk)
         return;
 
     switch (chunk->action) {
+    case TPL_ACTION_LAST:
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
+    case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
         /* do nothing */
         break;
     case TPL_ACTION_APPEND:
@@ -238,8 +240,11 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
         break;
-    default:
+    case TPL_ACTION_LIST_START_ITER:
+    case TPL_ACTION_LIST_END_ITER:
+    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         free(chunk->data);
+        break;
     }
 
     free(chunk);
