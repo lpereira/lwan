@@ -655,14 +655,16 @@ int main(int argc, char *argv[])
     if (!tpl)
         return 1;
 
-    printf("*** Applying template...\n");
-    strbuf_t *applied = lwan_tpl_apply(tpl, (struct test_struct[]) {{
-        .some_int = 42,
-        .a_string = "some string"
-    }});
-    puts(strbuf_get_buffer(applied));
+    printf("*** Applying template 100000 times...\n");
+    size_t i;
+    for (i = 0; i < 100000; i++) {
+        strbuf_t *applied = lwan_tpl_apply(tpl, (struct test_struct[]) {{
+            .some_int = 42,
+            .a_string = "some string"
+        }});
+        strbuf_free(applied);
+    }
 
-    strbuf_free(applied);
     lwan_tpl_free(tpl);
     return 0;
 }
