@@ -287,33 +287,31 @@ templated_output(lwan_request_t *request,
                  lwan_response_t *response,
                  void *data)
 {
+    lwan_tpl_t *tpl = data;
     struct ip_info_t *info = internal_query(request);
-    if (LIKELY(info)) {
-        lwan_tpl_t *tpl = data;
+    if (UNLIKELY(!info))
+        return HTTP_NOT_FOUND;
 
-        if (data == json_template)
-            response->mime_type = "application/json; charset=UTF-8";
-        else if (data == xml_template)
-            response->mime_type = "application/xml; charset=UTF-8";
-        else
-            response->mime_type = "text/plain; charset=UTF-8";
+    if (data == json_template)
+        response->mime_type = "application/json; charset=UTF-8";
+    else if (data == xml_template)
+        response->mime_type = "application/xml; charset=UTF-8";
+    else
+        response->mime_type = "text/plain; charset=UTF-8";
 
-        const char *callback = lwan_request_get_query_param(request, "callback");
-        if (!callback) {
-            lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
-        } else {
-            struct ip_info_t info_with_callback = *info;
-            info_with_callback.callback = callback;
+    const char *callback = lwan_request_get_query_param(request, "callback");
+    if (!callback) {
+        lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
+    } else {
+        struct ip_info_t info_with_callback = *info;
+        info_with_callback.callback = callback;
 
-            lwan_tpl_apply_with_buffer(tpl, response->buffer,
-                        &info_with_callback);
-        }
-        cache_entry_unref(cache, &info->base);
-
-        return HTTP_OK;
+        lwan_tpl_apply_with_buffer(tpl, response->buffer,
+                    &info_with_callback);
     }
+    cache_entry_unref(cache, &info->base);
 
-    return HTTP_NOT_FOUND;
+    return HTTP_OK;
 }
 
 int
