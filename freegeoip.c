@@ -167,7 +167,7 @@ static bool
 is_reserved_ip(in_addr_t ip)
 {
     size_t i;
-    for (i = 0; i < (sizeof(reserved_ips) / sizeof(reserved_ips[0])); i++) {
+    for (i = 0; i < N_ELEMENTS(reserved_ips); i++) {
         if (net_contains_ip(&reserved_ips[i], ip))
             return true;
     }
