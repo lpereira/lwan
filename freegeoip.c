@@ -30,6 +30,9 @@
 #include "lwan-serve-files.h"
 #include "lwan-template.h"
 
+/* Set to 0 to disable */
+#define QUERIES_PER_HOUR 10000
+
 struct ip_info_t {
     struct cache_entry_t base;
     struct {
@@ -47,6 +50,15 @@ struct ip_info_t {
     char *ip;
     const char *callback;
 };
+
+#if QUERIES_PER_HOUR != 0
+struct query_limit_t {
+    struct cache_entry_t base;
+    unsigned queries;
+};
+
+static struct cache_t *query_limit;
+#endif
 
 union ip_to_octet {
     unsigned char octet[sizeof(in_addr_t)];
@@ -210,7 +222,7 @@ create_ipinfo(const char *key, void *context __attribute__((unused)))
     sqlite3_stmt *stmt;
     struct ip_info_t *ip_info = NULL;
     struct in_addr addr;
-    
+
     if (UNLIKELY(!inet_aton(key, &addr)))
         goto end_no_finalize;
 
@@ -262,39 +274,87 @@ end_no_finalize:
     return (struct cache_entry_t *)ip_info;
 }
 
-static struct ip_info_t *
-internal_query(lwan_request_t *request)
+#if QUERIES_PER_HOUR != 0
+static struct cache_entry_t *
+create_query_limit(const char *key __attribute__((unused)),
+            void *context __attribute__((unused)))
 {
-    const char *ip_address;
+    struct query_limit_t *entry = malloc(sizeof(*entry));
+    if (LIKELY(entry))
+        entry->queries = 0;
+    return (struct cache_entry_t *)entry;
+}
+
+static void
+destroy_query_limit(struct cache_entry_t *entry,
+            void *context __attribute__((unused)))
+{
+    free(entry);
+}
+#endif
+
+static struct ip_info_t *
+internal_query(lwan_request_t *request, const char *ip_address)
+{
+    const char *query;
 
     if (request->url.len == 0)
-        ip_address = lwan_request_get_remote_address(request,
-                                                     request->buffer.value,
-                                                     INET_ADDRSTRLEN);
+        query = ip_address;
     else if (request->url.len < 7)
-        ip_address = NULL;
+        query = NULL;
     else
-        ip_address = request->url.value;
-    if (UNLIKELY(!ip_address))
+        query = request->url.value;
+    if (UNLIKELY(!query))
         return NULL;
 
     int error;
-    return (struct ip_info_t *)cache_get_and_ref_entry(cache, ip_address, &error);
+    return (struct ip_info_t *)cache_get_and_ref_entry(cache, query, &error);
 }
+
+#if QUERIES_PER_HOUR != 0
+static bool is_rate_limited(const char *ip_address)
+{
+    bool limited;
+    int error;
+    struct query_limit_t *limit;
+
+    limit = (struct query_limit_t *)
+                cache_get_and_ref_entry(query_limit, ip_address, &error);
+    if (!limit)
+        return true;
+
+    limited = ATOMIC_AAF(&limit->queries, 1) > QUERIES_PER_HOUR;
+    cache_entry_unref(query_limit, &limit->base);
+
+    return limited;
+}
+#endif
 
 static lwan_http_status_t
 templated_output(lwan_request_t *request,
                  lwan_response_t *response,
                  void *data)
 {
+    char ip_address[INET_ADDRSTRLEN];
     lwan_tpl_t *tpl = data;
-    struct ip_info_t *info = internal_query(request);
+    struct ip_info_t *info;
+
+    if (UNLIKELY(!lwan_request_get_remote_address(request, ip_address,
+                INET_ADDRSTRLEN)))
+        return HTTP_INTERNAL_ERROR;
+
+#if QUERIES_PER_HOUR != 0
+    if (UNLIKELY(is_rate_limited(ip_address)))
+        return HTTP_FORBIDDEN;
+#endif
+
+    info = internal_query(request, ip_address);
     if (UNLIKELY(!info))
         return HTTP_NOT_FOUND;
 
-    if (data == json_template)
+    if (tpl == json_template)
         response->mime_type = "application/json; charset=UTF-8";
-    else if (data == xml_template)
+    else if (tpl == xml_template)
         response->mime_type = "application/xml; charset=UTF-8";
     else
         response->mime_type = "text/plain; charset=UTF-8";
@@ -359,6 +419,15 @@ main(void)
                     sqlite3_errstr(result));
     cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
+#if QUERIES_PER_HOUR != 0
+    lwan_status_info("Limiting to %d queries per hour per client",
+                QUERIES_PER_HOUR);
+    query_limit = cache_create(create_query_limit,
+                destroy_query_limit, NULL, 3600);
+#else
+    lwan_status_info("Rate-limiting disabled");
+#endif
+
     lwan_url_map_t default_map[] = {
         { .prefix = "/json/", .callback = templated_output, .data = json_template },
         { .prefix = "/xml/", .callback = templated_output, .data = xml_template },
@@ -376,9 +445,12 @@ main(void)
     lwan_status_info("Cache stats: %d hits, %d misses, %d evictions",
             hits, misses, evictions);
 
-    lwan_tpl_free(json_template);
-    lwan_tpl_free(xml_template);
     lwan_tpl_free(csv_template);
+    lwan_tpl_free(xml_template);
+    lwan_tpl_free(json_template);
+#if QUERIES_PER_HOUR != 0
+    cache_destroy(query_limit);
+#endif
     cache_destroy(cache);
     sqlite3_close(db);
 
