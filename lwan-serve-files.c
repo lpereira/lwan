@@ -53,7 +53,7 @@ struct serve_files_priv_t_ {
         int fd;
     } root;
 
-    int extra_modes;
+    int open_mode;
     char *index_html;
 
     struct cache_t *cache;
@@ -163,7 +163,7 @@ _mmap_init(file_cache_entry_t *ce,
     bool success;
 
     file_fd = openat(priv->root.fd, full_path + priv->root.path_len + 1,
-                O_RDONLY | priv->extra_modes);
+                priv->open_mode);
     if (UNLIKELY(file_fd < 0))
         return false;
 
@@ -296,7 +296,7 @@ serve_files_init(void *args)
     char *canonical_root;
     int root_fd;
     serve_files_priv_t *priv;
-    int extra_modes = O_NOATIME;
+    int open_mode = O_RDONLY | O_NOATIME;
 
     canonical_root = realpath(settings->root_path, NULL);
     if (!canonical_root) {
@@ -305,10 +305,10 @@ serve_files_init(void *args)
         goto out_realpath;
     }
 
-    root_fd = open(canonical_root, O_RDONLY | O_DIRECTORY | extra_modes);
+    root_fd = open(canonical_root, O_DIRECTORY | open_mode);
     if (root_fd < 0) {
-        root_fd = open(canonical_root, O_RDONLY | O_DIRECTORY);
-        extra_modes &= ~O_NOATIME;
+        root_fd = open(canonical_root, O_DIRECTORY);
+        open_mode &= ~O_NOATIME;
     }
     if (root_fd < 0) {
         lwan_status_perror("Could not open directory \"%s\"",
@@ -332,7 +332,7 @@ serve_files_init(void *args)
     priv->root.path = canonical_root;
     priv->root.path_len = strlen(canonical_root);
     priv->root.fd = root_fd;
-    priv->extra_modes = extra_modes;
+    priv->open_mode = open_mode;
     priv->index_html = settings->index_html ? settings->index_html : index_html;
 
     return priv;
@@ -491,7 +491,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
          * coroutine is freed.
          */
         int file_fd = lwan_openat(request, priv->root.fd, sd->filename,
-                                  O_RDONLY | priv->extra_modes);
+                                  priv->open_mode);
         if (UNLIKELY(file_fd < 0)) {
             switch (file_fd) {
             case -EACCES:
