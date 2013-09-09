@@ -332,9 +332,6 @@ feed_into_compiler(lwan_tpl_t *tpl,
         PARSE_ERROR("Closing brace expected");
 
     case STATE_SECOND_CLOSING_BRACE:
-        if (ch == '}')
-            PARSE_ERROR("Unexpected close brace");
-
         if (strbuf_get_length(buf) == 0)
             PARSE_ERROR("Expecting variable name");
 
