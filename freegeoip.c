@@ -307,8 +307,8 @@ internal_query(lwan_request_t *request, const char *ip_address)
     if (UNLIKELY(!query))
         return NULL;
 
-    int error;
-    return (struct ip_info_t *)cache_get_and_ref_entry(cache, query, &error);
+    return (struct ip_info_t *)cache_coro_get_and_ref_entry(cache,
+                request->coro, query);
 }
 
 #if QUERIES_PER_HOUR != 0
@@ -369,7 +369,6 @@ templated_output(lwan_request_t *request,
         lwan_tpl_apply_with_buffer(tpl, response->buffer,
                     &info_with_callback);
     }
-    cache_entry_unref(cache, &info->base);
 
     return HTTP_OK;
 }
