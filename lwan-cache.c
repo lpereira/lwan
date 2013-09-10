@@ -127,13 +127,20 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   struct cache_entry_t *entry;
 
   assert(cache);
+  assert(error);
+  assert(key);
 
   *error = 0;
 
+  /* If the lock can't be obtained, return an error to allow, for instance,
+   * yielding from the coroutine and trying to obtain the lock at a later
+   * time. */
   if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->hash.lock) == EBUSY)) {
     *error = EWOULDBLOCK;
     return NULL;
   }
+  /* Find the item in the hash table. If it's there, increment the reference
+   * and return it. */
   entry = hash_find(cache->hash.table, key);
   if (LIKELY(entry)) {
     ATOMIC_INC(entry->refs);
@@ -141,6 +148,8 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     ATOMIC_INC(cache->stats.hits);
     return entry;
   }
+
+  /* Unlock the cache so the item can be created. */
   pthread_rwlock_unlock(&cache->hash.lock);
 
   ATOMIC_INC(cache->stats.misses);
@@ -153,14 +162,20 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   entry->key = strdup(key);
 
 try_adding_again:
+  /* Try adding the item to the hash table. If it's already there,
+   * destroy the newly-created item, and return the older item. If
+   * the item wasn't there, adjust its time to die and add to the
+   * reap queue. */
   pthread_rwlock_wrlock(&cache->hash.lock);
   switch (hash_add_unique(cache->hash.table, entry->key, entry)) {
   case -EEXIST: {
       struct cache_entry_t *tmp_entry;
 
+      /* We don't need to write to the hash table anymore, unlock
+       * it for writing and lock it for reading. */
       pthread_rwlock_unlock(&cache->hash.lock);
-
       pthread_rwlock_rdlock(&cache->hash.lock);
+
       tmp_entry = hash_find(cache->hash.table, key);
       if (tmp_entry) {
         cache->cb.destroy_entry(entry, cache->cb.context);
@@ -169,9 +184,16 @@ try_adding_again:
       }
 
       pthread_rwlock_unlock(&cache->hash.lock);
+      /* This shouldn't really happen, but if it does, just try to
+       * add the item to the hash table again. */
       goto try_adding_again;
     }
   default:
+    /* This might be any error while reallocating memory to make
+     * room for the item inside the hasht able. Just don't add, but
+     * return a FLOATING item with one reference, and make it already
+     * expired, so that the first unref will actually destroy this
+     * item. */
     entry->flags = FLOATING;
     entry->time_to_die = time(NULL);
     entry->refs = 1;
@@ -195,6 +217,8 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
 {
   assert(entry);
 
+  /* FLOATING entries without references won't be picked up by the pruner
+   * job, so destroy them right here. */
   if (!ATOMIC_DEC(entry->refs) && entry->flags & FLOATING)
     cache->cb.destroy_entry(entry, cache->cb.context);
 }
