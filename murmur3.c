@@ -9,6 +9,7 @@
 
 #include "murmur3.h"
 #include <stdint.h>
+#include <string.h>
 
 //-----------------------------------------------------------------------------
 // Platform-specific functions and macros
@@ -307,8 +308,9 @@ MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed,
 
 //-----------------------------------------------------------------------------
 unsigned int
-murmur3_simple(const void *keyptr, unsigned int len)
+murmur3_simple(const void *keyptr)
 {
+    size_t len = strlen((char *)keyptr);
 #ifdef __x86_64__
     uint64_t hash[2];
     MurmurHash3_x64_128(keyptr, len, 0xdeadbeef, hash);

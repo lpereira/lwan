@@ -8,7 +8,7 @@
 
 //-----------------------------------------------------------------------------
 
-unsigned int murmur3_simple(const void *key, unsigned int len);
+unsigned int murmur3_simple(const void *key);
 
 //-----------------------------------------------------------------------------
 

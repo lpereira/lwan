@@ -46,15 +46,14 @@ struct hash_bucket {
 
 struct hash {
 	unsigned count;
-	unsigned (*hash_value)(const void *key, unsigned len);
-	int (*key_compare)(const void *k1, const void *k2, size_t len);
-	int (*key_length)(const void *key);
+	unsigned (*hash_value)(const void *key);
+	int (*key_compare)(const void *k1, const void *k2);
 	void (*free_value)(void *value);
 	void (*free_key)(void *value);
 	struct hash_bucket buckets[];
 };
 
-static inline unsigned hash_int(const void *keyptr, unsigned len __attribute__((unused)))
+static inline unsigned hash_int(const void *keyptr)
 {
 	/* http://www.concentric.net/~Ttwang/tech/inthash.htm */
 	int key = (int)(long)keyptr;
@@ -69,10 +68,11 @@ static inline unsigned hash_int(const void *keyptr, unsigned len __attribute__((
 }
 
 #ifdef USE_HARDWARE_CRC32
-static inline unsigned hash_crc32(const void *keyptr, unsigned len)
+static inline unsigned hash_crc32(const void *keyptr)
 {
 	unsigned hash = 0xABAD1DEA;
 	const char *key = keyptr;
+	size_t len = strlen(key);
 
 	while (len >= sizeof(uint32_t)) {
 		hash = __builtin_ia32_crc32si(hash, *((uint32_t *)key));
@@ -101,21 +101,16 @@ static inline unsigned calculate_pos(unsigned hash)
 }
 #endif
 
-static inline int hash_int_key_cmp(const void *k1, const void *k2, size_t len __attribute__((unused)))
+static inline int hash_int_key_cmp(const void *k1, const void *k2)
 {
 	int a = (int)(long)k1;
 	int b = (int)(long)k2;
 	return a - b;
 }
 
-static int hash_int_length(const void *key __attribute__((unused)))
-{
-	return sizeof(int);
-}
-
-static struct hash *hash_internal_new(unsigned (*hash_value)(const void *key, unsigned len),
-			int (*key_compare)(const void *k1, const void *k2, size_t len),
-			int (*key_length)(const void *key),
+static struct hash *hash_internal_new(
+			unsigned (*hash_value)(const void *key),
+			int (*key_compare)(const void *k1, const void *k2),
 			void (*free_key)(void *value),
 			void (*free_value)(void *value))
 {
@@ -125,7 +120,6 @@ static struct hash *hash_internal_new(unsigned (*hash_value)(const void *key, un
 		return NULL;
 	hash->hash_value = hash_value;
 	hash->key_compare = key_compare;
-	hash->key_length = key_length;
 	hash->free_value = free_value;
 	hash->free_key = free_key;
 	return hash;
@@ -136,7 +130,6 @@ struct hash *hash_int_new(void (*free_key)(void *value),
 {
 	return hash_internal_new(hash_int,
 			hash_int_key_cmp,
-			hash_int_length,
 			free_key,
 			free_value);
 }
@@ -150,8 +143,7 @@ struct hash *hash_str_new(void (*free_key)(void *value),
 #else
 			murmur3_simple,
 #endif
-			(int (*)(const void *, const void *, size_t))strncmp,
-			(int (*)(const void *))strlen,
+			(int (*)(const void *, const void *))strcmp,
 			free_key,
 			free_value);
 }
@@ -189,8 +181,7 @@ void hash_free(struct hash *hash)
  */
 int hash_add(struct hash *hash, const void *key, const void *value)
 {
-	unsigned keylen = hash->key_length(key);
-	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned hashval = hash->hash_value(key);
 	unsigned pos = calculate_pos(hashval);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
@@ -208,7 +199,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key, keylen);
+		int c = hash->key_compare(key, entry->key);
 		if (c == 0) {
 			if (hash->free_value)
 				hash->free_value((void *)entry->value);
@@ -231,8 +222,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 /* similar to hash_add(), but fails if key already exists */
 int hash_add_unique(struct hash *hash, const void *key, const void *value)
 {
-	unsigned keylen = hash->key_length(key);
-	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned hashval = hash->hash_value(key);
 	unsigned pos = calculate_pos(hashval);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
@@ -250,7 +240,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key, keylen);
+		int c = hash->key_compare(key, entry->key);
 		if (c == 0)
 			return -EEXIST;
 		else if (c < 0) {
@@ -269,8 +259,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 
 static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 								const char *key,
-								unsigned hashval,
-								unsigned keylen)
+								unsigned hashval)
 {
 	unsigned pos = calculate_pos(hashval);
 	const struct hash_bucket *bucket = hash->buckets + pos;
@@ -280,7 +269,7 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 	while (lower_bound < upper_bound) {
 		size_t idx = (lower_bound + upper_bound) / 2;
 		const struct hash_entry *ptr = bucket->entries + idx;
-		int cmp = hash->key_compare(key, ptr->key, keylen);
+		int cmp = hash->key_compare(key, ptr->key);
 		if (!cmp)
 			return (void *)ptr;
 		if (cmp > 0)
@@ -295,9 +284,8 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 void *hash_find(const struct hash *hash, const void *key)
 {
 	const struct hash_entry *entry;
-	unsigned keylen = hash->key_length(key);
 
-	entry = hash_find_entry(hash, key, hash->hash_value(key, keylen), keylen);
+	entry = hash_find_entry(hash, key, hash->hash_value(key));
 	if (entry)
 		return (void *)entry->value;
 	return NULL;
@@ -305,14 +293,13 @@ void *hash_find(const struct hash *hash, const void *key)
 
 int hash_del(struct hash *hash, const void *key)
 {
-	unsigned keylen = hash->key_length(key);
-	unsigned hashval = hash->hash_value(key, keylen);
+	unsigned hashval = hash->hash_value(key);
 	unsigned pos = calculate_pos(hashval);
 	unsigned steps_used, steps_total;
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
-	entry = hash_find_entry(hash, key, hashval, keylen);
+	entry = hash_find_entry(hash, key, hashval);
 	if (entry == NULL)
 		return -ENOENT;
 
