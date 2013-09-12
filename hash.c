@@ -30,8 +30,8 @@
 #include <string.h>
 #include <errno.h>
 
-static const unsigned n_buckets = 32;
-static const unsigned steps = 8;
+static const unsigned n_buckets = 512;
+static const unsigned steps = 64;
 
 struct hash_entry {
 	const char *key;
@@ -88,16 +88,6 @@ static inline unsigned hash_crc32(const void *keyptr)
 		hash = __builtin_ia32_crc32qi(hash, *key);
 
 	return hash;
-}
-
-static inline unsigned calculate_pos(unsigned hash)
-{
-	return __builtin_popcount(hash);
-}
-#else
-static inline unsigned calculate_pos(unsigned hash)
-{
-	return hash % n_buckets;
 }
 #endif
 
@@ -182,7 +172,7 @@ void hash_free(struct hash *hash)
 int hash_add(struct hash *hash, const void *key, const void *value)
 {
 	unsigned hashval = hash->hash_value(key);
-	unsigned pos = calculate_pos(hashval);
+	unsigned pos = hashval & (n_buckets - 1);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
@@ -223,7 +213,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 int hash_add_unique(struct hash *hash, const void *key, const void *value)
 {
 	unsigned hashval = hash->hash_value(key);
-	unsigned pos = calculate_pos(hashval);
+	unsigned pos = hashval & (n_buckets - 1);
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;
 
@@ -261,7 +251,7 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 								const char *key,
 								unsigned hashval)
 {
-	unsigned pos = calculate_pos(hashval);
+	unsigned pos = hashval & (n_buckets - 1);
 	const struct hash_bucket *bucket = hash->buckets + pos;
 	size_t lower_bound = 0;
 	size_t upper_bound = bucket->used;
@@ -294,7 +284,7 @@ void *hash_find(const struct hash *hash, const void *key)
 int hash_del(struct hash *hash, const void *key)
 {
 	unsigned hashval = hash->hash_value(key);
-	unsigned pos = calculate_pos(hashval);
+	unsigned pos = hashval & (n_buckets - 1);
 	unsigned steps_used, steps_total;
 	struct hash_bucket *bucket = hash->buckets + pos;
 	struct hash_entry *entry, *entry_end;

@@ -9,11 +9,10 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 
 	include(CheckCCompilerFlag)
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
-	check_c_compiler_flag(-mpopcnt HAS_POPCNT)
-	if (HAS_CRC32 AND HAS_POPCNT)
+	if (HAS_CRC32)
 		set(USE_HARDWARE_CRC32 1)
 		add_definitions("-DUSE_HARDWARE_CRC32=1")
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32 -mpopcnt")
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32")
 	endif ()
 endif ()
 
