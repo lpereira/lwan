@@ -70,7 +70,7 @@ struct coro_t_ {
     coro_defer_t *defer;
     void *data;
 
-    ucontext_t context;
+    coro_context_t context;
     int yield_value;
 
 #ifndef NDEBUG
@@ -81,70 +81,100 @@ struct coro_t_ {
 #endif
 };
 
+static void _coro_entry_point(void *data);
+
 /*
- * These swapcontext()/getcontext() implementations were obtained from glibc
- * and modified slightly to not save/restore the floating point registers
- * and signal mask.  They're Copyright (C) 2001, 2002, 2003 Free Software
- * Foundation, Inc and are distributed under GNU LGPL version 2.1 (or
- * later).  I'm not sure if I can distribute them inside a GPL program;
- * they're straightforward so I'm assuming there won't be any problem; if
- * there is, I'll just roll my own.
+ * These swapcontext()/getcontext()/makecontext() implementations were
+ * obtained from glibc and modified slightly to not save/restore the
+ * floating point registers and signal mask.  They're Copyright (C) 2001,
+ * 2002, 2003 Free Software Foundation, Inc and are distributed under GNU
+ * LGPL version 2.1 (or later).  I'm not sure if I can distribute them
+ * inside a GPL program; they're straightforward so I'm assuming there won't
+ * be any problem; if there is, I'll just roll my own.
  *     -- Leandro
  */
-void _coro_swapcontext(ucontext_t *current, ucontext_t *other);
+void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
 #ifdef __x86_64__
     asm(
     ".text\n\t"
     ".p2align 4,,15\n\t"
     ".globl _coro_swapcontext\n\t"
     "_coro_swapcontext:\n\t"
-    "mov    %rbx,0x80(%rdi)\n\t"
-    "mov    %rbp,0x78(%rdi)\n\t"
-    "mov    %r12,0x48(%rdi)\n\t"
-    "mov    %r13,0x50(%rdi)\n\t"
-    "mov    %r14,0x58(%rdi)\n\t"
-    "mov    %r15,0x60(%rdi)\n\t"
-    "mov    %rdi,0x68(%rdi)\n\t"
-    "mov    %rsi,0x70(%rdi)\n\t"
+    "mov    %rbx,0x58(%rdi)\n\t"
+    "mov    %rbp,0x50(%rdi)\n\t"
+    "mov    %r12,0x20(%rdi)\n\t"
+    "mov    %r13,0x28(%rdi)\n\t"
+    "mov    %r14,0x30(%rdi)\n\t"
+    "mov    %r15,0x38(%rdi)\n\t"
+    "mov    %rdi,0x40(%rdi)\n\t"
+    "mov    %rsi,0x48(%rdi)\n\t"
     "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,0xa8(%rdi)\n\t"
+    "mov    %rcx,0x80(%rdi)\n\t"
     "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,0xa0(%rdi)\n\t"
-    "mov    0xa0(%rsi),%rsp\n\t"
-    "mov    0x80(%rsi),%rbx\n\t"
-    "mov    0x78(%rsi),%rbp\n\t"
-    "mov    0x48(%rsi),%r12\n\t"
-    "mov    0x50(%rsi),%r13\n\t"
-    "mov    0x58(%rsi),%r14\n\t"
-    "mov    0x60(%rsi),%r15\n\t"
-    "mov    0xa8(%rsi),%rcx\n\t"
+    "mov    %rcx,0x78(%rdi)\n\t"
+    "mov    0x78(%rsi),%rsp\n\t"
+    "mov    0x58(%rsi),%rbx\n\t"
+    "mov    0x50(%rsi),%rbp\n\t"
+    "mov    0x20(%rsi),%r12\n\t"
+    "mov    0x28(%rsi),%r13\n\t"
+    "mov    0x30(%rsi),%r14\n\t"
+    "mov    0x38(%rsi),%r15\n\t"
+    "mov    0x80(%rsi),%rcx\n\t"
     "push   %rcx\n\t"
-    "mov    0x68(%rsi),%rdi\n\t"
-    "mov    0x70(%rsi),%rsi\n\t"
+    "mov    0x40(%rsi),%rdi\n\t"
+    "mov    0x48(%rsi),%rsi\n\t"
     "retq\n\t");
 #else
 #define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
 
-int _coro_getcontext(ucontext_t *current);
+#ifdef __x86_64__
+static void
+_coro_makecontext(coro_t *coro, size_t stack_size)
+{
+    greg_t *sp;
+    void *stack = coro + 1;
+
+    /* Generate room on stack for parameter if needed and uc_link.  */
+    sp = (greg_t *) ((uintptr_t) stack + stack_size);
+    sp--;
+    /* Align stack and make space for trampoline address.  */
+    sp = (greg_t *) ((((uintptr_t) sp) & -16L) - 8);
+
+    /* Setup context ucp */
+    coro->context[16 /* RIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[11 /* RBX */] = (uintptr_t) &sp[1];
+    coro->context[15 /* RSP */] = (uintptr_t) sp;
+
+    /* Setup stack */
+    sp[0] = (uintptr_t) NULL;
+
+    /* Function data */
+    coro->context[8 /* RDI */] = (uintptr_t) coro;
+}
+#else
+#define _coro_makecontext(ctx, fun, args, ...) makecontext(ctx, fun, args, __VA_ARGS__)
+#endif
+
+int _coro_getcontext(coro_context_t *current);
 #ifdef __x86_64__
     asm(
     ".text\n\t"
     ".p2align 4,,15\n\t"
     ".globl _coro_getcontext\n\t"
     "_coro_getcontext:\n\t"
-    "mov    %rbx,0x80(%rdi)\n\t"
-    "mov    %rbp,0x78(%rdi)\n\t"
-    "mov    %r12,0x48(%rdi)\n\t"
-    "mov    %r13,0x50(%rdi)\n\t"
-    "mov    %r14,0x58(%rdi)\n\t"
-    "mov    %r15,0x60(%rdi)\n\t"
-    "mov    %rdi,0x68(%rdi)\n\t"
-    "mov    %rsi,0x70(%rdi)\n\t"
+    "mov    %rbx,0x58(%rdi)\n\t"
+    "mov    %rbp,0x50(%rdi)\n\t"
+    "mov    %r12,0x20(%rdi)\n\t"
+    "mov    %r13,0x28(%rdi)\n\t"
+    "mov    %r14,0x30(%rdi)\n\t"
+    "mov    %r15,0x38(%rdi)\n\t"
+    "mov    %rdi,0x40(%rdi)\n\t"
+    "mov    %rsi,0x48(%rdi)\n\t"
     "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,0xa8(%rdi)\n\t"
+    "mov    %rcx,0x80(%rdi)\n\t"
     "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,0xa0(%rdi)\n\t"
+    "mov    %rcx,0x78(%rdi)\n\t"
     "retq\n\t");
 #else
 #define _coro_getcontext(cur) getcontext(cur)
@@ -152,12 +182,9 @@ int _coro_getcontext(ucontext_t *current);
 
 #ifdef __x86_64__
 static void
-_coro_entry_point(uint32_t part0, uint32_t part1)
+_coro_entry_point(void *data)
 {
-    union ptr_splitter p = {
-        .part = { part0, part1 }
-    };
-    coro_t *coro = p.ptr;
+    coro_t *coro = data;
     int return_value = coro->function(coro);
 #ifndef NDEBUG
     coro->state = CORO_FINISHED;
@@ -180,7 +207,6 @@ coro_t *
 coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data)
 {
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
-    void *stack = (coro_t *)coro + 1;
 
 #ifndef NDEBUG
     coro->state = CORO_NEW;
@@ -195,16 +221,18 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
 #endif
 
     _coro_getcontext(&coro->context);
+
+#ifdef __x86_64__
+    _coro_makecontext(coro, stack_size);
+#else
+    void *stack = (coro_t *)coro + 1;
+
     coro->context.uc_stack.ss_sp = stack;
     coro->context.uc_stack.ss_size = stack_size;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-#ifdef __x86_64__
-    union ptr_splitter p = { .ptr = coro };
-    makecontext(&coro->context, (void (*)())_coro_entry_point, 2, p.part[0], p.part[1]);
-#else
-    makecontext(&coro->context, (void (*)())_coro_entry_point, 1, coro);
+    _coro_makecontext(&coro->context, (void (*)())_coro_entry_point, 1, coro);
 #endif
 
     return coro;
@@ -222,29 +250,18 @@ coro_get_data(coro_t *coro)
     return LIKELY(coro) ? coro->data : NULL;
 }
 
-static ALWAYS_INLINE void
-_context_copy(ucontext_t *dest, ucontext_t *src)
-{
-#ifdef __x86_64__
-    /* Copy only what is used by our x86-64 swapcontext() implementation */
-    dest->uc_stack.ss_sp = src->uc_stack.ss_sp;
-    memcpy(&dest->uc_mcontext.gregs, &src->uc_mcontext.gregs, sizeof(gregset_t));
-#else
-    *dest = *src;
-#endif
-}
-
 ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
     assert(coro);
     assert(coro->state != CORO_FINISHED);
 
-    ucontext_t prev_caller;
-    _context_copy(&prev_caller, &coro->switcher->caller);
+    coro_context_t prev_caller;
+
+    memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
-    _context_copy(&coro->context, &coro->switcher->callee);
-    _context_copy(&coro->switcher->caller, &prev_caller);
+    memcpy(&coro->context, &coro->switcher->callee, sizeof(prev_caller));
+    memcpy(&coro->switcher->caller, &prev_caller, sizeof(prev_caller));
 
     return coro->yield_value;
 }

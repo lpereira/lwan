@@ -28,9 +28,15 @@ typedef struct coro_switcher_t_		coro_switcher_t;
 
 typedef int    (*coro_function_t)	(coro_t *coro);
 
+#ifdef __x86_64__
+typedef gregset_t coro_context_t;
+#else
+typedef ucontext_t coro_context_t;
+#endif
+
 struct coro_switcher_t_ {
-    ucontext_t caller;
-    ucontext_t callee;
+    coro_context_t caller;
+    coro_context_t callee;
 };
 
 coro_t *coro_new(coro_switcher_t *switcher, coro_function_t function, void *data);
