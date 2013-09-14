@@ -32,7 +32,11 @@
 #define GET_AND_REF_TRIES 5
 
 enum {
-  FLOATING = 1<<0
+  /* Entry flags */
+  FLOATING = 1<<0,
+
+  /* Cache flags */
+  SHUTTING_DOWN = 1<<0
 };
 
 struct cache_t {
@@ -52,12 +56,14 @@ struct cache_t {
   struct {
     time_t time_to_live;
   } settings;
+#ifndef NDEBUG
   struct {
     unsigned hits;
     unsigned misses;
     unsigned evicted;
   } stats;
-  bool shutting_down : 1;
+#endif
+  unsigned flags;
 };
 
 static bool cache_pruner_job(void *data);
@@ -113,7 +119,7 @@ void cache_destroy(struct cache_t *cache)
   assert(cache);
 
   lwan_job_del(cache_pruner_job, cache);
-  cache->shutting_down = true;
+  cache->flags |= SHUTTING_DOWN;
   cache_pruner_job(cache);
   pthread_rwlock_destroy(&cache->hash.lock);
   pthread_rwlock_destroy(&cache->queue.lock);
@@ -145,14 +151,18 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   if (LIKELY(entry)) {
     ATOMIC_INC(entry->refs);
     pthread_rwlock_unlock(&cache->hash.lock);
+#ifndef NDEBUG
     ATOMIC_INC(cache->stats.hits);
+#endif
     return entry;
   }
 
   /* Unlock the cache so the item can be created. */
   pthread_rwlock_unlock(&cache->hash.lock);
 
+#ifndef NDEBUG
   ATOMIC_INC(cache->stats.misses);
+#endif
 
   entry = cache->cb.create_entry(key, cache->cb.context);
   if (!entry)
@@ -228,7 +238,7 @@ static bool cache_pruner_job(void *data)
   struct cache_t *cache = data;
   struct cache_entry_t *node, *next;
   time_t now;
-  bool shutting_down = cache->shutting_down;
+  bool shutting_down = cache->flags & SHUTTING_DOWN;
   unsigned evicted = 0;
   struct list_head queue;
 
@@ -304,7 +314,9 @@ static bool cache_pruner_job(void *data)
   }
 
 end:
+#ifndef NDEBUG
   ATOMIC_AAF(&cache->stats.evicted, evicted);
+#endif
   return !!evicted;
 }
 
@@ -312,12 +324,22 @@ void cache_get_stats(struct cache_t *cache, unsigned *hits,
       unsigned *misses, unsigned *evicted)
 {
   assert(cache);
+#ifndef NDEBUG
   if (hits)
     *hits = cache->stats.hits;
   if (misses)
     *misses = cache->stats.misses;
   if (evicted)
     *evicted = cache->stats.evicted;
+#else
+  if (hits)
+    *hits = 0;
+  if (misses)
+    *misses = 0;
+  if (evicted)
+    *evicted = 0;
+  (void)cache;
+#endif
 }
 
 struct cache_entry_t *
