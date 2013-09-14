@@ -76,6 +76,8 @@ typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
 typedef struct lwan_handler_t_		lwan_handler_t;
+typedef struct lwan_value_t_		lwan_value_t;
+typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -136,6 +138,14 @@ enum {
     HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
 } lwan_http_header_str_t;
 
+typedef enum {
+    REQUEST_IS_KEEP_ALIVE      = 1<<0,
+    REQUEST_IS_ALIVE           = 1<<1,
+    REQUEST_SHOULD_RESUME_CORO = 1<<2,
+    REQUEST_WRITE_EVENTS       = 1<<3,
+    REQUEST_ACCEPT_DEFLATE     = 1<<4,
+} lwan_request_flags_t;
+
 struct lwan_key_value_t_ {
     char *key;
     char *value;
@@ -154,12 +164,26 @@ struct lwan_response_t_ {
     } stream;
 };
 
+struct lwan_value_t_ {
+    char *value;
+    size_t len;
+};
+
+struct lwan_request_parse_t_ {
+    lwan_value_t query_string;
+    lwan_value_t if_modified_since;
+    lwan_value_t range;
+    lwan_value_t accept_encoding;
+    lwan_value_t fragment;
+    char connection;
+};
+
 struct lwan_request_t_ {
-    lwan_http_method_t method;
-    lwan_http_version_t http_version;
+    coro_t *coro;
     lwan_response_t response;
     lwan_thread_t *thread;
-    coro_t *coro;
+    lwan_value_t buffer;
+    lwan_value_t url;
 
     struct sockaddr_in remote_address;
 
@@ -169,31 +193,19 @@ struct lwan_request_t_ {
     struct {
       lwan_key_value_t *base;
       size_t len;
-    } query_string_kv;
+    } query_params;
 
     struct {
-      char *value;
-      size_t len;
-    } buffer, url, query_string, fragment, if_modified_since, range, accept_encoding;
-
-    struct {
-        char connection;
         time_t if_modified_since;
         struct {
           off_t from;
           off_t to;
         } range;
-        struct {
-          unsigned int deflate : 1;
-        } accept_encoding;
     } header;
 
-    struct {
-        unsigned int is_keep_alive : 1,
-                     alive: 1,
-                     should_resume_coro: 1,
-                     write_events: 1;
-    } flags;
+    lwan_http_method_t method;
+    lwan_http_version_t http_version;
+    lwan_request_flags_t flags;
 };
 
 struct lwan_handler_t_ {

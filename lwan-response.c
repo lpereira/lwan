@@ -220,7 +220,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_UINT(strbuf_get_length(request->response.buffer));
     APPEND_CONSTANT("\r\nContent-Type: ");
     APPEND_STRING(request->response.mime_type);
-    if (request->flags.is_keep_alive)
+    if (request->flags & REQUEST_IS_KEEP_ALIVE)
         APPEND_CONSTANT("\r\nConnection: keep-alive");
     else
         APPEND_CONSTANT("\r\nConnection: close");

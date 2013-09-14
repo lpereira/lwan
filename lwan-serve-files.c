@@ -528,7 +528,7 @@ _mmap_serve(lwan_request_t *request, void *data)
     if (_client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    deflated = request->header.accept_encoding.deflate && md->compressed.size;
+    deflated = (request->flags & REQUEST_ACCEPT_DEFLATE) && md->compressed.size;
     if (LIKELY(deflated)) {
         contents = md->compressed.contents;
         size = md->compressed.size;

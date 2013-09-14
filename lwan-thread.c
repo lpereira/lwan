@@ -37,7 +37,7 @@ struct death_queue_t {
     lwan_request_t *requests;
 };
 
-static lwan_key_value_t empty_query_string_kv[] = {
+static lwan_key_value_t empty_query_params[] = {
     { .key = NULL, .value = NULL }
 };
 
@@ -49,30 +49,22 @@ static lwan_key_value_t empty_query_string_kv[] = {
 ALWAYS_INLINE void
 _reset_request(lwan_request_t *request)
 {
+    request->flags = 0;
+    if (request->query_params.base != empty_query_params) {
+        free(request->query_params.base);
+        request->query_params.base = empty_query_params;
+    }
+
     strbuf_t *response_buffer = request->response.buffer;
-    lwan_thread_t *thread = request->thread;
-    coro_t *coro = request->coro;
-    int fd = request->fd;
-    struct sockaddr_in remote_address = request->remote_address;
-
-    if (request->query_string_kv.base != empty_query_string_kv)
-        free(request->query_string_kv.base);
-
-    memset(request, 0, sizeof(*request));
-
-    request->fd = fd;
-    request->thread = thread;
-    request->coro = coro;
+    memset(&request->response, 0, sizeof(request->response));
     request->response.buffer = response_buffer;
-    request->query_string_kv.base = empty_query_string_kv;
-    request->remote_address = remote_address;
     strbuf_reset(request->response.buffer);
 }
 
 static ALWAYS_INLINE void
 _cleanup_coro(lwan_request_t *request)
 {
-    if (!request->coro || request->flags.should_resume_coro)
+    if (!request->coro || request->flags & REQUEST_SHOULD_RESUME_CORO)
         return;
     /* FIXME: Reuse coro? */
     coro_free(request->coro);
@@ -86,7 +78,7 @@ _handle_hangup(lwan_request_t *request)
         coro_free(request->coro);
         request->coro = NULL;
     }
-    request->flags.alive = false;
+    request->flags &= ~REQUEST_IS_ALIVE;
     close(request->fd);
 }
 
@@ -118,8 +110,8 @@ _spawn_coro_if_needed(lwan_request_t *request, coro_switcher_t *switcher)
     if (request->coro)
         return;
     request->coro = coro_new(switcher, _process_request_coro, request);
-    request->flags.should_resume_coro = true;
-    request->flags.write_events = false;
+    request->flags |= REQUEST_SHOULD_RESUME_CORO;
+    request->flags &= ~REQUEST_WRITE_EVENTS;
 }
 
 static ALWAYS_INLINE void
@@ -127,11 +119,16 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
 {
     assert(request->coro);
 
-    if (!request->flags.should_resume_coro)
+    if (!(request->flags & REQUEST_SHOULD_RESUME_CORO))
         return;
 
-    request->flags.should_resume_coro = coro_resume(request->coro);
-    if (request->flags.should_resume_coro == request->flags.write_events)
+    bool should_resume_coro = coro_resume(request->coro);
+    bool write_events = !!(request->flags & REQUEST_WRITE_EVENTS);
+    if (should_resume_coro)
+        request->flags |= REQUEST_SHOULD_RESUME_CORO;
+    else
+        request->flags &= ~REQUEST_SHOULD_RESUME_CORO;
+    if (should_resume_coro == write_events)
         return;
 
     static const int const events_by_write_flag[] = {
@@ -139,14 +136,14 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
         EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
     };
     struct epoll_event event = {
-        .events = events_by_write_flag[request->flags.write_events],
+        .events = events_by_write_flag[write_events],
         .data.fd = request->fd
     };
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, request->fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
 
-    request->flags.write_events ^= 1;
+    request->flags ^= REQUEST_WRITE_EVENTS;
 }
 
 static void
@@ -184,7 +181,7 @@ _death_queue_push(struct death_queue_t *dq, lwan_request_t *request)
     dq->last++;
     dq->population++;
     dq->last %= dq->max;
-    request->flags.alive = true;
+    request->flags |= REQUEST_IS_ALIVE;
 }
 
 static ALWAYS_INLINE lwan_request_t *
@@ -213,11 +210,11 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
         _death_queue_pop(dq);
 
         /* This request might have died from a hangup event */
-        if (!request->flags.alive)
+        if (!(request->flags & REQUEST_IS_ALIVE))
             continue;
 
         _cleanup_coro(request);
-        request->flags.alive = false;
+        request->flags &= ~REQUEST_IS_ALIVE;
         close(request->fd);
     }
 }
@@ -307,7 +304,7 @@ _thread_io_loop(void *data)
                  * shouldn't be resumed -- then just mark it to be reaped
                  * right away.
                  */
-                if (LIKELY(request->flags.is_keep_alive || request->flags.should_resume_coro))
+                if (LIKELY(request->flags & (REQUEST_IS_KEEP_ALIVE | REQUEST_SHOULD_RESUME_CORO)))
                     request->time_to_die = dq.time + t->lwan->config.keep_alive_timeout;
                 else
                     request->time_to_die = dq.time;
@@ -318,7 +315,7 @@ _thread_io_loop(void *data)
                  * alive so that we know what to do whenever there's
                  * activity on its socket again.  Or not.  Mwahahaha.
                  */
-                if (!request->flags.alive)
+                if (!(request->flags & REQUEST_IS_ALIVE))
                     _death_queue_push(&dq, request);
             }
         }
