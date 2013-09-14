@@ -137,7 +137,7 @@ lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map)
 }
 
 static ALWAYS_INLINE void
-_push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_size)
+_push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr)
 {
     static int counter = 0;
     unsigned thread = counter++ % l->thread.count;
@@ -147,7 +147,7 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr, socklen_t addr_siz
         .data.fd = fd
     };
 
-    memcpy(&l->requests[fd].remote_address, addr, addr_size);
+    l->requests[fd].remote_address = addr->sin_addr.s_addr;
     l->requests[fd].thread = &l->thread.threads[thread];
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
@@ -198,7 +198,7 @@ lwan_main_loop(lwan_t *l)
                 continue;
             }
 
-            _push_request_fd(l, child_fd, &addr, addr_size);
+            _push_request_fd(l, child_fd, &addr);
         }
     }
 

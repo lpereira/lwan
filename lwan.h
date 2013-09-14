@@ -172,23 +172,19 @@ struct lwan_request_parse_t_ {
 };
 
 struct lwan_request_t_ {
-    coro_t *coro;
     lwan_request_flags_t flags;
-    lwan_response_t response;
+    int fd;
+    coro_t *coro;
     lwan_thread_t *thread;
     lwan_value_t buffer;
     lwan_value_t url;
-
-    struct sockaddr_in remote_address;
-
-    int fd;
     unsigned int time_to_die;
+    in_addr_t remote_address;
 
     struct {
       lwan_key_value_t *base;
       size_t len;
     } query_params;
-
     struct {
         time_t if_modified_since;
         struct {
@@ -196,6 +192,7 @@ struct lwan_request_t_ {
           off_t to;
         } range;
     } header;
+    lwan_response_t response;
 };
 
 struct lwan_handler_t_ {
