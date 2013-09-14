@@ -41,21 +41,27 @@ enum {
 
 struct cache_t {
   struct {
-    CreateEntryCallback create_entry;
-    DestroyEntryCallback destroy_entry;
-    void *context;
-  } cb;
-  struct {
     struct hash *table;
     pthread_rwlock_t lock;
   } hash;
+
   struct {
     struct list_head list;
     pthread_rwlock_t lock;
   } queue;
+
+  struct {
+    CreateEntryCallback create_entry;
+    DestroyEntryCallback destroy_entry;
+    void *context;
+  } cb;
+
   struct {
     time_t time_to_live;
   } settings;
+
+  unsigned flags;
+
 #ifndef NDEBUG
   struct {
     unsigned hits;
@@ -63,7 +69,6 @@ struct cache_t {
     unsigned evicted;
   } stats;
 #endif
-  unsigned flags;
 };
 
 static bool cache_pruner_job(void *data);
