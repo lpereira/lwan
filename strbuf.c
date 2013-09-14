@@ -25,6 +25,10 @@
 #include "lwan.h"
 #include "strbuf.h"
 
+enum {
+    STATIC = 1<<0
+};
+
 static const int const default_buf_size = 64;
 
 static size_t
@@ -48,7 +52,7 @@ max(size_t one, size_t another)
 static bool
 grow_buffer_if_needed(strbuf_t *s, size_t size)
 {
-    if (s->is_static) {
+    if (s->flags & STATIC) {
         const size_t next_power = find_next_power_of_two(max(size + 1,
                     s->len.buffer));
         char *buffer = malloc(next_power);
@@ -58,7 +62,7 @@ grow_buffer_if_needed(strbuf_t *s, size_t size)
         memcpy(buffer, s->value.static_buffer, s->len.buffer);
         buffer[s->len.buffer + 1] = '\0';
 
-        s->is_static = 0;
+        s->flags &= ~STATIC;
         s->len.allocated = next_power;
         s->value.buffer = buffer;
 
@@ -107,7 +111,7 @@ strbuf_free(strbuf_t *s)
 {
     if (UNLIKELY(!s))
         return;
-    if (!s->is_static)
+    if (!(s->flags & STATIC))
         free(s->value.buffer);
     free(s);
 }
@@ -146,11 +150,11 @@ strbuf_set_static(strbuf_t *s1, const char *s2, size_t sz)
     if (!sz)
         sz = strlen(s2);
 
-    if (!s1->is_static)
+    if (!(s1->flags & STATIC))
         free(s1->value.buffer);
     s1->value.static_buffer = s2;
     s1->len.allocated = s1->len.buffer = sz;
-    s1->is_static = 1;
+    s1->flags |= STATIC;
 
     return true;
 }
@@ -241,7 +245,7 @@ strbuf_shrink_to(strbuf_t *s, size_t new_size)
     if (s->len.allocated <= new_size)
         return true;
 
-    if (s->is_static)
+    if (s->flags & STATIC)
         return true;
 
     size_t next_power_of_two = find_next_power_of_two(new_size);
@@ -282,8 +286,8 @@ strbuf_grow_to(strbuf_t *s, size_t new_size)
 bool
 strbuf_reset_length(strbuf_t *s)
 {
-    if (s->is_static) {
-        s->is_static = false;
+    if (s->flags & STATIC) {
+        s->flags &= ~STATIC;
         s->value.buffer = malloc(s->len.allocated);
         if (UNLIKELY(!s->value.buffer))
             return false;

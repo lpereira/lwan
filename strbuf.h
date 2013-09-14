@@ -26,14 +26,14 @@
 typedef struct strbuf_t_		strbuf_t;
 
 struct strbuf_t_ {
-    struct {
-        size_t allocated, buffer;
-    } len;
     union {
         char *buffer;
         const char *static_buffer;
     } value;
-    unsigned int is_static : 1;
+    struct {
+        size_t allocated, buffer;
+    } len;
+    unsigned int flags;
 };
 
 strbuf_t	*strbuf_new_with_size(size_t size);
