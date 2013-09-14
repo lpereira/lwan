@@ -42,10 +42,10 @@ _identify_http_method(lwan_request_t *request, char *buffer)
 {
     STRING_SWITCH(buffer) {
     case HTTP_STR_GET:
-        request->method = HTTP_GET;
+        request->flags |= REQUEST_METHOD_GET;
         return buffer + 4;
     case HTTP_STR_HEAD:
-        request->method = HTTP_HEAD;
+        request->flags |= REQUEST_METHOD_HEAD;
         return buffer + 5;
     }
     return NULL;
@@ -159,10 +159,11 @@ _identify_http_path(lwan_request_t *request, char *buffer,
         return NULL;
     *space = '\0';
 
-    if (LIKELY(*(space + 6) == '1'))
-        request->http_version = *(space + 8) == '0' ? HTTP_1_0 : HTTP_1_1;
-    else
+    if (UNLIKELY(*(space + 6) != '1'))
         return NULL;
+
+    if (*(space + 8) == '0')
+        request->flags |= REQUEST_IS_HTTP_1_0;
 
     if (UNLIKELY(*buffer != '/'))
         return NULL;
@@ -371,7 +372,7 @@ static ALWAYS_INLINE void
 _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     bool is_keep_alive;
-    if (request->http_version == HTTP_1_1)
+    if (!(request->flags & REQUEST_IS_HTTP_1_0))
         is_keep_alive = (helper->connection != 'c');
     else
         is_keep_alive = (helper->connection == 'k');

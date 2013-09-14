@@ -29,11 +29,6 @@
 #include "int-to-str.h"
 #include "lwan-template.h"
 
-static const char* const _http_versions[] = {
-    [HTTP_1_0] = "1.0",
-    [HTTP_1_1] = "1.1"
-};
-
 static lwan_tpl_t *error_template = NULL;
 
 static const char *error_template_str = "<html><head><style>" \
@@ -119,7 +114,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     if (UNLIKELY(!header_len))
         return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
-    if (request->method == HTTP_HEAD) {
+    if (request->flags & REQUEST_METHOD_HEAD) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
             lwan_status_perror("write");
             return false;
@@ -207,8 +202,10 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 
     p_headers = headers;
 
-    APPEND_CONSTANT("HTTP/");
-    APPEND_STRING_LEN(_http_versions[request->http_version], 3);
+    if (request->flags & REQUEST_IS_HTTP_1_0)
+        APPEND_CONSTANT("HTTP/1.0");
+    else
+        APPEND_CONSTANT("HTTP/1.1");
     APPEND_CHAR(' ');
     APPEND_INT8(status);
     APPEND_CHAR(' ');

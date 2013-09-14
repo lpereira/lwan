@@ -95,16 +95,6 @@ typedef enum {
 } lwan_http_status_t;
 
 typedef enum {
-    HTTP_GET = 0,
-    HTTP_HEAD
-} lwan_http_method_t;
-
-typedef enum {
-    HTTP_1_0 = 0,
-    HTTP_1_1
-} lwan_http_version_t;
-
-typedef enum {
     HANDLER_PARSE_QUERY_STRING = 1<<0,
     HANDLER_PARSE_IF_MODIFIED_SINCE = 1<<1,
     HANDLER_PARSE_RANGE = 1<<2,
@@ -144,6 +134,9 @@ typedef enum {
     REQUEST_SHOULD_RESUME_CORO = 1<<2,
     REQUEST_WRITE_EVENTS       = 1<<3,
     REQUEST_ACCEPT_DEFLATE     = 1<<4,
+    REQUEST_IS_HTTP_1_0	       = 1<<5,
+    REQUEST_METHOD_GET         = 1<<6,
+    REQUEST_METHOD_HEAD        = 1<<7
 } lwan_request_flags_t;
 
 struct lwan_key_value_t_ {
@@ -180,6 +173,7 @@ struct lwan_request_parse_t_ {
 
 struct lwan_request_t_ {
     coro_t *coro;
+    lwan_request_flags_t flags;
     lwan_response_t response;
     lwan_thread_t *thread;
     lwan_value_t buffer;
@@ -202,10 +196,6 @@ struct lwan_request_t_ {
           off_t to;
         } range;
     } header;
-
-    lwan_http_method_t method;
-    lwan_http_version_t http_version;
-    lwan_request_flags_t flags;
 };
 
 struct lwan_handler_t_ {

@@ -478,7 +478,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
-    if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
+    if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return HTTP_INTERNAL_ERROR;
     } else {
@@ -543,7 +543,7 @@ _mmap_serve(lwan_request_t *request, void *data)
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
-    if (request->method == HTTP_HEAD || return_status == HTTP_NOT_MODIFIED) {
+    if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
         if (UNLIKELY(write(request->fd, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
