@@ -216,29 +216,28 @@ struct lwan_handler_t_ {
 };
 
 struct lwan_url_map_t_ {
+    lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
+    void *data;
+
     const char *prefix;
     int prefix_len;
+    lwan_handler_flags_t flags;
 
     lwan_handler_t *handler;
     void *args;
-
-    lwan_handler_flags_t flags;
-
-    lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
-    void *data;
 };
 
 struct lwan_thread_t_ {
     lwan_t *lwan;
-    int epoll_fd;
-    int id;
-    pthread_t self;
-
     struct {
         char date[31];
         char expires[31];
         time_t last;
     } date;
+
+    int id;
+    pthread_t self;
+    int epoll_fd;
 };
 
 struct lwan_t_ {
