@@ -274,8 +274,8 @@ coro_free(coro_t *coro)
     free(coro);
 }
 
-void
-coro_defer(coro_t *coro, void (*func)(void *data), void *data)
+static void
+_coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
 {
     coro_defer_t *defer = malloc(sizeof(*defer));
     if (UNLIKELY(!defer))
@@ -284,27 +284,23 @@ coro_defer(coro_t *coro, void (*func)(void *data), void *data)
     assert(func);
 
     defer->next = coro->defer;
-    defer->funcs.one = func;
-    defer->data1 = data;
-    defer->data2 = NULL;
-    coro->defer = defer;
-}
-
-void
-coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
-            void *data1, void *data2)
-{
-    coro_defer_t *defer = malloc(sizeof(*defer));
-    if (UNLIKELY(!defer))
-        return;
-
-    assert(func);
-
-    defer->next = coro->defer;
-    defer->funcs.two = func;
+    defer->funcs.any = func;
     defer->data1 = data1;
     defer->data2 = data2;
     coro->defer = defer;
+}
+
+ALWAYS_INLINE void
+coro_defer(coro_t *coro, void (*func)(void *data), void *data)
+{
+    _coro_defer_any(coro, func, data, NULL);
+}
+
+ALWAYS_INLINE void
+coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
+            void *data1, void *data2)
+{
+    _coro_defer_any(coro, func, data1, data2);
 }
 
 static void nothing(void *dummy __attribute__((unused)))
