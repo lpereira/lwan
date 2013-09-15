@@ -116,22 +116,11 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
 static void
 _coro_makecontext(coro_t *coro, size_t stack_size)
 {
-    greg_t *sp;
     void *stack = coro + 1;
-
-    /* Generate room on stack for parameter if needed and uc_link.  */
-    sp = (greg_t *) ((uintptr_t) stack + stack_size);
-    sp--;
-    /* Align stack and make space for trampoline address.  */
-    sp = (greg_t *) ((((uintptr_t) sp) & -16L) - 8);
 
     /* Setup context ucp */
     coro->context[16 /* RIP */] = (uintptr_t) _coro_entry_point;
-    coro->context[11 /* RBX */] = (uintptr_t) &sp[1];
-    coro->context[15 /* RSP */] = (uintptr_t) sp;
-
-    /* Setup stack */
-    sp[0] = (uintptr_t) NULL;
+    coro->context[15 /* RSP */] = (uintptr_t) stack + stack_size;
 
     /* Function data */
     coro->context[8 /* RDI */] = (uintptr_t) coro;
