@@ -38,13 +38,6 @@ static const int const default_stack_size = 16 * 1024;
 static const int const default_stack_size = 12 * 1024;
 #endif
 
-#ifdef __x86_64__
-union ptr_splitter {
-    void *ptr;
-    uint32_t part[sizeof(void *) / sizeof(uint32_t)];
-};
-#endif
-
 typedef struct coro_defer_t_	coro_defer_t;
 
 struct coro_defer_t_ {
