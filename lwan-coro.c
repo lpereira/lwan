@@ -190,6 +190,7 @@ coro_t *
 coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data)
 {
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
+    void *stack = (coro_t *)coro + 1;
 
 #ifndef NDEBUG
     coro->state = CORO_NEW;
@@ -207,9 +208,8 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
 
 #ifdef __x86_64__
     _coro_makecontext(coro, stack_size);
+    (void) stack;
 #else
-    void *stack = (coro_t *)coro + 1;
-
     coro->context.uc_stack.ss_sp = stack;
     coro->context.uc_stack.ss_size = stack_size;
     coro->context.uc_stack.ss_flags = 0;
