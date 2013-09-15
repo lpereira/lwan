@@ -53,6 +53,7 @@ _reset_request(lwan_request_t *request)
     if (request->query_params.base != empty_query_params) {
         free(request->query_params.base);
         request->query_params.base = empty_query_params;
+        request->query_params.len = 0;
     }
 
     strbuf_t *response_buffer = request->response.buffer;
