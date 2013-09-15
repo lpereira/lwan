@@ -49,11 +49,7 @@ typedef struct coro_defer_t_	coro_defer_t;
 
 struct coro_defer_t_ {
     coro_defer_t *next;
-    union {
-        void (*one)(void *data);
-        void (*two)(void *data1, void *data2);
-        void (*any)();
-    } funcs;
+    void (*func)();
     void *data1;
     void *data2;
 };
@@ -271,7 +267,7 @@ coro_free(coro_t *coro)
     coro_defer_t *defer;
     for (defer = coro->defer; defer;) {
         coro_defer_t *tmp = defer;
-        defer->funcs.any(defer->data1, defer->data2);
+        defer->func(defer->data1, defer->data2);
         defer = tmp->next;
         free(tmp);
     }
@@ -288,7 +284,7 @@ _coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
     assert(func);
 
     defer->next = coro->defer;
-    defer->funcs.any = func;
+    defer->func = func;
     defer->data1 = data1;
     defer->data2 = data2;
     coro->defer = defer;
@@ -307,7 +303,7 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
     _coro_defer_any(coro, func, data1, data2);
 }
 
-static void nothing(void *dummy __attribute__((unused)))
+static void nothing()
 {
 }
 
@@ -319,7 +315,7 @@ coro_malloc(coro_t *coro, size_t size)
         return NULL;
 
     defer->next = coro->defer;
-    defer->funcs.one = nothing;
+    defer->func = nothing;
     coro->defer = defer;
 
     return defer + 1;
