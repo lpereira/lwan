@@ -57,6 +57,7 @@ _reset_request(lwan_request_t *request)
     }
 
     strbuf_t *response_buffer = request->response.buffer;
+    memset(&request->header, 0, sizeof(request->header));
     memset(&request->response, 0, sizeof(request->response));
     request->response.buffer = response_buffer;
     strbuf_reset(request->response.buffer);
