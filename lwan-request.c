@@ -236,9 +236,6 @@ retry:
         CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
             helper->connection = (*value | 0x20);
             break;
-        CASE_HEADER(HTTP_HDR_HOST, "Host")
-            /* Virtual hosts are not supported yet; ignore */
-            break;
         CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
             helper->if_modified_since.value = value;
             helper->if_modified_since.len = length;
@@ -246,12 +243,6 @@ retry:
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             helper->range.value = value;
             helper->range.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_REFERER, "Referer")
-            /* Ignore */
-            break;
-        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
-            /* Ignore */
             break;
         CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
             helper->accept_encoding.value = value;

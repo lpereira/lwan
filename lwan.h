@@ -119,10 +119,7 @@ enum {
 
 enum {
     HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
-    HTTP_HDR_HOST              = MULTICHAR_CONSTANT_L('H','o','s','t'),
-    HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k'),
     HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
-    HTTP_HDR_REFERER           = MULTICHAR_CONSTANT_L('R','e','f','e'),
     HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
     HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
     HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
