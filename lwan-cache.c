@@ -322,7 +322,7 @@ end:
 #ifndef NDEBUG
   ATOMIC_AAF(&cache->stats.evicted, evicted);
 #endif
-  return !!evicted;
+  return evicted;
 }
 
 void cache_get_stats(struct cache_t *cache, unsigned *hits,

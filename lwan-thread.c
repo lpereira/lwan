@@ -125,7 +125,7 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
         return;
 
     bool should_resume_coro = coro_resume(request->coro);
-    bool write_events = !!(request->flags & REQUEST_WRITE_EVENTS);
+    bool write_events = request->flags & REQUEST_WRITE_EVENTS;
     if (should_resume_coro)
         request->flags |= REQUEST_SHOULD_RESUME_CORO;
     else
