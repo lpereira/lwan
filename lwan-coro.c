@@ -81,7 +81,7 @@ struct coro_t_ {
 #endif
 };
 
-static void _coro_entry_point(void *data);
+static void _coro_entry_point(coro_t *data);
 
 /*
  * These swapcontext()/getcontext()/makecontext() implementations were
@@ -180,18 +180,6 @@ int _coro_getcontext(coro_context_t *current);
 #define _coro_getcontext(cur) getcontext(cur)
 #endif
 
-#ifdef __x86_64__
-static void
-_coro_entry_point(void *data)
-{
-    coro_t *coro = data;
-    int return_value = coro->function(coro);
-#ifndef NDEBUG
-    coro->state = CORO_FINISHED;
-#endif
-    coro_yield(coro, return_value);
-}
-#else
 static void
 _coro_entry_point(coro_t *coro)
 {
@@ -201,7 +189,6 @@ _coro_entry_point(coro_t *coro)
 #endif
     coro_yield(coro, return_value);
 }
-#endif
 
 coro_t *
 coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data)
