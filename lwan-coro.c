@@ -18,6 +18,7 @@
  */
 
 #include <assert.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,12 +31,6 @@
 
 #ifdef USE_VALGRIND
 #include <valgrind/valgrind.h>
-#endif
-
-#ifdef __x86_64__
-static const int const default_stack_size = 16 * 1024;
-#else
-static const int const default_stack_size = 12 * 1024;
 #endif
 
 typedef struct coro_defer_t_	coro_defer_t;
@@ -217,7 +212,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
 ALWAYS_INLINE coro_t *
 coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 {
-    return coro_new_full(switcher, default_stack_size, function, data);
+    return coro_new_full(switcher, PTHREAD_STACK_MIN, function, data);
 }
 
 ALWAYS_INLINE void *
