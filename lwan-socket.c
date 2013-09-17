@@ -20,10 +20,12 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/tcp.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+
 #include "lwan.h"
 
 #define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
@@ -37,6 +39,27 @@
 #ifndef TCP_FASTOPEN
 #define TCP_FASTOPEN 23
 #endif
+
+static int
+_get_backlog_size(void)
+{
+#ifdef SOMAXCONN
+    int backlog = SOMAXCONN;
+#else
+    int backlog = 128;
+#endif
+    FILE *somaxconn;
+
+    somaxconn = fopen("/proc/sys/net/core/somaxconn", "r");
+    if (somaxconn) {
+        int tmp;
+        if (fscanf(somaxconn, "%d", &tmp) == 1)
+            backlog = tmp;
+        fclose(somaxconn);
+    }
+
+    return backlog;
+}
 
 void
 lwan_socket_init(lwan_t *l)
@@ -71,7 +94,7 @@ lwan_socket_init(lwan_t *l)
         goto handle_error;
     }
 
-    if (listen(fd, l->thread.count * l->thread.max_fd) < 0) {
+    if (listen(fd, _get_backlog_size()) < 0) {
         lwan_status_perror("listen");
         goto handle_error;
     }
