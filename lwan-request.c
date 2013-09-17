@@ -426,9 +426,10 @@ _read_request(lwan_request_t *request)
             return HTTP_TOO_LARGE;
         if (UNLIKELY(total_read <= 4))
             return HTTP_BAD_REQUEST;
+
+        request->buffer.value[total_read] = '\0';
     } while (UNLIKELY(!strstr(request->buffer.value + total_read - 4, "\r\n\r\n")));
 
-    request->buffer.value[total_read] = '\0';
     request->buffer.len = total_read;
     return HTTP_OK;
 }
