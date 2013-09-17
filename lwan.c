@@ -27,6 +27,7 @@
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "lwan.h"
 
