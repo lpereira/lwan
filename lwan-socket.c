@@ -36,8 +36,19 @@
         } \
     } while(0)
 
+#define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_warning("%s not supported by the kernel", \
+                #_option); \
+    } while(0)
+
 #ifndef TCP_FASTOPEN
 #define TCP_FASTOPEN 23
+#endif
+
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT 15
 #endif
 
 static int
@@ -79,10 +90,10 @@ lwan_socket_init(lwan_t *l)
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
         ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
 
-    /* This might fail if running on an old kernel, so don't use the macro */
-    if (UNLIKELY(setsockopt(fd, SOL_TCP, TCP_FASTOPEN,
-                                            (int[]){ 5 }, sizeof(int)) < 0))
-        lwan_status_warning("TCP_FASTOPEN not supported by kernel");
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN,
+                                            (int[]){ 5 }, sizeof(int));
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                            (int[]){ 1 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
