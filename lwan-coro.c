@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ucontext.h>
 #include <unistd.h>
 
 #include "lwan.h"
@@ -81,32 +80,32 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
 #ifdef __x86_64__
     asm(
     ".text\n\t"
-    ".p2align 4,,15\n\t"
+    ".p2align 4\n\t"
     ".globl _coro_swapcontext\n\t"
     "_coro_swapcontext:\n\t"
-    "mov    %rbx,0x58(%rdi)\n\t"
-    "mov    %rbp,0x50(%rdi)\n\t"
-    "mov    %r12,0x20(%rdi)\n\t"
-    "mov    %r13,0x28(%rdi)\n\t"
-    "mov    %r14,0x30(%rdi)\n\t"
-    "mov    %r15,0x38(%rdi)\n\t"
-    "mov    %rdi,0x40(%rdi)\n\t"
-    "mov    %rsi,0x48(%rdi)\n\t"
+    "mov    %rbx,0(%rdi)\n\t"
+    "mov    %rbp,8(%rdi)\n\t"
+    "mov    %r12,16(%rdi)\n\t"
+    "mov    %r13,24(%rdi)\n\t"
+    "mov    %r14,32(%rdi)\n\t"
+    "mov    %r15,40(%rdi)\n\t"
+    "mov    %rdi,48(%rdi)\n\t"
+    "mov    %rsi,56(%rdi)\n\t"
     "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,0x80(%rdi)\n\t"
+    "mov    %rcx,64(%rdi)\n\t"
     "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,0x78(%rdi)\n\t"
-    "mov    0x78(%rsi),%rsp\n\t"
-    "mov    0x58(%rsi),%rbx\n\t"
-    "mov    0x50(%rsi),%rbp\n\t"
-    "mov    0x20(%rsi),%r12\n\t"
-    "mov    0x28(%rsi),%r13\n\t"
-    "mov    0x30(%rsi),%r14\n\t"
-    "mov    0x38(%rsi),%r15\n\t"
-    "mov    0x80(%rsi),%rcx\n\t"
+    "mov    %rcx,72(%rdi)\n\t"
+    "mov    72(%rsi),%rsp\n\t"
+    "mov    0(%rsi),%rbx\n\t"
+    "mov    8(%rsi),%rbp\n\t"
+    "mov    16(%rsi),%r12\n\t"
+    "mov    24(%rsi),%r13\n\t"
+    "mov    32(%rsi),%r14\n\t"
+    "mov    40(%rsi),%r15\n\t"
+    "mov    64(%rsi),%rcx\n\t"
     "push   %rcx\n\t"
-    "mov    0x40(%rsi),%rdi\n\t"
-    "mov    0x48(%rsi),%rsi\n\t"
+    "mov    48(%rsi),%rdi\n\t"
+    "mov    56(%rsi),%rsi\n\t"
     "retq\n\t");
 #else
 #define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
@@ -119,11 +118,11 @@ _coro_makecontext(coro_t *coro, size_t stack_size)
     void *stack = coro + 1;
 
     /* Setup context ucp */
-    coro->context[16 /* RIP */] = (uintptr_t) _coro_entry_point;
-    coro->context[15 /* RSP */] = (uintptr_t) stack + stack_size;
+    coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[9 /* RSP */] = (uintptr_t) stack + stack_size;
 
     /* Function data */
-    coro->context[8 /* RDI */] = (uintptr_t) coro;
+    coro->context[6 /* RDI */] = (uintptr_t) coro;
 }
 #else
 #define _coro_makecontext(ctx, fun, args, ...) makecontext(ctx, fun, args, __VA_ARGS__)
@@ -133,21 +132,21 @@ int _coro_getcontext(coro_context_t *current);
 #ifdef __x86_64__
     asm(
     ".text\n\t"
-    ".p2align 4,,15\n\t"
+    ".p2align 4\n\t"
     ".globl _coro_getcontext\n\t"
     "_coro_getcontext:\n\t"
-    "mov    %rbx,0x58(%rdi)\n\t"
-    "mov    %rbp,0x50(%rdi)\n\t"
-    "mov    %r12,0x20(%rdi)\n\t"
-    "mov    %r13,0x28(%rdi)\n\t"
-    "mov    %r14,0x30(%rdi)\n\t"
-    "mov    %r15,0x38(%rdi)\n\t"
-    "mov    %rdi,0x40(%rdi)\n\t"
-    "mov    %rsi,0x48(%rdi)\n\t"
+    "mov    %rbx,0(%rdi)\n\t"
+    "mov    %rbp,8(%rdi)\n\t"
+    "mov    %r12,16(%rdi)\n\t"
+    "mov    %r13,24(%rdi)\n\t"
+    "mov    %r14,32(%rdi)\n\t"
+    "mov    %r15,40(%rdi)\n\t"
+    "mov    %rdi,48(%rdi)\n\t"
+    "mov    %rsi,56(%rdi)\n\t"
     "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,0x80(%rdi)\n\t"
+    "mov    %rcx,64(%rdi)\n\t"
     "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,0x78(%rdi)\n\t"
+    "mov    %rcx,72(%rdi)\n\t"
     "retq\n\t");
 #else
 #define _coro_getcontext(cur) getcontext(cur)

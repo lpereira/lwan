@@ -21,18 +21,19 @@
 #define __LWAN_CORO_H__
 
 #include <unistd.h>
+
+#ifdef __x86_64__
+#include <stdint.h>
+typedef uintptr_t coro_context_t[10];
+#else
 #include <ucontext.h>
+typedef ucontext_t coro_context_t;
+#endif
 
 typedef struct coro_t_			coro_t;
 typedef struct coro_switcher_t_		coro_switcher_t;
 
 typedef int    (*coro_function_t)	(coro_t *coro);
-
-#ifdef __x86_64__
-typedef gregset_t coro_context_t;
-#else
-typedef ucontext_t coro_context_t;
-#endif
 
 struct coro_switcher_t_ {
     coro_context_t caller;
