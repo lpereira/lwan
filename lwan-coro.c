@@ -49,12 +49,11 @@ typedef enum {
 
 struct coro_t_ {
     coro_switcher_t *switcher;
-    coro_function_t function;
-    coro_defer_t *defer;
-    void *data;
-
     coro_context_t context;
     int yield_value;
+
+    coro_defer_t *defer;
+    void *data;
 
 #ifndef NDEBUG
 #ifdef USE_VALGRIND
@@ -64,7 +63,7 @@ struct coro_t_ {
 #endif
 };
 
-static void _coro_entry_point(coro_t *data);
+static void _coro_entry_point(coro_t *data, coro_function_t func);
 
 /*
  * These swapcontext()/getcontext()/makecontext() implementations were
@@ -113,16 +112,17 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
 
 #ifdef __x86_64__
 static void
-_coro_makecontext(coro_t *coro, size_t stack_size)
+_coro_makecontext(coro_t *coro, size_t stack_size, coro_function_t func)
 {
     void *stack = coro + 1;
+
+    /* Function data */
+    coro->context[6 /* RDI */] = (uintptr_t) coro;
+    coro->context[7 /* RSI */] = (uintptr_t) func;
 
     /* Setup context ucp */
     coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
     coro->context[9 /* RSP */] = (uintptr_t) stack + stack_size;
-
-    /* Function data */
-    coro->context[6 /* RDI */] = (uintptr_t) coro;
 }
 #else
 #define _coro_makecontext(ctx, fun, args, ...) makecontext(ctx, fun, args, __VA_ARGS__)
@@ -153,9 +153,9 @@ int _coro_getcontext(coro_context_t *current);
 #endif
 
 static void
-_coro_entry_point(coro_t *coro)
+_coro_entry_point(coro_t *coro, coro_function_t func)
 {
-    int return_value = coro->function(coro);
+    int return_value = func(coro);
 #ifndef NDEBUG
     coro->state = CORO_FINISHED;
 #endif
@@ -163,7 +163,7 @@ _coro_entry_point(coro_t *coro)
 }
 
 coro_t *
-coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data)
+coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t func, void *data)
 {
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
     void *stack = (coro_t *)coro + 1;
@@ -172,7 +172,6 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->state = CORO_NEW;
 #endif
     coro->switcher = switcher;
-    coro->function = function;
     coro->data = data;
     coro->defer = NULL;
 
@@ -183,7 +182,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     _coro_getcontext(&coro->context);
 
 #ifdef __x86_64__
-    _coro_makecontext(coro, stack_size);
+    _coro_makecontext(coro, stack_size, func);
     (void) stack;
 #else
     coro->context.uc_stack.ss_sp = stack;
@@ -191,7 +190,8 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-    _coro_makecontext(&coro->context, (void (*)())_coro_entry_point, 1, coro);
+    _coro_makecontext(&coro->context, (void (*)())_coro_entry_point,
+                2, coro, func);
 #endif
 
     return coro;
