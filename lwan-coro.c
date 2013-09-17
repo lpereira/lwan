@@ -66,13 +66,13 @@ struct coro_t_ {
 static void _coro_entry_point(coro_t *data, coro_function_t func);
 
 /*
- * These swapcontext()/getcontext()/makecontext() implementations were
- * obtained from glibc and modified slightly to not save/restore the
- * floating point registers and signal mask.  They're Copyright (C) 2001,
- * 2002, 2003 Free Software Foundation, Inc and are distributed under GNU
- * LGPL version 2.1 (or later).  I'm not sure if I can distribute them
- * inside a GPL program; they're straightforward so I'm assuming there won't
- * be any problem; if there is, I'll just roll my own.
+ * This swapcontext() implementation was obtained from glibc and modified
+ * slightly to not save/restore the floating point registers, unneeded
+ * registers, and signal mask.  It is Copyright (C) 2001, 2002, 2003 Free
+ * Software Foundation, Inc and are distributed under GNU LGPL version 2.1
+ * (or later).  I'm not sure if I can distribute them inside a GPL program;
+ * they're straightforward so I'm assuming there won't be any problem; if
+ * there is, I'll just roll my own.
  *     -- Leandro
  */
 void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
@@ -128,30 +128,6 @@ _coro_makecontext(coro_t *coro, size_t stack_size, coro_function_t func)
 #define _coro_makecontext(ctx, fun, args, ...) makecontext(ctx, fun, args, __VA_ARGS__)
 #endif
 
-int _coro_getcontext(coro_context_t *current);
-#ifdef __x86_64__
-    asm(
-    ".text\n\t"
-    ".p2align 4\n\t"
-    ".globl _coro_getcontext\n\t"
-    "_coro_getcontext:\n\t"
-    "mov    %rbx,0(%rdi)\n\t"
-    "mov    %rbp,8(%rdi)\n\t"
-    "mov    %r12,16(%rdi)\n\t"
-    "mov    %r13,24(%rdi)\n\t"
-    "mov    %r14,32(%rdi)\n\t"
-    "mov    %r15,40(%rdi)\n\t"
-    "mov    %rdi,48(%rdi)\n\t"
-    "mov    %rsi,56(%rdi)\n\t"
-    "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,64(%rdi)\n\t"
-    "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,72(%rdi)\n\t"
-    "retq\n\t");
-#else
-#define _coro_getcontext(cur) getcontext(cur)
-#endif
-
 static void
 _coro_entry_point(coro_t *coro, coro_function_t func)
 {
@@ -179,12 +155,12 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + stack_size);
 #endif
 
-    _coro_getcontext(&coro->context);
-
 #ifdef __x86_64__
     _coro_makecontext(coro, stack_size, func);
     (void) stack;
 #else
+    getcontext(&coro->context);
+
     coro->context.uc_stack.ss_sp = stack;
     coro->context.uc_stack.ss_size = stack_size;
     coro->context.uc_stack.ss_flags = 0;
