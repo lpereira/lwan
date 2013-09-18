@@ -516,17 +516,16 @@ lwan_request_get_query_param(lwan_request_t *request, const char *key)
 
 const char *
 lwan_request_get_remote_address(lwan_request_t *request,
-                                char *buffer,
-                                size_t buffer_len)
+            char *buffer)
 {
-    if (UNLIKELY(buffer_len < INET_ADDRSTRLEN))
+    /* The definition of inet_ntoa() in the standard is not thread-safe. The
+     * glibc version uses a static buffer stored in the TLS to make do, but
+     * in the end, inet_ntoa() is actually a call to snprintf().  Call it
+     * ourselves, using a user-supplied buffer.  This should be a tiny wee
+     * little bit faster.  */
+    unsigned char *octets = (unsigned char *) &request->remote_address;
+    if (UNLIKELY(snprintf(buffer, INET_ADDRSTRLEN, "%d.%d.%d.%d",
+                octets[0], octets[1], octets[2], octets[3]) < 0))
         return NULL;
-
-    struct sockaddr_in remote_addr = {
-        .sin_addr = {
-            .s_addr = request->remote_address
-        }
-    };
-
-    return inet_ntop(AF_INET, &remote_addr, buffer, buffer_len);
+    return buffer;
 }

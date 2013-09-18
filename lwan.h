@@ -250,7 +250,7 @@ bool lwan_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);
 bool lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
-const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer, size_t buffer_len);
+const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer);
 bool lwan_process_request(lwan_request_t *request);
 
 void lwan_format_rfc_time(time_t t, char buffer[static 31]);

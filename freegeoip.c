@@ -335,12 +335,12 @@ templated_output(lwan_request_t *request,
                  lwan_response_t *response,
                  void *data)
 {
-    char ip_address[INET_ADDRSTRLEN];
+    const char *ip_address;
     lwan_tpl_t *tpl = data;
     struct ip_info_t *info;
 
-    if (UNLIKELY(!lwan_request_get_remote_address(request, ip_address,
-                INET_ADDRSTRLEN)))
+    ip_address = lwan_request_get_remote_address(request, request->buffer.value);
+    if (UNLIKELY(!ip_address))
         return HTTP_INTERNAL_ERROR;
 
 #if QUERIES_PER_HOUR != 0
