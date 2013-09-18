@@ -41,12 +41,6 @@ struct coro_defer_t_ {
     void *data2;
 };
 
-typedef enum {
-    CORO_NEW,
-    CORO_RUNNING,
-    CORO_FINISHED
-} coro_state_t;
-
 struct coro_t_ {
     coro_switcher_t *switcher;
     coro_context_t context;
@@ -55,11 +49,10 @@ struct coro_t_ {
     coro_defer_t *defer;
     void *data;
 
-#ifndef NDEBUG
-#ifdef USE_VALGRIND
+    bool ended;
+
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
     int vg_stack_id;
-#endif
-    coro_state_t state;
 #endif
 };
 
@@ -132,9 +125,7 @@ static void
 _coro_entry_point(coro_t *coro, coro_function_t func)
 {
     int return_value = func(coro);
-#ifndef NDEBUG
-    coro->state = CORO_FINISHED;
-#endif
+    coro->ended = true;
     coro_yield(coro, return_value);
 }
 
@@ -144,9 +135,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
     coro_t *coro = malloc(sizeof(*coro) + stack_size);
     void *stack = (coro_t *)coro + 1;
 
-#ifndef NDEBUG
-    coro->state = CORO_NEW;
-#endif
+    coro->ended = false;
     coro->switcher = switcher;
     coro->data = data;
     coro->defer = NULL;
@@ -189,13 +178,14 @@ ALWAYS_INLINE int
 coro_resume(coro_t *coro)
 {
     assert(coro);
-    assert(coro->state != CORO_FINISHED);
+    assert(coro->ended == false);
 
     coro_context_t prev_caller;
 
     memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
-    memcpy(&coro->context, &coro->switcher->callee, sizeof(prev_caller));
+    if (!coro->ended)
+        memcpy(&coro->context, &coro->switcher->callee, sizeof(prev_caller));
     memcpy(&coro->switcher->caller, &prev_caller, sizeof(prev_caller));
 
     return coro->yield_value;
