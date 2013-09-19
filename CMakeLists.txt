@@ -19,24 +19,25 @@ endif ()
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 
-find_library(JEMALLOC_LIBRARY
-	NAMES jemalloc
+find_library(TCMALLOC_LIBRARY
+	NAMES tcmalloc_minimal tcmalloc
 	PATHS /usr/lib /usr/local/lib)
-if (JEMALLOC_LIBRARY)
-	message(STATUS "jemalloc found: ${JEMALLOC_LIBRARY}")
-	set(MALLOC_LIB ${JEMALLOC_LIBRARY})
+if (TCMALLOC_LIBRARY)
+	message(STATUS "tcmalloc found: ${TCMALLOC_LIBRARY}")
+	set(MALLOC_LIB ${TCMALLOC_LIBRARY})
 else ()
-	find_library(TCMALLOC_LIBRARY
-		NAMES tcmalloc_minimal tcmalloc
+	find_library(JEMALLOC_LIBRARY
+		NAMES jemalloc
 		PATHS /usr/lib /usr/local/lib)
-	if (TCMALLOC_LIBRARY)
-		message(STATUS "tcmalloc found: ${TCMALLOC_LIBRARY}")
-		set(MALLOC_LIB ${TCMALLOC_LIBRARY})
+	if (JEMALLOC_LIBRARY)
+		message(STATUS "jemalloc found: ${JEMALLOC_LIBRARY}")
+		set(MALLOC_LIB ${JEMALLOC_LIBRARY})
 	else ()
 		message(STATUS "jemalloc and tcmalloc were not found, using system malloc")
 		set(MALLOC_LIB "")
 	endif()
 endif()
+
 
 find_path(VALGRIND_INCLUDE_DIR valgrind.h /usr/include /usr/include/valgrind /usr/local/include /usr/local/include/valgrind)
 if (VALGRIND_INCLUDE_DIR)
@@ -83,8 +84,8 @@ add_executable(lwan main.c)
 
 target_link_libraries(lwan
 	${CMAKE_THREAD_LIBS_INIT}
-	${ZLIB_LIBRARIES}
 	${MALLOC_LIB}
+	${ZLIB_LIBRARIES}
 	lwan-common
 )
 
@@ -94,7 +95,7 @@ add_executable(freegeoip
 
 target_link_libraries(freegeoip
 	${CMAKE_THREAD_LIBS_INIT}
-	${TCMALLOC_LIBRARY}
+	${MALLOC_LIB}
 	${ZLIB_LIBRARIES}
 	${SQLITE_LIBRARIES}
 	lwan-common
