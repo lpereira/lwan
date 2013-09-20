@@ -32,6 +32,8 @@
 #include <valgrind/valgrind.h>
 #endif
 
+#define CORO_STACK_MIN		(3 * (PTHREAD_STACK_MIN)) / 2
+
 typedef struct coro_defer_t_	coro_defer_t;
 
 struct coro_defer_t_ {
@@ -165,7 +167,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
 ALWAYS_INLINE coro_t *
 coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 {
-    return coro_new_full(switcher, PTHREAD_STACK_MIN, function, data);
+    return coro_new_full(switcher, CORO_STACK_MIN, function, data);
 }
 
 ALWAYS_INLINE void *
