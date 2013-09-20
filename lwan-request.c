@@ -440,10 +440,11 @@ lwan_process_request(lwan_request_t *request)
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
     lwan_request_parse_t helper;
+    char buffer[DEFAULT_BUFFER_SIZE];
 
     memset(&helper, 0, sizeof(helper));
 
-    request->buffer.value = coro_malloc(request->coro, DEFAULT_BUFFER_SIZE);
+    request->buffer.value = buffer;
     request->buffer.len = 0;
 
     if (UNLIKELY(!request->buffer.value))
