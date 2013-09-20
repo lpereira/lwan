@@ -186,9 +186,10 @@ coro_resume(coro_t *coro)
 
     memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
-    if (!coro->ended)
+    if (!coro->ended) {
         memcpy(&coro->context, &coro->switcher->callee, sizeof(prev_caller));
-    memcpy(&coro->switcher->caller, &prev_caller, sizeof(prev_caller));
+        memcpy(&coro->switcher->caller, &prev_caller, sizeof(prev_caller));
+    }
 
     return coro->yield_value;
 }
