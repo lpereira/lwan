@@ -182,14 +182,23 @@ coro_resume(coro_t *coro)
     assert(coro);
     assert(coro->ended == false);
 
+#ifdef __x86_64__
+    _coro_swapcontext(&coro->switcher->caller, &coro->context);
+    if (!coro->ended)
+        memcpy(&coro->context, &coro->switcher->callee,
+                    sizeof(coro->context));
+#else
     coro_context_t prev_caller;
 
     memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
     if (!coro->ended) {
-        memcpy(&coro->context, &coro->switcher->callee, sizeof(prev_caller));
-        memcpy(&coro->switcher->caller, &prev_caller, sizeof(prev_caller));
+        memcpy(&coro->context, &coro->switcher->callee,
+                    sizeof(coro->context));
+        memcpy(&coro->switcher->caller, &prev_caller,
+                    sizeof(coro->switcher->caller));
     }
+#endif
 
     return coro->yield_value;
 }
