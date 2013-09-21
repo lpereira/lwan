@@ -95,14 +95,10 @@ _process_request_coro(coro_t *coro)
     lwan_process_request(request);
 
     /*
-     * If we fail sending the request (such as the connection has been reset by
-     * peer), just forcefully kill it from our side as well, as there's probably
-     * no point in keep their resources further.
-     *
-     * FIXME: Check if lwan_process_request() actually returns false only on non-
-     *        recoverable errors; EWOULDBLOCK, EAGAIN, EINTR and such should just
-     *        yield from the coroutine and processing the request should be tried
-     *        again. Maybe a boolean doesn't suffice here.
+     * FIXME: Check if lwan_process_request() actually returns false only on
+     *        non- recoverable errors; EWOULDBLOCK, EAGAIN, EINTR and such
+     *        should just yield from the coroutine and processing the
+     *        request should be tried again.
      */
 
     return 0;
