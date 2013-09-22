@@ -27,9 +27,9 @@ typedef struct lwan_trie_node_t_	lwan_trie_node_t;
 typedef struct lwan_trie_leaf_t_	lwan_trie_leaf_t;
 
 struct lwan_trie_node_t_ {
-    int ref_count;
     lwan_trie_node_t *next[8];
     lwan_trie_leaf_t *leaf;
+    int ref_count;
 };
 
 struct lwan_trie_leaf_t_ {
