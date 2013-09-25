@@ -255,7 +255,7 @@ _thread_io_loop(void *data)
     int epoll_fd = t->epoll_fd;
     int n_fds;
     int i;
-
+    const short keep_alive_timeout = t->lwan->config.keep_alive_timeout;
     lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
 
     events = calloc(t->lwan->thread.max_fd, sizeof(*events));
@@ -304,10 +304,8 @@ _thread_io_loop(void *data)
                  * shouldn't be resumed -- then just mark it to be reaped
                  * right away.
                  */
-                if (LIKELY(request->flags & (REQUEST_IS_KEEP_ALIVE | REQUEST_SHOULD_RESUME_CORO)))
-                    request->time_to_die = dq.time + t->lwan->config.keep_alive_timeout;
-                else
-                    request->time_to_die = dq.time;
+                request->time_to_die = dq.time;
+                request->time_to_die += keep_alive_timeout * !!(request->flags & (REQUEST_IS_KEEP_ALIVE | REQUEST_SHOULD_RESUME_CORO));
 
                 /*
                  * The connection hasn't been added to the keep-alive and
