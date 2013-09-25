@@ -30,10 +30,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "strbuf.h"
 #include "hash.h"
 #include "int-to-str.h"
+#include "list.h"
 #include "lwan-template.h"
+#include "strbuf.h"
 
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
 
@@ -63,16 +64,77 @@ enum {
 };
 
 struct lwan_tpl_chunk_t_ {
+    struct list_node list;
     lwan_tpl_action_t action;
     void *data;
-    lwan_tpl_chunk_t *next;
 };
 
 struct lwan_tpl_t_ {
-    lwan_tpl_chunk_t *chunks;
+    struct list_head chunks;
     size_t minimum_size;
-    struct hash *descriptor_hash;
 };
+
+struct symtab {
+    struct hash *hash;
+    struct symtab *next;
+};
+
+struct parser_state {
+    lwan_tpl_t *tpl;
+    struct symtab *symtab;
+};
+
+static lwan_var_descriptor_t *
+symtab_lookup(struct parser_state *state, const char *var_name)
+{
+    struct symtab *tab = state->symtab;
+    lwan_var_descriptor_t *var;
+
+    for (; tab; tab = tab->next) {
+        var = hash_find(tab->hash, var_name);
+        if (var)
+            return var;
+    }
+
+    return NULL;
+}
+
+static void
+symtab_add(struct parser_state *state, const char *key, const void *value)
+{
+    hash_add(state->symtab->hash, key, value);
+}
+
+static bool
+symtab_push(struct parser_state *state, lwan_var_descriptor_t *descriptor)
+{
+    struct symtab *tab = malloc(sizeof(*tab));
+    int i;
+
+    tab->hash = hash_str_new(NULL, NULL);
+    if (!tab->hash)
+        return false;
+
+    tab->next = state->symtab;
+    state->symtab = tab;
+
+    for (i = 0; descriptor[i].name; i++)
+        symtab_add(state, descriptor[i].name, &descriptor[i]);
+
+    return true;
+}
+
+static void
+symtab_pop(struct parser_state *state)
+{
+    struct symtab *tab = state->symtab;
+
+    if (!tab)
+        return;
+    hash_free(tab->hash);
+    state->symtab = tab->next;
+    free(tab);
+}
 
 char *
 _lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length)
@@ -139,7 +201,7 @@ _lwan_tpl_str_is_empty(void *ptr)
 }
 
 static int
-compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
+compile_append_text(struct parser_state *state, strbuf_t *buf)
 {
     int length = strbuf_get_length(buf);
     if (!length)
@@ -158,16 +220,16 @@ compile_append_text(lwan_tpl_t *tpl, strbuf_t *buf)
         strbuf_set(chunk->data, strbuf_get_buffer(buf), length);
     }
 
-    chunk->next = tpl->chunks;
-    tpl->chunks = chunk;
-    tpl->minimum_size += length;
+    list_add_tail(&state->tpl->chunks, &chunk->list);
+    state->tpl->minimum_size += length;
     strbuf_reset(buf);
 
     return 0;
 }
 
 static int
-compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descriptor)
+compile_append_var(struct parser_state *state, strbuf_t *buf,
+            lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_chunk_t *chunk = malloc(sizeof(*chunk));
     if (!chunk)
@@ -192,22 +254,52 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
     }
     case '#':
         chunk->action = TPL_ACTION_LIST_START_ITER;
-        chunk->data = strdup(variable + 1);
+        chunk->data = symtab_lookup(state, variable + 1);
+        if (!chunk->data) {
+            goto nokey;
+        } else {
+            lwan_var_descriptor_t *child = chunk->data;
+            symtab_push(state, child->list_desc);
+        }
         break;
-    case '/':
+    case '/': {
+        lwan_tpl_chunk_t *start_chunk;
+        lwan_var_descriptor_t *descr;
+        bool was_if = false;
+
         if (variable[length] == '?') {
-            chunk->action = TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY;
             variable[length] = '\0';
-            chunk->data = hash_find(tpl->descriptor_hash, variable + 1);
-            if (!chunk->data) {
-                free(chunk);
-                return -ENOKEY;
+            was_if = true;
+        }
+
+        descr = symtab_lookup(state, variable + 1);
+        if (!descr)
+            goto nokey;
+
+        if (was_if) {
+            chunk->action = TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY;
+            list_for_each_rev(&state->tpl->chunks, start_chunk, list) {
+                if (start_chunk->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
+                    continue;
+                if (start_chunk->data != descr)
+                    continue;
+
+                chunk->data = descr;
+                goto add_chunk;
             }
         } else {
             chunk->action = TPL_ACTION_LIST_END_ITER;
-            chunk->data = strdup(variable + 1);
+            list_for_each_rev(&state->tpl->chunks, start_chunk, list) {
+                if (start_chunk->data == descr) {
+                    chunk->data = start_chunk;
+                    symtab_pop(state);
+                    goto add_chunk;
+                }
+            }
         }
-        break;
+
+        goto nokey;
+    }
     default:
         if (variable[length] == '?') {
             chunk->action = TPL_ACTION_IF_VARIABLE_NOT_EMPTY;
@@ -215,19 +307,21 @@ compile_append_var(lwan_tpl_t *tpl, strbuf_t *buf, lwan_var_descriptor_t *descri
         } else {
             chunk->action = TPL_ACTION_VARIABLE;
         }
-        chunk->data = hash_find(tpl->descriptor_hash, variable);
-        if (!chunk->data) {
-            free(chunk);
-            return -ENOKEY;
-        }
+        chunk->data = symtab_lookup(state, variable);
+        if (!chunk->data)
+            goto nokey;
     }
 
-    chunk->next = tpl->chunks;
-    tpl->chunks = chunk;
-    tpl->minimum_size += length + 1;
+add_chunk:
+    list_add_tail(&state->tpl->chunks, &chunk->list);
+    state->tpl->minimum_size += length + 1;
     strbuf_reset(buf);
 
     return 0;
+
+nokey:
+    free(chunk);
+    return -ENOKEY;
 }
 
 static void
@@ -242,6 +336,8 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
     case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
+    case TPL_ACTION_LIST_START_ITER:
+    case TPL_ACTION_LIST_END_ITER:
         /* do nothing */
         break;
     case TPL_ACTION_APPEND:
@@ -249,10 +345,6 @@ free_chunk(lwan_tpl_chunk_t *chunk)
         break;
     case TPL_ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
-        break;
-    case TPL_ACTION_LIST_START_ITER:
-    case TPL_ACTION_LIST_END_ITER:
-        free(chunk->data);
         break;
     }
 
@@ -265,11 +357,13 @@ lwan_tpl_free(lwan_tpl_t *tpl)
     if (!tpl)
         return;
 
-    while (tpl->chunks) {
-        lwan_tpl_chunk_t *next = tpl->chunks->next;
-        free_chunk(tpl->chunks);
-        tpl->chunks = next;
+    lwan_tpl_chunk_t *chunk;
+    lwan_tpl_chunk_t *next;
+    list_for_each_safe(&tpl->chunks, chunk, next, list) {
+        list_del(&chunk->list);
+        free_chunk(chunk);
     }
+
     free(tpl);
 }
 
@@ -280,7 +374,7 @@ lwan_tpl_free(lwan_tpl_t *tpl)
     } while(0)
 
 static int
-feed_into_compiler(lwan_tpl_t *tpl,
+feed_into_compiler(struct parser_state *parser_state,
     lwan_var_descriptor_t *descriptor,
     int state,
     strbuf_t *buf,
@@ -335,7 +429,7 @@ feed_into_compiler(lwan_tpl_t *tpl,
         if (strbuf_get_length(buf) == 0)
             PARSE_ERROR("Expecting variable name");
 
-        switch (compile_append_var(tpl, buf, descriptor)) {
+        switch (compile_append_var(parser_state, buf, descriptor)) {
         case -ENOKEY:
             PARSE_ERROR("Unknown variable: ``%s''", strbuf_get_buffer(buf));
         case -ENOMEM:
@@ -357,7 +451,7 @@ feed_into_compiler(lwan_tpl_t *tpl,
     return state;
 
 append_text:
-    switch (compile_append_text(tpl, buf)) {
+    switch (compile_append_text(parser_state, buf)) {
     case -ENOMEM:
         PARSE_ERROR("Out of memory while appending text");
     }
@@ -372,18 +466,18 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
     strbuf_t *buf;
     int state = STATE_DEFAULT;
     char error_msg[512];
+    struct parser_state parser_state;
 
     tpl = calloc(1, sizeof(*tpl));
     if (!tpl)
         goto error_allocate_tpl;
 
-    tpl->descriptor_hash = hash_str_new(NULL, NULL);
-    if (!tpl->descriptor_hash)
-        goto error_allocate_hash;
+    list_head_init(&tpl->chunks);
 
-    int i;
-    for (i = 0; descriptor[i].name; i++)
-        hash_add(tpl->descriptor_hash, descriptor[i].name, &descriptor[i]);
+    parser_state.tpl = tpl;
+    parser_state.symtab = NULL;
+    if (!symtab_push(&parser_state, descriptor))
+        goto error_symtab_push;
 
     buf = strbuf_new();
     if (!buf)
@@ -402,12 +496,14 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
         }
         ++column;
 
-        state = feed_into_compiler(tpl, descriptor, state, buf, *string, error_msg);
+        state = feed_into_compiler(&parser_state, descriptor, state,
+                    buf, *string, error_msg);
         if (state == STATE_PARSE_ERROR)
             goto parse_error;
     }
 
-    state = feed_into_compiler(tpl, descriptor, state, buf, EOF, error_msg);
+    state = feed_into_compiler(&parser_state, descriptor, state,
+                buf, EOF, error_msg);
     if (state == STATE_PARSE_ERROR)
         goto parse_error;
 
@@ -417,20 +513,11 @@ lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
 
     last->action = TPL_ACTION_LAST;
     last->data = NULL;
-    last->next = tpl->chunks;
-    tpl->chunks = last;
 
-    lwan_tpl_chunk_t *prev = NULL;
-    while (tpl->chunks) {
-        lwan_tpl_chunk_t *next = tpl->chunks->next;
-        tpl->chunks->next = prev;
-        prev = tpl->chunks;
-        tpl->chunks = next;
-    }
-    tpl->chunks = prev;
+    list_add_tail(&parser_state.tpl->chunks, &last->list);
 
     strbuf_free(buf);
-    hash_free(tpl->descriptor_hash);
+    symtab_pop(&parser_state);
 
     return tpl;
 
@@ -441,9 +528,9 @@ free_strbuf:
     strbuf_free(buf);
 
 error_allocate_strbuf:
-    hash_free(tpl->descriptor_hash);
+    symtab_pop(&parser_state);
 
-error_allocate_hash:
+error_symtab_push:
     lwan_tpl_free(tpl);
 
 error_allocate_tpl:
@@ -498,6 +585,16 @@ until_found_end_if(lwan_tpl_chunk_t *chunk, void *data)
     return true;
 }
 
+static bool
+until_iter_end(lwan_tpl_chunk_t *chunk, void *data)
+{
+    if (chunk->action != TPL_ACTION_LIST_END_ITER)
+        return false;
+    if (data != chunk->data)
+        return false;
+    return true;
+}
+
 static char*
 var_get_as_string(lwan_tpl_chunk_t *chunk,
                   void *variables,
@@ -540,6 +637,8 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
     void *variables,
     bool (*until)(lwan_tpl_chunk_t *chunk, void *data), void *until_data)
 {
+    coro_switcher_t switcher;
+    coro_t *coro = NULL;
     lwan_tpl_chunk_t *chunk = chunks;
 
     if (UNLIKELY(!chunk))
@@ -572,7 +671,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
             if (!var_get_is_empty(chunk, variables)) {
                 chunk = lwan_tpl_apply_until(tpl,
-                                    chunk->next,
+                                    (lwan_tpl_chunk_t *) chunk->list.next,
                                     buf,
                                     variables,
                                     until_found_end_if,
@@ -581,13 +680,12 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             }
 
             void *variable = chunk->data;
-            for (chunk = chunk->next; chunk; chunk = chunk->next) {
+            while ((chunk = (lwan_tpl_chunk_t *) chunk->list.next)) {
                 if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
                     continue;
                 if (chunk->data == variable)
                     break;
             }
-
             break;
         }
         case TPL_ACTION_APPLY_TPL: {
@@ -598,10 +696,46 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             strbuf_free(tmp);
             break;
         }
-        case TPL_ACTION_LIST_START_ITER:
-        case TPL_ACTION_LIST_END_ITER:
-            /* Not implemented */
-            break;
+        case TPL_ACTION_LIST_START_ITER: {
+            assert(!coro);
+
+            lwan_var_descriptor_t *descriptor = chunk->data;
+            coro = coro_new(&switcher, descriptor->generator, variables);
+
+            if (!coro_resume(coro)) {
+                lwan_tpl_chunk_t *end_chunk = chunk;
+                while ((end_chunk = (lwan_tpl_chunk_t *) end_chunk->list.next)) {
+                    if (end_chunk->action != TPL_ACTION_LIST_END_ITER)
+                        continue;
+                    if (end_chunk->data == chunk)
+                        break;
+                }
+                chunk = (lwan_tpl_chunk_t *) end_chunk->list.next;
+                coro_free(coro);
+                coro = NULL;
+                break;
+            }
+
+            chunk = lwan_tpl_apply_until(tpl, (lwan_tpl_chunk_t *) chunk->list.next,
+                        buf, variables, until_iter_end, chunk);
+            continue;
+        }
+        case TPL_ACTION_LIST_END_ITER: {
+            assert(coro);
+
+            if (!coro_resume(coro)) {
+                coro_free(coro);
+                coro = NULL;
+                break;
+            }
+
+            lwan_tpl_chunk_t *next = chunk->data;
+            next = (lwan_tpl_chunk_t *)next->list.next;
+
+            chunk = lwan_tpl_apply_until(tpl, next, buf, variables, until_iter_end,
+                        chunk->data);
+            continue;
+        }
         case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         case TPL_ACTION_LAST:
             /* Shouldn't happen */
@@ -610,7 +744,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
 
         if (!chunk)
             break;
-        chunk = chunk->next;
+        chunk = (lwan_tpl_chunk_t *)chunk->list.next;
     } while (chunk);
 
 out:
@@ -626,7 +760,7 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
     if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
         return NULL;
 
-    lwan_tpl_apply_until(tpl, tpl->chunks, buf, variables, until_end, NULL);
+    lwan_tpl_apply_until(tpl, (lwan_tpl_chunk_t *)&tpl->chunks.n, buf, variables, until_end, NULL);
     return buf;
 }
 

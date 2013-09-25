@@ -112,6 +112,31 @@
           + check_types_match(*(member_ptr), ((containing_type *)0)->member))
 
 /**
+ * container_of_var - get pointer to enclosing structure using a variable
+ * @member_ptr: pointer to the structure member
+ * @container_var: a pointer of same type as this member's container
+ * @member: the name of this member within the structure.
+ *
+ * Given a pointer to a member of a structure, this macro does pointer
+ * subtraction to return the pointer to the enclosing type.
+ *
+ * Example:
+ *	static struct info *foo_to_i(struct foo *foo)
+ *	{
+ *		struct info *i = container_of_var(foo, i, my_foo);
+ *		return i;
+ *	}
+ */
+#if HAVE_TYPEOF
+#define container_of_var(member_ptr, container_var, member) \
+	container_of(member_ptr, typeof(*container_var), member)
+#else
+#define container_of_var(member_ptr, container_var, member)	\
+	((void *)((char *)(member_ptr)	-			\
+		  container_off_var(container_var, member)))
+#endif
+
+/**
  * container_off - get offset to enclosing structure
  * @containing_type: the type this member is within
  * @member: the name of this member within the structure.

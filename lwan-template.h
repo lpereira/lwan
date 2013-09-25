@@ -21,18 +21,25 @@
 
 #include <stddef.h>
 #include "strbuf.h"
+#include "lwan-coro.h"
 
 typedef struct lwan_tpl_t_ lwan_tpl_t;
 typedef struct lwan_var_descriptor_t_ lwan_var_descriptor_t;
 
+typedef int (*lwan_tpl_list_generator_t)(coro_t *coro);
+
 struct lwan_var_descriptor_t_ {
     const char *name;
     const off_t offset;
+
     char *(*get_as_string)(void *ptr, bool *allocated, size_t *length);
     bool (*get_is_empty)(void *ptr);
+
+    lwan_tpl_list_generator_t generator;
+    lwan_var_descriptor_t *list_desc;
 };
 
-#define TPL_VAR(struct_, var_, get_as_string_, get_is_empty_) \
+#define TPL_VAR_SIMPLE(struct_, var_, get_as_string_, get_is_empty_) \
     { \
         .name = #var_, \
         .offset = offsetof(struct_, var_), \
@@ -40,17 +47,25 @@ struct lwan_var_descriptor_t_ {
         .get_is_empty = get_is_empty_ \
     }
 
+#define TPL_VAR_SEQUENCE(struct_, var_, generator_, seqitem_desc_) \
+    { \
+        .name = #var_, \
+        .offset = offsetof(struct_, var_.generator), \
+        .generator = generator_, \
+        .list_desc = seqitem_desc_ \
+    }
+
 #define TPL_VAR_INT(struct_, var_) \
-    TPL_VAR(struct_, var_, _lwan_tpl_int_to_str, _lwan_tpl_int_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, _lwan_tpl_int_to_str, _lwan_tpl_int_is_empty)
 
 #define TPL_VAR_DOUBLE(struct_, var_) \
-    TPL_VAR(struct_, var_, _lwan_tpl_double_to_str, _lwan_tpl_double_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, _lwan_tpl_double_to_str, _lwan_tpl_double_is_empty)
 
 #define TPL_VAR_STR(struct_, var_) \
-    TPL_VAR(struct_, var_, _lwan_tpl_str_to_str, _lwan_tpl_str_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, _lwan_tpl_str_to_str, _lwan_tpl_str_is_empty)
 
 #define TPL_VAR_SENTINEL \
-    { NULL, 0, NULL, NULL }
+    { NULL, 0, NULL, NULL, NULL, NULL }
 
 /*
  * These functions are not meant to be used directly, hence the '_'
