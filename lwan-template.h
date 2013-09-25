@@ -36,7 +36,7 @@ struct lwan_var_descriptor_t_ {
     bool (*get_is_empty)(void *ptr);
 
     lwan_tpl_list_generator_t generator;
-    lwan_var_descriptor_t *list_desc;
+    const lwan_var_descriptor_t *list_desc;
 };
 
 #define TPL_VAR_SIMPLE(struct_, var_, get_as_string_, get_is_empty_) \
@@ -79,8 +79,8 @@ bool	 _lwan_tpl_str_is_empty(void *ptr);
 char	*_lwan_tpl_double_to_str(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_double_is_empty(void *ptr);
 
-lwan_tpl_t	*lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor);
-lwan_tpl_t	*lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor);
+lwan_tpl_t	*lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor);
+lwan_tpl_t	*lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor);
 strbuf_t	*lwan_tpl_apply(lwan_tpl_t *tpl, void *variables);
 strbuf_t	*lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables);
 void	 	 lwan_tpl_free(lwan_tpl_t *tpl);

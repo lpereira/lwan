@@ -38,10 +38,6 @@
 
 typedef struct lwan_tpl_chunk_t_ lwan_tpl_chunk_t;
 
-lwan_tpl_t *lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor);
-void lwan_tpl_free(lwan_tpl_t *tpl);
-strbuf_t *lwan_tpl_apply(lwan_tpl_t *, void *variables);
-
 typedef enum {
     TPL_ACTION_APPEND,
     TPL_ACTION_APPEND_CHAR,
@@ -106,7 +102,7 @@ symtab_add(struct parser_state *state, const char *key, const void *value)
 }
 
 static bool
-symtab_push(struct parser_state *state, lwan_var_descriptor_t *descriptor)
+symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
 {
     struct symtab *tab = malloc(sizeof(*tab));
     int i;
@@ -229,7 +225,7 @@ compile_append_text(struct parser_state *state, strbuf_t *buf)
 
 static int
 compile_append_var(struct parser_state *state, strbuf_t *buf,
-            lwan_var_descriptor_t *descriptor)
+            const lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_chunk_t *chunk = malloc(sizeof(*chunk));
     if (!chunk)
@@ -375,7 +371,7 @@ lwan_tpl_free(lwan_tpl_t *tpl)
 
 static int
 feed_into_compiler(struct parser_state *parser_state,
-    lwan_var_descriptor_t *descriptor,
+    const lwan_var_descriptor_t *descriptor,
     int state,
     strbuf_t *buf,
     int ch,
@@ -460,7 +456,7 @@ append_text:
 }
 
 lwan_tpl_t *
-lwan_tpl_compile_string(const char *string, lwan_var_descriptor_t *descriptor)
+lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_t *tpl;
     strbuf_t *buf;
@@ -540,7 +536,7 @@ error_allocate_tpl:
 #undef PARSE_ERROR
 
 lwan_tpl_t *
-lwan_tpl_compile_file(const char *filename, lwan_var_descriptor_t *descriptor)
+lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor)
 {
     int fd;
     struct stat st;
