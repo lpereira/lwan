@@ -233,6 +233,7 @@ struct lwan_t_ {
         short port;
         short keep_alive_timeout;
         bool quiet;
+        bool reuse_port;
     } config;
 
     struct {

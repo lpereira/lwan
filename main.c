@@ -92,7 +92,8 @@ main(void)
         .config = {
             .port = 8080,
             .keep_alive_timeout = 15 /*seconds */,
-            .quiet = false
+            .quiet = false,
+            .reuse_port = false
         }
     };
 

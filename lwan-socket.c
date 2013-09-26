@@ -93,8 +93,9 @@ lwan_socket_init(lwan_t *l)
 
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN,
                                             (int[]){ 5 }, sizeof(int));
-    SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                            (int[]){ 1 }, sizeof(int));
+    if (l->config.reuse_port)
+        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                (int[]){ 1 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_port = htons(l->config.port);
