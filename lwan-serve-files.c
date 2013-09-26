@@ -362,6 +362,61 @@ _dirlist_init(file_cache_entry_t *ce,
     return !!dd->rendered;
 }
 
+static bool
+_get_data_size_and_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
+    struct stat *st, size_t *data_size, const cache_funcs_t **funcs)
+{
+    char index_html_path_buf[PATH_MAX];
+    char *index_html_path = index_html_path_buf;
+
+    /* It's not a directory: choose the fastest way to serve the file
+     * judging by its size. */
+    if (!S_ISDIR(st->st_mode))
+        goto not_a_dir;
+
+    /* It is a directory. It might be the root directory (empty key), or
+     * something else.  In either case, tack priv->index_html to the path. */
+    if (*key == '\0')
+        index_html_path = (char *)priv->index_html;
+    else if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s/%s",
+                key, priv->index_html) < 0))
+        goto fail;
+
+    /* See if it exists. */
+    if (fstatat(priv->root.fd, index_html_path, st, 0) < 0) {
+        if (errno != ENOENT)
+            goto fail;
+
+        /* If it doesn't, we want to generate a directory list. */
+        *data_size = sizeof(dir_list_cache_data_t);
+        *funcs = &dirlist_funcs;
+        return true;
+    }
+
+    /* If it does, we want its full path. */
+    if (UNLIKELY(snprintf(full_path + priv->root.path_len,
+                PATH_MAX - priv->root.path_len, "/%s", index_html_path) < 0))
+        goto fail;
+
+not_a_dir:
+    if (st->st_size < 16384) {
+        *data_size = sizeof(mmap_cache_data_t);
+        *funcs = &mmap_funcs;
+    } else {
+        *data_size = sizeof(sendfile_cache_data_t);
+        *funcs = &sendfile_funcs;
+    }
+
+    return true;
+
+fail:
+    /* Zeroing out these shouldn't be necessary but gcc seems to complain. */
+    *funcs = NULL;
+    *data_size = 0;
+
+    return false;
+}
+
 static struct cache_entry_t *
 _create_cache_entry(const char *key, void *context)
 {
@@ -370,50 +425,16 @@ _create_cache_entry(const char *key, void *context)
     struct stat st;
     size_t data_size;
     const cache_funcs_t *funcs;
-    char *full_path;
+    char full_path[PATH_MAX];
 
-    full_path = realpathat2(priv->root.fd, priv->root.path, key, NULL, &st);
-    if (UNLIKELY(!full_path))
-        return NULL;
+    if (!realpathat2(priv->root.fd, priv->root.path, key, full_path, &st))
+        goto error;
 
     if (strncmp(full_path, priv->root.path, priv->root.path_len))
         goto error;
 
-    if (S_ISDIR(st.st_mode)) {
-        struct stat index_st;
-        char *tmp;
-
-        if (*key == '\0')
-            tmp = (char *)priv->index_html;
-        else if (UNLIKELY(asprintf(&tmp, "%s/%s", key, priv->index_html) < 0))
-            return NULL;
-
-        if (fstatat(priv->root.fd, tmp, &index_st, 0) < 0) {
-            data_size = sizeof(dir_list_cache_data_t);
-            funcs = &dirlist_funcs;
-            if (tmp != priv->index_html)
-                free(tmp);
-        } else {
-            if (UNLIKELY(asprintf(&full_path, "%s/%s", priv->root.path, tmp) < 0)) {
-                if (tmp != priv->index_html)
-                    free(tmp);
-                return NULL;
-            }
-
-            if (tmp != priv->index_html)
-                free(tmp);
-            goto serve_file;
-        }
-    } else {
-serve_file:
-        if (st.st_size <= 16384) {
-            data_size = sizeof(mmap_cache_data_t);
-            funcs = &mmap_funcs;
-        } else {
-            data_size = sizeof(sendfile_cache_data_t);
-            funcs = &sendfile_funcs;
-        }
-    }
+    if (!_get_data_size_and_funcs(priv, key, full_path, &st, &data_size, &funcs))
+        goto error;
 
     fce = malloc(sizeof(*fce) + data_size);
     if (UNLIKELY(!fce))
@@ -428,13 +449,11 @@ serve_file:
     fce->last_modified.integer = st.st_mtime;
     fce->funcs = funcs;
 
-    free(full_path);
     return (struct cache_entry_t *)fce;
 
 error_init:
     free(fce);
 error:
-    free(full_path);
     return NULL;
 }
 
