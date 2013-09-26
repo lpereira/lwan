@@ -59,7 +59,7 @@ struct serve_files_priv_t_ {
     } root;
 
     int open_mode;
-    char *index_html;
+    const char *index_html;
 
     struct cache_t *cache;
     lwan_tpl_t *directory_list_tpl;
@@ -160,7 +160,7 @@ static const cache_funcs_t dirlist_funcs = {
     .serve = _dirlist_serve
 };
 
-static char *index_html = "index.html";
+static const char *index_html = "index.html";
 
 static const lwan_var_descriptor_t file_list_item_desc[] = {
     TPL_VAR_STR(struct file_list_t, file_list.icon),
@@ -180,7 +180,7 @@ static const lwan_var_descriptor_t file_list_desc[] = {
     TPL_VAR_SENTINEL
 };
 
-static char *directory_list_tpl_str = "<html>\n"
+static const char *directory_list_tpl_str = "<html>\n"
     "<head>\n"
     "  <title>Index of {{rel_path}}</title>\n"
     "</head>\n"
@@ -384,7 +384,7 @@ _create_cache_entry(const char *key, void *context)
         char *tmp;
 
         if (*key == '\0')
-            tmp = priv->index_html;
+            tmp = (char *)priv->index_html;
         else if (UNLIKELY(asprintf(&tmp, "%s/%s", key, priv->index_html) < 0))
             return NULL;
 
