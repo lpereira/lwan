@@ -194,12 +194,12 @@ static char *directory_list_tpl_str = "<html>\n"
     "      <td>Size</td>\n"
     "    </tr>\n"
     "    <tr>\n"
-    "      <td><img src=\"/icons/back.gif\"></td>\n"
+    "      <td><img src=\"/icons/back.png\"></td>\n"
     "      <td colspan=\"3\"><a href=\"..\">Parent directory</a></td>\n"
     "    </tr>\n"
     "{{#file_list}}"
     "    <tr>\n"
-    "      <td><img src=\"{{file_list.icon}}\" alt=\"{{file_list.icon_alt}}\"></td>\n"
+    "      <td><img src=\"/icons/{{file_list.icon}}.png\" alt=\"{{file_list.icon_alt}}\"></td>\n"
     "      <td><a href=\"{{rel_path}}/{{file_list.name}}\">{{file_list.name}}</a></td>\n"
     "      <td>{{file_list.type}}</td>\n"
     "      <td>{{file_list.size}}{{file_list.unit}}</td>\n"
@@ -238,11 +238,11 @@ _directory_list_generator(coro_t *coro)
             continue;
 
         if (S_ISDIR(st.st_mode)) {
-            fl->file_list.icon = "/icons/folder.gif";
+            fl->file_list.icon = "folder";
             fl->file_list.icon_alt = "DIR";
             fl->file_list.type = "directory";
         } else {
-            fl->file_list.icon = "/icons/file.gif";
+            fl->file_list.icon = "file";
             fl->file_list.icon_alt = "FILE";
             fl->file_list.type = lwan_determine_mime_type_for_file_name(entry.d_name);
         }
