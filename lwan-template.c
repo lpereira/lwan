@@ -107,9 +107,14 @@ symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
     struct symtab *tab = malloc(sizeof(*tab));
     int i;
 
-    tab->hash = hash_str_new(NULL, NULL);
-    if (!tab->hash)
+    if (!tab)
         return false;
+
+    tab->hash = hash_str_new(NULL, NULL);
+    if (!tab->hash) {
+        free(tab);
+        return false;
+    }
 
     tab->next = state->symtab;
     state->symtab = tab;
@@ -125,8 +130,8 @@ symtab_pop(struct parser_state *state)
 {
     struct symtab *tab = state->symtab;
 
-    if (!tab)
-        return;
+    assert(tab);
+
     hash_free(tab->hash);
     state->symtab = tab->next;
     free(tab);
