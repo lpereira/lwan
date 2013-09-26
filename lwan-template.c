@@ -706,7 +706,8 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                     if (end_chunk->data == chunk)
                         break;
                 }
-                chunk = (lwan_tpl_chunk_t *) end_chunk->list.next;
+                if (end_chunk)
+                    chunk = (lwan_tpl_chunk_t *) end_chunk->list.next;
                 coro_free(coro);
                 coro = NULL;
                 break;
