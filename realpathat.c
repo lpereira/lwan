@@ -59,16 +59,17 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
         return NULL;
     }
 
-    if (UNLIKELY(name[0] == '\0')) {
-        /* As per Single Unix Specification V2 we must return an error if
-           the name argument points to an empty string.  */
-        errno = ENOENT;
-        return NULL;
+    if (name[0] == '\0') {
+        if (UNLIKELY(fstat(dirfd, st) < 0))
+            return NULL;
+        if (LIKELY(!resolved))
+            return strdup(dirfdpath);
+        return strcpy(resolved, dirfdpath);
     }
 
-    if (LIKELY(resolved == NULL)) {
+    if (LIKELY(!resolved)) {
         rpath = malloc(PATH_MAX);
-        if (UNLIKELY(rpath == NULL))
+        if (UNLIKELY(!rpath))
             return NULL;
     } else
         rpath = resolved;
