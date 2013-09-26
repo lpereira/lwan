@@ -89,10 +89,6 @@ struct sendfile_cache_data_t_ {
     size_t size;
 };
 
-struct redir_cache_data_t_ {
-    char *redir_to;
-};
-
 struct file_cache_entry_t_ {
     struct cache_entry_t base;
 
