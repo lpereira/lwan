@@ -324,6 +324,9 @@ _mmap_init(file_cache_entry_t *ce,
     md->uncompressed.size = st->st_size;
     _compress_cached_entry(md);
 
+    ce->mime_type = lwan_determine_mime_type_for_file_name(
+                full_path + priv->root.path_len);
+
     success = true;
 
 close_file:
@@ -343,6 +346,9 @@ _sendfile_init(file_cache_entry_t *ce,
     sd->size = st->st_size;
     sd->filename = strdup(full_path + priv->root.path_len + 1);
 
+    ce->mime_type = lwan_determine_mime_type_for_file_name(
+                full_path + priv->root.path_len);
+
     return !!sd->filename;
 }
 
@@ -359,6 +365,8 @@ _dirlist_init(file_cache_entry_t *ce,
     };
 
     dd->rendered = lwan_tpl_apply(priv->directory_list_tpl, &vars);
+    ce->mime_type = "text/html";
+
     return !!dd->rendered;
 }
 
@@ -445,7 +453,6 @@ _create_cache_entry(const char *key, void *context)
 
     lwan_format_rfc_time(st.st_mtime, fce->last_modified.string);
 
-    fce->mime_type = lwan_determine_mime_type_for_file_name(full_path + priv->root.path_len);
     fce->last_modified.integer = st.st_mtime;
     fce->funcs = funcs;
 
@@ -779,8 +786,6 @@ _dirlist_serve(lwan_request_t *request, void *data)
     char *headers = request->buffer.value;
     size_t header_len;
     lwan_http_status_t return_status = HTTP_OK;
-
-    request->response.mime_type = "text/html";
 
     if (_client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
