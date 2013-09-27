@@ -72,7 +72,6 @@
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
-typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
 typedef struct lwan_handler_t_		lwan_handler_t;
