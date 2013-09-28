@@ -69,15 +69,15 @@
 #define ATOMIC_DEC(V)		ATOMIC_AAF(&(V), -1)
 #define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 
+typedef struct lwan_t_			lwan_t;
+typedef struct lwan_handler_t_		lwan_handler_t;
+typedef struct lwan_key_value_t_	lwan_key_value_t;
+typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
-typedef struct lwan_url_map_t_		lwan_url_map_t;
-typedef struct lwan_t_			lwan_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
-typedef struct lwan_key_value_t_	lwan_key_value_t;
-typedef struct lwan_handler_t_		lwan_handler_t;
+typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
-typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -271,6 +271,9 @@ void lwan_socket_shutdown(lwan_t *l);
 
 void lwan_thread_init(lwan_t *l);
 void lwan_thread_shutdown(lwan_t *l);
+
+void lwan_status_init(lwan_t *l);
+void lwan_status_shutdown(lwan_t *l);
 
 void lwan_job_thread_init(void);
 void lwan_job_thread_shutdown(void);
