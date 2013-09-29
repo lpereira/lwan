@@ -95,17 +95,10 @@ symtab_lookup(struct parser_state *state, const char *var_name)
     return NULL;
 }
 
-static void
-symtab_add(struct parser_state *state, const char *key, const void *value)
-{
-    hash_add(state->symtab->hash, key, value);
-}
-
 static bool
 symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
 {
     struct symtab *tab = malloc(sizeof(*tab));
-    int i;
 
     if (!tab)
         return false;
@@ -119,8 +112,8 @@ symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
     tab->next = state->symtab;
     state->symtab = tab;
 
-    for (i = 0; descriptor[i].name; i++)
-        symtab_add(state, descriptor[i].name, &descriptor[i]);
+    for (; descriptor->name; descriptor++)
+        hash_add(state->symtab->hash, descriptor->name, descriptor);
 
     return true;
 }
