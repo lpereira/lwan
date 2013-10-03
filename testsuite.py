@@ -24,8 +24,49 @@ class LwanTest(unittest.TestCase):
     self.lwan.kill()
 
 
-class TestBasicRequest(LwanTest):
-  def test_head_request_file(self):
+class TestFileServing(LwanTest):
+  def test_mime_type_is_correct(self):
+    table = (
+      ('/', 'text/html'),
+      ('/icons/back.png', 'image/png'),
+      ('/icons', 'text/html'),
+      ('/zero', 'application/octet-stream')
+    )
+
+    for path, expected_mime in table:
+      r = requests.head('http://127.0.0.1:8080%s' % path)
+      self.assertEqual(r.headers['content-type'], expected_mime)
+
+
+  def test_non_existend_file_yields_404(self):
+    r = requests.get('http://127.0.0.1:8080/icons/non-existent-file.png')
+
+    self.assertTrue(r.status_code, 404)
+    self.assertTrue(r.headers['content-type'], 'text/html')
+
+
+  def test_dot_dot_slash_yields_404(self):
+    r = requests.get('http://127.0.0.1:8080/../../../../../../../../../etc/passwd')
+
+    self.assertTrue(r.status_code, 404)
+    self.assertTrue(r.headers['content-type'], 'text/html')
+
+
+  def test_slash_slash_slash_does_not_matter_200(self):
+    r = requests.get('http://127.0.0.1:8080//////////icons/file.png')
+
+    self.assertEqual(r.status_code, 200)
+    self.assertTrue(r.headers['content-type'], 'image/png')
+
+
+  def test_slash_slash_slash_does_not_matter_404(self):
+    r = requests.get('http://127.0.0.1:8080//////////etc/passwd')
+
+    self.assertEqual(r.status_code, 404)
+    self.assertTrue(r.headers['content-type'], 'text/html')
+
+
+  def test_head_request_small_file(self):
     r = requests.head('http://127.0.0.1:8080/100.html',
           headers={'Accept-Encoding': 'foobar'})
 
@@ -40,17 +81,17 @@ class TestBasicRequest(LwanTest):
     self.assertEqual(r.text, '')
 
 
-  def test_head_request_hello(self):
-    r = requests.head('http://127.0.0.1:8080/hello',
+  def test_head_request_larger_file(self):
+    r = requests.head('http://127.0.0.1:8080/zero',
           headers={'Accept-Encoding': 'foobar'})
 
     self.assertEqual(r.status_code, 200)
 
     self.assertTrue('content-type' in r.headers)
-    self.assertEqual(r.headers['content-type'], 'text/plain')
+    self.assertEqual(r.headers['content-type'], 'application/octet-stream')
 
     self.assertTrue('content-length' in r.headers)
-    self.assertEqual(int(r.headers['content-length']), len('Hello, world!'))
+    self.assertEqual(r.headers['content-length'], '32768')
 
     self.assertEqual(r.text, '')
 
@@ -88,6 +129,43 @@ class TestBasicRequest(LwanTest):
     self.assertEqual(r.text, 'X' * 100)
 
 
+  def test_get_larger_file(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Accept-Encoding': 'foobar'})
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'application/octet-stream')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(int(r.headers['content-length']), 32768)
+
+    self.assertEqual(r.text, '\0' * 32768)
+
+
+  def test_directory_listing(self):
+    r = requests.get('http://127.0.0.1:8080/icons',
+          headers={'Accept-Encoding': 'foobar'})
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'text/html')
+
+    self.assertTrue('<h1>Index of /icons</h1>' in r.text)
+
+    def assertHasImage(name):
+      imgtag = "<a href=\"/icons/%s.png\">%s.png</a>" % (name, name)
+      self.assertTrue(imgtag in r.text)
+
+    assertHasImage('back')
+    assertHasImage('file')
+    assertHasImage('folder')
+
+    self.assertTrue('</html>' in r.text)
+
+
   def test_has_lwan_server_header(self):
     r = requests.get('http://127.0.0.1:8080/100.html')
     self.assertTrue('server' in r.headers)
@@ -95,6 +173,21 @@ class TestBasicRequest(LwanTest):
 
 
 def TestHelloWorld(LwanTest):
+  def test_head_request_hello(self):
+    r = requests.head('http://127.0.0.1:8080/hello',
+          headers={'Accept-Encoding': 'foobar'})
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'text/plain')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(int(r.headers['content-length']), len('Hello, world!'))
+
+    self.assertEqual(r.text, '')
+
+
   def test_has_custom_header(self):
     r = requests.get('http://127.0.0.1:8080/hello')
 
@@ -118,6 +211,21 @@ def TestHelloWorld(LwanTest):
 
   def test_with_param(self):
     r = requests.get('http://127.0.0.1:8080/hello?name=testsuite')
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'text/plain')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(int(r.headers['content-length']),
+          len('Hello, testsuite!'))
+
+    self.assertEqual(r.text, 'Hello, testsuite!')
+
+
+  def test_with_param_and_fragment(self):
+    r = requests.get('http://127.0.0.1:8080/hello?name=testsuite#fragment')
 
     self.assertEqual(r.status_code, 200)
 
