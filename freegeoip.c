@@ -51,44 +51,21 @@ struct ip_info_t {
     const char *callback;
 };
 
-#if QUERIES_PER_HOUR != 0
-struct query_limit_t {
-    struct cache_entry_t base;
-    unsigned queries;
+static const lwan_var_descriptor_t template_descriptor[] = {
+    TPL_VAR_STR(struct ip_info_t, country.code),
+    TPL_VAR_STR(struct ip_info_t, country.name),
+    TPL_VAR_STR(struct ip_info_t, region.code),
+    TPL_VAR_STR(struct ip_info_t, region.name),
+    TPL_VAR_STR(struct ip_info_t, city.name),
+    TPL_VAR_STR(struct ip_info_t, city.zip_code),
+    TPL_VAR_DOUBLE(struct ip_info_t, latitude),
+    TPL_VAR_DOUBLE(struct ip_info_t, longitude),
+    TPL_VAR_STR(struct ip_info_t, metro.code),
+    TPL_VAR_STR(struct ip_info_t, metro.area),
+    TPL_VAR_STR(struct ip_info_t, ip),
+    TPL_VAR_STR(struct ip_info_t, callback),
+    TPL_VAR_SENTINEL
 };
-
-static struct cache_t *query_limit;
-#endif
-
-union ip_to_octet {
-    unsigned char octet[sizeof(in_addr_t)];
-    in_addr_t ip;
-};
-
-struct ip_net_t {
-    union ip_to_octet ip;
-    union ip_to_octet mask;
-};
-
-static struct cache_t *cache;
-static sqlite3 *db;
-static const char const ip_to_city_query[] = \
-    "SELECT " \
-    "   city_location.country_code, country_blocks.country_name," \
-    "   city_location.region_code, region_names.region_name," \
-    "   city_location.city_name, city_location.postal_code," \
-    "   city_location.latitude, city_location.longitude," \
-    "   city_location.metro_code, city_location.area_code " \
-    "FROM city_blocks " \
-    "   NATURAL JOIN city_location " \
-    "   INNER JOIN country_blocks ON " \
-    "      city_location.country_code = country_blocks.country_code " \
-    "   INNER JOIN region_names ON " \
-    "      city_location.country_code = region_names.country_code " \
-    "      AND " \
-    "      city_location.region_code = region_names.region_code " \
-    "WHERE city_blocks.ip_start <= ? " \
-    "ORDER BY city_blocks.ip_start DESC LIMIT 1";
 
 static const char const json_template_str[] = \
     "{{callback?}}{{callback}}({{/callback?}}" \
@@ -136,6 +113,36 @@ static const char const csv_template_str[] = \
     "\"{{metro.code}}\"," \
     "\"{{metro.area}}\"";
 
+
+static const char const ip_to_city_query[] = \
+    "SELECT " \
+    "   city_location.country_code, country_blocks.country_name," \
+    "   city_location.region_code, region_names.region_name," \
+    "   city_location.city_name, city_location.postal_code," \
+    "   city_location.latitude, city_location.longitude," \
+    "   city_location.metro_code, city_location.area_code " \
+    "FROM city_blocks " \
+    "   NATURAL JOIN city_location " \
+    "   INNER JOIN country_blocks ON " \
+    "      city_location.country_code = country_blocks.country_code " \
+    "   INNER JOIN region_names ON " \
+    "      city_location.country_code = region_names.country_code " \
+    "      AND " \
+    "      city_location.region_code = region_names.region_code " \
+    "WHERE city_blocks.ip_start <= ? " \
+    "ORDER BY city_blocks.ip_start DESC LIMIT 1";
+
+
+union ip_to_octet {
+    unsigned char octet[sizeof(in_addr_t)];
+    in_addr_t ip;
+};
+
+struct ip_net_t {
+    union ip_to_octet ip;
+    union ip_to_octet mask;
+};
+
 /* http://en.wikipedia.org/wiki/Reserved_IP_addresses */
 #define ADDRESS(o1, o2, o3, o4) \
     { .octet[0] = o1, .octet[1] = o2, .octet[2] = o3, .octet[3] = o4 }
@@ -161,9 +168,22 @@ static const struct ip_net_t reserved_ips[] = {
 
 #undef ADDRESS
 
+
+#if QUERIES_PER_HOUR != 0
+struct query_limit_t {
+    struct cache_entry_t base;
+    unsigned queries;
+};
+
+static struct cache_t *query_limit;
+#endif
+
+
 static lwan_tpl_t *json_template = NULL;
 static lwan_tpl_t *xml_template = NULL;
 static lwan_tpl_t *csv_template = NULL;
+static struct cache_t *cache = NULL;
+static sqlite3 *db = NULL;
 
 static bool
 net_contains_ip(const struct ip_net_t *net, in_addr_t ip)
@@ -376,21 +396,14 @@ templated_output(lwan_request_t *request,
 int
 main(void)
 {
-    static lwan_var_descriptor_t template_descriptor[] = {
-        TPL_VAR_STR(struct ip_info_t, country.code),
-        TPL_VAR_STR(struct ip_info_t, country.name),
-        TPL_VAR_STR(struct ip_info_t, region.code),
-        TPL_VAR_STR(struct ip_info_t, region.name),
-        TPL_VAR_STR(struct ip_info_t, city.name),
-        TPL_VAR_STR(struct ip_info_t, city.zip_code),
-        TPL_VAR_DOUBLE(struct ip_info_t, latitude),
-        TPL_VAR_DOUBLE(struct ip_info_t, longitude),
-        TPL_VAR_STR(struct ip_info_t, metro.code),
-        TPL_VAR_STR(struct ip_info_t, metro.area),
-        TPL_VAR_STR(struct ip_info_t, ip),
-        TPL_VAR_STR(struct ip_info_t, callback),
-        TPL_VAR_SENTINEL
+    lwan_t l = {
+        .config = {
+            .port = 8080,
+            .keep_alive_timeout = 15 /*seconds */
+        }
     };
+
+    lwan_init(&l);
 
     json_template = lwan_tpl_compile_string(json_template_str, template_descriptor);
     if (!json_template)
@@ -401,15 +414,6 @@ main(void)
     csv_template = lwan_tpl_compile_string(csv_template_str, template_descriptor);
     if (!csv_template)
         lwan_status_critical("Could not compile CSV template");
-
-    lwan_t l = {
-        .config = {
-            .port = 8080,
-            .keep_alive_timeout = 15 /*seconds */
-        }
-    };
-
-    lwan_init(&l);
 
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
                                  SQLITE_OPEN_READONLY, NULL);
