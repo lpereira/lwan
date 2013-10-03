@@ -22,7 +22,7 @@ Although lwan is [Free Software](http://www.gnu.org/philosophy/free-sw.html), re
 
 If even with that warning you'd like to try lwan: there is no configuration file.  All settings are made in the `main()` function located in the `main.c` file; you'll need to recompile and restart lwan so that these settings take effect.  Things should be pretty self-explanatory.  Also, `main.c` serves as an example of how you could embed lwan in your program; the embedding API isn't ready yet, so there is no way to integrate main loops.
 
-If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.  No indexes will be provided, so if you'd like to use lwan to serve files, either provide the index yourself (by writing a simple shell script) or give full links to people.
+If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.
 
 Building
 --------
