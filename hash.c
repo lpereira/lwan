@@ -36,6 +36,7 @@ static const unsigned steps = 64;
 struct hash_entry {
 	const char *key;
 	const void *value;
+	unsigned hashval;
 };
 
 struct hash_bucket {
@@ -189,21 +190,19 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key);
-		if (c == 0) {
-			if (hash->free_value)
-				hash->free_value((void *)entry->value);
-			entry->value = value;
-			return 0;
-		} else if (c < 0) {
-			memmove(entry + 1, entry,
-				(entry_end - entry) * sizeof(struct hash_entry));
-			break;
-		}
+		if (hashval != entry->hashval)
+			continue;
+		if (hash->key_compare(key, entry->key) != 0)
+			continue;
+		if (hash->free_value)
+			hash->free_value((void *)entry->value);
+		entry->value = value;
+		return 0;
 	}
 
 	entry->key = key;
 	entry->value = value;
+	entry->hashval = hashval;
 	bucket->used++;
 	hash->count++;
 	return 0;
@@ -230,18 +229,15 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 	entry = bucket->entries;
 	entry_end = entry + bucket->used;
 	for (; entry < entry_end; entry++) {
-		int c = hash->key_compare(key, entry->key);
-		if (c == 0)
+		if (hashval != entry->hashval)
+			continue;
+		if (hash->key_compare(key, entry->key) == 0)
 			return -EEXIST;
-		else if (c < 0) {
-			memmove(entry + 1, entry,
-				(entry_end - entry) * sizeof(struct hash_entry));
-			break;
-		}
 	}
 
 	entry->key = key;
 	entry->value = value;
+	entry->hashval = hashval;
 	bucket->used++;
 	hash->count++;
 	return 0;
@@ -253,19 +249,15 @@ static inline struct hash_entry *hash_find_entry(const struct hash *hash,
 {
 	unsigned pos = hashval & (n_buckets - 1);
 	const struct hash_bucket *bucket = hash->buckets + pos;
-	size_t lower_bound = 0;
-	size_t upper_bound = bucket->used;
+	struct hash_entry *entry, *entry_end;
 
-	while (lower_bound < upper_bound) {
-		size_t idx = (lower_bound + upper_bound) / 2;
-		const struct hash_entry *ptr = bucket->entries + idx;
-		int cmp = hash->key_compare(key, ptr->key);
-		if (!cmp)
-			return (void *)ptr;
-		if (cmp > 0)
-			lower_bound = idx + 1;
-		else
-			upper_bound = idx;
+	entry = bucket->entries;
+	entry_end = entry + bucket->used;
+	for (; entry < entry_end; entry++) {
+		if (hashval != entry->hashval)
+			continue;
+		if (hash->key_compare(key, entry->key) == 0)
+			return entry;
 	}
 
 	return NULL;
