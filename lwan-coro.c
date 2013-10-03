@@ -70,8 +70,9 @@ static void _coro_entry_point(coro_t *data, coro_function_t func);
  * there is, I'll just roll my own.
  *     -- Leandro
  */
-void _coro_swapcontext(coro_context_t *current, coro_context_t *other);
 #ifdef __x86_64__
+void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
+                __attribute__((noinline));
     asm(
     ".text\n\t"
     ".p2align 4\n\t"
@@ -111,11 +112,8 @@ _coro_makecontext(coro_t *coro, size_t stack_size, coro_function_t func)
 {
     void *stack = coro + 1;
 
-    /* Function data */
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
-
-    /* Setup context ucp */
     coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
     coro->context[9 /* RSP */] = (uintptr_t) stack + stack_size;
 }
