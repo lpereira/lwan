@@ -42,7 +42,7 @@ class TestFileServing(LwanTest):
       self.assertEqual(r.headers['content-type'], expected_mime)
 
 
-  def test_non_existend_file_yields_404(self):
+  def test_non_existent_file_yields_404(self):
     r = requests.get('http://127.0.0.1:8080/icons/non-existent-file.png')
 
     self.assertTrue(r.status_code, 404)
@@ -143,7 +143,7 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.headers['content-type'], 'application/octet-stream')
 
     self.assertTrue('content-length' in r.headers)
-    self.assertEqual(int(r.headers['content-length']), 32768)
+    self.assertEqual(r.headers['content-length'], '32768')
 
     self.assertEqual(r.text, '\0' * 32768)
 
@@ -196,7 +196,7 @@ def TestHelloWorld(LwanTest):
     r = requests.get('http://127.0.0.1:8080/hello')
 
     self.assertTrue('x-the-answer-to-the-universal-question' in r.headers)
-    self.assertEqual(r.headers['x-the-answer-to-the-universal-question'], 42)
+    self.assertEqual(r.headers['x-the-answer-to-the-universal-question'], '42')
 
 
   def test_no_param(self):
