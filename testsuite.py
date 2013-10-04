@@ -16,12 +16,16 @@ class LwanTest(unittest.TestCase):
     while True:
       try:
         requests.get('http://127.0.0.1:8080/hello')
-        return self.lwan
+        return
       except requests.ConnectionError:
         pass
 
   def tearDown(self):
-    self.lwan.kill()
+    self.lwan.poll()
+    if self.lwan.returncode is not None:
+      self.assertEqual(self.lwan.returncode, 0)
+    else:
+      self.lwan.kill()
 
 
 class TestFileServing(LwanTest):
