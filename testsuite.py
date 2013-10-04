@@ -118,21 +118,30 @@ class TestFileServing(LwanTest):
 
 
   def test_compressed_small_file(self):
-    r = requests.get('http://127.0.0.1:8080/100.html',
-          headers={'Accept-Encoding':'deflate'})
+    encodings = (
+      'deflate',
+      ' deflate',
+      'foo,bar,deflate',
+      'foo, bar, deflate',
+      'deflote' # This should fail, but won't in our current implementation
+    )
 
-    self.assertEqual(r.status_code, 200)
+    for encoding in encodings:
+      r = requests.get('http://127.0.0.1:8080/100.html',
+            headers={'Accept-Encoding': encoding})
 
-    self.assertTrue('content-type' in r.headers)
-    self.assertEqual(r.headers['content-type'], 'text/html')
+      self.assertEqual(r.status_code, 200)
 
-    self.assertTrue('content-length' in r.headers)
-    self.assertLess(int(r.headers['content-length']), 100)
+      self.assertTrue('content-type' in r.headers)
+      self.assertEqual(r.headers['content-type'], 'text/html')
 
-    self.assertTrue('content-encoding' in r.headers)
-    self.assertEqual(r.headers['content-encoding'], 'deflate')
+      self.assertTrue('content-length' in r.headers)
+      self.assertLess(int(r.headers['content-length']), 100)
 
-    self.assertEqual(r.text, 'X' * 100)
+      self.assertTrue('content-encoding' in r.headers)
+      self.assertEqual(r.headers['content-encoding'], 'deflate')
+
+      self.assertEqual(r.text, 'X' * 100)
 
 
   def test_get_larger_file(self):
