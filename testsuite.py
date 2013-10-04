@@ -7,12 +7,14 @@ import subprocess
 import time
 import unittest
 import requests
+import socket
 
 
 class LwanTest(unittest.TestCase):
   def setUp(self):
     self.lwan = subprocess.Popen(['./build/lwan'],
           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
     while True:
       try:
         requests.get('http://127.0.0.1:8080/hello')
@@ -176,7 +178,78 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.headers['server'], 'lwan')
 
 
-def TestHelloWorld(LwanTest):
+class TestMalformedRequests(LwanTest):
+  def connect(self, host='127.0.0.1', port=8080):
+    def _connect(host, port):
+      try:
+          sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+          sock.connect((host, port))
+      except socket.error:
+          return None
+      return sock
+
+    sock = _connect(host, port)
+    self.assertNotEqual(sock, None)
+    return sock
+
+
+  def assertHttpCode(self, sock, code):
+    contents = sock.recv(128)
+
+    self.assertRegexpMatches(contents, r'^HTTP/1\.[01] ' + str(code) + r' ')
+
+
+  def test_cat_sleeping_on_keyboard(self):
+    sock = self.connect()
+    sock.send('asldkfjg238045tgqwdcjv1li	2u4ftw dfjkb12345t\r\n\r\n')
+
+    self.assertHttpCode(sock, 405)
+
+
+  def test_no_http_version_fails(self):
+    sock = self.connect()
+    sock.send('GET /\r\n\r\n')
+
+    self.assertHttpCode(sock, 400)
+
+
+  def test_proxy_get_fails(self):
+    sock = self.connect()
+    sock.send('GET http://example.com HTTP/1.0\r\n\r\n')
+
+    self.assertHttpCode(sock, 400)
+
+
+  def test_get_not_http(self):
+    sock = self.connect()
+    sock.send('GET / FROG/1.0\r\n\r\n')
+
+    self.assertHttpCode(sock, 400)
+
+
+  def test_get_http_not_1_x(self):
+    sock = self.connect()
+    sock.send('GET / HTTP/2.0\r\n\r\n')
+
+    self.assertHttpCode(sock, 400)
+
+
+  def test_post_request(self):
+    r = requests.post('http://127.0.0.1:8080/hello')
+
+    self.assertEqual(r.status_code, 405)
+
+
+  def test_request_too_large(self):
+    r = requests.get('http://127.0.0.1:8080/' + 'X' * 10000)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'text/html')
+
+    self.assertEqual(r.status_code, 413)
+
+
+class TestHelloWorld(LwanTest):
   def test_head_request_hello(self):
     r = requests.head('http://127.0.0.1:8080/hello',
           headers={'Accept-Encoding': 'foobar'})
