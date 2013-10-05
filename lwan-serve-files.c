@@ -50,6 +50,7 @@ typedef struct cache_funcs_t_		cache_funcs_t;
 typedef struct mmap_cache_data_t_	mmap_cache_data_t;
 typedef struct sendfile_cache_data_t_	sendfile_cache_data_t;
 typedef struct dir_list_cache_data_t_	dir_list_cache_data_t;
+typedef struct redir_cache_data_t_	redir_cache_data_t;
 
 struct serve_files_priv_t_ {
     struct {
@@ -99,6 +100,10 @@ struct dir_list_cache_data_t_ {
     strbuf_t *rendered;
 };
 
+struct redir_cache_data_t_ {
+    char *redir_to;
+};
+
 struct file_cache_entry_t_ {
     struct cache_entry_t base;
 
@@ -141,6 +146,11 @@ static bool _dirlist_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
 static void _dirlist_free(void *data);
 static lwan_http_status_t _dirlist_serve(lwan_request_t *request, void *data);
+static bool _redir_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
+                       const char *full_path, struct stat *st);
+static void _redir_free(void *data);
+static lwan_http_status_t _redir_serve(lwan_request_t *request, void *data);
+
 
 static const cache_funcs_t mmap_funcs = {
     .init = _mmap_init,
@@ -158,6 +168,12 @@ static const cache_funcs_t dirlist_funcs = {
     .init = _dirlist_init,
     .free = _dirlist_free,
     .serve = _dirlist_serve
+};
+
+static const cache_funcs_t redir_funcs = {
+    .init = _redir_init,
+    .free = _redir_free,
+    .serve = _redir_serve
 };
 
 static const char *index_html = "index.html";
@@ -371,6 +387,20 @@ _dirlist_init(file_cache_entry_t *ce,
 }
 
 static bool
+_redir_init(file_cache_entry_t *ce,
+            serve_files_priv_t *priv,
+            const char *full_path,
+            struct stat *st __attribute__((unused)))
+{
+    redir_cache_data_t *rd = (redir_cache_data_t *)(ce + 1);
+
+    if (asprintf(&rd->redir_to, "%s/", full_path + priv->root.path_len) < 0)
+        return false;
+
+    return true;
+}
+
+static bool
 _get_data_size_and_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
     struct stat *st, size_t *data_size, const cache_funcs_t **funcs)
 {
@@ -384,11 +414,20 @@ _get_data_size_and_funcs(serve_files_priv_t *priv, const char *key, char *full_p
 
     /* It is a directory. It might be the root directory (empty key), or
      * something else.  In either case, tack priv->index_html to the path. */
-    if (*key == '\0')
+    if (*key == '\0') {
         index_html_path = (char *)priv->index_html;
-    else if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s/%s",
-                key, priv->index_html) < 0))
-        goto fail;
+    } else {
+        const char *key_end = strchr(key, '\0');
+        if (*(key_end - 1) != '/') {
+            *data_size = sizeof(redir_cache_data_t);
+            *funcs = &redir_funcs;
+            return true;
+        }
+
+        if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s/%s",
+                    key, priv->index_html) < 0))
+            goto fail;
+    }
 
     /* See if it exists. */
     if (fstatat(priv->root.fd, index_html_path, st, 0) < 0) {
@@ -487,6 +526,14 @@ _dirlist_free(void *data)
     dir_list_cache_data_t *dd = data;
 
     strbuf_free(dd->rendered);
+}
+
+static void
+_redir_free(void *data)
+{
+    redir_cache_data_t *rd = data;
+
+    free(rd->redir_to);
 }
 
 static void
@@ -810,6 +857,37 @@ _dirlist_serve(lwan_request_t *request, void *data)
     }
 
     return return_status;
+}
+
+static lwan_http_status_t
+_redir_serve(lwan_request_t *request, void *data)
+{
+    file_cache_entry_t *fce = data;
+    redir_cache_data_t *rd = (redir_cache_data_t *)(fce + 1);
+    char *header_buf = request->buffer.value;
+    size_t header_buf_size;
+    lwan_key_value_t headers[5];
+
+    request->response.headers = headers;
+    request->response.content_length = strlen(rd->redir_to);
+
+    SET_NTH_HEADER(0, "Location", rd->redir_to);
+    SET_NTH_HEADER(1, NULL, NULL);
+
+    header_buf_size = lwan_prepare_response_header(request,
+                HTTP_MOVED_PERMANENTLY, header_buf, DEFAULT_BUFFER_SIZE);
+    if (UNLIKELY(!header_buf_size))
+        return HTTP_INTERNAL_ERROR;
+
+    struct iovec response_vec[] = {
+        { .iov_base = header_buf, .iov_len = header_buf_size },
+        { .iov_base = rd->redir_to, .iov_len = request->response.content_length },
+    };
+
+    if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
+        return HTTP_INTERNAL_ERROR;
+
+    return HTTP_MOVED_PERMANENTLY;
 }
 
 static lwan_http_status_t

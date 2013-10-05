@@ -187,6 +187,14 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.headers['server'], 'lwan')
 
 
+  def test_directory_without_trailing_slash_redirects(self):
+    r = requests.get('http://127.0.0.1:8080/icons', allow_redirects=False)
+
+    self.assertEqual(r.status_code, 301)
+    self.assertTrue('location' in r.headers)
+    self.assertEqual(r.headers['location'], '/icons/')
+
+
 class TestMalformedRequests(LwanTest):
   def connect(self, host='127.0.0.1', port=8080):
     def _connect(host, port):
