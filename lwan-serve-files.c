@@ -67,14 +67,14 @@ struct serve_files_priv_t_ {
 };
 
 struct cache_funcs_t_ {
+    lwan_http_status_t (*serve)(lwan_request_t *request,
+                                void *data);
     bool (*init)(file_cache_entry_t *ce,
                  serve_files_priv_t *priv,
                  const char *full_path,
                  struct stat *st);
     void (*free)(void *data);
-
-    lwan_http_status_t (*serve)(lwan_request_t *request,
-                                void *data);
+    size_t struct_size;
 };
 
 struct mmap_cache_data_t_ {
@@ -155,25 +155,29 @@ static lwan_http_status_t _redir_serve(lwan_request_t *request, void *data);
 static const cache_funcs_t mmap_funcs = {
     .init = _mmap_init,
     .free = _mmap_free,
-    .serve = _mmap_serve
+    .serve = _mmap_serve,
+    .struct_size = sizeof(mmap_cache_data_t)
 };
 
 static const cache_funcs_t sendfile_funcs = {
     .init = _sendfile_init,
     .free = _sendfile_free,
-    .serve = _sendfile_serve
+    .serve = _sendfile_serve,
+    .struct_size = sizeof(sendfile_cache_data_t)
 };
 
 static const cache_funcs_t dirlist_funcs = {
     .init = _dirlist_init,
     .free = _dirlist_free,
-    .serve = _dirlist_serve
+    .serve = _dirlist_serve,
+    .struct_size = sizeof(dir_list_cache_data_t)
 };
 
 static const cache_funcs_t redir_funcs = {
     .init = _redir_init,
     .free = _redir_free,
-    .serve = _redir_serve
+    .serve = _redir_serve,
+    .struct_size = sizeof(redir_cache_data_t)
 };
 
 static const char *index_html = "index.html";
@@ -400,68 +404,53 @@ _redir_init(file_cache_entry_t *ce,
     return true;
 }
 
-static bool
-_get_data_size_and_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
-    struct stat *st, size_t *data_size, const cache_funcs_t **funcs)
+static const cache_funcs_t *
+_get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
+    struct stat *st)
 {
     char index_html_path_buf[PATH_MAX];
     char *index_html_path = index_html_path_buf;
 
-    /* It's not a directory: choose the fastest way to serve the file
-     * judging by its size. */
-    if (!S_ISDIR(st->st_mode))
-        goto not_a_dir;
+    if (S_ISDIR(st->st_mode)) {
+        /* It is a directory. It might be the root directory (empty key), or
+         * something else.  In either case, tack priv->index_html to the
+         * path.  */
+        if (*key == '\0') {
+            index_html_path = (char *)priv->index_html;
+        } else {
+            /* Redirect /path to /path/. This is to help cases where there's
+             * something like <img src="../foo.png">, so that actually
+             * /path/../foo.png is served instead of /path../foo.png.  */
+            const char *key_end = strchr(key, '\0');
+            if (*(key_end - 1) != '/')
+                return &redir_funcs;
 
-    /* It is a directory. It might be the root directory (empty key), or
-     * something else.  In either case, tack priv->index_html to the path. */
-    if (*key == '\0') {
-        index_html_path = (char *)priv->index_html;
-    } else {
-        const char *key_end = strchr(key, '\0');
-        if (*(key_end - 1) != '/') {
-            *data_size = sizeof(redir_cache_data_t);
-            *funcs = &redir_funcs;
-            return true;
+            if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s%s",
+                        key, priv->index_html) < 0))
+                return NULL;
         }
 
-        if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s/%s",
-                    key, priv->index_html) < 0))
-            goto fail;
+        /* See if it exists. */
+        if (fstatat(priv->root.fd, index_html_path, st, 0) < 0) {
+            if (UNLIKELY(errno != ENOENT))
+                return NULL;
+
+            /* If it doesn't, we want to generate a directory list. */
+            return &dirlist_funcs;
+        }
+
+        /* If it does, we want its full path. */
+        *(full_path + priv->root.path_len) = '/';
+        strncpy(full_path + priv->root.path_len + 1, index_html_path,
+                    PATH_MAX - priv->root.path_len - 1);
     }
 
-    /* See if it exists. */
-    if (fstatat(priv->root.fd, index_html_path, st, 0) < 0) {
-        if (errno != ENOENT)
-            goto fail;
+    /* It's not a directory: choose the fastest way to serve the file
+     * judging by its size. */
+    if (st->st_size < 16384)
+        return &mmap_funcs;
 
-        /* If it doesn't, we want to generate a directory list. */
-        *data_size = sizeof(dir_list_cache_data_t);
-        *funcs = &dirlist_funcs;
-        return true;
-    }
-
-    /* If it does, we want its full path. */
-    if (UNLIKELY(snprintf(full_path + priv->root.path_len,
-                PATH_MAX - priv->root.path_len, "/%s", index_html_path) < 0))
-        goto fail;
-
-not_a_dir:
-    if (st->st_size < 16384) {
-        *data_size = sizeof(mmap_cache_data_t);
-        *funcs = &mmap_funcs;
-    } else {
-        *data_size = sizeof(sendfile_cache_data_t);
-        *funcs = &sendfile_funcs;
-    }
-
-    return true;
-
-fail:
-    /* Zeroing out these shouldn't be necessary but gcc seems to complain. */
-    *funcs = NULL;
-    *data_size = 0;
-
-    return false;
+    return &sendfile_funcs;
 }
 
 static struct cache_entry_t *
@@ -470,20 +459,21 @@ _create_cache_entry(const char *key, void *context)
     serve_files_priv_t *priv = context;
     file_cache_entry_t *fce;
     struct stat st;
-    size_t data_size;
     const cache_funcs_t *funcs;
     char full_path[PATH_MAX];
 
-    if (!realpathat2(priv->root.fd, priv->root.path, key, full_path, &st))
+    if (UNLIKELY(!realpathat2(priv->root.fd, priv->root.path,
+                key, full_path, &st)))
         goto error;
 
-    if (strncmp(full_path, priv->root.path, priv->root.path_len))
+    if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
         goto error;
 
-    if (!_get_data_size_and_funcs(priv, key, full_path, &st, &data_size, &funcs))
+    funcs = _get_funcs(priv, key, full_path, &st);
+    if (UNLIKELY(!funcs))
         goto error;
 
-    fce = malloc(sizeof(*fce) + data_size);
+    fce = malloc(sizeof(*fce) + funcs->struct_size);
     if (UNLIKELY(!fce))
         goto error;
 
