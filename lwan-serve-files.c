@@ -770,28 +770,15 @@ _sendfile_serve(lwan_request_t *request, void *data)
 }
 
 static lwan_http_status_t
-_mmap_serve(lwan_request_t *request, void *data)
+_serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
+            bool deflated, void *contents, size_t size)
 {
-    file_cache_entry_t *fce = data;
-    mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
-    char *headers = request->buffer.value;
+    char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
-    size_t size;
-    void *contents;
     lwan_http_status_t return_status = HTTP_OK;
-    bool deflated;
 
     if (_client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
-
-    deflated = (request->flags & REQUEST_ACCEPT_DEFLATE) && md->compressed.size;
-    if (LIKELY(deflated)) {
-        contents = md->compressed.contents;
-        size = md->compressed.size;
-    } else {
-        contents = md->uncompressed.contents;
-        size = md->uncompressed.size;
-    }
 
     header_len = _prepare_headers(request, return_status,
                                   fce, size, deflated,
@@ -816,37 +803,27 @@ _mmap_serve(lwan_request_t *request, void *data)
 }
 
 static lwan_http_status_t
+_mmap_serve(lwan_request_t *request, void *data)
+{
+    file_cache_entry_t *fce = data;
+    mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
+
+    if ((request->flags & REQUEST_ACCEPT_DEFLATE) && md->compressed.size)
+        return _serve_contents_and_size(request, fce, true,
+                    md->compressed.contents, md->compressed.size);
+
+    return _serve_contents_and_size(request, fce, false,
+                md->uncompressed.contents, md->uncompressed.size);
+}
+
+static lwan_http_status_t
 _dirlist_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     dir_list_cache_data_t *dd = (dir_list_cache_data_t *)(fce + 1);
-    char *headers = request->buffer.value;
-    size_t header_len;
-    lwan_http_status_t return_status = HTTP_OK;
 
-    if (_client_has_fresh_content(request, fce->last_modified.integer))
-        return_status = HTTP_NOT_MODIFIED;
-
-    header_len = _prepare_headers(request, return_status,
-                                  fce, strbuf_get_length(dd->rendered), false,
-                                  headers, DEFAULT_HEADERS_SIZE);
-    if (UNLIKELY(!header_len))
-        return HTTP_INTERNAL_ERROR;
-
-    if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
-            return_status = HTTP_INTERNAL_ERROR;
-    } else {
-        struct iovec response_vec[] = {
-            { .iov_base = headers, .iov_len = header_len },
-            { .iov_base = strbuf_get_buffer(dd->rendered), .iov_len = strbuf_get_length(dd->rendered) }
-        };
-
-        if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
-            return_status = HTTP_INTERNAL_ERROR;
-    }
-
-    return return_status;
+    return _serve_contents_and_size(request, fce, false,
+            strbuf_get_buffer(dd->rendered), strbuf_get_length(dd->rendered));
 }
 
 static lwan_http_status_t
