@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+
 #include "lwan.h"
 #include "hash.h"
 #include "mime-types.h"

@@ -19,6 +19,7 @@
 /*
  * Ideas from Mustache logic-less templates: http://mustache.github.com/
  */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
