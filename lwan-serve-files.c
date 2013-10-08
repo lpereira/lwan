@@ -832,7 +832,7 @@ _redir_serve(lwan_request_t *request, void *data)
     redir_cache_data_t *rd = (redir_cache_data_t *)(fce + 1);
     char *header_buf = request->buffer.value;
     size_t header_buf_size;
-    lwan_key_value_t headers[5];
+    lwan_key_value_t headers[2];
 
     request->response.headers = headers;
     request->response.content_length = strlen(rd->redir_to);
