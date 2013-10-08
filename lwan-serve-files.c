@@ -258,10 +258,12 @@ _directory_list_generator(coro_t *coro)
             fl->file_list.icon = "folder";
             fl->file_list.icon_alt = "DIR";
             fl->file_list.type = "directory";
-        } else {
+        } else if (S_ISREG(st.st_mode)) {
             fl->file_list.icon = "file";
             fl->file_list.icon_alt = "FILE";
             fl->file_list.type = lwan_determine_mime_type_for_file_name(entry.d_name);
+        } else {
+            continue;
         }
 
         if (st.st_size < 1024) {
