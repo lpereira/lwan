@@ -8,7 +8,7 @@ It can achieve good performance, yielding about **300000 requests/second** on a 
 Portability
 -----------
 
-Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll), the Linux variant of sendfile(), and has some inline assembly for coroutines that assumes the Glibc implementation of ucontext_t, it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.  However, portability is not a current goal for this project.
+Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll), the Linux variant of sendfile(), it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.  However, portability is not a current goal for this project.
 
 Goal
 ----
