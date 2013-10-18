@@ -38,7 +38,6 @@ else ()
 	endif()
 endif()
 
-
 find_path(VALGRIND_INCLUDE_DIR valgrind.h /usr/include /usr/include/valgrind /usr/local/include /usr/local/include/valgrind)
 if (VALGRIND_INCLUDE_DIR)
 	message(STATUS "Building with Valgrind support")
@@ -47,56 +46,8 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-include(FindPkgConfig)
-pkg_check_modules(SQLITE REQUIRED sqlite3>=3.7.15.2)
 
-if (NOT USE_HARDWARE_CRC32)
-	set(GENERIC_SOURCES
-		murmur3.c
-	)
-endif ()
-
-add_library(lwan-common STATIC
-	hash.c
-	list.c
-	int-to-str.c
-	lwan.c
-	lwan-cache.c
-	lwan-coro.c
-	lwan-job.c
-	lwan-openat.c
-	lwan-request.c
-	lwan-response.c
-	lwan-sendfile.c
-	lwan-serve-files.c
-	lwan-socket.c
-	lwan-status.c
-	lwan-tables.c
-	lwan-thread.c
-	lwan-trie.c
-	lwan-template.c
-	realpathat.c
-	strbuf.c
-	${GENERIC_SOURCES}
-)
-
-add_executable(lwan main.c)
-
-target_link_libraries(lwan
-	${CMAKE_THREAD_LIBS_INIT}
-	${MALLOC_LIB}
-	${ZLIB_LIBRARIES}
-	lwan-common
-)
-
-add_executable(freegeoip
-	freegeoip.c
-)
-
-target_link_libraries(freegeoip
-	${CMAKE_THREAD_LIBS_INIT}
-	${MALLOC_LIB}
-	${ZLIB_LIBRARIES}
-	${SQLITE_LIBRARIES}
-	lwan-common
-)
+add_subdirectory(liblwan)
+include_directories(liblwan)
+add_subdirectory(lwan)
+add_subdirectory(freegeoip)
