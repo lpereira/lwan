@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-private.h"
 
 static jmp_buf cleanup_jmp_buf;
 

@@ -72,7 +72,6 @@
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_handler_t_		lwan_handler_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
-typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
@@ -102,28 +101,6 @@ typedef enum {
 
     HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3
 } lwan_handler_flags_t;
-
-enum {
-    EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
-    EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
-    EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
-    EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
-    EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
-    EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
-} lwan_mime_ext_t;
-
-enum {
-    HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
-    HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
-} lwan_http_method_str_t;
-
-enum {
-    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
-    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
-    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
-    HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
-    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
-} lwan_http_header_str_t;
 
 typedef enum {
     REQUEST_IS_KEEP_ALIVE      = 1<<0,
@@ -157,15 +134,6 @@ struct lwan_response_t_ {
 struct lwan_value_t_ {
     char *value;
     size_t len;
-};
-
-struct lwan_request_parse_t_ {
-    lwan_value_t query_string;
-    lwan_value_t if_modified_since;
-    lwan_value_t range;
-    lwan_value_t accept_encoding;
-    lwan_value_t fragment;
-    char connection;
 };
 
 struct lwan_request_t_ {
@@ -262,26 +230,5 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name) __attr
 
 void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
-
-void lwan_response_init(void);
-void lwan_response_shutdown(void);
-
-void lwan_socket_init(lwan_t *l);
-void lwan_socket_shutdown(lwan_t *l);
-
-void lwan_thread_init(lwan_t *l);
-void lwan_thread_shutdown(lwan_t *l);
-
-void lwan_status_init(lwan_t *l);
-void lwan_status_shutdown(lwan_t *l);
-
-void lwan_job_thread_init(void);
-void lwan_job_thread_shutdown(void);
-void lwan_job_add(bool (*cb)(void *data), void *data);
-void lwan_job_del(bool (*cb)(void *data), void *data);
-
-void lwan_tables_init(void);
-void lwan_tables_shutdown(void);
-
 
 #endif /* __LWAN_H__ */

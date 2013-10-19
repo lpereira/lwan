@@ -25,6 +25,30 @@
 
 #include "lwan.h"
 
+enum {
+    HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
+    HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
+} lwan_http_method_str_t;
+
+enum {
+    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
+    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
+    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
+    HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
+    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
+} lwan_http_header_str_t;
+
+typedef struct lwan_request_parse_t_	lwan_request_parse_t;
+
+struct lwan_request_parse_t_ {
+    lwan_value_t query_string;
+    lwan_value_t if_modified_since;
+    lwan_value_t range;
+    lwan_value_t accept_encoding;
+    lwan_value_t fragment;
+    char connection;
+};
+
 static char _decode_hex_digit(char ch) __attribute__((pure));
 static bool _is_hex_digit(char ch) __attribute__((pure));
 static unsigned long _has_zero_byte(unsigned long n) __attribute__((pure));

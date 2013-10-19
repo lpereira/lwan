@@ -23,6 +23,15 @@
 #include "hash.h"
 #include "mime-types.h"
 
+enum {
+    EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
+    EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
+    EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
+    EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
+    EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
+    EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
+} lwan_mime_ext_t;
+
 static struct hash *mime_types;
 
 void
