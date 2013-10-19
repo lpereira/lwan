@@ -17,38 +17,20 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
+#ifndef __LWAN_OPENAT_H__
+#define __LWAN_OPENAT_H__
+
+#include <sys/uio.h>
 
 #include "lwan.h"
 
-#define OPEN_FILE_TRIES 5
+int lwan_openat(lwan_request_t *request, int dirfd, const char *pathname,
+                int flags);
+ssize_t lwan_writev(lwan_request_t *request, const struct iovec *iov,
+                    int iovcnt);
+ssize_t lwan_write(lwan_request_t *request, const void *buffer,
+                   size_t count);
+ssize_t lwan_send(lwan_request_t *request, const void *buf, size_t count,
+                  int flags);
 
-int
-lwan_openat(lwan_request_t *request,
-            int dirfd, const char *pathname, int flags)
-{
-    int fd;
-    int tries;
-
-    for (tries = OPEN_FILE_TRIES; tries; tries--) {
-        fd = openat(dirfd, pathname, flags);
-        if (LIKELY(fd >= 0)) {
-            coro_defer(request->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
-            return fd;
-        }
-
-        switch (errno) {
-        case EMFILE:
-        case ENFILE:
-        case ENOMEM:
-            coro_yield(request->coro, 1);
-            break;
-        default:
-            return -errno;
-        }
-    }
-
-    return -ENFILE;
-}
+#endif /* __LWAN_OPENAT_H__ */

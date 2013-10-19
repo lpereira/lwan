@@ -12,7 +12,7 @@ add_library(lwan-common STATIC
 	lwan-cache.c
 	lwan-coro.c
 	lwan-job.c
-	lwan-openat.c
+	lwan-io-wrappers.c
 	lwan-request.c
 	lwan-response.c
 	lwan-sendfile.c

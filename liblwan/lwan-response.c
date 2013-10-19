@@ -23,8 +23,9 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include "lwan.h"
 #include "int-to-str.h"
+#include "lwan.h"
+#include "lwan-io-wrappers.h"
 #include "lwan-template.h"
 
 static lwan_tpl_t *error_template = NULL;
@@ -113,7 +114,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
     if (request->flags & REQUEST_METHOD_HEAD) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0)) {
+        if (UNLIKELY(lwan_write(request, headers, header_len) < 0)) {
             lwan_status_perror("write");
             return false;
         }
@@ -125,7 +126,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = strbuf_get_length(request->response.buffer) }
     };
 
-    if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0)) {
+    if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0)) {
         lwan_status_perror("writev");
         return false;
     }

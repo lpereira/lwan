@@ -29,7 +29,7 @@
 
 #include "lwan.h"
 #include "lwan-cache.h"
-#include "lwan-openat.h"
+#include "lwan-io-wrappers.h"
 #include "lwan-sendfile.h"
 #include "lwan-serve-files.h"
 #include "lwan-template.h"
@@ -734,7 +734,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
         return HTTP_INTERNAL_ERROR;
 
     if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
+        if (UNLIKELY(lwan_write(request, headers, header_len) < 0))
             return HTTP_INTERNAL_ERROR;
     } else {
         serve_files_priv_t *priv = request->response.stream.priv;
@@ -758,7 +758,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
             }
         }
 
-        if (UNLIKELY(send(request->fd, headers, header_len, MSG_MORE) < 0))
+        if (UNLIKELY(lwan_send(request, headers, header_len, MSG_MORE) < 0))
             return HTTP_INTERNAL_ERROR;
 
         if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
@@ -786,7 +786,7 @@ _serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
         return HTTP_INTERNAL_ERROR;
 
     if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(write(request->fd, headers, header_len) < 0))
+        if (UNLIKELY(lwan_write(request, headers, header_len) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     } else {
         struct iovec response_vec[] = {
@@ -794,7 +794,7 @@ _serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
             { .iov_base = contents, .iov_len = size }
         };
 
-        if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
+        if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0))
             return_status = HTTP_INTERNAL_ERROR;
     }
 
@@ -850,7 +850,7 @@ _redir_serve(lwan_request_t *request, void *data)
         { .iov_base = rd->redir_to, .iov_len = request->response.content_length },
     };
 
-    if (UNLIKELY(writev(request->fd, response_vec, N_ELEMENTS(response_vec)) < 0))
+    if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0))
         return HTTP_INTERNAL_ERROR;
 
     return HTTP_MOVED_PERMANENTLY;
