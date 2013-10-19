@@ -12,7 +12,7 @@ import socket
 
 class LwanTest(unittest.TestCase):
   def setUp(self):
-    self.lwan = subprocess.Popen(['./build/lwan'],
+    self.lwan = subprocess.Popen(['./build/lwan/lwan'],
           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     while True:
@@ -351,23 +351,23 @@ class TestCache(LwanTest):
   def test_cache_munmaps_conn_close(self):
     r = requests.get('http://127.0.0.1:8080/100.html')
 
-    self.assertTrue(self.is_mmapped('files_root/100.html'))
+    self.assertTrue(self.is_mmapped('wwwroot/100.html'))
     time.sleep(20)
-    self.assertFalse(self.is_mmapped('files_root/100.html'))
+    self.assertFalse(self.is_mmapped('wwwroot/100.html'))
 
 
   def test_cache_munmaps_conn_keep_alive(self):
     s = requests.Session()
     r = s.get('http://127.0.0.1:8080/100.html')
 
-    self.assertTrue(self.is_mmapped('files_root/100.html'))
+    self.assertTrue(self.is_mmapped('wwwroot/100.html'))
     time.sleep(20)
-    self.assertFalse(self.is_mmapped('files_root/100.html'))
+    self.assertFalse(self.is_mmapped('wwwroot/100.html'))
 
 
   def test_cache_does_not_mmap_large_files(self):
     r = requests.get('http://127.0.0.1:8080/zero')
-    self.assertFalse(self.is_mmapped('files_root/zero'))
+    self.assertFalse(self.is_mmapped('wwwroot/zero'))
 
 
   def test_cache_mmaps_once_conn_keep_alive(self):
@@ -375,24 +375,24 @@ class TestCache(LwanTest):
 
     for request in range(5):
       r = s.get('http://127.0.0.1:8080/100.html')
-      self.assertEqual(self.count_mmaps('files_root/100.html'), 1)
+      self.assertEqual(self.count_mmaps('wwwroot/100.html'), 1)
 
 
   def test_cache_mmaps_once_conn_close(self):
     for request in range(5):
       requests.get('http://127.0.0.1:8080/100.html')
-      self.assertEqual(self.count_mmaps('files_root/100.html'), 1)
+      self.assertEqual(self.count_mmaps('wwwroot/100.html'), 1)
 
 
   def test_cache_mmaps_once_even_after_timeout(self):
     for request in range(5):
       requests.get('http://127.0.0.1:8080/100.html')
-      self.assertEqual(self.count_mmaps('files_root/100.html'), 1)
+      self.assertEqual(self.count_mmaps('wwwroot/100.html'), 1)
 
     time.sleep(10)
 
     requests.get('http://127.0.0.1:8080/100.html')
-    self.assertEqual(self.count_mmaps('files_root/100.html'), 1)
+    self.assertEqual(self.count_mmaps('wwwroot/100.html'), 1)
 
 if __name__ == '__main__':
   unittest.main()
