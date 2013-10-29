@@ -20,7 +20,7 @@ find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 
 find_library(TCMALLOC_LIBRARY
-	NAMES tcmalloc_minimal tcmalloc
+	NAMES tcmalloc_minimalx tcmallocx
 	PATHS /usr/lib /usr/local/lib)
 if (TCMALLOC_LIBRARY)
 	message(STATUS "tcmalloc found: ${TCMALLOC_LIBRARY}")
@@ -47,7 +47,8 @@ else ()
 endif()
 
 
-add_subdirectory(liblwan)
-include_directories(liblwan)
+add_subdirectory(common)
+
+include_directories(common)
 add_subdirectory(lwan)
 add_subdirectory(freegeoip)
