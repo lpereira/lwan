@@ -18,18 +18,16 @@
  */
 
 #define _GNU_SOURCE
-#include <fcntl.h>
-#include <netinet/in.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-private.h"
 
 static jmp_buf cleanup_jmp_buf;
 

@@ -19,10 +19,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #ifdef __linux__
 #include <sys/sendfile.h>

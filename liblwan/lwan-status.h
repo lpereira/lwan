@@ -20,11 +20,6 @@
 #ifndef _LWAN_STATUS_H_
 #define _LWAN_STATUS_H_
 
-typedef struct lwan_t_ lwan_t;
-
-void lwan_status_init(lwan_t *l);
-void lwan_status_shutdown(lwan_t *l);
-
 #ifdef NDEBUG
 #define DECLARE_STATUS_PROTO(type_)                                  \
   void lwan_status_##type_(const char *fmt, ...)                     \

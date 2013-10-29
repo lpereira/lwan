@@ -23,7 +23,6 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "lwan.h"

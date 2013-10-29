@@ -8,7 +8,7 @@ It can achieve good performance, yielding about **300000 requests/second** on a 
 Portability
 -----------
 
-Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll), the Linux variant of sendfile(), and has some inline assembly for coroutines that assumes the Glibc implementation of ucontext_t, it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.  However, portability is not a current goal for this project.
+Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll), the Linux variant of sendfile(), it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.  However, portability is not a current goal for this project.
 
 Goal
 ----
@@ -22,7 +22,7 @@ Although lwan is [Free Software](http://www.gnu.org/philosophy/free-sw.html), re
 
 If even with that warning you'd like to try lwan: there is no configuration file.  All settings are made in the `main()` function located in the `main.c` file; you'll need to recompile and restart lwan so that these settings take effect.  Things should be pretty self-explanatory.  Also, `main.c` serves as an example of how you could embed lwan in your program; the embedding API isn't ready yet, so there is no way to integrate main loops.
 
-If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.  No indexes will be provided, so if you'd like to use lwan to serve files, either provide the index yourself (by writing a simple shell script) or give full links to people.
+If no changes are made to the supplied `main.c` file, running lwan will serve static files located on `./files_root` directory.  Lwan will listen on port 8080 on all interfaces.
 
 Building
 --------

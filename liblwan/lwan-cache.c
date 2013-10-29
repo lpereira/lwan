@@ -17,15 +17,16 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <string.h>
-#include <errno.h>
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-cache.h"
 #include "hash.h"
 
@@ -290,7 +291,7 @@ static bool cache_pruner_job(void *data)
     if (!ATOMIC_READ(node->refs)) {
       cache->cb.destroy_entry(node, cache->cb.context);
     } else {
-      ATOMIC_BITWISE(&node->flags, and, FLOATING);
+      ATOMIC_BITWISE(&node->flags, or, FLOATING);
 
       /* If preemption occurred before setting item to FLOATING, check
        * if item still have refs; destroy if not */

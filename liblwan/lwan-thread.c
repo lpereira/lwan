@@ -20,7 +20,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,13 +92,6 @@ _process_request_coro(coro_t *coro)
 
     _reset_request(request);
     lwan_process_request(request);
-
-    /*
-     * FIXME: Check if lwan_process_request() actually returns false only on
-     *        non- recoverable errors; EWOULDBLOCK, EAGAIN, EINTR and such
-     *        should just yield from the coroutine and processing the
-     *        request should be tried again.
-     */
 
     return 0;
 }

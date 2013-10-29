@@ -17,7 +17,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <stdlib.h>
 #include "lwan.h"
 #include "lwan-serve-files.h"
 
@@ -84,7 +83,7 @@ main(void)
         { .prefix = "/hello", .callback = hello_world },
         { .prefix = "/beacon", .callback = gif_beacon },
         { .prefix = "/favicon.ico", .callback = gif_beacon },
-        { .prefix = "/", SERVE_FILES("./files_root") },
+        { .prefix = "/", SERVE_FILES("./wwwroot") },
         { .prefix = NULL }
     };
 
