@@ -19,7 +19,6 @@
 
 #define _GNU_SOURCE
 #include <ctype.h>
-#include <dlfcn.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -51,17 +50,16 @@ int parse_int(const char *value, int default_value)
 
   if (*value == '0') {
     value++;
-    if (*value == 'x') {
+    if (*value == 'x')
       base = 16;
-      value++;
-    } else if (*value == 'b') {
+    else if (*value == 'b')
       base = 2;
-      value++;
-    } else if (isdigit(*value)) {
+    else if (isdigit(*value))
       base = 8;
-    } else {
+    else
       return default_value;
-    }
+
+    value++;
   } else {
     base = 10;
   }

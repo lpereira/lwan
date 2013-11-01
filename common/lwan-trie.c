@@ -39,12 +39,18 @@ struct lwan_trie_leaf_t_ {
 
 struct lwan_trie_t_ {
     lwan_trie_node_t *root;
+    void (*free_node)(void *data);
 };
 
 lwan_trie_t *
-lwan_trie_new(void)
+lwan_trie_new(void (*free_node)(void *data))
 {
-    return calloc(1, sizeof(lwan_trie_t));
+    lwan_trie_t *trie;
+    trie = calloc(1, sizeof(lwan_trie_t));
+    if (!trie)
+        return NULL;
+    trie->free_node = free_node;
+    return trie;
 }
 
 static ALWAYS_INLINE lwan_trie_leaf_t *
@@ -164,7 +170,7 @@ lwan_trie_entry_count(lwan_trie_t *trie)
 }
 
 static void
-lwan_trie_node_destroy(lwan_trie_node_t *node)
+lwan_trie_node_destroy(lwan_trie_t *trie, lwan_trie_node_t *node)
 {
     if (!node)
         return;
@@ -175,6 +181,10 @@ lwan_trie_node_destroy(lwan_trie_node_t *node)
     lwan_trie_leaf_t *leaf;
     for (leaf = node->leaf; leaf;) {
         lwan_trie_leaf_t *tmp = leaf->next;
+
+        if (trie->free_node)
+            trie->free_node(leaf->data);
+
         free(leaf->key);
         free(leaf);
         leaf = tmp;
@@ -182,10 +192,11 @@ lwan_trie_node_destroy(lwan_trie_node_t *node)
 
     for (i = 0; nodes_destroyed > 0 && i < 8; i++) {
         if (node->next[i]) {
-            lwan_trie_node_destroy(node->next[i]);
+            lwan_trie_node_destroy(trie, node->next[i]);
             --nodes_destroyed;
         }
     }
+
     free(node);
 }
 
@@ -194,6 +205,6 @@ lwan_trie_destroy(lwan_trie_t *trie)
 {
     if (!trie || !trie->root)
         return;
-    lwan_trie_node_destroy(trie->root);
+    lwan_trie_node_destroy(trie, trie->root);
     free(trie);
 }

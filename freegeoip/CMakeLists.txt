@@ -11,4 +11,5 @@ target_link_libraries(freegeoip
 	${ZLIB_LIBRARIES}
 	${SQLITE_LIBRARIES}
 	lwan-common
+	dl
 )

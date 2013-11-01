@@ -45,6 +45,11 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
 lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
+            void *data __attribute__((unused))) __attribute__ ((visibility ("default")));
+
+lwan_http_status_t
+hello_world(lwan_request_t *request,
+            lwan_response_t *response,
             void *data __attribute__((unused)))
 {
     static lwan_key_value_t headers[] = {
@@ -79,25 +84,9 @@ end:
 int
 main(void)
 {
-    lwan_url_map_t default_map[] = {
-        { .prefix = "/hello", .callback = hello_world },
-        { .prefix = "/beacon", .callback = gif_beacon },
-        { .prefix = "/favicon.ico", .callback = gif_beacon },
-        { .prefix = "/", SERVE_FILES("./wwwroot") },
-        { .prefix = NULL }
-    };
-
-    lwan_t l = {
-        .config = {
-            .port = 8080,
-            .keep_alive_timeout = 15 /*seconds */,
-            .quiet = false,
-            .reuse_port = false
-        }
-    };
+    lwan_t l;
 
     lwan_init(&l);
-    lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 

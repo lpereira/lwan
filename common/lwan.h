@@ -29,6 +29,7 @@
 #include "lwan-trie.h"
 #include "lwan-status.h"
 #include "strbuf.h"
+#include "hash.h"
 
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
@@ -77,6 +78,7 @@ typedef struct lwan_response_t_		lwan_response_t;
 typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
+typedef struct lwan_config_t_		lwan_config_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -162,6 +164,7 @@ struct lwan_request_t_ {
 
 struct lwan_handler_t_ {
     void *(*init)(void *args);
+    void *(*init_from_hash)(const struct hash *hash);
     void (*shutdown)(void *data);
     lwan_http_status_t (*handle)(lwan_request_t *request, lwan_response_t *response, void *data);
     lwan_handler_flags_t flags;
@@ -171,7 +174,7 @@ struct lwan_url_map_t_ {
     lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
 
-    const char *prefix;
+    char *prefix;
     int prefix_len;
     lwan_handler_flags_t flags;
 
@@ -192,28 +195,28 @@ struct lwan_thread_t_ {
     int epoll_fd;
 };
 
+struct lwan_config_t_ {
+    short port;
+    short keep_alive_timeout;
+    bool quiet;
+    bool reuse_port;
+};
+
 struct lwan_t_ {
     lwan_trie_t *url_map_trie;
     lwan_request_t *requests;
     int main_socket;
 
-    struct {
-        short port;
-        short keep_alive_timeout;
-        bool quiet;
-        bool reuse_port;
-    } config;
+    lwan_config_t config;
 
     struct {
         int count;
         int max_fd;
         lwan_thread_t *threads;
     } thread;
-
-    lwan_url_map_t *url_map;
 };
 
-void lwan_set_url_map(lwan_t *l, lwan_url_map_t *url_map);
+void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map);
 void lwan_main_loop(lwan_t *l);
 bool lwan_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);

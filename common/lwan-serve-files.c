@@ -34,6 +34,7 @@
 #include "lwan-serve-files.h"
 #include "lwan-template.h"
 #include "realpathat.h"
+#include "hash.h"
 
 #define SET_NTH_HEADER(number_, key_, value_) \
     do { \
@@ -176,8 +177,6 @@ static const cache_funcs_t redir_funcs = {
     .serve = _redir_serve,
     .struct_size = sizeof(redir_cache_data_t)
 };
-
-static const char *index_html = "index.html";
 
 static const lwan_var_descriptor_t file_list_item_desc[] = {
     TPL_VAR_STR(struct file_list_t, file_list.icon),
@@ -543,10 +542,15 @@ serve_files_init(void *args)
     serve_files_priv_t *priv;
     int open_mode = O_RDONLY | O_NOATIME;
 
+    if (!settings->root_path) {
+        lwan_status_error("root_path not specified");
+        return NULL;
+    }
+
     canonical_root = realpath(settings->root_path, NULL);
     if (!canonical_root) {
         lwan_status_perror("Could not obtain real path of \"%s\"",
-                            settings->root_path);
+                           settings->root_path);
         goto out_realpath;
     }
 
@@ -585,7 +589,7 @@ serve_files_init(void *args)
     priv->root.path_len = strlen(canonical_root);
     priv->root.fd = root_fd;
     priv->open_mode = open_mode;
-    priv->index_html = settings->index_html ? settings->index_html : index_html;
+    priv->index_html = settings->index_html ? settings->index_html : "index.html";
 
     return priv;
 
@@ -599,6 +603,16 @@ out_open:
     free(canonical_root);
 out_realpath:
     return NULL;
+}
+
+static void *
+serve_files_init_from_hash(const struct hash *hash)
+{
+    struct lwan_serve_files_settings_t settings = {
+        .root_path = hash_find(hash, "path"),
+        .index_html = hash_find(hash, "index_path")
+    };
+    return serve_files_init(&settings);
 }
 
 static void
@@ -892,6 +906,7 @@ fail:
 
 lwan_handler_t serve_files = {
     .init = serve_files_init,
+    .init_from_hash = serve_files_init_from_hash,
     .shutdown = serve_files_shutdown,
     .handle = serve_files_handle_cb,
     .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING

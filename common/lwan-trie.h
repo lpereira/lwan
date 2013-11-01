@@ -22,7 +22,7 @@
 
 typedef struct lwan_trie_t_		lwan_trie_t;
 
-lwan_trie_t	*lwan_trie_new(void);
+lwan_trie_t	*lwan_trie_new(void (*free_node)(void *data));
 void		 lwan_trie_destroy(lwan_trie_t *trie);
 void		 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data);
 void 		*lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix);
