@@ -231,10 +231,10 @@ static bool setup_from_config(lwan_t *lwan)
     path = get_config_path(path_buf);
     lwan_status_info("Loading configuration file: %s", path);
 
+    lwan->url_map_trie = lwan_trie_new(destroy_urlmap);
+
     if (!config_open(&conf, path))
         return false;
-
-    lwan->url_map_trie = lwan_trie_new(destroy_urlmap);
 
     while (config_read_line(&conf, &line)) {
         switch (line.type) {
