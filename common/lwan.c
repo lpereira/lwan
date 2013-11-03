@@ -130,7 +130,7 @@ add_map:
         config_error(c, "Missing callback or handler");
         goto out;
     }
-    if (!(!handler ^ !callback)) {
+    if (handler && callback) {
         config_error(c, "Callback and handler are mutually exclusive");
         goto out;
     }
