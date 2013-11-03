@@ -263,7 +263,7 @@ static bool setup_from_config(lwan_t *lwan)
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
-            ;
+            config_error(&conf, "Unexpected section end");
         }
     }
 
