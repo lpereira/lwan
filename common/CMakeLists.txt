@@ -16,7 +16,6 @@ add_library(lwan-common STATIC
 	lwan-job.c
 	lwan-request.c
 	lwan-response.c
-	lwan-sendfile.c
 	lwan-serve-files.c
 	lwan-socket.c
 	lwan-status.c

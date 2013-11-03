@@ -30,7 +30,6 @@
 #include "lwan.h"
 #include "lwan-cache.h"
 #include "lwan-io-wrappers.h"
-#include "lwan-sendfile.h"
 #include "lwan-serve-files.h"
 #include "lwan-template.h"
 #include "realpathat.h"
