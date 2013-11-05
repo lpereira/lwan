@@ -104,11 +104,9 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
 #endif
 
 #ifdef __x86_64__
-static void
-_coro_makecontext(coro_t *coro, size_t stack_size, coro_function_t func)
+static ALWAYS_INLINE void
+_coro_makecontext(coro_t *coro, void *stack, size_t stack_size, coro_function_t func)
 {
-    void *stack = coro + 1;
-
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
@@ -142,8 +140,7 @@ coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t fun
 #endif
 
 #ifdef __x86_64__
-    _coro_makecontext(coro, stack_size, func);
-    (void) stack;
+    _coro_makecontext(coro, stack, stack_size, func);
 #else
     getcontext(&coro->context);
 

@@ -47,7 +47,12 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void
 lwan_status_init(lwan_t *l)
 {
+#ifdef NDEBUG
   quiet = l->config.quiet;
+#else
+  quiet = false;
+  (void) l;
+#endif
 }
 
 void

@@ -465,9 +465,6 @@ lwan_process_request(lwan_request_t *request)
     request->buffer.value = buffer;
     request->buffer.len = 0;
 
-    if (UNLIKELY(!request->buffer.value))
-        return false;
-
     status = _read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
         if (status == HTTP_BAD_REQUEST) {

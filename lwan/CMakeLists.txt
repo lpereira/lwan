@@ -5,5 +5,6 @@ target_link_libraries(lwan
 	${MALLOC_LIB}
 	${ZLIB_LIBRARIES}
 	lwan-common
+	dl
 )
 
