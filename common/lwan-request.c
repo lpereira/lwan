@@ -90,12 +90,16 @@ _url_decode(char *str)
     char *ch, *decoded;
     for (decoded = ch = str; *ch; ch++) {
         if (*ch == '%' && LIKELY(_is_hex_digit(ch[1]) && _is_hex_digit(ch[2]))) {
-            *decoded++ = _decode_hex_digit(ch[1]) << 4 | _decode_hex_digit(ch[2]);
+            char tmp = _decode_hex_digit(ch[1]) << 4 | _decode_hex_digit(ch[2]);
+            if (UNLIKELY(!tmp))
+                return 0;
+            *decoded++ = tmp;
             ch += 2;
-        } else if (*ch == '+')
+        } else if (*ch == '+') {
             *decoded++ = ' ';
-        else
+        } else {
             *decoded++ = *ch;
+        }
     }
 
     *decoded = '\0';
@@ -481,6 +485,11 @@ lwan_process_request(lwan_request_t *request)
     status = _parse_http_request(request, &helper);
     if (UNLIKELY(status != HTTP_OK))
         return lwan_default_response(request, status);
+
+    size_t decoded_len = _url_decode(request->url.value);
+    if (UNLIKELY(!decoded_len))
+        return lwan_default_response(request, HTTP_BAD_REQUEST);
+    request->url.len = decoded_len;
 
     url_map = lwan_trie_lookup_prefix(request->thread->lwan->url_map_trie,
             request->url.value);
