@@ -86,15 +86,17 @@ lwan_response_shutdown(void)
     lwan_tpl_free(error_template);
 }
 
-bool
+void
 lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[DEFAULT_HEADERS_SIZE];
 
     /* Requests without a MIME Type are errors from handlers that
        should just be handled by lwan_default_response(). */
-    if (UNLIKELY(!request->response.mime_type))
-        return lwan_default_response(request, status);
+    if (UNLIKELY(!request->response.mime_type)) {
+        lwan_default_response(request, status);
+        return;
+    }
 
     if (request->response.stream.callback) {
         lwan_http_status_t callback_status;
@@ -104,18 +106,20 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         /* Reset it after it has been called to avoid eternal recursion on errors */
         request->response.stream.callback = NULL;
 
-        if (callback_status < HTTP_BAD_REQUEST) /* Status < 400: success */
-            return true;
-        return !lwan_default_response(request, callback_status);
+        if (callback_status >= HTTP_BAD_REQUEST) /* Status < 400: success */
+            lwan_default_response(request, callback_status);
+        return;
     }
 
     size_t header_len = lwan_prepare_response_header(request, status, headers, sizeof(headers));
-    if (UNLIKELY(!header_len))
-        return lwan_default_response(request, HTTP_INTERNAL_ERROR);
+    if (UNLIKELY(!header_len)) {
+        lwan_default_response(request, HTTP_INTERNAL_ERROR);
+        return;
+    }
 
     if (request->flags & REQUEST_METHOD_HEAD) {
         lwan_write(request, headers, header_len);
-        return true;
+        return;
     }
 
     struct iovec response_vec[] = {
@@ -124,10 +128,9 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     };
 
     lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
-    return true;
 }
 
-bool
+void
 lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 {
     request->response.mime_type = "text/html";
@@ -138,7 +141,7 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
             .long_message = lwan_http_status_as_descriptive_string(status)
         }});
 
-    return lwan_response(request, status);
+    lwan_response(request, status);
 }
 
 #define RETURN_0_ON_OVERFLOW(len_) \

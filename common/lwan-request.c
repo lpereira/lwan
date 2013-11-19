@@ -460,7 +460,7 @@ _read_request(lwan_request_t *request)
     return HTTP_OK;
 }
 
-bool
+void
 lwan_process_request(lwan_request_t *request)
 {
     lwan_http_status_t status;
@@ -475,30 +475,32 @@ lwan_process_request(lwan_request_t *request)
 
     status = _read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
-        if (status == HTTP_BAD_REQUEST) {
-            /*
-             * If it is a Bad Request at this moment, there's not much we can
-             * do. Just give up.
-             */
-            return false;
-        }
+        /* If status is anything but a bad request at this point, give up. */
+        if (status != HTTP_BAD_REQUEST)
+            lwan_default_response(request, status);
 
-        return lwan_default_response(request, status);
+        return;
     }
 
     status = _parse_http_request(request, &helper);
-    if (UNLIKELY(status != HTTP_OK))
-        return lwan_default_response(request, status);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
+        return;
+    }
 
     size_t decoded_len = _url_decode(request->url.value);
-    if (UNLIKELY(!decoded_len))
-        return lwan_default_response(request, HTTP_BAD_REQUEST);
+    if (UNLIKELY(!decoded_len)) {
+        lwan_default_response(request, HTTP_BAD_REQUEST);
+        return;
+    }
     request->url.len = decoded_len;
 
     url_map = lwan_trie_lookup_prefix(request->thread->lwan->url_map_trie,
             request->url.value);
-    if (UNLIKELY(!url_map))
-        return lwan_default_response(request, HTTP_NOT_FOUND);
+    if (UNLIKELY(!url_map)) {
+        lwan_default_response(request, HTTP_NOT_FOUND);
+        return;
+    }
 
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
@@ -513,7 +515,7 @@ lwan_process_request(lwan_request_t *request)
         _parse_accept_encoding(request, &helper);
 
     status = url_map->callback(request, &request->response, url_map->data);
-    return lwan_response(request, status);
+    lwan_response(request, status);
 }
 
 const char *
