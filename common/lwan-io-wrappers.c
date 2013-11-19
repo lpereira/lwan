@@ -181,9 +181,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
     ssize_t to_be_written = count - total_written;
     do {
         written = sendfile(out_fd, in_fd, &offset, to_be_written);
-        if (written >= 0) {
-            to_be_written = count - (total_written += written);
-        } else {
+        if (written < 0) {
             switch (errno) {
             case EAGAIN:
             case EINTR:
@@ -192,13 +190,18 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
                 /* Try sending less stuff next time */
                 if (LIKELY(to_be_written > (ssize_t)buffer_size))
                     to_be_written >>= 1;
-                break;
+                continue;
 
             default:
                 coro_yield(coro, 0);
                 return -1; /* not reached */
             }
         }
+
+        total_written += written;
+        to_be_written = count - total_written;
+
+        coro_yield(coro, 1);
     } while (count > total_written);
 
     return total_written;
