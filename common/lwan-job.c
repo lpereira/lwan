@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -83,7 +84,7 @@ void lwan_job_thread_init(void)
   running = true;
   if (pthread_create(&self, NULL, job_thread, NULL) < 0)
     lwan_status_critical_perror("pthread_create");
-  if (pthread_setschedparam(self, 5 /* SCHED_IDLE */, &sched_param) < 0)
+  if (pthread_setschedparam(self, SCHED_IDLE, &sched_param) < 0)
     lwan_status_perror("pthread_setschedparam");
 }
 
