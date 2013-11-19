@@ -747,8 +747,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
         return HTTP_INTERNAL_ERROR;
 
     if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(lwan_write(request, headers, header_len) < 0))
-            return HTTP_INTERNAL_ERROR;
+        lwan_write(request, headers, header_len);
     } else {
         serve_files_priv_t *priv = request->response.stream.priv;
         /*
@@ -771,11 +770,8 @@ _sendfile_serve(lwan_request_t *request, void *data)
             }
         }
 
-        if (UNLIKELY(lwan_send(request, headers, header_len, MSG_MORE) < 0))
-            return HTTP_INTERNAL_ERROR;
-
-        if (UNLIKELY(lwan_sendfile(request, file_fd, from, to) < 0))
-            return HTTP_INTERNAL_ERROR;
+        lwan_send(request, headers, header_len, MSG_MORE);
+        lwan_sendfile(request, file_fd, from, to);
     }
 
     return return_status;
@@ -799,16 +795,14 @@ _serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
         return HTTP_INTERNAL_ERROR;
 
     if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        if (UNLIKELY(lwan_write(request, headers, header_len) < 0))
-            return_status = HTTP_INTERNAL_ERROR;
+        lwan_write(request, headers, header_len);
     } else {
         struct iovec response_vec[] = {
             { .iov_base = headers, .iov_len = header_len },
             { .iov_base = contents, .iov_len = size }
         };
 
-        if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0))
-            return_status = HTTP_INTERNAL_ERROR;
+        lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
     }
 
     return return_status;
@@ -863,8 +857,7 @@ _redir_serve(lwan_request_t *request, void *data)
         { .iov_base = rd->redir_to, .iov_len = request->response.content_length },
     };
 
-    if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0))
-        return HTTP_INTERNAL_ERROR;
+    lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
 
     return HTTP_MOVED_PERMANENTLY;
 }

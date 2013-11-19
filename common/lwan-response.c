@@ -114,10 +114,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
     if (request->flags & REQUEST_METHOD_HEAD) {
-        if (UNLIKELY(lwan_write(request, headers, header_len) < 0)) {
-            lwan_status_perror("write");
-            return false;
-        }
+        lwan_write(request, headers, header_len);
         return true;
     }
 
@@ -126,11 +123,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = strbuf_get_length(request->response.buffer) }
     };
 
-    if (UNLIKELY(lwan_writev(request, response_vec, N_ELEMENTS(response_vec)) < 0)) {
-        lwan_status_perror("writev");
-        return false;
-    }
-
+    lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
     return true;
 }
 
