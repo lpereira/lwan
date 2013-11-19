@@ -428,7 +428,7 @@ _read_request(lwan_request_t *request)
     ssize_t total_read = 0;
 
     do {
-        do {
+        for (;;) {
             n = read(request->fd, request->buffer.value + total_read,
                         DEFAULT_BUFFER_SIZE - total_read);
             if (UNLIKELY(n == 0))
@@ -440,8 +440,12 @@ _read_request(lwan_request_t *request)
                 request->flags ^= REQUEST_WRITE_EVENTS;
                 coro_yield(request->coro, 1);
                 request->flags ^= REQUEST_WRITE_EVENTS;
+
+                continue;
             }
-        } while (UNLIKELY(n < 0));
+
+            break;
+        }
 
         total_read += n;
         if (UNLIKELY(total_read == DEFAULT_BUFFER_SIZE))
