@@ -154,17 +154,13 @@ static bool parse_section(char *line, config_line_t *l)
 
 static bool parse_line(char *line, config_line_t *l)
 {
-  char *key, *value;
   char *equal = strchr(line, '=');
   if (!equal)
     return false;
 
   *equal = '\0';
-  key = remove_trailing_spaces(remove_leading_spaces(line));
-  value = remove_leading_spaces(equal + 1);
-
-  l->line.key = key;
-  l->line.value = value;
+  l->line.key = remove_trailing_spaces(remove_leading_spaces(line));
+  l->line.value = remove_leading_spaces(equal + 1);
   l->type = CONFIG_LINE_TYPE_LINE;
 
   return true;
