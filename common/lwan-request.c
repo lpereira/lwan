@@ -318,13 +318,13 @@ _parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
     range += sizeof("bytes=") - 1;
     off_t from, to;
 
-    if (sscanf(range, "%ld-%ld", &from, &to) == 2) {
+    if (sscanf(range, "%lu-%lu", &from, &to) == 2) {
         request->header.range.from = from;
         request->header.range.to = to;
-    } else if (sscanf(range, "-%ld", &to) == 1) {
+    } else if (sscanf(range, "-%lu", &to) == 1) {
         request->header.range.from = 0;
         request->header.range.to = to;
-    } else if (sscanf(range, "%ld-", &from) == 1) {
+    } else if (sscanf(range, "%lu-", &from) == 1) {
         request->header.range.from = from;
         request->header.range.to = -1;
     } else {
