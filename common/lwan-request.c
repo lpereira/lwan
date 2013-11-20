@@ -416,6 +416,11 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
+    size_t decoded_len = _url_decode(request->url.value);
+    if (UNLIKELY(!decoded_len))
+        return HTTP_BAD_REQUEST;
+    request->url.len = decoded_len;
+
     _compute_keep_alive_flag(request, helper);
 
     return HTTP_OK;
@@ -487,13 +492,6 @@ lwan_process_request(lwan_request_t *request)
         lwan_default_response(request, status);
         return;
     }
-
-    size_t decoded_len = _url_decode(request->url.value);
-    if (UNLIKELY(!decoded_len)) {
-        lwan_default_response(request, HTTP_BAD_REQUEST);
-        return;
-    }
-    request->url.len = decoded_len;
 
     url_map = lwan_trie_lookup_prefix(request->thread->lwan->url_map_trie,
             request->url.value);
