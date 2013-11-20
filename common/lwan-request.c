@@ -433,23 +433,20 @@ _read_request(lwan_request_t *request)
     ssize_t total_read = 0;
 
     do {
-        for (;;) {
-            n = read(request->fd, request->buffer.value + total_read,
-                        DEFAULT_BUFFER_SIZE - total_read);
-            if (UNLIKELY(n == 0))
+read_again:
+        n = read(request->fd, request->buffer.value + total_read,
+                    DEFAULT_BUFFER_SIZE - total_read);
+        if (UNLIKELY(n == 0))
+            return HTTP_BAD_REQUEST;
+        if (UNLIKELY(n < 0)) {
+            if (UNLIKELY(!total_read || errno != EAGAIN))
                 return HTTP_BAD_REQUEST;
-            if (UNLIKELY(n < 0)) {
-                if (UNLIKELY(!total_read || errno != EAGAIN))
-                    return HTTP_BAD_REQUEST;
 
-                request->flags ^= REQUEST_WRITE_EVENTS;
-                coro_yield(request->coro, 1);
-                request->flags ^= REQUEST_WRITE_EVENTS;
+            request->flags ^= REQUEST_WRITE_EVENTS;
+            coro_yield(request->coro, 1);
+            request->flags ^= REQUEST_WRITE_EVENTS;
 
-                continue;
-            }
-
-            break;
+            goto read_again;
         }
 
         total_read += n;
