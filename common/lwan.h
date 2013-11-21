@@ -151,8 +151,8 @@ struct lwan_request_t_ {
     in_addr_t remote_address;
 
     struct {
-      lwan_key_value_t *base;
-      size_t len;
+        lwan_key_value_t *base;
+        size_t len;
     } query_params;
     struct {
         time_t if_modified_since;
