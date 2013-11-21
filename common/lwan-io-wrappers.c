@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -82,7 +83,7 @@ lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
 
 out:
     coro_yield(request->coro, 0);
-    return -1;
+    ASSERT_NOT_REACHED_RETURN(-1);
 }
 
 ssize_t
@@ -108,7 +109,7 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
 
 out:
     coro_yield(request->coro, 0);
-    return -1;
+    ASSERT_NOT_REACHED_RETURN(-1);
 }
 
 ssize_t
@@ -134,7 +135,7 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 
 out:
     coro_yield(request->coro, 0);
-    return -1;
+    ASSERT_NOT_REACHED_RETURN(-1);
 }
 
 static ALWAYS_INLINE ssize_t
@@ -154,14 +155,14 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
     while (total_bytes_written < count) {
         ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
-            lwan_status_perror("read");
-            return -1;
+            coro_yield(coro, 0);
+            ASSERT_NOT_REACHED_RETURN(-1);
         }
 
         ssize_t bytes_written = write(out_fd, buffer, read_bytes);
         if (bytes_written < 0) {
-            lwan_status_perror("write");
-            return -1;
+            coro_yield(coro, 0);
+            ASSERT_NOT_REACHED_RETURN(-1);
         }
 
         total_bytes_written += bytes_written;
@@ -194,7 +195,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
 
             default:
                 coro_yield(coro, 0);
-                return -1; /* not reached */
+                ASSERT_NOT_REACHED_RETURN(-1);
             }
         }
 
