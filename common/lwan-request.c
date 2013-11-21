@@ -456,7 +456,7 @@ read_again:
             return HTTP_BAD_REQUEST;
 
         request->buffer.value[total_read] = '\0';
-    } while (UNLIKELY(!strstr(request->buffer.value + total_read - 4, "\r\n\r\n")));
+    } while (memcmp(request->buffer.value + total_read - 4, "\r\n\r\n", 4));
 
     request->buffer.len = total_read;
     return HTTP_OK;
