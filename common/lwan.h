@@ -34,6 +34,8 @@
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
 
+#define ASSERT_NOT_REACHED()  assert(!"Not reached")
+
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
