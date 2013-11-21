@@ -20,7 +20,7 @@ find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 
 find_library(TCMALLOC_LIBRARY
-	NAMES tcmalloc_minimalx tcmallocx
+	NAMES tcmalloc_minimal tcmalloc
 	PATHS /usr/lib /usr/local/lib)
 if (TCMALLOC_LIBRARY)
 	message(STATUS "tcmalloc found: ${TCMALLOC_LIBRARY}")
