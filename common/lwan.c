@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <dlfcn.h>
 #include <limits.h>
 #include <setjmp.h>
@@ -73,7 +74,7 @@ static lwan_url_map_t *add_url_map(lwan_trie_t *t, const char *prefix, const lwa
 
     if (!copy) {
         lwan_status_perror("Could not copy URL map");
-        return NULL; /* Not reached */
+        ASSERT_NOT_REACHED_RETURN(NULL);
     }
 
     memcpy(copy, map, sizeof(*copy));
@@ -163,6 +164,9 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 
     for (; map->prefix; map++) {
         lwan_url_map_t *copy = add_url_map(l->url_map_trie, NULL, map);
+
+        if (UNLIKELY(!copy))
+            continue;
 
         if (copy->handler && copy->handler->init) {
             copy->data = copy->handler->init(copy->args);
