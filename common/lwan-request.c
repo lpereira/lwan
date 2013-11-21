@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -436,24 +437,42 @@ _read_request(lwan_request_t *request)
 read_again:
         n = read(request->fd, request->buffer.value + total_read,
                     DEFAULT_BUFFER_SIZE - total_read);
-        if (UNLIKELY(n == 0))
-            return HTTP_BAD_REQUEST;
+        /* Client has shutdown orderly, nothing else to do; kill coro */
+        if (UNLIKELY(n == 0)) {
+            coro_yield(request->coro, 0);
+            ASSERT_NOT_REACHED();
+        }
+
         if (UNLIKELY(n < 0)) {
-            if (UNLIKELY(!total_read || errno != EAGAIN))
-                return HTTP_BAD_REQUEST;
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                /* These are the errors we can handle below */
+                break;
+            default:
+                if (!total_read) /* Unexpected error before reading anything */
+                    return HTTP_BAD_REQUEST;
 
+                coro_yield(request->coro, 0); /* Unexpected error, kill coro */
+                ASSERT_NOT_REACHED();
+            }
+
+            /* Toggle write events so the scheduler thinks we're in a
+             * "can read" state. */
             request->flags ^= REQUEST_WRITE_EVENTS;
+            /* Yield 1 so the scheduler doesn't kill the coroutine. */
             coro_yield(request->coro, 1);
+            /* Put the WRITE_EVENTS flag back on. */
             request->flags ^= REQUEST_WRITE_EVENTS;
-
+            /* We can probably read again, so try it */
             goto read_again;
         }
 
         total_read += n;
+        if (UNLIKELY(total_read <= 4)) /* Need space for \r\n\r\n at least */
+            goto read_again;
         if (UNLIKELY(total_read == DEFAULT_BUFFER_SIZE))
             return HTTP_TOO_LARGE;
-        if (UNLIKELY(total_read <= 4))
-            return HTTP_BAD_REQUEST;
 
         request->buffer.value[total_read] = '\0';
     } while (memcmp(request->buffer.value + total_read - 4, "\r\n\r\n", 4));
