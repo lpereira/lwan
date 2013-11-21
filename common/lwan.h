@@ -35,6 +35,11 @@
 #define DEFAULT_HEADERS_SIZE 512
 
 #define ASSERT_NOT_REACHED()  assert(!"Not reached")
+#define ASSERT_NOT_REACHED_RETURN(...) \
+    do { \
+        ASSERT_NOT_REACHED(); \
+        return (__VA_ARGS__); \
+    } while(0)
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
