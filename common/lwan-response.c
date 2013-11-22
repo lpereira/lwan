@@ -86,6 +86,24 @@ lwan_response_shutdown(void)
     lwan_tpl_free(error_template);
 }
 
+#ifndef NDEBUG
+static void
+log_request(lwan_request_t *request, lwan_http_status_t status)
+{
+    char ip_buffer[16];
+
+    lwan_status_debug("%s \"%s %s HTTP/%s\" %d %s",
+        lwan_request_get_remote_address(request, ip_buffer),
+        request->flags & REQUEST_METHOD_GET ? "GET" : "HEAD",
+        request->original_url.value,
+        request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
+        status,
+        request->response.mime_type);
+}
+#else
+#define log_request(...)
+#endif
+
 void
 lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
@@ -106,6 +124,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         /* Reset it after it has been called to avoid eternal recursion on errors */
         request->response.stream.callback = NULL;
 
+        log_request(request, status);
+
         if (callback_status >= HTTP_BAD_REQUEST) /* Status < 400: success */
             lwan_default_response(request, callback_status);
         return;
@@ -116,6 +136,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         lwan_default_response(request, HTTP_INTERNAL_ERROR);
         return;
     }
+
+    log_request(request, status);
 
     if (request->flags & REQUEST_METHOD_HEAD) {
         lwan_write(request, headers, header_len);

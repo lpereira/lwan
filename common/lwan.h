@@ -151,6 +151,7 @@ struct lwan_request_t_ {
     coro_t *coro;
     lwan_thread_t *thread;
     lwan_value_t url;
+    lwan_value_t original_url;
     unsigned int time_to_die;
     in_addr_t remote_address;
 
