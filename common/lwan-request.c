@@ -447,25 +447,22 @@ read_again:
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                /* These are the errors we can handle below */
-                break;
-            default:
-                if (!total_read) /* Unexpected error before reading anything */
-                    return HTTP_BAD_REQUEST;
-
-                coro_yield(request->coro, 0); /* Unexpected error, kill coro */
-                ASSERT_NOT_REACHED();
+                /* Toggle write events so the scheduler thinks we're in a
+                 * "can read" state (and thus resumable). */
+                request->flags ^= REQUEST_WRITE_EVENTS;
+                /* Yield 1 so the scheduler doesn't kill the coroutine. */
+                coro_yield(request->coro, 1);
+                /* Put the WRITE_EVENTS flag back on. */
+                request->flags ^= REQUEST_WRITE_EVENTS;
+                /* We can probably read again, so try it */
+                goto read_again;
             }
 
-            /* Toggle write events so the scheduler thinks we're in a
-             * "can read" state. */
-            request->flags ^= REQUEST_WRITE_EVENTS;
-            /* Yield 1 so the scheduler doesn't kill the coroutine. */
-            coro_yield(request->coro, 1);
-            /* Put the WRITE_EVENTS flag back on. */
-            request->flags ^= REQUEST_WRITE_EVENTS;
-            /* We can probably read again, so try it */
-            goto read_again;
+            if (!total_read) /* Unexpected error before reading anything */
+                return HTTP_BAD_REQUEST;
+
+            coro_yield(request->coro, 0); /* Unexpected error, kill coro */
+            ASSERT_NOT_REACHED();
         }
 
         total_read += n;
