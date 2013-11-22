@@ -359,8 +359,9 @@ templated_output(lwan_request_t *request,
     const char *ip_address;
     lwan_tpl_t *tpl = data;
     struct ip_info_t *info;
+    char ip_address_buf[INET_ADDRSTRLEN];
 
-    ip_address = lwan_request_get_remote_address(request, request->buffer.value);
+    ip_address = lwan_request_get_remote_address(request, ip_address_buf);
     if (UNLIKELY(!ip_address))
         return HTTP_INTERNAL_ERROR;
 
