@@ -728,7 +728,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(fce + 1);
-    char *headers = request->buffer.value;
+    char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
     lwan_http_status_t return_status;
     off_t from, to;
@@ -837,7 +837,7 @@ _redir_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     redir_cache_data_t *rd = (redir_cache_data_t *)(fce + 1);
-    char *header_buf = request->buffer.value;
+    char header_buf[DEFAULT_BUFFER_SIZE];
     size_t header_buf_size;
     lwan_key_value_t headers[2];
 
