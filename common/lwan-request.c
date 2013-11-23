@@ -424,7 +424,7 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     size_t decoded_len = _url_decode(request->url.value);
     if (UNLIKELY(!decoded_len))
         return HTTP_BAD_REQUEST;
-    request->url.len = decoded_len;
+    request->original_url.len = request->url.len = decoded_len;
 
     _compute_keep_alive_flag(request, helper);
 
