@@ -194,8 +194,6 @@ _identify_http_path(lwan_request_t *request, char *buffer,
 
     request->url.value = buffer;
     request->url.len = space - buffer;
-    request->original_url.value = buffer;
-    request->original_url.len = space - buffer;
 
     /* Most of the time, fragments are small -- so search backwards */
     char *fragment = memrchr(buffer, '#', request->url.len);
@@ -215,6 +213,9 @@ _identify_http_path(lwan_request_t *request, char *buffer,
         helper->query_string.len = (fragment ? fragment : space) - query_string - 1;
         request->url.len -= helper->query_string.len + 1;
     }
+
+    request->original_url.value = buffer;
+    request->original_url.len = space - buffer;
 
     return end_of_line + 1;
 }
