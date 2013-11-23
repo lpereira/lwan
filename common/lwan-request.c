@@ -487,13 +487,13 @@ lwan_process_request(lwan_request_t *request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    lwan_request_parse_t helper;
     char buffer[DEFAULT_BUFFER_SIZE];
-
-    memset(&helper, 0, sizeof(helper));
-
-    helper.buffer.value = buffer;
-    helper.buffer.len = 0;
+    lwan_request_parse_t helper = {
+        .buffer = {
+            .value = buffer,
+            .len = 0
+        }
+    };
 
     status = _read_request(request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
