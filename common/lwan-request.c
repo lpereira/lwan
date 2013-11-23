@@ -450,6 +450,7 @@ read_again:
             switch (errno) {
             case EAGAIN:
             case EINTR:
+yield_and_read_again:
                 /* Toggle write events so the scheduler thinks we're in a
                  * "can read" state (and thus resumable). */
                 request->flags ^= REQUEST_WRITE_EVENTS;
@@ -469,8 +470,8 @@ read_again:
         }
 
         total_read += n;
-        if (UNLIKELY(total_read <= 4)) /* Need space for \r\n\r\n at least */
-            goto read_again;
+        if (UNLIKELY(total_read < 4)) /* Need space for \r\n\r\n at least */
+            goto yield_and_read_again;
         if (UNLIKELY(total_read == DEFAULT_BUFFER_SIZE))
             return HTTP_TOO_LARGE;
 
