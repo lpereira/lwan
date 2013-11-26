@@ -348,11 +348,17 @@ class TestCache(LwanTest):
     return any(self.mmaps(f))
 
 
+  def wait_munmap(self, f, timeout=20.0):
+    while self.is_mmapped(f) and timeout >= 0:
+      time.sleep(0.1)
+      timeout -= 0.1
+
+
   def test_cache_munmaps_conn_close(self):
     r = requests.get('http://127.0.0.1:8080/100.html')
 
     self.assertTrue(self.is_mmapped('/100.html'))
-    time.sleep(20)
+    self.wait_munmap('/100.html')
     self.assertFalse(self.is_mmapped('/100.html'))
 
 
@@ -361,7 +367,7 @@ class TestCache(LwanTest):
     r = s.get('http://127.0.0.1:8080/100.html')
 
     self.assertTrue(self.is_mmapped('/100.html'))
-    time.sleep(20)
+    self.wait_munmap('/100.html')
     self.assertFalse(self.is_mmapped('/100.html'))
 
 
