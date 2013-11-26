@@ -75,7 +75,7 @@ _cleanup_coro(lwan_request_t *request)
 }
 
 static ALWAYS_INLINE void
-_handle_hangup(lwan_request_t *request)
+_destroy_coro(lwan_request_t *request)
 {
     if (LIKELY(request->coro)) {
         coro_free(request->coro);
@@ -93,7 +93,7 @@ _process_request_coro(coro_t *coro)
     _reset_request(request);
     lwan_process_request(request);
 
-    return 0;
+    return REQUEST_CORO_FINISHED;
 }
 
 static ALWAYS_INLINE void
@@ -114,7 +114,14 @@ _resume_coro_if_needed(lwan_request_t *request, int epoll_fd)
     if (!(request->flags & REQUEST_SHOULD_RESUME_CORO))
         return;
 
-    bool should_resume_coro = coro_resume(request->coro);
+    lwan_request_coro_yield_t yield_result = coro_resume(request->coro);
+    /* REQUEST_CORO_ABORT is -1, but comparing with 0 is cheaper */
+    if (yield_result < REQUEST_CORO_MAY_RESUME) {
+        _destroy_coro(request);
+        return;
+    }
+
+    bool should_resume_coro = yield_result == REQUEST_CORO_MAY_RESUME;
     bool write_events = request->flags & REQUEST_WRITE_EVENTS;
     if (should_resume_coro)
         request->flags |= REQUEST_SHOULD_RESUME_CORO;
@@ -278,7 +285,7 @@ _thread_io_loop(void *data)
                 request->fd = events[i].data.fd;
 
                 if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
-                    _handle_hangup(request);
+                    _destroy_coro(request);
                     continue;
                 }
 

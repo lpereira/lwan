@@ -443,7 +443,7 @@ read_again:
                     DEFAULT_BUFFER_SIZE - total_read);
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
-            coro_yield(request->coro, 0);
+            coro_yield(request->coro, REQUEST_CORO_ABORT);
             ASSERT_NOT_REACHED();
         }
 
@@ -456,7 +456,7 @@ yield_and_read_again:
                  * "can read" state (and thus resumable). */
                 request->flags ^= REQUEST_WRITE_EVENTS;
                 /* Yield 1 so the scheduler doesn't kill the coroutine. */
-                coro_yield(request->coro, 1);
+                coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
                 /* Put the WRITE_EVENTS flag back on. */
                 request->flags ^= REQUEST_WRITE_EVENTS;
                 /* We can probably read again, so try it */
@@ -466,7 +466,8 @@ yield_and_read_again:
             if (!total_read) /* Unexpected error before reading anything */
                 return HTTP_BAD_REQUEST;
 
-            coro_yield(request->coro, 0); /* Unexpected error, kill coro */
+            /* Unexpected error, kill coro */
+            coro_yield(request->coro, REQUEST_CORO_ABORT);
             ASSERT_NOT_REACHED();
         }
 

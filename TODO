@@ -31,7 +31,3 @@
      - or -
  
   - Write a custom on-disk trie to lookup IP addresses
-- Refactor the whole coroutine suspend/resume mess in lwan-thread.c, as it
-  isn't very clear what happens whenever a coroutine yields a 0. This is
-  important since now most error recovery strategies uses yield 0 as a
-  mechanism to shutdown the coroutine immediately.

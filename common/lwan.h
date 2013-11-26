@@ -122,6 +122,12 @@ typedef enum {
     REQUEST_METHOD_HEAD        = 1<<7
 } lwan_request_flags_t;
 
+typedef enum {
+    REQUEST_CORO_ABORT = -1,
+    REQUEST_CORO_MAY_RESUME = 0,
+    REQUEST_CORO_FINISHED = 1
+} lwan_request_coro_yield_t;
+
 struct lwan_key_value_t_ {
     char *key;
     char *value;
