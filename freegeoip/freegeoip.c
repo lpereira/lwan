@@ -329,7 +329,7 @@ internal_query(lwan_request_t *request, const char *ip_address)
         return NULL;
 
     return (struct ip_info_t *)cache_coro_get_and_ref_entry(cache,
-                request->coro, query);
+                request->conn->coro, query);
 }
 
 #if QUERIES_PER_HOUR != 0

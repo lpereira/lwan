@@ -86,6 +86,7 @@ typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
 typedef struct lwan_config_t_		lwan_config_t;
+typedef struct lwan_connection_t_	lwan_connection_t;
 
 typedef enum {
     HTTP_OK = 200,
@@ -112,21 +113,24 @@ typedef enum {
 } lwan_handler_flags_t;
 
 typedef enum {
-    REQUEST_IS_KEEP_ALIVE      = 1<<0,
-    REQUEST_IS_ALIVE           = 1<<1,
-    REQUEST_SHOULD_RESUME_CORO = 1<<2,
-    REQUEST_WRITE_EVENTS       = 1<<3,
-    REQUEST_ACCEPT_DEFLATE     = 1<<4,
-    REQUEST_IS_HTTP_1_0	       = 1<<5,
-    REQUEST_METHOD_GET         = 1<<6,
-    REQUEST_METHOD_HEAD        = 1<<7
+    REQUEST_ACCEPT_DEFLATE  = 1<<0,
+    REQUEST_IS_HTTP_1_0	    = 1<<1,
+    REQUEST_METHOD_GET      = 1<<2,
+    REQUEST_METHOD_HEAD     = 1<<3,
 } lwan_request_flags_t;
 
 typedef enum {
-    REQUEST_CORO_ABORT = -1,
-    REQUEST_CORO_MAY_RESUME = 0,
-    REQUEST_CORO_FINISHED = 1
-} lwan_request_coro_yield_t;
+    CONN_REQUEST_IS_KEEP_ALIVE = 1<<0, /* Leaky abstraction */
+    CONN_IS_ALIVE              = 1<<1,
+    CONN_SHOULD_RESUME_CORO    = 1<<2,
+    CONN_WRITE_EVENTS          = 1<<3
+} lwan_connection_flags_t;
+
+typedef enum {
+    CONN_CORO_ABORT = -1,
+    CONN_CORO_MAY_RESUME = 0,
+    CONN_CORO_FINISHED = 1
+} lwan_connection_coro_yield_t;
 
 struct lwan_key_value_t_ {
     char *key;
@@ -151,15 +155,22 @@ struct lwan_value_t_ {
     size_t len;
 };
 
-struct lwan_request_t_ {
-    lwan_request_flags_t flags;
+struct lwan_connection_t_ {
+    lwan_connection_flags_t flags;
     int fd;
     coro_t *coro;
     lwan_thread_t *thread;
-    lwan_value_t url;
-    lwan_value_t original_url;
     unsigned int time_to_die;
     in_addr_t remote_address;
+
+    strbuf_t *response_buffer; /* Leaky abstraction */
+};
+
+struct lwan_request_t_ {
+    lwan_request_flags_t flags;
+    lwan_value_t url;
+    lwan_value_t original_url;
+    lwan_connection_t *conn;
 
     struct {
         lwan_key_value_t *base;
@@ -217,7 +228,7 @@ struct lwan_config_t_ {
 
 struct lwan_t_ {
     lwan_trie_t *url_map_trie;
-    lwan_request_t *requests;
+    lwan_connection_t *conns;
     int main_socket;
 
     lwan_config_t config;
@@ -238,7 +249,7 @@ size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t 
 
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer);
-void lwan_process_request(lwan_request_t *request);
+void lwan_process_request(lwan_t *l, lwan_request_t *request);
 
 void lwan_format_rfc_time(time_t t, char buffer[static 31]);
 

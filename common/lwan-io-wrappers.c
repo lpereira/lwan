@@ -42,7 +42,7 @@ lwan_openat(lwan_request_t *request,
     for (tries = max_failed_tries; tries; tries--) {
         fd = openat(dirfd, pathname, flags);
         if (LIKELY(fd >= 0)) {
-            coro_defer(request->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
+            coro_defer(request->conn->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
             return fd;
         }
 
@@ -50,7 +50,7 @@ lwan_openat(lwan_request_t *request,
         case EMFILE:
         case ENFILE:
         case ENOMEM:
-            coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
         default:
             return -errno;
@@ -67,14 +67,14 @@ lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = writev(request->fd, iov, iovcnt);
+        retval = writev(request->conn->fd, iov, iovcnt);
         if (LIKELY(retval >= 0))
             return retval;
 
         switch (errno) {
         case EAGAIN:
         case EINTR:
-            coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
         default:
             goto out;
@@ -82,7 +82,7 @@ lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
     }
 
 out:
-    coro_yield(request->coro, REQUEST_CORO_ABORT);
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
     ASSERT_NOT_REACHED_RETURN(-1);
 }
 
@@ -93,14 +93,14 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = write(request->fd, buf, count);
+        retval = write(request->conn->fd, buf, count);
         if (LIKELY(retval >= 0))
             return retval;
 
         switch (errno) {
         case EAGAIN:
         case EINTR:
-            coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
         default:
             goto out;
@@ -108,7 +108,7 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
     }
 
 out:
-    coro_yield(request->coro, REQUEST_CORO_ABORT);
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
     ASSERT_NOT_REACHED_RETURN(-1);
 }
 
@@ -119,14 +119,14 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = send(request->fd, buf, count, flags);
+        retval = send(request->conn->fd, buf, count, flags);
         if (LIKELY(retval >= 0))
             return retval;
 
         switch (errno) {
         case EAGAIN:
         case EINTR:
-            coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
         default:
             goto out;
@@ -134,7 +134,7 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
     }
 
 out:
-    coro_yield(request->coro, REQUEST_CORO_ABORT);
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
     ASSERT_NOT_REACHED_RETURN(-1);
 }
 
@@ -155,18 +155,18 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
     while (total_bytes_written < count) {
         ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
-            coro_yield(coro, REQUEST_CORO_ABORT);
+            coro_yield(coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED_RETURN(-1);
         }
 
         ssize_t bytes_written = write(out_fd, buffer, read_bytes);
         if (bytes_written < 0) {
-            coro_yield(coro, REQUEST_CORO_ABORT);
+            coro_yield(coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED_RETURN(-1);
         }
 
         total_bytes_written += bytes_written;
-        coro_yield(coro, REQUEST_CORO_MAY_RESUME);
+        coro_yield(coro, CONN_CORO_MAY_RESUME);
     }
 
     return total_bytes_written;
@@ -186,7 +186,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                coro_yield(coro, REQUEST_CORO_MAY_RESUME);
+                coro_yield(coro, CONN_CORO_MAY_RESUME);
 
                 /* Try sending less stuff next time */
                 if (LIKELY(to_be_written > (ssize_t)buffer_size))
@@ -194,7 +194,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
                 continue;
 
             default:
-                coro_yield(coro, REQUEST_CORO_ABORT);
+                coro_yield(coro, CONN_CORO_ABORT);
                 ASSERT_NOT_REACHED_RETURN(-1);
             }
         }
@@ -202,7 +202,7 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
         total_written += written;
         to_be_written = count - total_written;
 
-        coro_yield(coro, REQUEST_CORO_MAY_RESUME);
+        coro_yield(coro, CONN_CORO_MAY_RESUME);
     } while (count > total_written);
 
     return total_written;
@@ -220,14 +220,14 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 
 #ifdef __linux__
     ssize_t written_bytes = -1;
-    written_bytes = _sendfile_linux_sendfile(request->coro, in_fd, request->fd, offset, count);
+    written_bytes = _sendfile_linux_sendfile(request->conn->coro, in_fd, request->conn->fd, offset, count);
 
     if (UNLIKELY(written_bytes < 0)) {
         switch (errno) {
         case ENOSYS:
         case EINVAL:
 #endif
-            return _sendfile_read_write(request->coro, in_fd, request->fd, offset, count);
+            return _sendfile_read_write(request->conn->coro, in_fd, request->conn->fd, offset, count);
 
 #ifdef __linux__
         }

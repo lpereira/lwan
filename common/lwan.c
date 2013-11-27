@@ -320,13 +320,13 @@ lwan_init(lwan_t *l)
     if (setrlimit(RLIMIT_NOFILE, &r) < 0)
         lwan_status_critical_perror("setrlimit");
 
-    l->requests = calloc(r.rlim_cur, sizeof(lwan_request_t));
+    l->conns = calloc(r.rlim_cur, sizeof(lwan_connection_t));
     l->thread.max_fd = r.rlim_cur / l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
 
     for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
-        l->requests[r.rlim_cur].response.buffer = strbuf_new();
+        l->conns[r.rlim_cur].response_buffer = strbuf_new();
 
     srand(time(NULL));
     signal(SIGPIPE, SIG_IGN);
@@ -350,9 +350,9 @@ lwan_shutdown(lwan_t *l)
 
     int i;
     for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
-        strbuf_free(l->requests[i].response.buffer);
+        strbuf_free(l->conns[i].response_buffer);
 
-    free(l->requests);
+    free(l->conns);
 
     lwan_response_shutdown();
     lwan_tables_shutdown();
@@ -370,8 +370,8 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr)
         .data.fd = fd
     };
 
-    l->requests[fd].remote_address = addr->sin_addr.s_addr;
-    l->requests[fd].thread = &l->thread.threads[thread];
+    l->conns[fd].remote_address = addr->sin_addr.s_addr;
+    l->conns[fd].thread = &l->thread.threads[thread];
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
         lwan_status_critical_perror("epoll_ctl");

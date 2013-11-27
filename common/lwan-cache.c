@@ -373,7 +373,7 @@ cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
          * try again. On any other error, just return NULL.
          */
         if (error == EWOULDBLOCK) {
-          coro_yield(coro, REQUEST_CORO_MAY_RESUME);
+          coro_yield(coro, CONN_CORO_MAY_RESUME);
         } else {
           break;
         }

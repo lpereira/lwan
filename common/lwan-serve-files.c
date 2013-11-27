@@ -659,8 +659,8 @@ _prepare_headers(lwan_request_t *request,
     request->response.content_length = size;
 
     SET_NTH_HEADER(0, "Last-Modified", fce->last_modified.string);
-    SET_NTH_HEADER(1, "Date", request->thread->date.date);
-    SET_NTH_HEADER(2, "Expires", request->thread->date.expires);
+    SET_NTH_HEADER(1, "Date", request->conn->thread->date.date);
+    SET_NTH_HEADER(2, "Expires", request->conn->thread->date.expires);
 
     if (deflated) {
         SET_NTH_HEADER(3, "Content-Encoding", "deflate");
@@ -879,7 +879,7 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         --request->url.len;
     }
 
-    ce = cache_coro_get_and_ref_entry(priv->cache, request->coro,
+    ce = cache_coro_get_and_ref_entry(priv->cache, request->conn->coro,
                 request->url.value);
     if (LIKELY(ce)) {
         file_cache_entry_t *fce = (file_cache_entry_t *)ce;

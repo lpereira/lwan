@@ -351,7 +351,7 @@ _parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
         ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f')
     };
 
-    for (p = helper->accept_encoding.value; p && *p;) {
+    for (p = helper->accept_encoding.value; p && *p; p++) {
         STRING_SWITCH(p) {
         case ENCODING_DEFL1:
         case ENCODING_DEFL2:
@@ -361,8 +361,6 @@ _parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
 
         if (!(p = strchr(p, ',')))
             break;
-
-        p++;
     }
 }
 
@@ -395,9 +393,9 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
     else
         is_keep_alive = (helper->connection == 'k');
     if (is_keep_alive)
-        request->flags |= REQUEST_IS_KEEP_ALIVE;
+        request->conn->flags |= CONN_REQUEST_IS_KEEP_ALIVE;
     else
-        request->flags &= ~REQUEST_IS_KEEP_ALIVE;
+        request->conn->flags &= ~CONN_REQUEST_IS_KEEP_ALIVE;
 }
 
 static ALWAYS_INLINE lwan_http_status_t
@@ -439,11 +437,11 @@ _read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 
     do {
 read_again:
-        n = read(request->fd, helper->buffer.value + total_read,
+        n = read(request->conn->fd, helper->buffer.value + total_read,
                     DEFAULT_BUFFER_SIZE - total_read);
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
-            coro_yield(request->coro, REQUEST_CORO_ABORT);
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED();
         }
 
@@ -454,11 +452,11 @@ read_again:
 yield_and_read_again:
                 /* Toggle write events so the scheduler thinks we're in a
                  * "can read" state (and thus resumable). */
-                request->flags ^= REQUEST_WRITE_EVENTS;
+                request->conn->flags ^= CONN_WRITE_EVENTS;
                 /* Yield 1 so the scheduler doesn't kill the coroutine. */
-                coro_yield(request->coro, REQUEST_CORO_MAY_RESUME);
+                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
                 /* Put the WRITE_EVENTS flag back on. */
-                request->flags ^= REQUEST_WRITE_EVENTS;
+                request->conn->flags ^= CONN_WRITE_EVENTS;
                 /* We can probably read again, so try it */
                 goto read_again;
             }
@@ -467,7 +465,7 @@ yield_and_read_again:
                 return HTTP_BAD_REQUEST;
 
             /* Unexpected error, kill coro */
-            coro_yield(request->coro, REQUEST_CORO_ABORT);
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED();
         }
 
@@ -485,7 +483,7 @@ yield_and_read_again:
 }
 
 void
-lwan_process_request(lwan_request_t *request)
+lwan_process_request(lwan_t *l, lwan_request_t *request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
@@ -512,8 +510,7 @@ lwan_process_request(lwan_request_t *request)
         return;
     }
 
-    url_map = lwan_trie_lookup_prefix(request->thread->lwan->url_map_trie,
-            request->url.value);
+    url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
         lwan_default_response(request, HTTP_NOT_FOUND);
         return;
@@ -571,7 +568,7 @@ lwan_request_get_remote_address(lwan_request_t *request,
      * in the end, inet_ntoa() is actually a call to snprintf().  Call it
      * ourselves, using a user-supplied buffer.  This should be a tiny wee
      * little bit faster.  */
-    unsigned char *octets = (unsigned char *) &request->remote_address;
+    unsigned char *octets = (unsigned char *) &request->conn->remote_address;
     if (UNLIKELY(snprintf(buffer, INET_ADDRSTRLEN, "%d.%d.%d.%d",
                 octets[0], octets[1], octets[2], octets[3]) < 0))
         return NULL;
