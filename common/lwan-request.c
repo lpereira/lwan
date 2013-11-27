@@ -215,7 +215,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
     }
 
     request->original_url.value = buffer;
-    request->original_url.len = space - buffer;
+    request->original_url.len = request->url.len;
 
     return end_of_line + 1;
 }
