@@ -201,8 +201,10 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
     while (dq->population) {
         lwan_connection_t *conn = _death_queue_first(dq);
 
-        if (UNLIKELY(!conn))
+        if (UNLIKELY(!conn)) {
+            _death_queue_pop(dq);
             continue;
+        }
 
         if (conn->time_to_die > dq->time)
             break;
