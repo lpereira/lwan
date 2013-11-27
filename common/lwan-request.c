@@ -393,9 +393,9 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
     else
         is_keep_alive = (helper->connection == 'k');
     if (is_keep_alive)
-        request->conn->flags |= CONN_REQUEST_IS_KEEP_ALIVE;
+        request->conn->flags |= CONN_KEEP_ALIVE;
     else
-        request->conn->flags &= ~CONN_REQUEST_IS_KEEP_ALIVE;
+        request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
 static ALWAYS_INLINE lwan_http_status_t

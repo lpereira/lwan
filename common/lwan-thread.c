@@ -305,12 +305,10 @@ _thread_io_loop(void *data)
                  * If it's not a keep alive connection, or the coroutine
                  * shouldn't be resumed -- then just mark it to be reaped
                  * right away.
-                 *
-                 * FIXME: REQUEST_IS_KEEP_ALIVE abstraction is leaking.
                  */
                 conn->time_to_die = dq.time;
                 conn->time_to_die += keep_alive_timeout *
-                        !!(conn->flags & (CONN_REQUEST_IS_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
+                        !!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
 
                 /*
                  * The connection hasn't been added to the keep-alive and
