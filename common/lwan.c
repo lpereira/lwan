@@ -370,6 +370,7 @@ _push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr)
         .data.fd = fd
     };
 
+    l->conns[fd].flags = 0;
     l->conns[fd].remote_address = addr->sin_addr.s_addr;
     l->conns[fd].thread = &l->thread.threads[thread];
 
