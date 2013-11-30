@@ -56,18 +56,20 @@ _cleanup_coro(lwan_connection_t *conn)
 static ALWAYS_INLINE void
 _death_queue_disable(struct death_queue_t *dq, lwan_connection_t *conn)
 {
+    assert(conn->fd >= 0);
+    assert(conn->coro);
+    assert(conn->thread);
     dq->queue[conn->fd] = -1;
 }
 
 static ALWAYS_INLINE void
-_destroy_coro(struct death_queue_t *dq, lwan_connection_t *conn)
+_destroy_coro(lwan_connection_t *conn)
 {
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
     }
     conn->flags &= ~CONN_IS_ALIVE;
-    _death_queue_disable(dq, conn);
     close(conn->fd);
 }
 
@@ -111,7 +113,8 @@ _resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn, int ep
     lwan_connection_coro_yield_t yield_result = coro_resume(conn->coro);
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
     if (yield_result < CONN_CORO_MAY_RESUME) {
-        _destroy_coro(dq, conn);
+        _death_queue_disable(dq, conn);
+        _destroy_coro(conn);
         return;
     }
 
@@ -288,7 +291,7 @@ _thread_io_loop(void *data)
                 conn->fd = events[i].data.fd;
 
                 if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
-                    _destroy_coro(&dq, conn);
+                    _destroy_coro(conn);
                     continue;
                 }
 
