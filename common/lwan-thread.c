@@ -46,20 +46,14 @@ struct death_queue_t {
 static ALWAYS_INLINE void
 _cleanup_coro(lwan_connection_t *conn)
 {
-    if (!conn->coro || conn->flags & CONN_SHOULD_RESUME_CORO)
+    if (!conn->coro)
         return;
+    if (conn->flags & CONN_SHOULD_RESUME_CORO)
+        return;
+
     /* FIXME: Reuse coro? */
     coro_free(conn->coro);
     conn->coro = NULL;
-}
-
-static ALWAYS_INLINE void
-_death_queue_disable(struct death_queue_t *dq, lwan_connection_t *conn)
-{
-    assert(conn->fd >= 0);
-    assert(conn->coro);
-    assert(conn->thread);
-    dq->queue[conn->fd] = -1;
 }
 
 static ALWAYS_INLINE void
@@ -84,6 +78,8 @@ _process_request_coro(coro_t *coro)
         }
     };
 
+    assert(conn->flags & CONN_IS_ALIVE);
+
     lwan_process_request(conn->thread->lwan, &request);
 
     strbuf_reset(request.response.buffer);
@@ -103,7 +99,7 @@ _spawn_coro_if_needed(lwan_connection_t *conn, coro_switcher_t *switcher)
 }
 
 static ALWAYS_INLINE void
-_resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn, int epoll_fd)
+_resume_coro_if_needed(lwan_connection_t *conn, int epoll_fd)
 {
     assert(conn->coro);
 
@@ -113,7 +109,6 @@ _resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn, int ep
     lwan_connection_coro_yield_t yield_result = coro_resume(conn->coro);
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
     if (yield_result < CONN_CORO_MAY_RESUME) {
-        _death_queue_disable(dq, conn);
         _destroy_coro(conn);
         return;
     }
@@ -184,10 +179,7 @@ _death_queue_push(struct death_queue_t *dq, lwan_connection_t *conn)
 static ALWAYS_INLINE lwan_connection_t *
 _death_queue_first(struct death_queue_t *dq)
 {
-    int fd = dq->queue[dq->first];
-    if (UNLIKELY(fd < 0))
-        return NULL;
-    return &dq->conns[fd];
+    return &dq->conns[dq->queue[dq->first]];
 }
 
 static ALWAYS_INLINE int
@@ -204,23 +196,17 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
     while (dq->population) {
         lwan_connection_t *conn = _death_queue_first(dq);
 
-        if (UNLIKELY(!conn)) {
-            _death_queue_pop(dq);
-            continue;
-        }
-
         if (conn->time_to_die > dq->time)
             break;
 
         _death_queue_pop(dq);
 
         /* This request might have died from a hangup event */
-        if (!(conn->flags & CONN_IS_ALIVE))
-            continue;
-
-        _cleanup_coro(conn);
-        conn->flags &= ~CONN_IS_ALIVE;
-        close(conn->fd);
+        if (conn->flags & CONN_IS_ALIVE) {
+            _cleanup_coro(conn);
+            conn->flags &= ~CONN_IS_ALIVE;
+            close(conn->fd);
+        }
     }
 }
 
@@ -297,7 +283,17 @@ _thread_io_loop(void *data)
 
                 _cleanup_coro(conn);
                 _spawn_coro_if_needed(conn, &switcher);
-                _resume_coro_if_needed(&dq, conn, epoll_fd);
+
+                /*
+                 * The connection hasn't been added to the keep-alive and
+                 * resumable coro list-to-kill.  Do it now and mark it as
+                 * alive so that we know what to do whenever there's
+                 * activity on its socket again.  Or not.  Mwahahaha.
+                 */
+                if (!(conn->flags & CONN_IS_ALIVE))
+                    _death_queue_push(&dq, conn);
+
+                _resume_coro_if_needed(conn, epoll_fd);
 
                 /*
                  * If the connection isn't keep alive, it might have a
@@ -312,15 +308,6 @@ _thread_io_loop(void *data)
                 conn->time_to_die = dq.time;
                 conn->time_to_die += keep_alive_timeout *
                         !!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
-
-                /*
-                 * The connection hasn't been added to the keep-alive and
-                 * resumable coro list-to-kill.  Do it now and mark it as
-                 * alive so that we know what to do whenever there's
-                 * activity on its socket again.  Or not.  Mwahahaha.
-                 */
-                if (!(conn->flags & CONN_IS_ALIVE))
-                    _death_queue_push(&dq, conn);
             }
         }
     }
