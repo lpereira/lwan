@@ -450,6 +450,27 @@ _get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
     return &sendfile_funcs;
 }
 
+static file_cache_entry_t *
+_create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
+    struct stat *st, const cache_funcs_t *funcs)
+{
+    file_cache_entry_t *fce;
+
+    fce = malloc(sizeof(*fce) + funcs->struct_size);
+    if (UNLIKELY(!fce))
+        return NULL;
+
+    if (LIKELY(funcs->init(fce, priv, full_path, st)))
+        return fce;
+
+    free(fce);
+
+    if (funcs != &mmap_funcs)
+        return NULL;
+
+    return _create_cache_entry_from_funcs(priv, full_path, st, &sendfile_funcs);
+}
+
 static struct cache_entry_t *
 _create_cache_entry(const char *key, void *context)
 {
@@ -461,21 +482,18 @@ _create_cache_entry(const char *key, void *context)
 
     if (UNLIKELY(!realpathat2(priv->root.fd, priv->root.path,
                 key, full_path, &st)))
-        goto error;
+        return NULL;
 
     if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
-        goto error;
+        return NULL;
 
     funcs = _get_funcs(priv, key, full_path, &st);
     if (UNLIKELY(!funcs))
-        goto error;
+        return NULL;
 
-    fce = malloc(sizeof(*fce) + funcs->struct_size);
+    fce = _create_cache_entry_from_funcs(priv, full_path, &st, funcs);
     if (UNLIKELY(!fce))
-        goto error;
-
-    if (UNLIKELY(!funcs->init(fce, priv, full_path, &st)))
-        goto error_init;
+        return NULL;
 
     lwan_format_rfc_time(st.st_mtime, fce->last_modified.string);
 
@@ -483,11 +501,6 @@ _create_cache_entry(const char *key, void *context)
     fce->funcs = funcs;
 
     return (struct cache_entry_t *)fce;
-
-error_init:
-    free(fce);
-error:
-    return NULL;
 }
 
 static void
