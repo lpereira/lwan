@@ -39,8 +39,9 @@ struct coro_switcher_t_ {
 };
 
 coro_t *coro_new(coro_switcher_t *switcher, coro_function_t function, void *data);
-coro_t *coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t function, void *data);
 void	coro_free(coro_t *coro);
+
+void    coro_reset(coro_t *coro, coro_function_t func, void *data);
 
 int	coro_resume(coro_t *coro);
 void	coro_yield(coro_t *coro, int value);

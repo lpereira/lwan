@@ -124,42 +124,59 @@ _coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-coro_t *
-coro_new_full(coro_switcher_t *switcher, ssize_t stack_size, coro_function_t func, void *data)
+static void
+_coro_run_deferred(coro_t *coro)
 {
-    coro_t *coro = malloc(sizeof(*coro) + stack_size);
+    coro_defer_t *defer;
+    for (defer = coro->defer; defer;) {
+        coro_defer_t *tmp = defer;
+        defer->func(defer->data1, defer->data2);
+        defer = tmp->next;
+        free(tmp);
+    }
+    coro->defer = NULL;
+}
+
+void
+coro_reset(coro_t *coro, coro_function_t func, void *data)
+{
     void *stack = (coro_t *)coro + 1;
 
-    coro->ended = false;
-    coro->switcher = switcher;
-    coro->data = data;
-    coro->defer = NULL;
-
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + stack_size);
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
 #endif
+    coro->ended = false;
+    coro->data = data;
+
+    _coro_run_deferred(coro);
 
 #ifdef __x86_64__
-    _coro_makecontext(coro, stack, stack_size, func);
+    _coro_makecontext(coro, stack, CORO_STACK_MIN, func);
 #else
     getcontext(&coro->context);
 
     coro->context.uc_stack.ss_sp = stack;
-    coro->context.uc_stack.ss_size = stack_size;
+    coro->context.uc_stack.ss_size = CORO_STACK_MIN;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
     _coro_makecontext(&coro->context, (void (*)())_coro_entry_point,
                 2, coro, func);
 #endif
-
-    return coro;
 }
 
 ALWAYS_INLINE coro_t *
 coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 {
-    return coro_new_full(switcher, CORO_STACK_MIN, function, data);
+    coro_t *coro = malloc(sizeof(*coro) + CORO_STACK_MIN);
+    if (!coro)
+        return NULL;
+
+    coro->switcher = switcher;
+    coro->defer = NULL;
+    coro_reset(coro, function, data);
+
+    return coro;
 }
 
 ALWAYS_INLINE void *
@@ -210,13 +227,7 @@ coro_free(coro_t *coro)
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
-    coro_defer_t *defer;
-    for (defer = coro->defer; defer;) {
-        coro_defer_t *tmp = defer;
-        defer->func(defer->data1, defer->data2);
-        defer = tmp->next;
-        free(tmp);
-    }
+    _coro_run_deferred(coro);
     free(coro);
 }
 

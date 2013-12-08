@@ -44,27 +44,16 @@ struct death_queue_t {
 #define ONE_MONTH (ONE_DAY * 31)
 
 static ALWAYS_INLINE void
-_cleanup_coro(lwan_connection_t *conn)
-{
-    if (!conn->coro)
-        return;
-    if (conn->flags & CONN_SHOULD_RESUME_CORO)
-        return;
-
-    /* FIXME: Reuse coro? */
-    coro_free(conn->coro);
-    conn->coro = NULL;
-}
-
-static ALWAYS_INLINE void
 _destroy_coro(lwan_connection_t *conn)
 {
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
     }
-    conn->flags &= ~CONN_IS_ALIVE;
-    close(conn->fd);
+    if (conn->flags & CONN_IS_ALIVE) {
+        conn->flags &= ~CONN_IS_ALIVE;
+        close(conn->fd);
+    }
 }
 
 static int
@@ -89,11 +78,16 @@ _process_request_coro(coro_t *coro)
 }
 
 static ALWAYS_INLINE void
-_spawn_coro_if_needed(lwan_connection_t *conn, coro_switcher_t *switcher)
+_spawn_or_reset_coro_if_needed(lwan_connection_t *conn, coro_switcher_t *switcher)
 {
-    if (conn->coro)
-        return;
-    conn->coro = coro_new(switcher, _process_request_coro, conn);
+    if (conn->coro) {
+        if (conn->flags & CONN_SHOULD_RESUME_CORO)
+            return;
+
+        coro_reset(conn->coro, _process_request_coro, conn);
+    } else {
+        conn->coro = coro_new(switcher, _process_request_coro, conn);
+    }
     conn->flags |= CONN_SHOULD_RESUME_CORO;
     conn->flags &= ~CONN_WRITE_EVENTS;
 }
@@ -200,13 +194,7 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
             break;
 
         _death_queue_pop(dq);
-
-        /* This request might have died from a hangup event */
-        if (conn->flags & CONN_IS_ALIVE) {
-            _cleanup_coro(conn);
-            conn->flags &= ~CONN_IS_ALIVE;
-            close(conn->fd);
-        }
+        _destroy_coro(conn);
     }
 }
 
@@ -281,8 +269,7 @@ _thread_io_loop(void *data)
                     continue;
                 }
 
-                _cleanup_coro(conn);
-                _spawn_coro_if_needed(conn, &switcher);
+                _spawn_or_reset_coro_if_needed(conn, &switcher);
 
                 /*
                  * The connection hasn't been added to the keep-alive and
