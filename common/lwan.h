@@ -156,13 +156,12 @@ struct lwan_value_t_ {
 };
 
 struct lwan_connection_t_ {
+    /* This structure is exactly 32-bytes on x86-64. If it is changed,
+     * make sure the scheduler (lwan.c) is updated as well. */
     lwan_connection_flags_t flags;
-    int fd;
+    unsigned int time_to_die;
     coro_t *coro;
     lwan_thread_t *thread;
-    unsigned int time_to_die;
-    in_addr_t remote_address;
-
     strbuf_t *response_buffer; /* Leaky abstraction */
 };
 
@@ -171,6 +170,7 @@ struct lwan_request_t_ {
     lwan_value_t url;
     lwan_value_t original_url;
     lwan_connection_t *conn;
+    int fd;
 
     struct {
         lwan_key_value_t *base;
@@ -259,5 +259,7 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name) __attr
 
 void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
+
+int lwan_connection_get_fd(lwan_connection_t *conn);
 
 #endif /* __LWAN_H__ */

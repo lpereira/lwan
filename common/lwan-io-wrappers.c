@@ -67,7 +67,7 @@ lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = writev(request->conn->fd, iov, iovcnt);
+        retval = writev(request->fd, iov, iovcnt);
         if (LIKELY(retval >= 0))
             return retval;
 
@@ -93,7 +93,7 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = write(request->conn->fd, buf, count);
+        retval = write(request->fd, buf, count);
         if (LIKELY(retval >= 0))
             return retval;
 
@@ -119,7 +119,7 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        retval = send(request->conn->fd, buf, count, flags);
+        retval = send(request->fd, buf, count, flags);
         if (LIKELY(retval >= 0))
             return retval;
 
@@ -220,14 +220,14 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 
 #ifdef __linux__
     ssize_t written_bytes = -1;
-    written_bytes = _sendfile_linux_sendfile(request->conn->coro, in_fd, request->conn->fd, offset, count);
+    written_bytes = _sendfile_linux_sendfile(request->conn->coro, in_fd, request->fd, offset, count);
 
     if (UNLIKELY(written_bytes < 0)) {
         switch (errno) {
         case ENOSYS:
         case EINVAL:
 #endif
-            return _sendfile_read_write(request->conn->coro, in_fd, request->conn->fd, offset, count);
+            return _sendfile_read_write(request->conn->coro, in_fd, request->fd, offset, count);
 
 #ifdef __linux__
         }

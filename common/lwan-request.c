@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #include "lwan.h"
 
@@ -437,7 +438,7 @@ _read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 
     do {
 read_again:
-        n = read(request->conn->fd, helper->buffer.value + total_read,
+        n = read(request->fd, helper->buffer.value + total_read,
                     DEFAULT_BUFFER_SIZE - total_read);
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
@@ -559,16 +560,27 @@ lwan_request_get_query_param(lwan_request_t *request, const char *key)
     return NULL;
 }
 
+int
+lwan_connection_get_fd(lwan_connection_t *conn)
+{
+    return (int)(ptrdiff_t)(conn - conn->thread->lwan->conns);
+}
+
 const char *
 lwan_request_get_remote_address(lwan_request_t *request,
             char *buffer)
 {
+    struct sockaddr_in sock_addr;
+    socklen_t sock_len = sizeof(struct sockaddr_in);
+    if (getpeername(request->fd, &sock_addr, &sock_len) < 0)
+        return NULL;
+
     /* The definition of inet_ntoa() in the standard is not thread-safe. The
      * glibc version uses a static buffer stored in the TLS to make do, but
      * in the end, inet_ntoa() is actually a call to snprintf().  Call it
      * ourselves, using a user-supplied buffer.  This should be a tiny wee
      * little bit faster.  */
-    unsigned char *octets = (unsigned char *) &request->conn->remote_address;
+    unsigned char *octets = (unsigned char *) &sock_addr.sin_addr.s_addr;
     if (UNLIKELY(snprintf(buffer, INET_ADDRSTRLEN, "%d.%d.%d.%d",
                 octets[0], octets[1], octets[2], octets[3]) < 0))
         return NULL;

@@ -52,7 +52,7 @@ _destroy_coro(lwan_connection_t *conn)
     }
     if (conn->flags & CONN_IS_ALIVE) {
         conn->flags &= ~CONN_IS_ALIVE;
-        close(conn->fd);
+        close(lwan_connection_get_fd(conn));
     }
 }
 
@@ -62,6 +62,7 @@ _process_request_coro(coro_t *coro)
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_request_t request = {
         .conn = conn,
+        .fd = lwan_connection_get_fd(conn),
         .response = {
             .buffer = conn->response_buffer
         }
@@ -120,12 +121,13 @@ _resume_coro_if_needed(lwan_connection_t *conn, int epoll_fd)
         EPOLLOUT | EPOLLRDHUP | EPOLLERR,
         EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
     };
+    int fd = lwan_connection_get_fd(conn);
     struct epoll_event event = {
         .events = events_by_write_flag[write_events],
-        .data.fd = conn->fd
+        .data.fd = fd
     };
 
-    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, conn->fd, &event) < 0))
+    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
 
     conn->flags ^= CONN_WRITE_EVENTS;
@@ -163,7 +165,7 @@ _death_queue_pop(struct death_queue_t *dq)
 static void
 _death_queue_push(struct death_queue_t *dq, lwan_connection_t *conn)
 {
-    dq->queue[dq->last] = conn->fd;
+    dq->queue[dq->last] = lwan_connection_get_fd(conn);
     dq->last++;
     dq->population++;
     dq->last %= dq->max;
@@ -261,8 +263,6 @@ _thread_io_loop(void *data)
 
             for (i = 0; i < n_fds; ++i) {
                 lwan_connection_t *conn = &conns[events[i].data.fd];
-
-                conn->fd = events[i].data.fd;
 
                 if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
                     _destroy_coro(conn);

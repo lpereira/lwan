@@ -360,18 +360,30 @@ lwan_shutdown(lwan_t *l)
 }
 
 static ALWAYS_INLINE void
-_push_request_fd(lwan_t *l, int fd, struct sockaddr_in *addr)
+_push_request_fd(lwan_t *l, int fd)
 {
+    unsigned thread;
+#ifdef __x86_64__
+    assert(sizeof(lwan_connection_t) == 32);
+    /* Since lwan_connection_t is guaranteed to be 32-byte long, two of them
+     * can fill up a cache line.  This formula will group two connections
+     * per thread in a way that false-sharing is avoided.  This gives wrong
+     * results when fd=0, but this shouldn't happen (as 0 is either the
+     * standard input or the main socket, but even if that changes,
+     * scheduling will still work).  */
+    thread = ((fd - 1) / 2) % l->thread.count;
+#else
     static int counter = 0;
-    unsigned thread = counter++ % l->thread.count;
+    thread = counter++ % l->thread.count;
+#endif
     int epoll_fd = l->thread.threads[thread].epoll_fd;
+
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET,
         .data.fd = fd
     };
 
     l->conns[fd].flags = 0;
-    l->conns[fd].remote_address = addr->sin_addr.s_addr;
     l->conns[fd].thread = &l->thread.threads[thread];
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
@@ -411,18 +423,15 @@ lwan_main_loop(lwan_t *l)
     for (;;) {
         int n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
         for (; n_fds > 0; --n_fds) {
-            struct sockaddr_in addr;
             int child_fd;
-            socklen_t addr_size = sizeof(struct sockaddr_in);
 
-            child_fd = accept4(l->main_socket, (struct sockaddr *)&addr,
-                               &addr_size, SOCK_NONBLOCK);
+            child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
             if (UNLIKELY(child_fd < 0)) {
                 lwan_status_perror("accept");
                 continue;
             }
 
-            _push_request_fd(l, child_fd, &addr);
+            _push_request_fd(l, child_fd);
         }
     }
 
