@@ -1,0 +1,337 @@
+<html><head>
+<meta charset="utf-8"> 
+<meta name="viewport" content="width=device-width, user-scalable=no">
+<title>Lwan Web Server</title>
+<style>
+body{
+  height:100%;
+  border:0;
+  margin:0;
+  padding:0;
+  background:#627d4d;
+  background:-moz-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
+  background:-webkit-gradient(radial,center center,0px,center center,100%,color-stop(15%,#627d4d),color-stop(100%,#1f3b08));
+  background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
+  background:-o-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
+  background:-ms-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
+  background:radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
+  background-attachment: fixed;
+}
+@font-face {
+  /* Font license: http://www.fontsquirrel.com/license/League-Gothic */
+  font-family: 'LeagueGothicRegular';
+  src: url('League_Gothic-webfont.eot');
+  src: local('☺'), url('League_Gothic-webfont.woff') format('woff'),
+  url('League_Gothic-webfont.ttf') format('truetype'),
+  url('League_Gothic-webfont.svg#webfontpm5EArBj') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+#left {
+  color:#ccc;
+  text-shadow:0 1px 4px rgba(0,0,0,0.68);
+  font-family:LeagueGothicRegular, helvetica;
+  position: absolute;
+  top: 0;
+  left: 0;
+  text-align: center;
+  height: 100%;
+  float: left;
+  padding-top: 60px;
+  width: 300px;
+}
+#left div {
+  text-transform: uppercase;
+}
+#right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(100% - 300px - 120px);
+  margin: 0;
+  padding: 60px;
+  color: #999;
+  font-family: helvetica;
+  font-size: 15px;
+  background: #111;
+  min-height: 100%;
+}
+#right a {
+  color: #aca;
+  font-weight: bold;
+}
+#left a {
+  color: #aca;
+  font-weight: bold;
+}
+#button-middle-text {
+  display: none;
+}
+@media all and (min-height: 400px) {
+  #left {
+    position: fixed;
+  }
+}
+@media all and (max-height: 620px) {
+  #left .secondary {
+    display: none;
+  }
+}
+@media all and (max-width: 780px) {
+  #right {
+    left: 0;
+    width: calc(100% - 40px);
+    padding: 20px;
+  }
+  #left {
+    display: none;
+  }
+  #button-middle-text {
+    display: block;
+  }
+}
+@media all and (max-width: 940px) and (min-width: 780px) {
+  #right {
+    padding-left: 30px;
+    padding-right: 30px;
+    width: calc(100% - 240px - 60px);
+  }
+  #left {
+    width: 240px;
+  }
+}
+td {
+  color: #999;
+  font-family:LeagueGothicRegular, helvetica;
+  text-align: center;
+  text-transform: uppercase;
+  vertical-align: text-top;1
+}
+p, li {
+  line-height: 19.5px;
+}
+.btn {
+  display:inline-block;
+  -webkit-border-radius:8px;
+  -moz-border-radius:8px;
+  border-radius:8px;
+  -webkit-box-shadow:0 8px 0 #0f2b08, 0 15px 20px rgba(0,0,0,.35);
+  -moz-box-shadow:0 8px 0 #0f2b08, 0 15px 20px rgba(0,0,0,.35);
+  box-shadow:0 8px 0 #0f2b08, 0 15px 20px rgba(0,0,0,.35);
+  -webkit-transition:0 .2s ease-in-out;
+  -moz-transition:0 .2s ease-in-out;
+  -o-transition:0 .2s ease-in-out;
+  transition:box-shadow .2s ease-in-out;
+}
+
+.btn span {
+  color:eee;
+  display:inline-block;
+  font-family:Helvetica, Arial, sans-serif;
+  line-height:1;
+  text-shadow:0 -1px 1px rgba(19,65,88,.8);
+  -webkit-border-radius:8px;
+  -moz-border-radius:8px;
+  border-radius:8px;
+  -webkit-box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);
+  -moz-box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);
+  box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);
+  -webkit-transition: -webkit-transform .2s ease-in-out;
+  -moz-transition: -moz-transform .2s ease-in-out;
+  -o-transition: -o-transform .2s ease-in-out;
+  transition: transform .2s ease-in-out;
+  padding:10px 20px;
+  background: #627d4d;
+  background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#627d4d), to(#1f3b08));
+  background: -moz-linear-gradient(#627d4d, #1f3b08);
+}
+.btn:active {
+  -webkit-box-shadow:0 8px 0 #0e1b08, 0 12px 10px rgba(0,0,0,.3);
+  -moz-box-shadow:0 8px 0 #0e1b08, 0 12px 10px rgba(0,0,0,.3);
+  box-shadow:0 8px 0 #0e1b08, 0 12px 10px rgba(0,0,0,.3);
+}
+
+.btn:active span {
+  -webkit-transform:translate(0,4px);
+  -moz-transform:translate(0,4px);
+  -o-transform:translate(0,4px);
+  transform:translate(0,4px);
+}
+.chartfloater {
+  float: right;
+  text-align: center;
+  margin-left: 6px;
+  margin-bottom: 6px;
+  width:300px;
+  color: #777;
+  font-size: 70%;
+  padding: 20px;
+}
+.chartfloater p {
+  line-height: 16px;
+}
+</style>
+<script src="Chart.min.js"></script>
+</head>
+<body>
+    <div id="left">
+          <div style="font-size: 129px; color: #eee">Lwan</div>
+          <div style="font-size: 55px" class="secondary">Lightweight</div>
+          <div style="font-size: 45px" class="secondary">Asynchronous</div>
+          <div style="font-size: 42.4px" class="secondary">Multi-threaded</div>
+          <div style="font-size: 53px" class="secondary">Event-based</div>
+          <div style="font-size: 57px; color: #eee">Web server</div>
+
+          <p style="padding-top: 30px; padding-bottom: 30px; text-align: center">
+          <a href="http://github.com/lpereira/lwan" class="btn"><span>Fork it on GitHub</span></a>
+          </p>
+
+    </div>
+    <div id="right">
+
+<div style="max-width: 700px">
+<p style="font-size: 20px; line-height: 27px">Lwan is a
+<b>high-performance</b> &amp; <b>scalable</b> web server for glibc/Linux platforms.</p>
+
+<p style="padding-top: 30px; padding-bottom: 30px; text-align: center" id="button-middle-text">
+<a href="http://github.com/lpereira/lwan" class="btn"><span>Fork it on GitHub</span></a>
+</p>
+<div class="chartfloater">
+<p><b>Hello, World!</b> handler</p>
+<canvas id="rps" height="200" width="300"></canvas>
+<p>Requests per second over number of concurrent connections</p>
+<script>
+var rpsData = {
+    labels: ["100", "6090", "12080", "18070", "24060", "30050", "42030", "48020", "54010", "60000"],
+    datasets: [
+        {
+            strokeColor: "#627d4d",
+            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,148708]
+        },
+    ]
+}
+
+var ctx = document.getElementById("rps").getContext("2d");
+var rps = new Chart(ctx).Line(rpsData, {
+    animationSteps: 120,
+    pointDot: false,
+    scaleOverride: true,
+    scaleSteps: 6,
+    scaleStepWidth: 50000,
+    scaleStartValue: 0,
+    scaleGridLineColor: "#444",
+    datasetStrokeWidth: 3,
+    datasetFill: false
+ });
+</script>
+</div>
+
+<p>In development for about 2 years, Lwan was until now a personal research
+effort that focused mostly on building a <b>solid infrastructure</b> for a
+lightweight and speedy web server:</p>
+
+<ul>
+  <li><b>Low memory footprint</b> (~1.5MiB for 10k idle connections)</li>
+  <li><b>Minimal memory allocations</b> &amp; copies</li>
+  <li>Minimal system calls</li>
+  <li>Hand-crafted HTTP request parser</li>
+  <li>Static file serving uses the most efficient way according to file size
+    <ul>
+      <li>Files larger than 16KiB are served using <tt>sendfile()</tt></li>
+      <li>Smaller files are sent using vectored I/O (<tt>writev()</tt>)</li>
+      <li>Header overhead is considered before considering deflate compression</li>
+    </ul></li>
+  </li>
+  <li>Mostly <b>wait-free</b> multi-threaded design
+    <ul>
+        <li>One thread accepts connections, one I/O thread per logical CPU handles them
+        <li>Hand-crafted <b>coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
+        <li><b>Linux only</b>, as it relies on <tt>epoll()</tt></li>
+        <li>Purpose-built I/O loop</li>
+    </ul>
+  </li>
+  <li>Efficient <b>loading cache</b> used for
+  <ul>
+  	<li>Directory listing</li>
+  	<li>File information (size, last modified date, MIME type, etc)</li>
+  	<li>Compressed files</li>
+  </ul>
+  </li>
+  <li><b>Diminute codebase</b> with roughly 7200 lines of C code</li>
+</ul>
+
+
+
+<p>It is now slowly transitioning into a fully working, capable HTTP server.
+It is not, however, as feature-packed as other popular web servers.  but it
+is <b>free software</b>, so scratching your own itches and making Lwan hum
+the way you want it to is possible.  Features include:</p>
+
+<ul>
+  <li><b>Mustache templating</b> engine
+     <ul>
+        <li>Used internally for directory listing &amp; error messages</li>
+        <li>Available for user-built handlers</li>
+     </ul>
+  </li>
+  <li><b>Easy to use API</b> to create web applications or extend the web server
+  <ul>
+  	<li>Example: <a href="http://freegeoip.net">Freegeoip</a> <a
+  	href="https://github.com/lpereira/lwan/blob/master/freegeoip/freegeoip.c">reimplementation</a>,
+  	which performs better than the Go version and is roughly the same
+  	amount of lines of code</li>
+  </ul></li>
+  <li>Supports rebimboca da parafuseta</li>
+  <li>Test suite written in Python <b>tests the server</b> as a black box</li>
+  <li><b>No-nonsense configuration</b> file syntax</li>
+  <li>Supports a subset of HTTP/1.0 and HTTP/1.1</li>
+</ul>
+</p>
+
+<h4 style="padding-top: 120px">FAQ</h4>
+
+<p><strong>Why not use Nginx or Apache?</strong> If you're asking this
+question, then you probably should.  These web servers are well known,
+stable, compatible with almost everything under the sun.  People depend on
+them. Breaking their behavior will most likely make some system
+administrators very upset.  On the other hand, few (if any) people uses this
+server, so it is possible to innovate without guilt.</p>
+
+<p><strong>What does Lwan mean?</strong> Nobody knows. Tell us when you find
+out!</p>
+
+<p><strong>Why isn't this page served with Lwan?</strong> We don't have
+funds at this moment to pay for a hosting solution that will let run
+whatever we want.</p>
+
+<p><strong>Where are the benchmarks?</strong> Benchmarking takes time.
+Numbers, charts, and benchmarking methodologies will appear here
+someday.</p>
+
+<p><strong>Two years is a long time for a project this small!</strong>  This
+isn't a question, but, yes, it is a long time.  Keep in mind that this has
+been written exclusively on the spare time of a single developer, who works
+full-time on a real job.  Also consider that this was exclusively a research
+project: the goal was not to write a web server, but to learn while finding
+novel ways to implement certain things.</p>
+
+<p><strong>Could you share some details on how exactly Lwan is this
+fast?</strong> A good place to start are these <a
+href="http://tia.mat.br/blog/html/tags/lwan.html">blog posts</a>.  The code
+is fairly small as well, so lots of things can be inferred from reading
+it.</p>
+
+<p><strong>Is it secure?</strong> We're not security experts, by any means. 
+The code has never been audited by one either.  But tools like Coverity,
+Clang Static Analyzer and Valgrind Memcheck are used regularly in addition
+to always building with <tt>-Wall -Wextra</tt>; this won't ensure the code
+is secure, but these procedures helps finding some issues that could lead to
+security vulnerabilities.</p>
+
+<div style="padding-top: 240px; font-size: 66.6%">Brought to you by <a
+href="http://twitter.com/lafp">@lafp</a>.</div>
+</div>
+
+    </div>
+</body>
+</html>
