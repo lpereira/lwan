@@ -58,7 +58,7 @@ body{
   min-height: 100%;
 }
 #right a {
-  color: #aca;
+  color: #8F9D6A;
   font-weight: bold;
 }
 #left a {
@@ -213,8 +213,8 @@ lightweight and speedy web server:</p>
   <li>Hand-crafted HTTP request parser</li>
   <li>Static file serving uses the most efficient way according to file size
     <ul>
-      <li>Files larger than 16KiB are served using <tt>sendfile()</tt></li>
-      <li>Smaller files are sent using vectored I/O (<tt>writev()</tt>)</li>
+      <li>No copies between kernel and userland for files larger than 16KiB</li>
+      <li>Smaller files are sent using vectored I/O</li>
       <li>Header overhead is considered before considering deflate compression</li>
     </ul></li>
   </li>
@@ -236,10 +236,8 @@ lightweight and speedy web server:</p>
   <li><b>Diminute codebase</b> with roughly 7200 lines of C code</li>
 </ul>
 
-
-
 <p>It is now slowly transitioning into a fully working, capable HTTP server.
-It is not, however, as feature-packed as other popular web servers.  but it
+It is not, however, as feature-packed as other popular web servers.  But it
 is <b>free software</b>, so scratching your own itches and making Lwan hum
 the way you want it to is possible.  Features include:</p>
 
@@ -360,7 +358,7 @@ var rpsData = {
         {
             strokeColor: "#627d4d",
             data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,148708]
-        },
+        }
     ]
 }
 
