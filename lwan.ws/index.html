@@ -171,7 +171,6 @@ p, li {
   line-height: 16px;
 }
 </style>
-<script src="Chart.min.js"></script>
 </head>
 <body>
     <div id="left">
@@ -200,30 +199,6 @@ p, li {
 <p><b>Hello, World!</b> handler</p>
 <canvas id="rps" height="200" width="300"></canvas>
 <p>Requests per second over number of concurrent connections</p>
-<script>
-var rpsData = {
-    labels: ["100", "6090", "12080", "18070", "24060", "30050", "42030", "48020", "54010", "60000"],
-    datasets: [
-        {
-            strokeColor: "#627d4d",
-            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,148708]
-        },
-    ]
-}
-
-var ctx = document.getElementById("rps").getContext("2d");
-var rps = new Chart(ctx).Line(rpsData, {
-    animationSteps: 120,
-    pointDot: false,
-    scaleOverride: true,
-    scaleSteps: 6,
-    scaleStepWidth: 50000,
-    scaleStartValue: 0,
-    scaleGridLineColor: "#444",
-    datasetStrokeWidth: 3,
-    datasetFill: false
- });
-</script>
 </div>
 
 <p>In development for about 2 years, Lwan was until now a personal research
@@ -333,5 +308,30 @@ href="http://twitter.com/lafp">@lafp</a>.</div>
 </div>
 
     </div>
+<script src="Chart.min.js"></script>
+<script>
+var rpsData = {
+    labels: ["100", "6090", "12080", "18070", "24060", "30050", "42030", "48020", "54010", "60000"],
+    datasets: [
+        {
+            strokeColor: "#627d4d",
+            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,148708]
+        },
+    ]
+}
+
+var ctx = document.getElementById("rps").getContext("2d");
+var rps = new Chart(ctx).Line(rpsData, {
+    animationSteps: 120,
+    pointDot: false,
+    scaleOverride: true,
+    scaleSteps: 6,
+    scaleStepWidth: 50000,
+    scaleStartValue: 0,
+    scaleGridLineColor: "#444",
+    datasetStrokeWidth: 3,
+    datasetFill: false
+ });
+</script>
 </body>
 </html>
