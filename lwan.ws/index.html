@@ -2,6 +2,7 @@
 <meta charset="utf-8"> 
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <title>Lwan Web Server</title>
+<link href="prism.css" rel="stylesheet" type="text/css">
 <style>
 body{
   height:100%;
@@ -263,7 +264,50 @@ the way you want it to is possible.  Features include:</p>
 </ul>
 </p>
 
-<h4 style="padding-top: 120px">FAQ</h4>
+<h2 style="padding-top: 60px">API example</h2>
+
+<p>Even the simplest <b>Hello, World!</b> handler can be written using the
+same API that is used by the static file server and the included sample
+Freegeoip application. As a reference, here's the whole code used to
+generate the above graph:</p>
+
+<pre><code class="language-clike">#include "lwan.h"
+
+static lwan_http_status_t
+hello_world(lwan_request_t *request,
+            lwan_response_t *response, void *data)
+{
+    static const char message[] = "Hello, World!";
+
+    response->mime_type = "text/plain";
+    strbuf_set_static(response->buffer, message, sizeof(message) - 1);
+
+    return HTTP_OK;
+}
+
+int
+main(void)
+{
+    const lwan_url_map_t default_map[] = {
+        { .prefix = "/", .callback = hello_world },
+        { .prefix = NULL }
+    };
+    lwan_t l;
+
+    lwan_init(&l);
+    lwan_set_url_map(&l, default_map);
+    lwan_main_loop(&l);
+    lwan_shutdown(&l);
+
+    return 0;
+}
+</code></pre>
+
+<p>No language other than C is supported at the moment, but it is possible
+to write a handler to glue the language runtime library and Lwan. Lua (and
+maybe LuaJit) is being considered but work hasn't started on that yet.</p>
+
+<h2 style="padding-top: 60px">FAQ</h2>
 
 <p><strong>Why not use Nginx or Apache?</strong> If you're asking this
 question, then you probably should.  These web servers are well known,
@@ -331,7 +375,8 @@ var rps = new Chart(ctx).Line(rpsData, {
     scaleGridLineColor: "#444",
     datasetStrokeWidth: 3,
     datasetFill: false
- });
+});
 </script>
+<script src="prism.js"></script>
 </body>
 </html>
