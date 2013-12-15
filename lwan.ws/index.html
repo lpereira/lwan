@@ -38,7 +38,7 @@ body{
   text-align: center;
   height: 100%;
   float: left;
-  padding-top: 60px;
+  padding-top: 54px;
   width: 300px;
 }
 #left div {
@@ -48,9 +48,9 @@ body{
   position: absolute;
   top: 0;
   right: 0;
-  width: calc(100% - 300px - 120px);
+  width: calc(100% - 300px - 108px);
   margin: 0;
-  padding: 60px;
+  padding: 54px;
   color: #999;
   font-family: helvetica;
   font-size: 15px;
@@ -100,13 +100,6 @@ body{
   #left {
     width: 240px;
   }
-}
-td {
-  color: #999;
-  font-family:LeagueGothicRegular, helvetica;
-  text-align: center;
-  text-transform: uppercase;
-  vertical-align: text-top;1
 }
 p, li {
   line-height: 19.5px;
@@ -164,12 +157,19 @@ p, li {
   margin-left: 6px;
   margin-bottom: 6px;
   width:300px;
-  color: #777;
-  font-size: 70%;
   padding: 20px;
 }
 .chartfloater p {
   line-height: 16px;
+  color: #777;
+  font-size: 12px;
+}
+.chartfloater table {
+  color: #777;
+  font-size: 12px;
+}
+h2 {
+  padding-top: 54px;
 }
 </style>
 </head>
@@ -197,9 +197,19 @@ p, li {
 <a href="http://github.com/lpereira/lwan" class="btn"><span>Fork it on GitHub</span></a>
 </p>
 <div class="chartfloater">
-<p><b>Hello, World!</b> handler</p>
+<p>Requests per second over number of concurrent connections<sup title="On a laptop with a Intel Core i7 2740M processor at 2.80GHz, 8GiB of
+RAM, Intel SSD SA2BW16, running an up-to-date Arch Linux, with Linux 3.11.6">?</sup></p>
 <canvas id="rps" height="200" width="300"></canvas>
-<p>Requests per second over number of concurrent connections</p>
+<table style="margin-left: auto; margin-right: auto">
+<tr>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background:
+#627d4d; border: 1px solid black"></span></td>
+  <td><b>Hello, World!</b> handler</td>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background:
+#7d624d; border: 1px solid black; margin-left: 10px"></span></td>
+  <td>100-byte file</td>
+</tr>
+</table>
 </div>
 
 <p>In development for about 2 years, Lwan was until now a personal research
@@ -262,7 +272,7 @@ the way you want it to is possible.  Features include:</p>
 </ul>
 </p>
 
-<h2 style="padding-top: 60px">API example</h2>
+<h2>API example</h2>
 
 <p>Even the simplest <b>Hello, World!</b> handler can be written using the
 same API that is used by the static file server and the included sample
@@ -305,7 +315,7 @@ main(void)
 to write a handler to glue the language runtime library and Lwan. Lua (and
 maybe LuaJit) is being considered but work hasn't started on that yet.</p>
 
-<h2 style="padding-top: 60px">FAQ</h2>
+<h2>FAQ</h2>
 
 <p><strong>Why not use Nginx or Apache?</strong> If you're asking this
 question, then you probably should.  These web servers are well known,
@@ -345,6 +355,9 @@ to always building with <tt>-Wall -Wextra</tt>; this won't ensure the code
 is secure, but these procedures helps finding some issues that could lead to
 security vulnerabilities.</p>
 
+
+
+
 <div style="padding-top: 240px; font-size: 66.6%">Brought to you by <a
 href="http://twitter.com/lafp">@lafp</a>.</div>
 </div>
@@ -357,7 +370,11 @@ var rpsData = {
     datasets: [
         {
             strokeColor: "#627d4d",
-            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,148708]
+            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449]
+        },
+        {
+            strokeColor: "#7d624d",
+            data: [263763,176919,131799,153484,149156,150527,142337,140361,135362,127335]
         }
     ]
 }
