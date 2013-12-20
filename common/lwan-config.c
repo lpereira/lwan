@@ -50,20 +50,23 @@ int parse_int(const char *value, int default_value)
 
   if (*value == '0') {
     value++;
-    if (*value == 'x')
+    if (*value == 'x') {
       base = 16;
-    else if (*value == 'b')
+    } else if (*value == 'b') {
       base = 2;
-    else if (isdigit(*value))
+    } else if (isdigit(*value)) {
       base = 8;
-    else
+      goto convert;
+    } else {
       return default_value;
+    }
 
     value++;
   } else {
     base = 10;
   }
 
+convert:
   parsed = strtol(value, &endptr, base);
 
   if (parsed == LONG_MIN || parsed == LONG_MAX)
