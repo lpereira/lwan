@@ -70,10 +70,8 @@ _process_request_coro(coro_t *coro)
 
     assert(conn->flags & CONN_IS_ALIVE);
 
+    strbuf_reset(conn->response_buffer);
     lwan_process_request(conn->thread->lwan, &request);
-
-    strbuf_reset(request.response.buffer);
-    free(request.query_params.base);
 
     return CONN_CORO_FINISHED;
 }

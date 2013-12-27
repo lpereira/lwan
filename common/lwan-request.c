@@ -160,7 +160,8 @@ _parse_query_string(lwan_request_t *request, lwan_request_parse_t *helper)
 oom:
     qs[values].key = qs[values].value = NULL;
 
-    lwan_key_value_t *kv = malloc((1 + values) * sizeof(lwan_key_value_t));
+    lwan_key_value_t *kv = coro_malloc(request->conn->coro,
+                                    (1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(kv)) {
         qsort(qs, values, sizeof(lwan_key_value_t), _key_value_compare_qsort_key);
         request->query_params.base = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
