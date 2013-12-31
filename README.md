@@ -1,19 +1,53 @@
 lwan Web Server
 ===============
 
-Lwan is a **high-performance** & **scalable** web server written in C for glibc/Linux platforms.  It is not designed to be standards compliant; only a small subset of HTTP/1.1 is supported (to enable keep-alive connections).
+Lwan is a **high-performance** & **scalable** web server for glibc/Linux platforms.
 
-It can achieve good performance, yielding about **300000 requests/second** on a Core i7 laptop for requests without disk access. When disk I/O is required, for files up to 16KiB, it yields about **285000 requests/second**; for larger files, this drops to **185000 requests/second**, which isn't too shabby either. These results, of course, with keep-alive connections, and with weighttp running on the same machine (and thus using resources that could be used for the webserver itself).  Without keep-alive, these numbers drop around 6-fold.
+In development for about 2 years, Lwan was until now a personal research effort that focused mostly on building a **solid infrastructure** for a lightweight and speedy web server:
+
+  - Low memory footprint (~1.5MiB for 10k idle connections)
+  - Minimal memory allocations & copies
+  - Minimal system calls
+  - Hand-crafted HTTP request parser
+  - Files are served using the most efficient way according to their size
+    - No copies between k ernel and userland for files larger than 16KiB
+    - Smaller files are sent using vectored I/O of memory-mapped buffers
+    - Header overhead is considered before compressing small files
+  - Mostly wait-free multi-threaded design
+  - Diminute code base with roughly 7200 lines of C code
+
+It is now transitioning into a fully working, capable HTTP server. It is not, however, as feature-packed as other popular web servers. But it is **free software**, so scratching your own itches and making LWan hum the way you want it to is possible.
+
+Features include:
+
+  - Mustache templating engine
+    - Used for directory listing & error messages
+    - Available for user-built handlers
+  - Easy to use API to create web applications or extend the web server
+  - Supports rebimboba da parafuseta
+  - Test suite written in Python tests the server as a black box
+  - No-nonsense configuration file syntax
+  - Supports a subset of HTTP/1.0 and HTTP/1.1
+
+The [web site](http://lwan.ws) has more details.
+
+Performance
+-----------
+
+It can achieve good performance, yielding about **300000 requests/second** on a Core i7 laptop for requests without disk access.
+
+When disk I/O is required, for files up to 16KiB, it yields about **285000 requests/second**; for larger files, this drops to **185000 requests/second**, which isn't too shabby either.
+
+These results, of course, with keep-alive connections, and with weighttp running on the same machine (and thus using resources that could be used for the webserver itself).
+
+Without keep-alive, these numbers drop around 6-fold.
 
 Portability
 -----------
 
-Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the Linux variant of sendfile(), it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.  However, portability is not a current goal for this project.
+Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the Linux variant of sendfile(), it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.
 
-Goal
-----
-
-lwan's goal is to provide a testbed for multithreaded, event-based programs.  It is by no means a substitute for real, standards-compliant, web servers.
+Work is underway to port it to [OSv](http://osv.io), an operating system designed specifically for virtual machines.
 
 Usage
 -----
