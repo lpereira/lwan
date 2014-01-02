@@ -229,14 +229,14 @@ static void *
 _thread_io_loop(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event *events;
+    struct epoll_event *events, *ep_event;
     lwan_connection_t *conns = t->lwan->conns;
     coro_switcher_t switcher;
     struct death_queue_t dq;
     int epoll_fd = t->epoll_fd;
     int n_fds;
-    int i;
     const short keep_alive_timeout = t->lwan->config.keep_alive_timeout;
+
     lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
 
     events = calloc(t->lwan->thread.max_fd, sizeof(*events));
@@ -261,10 +261,10 @@ _thread_io_loop(void *data)
         default: /* activity in some of this poller's file descriptor */
             _update_date_cache(t);
 
-            for (i = 0; i < n_fds; ++i) {
-                lwan_connection_t *conn = &conns[events[i].data.fd];
+            for (ep_event = events; n_fds--; ep_event++) {
+                lwan_connection_t *conn = &conns[ep_event->data.fd];
 
-                if (UNLIKELY(events[i].events & (EPOLLRDHUP | EPOLLHUP))) {
+                if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
                     _destroy_coro(conn);
                     continue;
                 }
