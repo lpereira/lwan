@@ -418,7 +418,7 @@ _get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
             /* Redirect /path to /path/. This is to help cases where there's
              * something like <img src="../foo.png">, so that actually
              * /path/../foo.png is served instead of /path../foo.png.  */
-            const char *key_end = strchr(key, '\0');
+            const char *key_end = rawmemchr(key, '\0');
             if (*(key_end - 1) != '/')
                 return &redir_funcs;
 
