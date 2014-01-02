@@ -77,21 +77,6 @@ _process_request_coro(coro_t *coro)
 }
 
 static ALWAYS_INLINE void
-_spawn_or_reset_coro_if_needed(lwan_connection_t *conn, coro_switcher_t *switcher)
-{
-    if (conn->coro) {
-        if (conn->flags & CONN_SHOULD_RESUME_CORO)
-            return;
-
-        coro_reset(conn->coro, _process_request_coro, conn);
-    } else {
-        conn->coro = coro_new(switcher, _process_request_coro, conn);
-    }
-    conn->flags |= CONN_SHOULD_RESUME_CORO;
-    conn->flags &= ~CONN_WRITE_EVENTS;
-}
-
-static ALWAYS_INLINE void
 _resume_coro_if_needed(lwan_connection_t *conn, int epoll_fd)
 {
     assert(conn->coro);
@@ -223,6 +208,23 @@ _update_date_cache(lwan_thread_t *thread)
     }
 }
 
+static ALWAYS_INLINE void
+_spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
+            coro_switcher_t *switcher, struct death_queue_t *dq)
+{
+    if (conn->coro) {
+        if (conn->flags & CONN_SHOULD_RESUME_CORO)
+            return;
+
+        coro_reset(conn->coro, _process_request_coro, conn);
+    } else {
+        conn->coro = coro_new(switcher, _process_request_coro, conn);
+        _death_queue_push(dq, conn);
+    }
+    conn->flags |= CONN_SHOULD_RESUME_CORO;
+    conn->flags &= ~CONN_WRITE_EVENTS;
+}
+
 static void *
 _thread_io_loop(void *data)
 {
@@ -267,17 +269,7 @@ _thread_io_loop(void *data)
                     continue;
                 }
 
-                _spawn_or_reset_coro_if_needed(conn, &switcher);
-
-                /*
-                 * The connection hasn't been added to the keep-alive and
-                 * resumable coro list-to-kill.  Do it now and mark it as
-                 * alive so that we know what to do whenever there's
-                 * activity on its socket again.  Or not.  Mwahahaha.
-                 */
-                if (!(conn->flags & CONN_IS_ALIVE))
-                    _death_queue_push(&dq, conn);
-
+                _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
                 _resume_coro_if_needed(conn, epoll_fd);
 
                 /*
