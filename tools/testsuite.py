@@ -251,12 +251,6 @@ class TestMalformedRequests(LwanTest):
     self.assertHttpCode(sock, 400)
 
 
-  def test_post_request(self):
-    r = requests.post('http://127.0.0.1:8080/hello')
-
-    self.assertEqual(r.status_code, 405)
-
-
   def test_request_too_large(self):
     r = requests.get('http://127.0.0.1:8080/' + 'X' * 10000)
 
@@ -331,6 +325,20 @@ class TestHelloWorld(LwanTest):
           len('Hello, testsuite!'))
 
     self.assertEqual(r.text, 'Hello, testsuite!')
+
+
+  def test_post_request(self):
+    data = {
+      'answer': 'fourty-two',
+      'foo': 'bar'
+    }
+    r = requests.post('http://127.0.0.1:8080/hello?dump_vars=1', data=data)
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('POST data' in r.text)
+    for k, v in data.items():
+      self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
 
 
 class TestCache(LwanTest):

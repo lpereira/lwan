@@ -77,6 +77,16 @@ hello_world(lwan_request_t *request,
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
+    if (!(request->flags & REQUEST_METHOD_POST))
+        goto end;
+
+    strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
+    strbuf_append_str(response->buffer, "---------\n\n", 0);
+
+    for (qs = request->post_data.base; qs->key; qs++)
+        strbuf_append_printf(response->buffer,
+                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
+
 end:
     return HTTP_OK;
 }

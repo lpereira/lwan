@@ -26,10 +26,12 @@
 #include <stddef.h>
 
 #include "lwan.h"
+#include "lwan-config.h"
 
 enum {
     HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
     HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
+    HTTP_STR_POST = MULTICHAR_CONSTANT('P','O','S','T')
 } lwan_http_method_str_t;
 
 enum {
@@ -37,7 +39,10 @@ enum {
     HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
     HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
     HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
-    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c')
+    HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
+    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
+    HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
+    HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p')
 } lwan_http_header_str_t;
 
 typedef struct lwan_request_parse_t_	lwan_request_parse_t;
@@ -49,6 +54,9 @@ struct lwan_request_parse_t_ {
     lwan_value_t range;
     lwan_value_t accept_encoding;
     lwan_value_t fragment;
+    lwan_value_t content_length;
+    lwan_value_t post_data;
+    lwan_value_t content_type;
     char connection;
 };
 
@@ -67,6 +75,9 @@ _identify_http_method(lwan_request_t *request, char *buffer)
         return buffer + 4;
     case HTTP_STR_HEAD:
         request->flags |= REQUEST_METHOD_HEAD;
+        return buffer + 5;
+    case HTTP_STR_POST:
+        request->flags |= REQUEST_METHOD_POST;
         return buffer + 5;
     }
     return NULL;
@@ -130,18 +141,19 @@ _key_value_compare_qsort_key(const void *a, const void *b)
     } while(0)
 
 static void
-_parse_query_string(lwan_request_t *request, lwan_request_parse_t *helper)
+_parse_urlencoded_keyvalues(lwan_request_t *request,
+    lwan_value_t *helper_value, lwan_key_value_t **base, size_t *len)
 {
-    if (!helper->query_string.value)
+    if (!helper_value->value)
         return;
 
-    char *key = helper->query_string.value;
+    char *key = helper_value->value;
     char *value = NULL;
     char *ch;
     size_t values = 0;
     lwan_key_value_t qs[256];
 
-    for (ch = helper->query_string.value; *ch; ch++) {
+    for (ch = key; *ch; ch++) {
         switch (*ch) {
         case '=':
             *ch = '\0';
@@ -164,12 +176,33 @@ oom:
                                     (1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(kv)) {
         qsort(qs, values, sizeof(lwan_key_value_t), _key_value_compare_qsort_key);
-        request->query_params.base = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
-        request->query_params.len = values;
+        *base = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
+        *len = values;
     }
 }
 
 #undef DECODE_AND_ADD
+
+static void
+_parse_query_string(lwan_request_t *request, lwan_request_parse_t *helper)
+{
+    _parse_urlencoded_keyvalues(request, &helper->query_string,
+            &request->query_params.base, &request->query_params.len);
+}
+
+static void
+_parse_post_data(lwan_request_t *request, lwan_request_parse_t *helper)
+{
+    static const char content_type[] = "application/x-www-form-urlencoded";
+
+    if (helper->content_type.len != sizeof(content_type) - 1)
+        return;
+    if (strcmp(helper->content_type.value, content_type))
+        return;
+
+    _parse_urlencoded_keyvalues(request, &helper->post_data,
+            &request->post_data.base, &request->post_data.len);
+}
 
 static ALWAYS_INLINE char *
 _identify_http_path(lwan_request_t *request, char *buffer,
@@ -277,14 +310,25 @@ retry:
             helper->accept_encoding.value = value;
             helper->accept_encoding.len = length;
             break;
+        CASE_HEADER(HTTP_HDR_TYPE, "-Type")
+            helper->content_type.value = value;
+            helper->content_type.len = length;
+            break;
+        CASE_HEADER(HTTP_HDR_LENGTH, "-Length")
+            helper->content_length.value = value;
+            helper->content_length.len = length;
+            break;
+        case HTTP_HDR_CONTENT:
+            p += sizeof("Content") - 1;
+            goto retry;
         case HTTP_HDR_ACCEPT:
             p += sizeof("Accept") - 1;
             goto retry;
         }
 did_not_match:
         p = memchr(p, '\n', buffer_end - p);
-        if (UNLIKELY(!p))
-            return NULL;
+        if (!p)
+            break;
     }
 
 end:
@@ -400,6 +444,137 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
         request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
+static lwan_http_status_t
+_read_from_request_socket(lwan_request_t *request, lwan_value_t *buffer,
+    const ssize_t buffer_size,
+    int (*finalizer)(ssize_t total_read, ssize_t buffer_size, lwan_value_t *buffer))
+{
+    ssize_t n;
+    ssize_t total_read = 0;
+
+    while(true) {
+        n = read(request->fd, buffer->value + total_read,
+                    buffer_size - total_read);
+        /* Client has shutdown orderly, nothing else to do; kill coro */
+        if (UNLIKELY(n == 0)) {
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            ASSERT_NOT_REACHED();
+        }
+
+        if (UNLIKELY(n < 0)) {
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+yield_and_read_again:
+                /* Toggle write events so the scheduler thinks we're in a
+                 * "can read" state (and thus resumable). */
+                request->conn->flags ^= CONN_WRITE_EVENTS;
+                /* Yield 1 so the scheduler doesn't kill the coroutine. */
+                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+                /* Put the WRITE_EVENTS flag back on. */
+                request->conn->flags ^= CONN_WRITE_EVENTS;
+                /* We can probably read again, so try it */
+                continue;
+            }
+
+            if (!total_read) /* Unexpected error before reading anything */
+                return HTTP_BAD_REQUEST;
+
+            /* Unexpected error, kill coro */
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            ASSERT_NOT_REACHED();
+        }
+
+        total_read += n;
+        buffer->value[total_read] = '\0';
+
+        switch (finalizer(total_read, buffer_size, buffer)) {
+        case 0: goto yield_and_read_again;
+        case 1: return HTTP_TOO_LARGE;
+        case 2: goto out;
+        case 3: continue;
+        }
+    }
+
+out:
+    buffer->len = total_read;
+    return HTTP_OK;
+}
+
+static int
+_read_request_finalizer(ssize_t total_read, ssize_t buffer_size,
+    lwan_value_t *buffer)
+{
+    if (UNLIKELY(total_read < 4))
+        return 0; /* Yield and read again */
+
+    if (UNLIKELY(total_read == buffer_size))
+        return 1; /* Request entity too large */
+
+    if (LIKELY(!memcmp(buffer->value + total_read - 4, "\r\n\r\n", 4)))
+        return 2; /* Finished */
+
+    char *post_data_separator = strrchr(buffer->value, '\n');
+    if (post_data_separator) {
+        if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
+            return 2; /* Finished */
+    }
+
+    return 3; /* Read again */
+}
+
+static ALWAYS_INLINE lwan_http_status_t
+_read_request(lwan_request_t *request, lwan_request_parse_t *helper)
+{
+    return _read_from_request_socket(request, &helper->buffer,
+                        DEFAULT_BUFFER_SIZE, _read_request_finalizer);
+}
+
+static int
+_read_post_data_finalizer(ssize_t total_read, ssize_t buffer_size,
+    lwan_value_t *buffer __attribute__((unused)))
+{
+    if (LIKELY(total_read == buffer_size))
+        return 2; /* Finished */
+    return 0; /* Yield and read again */
+}
+
+static ALWAYS_INLINE lwan_http_status_t
+_read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
+            *buffer)
+{
+    ssize_t post_data_size;
+
+    post_data_size = parse_int(helper->content_length.value, DEFAULT_BUFFER_SIZE);
+    if (post_data_size > DEFAULT_BUFFER_SIZE)
+        return HTTP_TOO_LARGE;
+
+    ssize_t curr_post_data_len = helper->buffer.len - (buffer - helper->buffer.value);
+    if (curr_post_data_len == post_data_size) {
+        helper->post_data.value = buffer;
+        helper->post_data.len = post_data_size;
+
+        return HTTP_OK;
+    }
+
+    helper->post_data.value = coro_malloc(request->conn->coro, post_data_size);
+    if (!helper->post_data.value)
+        return HTTP_INTERNAL_ERROR;
+
+    memcpy(helper->post_data.value, buffer, curr_post_data_len);
+    helper->post_data.len = curr_post_data_len;
+    helper->post_data.value += curr_post_data_len;
+
+    lwan_http_status_t status = _read_from_request_socket(request,
+                        &helper->post_data, post_data_size -
+                        curr_post_data_len, _read_post_data_finalizer);
+    if (status != HTTP_OK)
+        return status;
+
+    helper->post_data.value -= curr_post_data_len;
+    return HTTP_OK;
+}
+
 static ALWAYS_INLINE lwan_http_status_t
 _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
 {
@@ -428,59 +603,12 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
 
     _compute_keep_alive_flag(request, helper);
 
-    return HTTP_OK;
-}
+    if (request->flags & REQUEST_METHOD_POST) {
+        lwan_http_status_t status = _read_post_data(request, helper, buffer);
+        if (status != HTTP_OK)
+            return status;
+    }
 
-static ALWAYS_INLINE lwan_http_status_t
-_read_request(lwan_request_t *request, lwan_request_parse_t *helper)
-{
-    ssize_t n;
-    ssize_t total_read = 0;
-
-    do {
-read_again:
-        n = read(request->fd, helper->buffer.value + total_read,
-                    DEFAULT_BUFFER_SIZE - total_read);
-        /* Client has shutdown orderly, nothing else to do; kill coro */
-        if (UNLIKELY(n == 0)) {
-            coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED();
-        }
-
-        if (UNLIKELY(n < 0)) {
-            switch (errno) {
-            case EAGAIN:
-            case EINTR:
-yield_and_read_again:
-                /* Toggle write events so the scheduler thinks we're in a
-                 * "can read" state (and thus resumable). */
-                request->conn->flags ^= CONN_WRITE_EVENTS;
-                /* Yield 1 so the scheduler doesn't kill the coroutine. */
-                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-                /* Put the WRITE_EVENTS flag back on. */
-                request->conn->flags ^= CONN_WRITE_EVENTS;
-                /* We can probably read again, so try it */
-                goto read_again;
-            }
-
-            if (!total_read) /* Unexpected error before reading anything */
-                return HTTP_BAD_REQUEST;
-
-            /* Unexpected error, kill coro */
-            coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED();
-        }
-
-        total_read += n;
-        if (UNLIKELY(total_read < 4)) /* Need space for \r\n\r\n at least */
-            goto yield_and_read_again;
-        if (UNLIKELY(total_read == DEFAULT_BUFFER_SIZE))
-            return HTTP_TOO_LARGE;
-
-        helper->buffer.value[total_read] = '\0';
-    } while (memcmp(helper->buffer.value + total_read - 4, "\r\n\r\n", 4));
-
-    helper->buffer.len = total_read;
     return HTTP_OK;
 }
 
@@ -529,21 +657,28 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         _parse_range(request, &helper);
     if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
         _parse_accept_encoding(request, &helper);
+    if (request->flags & REQUEST_METHOD_POST) {
+        if (url_map->flags & HANDLER_PARSE_POST_DATA) {
+            _parse_post_data(request, &helper);
+        } else {
+            lwan_default_response(request, HTTP_NOT_ALLOWED);
+            return;
+        }
+    }
 
     status = url_map->callback(request, &request->response, url_map->data);
     lwan_response(request, status);
 }
 
-const char *
-lwan_request_get_query_param(lwan_request_t *request, const char *key)
+static const char *
+_value_array_bsearch(lwan_key_value_t *base, const size_t len, const char *key)
 {
-    if (UNLIKELY(!request->query_params.len))
+    if (UNLIKELY(!len))
         return NULL;
 
     size_t lower_bound = 0;
-    size_t upper_bound = request->query_params.len;
+    size_t upper_bound = len;
     size_t key_len = strlen(key);
-    lwan_key_value_t *base = request->query_params.base;
 
     while (lower_bound < upper_bound) {
         /* lower_bound + upper_bound will never overflow */
@@ -559,6 +694,20 @@ lwan_request_get_query_param(lwan_request_t *request, const char *key)
     }
 
     return NULL;
+}
+
+const char *
+lwan_request_get_query_param(lwan_request_t *request, const char *key)
+{
+    return _value_array_bsearch(request->query_params.base,
+                                            request->query_params.len, key);
+}
+
+const char *
+lwan_request_get_post_param(lwan_request_t *request, const char *key)
+{
+    return _value_array_bsearch(request->post_data.base,
+                                            request->post_data.len, key);
 }
 
 int

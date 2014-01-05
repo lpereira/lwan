@@ -108,8 +108,9 @@ typedef enum {
     HANDLER_PARSE_IF_MODIFIED_SINCE = 1<<1,
     HANDLER_PARSE_RANGE = 1<<2,
     HANDLER_PARSE_ACCEPT_ENCODING = 1<<3,
+    HANDLER_PARSE_POST_DATA = 1<<4,
 
-    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3
+    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4
 } lwan_handler_flags_t;
 
 typedef enum {
@@ -117,6 +118,7 @@ typedef enum {
     REQUEST_IS_HTTP_1_0	    = 1<<1,
     REQUEST_METHOD_GET      = 1<<2,
     REQUEST_METHOD_HEAD     = 1<<3,
+    REQUEST_METHOD_POST     = 1<<4,
 } lwan_request_flags_t;
 
 typedef enum {
@@ -175,7 +177,7 @@ struct lwan_request_t_ {
     struct {
         lwan_key_value_t *base;
         size_t len;
-    } query_params;
+    } query_params, post_data;
     struct {
         time_t if_modified_since;
         struct {
@@ -247,6 +249,7 @@ void lwan_response(lwan_request_t *request, lwan_http_status_t status);
 void lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
 size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);
 
+const char *lwan_request_get_post_param(lwan_request_t *request, const char *key);
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer);
 void lwan_process_request(lwan_t *l, lwan_request_t *request);

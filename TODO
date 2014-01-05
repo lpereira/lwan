@@ -1,5 +1,4 @@
 - Logging
-- Support for POST requests
 - Support for SSL sockets
 - Support for some kind of scripting language
   - FCGI support?
