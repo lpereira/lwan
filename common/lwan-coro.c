@@ -45,14 +45,14 @@ struct coro_t_ {
     coro_context_t context;
     int yield_value;
 
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
+    int vg_stack_id;
+#endif
+
     coro_defer_t *defer;
     void *data;
 
     bool ended;
-
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
-    int vg_stack_id;
-#endif
 };
 
 static void _coro_entry_point(coro_t *data, coro_function_t func);
