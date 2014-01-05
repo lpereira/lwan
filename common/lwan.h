@@ -169,10 +169,10 @@ struct lwan_connection_t_ {
 
 struct lwan_request_t_ {
     lwan_request_flags_t flags;
+    int fd;
     lwan_value_t url;
     lwan_value_t original_url;
     lwan_connection_t *conn;
-    int fd;
 
     struct {
         lwan_key_value_t *base;
@@ -216,8 +216,8 @@ struct lwan_thread_t_ {
         time_t last;
     } date;
 
-    int id;
     pthread_t self;
+    int id;
     int epoll_fd;
 };
 
