@@ -557,6 +557,8 @@ _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
     post_data_size = parse_int(helper->content_length.value, DEFAULT_BUFFER_SIZE);
     if (post_data_size > DEFAULT_BUFFER_SIZE)
         return HTTP_TOO_LARGE;
+    if (post_data_size < 0)
+        return HTTP_BAD_REQUEST;
 
     ssize_t curr_post_data_len = helper->buffer.len - (buffer - helper->buffer.value);
     if (curr_post_data_len == post_data_size) {
