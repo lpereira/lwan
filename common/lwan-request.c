@@ -136,13 +136,13 @@ _key_value_compare_qsort_key(const void *a, const void *b)
 #define DECODE_AND_ADD() \
     do { \
         if (LIKELY(_url_decode(key))) { \
-            qs[values].key = key; \
+            kvs[values].key = key; \
             if (LIKELY(_url_decode(value))) \
-                qs[values].value = value; \
+                kvs[values].value = value; \
             else \
-                qs[values].value = ""; \
+                kvs[values].value = ""; \
             ++values; \
-            if (UNLIKELY(values >= N_ELEMENTS(qs))) \
+            if (UNLIKELY(values >= N_ELEMENTS(kvs))) \
                 goto oom; \
         } \
     } while(0)
@@ -158,7 +158,7 @@ _parse_urlencoded_keyvalues(lwan_request_t *request,
     char *value = NULL;
     char *ch;
     size_t values = 0;
-    lwan_key_value_t qs[256];
+    lwan_key_value_t kvs[256];
 
     for (ch = key; *ch; ch++) {
         switch (*ch) {
@@ -177,13 +177,13 @@ _parse_urlencoded_keyvalues(lwan_request_t *request,
 
     DECODE_AND_ADD();
 oom:
-    qs[values].key = qs[values].value = NULL;
+    kvs[values].key = kvs[values].value = NULL;
 
     lwan_key_value_t *kv = coro_malloc(request->conn->coro,
                                     (1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(kv)) {
-        qsort(qs, values, sizeof(lwan_key_value_t), _key_value_compare_qsort_key);
-        *base = memcpy(kv, qs, (1 + values) * sizeof(lwan_key_value_t));
+        qsort(kvs, values, sizeof(lwan_key_value_t), _key_value_compare_qsort_key);
+        *base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
         *len = values;
     }
 }
