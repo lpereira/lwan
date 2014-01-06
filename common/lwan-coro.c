@@ -142,9 +142,6 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
 {
     void *stack = (coro_t *)coro + 1;
 
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, (char *)stack + CORO_STACK_MIN);
-#endif
     coro->ended = false;
     coro->data = data;
 
@@ -175,6 +172,11 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
     coro->switcher = switcher;
     coro->defer = NULL;
     coro_reset(coro, function, data);
+
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
+    char *stack = (char *)(coro + 1);
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
+#endif
 
     return coro;
 }
