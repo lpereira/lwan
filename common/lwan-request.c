@@ -236,7 +236,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
           *end = '\0'; \
           value = p; \
           p = end + 1; \
-          length = end - value - 1; \
+          length = end - value; \
           if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
         } else goto did_not_match;      /* couldn't find line end */ \
