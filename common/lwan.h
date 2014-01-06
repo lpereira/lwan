@@ -263,6 +263,6 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name) __attr
 void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
 
-int lwan_connection_get_fd(lwan_connection_t *conn);
+int lwan_connection_get_fd(lwan_connection_t *conn) __attribute__((pure));
 
 #endif /* __LWAN_H__ */
