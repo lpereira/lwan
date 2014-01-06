@@ -47,6 +47,7 @@ lwan_openat(lwan_request_t *request,
         }
 
         switch (errno) {
+        case EINTR:
         case EMFILE:
         case ENFILE:
         case ENOMEM:
