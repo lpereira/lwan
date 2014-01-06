@@ -34,6 +34,13 @@ enum {
     HTTP_STR_POST = MULTICHAR_CONSTANT('P','O','S','T')
 } lwan_http_method_str_t;
 
+typedef enum {
+    FINALIZER_DONE,
+    FINALIZER_TRY_AGAIN,
+    FINALIZER_YIELD_TRY_AGAIN,
+    FINALIZER_ERROR_TOO_LARGE
+} lwan_read_finalizer_t;
+
 enum {
     HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
     HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
@@ -447,7 +454,7 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
 static lwan_http_status_t
 _read_from_request_socket(lwan_request_t *request, lwan_value_t *buffer,
     const ssize_t buffer_size,
-    int (*finalizer)(ssize_t total_read, ssize_t buffer_size, lwan_value_t *buffer))
+    lwan_read_finalizer_t (*finalizer)(ssize_t total_read, ssize_t buffer_size, lwan_value_t *buffer))
 {
     ssize_t n;
     ssize_t total_read = 0;
@@ -489,10 +496,10 @@ yield_and_read_again:
         buffer->value[total_read] = '\0';
 
         switch (finalizer(total_read, buffer_size, buffer)) {
-        case 0: goto yield_and_read_again;
-        case 1: return HTTP_TOO_LARGE;
-        case 2: goto out;
-        case 3: continue;
+        case FINALIZER_YIELD_TRY_AGAIN: goto yield_and_read_again;
+        case FINALIZER_ERROR_TOO_LARGE: return HTTP_TOO_LARGE;
+        case FINALIZER_DONE: goto out;
+        case FINALIZER_TRY_AGAIN: continue;
         }
     }
 
@@ -501,26 +508,28 @@ out:
     return HTTP_OK;
 }
 
-static int
+
+
+static lwan_read_finalizer_t
 _read_request_finalizer(ssize_t total_read, ssize_t buffer_size,
     lwan_value_t *buffer)
 {
     if (UNLIKELY(total_read < 4))
-        return 0; /* Yield and read again */
+        return FINALIZER_YIELD_TRY_AGAIN;
 
     if (UNLIKELY(total_read == buffer_size))
-        return 1; /* Request entity too large */
+        return FINALIZER_ERROR_TOO_LARGE;
 
     if (LIKELY(!memcmp(buffer->value + total_read - 4, "\r\n\r\n", 4)))
-        return 2; /* Finished */
+        return FINALIZER_DONE;
 
     char *post_data_separator = strrchr(buffer->value, '\n');
     if (post_data_separator) {
         if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
-            return 2; /* Finished */
+            return FINALIZER_DONE;
     }
 
-    return 3; /* Read again */
+    return FINALIZER_TRY_AGAIN;
 }
 
 static ALWAYS_INLINE lwan_http_status_t
@@ -530,13 +539,13 @@ _read_request(lwan_request_t *request, lwan_request_parse_t *helper)
                         DEFAULT_BUFFER_SIZE, _read_request_finalizer);
 }
 
-static int
+static lwan_read_finalizer_t
 _read_post_data_finalizer(ssize_t total_read, ssize_t buffer_size,
     lwan_value_t *buffer __attribute__((unused)))
 {
     if (LIKELY(total_read == buffer_size))
-        return 2; /* Finished */
-    return 0; /* Yield and read again */
+        return FINALIZER_DONE;
+    return FINALIZER_YIELD_TRY_AGAIN;
 }
 
 static ALWAYS_INLINE lwan_http_status_t
