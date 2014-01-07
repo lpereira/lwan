@@ -251,7 +251,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     else
         APPEND_CONSTANT("\r\nConnection: close");
 
-    if (status < HTTP_BAD_REQUEST && request->response.headers) {
+    if ((status < HTTP_BAD_REQUEST && request->response.headers) || status == HTTP_NOT_AUTHORIZED) {
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {

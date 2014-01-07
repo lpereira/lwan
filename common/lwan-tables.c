@@ -93,6 +93,7 @@ lwan_http_status_as_string(lwan_http_status_t status)
     case HTTP_MOVED_PERMANENTLY: return "Moved permanently";
     case HTTP_NOT_MODIFIED: return "Not modified";
     case HTTP_BAD_REQUEST: return "Bad request";
+    case HTTP_NOT_AUTHORIZED: return "Not authorized";
     case HTTP_NOT_FOUND: return "Not found";
     case HTTP_FORBIDDEN: return "Forbidden";
     case HTTP_NOT_ALLOWED: return "Not allowed";
@@ -113,6 +114,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_MOVED_PERMANENTLY: return "This content has moved to another place.";
     case HTTP_NOT_MODIFIED: return "The content has not changed since previous request.";
     case HTTP_BAD_REQUEST: return "The client has issued a bad request.";
+    case HTTP_NOT_AUTHORIZED: return "Client has no authorization to access this resource.";
     case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
     case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
     case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";

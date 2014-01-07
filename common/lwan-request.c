@@ -49,7 +49,8 @@ enum {
     HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
     HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
     HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
-    HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p')
+    HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
+    HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
 } lwan_http_header_str_t;
 
 typedef struct lwan_request_parse_t_	lwan_request_parse_t;
@@ -64,6 +65,7 @@ struct lwan_request_parse_t_ {
     lwan_value_t content_length;
     lwan_value_t post_data;
     lwan_value_t content_type;
+    lwan_value_t authorization;
     char connection;
 };
 
@@ -312,6 +314,10 @@ retry:
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             helper->range.value = value;
             helper->range.len = length;
+            break;
+        CASE_HEADER(HTTP_HDR_AUTHORIZATION, "Authorization")
+            helper->authorization.value = value;
+            helper->authorization.len = length;
             break;
         CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
             helper->accept_encoding.value = value;
@@ -623,6 +629,38 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     return HTTP_OK;
 }
 
+static bool
+_authorize(lwan_request_t *request, lwan_request_parse_t *helper)
+{
+    static const size_t basic_len = sizeof("Basic ") - 1;
+
+    if (!helper->authorization.value) {
+        lwan_key_value_t *headers;
+
+unauthorized:
+        headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
+        headers[0].key = "WWW-Authenticate";
+        headers[0].value = "Basic realm=\"Lwan\"";
+        headers[1].key = headers[1].value = NULL;
+
+        request->response.headers = headers;
+        return false;
+    }
+
+    if (strncmp(helper->authorization.value, "Basic ", basic_len))
+        goto unauthorized;
+
+    helper->authorization.value += basic_len;
+    helper->authorization.len -= basic_len;
+
+    /* Username is "admin", password is "tijolo22" */
+    static const char authorization_info[] = "YWRtaW46dGlqb2xvMjI=";
+    if (!strncmp(helper->authorization.value, authorization_info, sizeof(authorization_info) - 1))
+        return true;
+
+    goto unauthorized;
+}
+
 void
 lwan_process_request(lwan_t *l, lwan_request_t *request)
 {
@@ -673,6 +711,12 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
             _parse_post_data(request, &helper);
         } else {
             lwan_default_response(request, HTTP_NOT_ALLOWED);
+            return;
+        }
+    }
+    if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
+        if (!_authorize(request, &helper)) {
+            lwan_default_response(request, HTTP_NOT_AUTHORIZED);
             return;
         }
     }

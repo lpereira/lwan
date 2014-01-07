@@ -25,7 +25,8 @@
 - Make Date headers part of normal response headers
   - Currently only inside file serving
 - Cookie support
-- HTTP authentication support
+- HTTP authorization support
+  - Mechanism is working for Basic auth; need a way to store username/passwords
 - Run a new lwan version without restarting
   - Set TCP_REUSEPORT on main socket of old server
   - Start new server
