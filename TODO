@@ -16,6 +16,10 @@
 - Multiple listeners
 - IPv6
 - Other protocols, such as SPDY
+- Server-sent-events
+  - https://en.wikipedia.org/wiki/Server-sent_events
+  - To be able to implement http://socket.io
+- Chunked encoding support
 - Compression for files larger than 16KiB
   - Still support sendfile(), possibly compressing to a temporary directory
 - Make Date headers part of normal response headers
