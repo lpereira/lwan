@@ -124,6 +124,13 @@ void cache_destroy(struct cache_t *cache)
 {
   assert(cache);
 
+#ifndef NDEBUG
+    unsigned hits, misses, evictions;
+    cache_get_stats(cache, &hits, &misses, &evictions);
+    lwan_status_debug("Cache stats: %d hits, %d misses, %d evictions",
+            hits, misses, evictions);
+#endif
+
   lwan_job_del(cache_pruner_job, cache);
   cache->flags |= SHUTTING_DOWN;
   cache_pruner_job(cache);

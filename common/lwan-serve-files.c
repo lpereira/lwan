@@ -637,13 +637,6 @@ serve_files_shutdown(void *data)
         return;
     }
 
-#ifndef NDEBUG
-    unsigned hits, misses, evictions;
-    cache_get_stats(priv->cache, &hits, &misses, &evictions);
-    lwan_status_debug("Cache stats: %d hits, %d misses, %d evictions",
-            hits, misses, evictions);
-#endif
-
     lwan_tpl_free(priv->directory_list_tpl);
     cache_destroy(priv->cache);
     close(priv->root.fd);
