@@ -131,6 +131,11 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         return;
     }
 
+    if (request->flags & RESPONSE_SENT_HEADERS) {
+        lwan_status_debug("Headers already sent, ignoring call");
+        return;
+    }
+
     /* Requests without a MIME Type are errors from handlers that
        should just be handled by lwan_default_response(). */
     if (UNLIKELY(!request->response.mime_type)) {
