@@ -121,6 +121,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[DEFAULT_HEADERS_SIZE];
 
+    log_request(request, status);
+
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
         strbuf_reset_length(request->response.buffer);
@@ -143,8 +145,6 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         /* Reset it after it has been called to avoid eternal recursion on errors */
         request->response.stream.callback = NULL;
 
-        log_request(request, status);
-
         if (callback_status >= HTTP_BAD_REQUEST) /* Status < 400: success */
             lwan_default_response(request, callback_status);
         return;
@@ -155,8 +155,6 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         lwan_default_response(request, HTTP_INTERNAL_ERROR);
         return;
     }
-
-    log_request(request, status);
 
     if (request->flags & REQUEST_METHOD_HEAD) {
         lwan_write(request, headers, header_len);
@@ -302,7 +300,6 @@ lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
 
     request->flags |= RESPONSE_SENT_HEADERS;
     lwan_send(request, buffer, buffer_len, MSG_MORE);
-    log_request(request, status);
 
     return true;
 }
