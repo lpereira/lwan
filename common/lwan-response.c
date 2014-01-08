@@ -125,7 +125,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        strbuf_reset_length(request->response.buffer);
+        if (!strbuf_reset_length(request->response.buffer))
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
         lwan_response_send_chunk(request);
         return;
     }
@@ -334,6 +335,8 @@ lwan_response_send_chunk(lwan_request_t *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    strbuf_reset_length(request->response.buffer);
-    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    if (strbuf_reset_length(request->response.buffer))
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    else
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
 }
