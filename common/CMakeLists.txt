@@ -25,5 +25,7 @@ add_library(lwan-common STATIC
 	lwan-trie.c
 	realpathat.c
 	strbuf.c
+	base64.c
+	lwan-http-authorize.c
 	${GENERIC_SOURCES}
 )

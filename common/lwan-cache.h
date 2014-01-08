@@ -21,6 +21,7 @@
 #define LWAN_CACHE_H
 
 #include "list.h"
+#include "lwan-coro.h"
 
 struct cache_entry_t {
   struct list_node entries;

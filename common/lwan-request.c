@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012-2014 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,6 +27,7 @@
 
 #include "lwan.h"
 #include "lwan-config.h"
+#include "lwan-http-authorize.h"
 
 enum {
     HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
@@ -630,37 +631,6 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     return HTTP_OK;
 }
 
-static bool
-_authorize(lwan_request_t *request, lwan_request_parse_t *helper)
-{
-    static const size_t basic_len = sizeof("Basic ") - 1;
-    lwan_key_value_t *headers;
-
-    if (!helper->authorization.value)
-        goto unauthorized;
-
-    if (UNLIKELY(strncmp(helper->authorization.value, "Basic ", basic_len)))
-        goto unauthorized;
-
-    helper->authorization.value += basic_len;
-    helper->authorization.len -= basic_len;
-
-    /* Username is "admin", password is "tijolo22" */
-    static const char authorization_info[] = "YWRtaW46dGlqb2xvMjI=";
-    if (!strncmp(helper->authorization.value, authorization_info, sizeof(authorization_info) - 1))
-        return true;
-
-unauthorized:
-    headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
-    headers[0].key = "WWW-Authenticate";
-    headers[0].value = "Basic realm=\"Lwan\"";
-    headers[1].key = headers[1].value = NULL;
-
-    request->response.headers = headers;
-
-    return false;
-}
-
 void
 lwan_process_request(lwan_t *l, lwan_request_t *request)
 {
@@ -715,7 +685,10 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         }
     }
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
-        if (!_authorize(request, &helper)) {
+        if (!lwan_http_authorize(request,
+                        &helper.authorization,
+                        url_map->authorization.realm,
+                        url_map->authorization.password_file)) {
             lwan_default_response(request, HTTP_NOT_AUTHORIZED);
             return;
         }

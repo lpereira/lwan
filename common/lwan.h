@@ -210,6 +210,11 @@ struct lwan_url_map_t_ {
 
     lwan_handler_t *handler;
     void *args;
+
+    struct {
+        char *realm;
+        char *password_file;
+    } authorization;
 };
 
 struct lwan_thread_t_ {
