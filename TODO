@@ -34,7 +34,7 @@
   - Tell old server to quit when all connections are closed
 - Create epoll() implementation for FreeBSD (based on kqueue) or see if
   libevent/libev are worth trying
-- Port to OSv (http://osv.info)
+- Port to OSv (http://osv.io)
 - Status screen (uptime, number of connections, keep-alive connections,
   memory usage, etc)
 - Investigate stackless coroutine implementations, like Simon Tatham's?
