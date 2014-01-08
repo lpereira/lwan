@@ -68,11 +68,6 @@ test_chunked_encoding(lwan_request_t *request,
 lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
-            void *data __attribute__((unused))) __attribute__ ((visibility ("default")));
-
-lwan_http_status_t
-hello_world(lwan_request_t *request,
-            lwan_response_t *response,
             void *data __attribute__((unused)))
 {
     static lwan_key_value_t headers[] = {
