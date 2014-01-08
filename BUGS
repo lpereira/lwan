@@ -1,3 +1,0 @@
-- If a connection is open but no request is made, it will continue to use
-  resources until lwan is shut down
-- strbuf_shrink_to()
