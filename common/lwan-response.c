@@ -121,6 +121,13 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[DEFAULT_HEADERS_SIZE];
 
+    if (request->flags & RESPONSE_CHUNKED_ENCODING) {
+        /* Send last, 0-sized chunk */
+        strbuf_reset_length(request->response.buffer);
+        lwan_response_send_chunk(request);
+        return;
+    }
+
     /* Requests without a MIME Type are errors from handlers that
        should just be handled by lwan_default_response(). */
     if (UNLIKELY(!request->response.mime_type)) {
@@ -239,11 +246,15 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     APPEND_INT8(status);
     APPEND_CHAR(' ');
     APPEND_STRING(lwan_http_status_as_string(status));
-    APPEND_CONSTANT("\r\nContent-Length: ");
-    if (request->response.stream.callback)
-        APPEND_UINT(request->response.content_length);
-    else
-        APPEND_UINT(strbuf_get_length(request->response.buffer));
+    if (request->flags & RESPONSE_CHUNKED_ENCODING) {
+        APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
+    } else {
+        APPEND_CONSTANT("\r\nContent-Length: ");
+        if (request->response.stream.callback)
+            APPEND_UINT(request->response.content_length);
+        else
+            APPEND_UINT(strbuf_get_length(request->response.buffer));
+    }
     APPEND_CONSTANT("\r\nContent-Type: ");
     APPEND_STRING(request->response.mime_type);
     if (request->conn->flags & CONN_KEEP_ALIVE)
@@ -273,3 +284,59 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 #undef APPEND_CONSTANT
 #undef APPEND_CHAR
 #undef APPEND_INT
+
+bool
+lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
+{
+    char buffer[DEFAULT_BUFFER_SIZE];
+    size_t buffer_len;
+
+    if (request->flags & RESPONSE_SENT_HEADERS)
+        return false;
+
+    request->flags |= RESPONSE_CHUNKED_ENCODING;
+    buffer_len = lwan_prepare_response_header(request, status,
+                                                buffer, DEFAULT_BUFFER_SIZE);
+    if (!buffer_len)
+        return false;
+
+    request->flags |= RESPONSE_SENT_HEADERS;
+    lwan_send(request, buffer, buffer_len, MSG_MORE);
+    log_request(request, status);
+
+    return true;
+}
+
+void
+lwan_response_send_chunk(lwan_request_t *request)
+{
+    if (!(request->flags & RESPONSE_SENT_HEADERS)) {
+        if (!lwan_response_set_chunked(request, HTTP_OK))
+            return;
+    }
+
+    int buffer_len = strbuf_get_length(request->response.buffer);
+    if (!buffer_len) {
+        static const char last_chunk[] = "0\r\n\r\n";
+        lwan_send(request, last_chunk, sizeof(last_chunk) - 1, 0);
+        return;
+    }
+
+    char chunk_size[3 * sizeof(int) + 2];
+    int chunk_size_len;
+
+    chunk_size_len = snprintf(chunk_size, sizeof(chunk_size), "%x\r\n", buffer_len);
+    if (chunk_size_len < 0)
+        return;
+
+    struct iovec chunk_vec[] = {
+        { .iov_base = chunk_size, .iov_len = chunk_size_len },
+        { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = buffer_len },
+        { .iov_base = "\r\n", .iov_len = 2 }
+    };
+
+    lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
+
+    strbuf_reset_length(request->response.buffer);
+    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+}

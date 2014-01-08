@@ -116,11 +116,13 @@ typedef enum {
 } lwan_handler_flags_t;
 
 typedef enum {
-    REQUEST_ACCEPT_DEFLATE  = 1<<0,
-    REQUEST_IS_HTTP_1_0	    = 1<<1,
-    REQUEST_METHOD_GET      = 1<<2,
-    REQUEST_METHOD_HEAD     = 1<<3,
-    REQUEST_METHOD_POST     = 1<<4,
+    REQUEST_ACCEPT_DEFLATE    = 1<<0,
+    REQUEST_IS_HTTP_1_0       = 1<<1,
+    REQUEST_METHOD_GET        = 1<<2,
+    REQUEST_METHOD_HEAD       = 1<<3,
+    REQUEST_METHOD_POST       = 1<<4,
+    RESPONSE_SENT_HEADERS     = 1<<5,
+    RESPONSE_CHUNKED_ENCODING = 1<<6
 } lwan_request_flags_t;
 
 typedef enum {
@@ -255,6 +257,9 @@ const char *lwan_request_get_post_param(lwan_request_t *request, const char *key
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
 const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer);
 void lwan_process_request(lwan_t *l, lwan_request_t *request);
+
+bool lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status);
+void lwan_response_send_chunk(lwan_request_t *request);
 
 void lwan_format_rfc_time(time_t t, char buffer[static 31]);
 

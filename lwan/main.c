@@ -43,6 +43,29 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
 }
 
 lwan_http_status_t
+test_chunked_encoding(lwan_request_t *request,
+            lwan_response_t *response,
+            void *data __attribute__((unused)))
+{
+    int i;
+
+    response->mime_type = "text/plain";
+
+    strbuf_printf(response->buffer, "Testing chunked encoding! First chunk\n");
+    lwan_response_send_chunk(request);
+
+    for (i = 0; i <= 10; i++) {
+        strbuf_printf(response->buffer, "*This is chunk %d*\n", i);
+        lwan_response_send_chunk(request);
+    }
+
+    strbuf_printf(response->buffer, "Last chunk\n");
+    lwan_response_send_chunk(request);
+
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused))) __attribute__ ((visibility ("default")));
