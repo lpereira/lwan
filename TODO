@@ -1,3 +1,4 @@
+- Do not bundle mime-types.h with Lwan, generate it during build
 - Logging
   - Write logs to shared memory
   - Another process may save the logs or forward to another machine
