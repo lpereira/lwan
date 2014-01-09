@@ -634,19 +634,10 @@ static bool
 _authorize(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     static const size_t basic_len = sizeof("Basic ") - 1;
+    lwan_key_value_t *headers;
 
-    if (!helper->authorization.value) {
-        lwan_key_value_t *headers;
-
-unauthorized:
-        headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
-        headers[0].key = "WWW-Authenticate";
-        headers[0].value = "Basic realm=\"Lwan\"";
-        headers[1].key = headers[1].value = NULL;
-
-        request->response.headers = headers;
-        return false;
-    }
+    if (!helper->authorization.value)
+        goto unauthorized;
 
     if (UNLIKELY(strncmp(helper->authorization.value, "Basic ", basic_len)))
         goto unauthorized;
@@ -659,7 +650,15 @@ unauthorized:
     if (!strncmp(helper->authorization.value, authorization_info, sizeof(authorization_info) - 1))
         return true;
 
-    goto unauthorized;
+unauthorized:
+    headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
+    headers[0].key = "WWW-Authenticate";
+    headers[0].value = "Basic realm=\"Lwan\"";
+    headers[1].key = headers[1].value = NULL;
+
+    request->response.headers = headers;
+
+    return false;
 }
 
 void
