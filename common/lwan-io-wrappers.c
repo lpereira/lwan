@@ -36,11 +36,10 @@ int
 lwan_openat(lwan_request_t *request,
             int dirfd, const char *pathname, int flags)
 {
-    int fd;
     int tries;
 
     for (tries = max_failed_tries; tries; tries--) {
-        fd = openat(dirfd, pathname, flags);
+        int fd = openat(dirfd, pathname, flags);
         if (LIKELY(fd >= 0)) {
             coro_defer(request->conn->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
             return fd;
@@ -178,11 +177,10 @@ static ALWAYS_INLINE ssize_t
 _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     size_t total_written = 0;
-    ssize_t written;
 
     ssize_t to_be_written = count - total_written;
     do {
-        written = sendfile(out_fd, in_fd, &offset, to_be_written);
+        ssize_t written = sendfile(out_fd, in_fd, &offset, to_be_written);
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
@@ -220,8 +218,8 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
     }
 
 #ifdef __linux__
-    ssize_t written_bytes = -1;
-    written_bytes = _sendfile_linux_sendfile(request->conn->coro, in_fd, request->fd, offset, count);
+    ssize_t written_bytes = _sendfile_linux_sendfile(
+			request->conn->coro, in_fd, request->fd, offset, count);
 
     if (UNLIKELY(written_bytes < 0)) {
         switch (errno) {

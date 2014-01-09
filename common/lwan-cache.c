@@ -359,12 +359,12 @@ struct cache_entry_t *
 cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
       const char *key)
 {
-    struct cache_entry_t *ce;
-    int error;
     int tries;
 
     for (tries = GET_AND_REF_TRIES; tries; tries--) {
-        ce = cache_get_and_ref_entry(cache, key, &error);
+        int error;
+        struct cache_entry_t *ce = cache_get_and_ref_entry(cache, key, &error);
+
         if (LIKELY(ce)) {
             /*
              * This is deferred here so that, if the coroutine is killed

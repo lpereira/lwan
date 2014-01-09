@@ -85,10 +85,9 @@ static lwan_var_descriptor_t *
 symtab_lookup(struct parser_state *state, const char *var_name)
 {
     struct symtab *tab = state->symtab;
-    lwan_var_descriptor_t *var;
 
     for (; tab; tab = tab->next) {
-        var = hash_find(tab->hash, var_name);
+        lwan_var_descriptor_t *var = hash_find(tab->hash, var_name);
         if (var)
             return var;
     }
