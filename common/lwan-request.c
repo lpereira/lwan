@@ -206,7 +206,7 @@ _parse_post_data(lwan_request_t *request, lwan_request_parse_t *helper)
 
     if (helper->content_type.len != sizeof(content_type) - 1)
         return;
-    if (strcmp(helper->content_type.value, content_type))
+    if (UNLIKELY(strcmp(helper->content_type.value, content_type)))
         return;
 
     _parse_urlencoded_keyvalues(request, &helper->post_data,
@@ -218,7 +218,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
             lwan_request_parse_t *helper)
 {
     char *end_of_line = memchr(buffer, '\r', helper->buffer.len - (buffer - helper->buffer.value));
-    if (!end_of_line)
+    if (UNLIKELY(!end_of_line))
         return NULL;
     *end_of_line = '\0';
 
@@ -372,7 +372,7 @@ _parse_if_modified_since(lwan_request_t *request, lwan_request_parse_t *helper)
 static ALWAYS_INLINE void
 _parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
 {
-    if (helper->range.len <= (sizeof("bytes=") - 1))
+    if (UNLIKELY(helper->range.len <= (sizeof("bytes=") - 1)))
         return;
 
     char *range = helper->range.value;
@@ -490,7 +490,8 @@ yield_and_read_again:
                 continue;
             }
 
-            if (!total_read) /* Unexpected error before reading anything */
+            /* Unexpected error before reading anything */
+            if (UNLIKELY(!total_read))
                 return HTTP_BAD_REQUEST;
 
             /* Unexpected error, kill coro */
@@ -561,9 +562,9 @@ _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
     ssize_t post_data_size;
 
     post_data_size = parse_int(helper->content_length.value, DEFAULT_BUFFER_SIZE);
-    if (post_data_size > DEFAULT_BUFFER_SIZE)
+    if (UNLIKELY(post_data_size > DEFAULT_BUFFER_SIZE))
         return HTTP_TOO_LARGE;
-    if (post_data_size < 0)
+    if (UNLIKELY(post_data_size < 0))
         return HTTP_BAD_REQUEST;
 
     ssize_t curr_post_data_len = helper->buffer.len - (buffer - helper->buffer.value);
@@ -622,7 +623,7 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
 
     if (request->flags & REQUEST_METHOD_POST) {
         lwan_http_status_t status = _read_post_data(request, helper, buffer);
-        if (status != HTTP_OK)
+        if (UNLIKELY(status != HTTP_OK))
             return status;
     }
 
@@ -647,7 +648,7 @@ unauthorized:
         return false;
     }
 
-    if (strncmp(helper->authorization.value, "Basic ", basic_len))
+    if (UNLIKELY(strncmp(helper->authorization.value, "Basic ", basic_len)))
         goto unauthorized;
 
     helper->authorization.value += basic_len;
@@ -777,7 +778,7 @@ lwan_request_get_remote_address(lwan_request_t *request,
 {
     struct sockaddr_in sock_addr;
     socklen_t sock_len = sizeof(struct sockaddr_in);
-    if (getpeername(request->fd, &sock_addr, &sock_len) < 0)
+    if (UNLIKELY(getpeername(request->fd, &sock_addr, &sock_len) < 0))
         return NULL;
 
     /* The definition of inet_ntoa() in the standard is not thread-safe. The

@@ -74,7 +74,7 @@ lwan_response_init(void)
     lwan_status_debug("Initializing default response");
 
     error_template = lwan_tpl_compile_string(error_template_str, error_descriptor);
-    if (!error_template)
+    if (UNLIKELY(!error_template))
         lwan_status_critical_perror("lwan_tpl_compile_string");
 }
 
@@ -125,13 +125,13 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        if (!strbuf_reset_length(request->response.buffer))
+        if (UNLIKELY(!strbuf_reset_length(request->response.buffer)))
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
         lwan_response_send_chunk(request);
         return;
     }
 
-    if (request->flags & RESPONSE_SENT_HEADERS) {
+    if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS)) {
         lwan_status_debug("Headers already sent, ignoring call");
         return;
     }
@@ -301,7 +301,7 @@ lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
     request->flags |= RESPONSE_CHUNKED_ENCODING;
     buffer_len = lwan_prepare_response_header(request, status,
                                                 buffer, DEFAULT_BUFFER_SIZE);
-    if (!buffer_len)
+    if (UNLIKELY(!buffer_len))
         return false;
 
     request->flags |= RESPONSE_SENT_HEADERS;
@@ -314,12 +314,12 @@ void
 lwan_response_send_chunk(lwan_request_t *request)
 {
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
-        if (!lwan_response_set_chunked(request, HTTP_OK))
+        if (UNLIKELY(!lwan_response_set_chunked(request, HTTP_OK)))
             return;
     }
 
     int buffer_len = strbuf_get_length(request->response.buffer);
-    if (!buffer_len) {
+    if (UNLIKELY(!buffer_len)) {
         static const char last_chunk[] = "0\r\n\r\n";
         lwan_send(request, last_chunk, sizeof(last_chunk) - 1, 0);
         return;
@@ -329,7 +329,7 @@ lwan_response_send_chunk(lwan_request_t *request)
     int chunk_size_len;
 
     chunk_size_len = snprintf(chunk_size, sizeof(chunk_size), "%x\r\n", buffer_len);
-    if (chunk_size_len < 0)
+    if (UNLIKELY(chunk_size_len < 0))
         return;
 
     struct iovec chunk_vec[] = {
@@ -340,7 +340,7 @@ lwan_response_send_chunk(lwan_request_t *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (strbuf_reset_length(request->response.buffer))
+    if (UNLIKELY(strbuf_reset_length(request->response.buffer)))
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     else
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
