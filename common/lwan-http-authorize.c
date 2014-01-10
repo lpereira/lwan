@@ -93,6 +93,7 @@ static void _destroy_realm_file(struct cache_entry_t *entry,
 {
     struct realm_password_file_t *rpf = (struct realm_password_file_t *)entry;
     hash_free(rpf->entries);
+    free(rpf);
 }
 
 bool
@@ -134,7 +135,7 @@ _authorize(coro_t *coro,
         return false;
 
     if (decoded_len >= 1024)  /* 1024 is the line buffer size for config_* */
-        return false;
+        goto out;
 
     colon = strchr((char *)decoded, ':');
     if (!colon)
