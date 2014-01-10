@@ -145,10 +145,9 @@ _authorize(coro_t *coro,
     password = colon + 1;
 
     looked_password = hash_find(rpf->entries, decoded);
-    if (!looked_password)
-        goto out;
+    if (looked_password)
+        password_ok = !strcmp(password, looked_password);
 
-    password_ok = !strncmp(password, looked_password, strlen(looked_password));
 out:
     free(decoded);
     return password_ok;
