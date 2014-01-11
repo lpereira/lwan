@@ -437,7 +437,7 @@ _push_request_fd(lwan_t *l, int fd)
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET,
-        .data.ptr = &l->conns[fd]
+        .data.fd = fd
     };
 
     l->conns[fd].flags = 0;

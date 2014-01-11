@@ -262,7 +262,7 @@ _thread_io_loop(void *data)
             _update_date_cache(t);
 
             for (ep_event = events; n_fds--; ep_event++) {
-                lwan_connection_t *conn = ep_event->data.ptr;
+                lwan_connection_t *conn = &conns[ep_event->data.fd];
 
                 if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
                     _destroy_coro(conn);
