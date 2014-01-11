@@ -458,40 +458,20 @@ _signal_handler(int signal_number)
 void
 lwan_main_loop(lwan_t *l)
 {
-    int epoll_fd = epoll_create1(0);
-    if (epoll_fd < 0)
-        lwan_status_critical_perror("epoll_create1");
-
     if (setjmp(cleanup_jmp_buf))
-        goto end;
+        return;
 
     signal(SIGINT, _signal_handler);
-
-    struct epoll_event events[128];
-    struct epoll_event socket_ev = {
-        .events = EPOLLIN,
-        .data.u32 = 0
-    };
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, l->main_socket, &socket_ev) < 0)
-        lwan_status_critical_perror("epoll_ctl");
 
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int n_fds = epoll_wait(epoll_fd, events, N_ELEMENTS(events), -1);
-        for (; n_fds > 0; --n_fds) {
-            int child_fd;
-
-            child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
-            if (UNLIKELY(child_fd < 0)) {
-                lwan_status_perror("accept");
-                continue;
-            }
-
-            _push_request_fd(l, child_fd);
+        int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+        if (UNLIKELY(child_fd < 0)) {
+            lwan_status_perror("accept");
+            continue;
         }
-    }
 
-end:
-    close(epoll_fd);
+        _push_request_fd(l, child_fd);
+    }
 }
