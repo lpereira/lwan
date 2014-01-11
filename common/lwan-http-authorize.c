@@ -42,8 +42,11 @@ static struct cache_entry_t *_create_realm_file(
     config_t f;
     config_line_t l;
 
+    if (UNLIKELY(!rpf))
+        return NULL;
+
     rpf->entries = hash_str_new(free, free);
-    if (!rpf->entries)
+    if (UNLIKELY(!rpf->entries))
         goto error;
 
     if (!config_open(&f, key))
@@ -126,19 +129,20 @@ _authorize(coro_t *coro,
 
     rpf = (struct realm_password_file_t *)cache_coro_get_and_ref_entry(
             realm_password_cache, coro, password_file);
-    if (!rpf)
+    if (UNLIKELY(!rpf))
         return false;
 
     decoded = base64_decode((unsigned char *)authorization->value,
                             authorization->len, &decoded_len);
-    if (!decoded)
+    if (UNLIKELY(!decoded))
         return false;
 
-    if (decoded_len >= 1024)  /* 1024 is the line buffer size for config_* */
+    /* 1024 is the line buffer size for config_* */
+    if (UNLIKELY(decoded_len >= 1024))
         goto out;
 
     colon = strchr((char *)decoded, ':');
-    if (!colon)
+    if (UNLIKELY(!colon))
         goto out;
 
     *colon = '\0';
