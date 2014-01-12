@@ -243,13 +243,13 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     p_headers = headers;
 
     if (request->flags & REQUEST_IS_HTTP_1_0)
-        APPEND_CONSTANT("HTTP/1.0");
+        APPEND_CONSTANT("HTTP/1.0 ");
     else
-        APPEND_CONSTANT("HTTP/1.1");
-    APPEND_CHAR(' ');
+        APPEND_CONSTANT("HTTP/1.1 ");
     APPEND_INT8(status);
     APPEND_CHAR(' ');
     APPEND_STRING(lwan_http_status_as_string(status));
+
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
     } else {
@@ -259,8 +259,10 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         else
             APPEND_UINT(strbuf_get_length(request->response.buffer));
     }
+
     APPEND_CONSTANT("\r\nContent-Type: ");
     APPEND_STRING(request->response.mime_type);
+
     if (request->conn->flags & CONN_KEEP_ALIVE)
         APPEND_CONSTANT("\r\nConnection: keep-alive");
     else
@@ -278,6 +280,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
             APPEND_STRING(header->value);
         }
     }
+
     APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
     return p_headers - headers - 1;
