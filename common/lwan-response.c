@@ -252,6 +252,8 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
+    } else if (request->flags & RESPONSE_NO_CONTENT_LENGTH) {
+        /* Do nothing. */
     } else {
         APPEND_CONSTANT("\r\nContent-Length: ");
         if (request->response.stream.callback)
@@ -353,4 +355,74 @@ lwan_response_send_chunk(lwan_request_t *request)
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     else
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
+}
+
+bool
+lwan_response_set_event_stream(lwan_request_t *request,
+                               lwan_http_status_t status)
+{
+    char buffer[DEFAULT_BUFFER_SIZE];
+    size_t buffer_len;
+
+    if (request->flags & RESPONSE_SENT_HEADERS)
+        return false;
+
+    request->response.mime_type = "text/event-stream";
+    request->flags |= RESPONSE_NO_CONTENT_LENGTH;
+    buffer_len = lwan_prepare_response_header(request, status,
+                                                buffer, DEFAULT_BUFFER_SIZE);
+    if (UNLIKELY(!buffer_len))
+        return false;
+
+    request->flags |= RESPONSE_SENT_HEADERS;
+    lwan_send(request, buffer, buffer_len, MSG_MORE);
+
+    return true;
+}
+
+void
+lwan_response_send_event(lwan_request_t *request, const char *event)
+{
+    if (!(request->flags & RESPONSE_SENT_HEADERS)) {
+        if (UNLIKELY(!lwan_response_set_event_stream(request, HTTP_OK)))
+            return;
+    }
+
+    struct iovec vec[6];
+    size_t last = 0;
+
+    if (event) {
+        vec[last].iov_base = "event: ";
+        vec[last].iov_len = sizeof("event: ") - 1;
+        last++;
+
+        vec[last].iov_base = (char *)event;
+        vec[last].iov_len = strlen(event);
+        last++;
+
+        vec[last].iov_base = "\r\n";
+        vec[last].iov_len = 2;
+        last++;
+    }
+
+    int buffer_len = strbuf_get_length(request->response.buffer);
+    if (buffer_len) {
+        vec[last].iov_base = "data: ";
+        vec[last].iov_len = sizeof("data: ") - 1;
+        last++;
+
+        vec[last].iov_base = strbuf_get_buffer(request->response.buffer);
+        vec[last].iov_len = buffer_len;
+        last++;
+
+    }
+
+    vec[last].iov_base = "\r\n\r\n";
+    vec[last].iov_len = 4;
+    last++;
+
+    lwan_writev(request, vec, last);
+
+    strbuf_reset_length(request->response.buffer);
+    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 }

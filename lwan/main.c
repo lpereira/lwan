@@ -66,6 +66,21 @@ test_chunked_encoding(lwan_request_t *request,
 }
 
 lwan_http_status_t
+test_server_sent_event(lwan_request_t *request,
+            lwan_response_t *response,
+            void *data __attribute__((unused)))
+{
+    int i;
+
+    for (i = 0; i <= 10; i++) {
+        strbuf_printf(response->buffer, "Current value is %d", i);
+        lwan_response_send_event(request, "currval");
+    }
+
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))
