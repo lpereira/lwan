@@ -220,13 +220,13 @@ struct lwan_url_map_t_ {
 struct lwan_thread_t_ {
     lwan_t *lwan;
     struct {
-        char date[31];
-        char expires[31];
+        char date[30];
+        char expires[30];
         time_t last;
     } date;
+    short id;
 
     pthread_t self;
-    int id;
     int epoll_fd;
 };
 

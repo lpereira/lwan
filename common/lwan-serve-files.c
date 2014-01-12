@@ -659,20 +659,18 @@ _prepare_headers(lwan_request_t *request,
                  char *header_buf,
                  size_t header_buf_size)
 {
-    lwan_key_value_t headers[5];
+    lwan_key_value_t headers[3];
 
     request->response.headers = headers;
     request->response.content_length = size;
 
     SET_NTH_HEADER(0, "Last-Modified", fce->last_modified.string);
-    SET_NTH_HEADER(1, "Date", request->conn->thread->date.date);
-    SET_NTH_HEADER(2, "Expires", request->conn->thread->date.expires);
 
     if (deflated) {
-        SET_NTH_HEADER(3, "Content-Encoding", "deflate");
-        SET_NTH_HEADER(4, NULL, NULL);
+        SET_NTH_HEADER(1, "Content-Encoding", "deflate");
+        SET_NTH_HEADER(2, NULL, NULL);
     } else {
-        SET_NTH_HEADER(3, NULL, NULL);
+        SET_NTH_HEADER(1, NULL, NULL);
     }
 
     return lwan_prepare_response_header(request, return_status,

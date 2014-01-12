@@ -281,6 +281,12 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         }
     }
 
+    APPEND_CONSTANT("\r\nDate: ");
+    APPEND_STRING_LEN(request->conn->thread->date.date, 29);
+
+    APPEND_CONSTANT("\r\nExpires: ");
+    APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
+
     APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
     return p_headers - headers - 1;
