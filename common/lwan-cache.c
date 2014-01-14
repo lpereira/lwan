@@ -184,55 +184,26 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   memset(entry, 0, sizeof(*entry));
   entry->key = strdup(key);
 
-try_adding_again:
-  /* Try adding the item to the hash table. If it's already there,
-   * destroy the newly-created item, and return the older item. If
-   * the item wasn't there, adjust its time to die and add to the
-   * reap queue. */
   pthread_rwlock_wrlock(&cache->hash.lock);
-  switch (hash_add_unique(cache->hash.table, entry->key, entry)) {
-  case -EEXIST: {
-      struct cache_entry_t *tmp_entry;
-
-      /* We don't need to write to the hash table anymore, unlock
-       * it for writing and lock it for reading. */
-      pthread_rwlock_unlock(&cache->hash.lock);
-      pthread_rwlock_rdlock(&cache->hash.lock);
-
-      tmp_entry = hash_find(cache->hash.table, key);
-      if (tmp_entry) {
-        cache->cb.destroy_entry(entry, cache->cb.context);
-        entry = tmp_entry;
-        goto end;
-      }
-
-      pthread_rwlock_unlock(&cache->hash.lock);
-      /* This shouldn't really happen, but if it does, just try to
-       * add the item to the hash table again. */
-      goto try_adding_again;
-    }
-  default:
-    /* This might be any error while reallocating memory to make
-     * room for the item inside the hasht able. Just don't add, but
-     * return a FLOATING item with one reference, and make it already
-     * expired, so that the first unref will actually destroy this
-     * item. */
-    entry->flags = FLOATING;
-    entry->time_to_die = time(NULL);
-    entry->refs = 1;
-    goto unlock_and_return;
-  case 0:
+  if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
     entry->time_to_die = time(NULL) + cache->settings.time_to_live;
+
     pthread_rwlock_wrlock(&cache->queue.lock);
     list_add_tail(&cache->queue.list, &entry->entries);
     pthread_rwlock_unlock(&cache->queue.lock);
+
+    ATOMIC_INC(entry->refs);
+  } else {
+    /* Either there's another item with the same key (-EEXIST), or
+     * there was an error inside the hash table. In either case,
+     * just return a FLOATING entry so that it is destroyed the first
+     * time someone unrefs this entry. */
+    entry->flags = FLOATING;
+    entry->time_to_die = time(NULL);
+    entry->refs = 1;
   }
 
-end:
-  ATOMIC_INC(entry->refs);
-unlock_and_return:
   pthread_rwlock_unlock(&cache->hash.lock);
-
   return entry;
 }
 
