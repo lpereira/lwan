@@ -43,6 +43,12 @@ struct death_queue_t {
 #define ONE_WEEK (ONE_DAY * 7)
 #define ONE_MONTH (ONE_DAY * 31)
 
+static ALWAYS_INLINE int
+min(const int a, const int b)
+{
+    return a < b ? a : b;
+}
+
 static ALWAYS_INLINE void
 _destroy_coro(lwan_connection_t *conn)
 {
@@ -236,17 +242,18 @@ _thread_io_loop(void *data)
     int epoll_fd = t->epoll_fd;
     int n_fds;
     const short keep_alive_timeout = t->lwan->config.keep_alive_timeout;
+    const int max_events = min(t->lwan->thread.max_fd, 1024);
 
     lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
 
-    events = calloc(t->lwan->thread.max_fd, sizeof(*events));
+    events = calloc(max_events, sizeof(*events));
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
     _death_queue_init(&dq, conns, t->lwan->thread.max_fd);
 
     for (;;) {
-        switch (n_fds = epoll_wait(epoll_fd, events, t->lwan->thread.max_fd,
+        switch (n_fds = epoll_wait(epoll_fd, events, max_events,
                                    _death_queue_epoll_timeout(&dq))) {
         case -1:
             switch (errno) {
