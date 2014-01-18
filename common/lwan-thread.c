@@ -113,7 +113,7 @@ _resume_coro_if_needed(lwan_connection_t *conn, int epoll_fd)
     int fd = lwan_connection_get_fd(conn);
     struct epoll_event event = {
         .events = events_by_write_flag[write_events],
-        .data.fd = fd
+        .data.ptr = conn
     };
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
@@ -269,7 +269,7 @@ _thread_io_loop(void *data)
             _update_date_cache(t);
 
             for (ep_event = events; n_fds--; ep_event++) {
-                lwan_connection_t *conn = &conns[ep_event->data.fd];
+                lwan_connection_t *conn = ep_event->data.ptr;
 
                 if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
                     _destroy_coro(conn);
