@@ -631,7 +631,7 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     return HTTP_OK;
 }
 
-static ALWAYS_INLINE bool
+static ALWAYS_INLINE lwan_http_status_t
 _prepare_for_response(lwan_url_map_t *url_map,
                       lwan_request_t *request,
                       lwan_request_parse_t *helper)
@@ -649,25 +649,21 @@ _prepare_for_response(lwan_url_map_t *url_map,
         _parse_accept_encoding(request, helper);
 
     if (request->flags & REQUEST_METHOD_POST) {
-        if (url_map->flags & HANDLER_PARSE_POST_DATA) {
+        if (url_map->flags & HANDLER_PARSE_POST_DATA)
             _parse_post_data(request, helper);
-        } else {
-            lwan_default_response(request, HTTP_NOT_ALLOWED);
-            return false;
-        }
+        else
+            return HTTP_NOT_ALLOWED;
     }
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
         if (!lwan_http_authorize(request,
                         &helper->authorization,
                         url_map->authorization.realm,
-                        url_map->authorization.password_file)) {
-            lwan_default_response(request, HTTP_NOT_AUTHORIZED);
-            return false;
-        }
+                        url_map->authorization.password_file))
+            return HTTP_NOT_AUTHORIZED;
     }
 
-    return true;
+    return HTTP_OK;
 }
 
 void
@@ -707,8 +703,11 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
-    if (UNLIKELY(!_prepare_for_response(url_map, request, &helper)))
+    status = _prepare_for_response(url_map, request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
         return;
+    }
 
     status = url_map->callback(request, &request->response, url_map->data);
     lwan_response(request, status);
