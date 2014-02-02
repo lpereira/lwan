@@ -163,7 +163,7 @@ lwan_http_authorize(lwan_request_t *request,
                     const char *realm,
                     const char *password_file)
 {
-    static const char value[] = "Basic realm=\"%s\"";
+    static const char authenticate_tmpl[] = "Basic realm=\"%s\"";
     static const size_t basic_len = sizeof("Basic ") - 1;
     lwan_key_value_t *headers;
 
@@ -182,9 +182,8 @@ lwan_http_authorize(lwan_request_t *request,
 unauthorized:
     headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
     headers[0].key = "WWW-Authenticate";
-    headers[0].value = coro_malloc(request->conn->coro,
-                sizeof(value) + strlen(realm) + 1);
-    sprintf(headers[0].value, value, realm);
+    headers[0].value = coro_printf(request->conn->coro,
+                authenticate_tmpl, realm);
     headers[1].key = headers[1].value = NULL;
 
     request->response.headers = headers;

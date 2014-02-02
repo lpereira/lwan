@@ -17,8 +17,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -278,4 +281,22 @@ coro_malloc(coro_t *coro, size_t size)
     coro->defer = defer;
 
     return defer + 1;
+}
+
+char *
+coro_printf(coro_t *coro, const char *fmt, ...)
+{
+    va_list values;
+    int len;
+    char *tmp_str;
+
+    va_start(values, fmt);
+    len = vasprintf(&tmp_str, fmt, values);
+    va_end(values);
+
+    if (UNLIKELY(len < 0))
+        return NULL;
+
+    coro_defer(coro, CORO_DEFER(free), tmp_str);
+    return tmp_str;
 }
