@@ -106,19 +106,6 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
 #define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
 
-#ifdef __x86_64__
-static ALWAYS_INLINE void
-_coro_makecontext(coro_t *coro, void *stack, size_t stack_size, coro_function_t func)
-{
-    coro->context[6 /* RDI */] = (uintptr_t) coro;
-    coro->context[7 /* RSI */] = (uintptr_t) func;
-    coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
-    coro->context[9 /* RSP */] = (uintptr_t) stack + stack_size;
-}
-#else
-#define _coro_makecontext(ctx, fun, args, ...) makecontext(ctx, fun, args, __VA_ARGS__)
-#endif
-
 static void
 _coro_entry_point(coro_t *coro, coro_function_t func)
 {
@@ -143,7 +130,7 @@ _coro_run_deferred(coro_t *coro)
 void
 coro_reset(coro_t *coro, coro_function_t func, void *data)
 {
-    void *stack = (coro_t *)coro + 1;
+    unsigned char *stack = (unsigned char *)(coro + 1);
 
     coro->ended = false;
     coro->data = data;
@@ -151,7 +138,10 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     _coro_run_deferred(coro);
 
 #ifdef __x86_64__
-    _coro_makecontext(coro, stack, CORO_STACK_MIN, func);
+    coro->context[6 /* RDI */] = (uintptr_t) coro;
+    coro->context[7 /* RSI */] = (uintptr_t) func;
+    coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
 #else
     getcontext(&coro->context);
 
@@ -160,8 +150,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-    _coro_makecontext(&coro->context, (void (*)())_coro_entry_point,
-                2, coro, func);
+    makecontext(&coro->context, (void (*)())_coro_entry_point, 2, coro, func);
 #endif
 }
 
