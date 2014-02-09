@@ -35,6 +35,7 @@
 enum {
   /* Entry flags */
   FLOATING = 1<<0,
+  TEMPORARY = 1<<1,
 
   /* Cache flags */
   SHUTTING_DOWN = 1<<0
@@ -196,10 +197,12 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   } else {
     /* Either there's another item with the same key (-EEXIST), or
      * there was an error inside the hash table. In either case,
-     * just return a FLOATING entry so that it is destroyed the first
-     * time someone unrefs this entry. */
-    entry->flags = FLOATING;
-    entry->time_to_die = time(NULL);
+     * just return a TEMPORARY entry so that it is destroyed the first
+     * time someone unrefs this entry. TEMPORARY entries are pretty much
+     * like FLOATING entries, but unreffing them do not use atomic
+     * operations. */
+    entry->flags = TEMPORARY;
+    entry->time_to_die = 0;
     entry->refs = 1;
   }
 
@@ -211,10 +214,18 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
 {
   assert(entry);
 
+  if (entry->flags & TEMPORARY)
+    goto destroy_entry;
+
+  if (ATOMIC_DEC(entry->refs))
+    return;
+
   /* FLOATING entries without references won't be picked up by the pruner
    * job, so destroy them right here. */
-  if (!ATOMIC_DEC(entry->refs) && entry->flags & FLOATING)
+  if (entry->flags & FLOATING) {
+destroy_entry:
     cache->cb.destroy_entry(entry, cache->cb.context);
+  }
 }
 
 static bool cache_pruner_job(void *data)
