@@ -421,7 +421,7 @@ main(void)
                                  SQLITE_OPEN_READONLY, NULL);
     if (result != SQLITE_OK)
         lwan_status_critical("Could not open database: %s",
-                    sqlite3_errstr(result));
+                    sqlite3_errmsg(db));
     cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
 #if QUERIES_PER_HOUR != 0
