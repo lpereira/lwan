@@ -229,11 +229,11 @@ destroy_ipinfo(struct cache_entry_t *entry,
 }
 
 static ALWAYS_INLINE char *
-text_column_helper(sqlite3_stmt *stmt, int index)
+text_column_helper(sqlite3_stmt *stmt, int ind)
 {
     const unsigned char *value;
 
-    value = sqlite3_column_text(stmt, index);
+    value = sqlite3_column_text(stmt, ind);
     return value ? strdup((char *)value) : NULL;
 }
 
