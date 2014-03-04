@@ -206,7 +206,7 @@ struct lwan_url_map_t_ {
     void *data;
 
     char *prefix;
-    int prefix_len;
+    size_t prefix_len;
     lwan_handler_flags_t flags;
 
     lwan_handler_t *handler;
@@ -246,7 +246,7 @@ struct lwan_t_ {
     lwan_config_t config;
 
     struct {
-        int count;
+        short count;
         int max_fd;
         lwan_thread_t *threads;
     } thread;

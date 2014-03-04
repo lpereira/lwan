@@ -235,7 +235,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 
 static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 {
-    lwan->config.port = parse_int(l->section.param, 8080);
+    lwan->config.port = (short)parse_int(l->section.param, 8080);
 
     while (config_read_line(c, l)) {
         switch (l->type) {
@@ -299,7 +299,7 @@ static bool setup_from_config(lwan_t *lwan)
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
             if (!strcmp(line.line.key, "keep_alive_timeout"))
-                lwan->config.keep_alive_timeout = parse_int(line.line.value,
+                lwan->config.keep_alive_timeout = (short)parse_int(line.line.value,
                             default_config.keep_alive_timeout);
             else if (!strcmp(line.line.key, "quiet"))
                 lwan->config.quiet = parse_bool(line.line.value,
@@ -339,7 +339,7 @@ static bool setup_from_config(lwan_t *lwan)
 void
 lwan_init(lwan_t *l)
 {
-    int max_threads = sysconf(_SC_NPROCESSORS_ONLN);
+    long max_threads = sysconf(_SC_NPROCESSORS_ONLN);
     struct rlimit r;
 
     /* Load defaults */
@@ -363,7 +363,7 @@ lwan_init(lwan_t *l)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
-    l->thread.count = max_threads > 0 ? max_threads : 2;
+    l->thread.count = (short)(max_threads > 0 ? max_threads : 2);
 
     if (getrlimit(RLIMIT_NOFILE, &r) < 0)
         lwan_status_critical_perror("getrlimit");
@@ -376,14 +376,14 @@ lwan_init(lwan_t *l)
         lwan_status_critical_perror("setrlimit");
 
     l->conns = calloc(r.rlim_cur, sizeof(lwan_connection_t));
-    l->thread.max_fd = r.rlim_cur / l->thread.count;
+    l->thread.max_fd = (int)r.rlim_cur / l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
 
     for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
         l->conns[r.rlim_cur].response_buffer = strbuf_new();
 
-    srand(time(NULL));
+    srand((unsigned)time(NULL));
     signal(SIGPIPE, SIG_IGN);
     close(STDIN_FILENO);
 
@@ -419,7 +419,7 @@ lwan_shutdown(lwan_t *l)
 static ALWAYS_INLINE void
 _push_request_fd(lwan_t *l, int fd)
 {
-    unsigned thread;
+    int thread;
 #ifdef __x86_64__
     assert(sizeof(lwan_connection_t) == 32);
     /* Since lwan_connection_t is guaranteed to be 32-byte long, two of them
