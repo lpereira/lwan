@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,21 +35,21 @@ enum {
     EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
 } lwan_mime_ext_t;
 
+static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static struct mime_entry mime_entries[MIME_ENTRIES];
-static bool mime_entries_uncompressed = false;
+static bool mime_entries_initialized = false;
 
 void
 lwan_tables_init(void)
 {
-    if (mime_entries_uncompressed)
+    if (mime_entries_initialized)
         return;
 
-    assert(sizeof(mime_entries) == MIME_UNCOMPRESSED_LEN);
-
     lwan_status_debug("Uncompressing MIME type table");
-    uLongf uncompressed_length = sizeof(mime_entries);
-    int ret = uncompress((Bytef*)mime_entries, &uncompressed_length,
-            (const Bytef*)mime_entries_compressed, MIME_COMPRESSED_LEN);
+    uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
+    int ret = uncompress((Bytef*)uncompressed_mime_entries,
+            &uncompressed_length, (const Bytef*)mime_entries_compressed,
+            MIME_COMPRESSED_LEN);
     if (ret != Z_OK)
         lwan_status_critical(
             "Error while uncompressing table: zlib error %d", ret);
@@ -57,7 +58,16 @@ lwan_tables_init(void)
         lwan_status_critical("Expected uncompressed length %d, got %ld",
             MIME_UNCOMPRESSED_LEN, uncompressed_length);
 
-    mime_entries_uncompressed = true;
+    size_t i;
+    unsigned char *ptr = uncompressed_mime_entries;
+    for (i = 0; i < MIME_ENTRIES; i++) {
+        mime_entries[i].extension = (char*)ptr;
+        ptr = rawmemchr(ptr + 1, '\0') + 1;
+        mime_entries[i].type = (char*)ptr;
+        ptr = rawmemchr(ptr + 1, '\0') + 1;
+    }
+
+    mime_entries_initialized = true;
 }
 
 void
@@ -70,7 +80,7 @@ _compare_mime_entry(const void *a, const void *b)
 {
     const struct mime_entry *me1 = a;
     const struct mime_entry *me2 = b;
-    return strncmp(me1->extension, me2->extension, sizeof(me1->extension));
+    return strcmp(me1->extension, me2->extension);
 }
 
 const char *
@@ -90,10 +100,8 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     }
 
     if (LIKELY(*last_dot)) {
-        struct mime_entry *entry, key;
+        struct mime_entry *entry, key = { .extension = last_dot + 1 };
 
-        strncpy(key.extension, (const char *)last_dot + 1,
-                                            sizeof(key.extension) - 1);
         entry = bsearch(&key, mime_entries, MIME_ENTRIES,
                        sizeof(struct mime_entry), _compare_mime_entry);
         if (LIKELY(entry))

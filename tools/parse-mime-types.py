@@ -28,14 +28,10 @@ out = ''
 entries = 0
 for typ, ext in types:
   entries += 1
-
   out += struct.pack('%ds' % len(ext), ext)
-  for padding in range(len(ext), max_ext_len + 1):
-    out += struct.pack('b', 0)
-
+  out += struct.pack('b', 0)
   out += struct.pack('%ds' % len(typ), typ)
-  for padding in range(len(typ), max_typ_len + 1):
-    out += struct.pack('b', 0)
+  out += struct.pack('b', 0)
 
 compressed_out = zlib.compress(out, 9)
 
@@ -48,8 +44,8 @@ print '#define MIME_COMPRESSED_LEN %d' % len(compressed_out)
 print '#define MIME_ENTRIES %d' % entries
 
 print 'struct mime_entry {'
-print '  char extension[%d];' % (max_ext_len + 1)
-print '  char type[%d];' % (max_typ_len + 1)
+print '  const char *extension;'
+print '  const char *type;'
 print '};'
 
 print 'static const unsigned char mime_entries_compressed[] = {'
