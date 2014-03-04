@@ -25,11 +25,8 @@
 #include "lwan.h"
 #include "strbuf.h"
 
-enum {
-    STATIC = 1<<0
-};
-
-static const int const default_buf_size = 64;
+static const unsigned int STATIC = 1<<0;
+static const size_t const DEFAULT_BUF_SIZE = 64;
 
 static size_t
 find_next_power_of_two(size_t number)
@@ -103,7 +100,7 @@ strbuf_new_with_size(size_t size)
 ALWAYS_INLINE strbuf_t *
 strbuf_new(void)
 {
-    return strbuf_new_with_size(default_buf_size);
+    return strbuf_new_with_size(DEFAULT_BUF_SIZE);
 }
 
 void
@@ -195,7 +192,7 @@ internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, char *, size_t), cons
     if (UNLIKELY((len = vasprintf(&s2, fmt, values)) < 0))
         return false;
 
-    bool success = save_str(s1, s2, len);
+    bool success = save_str(s1, s2, (size_t)len);
     free(s2);
 
     return success;
@@ -266,7 +263,7 @@ strbuf_shrink_to(strbuf_t *s, size_t new_size)
 ALWAYS_INLINE bool
 strbuf_shrink_to_default(strbuf_t *s)
 {
-    return strbuf_shrink_to(s, default_buf_size);
+    return strbuf_shrink_to(s, DEFAULT_BUF_SIZE);
 }
 
 ALWAYS_INLINE bool
