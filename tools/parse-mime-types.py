@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+import struct
+import zlib
+
 types = []
 
 for l in file('/etc/mime.types'):
@@ -13,20 +16,50 @@ for l in file('/etc/mime.types'):
 
   types.append((mime_type, extensions))
 
-print '#ifndef MIME_TYPES_H'
-print '#define MIME_TYPES_H'
-print '/* Auto generated from parse-mime-types.py */'
-print ''
-print 'struct lwan_mime_type_t {'
-print '   const char *mime_type;'
-print '   const char *extension;'
-print '};'
-print ''
-print 'static const struct lwan_mime_type_t mime_type_array[] = {'
+max_ext_len = max(len(ext) for typ, ext in types)
+max_typ_len = max(len(typ) for typ, ext in types)
+total_len = len(types) * (max_ext_len + 1 + max_typ_len + 1)
 
-for t, exts in types:
-  for e in exts:
-    print '   { .mime_type = \"%s\", .extension = \"%s\" },' % (t, e)
 
+out = ''
+entries = 0
+for typ, exts in types:
+  for ext in exts:
+    entries += 1
+
+    out += struct.pack('%ds' % len(ext), ext)
+    for padding in range(len(ext), max_ext_len + 1):
+      out += struct.pack('b', 0)
+
+    out += struct.pack('%ds' % len(typ), typ)
+    for padding in range(len(typ), max_typ_len + 1):
+      out += struct.pack('b', 0)
+
+compressed_out = zlib.compress(out, 9)
+
+print '#ifndef __MIME_TYPES_H__'
+print '#define __MIME_TYPES_H__'
+print '/* Auto generated from parse-mime-types.py, do not modify */'
+
+print '#define MIME_UNCOMPRESSED_LEN %d' % len(out)
+print '#define MIME_COMPRESSED_LEN %d' % len(compressed_out)
+print '#define MIME_ENTRIES %d' % entries
+
+print 'struct mime_entry {'
+print '  const char extension[%d];' % (max_ext_len + 1)
+print '  const char type[%d];' % (max_typ_len + 1)
 print '};'
-print '#endif /* MIME_TYPES_H */'
+
+print 'static const unsigned char mime_entries_compressed[] = {'
+for index, b in enumerate(compressed_out):
+  if index > 0 and index % 13 == 0:
+    print ''
+
+  b = ord(b)
+  if b < 0x10:
+    print '0x0%x,' % b,
+  else:
+    print '0x%x,' % b,
+print '};'
+
+print '#endif  /* __MIME_TYPES_H__ */'

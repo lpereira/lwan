@@ -17,7 +17,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <assert.h>
 #include <string.h>
+#include <zlib.h>
 
 #include "lwan.h"
 #include "hash.h"
@@ -32,6 +34,7 @@ enum {
     EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
 } lwan_mime_ext_t;
 
+static struct mime_entry mime_entries[MIME_ENTRIES];
 static struct hash *mime_types;
 
 void
@@ -45,10 +48,24 @@ lwan_tables_init(void)
     if (!mime_types)
         return;
 
+    assert(sizeof(mime_entries) == MIME_UNCOMPRESSED_LEN);
+
+    lwan_status_debug("Uncompressing MIME type table");
+    uLongf uncompressed_length = sizeof(mime_entries);
+    int ret = uncompress((Bytef*)mime_entries, &uncompressed_length,
+            (const Bytef*)mime_entries_compressed, MIME_COMPRESSED_LEN);
+    if (ret != Z_OK)
+        lwan_status_critical(
+            "Error while uncompressing table: zlib error %d", ret);
+
+    if (uncompressed_length != MIME_UNCOMPRESSED_LEN)
+        lwan_status_critical("Expected uncompressed length %d, got %ld",
+            MIME_UNCOMPRESSED_LEN, uncompressed_length);
+
     size_t i = 0;
-    for (i = 0; i < N_ELEMENTS(mime_type_array); i++)
-        hash_add(mime_types, mime_type_array[i].extension,
-                    mime_type_array[i].mime_type);
+    for (i = 0; i < MIME_ENTRIES; i++)
+        hash_add(mime_types, mime_entries[i].extension,
+                    mime_entries[i].type);
 }
 
 void
