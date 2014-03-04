@@ -97,7 +97,7 @@ lwan_socket_init(lwan_t *l)
                                                 (int[]){ 1 }, sizeof(int));
 
     memset(&sin, 0, sizeof(sin));
-    sin.sin_port = htons(l->config.port);
+    sin.sin_port = htons((uint16_t)l->config.port);
     sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_family = AF_INET;
 

@@ -187,10 +187,6 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
             case EAGAIN:
             case EINTR:
                 coro_yield(coro, CONN_CORO_MAY_RESUME);
-
-                /* Try sending less stuff next time */
-                if (LIKELY(to_be_written > (ssize_t)buffer_size))
-                    to_be_written >>= 1;
                 continue;
 
             default:
