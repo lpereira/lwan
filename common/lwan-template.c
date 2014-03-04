@@ -133,7 +133,7 @@ symtab_pop(struct parser_state *state)
 char *
 _lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length)
 {
-    char buf[32];
+    char buf[INT_TO_STR_BUFFER_SIZE];
     char *ret;
 
     ret = int_to_string(*(int *)ptr, buf, length);

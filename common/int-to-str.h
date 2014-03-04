@@ -21,8 +21,14 @@
 
 #include "lwan.h"
 
-char *int_to_string(ssize_t value, char bufffer[], size_t *len);
-char *uint_to_string(size_t value, char buffer[], size_t *len);
+#define INT_TO_STR_BUFFER_SIZE (3 * sizeof(size_t) + 1)
+
+char *int_to_string(ssize_t value,
+                    char buffer[static INT_TO_STR_BUFFER_SIZE],
+                    size_t *len);
+char *uint_to_string(size_t value,
+                     char buffer[static INT_TO_STR_BUFFER_SIZE],
+                     size_t *len);
 
 #endif /* __INT_TO_STR_H__ */
 

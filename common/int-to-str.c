@@ -20,12 +20,12 @@
 #include <assert.h>
 #include "int-to-str.h"
 
-static const size_t buffer_size = 3 * sizeof(size_t);
-
 ALWAYS_INLINE char *
-uint_to_string(size_t value, char buffer[], size_t *len)
+uint_to_string(size_t value,
+               char buffer[INT_TO_STR_BUFFER_SIZE],
+               size_t *len)
 {
-    char *p = buffer + buffer_size;
+    char *p = buffer + INT_TO_STR_BUFFER_SIZE;
 
     assert(len);
 
@@ -34,13 +34,15 @@ uint_to_string(size_t value, char buffer[], size_t *len)
         *--p = (char)('0' + value % 10);
     } while (value /= 10);
 
-    *len = (size_t)(buffer_size - (size_t)(p - buffer));
+    *len = (size_t)(INT_TO_STR_BUFFER_SIZE - (size_t)(p - buffer));
 
     return p;
 }
 
 ALWAYS_INLINE char *
-int_to_string(ssize_t value, char buffer[], size_t *len)
+int_to_string(ssize_t value,
+              char buffer[INT_TO_STR_BUFFER_SIZE],
+              size_t *len)
 {
     if (value < 0) {
         char *p = uint_to_string((size_t) -value, buffer, len);
