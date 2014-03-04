@@ -148,9 +148,9 @@ _status_out(const char *file, const int line, const char *func,
   len = vasprintf(&output, fmt, values);
   if (len >= 0) {
 #ifdef NDEBUG
-    _status_out_msg(type, output, len);
+    _status_out_msg(type, output, (size_t)len);
 #else
-    _status_out_msg(file, line, func, type, output, len);
+    _status_out_msg(file, line, func, type, output, (size_t)len);
 #endif
     free(output);
   }
