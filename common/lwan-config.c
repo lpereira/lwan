@@ -42,10 +42,10 @@ bool parse_bool(const char *value, bool default_value)
   return default_value;
 }
 
-int parse_int(const char *value, int default_value)
+long parse_long(const char *value, long default_value)
 {
   char *endptr;
-  long int parsed;
+  long parsed;
   int base;
 
   if (*value == '0') {

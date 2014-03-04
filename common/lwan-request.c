@@ -562,7 +562,7 @@ _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
 {
     ssize_t post_data_size;
 
-    post_data_size = parse_int(helper->content_length.value, DEFAULT_BUFFER_SIZE);
+    post_data_size = parse_long(helper->content_length.value, DEFAULT_BUFFER_SIZE);
     if (UNLIKELY(post_data_size > DEFAULT_BUFFER_SIZE))
         return HTTP_TOO_LARGE;
     if (UNLIKELY(post_data_size < 0))

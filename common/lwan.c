@@ -235,7 +235,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 
 static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 {
-    lwan->config.port = (short)parse_int(l->section.param, 8080);
+    lwan->config.port = (short)parse_long(l->section.param, 8080);
 
     while (config_read_line(c, l)) {
         switch (l->type) {
@@ -299,7 +299,7 @@ static bool setup_from_config(lwan_t *lwan)
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
             if (!strcmp(line.line.key, "keep_alive_timeout"))
-                lwan->config.keep_alive_timeout = (short)parse_int(line.line.value,
+                lwan->config.keep_alive_timeout = (short)parse_long(line.line.value,
                             default_config.keep_alive_timeout);
             else if (!strcmp(line.line.key, "quiet"))
                 lwan->config.quiet = parse_bool(line.line.value,

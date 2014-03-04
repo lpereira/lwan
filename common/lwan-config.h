@@ -57,6 +57,6 @@ bool config_error(config_t *conf, const char *fmt, ...);
 bool config_read_line(config_t *conf, config_line_t *l);
 
 bool parse_bool(const char *value, bool default_value);
-int parse_int(const char *value, int default_value);
+long parse_long(const char *value, long default_value);
 
 #endif  /* __LWAN_CONFIG_H__ */
