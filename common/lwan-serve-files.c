@@ -265,16 +265,16 @@ _directory_list_generator(coro_t *coro)
         }
 
         if (st.st_size < 1024) {
-            fl->file_list.size = st.st_size;
+            fl->file_list.size = (int)st.st_size;
             fl->file_list.unit = "B";
         } else if (st.st_size < 1024 * 1024) {
-            fl->file_list.size = st.st_size / 1024;
+            fl->file_list.size = (int)(st.st_size / 1024);
             fl->file_list.unit = "KiB";
         } else if (st.st_size < 1024 * 1024 * 1024) {
-            fl->file_list.size = st.st_size / (1024 * 1024);
+            fl->file_list.size = (int)(st.st_size / (1024 * 1024));
             fl->file_list.unit = "MiB";
         } else {
-            fl->file_list.size = st.st_size / (1024 * 1024 * 1024);
+            fl->file_list.size = (int)(st.st_size / (1024 * 1024 * 1024));
             fl->file_list.unit = "GiB";
         }
 
@@ -327,18 +327,18 @@ _mmap_init(file_cache_entry_t *ce,
     if (UNLIKELY(file_fd < 0))
         return false;
 
-    md->uncompressed.contents = mmap(NULL, st->st_size, PROT_READ,
+    md->uncompressed.contents = mmap(NULL, (size_t)st->st_size, PROT_READ,
                                      MAP_SHARED, file_fd, 0);
     if (UNLIKELY(md->uncompressed.contents == MAP_FAILED)) {
         success = false;
         goto close_file;
     }
 
-    if (UNLIKELY(madvise(md->uncompressed.contents, st->st_size,
+    if (UNLIKELY(madvise(md->uncompressed.contents, (size_t)st->st_size,
                          MADV_WILLNEED) < 0))
         lwan_status_perror("madvise");
 
-    md->uncompressed.size = st->st_size;
+    md->uncompressed.size = (size_t)st->st_size;
     _compress_cached_entry(md);
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
@@ -360,7 +360,7 @@ _sendfile_init(file_cache_entry_t *ce,
 {
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(ce + 1);
 
-    sd->size = st->st_size;
+    sd->size = (size_t)st->st_size;
     sd->filename = strdup(full_path + priv->root.path_len + 1);
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
@@ -737,7 +737,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
     lwan_http_status_t return_status;
     off_t from, to;
 
-    return_status = _compute_range(request, &from, &to, sd->size);
+    return_status = _compute_range(request, &from, &to, (off_t)sd->size);
     if (UNLIKELY(return_status == HTTP_RANGE_UNSATISFIABLE))
         return HTTP_RANGE_UNSATISFIABLE;
 
@@ -775,7 +775,7 @@ _sendfile_serve(lwan_request_t *request, void *data)
         }
 
         lwan_send(request, headers, header_len, MSG_MORE);
-        lwan_sendfile(request, file_fd, from, to);
+        lwan_sendfile(request, file_fd, from, (size_t)to);
     }
 
     return return_status;
