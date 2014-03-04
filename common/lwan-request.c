@@ -96,7 +96,7 @@ _identify_http_method(lwan_request_t *request, char *buffer)
 static ALWAYS_INLINE char
 _decode_hex_digit(char ch)
 {
-    return (ch <= '9') ? ch - '0' : (ch & 7) + 9;
+    return (char)((ch <= '9') ? ch - '0' : (ch & 7) + 9);
 }
 
 static ALWAYS_INLINE bool
@@ -114,7 +114,7 @@ _url_decode(char *str)
     char *ch, *decoded;
     for (decoded = ch = str; *ch; ch++) {
         if (*ch == '%' && LIKELY(_is_hex_digit(ch[1]) && _is_hex_digit(ch[2]))) {
-            char tmp = _decode_hex_digit(ch[1]) << 4 | _decode_hex_digit(ch[2]);
+            char tmp = (char)(_decode_hex_digit(ch[1]) << 4 | _decode_hex_digit(ch[2]));
             if (UNLIKELY(!tmp))
                 return 0;
             *decoded++ = tmp;
@@ -127,7 +127,7 @@ _url_decode(char *str)
     }
 
     *decoded = '\0';
-    return decoded - str;
+    return (size_t)(decoded - str);
 }
 
 static int
@@ -218,7 +218,8 @@ static ALWAYS_INLINE char *
 _identify_http_path(lwan_request_t *request, char *buffer,
             lwan_request_parse_t *helper)
 {
-    char *end_of_line = memchr(buffer, '\r', helper->buffer.len - (buffer - helper->buffer.value));
+    char *end_of_line = memchr(buffer, '\r',
+                            (helper->buffer.len - (size_t)(buffer - helper->buffer.value)));
     if (UNLIKELY(!end_of_line))
         return NULL;
     *end_of_line = '\0';
@@ -238,14 +239,14 @@ _identify_http_path(lwan_request_t *request, char *buffer,
         return NULL;
 
     request->url.value = buffer;
-    request->url.len = space - buffer;
+    request->url.len = (size_t)(space - buffer);
 
     /* Most of the time, fragments are small -- so search backwards */
     char *fragment = memrchr(buffer, '#', request->url.len);
     if (fragment) {
         *fragment = '\0';
         helper->fragment.value = fragment + 1;
-        helper->fragment.len = space - fragment - 1;
+        helper->fragment.len = (size_t)(space - fragment - 1);
         request->url.len -= helper->fragment.len + 1;
     }
 
@@ -255,7 +256,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
     if (query_string) {
         *query_string = '\0';
         helper->query_string.value = query_string + 1;
-        helper->query_string.len = (fragment ? fragment : space) - query_string - 1;
+        helper->query_string.len = (size_t)((fragment ? fragment : space) - query_string - 1);
         request->url.len -= helper->query_string.len + 1;
     }
 
@@ -279,7 +280,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
           *end = '\0'; \
           value = p; \
           p = end + 1; \
-          length = end - value; \
+          length = (size_t)(end - value); \
           if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
         } else goto did_not_match;      /* couldn't find line end */ \
@@ -340,7 +341,7 @@ retry:
             goto retry;
         }
 did_not_match:
-        p = memchr(p, '\n', buffer_end - p);
+        p = memchr(p, '\n', (size_t)(buffer_end - p));
         if (!p)
             break;
     }
@@ -433,7 +434,7 @@ _has_zero_byte(unsigned long n)
 static ALWAYS_INLINE unsigned long
 _is_space(char ch)
 {
-    return _has_zero_byte((0x1010101 * ch) ^ 0x090a0d20);
+    return _has_zero_byte((0x1010101UL * (unsigned long)ch) ^ 0x090a0d20UL);
 }
 
 static ALWAYS_INLINE char *
@@ -455,20 +456,20 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
     if (is_keep_alive)
         request->conn->flags |= CONN_KEEP_ALIVE;
     else
-        request->conn->flags &= ~CONN_KEEP_ALIVE;
+        request->conn->flags &= (unsigned int)~CONN_KEEP_ALIVE;
 }
 
 static lwan_http_status_t
 _read_from_request_socket(lwan_request_t *request, lwan_value_t *buffer,
-    const ssize_t buffer_size,
-    lwan_read_finalizer_t (*finalizer)(ssize_t total_read, ssize_t buffer_size, lwan_value_t *buffer))
+    const size_t buffer_size,
+    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, lwan_value_t *buffer))
 {
     ssize_t n;
-    ssize_t total_read = 0;
+    size_t total_read = 0;
 
     while(true) {
         n = read(request->fd, buffer->value + total_read,
-                    buffer_size - total_read);
+                    (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
@@ -500,7 +501,7 @@ yield_and_read_again:
             ASSERT_NOT_REACHED();
         }
 
-        total_read += n;
+        total_read += (size_t)n;
         buffer->value[total_read] = '\0';
 
         switch (finalizer(total_read, buffer_size, buffer)) {
@@ -512,14 +513,12 @@ yield_and_read_again:
     }
 
 out:
-    buffer->len = total_read;
+    buffer->len = (size_t)total_read;
     return HTTP_OK;
 }
 
-
-
 static lwan_read_finalizer_t
-_read_request_finalizer(ssize_t total_read, ssize_t buffer_size,
+_read_request_finalizer(size_t total_read, size_t buffer_size,
     lwan_value_t *buffer)
 {
     if (UNLIKELY(total_read < 4))
@@ -548,7 +547,7 @@ _read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 }
 
 static lwan_read_finalizer_t
-_read_post_data_finalizer(ssize_t total_read, ssize_t buffer_size,
+_read_post_data_finalizer(size_t total_read, size_t buffer_size,
     lwan_value_t *buffer __attribute__((unused)))
 {
     if (LIKELY(total_read == buffer_size))
@@ -560,33 +559,36 @@ static ALWAYS_INLINE lwan_http_status_t
 _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
             *buffer)
 {
-    ssize_t post_data_size;
+    long parsed_length;
 
-    post_data_size = parse_long(helper->content_length.value, DEFAULT_BUFFER_SIZE);
-    if (UNLIKELY(post_data_size > DEFAULT_BUFFER_SIZE))
+    parsed_length = parse_long(helper->content_length.value, DEFAULT_BUFFER_SIZE);
+    if (UNLIKELY(parsed_length > DEFAULT_BUFFER_SIZE))
         return HTTP_TOO_LARGE;
-    if (UNLIKELY(post_data_size < 0))
+    if (UNLIKELY(parsed_length < 0))
         return HTTP_BAD_REQUEST;
 
-    ssize_t curr_post_data_len = helper->buffer.len - (buffer - helper->buffer.value);
+    size_t post_data_size = (size_t)parsed_length;
+    size_t curr_post_data_len =
+                    (helper->buffer.len - (size_t)(buffer - helper->buffer.value));
     if (curr_post_data_len == post_data_size) {
         helper->post_data.value = buffer;
-        helper->post_data.len = post_data_size;
+        helper->post_data.len = (size_t)post_data_size;
 
         return HTTP_OK;
     }
 
-    helper->post_data.value = coro_malloc(request->conn->coro, post_data_size);
+    helper->post_data.value = coro_malloc(request->conn->coro, (size_t)post_data_size);
     if (!helper->post_data.value)
         return HTTP_INTERNAL_ERROR;
 
-    memcpy(helper->post_data.value, buffer, curr_post_data_len);
-    helper->post_data.len = curr_post_data_len;
+    memcpy(helper->post_data.value, buffer, (size_t)curr_post_data_len);
+    helper->post_data.len = (size_t)curr_post_data_len;
     helper->post_data.value += curr_post_data_len;
 
     lwan_http_status_t status = _read_from_request_socket(request,
-                        &helper->post_data, post_data_size -
-                        curr_post_data_len, _read_post_data_finalizer);
+                        &helper->post_data,
+                        post_data_size - curr_post_data_len,
+                        _read_post_data_finalizer);
     if (status != HTTP_OK)
         return status;
 
