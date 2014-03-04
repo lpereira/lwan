@@ -456,7 +456,7 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
     if (is_keep_alive)
         request->conn->flags |= CONN_KEEP_ALIVE;
     else
-        request->conn->flags &= (unsigned int)~CONN_KEEP_ALIVE;
+        request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
 static lwan_http_status_t

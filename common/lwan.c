@@ -299,7 +299,7 @@ static bool setup_from_config(lwan_t *lwan)
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
             if (!strcmp(line.line.key, "keep_alive_timeout"))
-                lwan->config.keep_alive_timeout = (short)parse_long(line.line.value,
+                lwan->config.keep_alive_timeout = (unsigned short)parse_long(line.line.value,
                             default_config.keep_alive_timeout);
             else if (!strcmp(line.line.key, "quiet"))
                 lwan->config.quiet = parse_bool(line.line.value,
@@ -376,7 +376,7 @@ lwan_init(lwan_t *l)
         lwan_status_critical_perror("setrlimit");
 
     l->conns = calloc(r.rlim_cur, sizeof(lwan_connection_t));
-    l->thread.max_fd = (int)r.rlim_cur / l->thread.count;
+    l->thread.max_fd = (unsigned)r.rlim_cur / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
 
@@ -404,8 +404,8 @@ lwan_shutdown(lwan_t *l)
     lwan_status_debug("Shutting down URL handlers");
     lwan_trie_destroy(l->url_map_trie);
 
-    int i;
-    for (i = l->thread.max_fd * l->thread.count - 1; i >= 0; --i)
+    unsigned i;
+    for (i = l->thread.max_fd * (unsigned)l->thread.count - 1; i != 0; --i)
         strbuf_free(l->conns[i].response_buffer);
 
     free(l->conns);

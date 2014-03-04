@@ -127,6 +127,7 @@ typedef enum {
 } lwan_request_flags_t;
 
 typedef enum {
+    CONN_MASK               = -1,
     CONN_KEEP_ALIVE         = 1<<0,
     CONN_IS_ALIVE           = 1<<1,
     CONN_SHOULD_RESUME_CORO = 1<<2,
@@ -233,7 +234,7 @@ struct lwan_thread_t_ {
 
 struct lwan_config_t_ {
     short port;
-    short keep_alive_timeout;
+    unsigned short keep_alive_timeout;
     bool quiet;
     bool reuse_port;
 };
@@ -247,7 +248,7 @@ struct lwan_t_ {
 
     struct {
         short count;
-        int max_fd;
+        unsigned max_fd;
         lwan_thread_t *threads;
     } thread;
 };

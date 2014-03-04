@@ -38,6 +38,11 @@ struct death_queue_t {
     lwan_connection_t *conns;
 };
 
+static const unsigned const events_by_write_flag[] = {
+    EPOLLOUT | EPOLLRDHUP | EPOLLERR,
+    EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
+};
+
 #define ONE_HOUR 3600
 #define ONE_DAY (ONE_HOUR * 24)
 #define ONE_WEEK (ONE_DAY * 7)
@@ -106,10 +111,6 @@ _resume_coro_if_needed(lwan_connection_t *conn, int epoll_fd)
     if (should_resume_coro == write_events)
         return;
 
-    static const int const events_by_write_flag[] = {
-        EPOLLOUT | EPOLLRDHUP | EPOLLERR,
-        EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
-    };
     int fd = lwan_connection_get_fd(conn);
     struct epoll_event event = {
         .events = events_by_write_flag[write_events],
@@ -241,12 +242,12 @@ _thread_io_loop(void *data)
     struct death_queue_t dq;
     int epoll_fd = t->epoll_fd;
     int n_fds;
-    const short keep_alive_timeout = t->lwan->config.keep_alive_timeout;
-    const int max_events = min(t->lwan->thread.max_fd, 1024);
+    const unsigned short keep_alive_timeout = t->lwan->config.keep_alive_timeout;
+    const int max_events = min((int)t->lwan->thread.max_fd, 1024);
 
     lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
 
-    events = calloc(max_events, sizeof(*events));
+    events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
@@ -291,7 +292,7 @@ _thread_io_loop(void *data)
                  */
                 conn->time_to_die = dq.time;
                 conn->time_to_die += keep_alive_timeout *
-                        !!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
+                        (unsigned)!!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
             }
         }
     }
@@ -304,7 +305,7 @@ epoll_fd_closed:
 }
 
 static void
-_create_thread(lwan_t *l, int thread_n)
+_create_thread(lwan_t *l, short thread_n)
 {
     pthread_attr_t attr;
     lwan_thread_t *thread = &l->thread.threads[thread_n];
@@ -335,15 +336,15 @@ _create_thread(lwan_t *l, int thread_n)
 void
 lwan_thread_init(lwan_t *l)
 {
-    int i;
+    short i;
 
     lwan_status_debug("Initializing threads");
 
-    l->thread.threads = malloc(sizeof(lwan_thread_t) * l->thread.count);
+    l->thread.threads = malloc(sizeof(lwan_thread_t) * (size_t)l->thread.count);
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
-    for (i = l->thread.count - 1; i >= 0; i--)
+    for (i = 0; i < l->thread.count; i++)
         _create_thread(l, i);
 }
 
