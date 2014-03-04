@@ -1,7 +1,7 @@
 project(lwan C)
 cmake_minimum_required(VERSION 2.6)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
