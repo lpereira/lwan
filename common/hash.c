@@ -57,8 +57,8 @@ struct hash {
 static inline unsigned hash_int(const void *keyptr)
 {
 	/* http://www.concentric.net/~Ttwang/tech/inthash.htm */
-	int key = (int)(long)keyptr;
-	int c2 = 0x27d4eb2d; // a prime or an odd constant
+	unsigned key = (unsigned)(long)keyptr;
+	unsigned c2 = 0x27d4eb2d; // a prime or an odd constant
 
 	key = (key ^ 61) ^ (key >> 16);
 	key += key << 3;
@@ -86,7 +86,7 @@ static inline unsigned hash_crc32(const void *keyptr)
 		len -= sizeof(uint16_t);
 	}
 	if (len)
-		hash = __builtin_ia32_crc32qi(hash, *key);
+		hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
 
 	return hash;
 }
@@ -292,7 +292,7 @@ int hash_del(struct hash *hash, const void *key)
 
 	entry_end = bucket->entries + bucket->used;
 	memmove(entry, entry + 1,
-		(entry_end - entry) * sizeof(struct hash_entry));
+		(size_t)(entry_end - entry) * sizeof(struct hash_entry));
 
 	bucket->used--;
 	hash->count--;
@@ -332,7 +332,7 @@ bool hash_iter_next(struct hash_iter *iter, const void **key,
 
 	iter->entry++;
 
-	if (iter->entry >= b->used) {
+	if ((unsigned)iter->entry >= b->used) {
 		iter->entry = 0;
 
 		for (iter->bucket++; iter->bucket < n_buckets;

@@ -8,7 +8,7 @@ struct hash;
 struct hash_iter {
 	const struct hash *hash;
 	unsigned int bucket;
-	unsigned int entry;
+	int entry;
 };
 
 struct hash *hash_int_new(void (*free_key)(void *value),
