@@ -197,7 +197,7 @@ _lwan_tpl_str_is_empty(void *ptr)
 static int
 compile_append_text(struct parser_state *state, strbuf_t *buf)
 {
-    int length = strbuf_get_length(buf);
+    size_t length = strbuf_get_length(buf);
     if (!length)
         return 0;
 
@@ -230,7 +230,7 @@ compile_append_var(struct parser_state *state, strbuf_t *buf,
         return -ENOMEM;
 
     char *variable = strbuf_get_buffer(buf);
-    int length = strbuf_get_length(buf) - 1;
+    size_t length = strbuf_get_length(buf) - 1;
 
     switch (*variable) {
     case '>': {
@@ -384,7 +384,7 @@ feed_into_compiler(struct parser_state *parser_state,
         if (last_pass)
             goto append_text;
 
-        strbuf_append_char(buf, ch);
+        strbuf_append_char(buf, (char)ch);
         break;
 
     case STATE_FIRST_BRACE:
@@ -398,7 +398,7 @@ feed_into_compiler(struct parser_state *parser_state,
         if (last_pass)
             goto append_text;
 
-        strbuf_append_char(buf, ch);
+        strbuf_append_char(buf, (char)ch);
 
         return STATE_DEFAULT;
 
@@ -410,7 +410,7 @@ feed_into_compiler(struct parser_state *parser_state,
         if (last_pass)
             PARSE_ERROR("Missing close brace");
 
-        strbuf_append_char(buf, ch);
+        strbuf_append_char(buf, (char)ch);
         break;
 
     case STATE_FIRST_CLOSING_BRACE:
@@ -438,7 +438,7 @@ feed_into_compiler(struct parser_state *parser_state,
         if (ch == '{')
             return STATE_FIRST_BRACE;
 
-        strbuf_append_char(buf, ch);
+        strbuf_append_char(buf, (char)ch);
         return STATE_DEFAULT;
     }
 
@@ -548,13 +548,13 @@ lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descrip
     if (fstat(fd, &st) < 0)
         goto close_file;
 
-    mapped = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (mapped == MAP_FAILED)
         goto close_file;
 
     tpl = lwan_tpl_compile_string(mapped, descriptor);
 
-    if (munmap(mapped, st.st_size) < 0)
+    if (munmap(mapped, (size_t)st.st_size) < 0)
         lwan_status_perror("munmap");
 
 close_file:
