@@ -3,6 +3,7 @@
 import struct
 import zlib
 
+known_exts = set()
 types = []
 for l in file('/etc/mime.types'):
   l = l.strip()
@@ -12,6 +13,9 @@ for l in file('/etc/mime.types'):
     continue
   mime_type = l[:last_tab].strip()
   for extension in l[last_tab:].split():
+    if extension in known_exts:
+      continue
+    known_exts.add(extension)
     types.append((mime_type, extension))
 
 types.sort(lambda a, b: cmp(a[1], b[1]))
