@@ -29,7 +29,7 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
      * 1x1 transparent GIF image generated with tinygif
      * http://www.perlmonks.org/?node_id=7974
      */
-    static char gif_beacon_data[] = {
+    static const unsigned char gif_beacon_data[] = {
         0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x90,
         0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0xF9, 0x04,
         0x05, 0x10, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -37,7 +37,7 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
     };
 
     response->mime_type = "image/gif";
-    strbuf_set_static(response->buffer, gif_beacon_data, sizeof(gif_beacon_data));
+    strbuf_set_static(response->buffer, (char*)gif_beacon_data, sizeof(gif_beacon_data));
 
     return HTTP_OK;
 }
