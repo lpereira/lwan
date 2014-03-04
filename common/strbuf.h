@@ -46,7 +46,7 @@ bool		 strbuf_set(strbuf_t *s1, char *s2, size_t sz);
 int		 strbuf_cmp(strbuf_t *s1, strbuf_t *s2);
 bool		 strbuf_append_printf(strbuf_t *s, const char *fmt, ...);
 bool		 strbuf_printf(strbuf_t *s1, const char *fmt, ...);
-int		 strbuf_get_length(strbuf_t *s);
+size_t		 strbuf_get_length(strbuf_t *s);
 char		*strbuf_get_buffer(strbuf_t *s);
 bool		 strbuf_shrink_to(strbuf_t *s, size_t new_size);
 bool		 strbuf_shrink_to_default(strbuf_t *s);

@@ -217,9 +217,9 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 #define APPEND_INT8(value_) \
     do { \
         RETURN_0_ON_OVERFLOW(3); \
-        APPEND_CHAR_NOCHECK(((value_) / 100) % 10 + '0'); \
-        APPEND_CHAR_NOCHECK(((value_) / 10) % 10 + '0'); \
-        APPEND_CHAR_NOCHECK((value_) % 10 + '0'); \
+        APPEND_CHAR_NOCHECK((char)(((value_) / 100) % 10 + '0')); \
+        APPEND_CHAR_NOCHECK((char)(((value_) / 10) % 10 + '0')); \
+        APPEND_CHAR_NOCHECK((char)((value_) % 10 + '0')); \
     } while(0)
 
 #define APPEND_UINT(value_) \
@@ -301,7 +301,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 
     APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
-    return p_headers - headers - 1;
+    return (size_t)(p_headers - headers - 1);
 }
 
 #undef APPEND_STRING_LEN
@@ -339,19 +339,18 @@ lwan_response_send_chunk(lwan_request_t *request)
             return;
     }
 
-    int buffer_len = strbuf_get_length(request->response.buffer);
+    size_t buffer_len = strbuf_get_length(request->response.buffer);
     if (UNLIKELY(!buffer_len)) {
         static const char last_chunk[] = "0\r\n\r\n";
         lwan_send(request, last_chunk, sizeof(last_chunk) - 1, 0);
         return;
     }
 
-    char chunk_size[3 * sizeof(int) + 2];
-    int chunk_size_len;
-
-    chunk_size_len = snprintf(chunk_size, sizeof(chunk_size), "%x\r\n", buffer_len);
-    if (UNLIKELY(chunk_size_len < 0))
+    char chunk_size[3 * sizeof(size_t) + 2];
+    int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%lx\r\n", buffer_len);
+    if (UNLIKELY(converted_len < 0))
         return;
+    size_t chunk_size_len = (size_t)converted_len;
 
     struct iovec chunk_vec[] = {
         { .iov_base = chunk_size, .iov_len = chunk_size_len },
@@ -399,7 +398,7 @@ lwan_response_send_event(lwan_request_t *request, const char *event)
     }
 
     struct iovec vec[6];
-    size_t last = 0;
+    int last = 0;
 
     if (event) {
         vec[last].iov_base = "event: ";
@@ -415,7 +414,7 @@ lwan_response_send_event(lwan_request_t *request, const char *event)
         last++;
     }
 
-    int buffer_len = strbuf_get_length(request->response.buffer);
+    size_t buffer_len = strbuf_get_length(request->response.buffer);
     if (buffer_len) {
         vec[last].iov_base = "data: ";
         vec[last].iov_len = sizeof("data: ") - 1;
