@@ -98,7 +98,7 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     /* Get the leaf node (allocate it if necessary) */
     GET_NODE();
 
-    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, key - orig_key);
+    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf)
         leaf = malloc(sizeof(*leaf));
@@ -128,7 +128,7 @@ _lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefi
             previous_node = node;
     }
 
-    *prefix_len = (key - orig_key);
+    *prefix_len = (size_t)(key - orig_key);
     if (node && node->leaf)
         return node;
     if (prefix && previous_node)
