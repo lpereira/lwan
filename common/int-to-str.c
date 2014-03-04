@@ -29,10 +29,10 @@ uint_to_string(uint32_t value, char buf16[static 16], size_t *len)
 
     *p = '\0';
     do {
-        *--p = '0' + (value % 10);
+        *--p = (char)('0' + value % 10);
     } while (value /= 10);
 
-    *len = 15 - (p - buf16);
+    *len = (size_t)(15 - (p - buf16));
 
     return p;
 }
