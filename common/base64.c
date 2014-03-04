@@ -79,7 +79,7 @@ unsigned char * base64_encode(const unsigned char *src, size_t len,
 
 	*pos = '\0';
 	if (out_len)
-		*out_len = pos - out;
+		*out_len = (size_t)(pos - out);
 	return out;
 }
 
@@ -131,9 +131,9 @@ unsigned char * base64_decode(const unsigned char *src, size_t len,
 		block[count] = tmp;
 		count++;
 		if (count == 4) {
-			*pos++ = (block[0] << 2) | (block[1] >> 4);
-			*pos++ = (block[1] << 4) | (block[2] >> 2);
-			*pos++ = (block[2] << 6) | block[3];
+			*pos++ = (unsigned char)((block[0] << 2) | (block[1] >> 4));
+			*pos++ = (unsigned char)((block[1] << 4) | (block[2] >> 2));
+			*pos++ = (unsigned char)((block[2] << 6) | block[3]);
 			count = 0;
 			if (pad) {
 				if (pad == 1)
@@ -151,6 +151,6 @@ unsigned char * base64_decode(const unsigned char *src, size_t len,
 	}
         *pos = '\0';
 
-	*out_len = pos - out;
+	*out_len = (size_t)(pos - out);
 	return out;
 }
