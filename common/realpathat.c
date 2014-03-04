@@ -116,9 +116,9 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                     goto error;
                 }
 
-                new_size = rpath_limit - rpath;
+                new_size = (size_t)(rpath_limit - rpath);
                 if (end - start + 1 > PATH_MAX)
-                    new_size += end - start + 1;
+                    new_size += (size_t)(end - start + 1);
                 else
                     new_size += PATH_MAX;
                 new_rpath = (char *) realloc(rpath, new_size);
@@ -130,10 +130,10 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                 dest = rpath + dest_offset;
             }
 
-            dest = mempcpy(dest, start, end - start);
+            dest = mempcpy(dest, start, (size_t)(end - start));
             *dest = '\0';
 
-            if (LIKELY(!strncmp(rpath, dirfdpath, dirfdlen))) {
+            if (LIKELY(!strncmp(rpath, dirfdpath, (size_t)dirfdlen))) {
                 pathat = rpath + dirfdlen + 1;
                 if (*pathat == '\0')
                     pathat = rpath;
@@ -153,20 +153,20 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                     goto error;
                 }
 
-                n = readlinkat(dirfd, pathat, buf, PATH_MAX - 1);
+                n = (int)readlinkat(dirfd, pathat, buf, PATH_MAX - 1);
                 if (UNLIKELY(n < 0))
                     goto error;
                 buf[n] = '\0';
 
                 len = strlen(end);
-                if (UNLIKELY((long int) (n + len) >= PATH_MAX)) {
+                if (UNLIKELY((long int) (n + (long int)len) >= PATH_MAX)) {
                     errno = ENAMETOOLONG;
                     goto error;
                 }
 
                 /* Careful here, end may be a pointer into extra_buf... */
                 memmove(&extra_buf[n], end, len + 1);
-                end = memcpy(extra_buf, buf, n);
+                end = memcpy(extra_buf, buf, (size_t)n);
 
                 if (buf[0] == '/')
                     dest = rpath + 1;    /* It's an absolute symlink */
