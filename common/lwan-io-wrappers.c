@@ -142,7 +142,7 @@ static ALWAYS_INLINE ssize_t
 _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     /* FIXME: Use lwan_{read,write}() here */
-    size_t total_bytes_written = 0;
+    ssize_t total_bytes_written = 0;
     /* This buffer is allocated on the heap in order to minimize stack usage
      * inside the coroutine */
     char *buffer = coro_malloc(coro, buffer_size);
@@ -152,20 +152,21 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
         return -1;
     }
 
-    while (total_bytes_written < count) {
+    while (count > 0) {
         ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
             coro_yield(coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED_RETURN(-1);
         }
 
-        ssize_t bytes_written = write(out_fd, buffer, read_bytes);
+        ssize_t bytes_written = write(out_fd, buffer, (size_t)read_bytes);
         if (bytes_written < 0) {
             coro_yield(coro, CONN_CORO_ABORT);
             ASSERT_NOT_REACHED_RETURN(-1);
         }
 
         total_bytes_written += bytes_written;
+        count -= (size_t)bytes_written;
         coro_yield(coro, CONN_CORO_MAY_RESUME);
     }
 
@@ -177,8 +178,8 @@ static ALWAYS_INLINE ssize_t
 _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     size_t total_written = 0;
+    size_t to_be_written = count;
 
-    ssize_t to_be_written = count - total_written;
     do {
         ssize_t written = sendfile(out_fd, in_fd, &offset, to_be_written);
         if (written < 0) {
@@ -198,13 +199,13 @@ _sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size
             }
         }
 
-        total_written += written;
-        to_be_written = count - total_written;
+        total_written += (size_t)written;
+        to_be_written -= (size_t)written;
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
-    } while (count > total_written);
+    } while (to_be_written > 0);
 
-    return total_written;
+    return (ssize_t)total_written;
 }
 #endif
 
@@ -212,7 +213,7 @@ ssize_t
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 {
     if (count > buffer_size * 5) {
-        if (UNLIKELY(posix_fadvise(in_fd, offset, count,
+        if (UNLIKELY(posix_fadvise(in_fd, offset, (off_t)count,
                                             POSIX_FADV_SEQUENTIAL) < 0))
             lwan_status_perror("posix_fadvise");
     }
