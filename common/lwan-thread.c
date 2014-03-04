@@ -43,11 +43,6 @@ static const unsigned const events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
-#define ONE_HOUR 3600
-#define ONE_DAY (ONE_HOUR * 24)
-#define ONE_WEEK (ONE_DAY * 7)
-#define ONE_MONTH (ONE_DAY * 31)
-
 static ALWAYS_INLINE int
 min(const int a, const int b)
 {
@@ -211,7 +206,8 @@ _update_date_cache(lwan_thread_t *thread)
     if (now != thread->date.last) {
         thread->date.last = now;
         lwan_format_rfc_time(now, thread->date.date);
-        lwan_format_rfc_time(now + ONE_WEEK, thread->date.expires);
+        lwan_format_rfc_time(now + thread->lwan->config.expires,
+                    thread->date.expires);
     }
 }
 

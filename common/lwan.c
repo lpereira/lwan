@@ -38,11 +38,19 @@
 
 static jmp_buf cleanup_jmp_buf;
 
+#define ONE_MINUTE 60
+#define ONE_HOUR (ONE_MINUTE * 60)
+#define ONE_DAY (ONE_HOUR * 24)
+#define ONE_WEEK (ONE_DAY * 7)
+#define ONE_MONTH (ONE_DAY * 31)
+#define ONE_YEAR (ONE_MONTH * 12)
+
 static const lwan_config_t default_config = {
     .port = 8080,
     .keep_alive_timeout = 15,
     .quiet = false,
-    .reuse_port = false
+    .reuse_port = false,
+    .expires = 1 * ONE_WEEK
 };
 
 static void *find_symbol(const char *name)
@@ -279,6 +287,32 @@ out:
     return "lwan.conf";
 }
 
+static unsigned int _parse_expires(const char *str, unsigned int default_value)
+{
+    unsigned int total = 0;
+    unsigned int period;
+    char multiplier;
+
+    while (*str && sscanf(str, "%d%c", &period, &multiplier) == 2) {
+        switch (multiplier) {
+        case 's': total += period; break;
+        case 'm': total += period * ONE_MINUTE; break;
+        case 'h': total += period * ONE_HOUR; break;
+        case 'd': total += period * ONE_DAY; break;
+        case 'w': total += period * ONE_WEEK; break;
+        case 'M': total += period * ONE_MONTH; break;
+        case 'y': total += period * ONE_YEAR; break;
+        default:
+            lwan_status_warning("Ignoring unknown multiplier: %c",
+                        multiplier);
+        }
+
+        str = rawmemchr(str, multiplier) + 1;
+    }
+
+    return total ? total : default_value;
+}
+
 static bool setup_from_config(lwan_t *lwan)
 {
     config_t conf;
@@ -307,6 +341,9 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "reuse_port"))
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
+            else if (!strcmp(line.line.key, "expires"))
+                lwan->config.expires = _parse_expires(line.line.value,
+                            default_config.expires);
             else
                 config_error(&conf, "Unknown config key: %s", line.line.key);
             break;
