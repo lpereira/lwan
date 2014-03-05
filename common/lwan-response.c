@@ -121,8 +121,6 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 {
     char headers[DEFAULT_HEADERS_SIZE];
 
-    log_request(request, status);
-
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
         if (UNLIKELY(!strbuf_reset_length(request->response.buffer)))
@@ -141,6 +139,8 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     if (UNLIKELY(!request->response.mime_type)) {
         lwan_default_response(request, status);
         return;
+    } else {
+        log_request(request, status);
     }
 
     if (request->response.stream.callback) {
