@@ -74,6 +74,10 @@ for index, b in enumerate(compressed_out):
     line.append('0x0%x,' % b)
   else:
     line.append('0x%x,' % b)
+
+if line:
+  print(' '.join(line))
+
 print('};')
 
 print('#endif  /* __MIME_TYPES_H__ */')
