@@ -5,6 +5,15 @@ import struct
 import zlib
 from operator import itemgetter
 
+def to_bytes(s):
+  try:
+    return bytes(s, 'ascii')
+  except TypeError:
+    return bytes(s)
+
+def pack_string(s):
+  return struct.pack('%dsb' % len(s), to_bytes(s), 0)
+
 known_exts = set()
 types = []
 for l in open(sys.argv[1]):
@@ -34,10 +43,8 @@ out = b''
 entries = 0
 for typ, ext in types:
   entries += 1
-  out += struct.pack(str(len(ext)) + 's', bytes(ext, 'ascii'))
-  out += struct.pack('b', 0)
-  out += struct.pack(str(len(typ)) + 's', bytes(typ, 'ascii'))
-  out += struct.pack('b', 0)
+  out += pack_string(ext)
+  out += pack_string(typ)
 
 compressed_out = zlib.compress(out, 9)
 
@@ -45,9 +52,9 @@ print('#ifndef __MIME_TYPES_H__')
 print('#define __MIME_TYPES_H__')
 print('/* Auto generated from parse-mime-types.py, do not modify */')
 
-print('#define MIME_UNCOMPRESSED_LEN', len(out))
-print('#define MIME_COMPRESSED_LEN', len(compressed_out))
-print('#define MIME_ENTRIES', entries)
+print('#define MIME_UNCOMPRESSED_LEN %d' % len(out))
+print('#define MIME_COMPRESSED_LEN %d' % len(compressed_out))
+print('#define MIME_ENTRIES %d' % entries)
 
 print('struct mime_entry {')
 print('  const char *extension;')
@@ -55,14 +62,18 @@ print('  const char *type;')
 print('};')
 
 print('static const unsigned char mime_entries_compressed[] = {')
+line = []
 for index, b in enumerate(compressed_out):
   if index > 0 and index % 13 == 0:
-    print()
+    print(' '.join(line))
+    line = []
 
+  if isinstance(b, str):
+    b = ord(b)
   if b < 0x10:
-    print('0x0%x,' % b, end=' ')
+    line.append('0x0%x,' % b)
   else:
-    print('0x%x,' % b, end=' ')
+    line.append('0x%x,' % b)
 print('};')
 
 print('#endif  /* __MIME_TYPES_H__ */')
