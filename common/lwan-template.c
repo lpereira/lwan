@@ -335,10 +335,10 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
     case TPL_ACTION_LIST_START_ITER:
-    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         /* do nothing */
         break;
     case TPL_ACTION_LIST_END_ITER:
+    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         free(chunk->data);
         break;
     case TPL_ACTION_APPEND:
@@ -478,7 +478,13 @@ post_process_template(lwan_tpl_t *tpl)
                     break;
             }
 
-            prev_chunk->data = chunk;
+            struct chunk_descriptor *cd = malloc(sizeof(*cd));
+            if (!cd)
+                lwan_status_critical_perror("malloc");
+
+            cd->descriptor = prev_chunk->data;
+            cd->chunk = chunk;
+            prev_chunk->data = cd;
         } else if (chunk->action == TPL_ACTION_LIST_START_ITER) {
             prev_chunk = chunk;
 
@@ -671,10 +677,9 @@ end:
 }
 
 static bool
-var_get_is_empty(lwan_tpl_chunk_t *chunk,
+var_get_is_empty(lwan_var_descriptor_t *descriptor,
                  void *variables)
 {
-    lwan_var_descriptor_t *descriptor = chunk->data;
     if (UNLIKELY(!descriptor))
         return true;
 
@@ -719,17 +724,18 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             break;
         }
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
-            if (!var_get_is_empty(chunk, variables)) {
+            struct chunk_descriptor *cd = chunk->data;
+            if (!var_get_is_empty(cd->descriptor, variables)) {
                 chunk = lwan_tpl_apply_until(tpl,
                                     (lwan_tpl_chunk_t *) chunk->list.next,
                                     buf,
                                     variables,
                                     until_found_end_if,
-                                    chunk->data);
+                                    cd->descriptor);
                 break;
             }
 
-            chunk = chunk->data;
+            chunk = cd->chunk;
             break;
         }
         case TPL_ACTION_APPLY_TPL: {
