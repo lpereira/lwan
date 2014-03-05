@@ -81,6 +81,11 @@ struct parser_state {
     struct symtab *symtab;
 };
 
+struct chunk_descriptor {
+    lwan_tpl_chunk_t *chunk;
+    lwan_var_descriptor_t *descriptor;
+};
+
 static lwan_var_descriptor_t *
 symtab_lookup(struct parser_state *state, const char *var_name)
 {
@@ -329,10 +334,12 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
     case TPL_ACTION_LIST_START_ITER:
-    case TPL_ACTION_LIST_END_ITER:
+    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
         /* do nothing */
+        break;
+    case TPL_ACTION_LIST_END_ITER:
+        free(chunk->data);
         break;
     case TPL_ACTION_APPEND:
         strbuf_free(chunk->data);
@@ -453,6 +460,53 @@ append_text:
     return state;
 }
 
+static void
+post_process_template(lwan_tpl_t *tpl)
+{
+    lwan_tpl_chunk_t *chunk;
+    lwan_tpl_chunk_t *prev_chunk;
+
+    list_for_each(&tpl->chunks, chunk, list) {
+        if (chunk->action == TPL_ACTION_IF_VARIABLE_NOT_EMPTY) {
+            prev_chunk = chunk;
+
+            while ((chunk = (lwan_tpl_chunk_t *) chunk->list.next)) {
+                if (chunk->action == TPL_ACTION_LAST)
+                    break;
+                if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY
+                            && chunk->data == prev_chunk->data)
+                    break;
+            }
+
+            prev_chunk->data = chunk;
+        } else if (chunk->action == TPL_ACTION_LIST_START_ITER) {
+            prev_chunk = chunk;
+
+            while ((chunk = (lwan_tpl_chunk_t *) chunk->list.next)) {
+                if (chunk->action == TPL_ACTION_LAST)
+                    break;
+                if (chunk->action == TPL_ACTION_LIST_END_ITER
+                            && chunk->data == prev_chunk)
+                    break;
+            }
+
+            struct chunk_descriptor *cd = malloc(sizeof(*cd));
+            if (!cd)
+                lwan_status_critical_perror("malloc");
+
+            cd->descriptor = prev_chunk->data;
+            prev_chunk->data = cd;
+
+            if (chunk->action == TPL_ACTION_LAST)
+                cd->chunk = chunk;
+            else
+                cd->chunk = (lwan_tpl_chunk_t *)chunk->list.next;
+        } else if (chunk->action == TPL_ACTION_LAST) {
+            break;
+        }
+    }
+}
+
 lwan_tpl_t *
 lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
 {
@@ -512,6 +566,8 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
 
     strbuf_free(buf);
     symtab_pop(&parser_state);
+
+    post_process_template(tpl);
 
     return tpl;
 
@@ -673,13 +729,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                 break;
             }
 
-            void *variable = chunk->data;
-            while ((chunk = (lwan_tpl_chunk_t *) chunk->list.next)) {
-                if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
-                    continue;
-                if (chunk->data == variable)
-                    break;
-            }
+            chunk = chunk->data;
             break;
         }
         case TPL_ACTION_APPLY_TPL: {
@@ -693,19 +743,11 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         case TPL_ACTION_LIST_START_ITER: {
             assert(!coro);
 
-            lwan_var_descriptor_t *descriptor = chunk->data;
-            coro = coro_new(&switcher, descriptor->generator, variables);
+            struct chunk_descriptor *cd = chunk->data;
+            coro = coro_new(&switcher, cd->descriptor->generator, variables);
 
             if (!coro_resume(coro)) {
-                lwan_tpl_chunk_t *end_chunk = chunk;
-                while ((end_chunk = (lwan_tpl_chunk_t *) end_chunk->list.next)) {
-                    if (end_chunk->action != TPL_ACTION_LIST_END_ITER)
-                        continue;
-                    if (end_chunk->data == chunk)
-                        break;
-                }
-                if (end_chunk)
-                    chunk = (lwan_tpl_chunk_t *) end_chunk->list.next;
+                chunk = cd->chunk;
                 coro_free(coro);
                 coro = NULL;
                 break;
