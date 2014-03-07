@@ -333,12 +333,12 @@ free_chunk(lwan_tpl_chunk_t *chunk)
     case TPL_ACTION_LAST:
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
-    case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_LIST_START_ITER:
+    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
+    case TPL_ACTION_LIST_END_ITER:
         /* do nothing */
         break;
-    case TPL_ACTION_LIST_END_ITER:
-    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
+    case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
+    case TPL_ACTION_LIST_START_ITER:
         free(chunk->data);
         break;
     case TPL_ACTION_APPEND:
