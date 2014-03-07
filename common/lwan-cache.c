@@ -214,8 +214,10 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
 {
   assert(entry);
 
-  if (entry->flags & TEMPORARY)
+  if (entry->flags & TEMPORARY) {
+    free(entry->key);
     goto destroy_entry;
+  }
 
   if (ATOMIC_DEC(entry->refs))
     return;
