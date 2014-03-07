@@ -101,6 +101,7 @@ static struct cache_entry_t *_create_realm_file(
     return (struct cache_entry_t *)rpf;
 
 error:
+    hash_free(rpf->entries);
     free(rpf);
     return NULL;
 }
