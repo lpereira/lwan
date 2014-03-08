@@ -49,7 +49,7 @@ struct coro_t_ {
     int yield_value;
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
-    int vg_stack_id;
+    unsigned int vg_stack_id;
 #endif
 
     coro_defer_t *defer;
