@@ -382,15 +382,11 @@ templated_output(lwan_request_t *request,
         response->mime_type = "text/plain; charset=UTF-8";
 
     const char *callback = lwan_request_get_query_param(request, "callback");
-    if (!callback) {
-        lwan_tpl_apply_with_buffer(tpl, response->buffer, info);
-    } else {
-        struct ip_info_t info_with_callback = *info;
-        info_with_callback.callback = callback;
+    struct ip_info_t info_with_callback = *info;
+    info_with_callback.callback = callback;
 
-        lwan_tpl_apply_with_buffer(tpl, response->buffer,
-                    &info_with_callback);
-    }
+    lwan_tpl_apply_with_buffer(tpl, response->buffer,
+                &info_with_callback);
 
     return HTTP_OK;
 }
