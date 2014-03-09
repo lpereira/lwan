@@ -634,11 +634,7 @@ until_end(lwan_tpl_chunk_t *chunk, void *data __attribute__((unused)))
 static bool
 until_found_end_if(lwan_tpl_chunk_t *chunk, void *data)
 {
-    if (chunk->action != TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY)
-        return false;
-    if (data != chunk->data)
-        return false;
-    return true;
+    return chunk == data;
 }
 
 static bool
@@ -731,7 +727,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                                     buf,
                                     variables,
                                     until_found_end_if,
-                                    cd->descriptor);
+                                    cd->chunk);
                 break;
             }
 
