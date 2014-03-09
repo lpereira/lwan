@@ -150,7 +150,6 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan)
     lwan_handler_t *handler = NULL;
     void *callback = NULL;
     char *prefix = strdupa(l->line.value);
-    void *data = NULL;
 
     while (config_read_line(c, l)) {
       switch (l->type) {
@@ -202,7 +201,7 @@ add_map:
     if (callback) {
         url_map.callback = callback;
         url_map.flags |= HANDLER_PARSE_MASK;
-        url_map.data = data;
+        url_map.data = NULL;
         url_map.handler = NULL;
     } else if (handler && handler->init_from_hash && handler->handle) {
         url_map.data = handler->init_from_hash(hash);
