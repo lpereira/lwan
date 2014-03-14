@@ -75,6 +75,11 @@ static inline unsigned hash_crc32(const void *keyptr)
 	const char *key = keyptr;
 	size_t len = strlen(key);
 
+	while (len >= sizeof(uint64_t)) {
+		hash = (unsigned)__builtin_ia32_crc32di(hash, *((uint64_t *)key));
+		key += sizeof(uint64_t);
+		len -= sizeof(uint64_t);
+	}
 	while (len >= sizeof(uint32_t)) {
 		hash = __builtin_ia32_crc32si(hash, *((uint32_t *)key));
 		key += sizeof(uint32_t);
