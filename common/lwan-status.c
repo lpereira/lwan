@@ -156,45 +156,44 @@ _status_out(const char *file, const int line, const char *func,
   }
 }
 
-#define RETURN_IF_QUIET if (quiet) return;
-
 #ifdef NDEBUG
-#define IMPLEMENT_FUNCTION(fn_name_, type_, pre_, post_) \
+#define IMPLEMENT_FUNCTION(fn_name_, type_, abort_)\
   void                                             \
   lwan_status_##fn_name_(const char *fmt, ...)     \
   {                                                \
-    pre_                                           \
-    va_list values;                                \
-    va_start(values, fmt);                         \
-    _status_out(type_, fmt, values);               \
-    va_end(values);                                \
-    post_                                          \
+    if (!quiet) {                                  \
+       va_list values;                             \
+       va_start(values, fmt);                      \
+       _status_out(type_, fmt, values);            \
+       va_end(values);                             \
+    }                                              \
+    if (abort_) abort();                           \
   }
 #else
-#define IMPLEMENT_FUNCTION(fn_name_, type_, pre_, post_)  \
+#define IMPLEMENT_FUNCTION(fn_name_, type_, abort_)       \
   void                                                    \
   lwan_status_##fn_name_##_debug(const char *file,        \
          const int line, const char *func,                \
          const char *fmt, ...)                            \
   {                                                       \
-    pre_                                                  \
-    va_list values;                                       \
-    va_start(values, fmt);                                \
-    _status_out(file, line, func, type_, fmt, values);    \
-    va_end(values);                                       \
-    post_                                                 \
+    if (!quiet) {                                         \
+       va_list values;                                    \
+       va_start(values, fmt);                             \
+       _status_out(file, line, func, type_, fmt, values); \
+       va_end(values);                                    \
+    }                                                     \
+    if (abort_) abort();                                  \
   }
 
-IMPLEMENT_FUNCTION(debug, STATUS_DEBUG, RETURN_IF_QUIET, )
+IMPLEMENT_FUNCTION(debug, STATUS_DEBUG, 0)
 #endif
 
-IMPLEMENT_FUNCTION(info, STATUS_INFO, RETURN_IF_QUIET, )
-IMPLEMENT_FUNCTION(warning, STATUS_WARNING, RETURN_IF_QUIET, )
-IMPLEMENT_FUNCTION(error, STATUS_ERROR, RETURN_IF_QUIET, )
-IMPLEMENT_FUNCTION(perror, STATUS_PERROR, RETURN_IF_QUIET, )
+IMPLEMENT_FUNCTION(info, STATUS_INFO, 0)
+IMPLEMENT_FUNCTION(warning, STATUS_WARNING, 0)
+IMPLEMENT_FUNCTION(error, STATUS_ERROR, 0)
+IMPLEMENT_FUNCTION(perror, STATUS_PERROR, 0)
 
-IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL, , abort();)
-IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR, , abort();)
+IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL, 1)
+IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR, 1)
 
 #undef IMPLEMENT_FUNCTION
-#undef RETURN_IF_QUIET
