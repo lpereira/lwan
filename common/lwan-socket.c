@@ -73,6 +73,18 @@ _get_backlog_size(void)
     return backlog;
 }
 
+static uint16_t
+_get_listening_port(int fd)
+{
+    struct sockaddr_in sin;
+    socklen_t len = sizeof(sin);
+
+    if (getsockname(fd, (struct sockaddr *)&sin, &len) < 0)
+        lwan_status_critical_perror("getsockname");
+
+    return ntohs(sin.sin_port);
+}
+
 void
 lwan_socket_init(lwan_t *l)
 {
@@ -86,9 +98,10 @@ lwan_socket_init(lwan_t *l)
         lwan_status_critical("Too many file descriptors received");
     } else if (n == 1) {
         fd = SD_LISTEN_FDS_START;
-        if (sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, -1) != 1)
+        if (!sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, 0))
             lwan_status_critical("Passed file descriptor is not a "
                 "listening TCP socket");
+        l->config.port = _get_listening_port(fd);
     } else {
         fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (fd < 0)

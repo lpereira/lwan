@@ -242,7 +242,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 
 static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 {
-    lwan->config.port = (short)parse_long(l->section.param, 8080);
+    lwan->config.port = (uint16_t)parse_long(l->section.param, 8080);
 
     while (config_read_line(c, l)) {
         switch (l->type) {
