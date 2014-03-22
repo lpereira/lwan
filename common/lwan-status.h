@@ -21,16 +21,18 @@
 #define _LWAN_STATUS_H_
 
 #ifdef NDEBUG
-#define DECLARE_STATUS_PROTO(type_)                                  \
+#define DECLARE_STATUS_PROTO(type_, ...)                             \
   void lwan_status_##type_(const char *fmt, ...)                     \
-                              __attribute__((format(printf, 1, 2)));
+                              __attribute__((format(printf, 1, 2)))  \
+                              __VA_ARGS__;
 
 #define lwan_status_debug(fmt, ...)
 #else
-#define DECLARE_STATUS_PROTO(type_)                                  \
+#define DECLARE_STATUS_PROTO(type_, ...)                             \
   void lwan_status_##type_##_debug(const char *file, const int line, \
             const char *func, const char *fmt, ...)                  \
-                              __attribute__((format(printf, 4, 5)));
+                              __attribute__((format(printf, 4, 5)))  \
+                              __VA_ARGS__;
 
 #define lwan_status_info(fmt, ...) \
   lwan_status_info_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
@@ -54,7 +56,7 @@ DECLARE_STATUS_PROTO(info)
 DECLARE_STATUS_PROTO(warning)
 DECLARE_STATUS_PROTO(error)
 DECLARE_STATUS_PROTO(perror)
-DECLARE_STATUS_PROTO(critical)
-DECLARE_STATUS_PROTO(critical_perror)
+DECLARE_STATUS_PROTO(critical, __attribute__((noreturn)))
+DECLARE_STATUS_PROTO(critical_perror, __attribute__((noreturn)))
 
 #endif /* _LWAN_STATUS_H_ */

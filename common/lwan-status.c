@@ -154,45 +154,47 @@ _status_out(const char *file, const int line, const char *func,
 #endif
     free(output);
   }
-
-  if (type & STATUS_CRITICAL)
-    abort();
 }
 
+#define RETURN_IF_QUIET if (quiet) return;
+
 #ifdef NDEBUG
-#define IMPLEMENT_FUNCTION(fn_name_, type_)        \
+#define IMPLEMENT_FUNCTION(fn_name_, type_, pre_, post_) \
   void                                             \
   lwan_status_##fn_name_(const char *fmt, ...)     \
   {                                                \
-    if (quiet) return;                             \
+    pre_                                           \
     va_list values;                                \
     va_start(values, fmt);                         \
     _status_out(type_, fmt, values);               \
     va_end(values);                                \
+    post_                                          \
   }
 #else
-#define IMPLEMENT_FUNCTION(fn_name_, type_)               \
+#define IMPLEMENT_FUNCTION(fn_name_, type_, pre_, post_)  \
   void                                                    \
   lwan_status_##fn_name_##_debug(const char *file,        \
          const int line, const char *func,                \
          const char *fmt, ...)                            \
   {                                                       \
-    if (quiet) return;                                    \
+    pre_                                                  \
     va_list values;                                       \
     va_start(values, fmt);                                \
     _status_out(file, line, func, type_, fmt, values);    \
     va_end(values);                                       \
+    post_                                                 \
   }
 
-IMPLEMENT_FUNCTION(debug, STATUS_DEBUG)
+IMPLEMENT_FUNCTION(debug, STATUS_DEBUG, RETURN_IF_QUIET, )
 #endif
 
-IMPLEMENT_FUNCTION(info, STATUS_INFO)
-IMPLEMENT_FUNCTION(warning, STATUS_WARNING)
-IMPLEMENT_FUNCTION(error, STATUS_ERROR)
-IMPLEMENT_FUNCTION(perror, STATUS_PERROR)
-IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL)
-IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR)
+IMPLEMENT_FUNCTION(info, STATUS_INFO, RETURN_IF_QUIET, )
+IMPLEMENT_FUNCTION(warning, STATUS_WARNING, RETURN_IF_QUIET, )
+IMPLEMENT_FUNCTION(error, STATUS_ERROR, RETURN_IF_QUIET, )
+IMPLEMENT_FUNCTION(perror, STATUS_PERROR, RETURN_IF_QUIET, )
+
+IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL, , abort();)
+IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR, , abort();)
 
 #undef IMPLEMENT_FUNCTION
-
+#undef RETURN_IF_QUIET
