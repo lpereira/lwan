@@ -6,13 +6,15 @@ endif ()
 
 
 add_library(lwan-common STATIC
+	base64.c
 	hash.c
-	list.c
 	int-to-str.c
+	list.c
 	lwan.c
 	lwan-cache.c
 	lwan-config.c
 	lwan-coro.c
+	lwan-http-authorize.c
 	lwan-io-wrappers.c
 	lwan-job.c
 	lwan-request.c
@@ -25,9 +27,8 @@ add_library(lwan-common STATIC
 	lwan-thread.c
 	lwan-trie.c
 	realpathat.c
+	sd-daemon.c
 	strbuf.c
-	base64.c
-	lwan-http-authorize.c
 	${GENERIC_SOURCES}
 )
 

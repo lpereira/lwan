@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "sd-daemon.h"
 
 #define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
     do { \
@@ -76,14 +77,37 @@ void
 lwan_socket_init(lwan_t *l)
 {
     struct sockaddr_in sin;
-    int fd;
+    int fd, n;
 
     lwan_status_debug("Initializing sockets");
 
-    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (fd < 0) {
-        lwan_status_perror("socket");
-        exit(-1);
+    n = sd_listen_fds(1);
+    if (n > 1) {
+        lwan_status_critical("Too many file descriptors received");
+    } else if (n == 1) {
+        fd = SD_LISTEN_FDS_START;
+        if (sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, -1) != 1)
+            lwan_status_critical("Passed file descriptor is not a "
+                "listening TCP socket");
+    } else {
+        fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (fd < 0)
+            lwan_status_critical_perror("socket");
+
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_port = htons((uint16_t)l->config.port);
+        sin.sin_addr.s_addr = INADDR_ANY;
+        sin.sin_family = AF_INET;
+
+        if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+            lwan_status_perror("bind");
+            goto handle_error;
+        }
+
+        if (listen(fd, _get_backlog_size()) < 0) {
+            lwan_status_perror("listen");
+            goto handle_error;
+        }
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
@@ -97,21 +121,6 @@ lwan_socket_init(lwan_t *l)
     if (l->config.reuse_port)
         SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
                                                 (int[]){ 1 }, sizeof(int));
-
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_port = htons((uint16_t)l->config.port);
-    sin.sin_addr.s_addr = INADDR_ANY;
-    sin.sin_family = AF_INET;
-
-    if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-        lwan_status_perror("bind");
-        goto handle_error;
-    }
-
-    if (listen(fd, _get_backlog_size()) < 0) {
-        lwan_status_perror("listen");
-        goto handle_error;
-    }
 
     l->main_socket = fd;
 
