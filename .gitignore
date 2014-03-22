@@ -1,0 +1,5 @@
+*~
+DEADJOE
+*.o
+build/*
+.gitignore
