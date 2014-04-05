@@ -31,10 +31,8 @@
 
 #define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
     do { \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) { \
-            lwan_status_perror("setsockopt"); \
-            goto handle_error; \
-        } \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_critical_perror("setsockopt"); \
     } while(0)
 
 #define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
@@ -112,15 +110,11 @@ lwan_socket_init(lwan_t *l)
         sin.sin_addr.s_addr = INADDR_ANY;
         sin.sin_family = AF_INET;
 
-        if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-            lwan_status_perror("bind");
-            goto handle_error;
-        }
+        if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+            lwan_status_critical_perror("bind");
 
-        if (listen(fd, _get_backlog_size()) < 0) {
-            lwan_status_perror("listen");
-            goto handle_error;
-        }
+        if (listen(fd, _get_backlog_size()) < 0)
+            lwan_status_critical_perror("listen");
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
@@ -138,11 +132,6 @@ lwan_socket_init(lwan_t *l)
     l->main_socket = fd;
 
     lwan_status_info("Listening on http://0.0.0.0:%d", l->config.port);
-    return;
-
-handle_error:
-    close(fd);
-    exit(-1);
 }
 
 #undef SET_SOCKET_OPTION
