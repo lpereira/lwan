@@ -71,4 +71,5 @@ Build status
 | Release | Debug | Static Analysis |
 |---------|-------|-----------------|
 | ![release](http://hadron.lhc.net.br:8010/buildstatusimage?builder=release&number=-1 "Release") | ![debug](http://hadron.lhc.net.br:8010/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](http://hadron.lhc.net.br:8010/buildstatusimage?builder=clang-analyze&number=-1 "Clang") |
-| [Waterfall](http://hadron.lhc.net.br:8010/builders/release) | [Waterfall](http://hadron.lhc.net.br:8010/builders/debug) | [Waterfall](http://hadron.lhc.net.br:8010/builders/clang-analyze) |
+| [Waterfall](http://hadron.lhc.net.br:8010/builders/release) | [Waterfall](http://hadron.lhc.net.br:8010/builders/debug) | [Waterfall](http://hadron.lhc.net.br:8010/builders/clang-analyze) [Reports](http://hadron.lhc.net.br:8010/sa/) |
+
