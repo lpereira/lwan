@@ -64,3 +64,11 @@ Running
 Set up the server by editing the provided `lwan.conf`; the format is very simple and should be self-explanatory. 
 
 Configuration files are loaded from the current directory. If no changes are made to this file, running lwan will serve static files located on `./wwwroot` directory, and also provide a `Hello, World!` handler (which serves as an example of how to use its internal APIs).  Lwan will listen on port 8080 on all interfaces.
+
+Build status
+------------
+
+| Release | Debug | Static Analysis |
+|---------|-------|-----------------|
+| ![release](http://hadron.lhc.net.br:8010/buildstatusimage?builder=release&number=-1 "Release") | ![debug](http://hadron.lhc.net.br:8010/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](http://hadron.lhc.net.br:8010/buildstatusimage?builder=clang-analyze&number=-1 "Clang") |
+| [Waterfall](http://hadron.lhc.net.br:8010/builders/release) | [Waterfall](http://hadron.lhc.net.br:8010/builders/debug) | [Waterfall](http://hadron.lhc.net.br:8010/builders/clang-analyze) |
