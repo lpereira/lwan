@@ -68,21 +68,22 @@ static struct cache_entry_t *_create_realm_file(
             }
 
             err = hash_add_unique(rpf->entries, username, password);
-            if (err) {
-                free(username);
-                free(password);
+            if (!err)
+                continue;
 
-                if (err == -EEXIST) {
-                    lwan_status_warning(
-                        "Username entry already exists, ignoring: \"%s\"",
-                        username);
-                    continue;
-                }
+            if (err == -EEXIST)
+                lwan_status_warning(
+                    "Username entry already exists, ignoring: \"%s\"",
+                    username);
 
-                config_close(&f);
-                goto error;
-            }
-            break;
+            free(username);
+            free(password);
+
+            if (err == -EEXIST)
+                continue;
+
+            config_close(&f);
+            goto error;
         }
         default:
             config_error(&f, "Expected username = password");
