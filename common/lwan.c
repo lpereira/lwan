@@ -419,7 +419,6 @@ lwan_init(lwan_t *l)
     for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
         l->conns[r.rlim_cur].response_buffer = strbuf_new();
 
-    srand((unsigned)time(NULL));
     signal(SIGPIPE, SIG_IGN);
     close(STDIN_FILENO);
 
