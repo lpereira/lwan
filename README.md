@@ -68,8 +68,9 @@ Configuration files are loaded from the current directory. If no changes are mad
 Build status
 ------------
 
-| Release | Debug | Static Analysis |
-|---------|-------|-----------------|
-| ![release](http://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release") | ![debug](http://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](http://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Clang") |
-| [Waterfall](http://buildbot.lwan.ws/builders/release) | [Waterfall](http://buildbot.lwan.ws/builders/debug) | [Waterfall](http://buildbot.lwan.ws/builders/clang-analyze) [Reports](http://buildbot.lwan.ws/sa/) |
+| Release | Debug | Static Analysis | Unit Tests |
+|---------|-------|-----------------|------------|
+| ![release](http://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release") | ![debug](http://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](http://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Clang") | ![tests](http://buildbot.lwan.ws/buildstatusimage?builder=unit-tests&number=-1 "Tests")
+| [Waterfall](http://buildbot.lwan.ws/waterfall/release) | [Waterfall](http://buildbot.lwan.ws/waterfall/debug) | [Waterfall](http://buildbot.lwan.ws/waterfall/clang-analyze) - [Reports](http://buildbot.lwan.ws/sa/) | [Waterfall](http://buildbot.lwan.ws/waterfall/unit-tests) |
+
 
