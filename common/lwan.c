@@ -201,8 +201,10 @@ add_map:
     if (callback) {
         url_map.callback = callback;
         url_map.flags |= HANDLER_PARSE_MASK;
-        url_map.data = NULL;
+        url_map.data = hash;
         url_map.handler = NULL;
+
+        hash = NULL;
     } else if (handler && handler->init_from_hash && handler->handle) {
         url_map.data = handler->init_from_hash(hash);
         url_map.callback = handler->handle;

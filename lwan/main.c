@@ -81,6 +81,32 @@ test_server_sent_event(lwan_request_t *request,
 }
 
 lwan_http_status_t
+redirect(lwan_request_t *request,
+         lwan_response_t *response,
+         void *data)
+{
+    if (UNLIKELY(!data))
+        return HTTP_INTERNAL_ERROR;
+
+    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    if (UNLIKELY(!headers))
+        return HTTP_INTERNAL_ERROR;
+
+    char *to = hash_find(data, "to");
+    if (UNLIKELY(!to))
+        return HTTP_INTERNAL_ERROR;
+
+    headers[0].key = "Location";
+    headers[0].value = to;
+    headers[1].key = NULL;
+    headers[1].value = NULL;
+
+    response->headers = headers;
+
+    return HTTP_MOVED_PERMANENTLY;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))
