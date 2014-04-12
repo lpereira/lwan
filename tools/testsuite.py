@@ -8,11 +8,20 @@ import time
 import unittest
 import requests
 import socket
+import sys
+import os
 
+LWAN_PATH = './build/lwan/lwan'
+for arg in sys.argv[1:]:
+  if not arg.startswith('-') and os.path.exists(arg):
+    LWAN_PATH = arg
+    sys.argv.remove(arg)
+
+print 'Using', LWAN_PATH, 'for lwan'
 
 class LwanTest(unittest.TestCase):
   def setUp(self):
-    self.lwan = subprocess.Popen(['./build/lwan/lwan'],
+    self.lwan = subprocess.Popen([LWAN_PATH],
           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     while True:
