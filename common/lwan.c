@@ -69,10 +69,14 @@ static void *find_symbol(const char *name)
 static void destroy_urlmap(void *data)
 {
     lwan_url_map_t *url_map = data;
-    lwan_handler_t *handler = url_map->handler;
 
-    if (handler && handler->shutdown)
-        handler->shutdown(url_map->data);
+    if (url_map->handler) {
+        lwan_handler_t *handler = url_map->handler;
+        if (handler->shutdown)
+            handler->shutdown(url_map->data);
+    } else if (url_map->data) {
+        hash_free(url_map->data);
+    }
 
     free(url_map->authorization.realm);
     free(url_map->authorization.password_file);
