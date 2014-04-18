@@ -24,12 +24,14 @@ class LwanTest(unittest.TestCase):
     self.lwan = subprocess.Popen([LWAN_PATH],
           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-    while True:
+    for t in range(20):
       try:
         requests.get('http://127.0.0.1:8080/hello')
         return
       except requests.ConnectionError:
-        pass
+        time.sleep(0.1)
+
+    raise Exception('Timeout waiting for lwan')
 
   def tearDown(self):
     self.lwan.poll()
