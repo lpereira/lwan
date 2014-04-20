@@ -141,6 +141,15 @@ void cache_destroy(struct cache_t *cache)
   free(cache);
 }
 
+static ALWAYS_INLINE struct cache_entry_t *convert_to_temporary(
+      struct cache_entry_t *entry)
+{
+  entry->flags = TEMPORARY;
+  entry->time_to_die = 0;
+  entry->refs = 1;
+  return entry;
+}
+
 struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
       const char *key, int *error)
 {
@@ -185,7 +194,15 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
   memset(entry, 0, sizeof(*entry));
   entry->key = strdup(key);
 
-  pthread_rwlock_wrlock(&cache->hash.lock);
+  if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
+    /* Couldn't obtain hash lock: instead of waiting, just return
+     * the recently-created item as a temporary item. Might result
+     * in starvation, though, so this might be changed back to
+     * pthread_rwlock_wrlock() again someday if this proves to be
+     * a problem. */
+    return convert_to_temporary(entry);
+  }
+
   if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
     entry->time_to_die = time(NULL) + cache->settings.time_to_live;
 
@@ -201,9 +218,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
      * time someone unrefs this entry. TEMPORARY entries are pretty much
      * like FLOATING entries, but unreffing them do not use atomic
      * operations. */
-    entry->flags = TEMPORARY;
-    entry->time_to_die = 0;
-    entry->refs = 1;
+    convert_to_temporary(entry);
   }
 
   pthread_rwlock_unlock(&cache->hash.lock);
