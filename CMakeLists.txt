@@ -5,7 +5,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto -ffat-lto-objects")
 
 	include(CheckCCompilerFlag)
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
