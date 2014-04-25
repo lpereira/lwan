@@ -21,15 +21,18 @@ print 'Using', LWAN_PATH, 'for lwan'
 
 class LwanTest(unittest.TestCase):
   def setUp(self):
-    self.lwan = subprocess.Popen([LWAN_PATH],
-          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    for spawn_try in range(20):
+      self.lwan = subprocess.Popen([LWAN_PATH],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-    for t in range(20):
-      try:
-        requests.get('http://127.0.0.1:8080/hello')
-        return
-      except requests.ConnectionError:
-        time.sleep(0.1)
+      for request_try in range(20):
+        try:
+          requests.get('http://127.0.0.1:8080/hello')
+          return
+        except requests.ConnectionError:
+          time.sleep(0.1)
+
+      time.sleep(0.1)
 
     raise Exception('Timeout waiting for lwan')
 
