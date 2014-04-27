@@ -259,11 +259,15 @@ void lwan_main_loop(lwan_t *l);
 
 void lwan_response(lwan_request_t *request, lwan_http_status_t status);
 void lwan_default_response(lwan_request_t *request, lwan_http_status_t status);
-size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size);
+size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char header_buffer[], size_t header_buffer_size)
+    __attribute__((warn_unused_result));
 
-const char *lwan_request_get_post_param(lwan_request_t *request, const char *key);
-const char *lwan_request_get_query_param(lwan_request_t *request, const char *key);
-const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer);
+const char *lwan_request_get_post_param(lwan_request_t *request, const char *key)
+    __attribute__((warn_unused_result));
+const char *lwan_request_get_query_param(lwan_request_t *request, const char *key)
+    __attribute__((warn_unused_result));
+const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer)
+    __attribute__((warn_unused_result));
 void lwan_process_request(lwan_t *l, lwan_request_t *request);
 
 bool lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status);
@@ -274,13 +278,17 @@ void lwan_response_send_event(lwan_request_t *request, const char *event);
 
 void lwan_format_rfc_time(time_t t, char buffer[static 30]);
 
-const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
-const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
-const char *lwan_determine_mime_type_for_file_name(const char *file_name) __attribute__((pure));
+const char *lwan_http_status_as_string(lwan_http_status_t status)
+    __attribute__((pure)) __attribute__((warn_unused_result));
+const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status)
+    __attribute__((pure)) __attribute__((warn_unused_result));
+const char *lwan_determine_mime_type_for_file_name(const char *file_name)
+    __attribute__((pure)) __attribute__((warn_unused_result));
 
 void lwan_init(lwan_t *l);
 void lwan_shutdown(lwan_t *l);
 
-int lwan_connection_get_fd(lwan_connection_t *conn) __attribute__((pure));
+int lwan_connection_get_fd(lwan_connection_t *conn)
+    __attribute__((pure)) __attribute__((warn_unused_result));
 
 #endif /* __LWAN_H__ */
