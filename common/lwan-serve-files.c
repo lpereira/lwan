@@ -437,7 +437,13 @@ _get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
         }
 
         /* If it does, we want its full path. */
-        *(full_path + priv->root.path_len) = '/';
+
+        /* FIXME: Use strlcpy() here instead of calling strlen()? */
+        if (UNLIKELY(priv->root.path_len + 1 /* slash */ +
+                            strlen(index_html_path) + 1 >= PATH_MAX))
+            return NULL;
+
+        full_path[priv->root.path_len] = '/';
         strncpy(full_path + priv->root.path_len + 1, index_html_path,
                     PATH_MAX - priv->root.path_len - 1);
     }
