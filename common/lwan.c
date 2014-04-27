@@ -418,6 +418,8 @@ lwan_init(lwan_t *l)
         lwan_status_critical_perror("setrlimit");
 
     l->conns = calloc(r.rlim_cur, sizeof(lwan_connection_t));
+    if (!l->conns)
+        lwan_status_critical_perror("calloc");
     l->thread.max_fd = (unsigned)r.rlim_cur / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
