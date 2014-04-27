@@ -336,7 +336,7 @@ lwan_thread_init(lwan_t *l)
 
     lwan_status_debug("Initializing threads");
 
-    l->thread.threads = calloc(l->thread.count, sizeof(lwan_thread_t));
+    l->thread.threads = calloc((size_t)l->thread.count, sizeof(lwan_thread_t));
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
