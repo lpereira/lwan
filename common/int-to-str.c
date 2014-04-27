@@ -34,7 +34,7 @@ uint_to_string(size_t value,
         *--p = (char)('0' + value % 10);
     } while (value /= 10);
 
-    *len = (size_t)(INT_TO_STR_BUFFER_SIZE - (size_t)(p - buffer));
+    *len = (size_t)(INT_TO_STR_BUFFER_SIZE - (size_t)(p - buffer) - 1);
 
     return p;
 }
