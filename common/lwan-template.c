@@ -743,7 +743,10 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             break;
         }
         case TPL_ACTION_LIST_START_ITER: {
-            assert(!coro);
+            if (UNLIKELY(coro != NULL)) {
+                lwan_status_warning("Coroutine is not NULL when starting iteration");
+                break;
+            }
 
             struct chunk_descriptor *cd = chunk->data;
             coro = coro_new(&switcher, cd->descriptor->generator, variables);
@@ -760,7 +763,10 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             continue;
         }
         case TPL_ACTION_LIST_END_ITER: {
-            assert(coro);
+            if (UNLIKELY(!coro)) {
+                lwan_status_warning("Coroutine is NULL when finishing iteration");
+                break;
+            }
 
             if (!coro_resume(coro)) {
                 coro_free(coro);
