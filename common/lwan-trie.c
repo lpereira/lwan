@@ -100,8 +100,11 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
 
     lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
-    if (!leaf)
+    if (!leaf) {
         leaf = malloc(sizeof(*leaf));
+        if (!leaf)
+            lwan_status_critical_perror("malloc");
+    }
 
     leaf->data = data;
     if (!had_key) {
