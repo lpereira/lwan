@@ -272,7 +272,7 @@ void lwan_response_send_chunk(lwan_request_t *request);
 bool lwan_response_set_event_stream(lwan_request_t *request, lwan_http_status_t status);
 void lwan_response_send_event(lwan_request_t *request, const char *event);
 
-void lwan_format_rfc_time(time_t t, char buffer[static 31]);
+void lwan_format_rfc_time(time_t t, char buffer[static 30]);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status) __attribute__((pure));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status) __attribute__((pure));
