@@ -775,9 +775,12 @@ lwan_request_get_remote_address(lwan_request_t *request,
      * in the end, inet_ntoa() is actually a call to snprintf().  Call it
      * ourselves, using a user-supplied buffer.  This should be a tiny wee
      * little bit faster.  */
-    unsigned char *octets = (unsigned char *) &sock_addr.sin_addr.s_addr;
+    union {
+        unsigned char octets[sizeof(in_addr_t)];
+        in_addr_t address;
+    } u = { .address = sock_addr.sin_addr.s_addr };
     if (UNLIKELY(snprintf(buffer, INET_ADDRSTRLEN, "%d.%d.%d.%d",
-                octets[0], octets[1], octets[2], octets[3]) < 0))
+                u.octets[0], u.octets[1], u.octets[2], u.octets[3]) < 0))
         return NULL;
     return buffer;
 }
