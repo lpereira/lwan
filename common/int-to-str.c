@@ -25,7 +25,7 @@ uint_to_string(size_t value,
                char buffer[INT_TO_STR_BUFFER_SIZE],
                size_t *len)
 {
-    char *p = buffer + INT_TO_STR_BUFFER_SIZE;
+    char *p = buffer + INT_TO_STR_BUFFER_SIZE - 1;
 
     assert(len);
 
