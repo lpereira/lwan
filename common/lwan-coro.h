@@ -23,6 +23,9 @@
 #ifdef __x86_64__
 #include <stdint.h>
 typedef uintptr_t coro_context_t[10];
+#elif __i386__
+#include <stdint.h>
+typedef uintptr_t coro_context_t[7];
 #else
 #include <ucontext.h>
 typedef ucontext_t coro_context_t;

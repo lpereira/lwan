@@ -102,6 +102,34 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "mov    48(%rsi),%rdi\n\t"
     "mov    56(%rsi),%rsi\n\t"
     "retq\n\t");
+#elif __i386__
+void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
+                __attribute__((noinline));
+    asm(
+    ".text\n\t"
+    ".p2align 16\n\t"
+    ".globl _coro_swapcontext\n\t"
+    "_coro_swapcontext:\n\t"
+    "movl   0x4(%esp),%eax\n\t"
+    "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
+    "movl   %ebx,0x0(%eax)\n\t"  /* EBX */
+    "movl   %esi,0x4(%eax)\n\t"  /* ESI */
+    "movl   %edi,0x8(%eax)\n\t"  /* EDI */
+    "movl   %ebp,0xc(%eax)\n\t"  /* EBP */
+    "movl   (%esp),%ecx\n\t"
+    "movl   %ecx,0x14(%eax)\n\t" /* EIP */
+    "leal   0x4(%esp),%ecx\n\t"
+    "movl   %ecx,0x18(%eax)\n\t" /* ESP */
+    "movl   8(%esp),%eax\n\t"
+    "movl   0x14(%eax),%ecx\n\t" /* EIP (1) */
+    "movl   0x18(%eax),%esp\n\t" /* ESP */
+    "pushl  %ecx\n\t"            /* EIP (2) */
+    "movl   0x0(%eax),%ebx\n\t"  /* EBX */
+    "movl   0x4(%eax),%esi\n\t"  /* ESI */
+    "movl   0x8(%eax),%edi\n\t"  /* EDI */
+    "movl   0xc(%eax),%ebp\n\t"  /* EBP */
+    "movl   0x1c(%eax),%ecx\n\t" /* ECX */
+    "ret\n\t");
 #else
 #define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
@@ -142,6 +170,18 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
     coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
+#elif __i386__
+    /* Align stack and make room for two arguments */
+    stack = (unsigned char *)((uintptr_t)(stack + CORO_STACK_MIN -
+        sizeof(uintptr_t) * 2) & 0xfffffff0);
+
+    uintptr_t *argp = (uintptr_t *)stack;
+    *argp++ = 0;
+    *argp++ = (uintptr_t)coro;
+    *argp++ = (uintptr_t)func;
+
+    coro->context[5 /* EIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[6 /* ESP */] = (uintptr_t) stack;
 #else
     getcontext(&coro->context);
 
@@ -185,7 +225,7 @@ coro_resume(coro_t *coro)
     assert(coro);
     assert(coro->ended == false);
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__i386__)
     _coro_swapcontext(&coro->switcher->caller, &coro->context);
     if (!coro->ended)
         memcpy(&coro->context, &coro->switcher->callee,
