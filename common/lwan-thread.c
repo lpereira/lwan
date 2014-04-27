@@ -122,7 +122,7 @@ static void
 _death_queue_init(struct death_queue_t *dq,
             lwan_connection_t *conns, unsigned max)
 {
-    dq->queue = calloc(1, max * sizeof(int));
+    dq->queue = calloc(max, sizeof(int));
     dq->last = 0;
     dq->first = 0;
     dq->population = 0;
