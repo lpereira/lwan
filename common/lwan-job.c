@@ -71,10 +71,6 @@ job_thread(void *data __attribute__((unused)))
 
 void lwan_job_thread_init(void)
 {
-  struct sched_param sched_param = {
-    .sched_priority = 0
-  };
-
   assert(!running);
 
   lwan_status_debug("Initializing low priority job thread");
@@ -84,8 +80,14 @@ void lwan_job_thread_init(void)
   running = true;
   if (pthread_create(&self, NULL, job_thread, NULL) < 0)
     lwan_status_critical_perror("pthread_create");
+
+#ifdef SCHED_IDLE
+  struct sched_param sched_param = {
+    .sched_priority = 0
+  };
   if (pthread_setschedparam(self, SCHED_IDLE, &sched_param) < 0)
     lwan_status_perror("pthread_setschedparam");
+#endif  /* SCHED_IDLE */
 }
 
 void lwan_job_thread_shutdown(void)
