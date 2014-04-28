@@ -206,7 +206,7 @@ _update_date_cache(lwan_thread_t *thread)
     if (now != thread->date.last) {
         thread->date.last = now;
         lwan_format_rfc_time(now, thread->date.date);
-        lwan_format_rfc_time(now + thread->lwan->config.expires,
+        lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
                     thread->date.expires);
     }
 }
