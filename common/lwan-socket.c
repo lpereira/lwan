@@ -86,7 +86,6 @@ _get_listening_port(int fd)
 void
 lwan_socket_init(lwan_t *l)
 {
-    struct sockaddr_in sin;
     int fd, n;
 
     lwan_status_debug("Initializing sockets");
@@ -105,10 +104,11 @@ lwan_socket_init(lwan_t *l)
         if (fd < 0)
             lwan_status_critical_perror("socket");
 
-        memset(&sin, 0, sizeof(sin));
-        sin.sin_port = htons((uint16_t)l->config.port);
-        sin.sin_addr.s_addr = INADDR_ANY;
-        sin.sin_family = AF_INET;
+        struct sockaddr_in sin = {
+            .sin_port = htons((uint16_t)l->config.port),
+            .sin_addr.s_addr = INADDR_ANY,
+            .sin_family = AF_INET
+        };
 
         if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
             lwan_status_critical_perror("bind");
