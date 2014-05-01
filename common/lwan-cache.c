@@ -297,11 +297,13 @@ static bool cache_pruner_job(void *data)
     if (!ATOMIC_READ(node->refs)) {
       cache->cb.destroy_entry(node, cache->cb.context);
     } else {
+      /* Increment reference so if cache_entry_unref() is called in the
+       * meantime, we can be sure the node is still alive.  */
+      ATOMIC_INC(node->refs);
       ATOMIC_BITWISE(&node->flags, or, FLOATING);
-
-      /* If preemption occurred before setting item to FLOATING, check
-       * if item still have refs; destroy if not */
-      if (UNLIKELY(!ATOMIC_READ(node->refs)))
+      /* Decrement the reference and see if we were genuinely the last one
+       * holding it.  If so, destroy the entry.  */
+      if (!ATOMIC_DEC(node->refs))
         cache->cb.destroy_entry(node, cache->cb.context);
     }
 
