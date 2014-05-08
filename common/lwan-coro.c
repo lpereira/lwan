@@ -70,7 +70,7 @@ static void _coro_entry_point(coro_t *data, coro_function_t func);
  * there is, I'll just roll my own.
  *     -- Leandro
  */
-#ifdef __x86_64__
+#if defined(__x86_64__)
 void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
                 __attribute__((noinline));
     asm(
@@ -102,7 +102,7 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "mov    48(%rsi),%rdi\n\t"
     "mov    56(%rsi),%rsi\n\t"
     "retq\n\t");
-#elif __i386__
+#elif defined(__i386__)
 void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
                 __attribute__((noinline));
     asm(
@@ -165,12 +165,12 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
 
     _coro_run_deferred(coro);
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
     coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
-#elif __i386__
+#elif defined(__i386__)
     /* Align stack and make room for two arguments */
     stack = (unsigned char *)((uintptr_t)(stack + CORO_STACK_MIN -
         sizeof(uintptr_t) * 2) & 0xfffffff0);

@@ -20,10 +20,10 @@
 #ifndef __LWAN_CORO_H__
 #define __LWAN_CORO_H__
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
 #include <stdint.h>
 typedef uintptr_t coro_context_t[10];
-#elif __i386__
+#elif defined(__i386__)
 #include <stdint.h>
 typedef uintptr_t coro_context_t[7];
 #else
