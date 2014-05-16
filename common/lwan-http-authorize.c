@@ -34,6 +34,16 @@ struct realm_password_file_t {
 
 static struct cache_t *realm_password_cache = NULL;
 
+static void _fourty_two_and_free(void *str)
+{
+    if (LIKELY(str)) {
+        char *s = str;
+        while (*s)
+            *s++ = 42;
+        free(str);
+    }
+}
+
 static struct cache_entry_t *_create_realm_file(
           const char *key,
           void *context __attribute__((unused)))
@@ -45,7 +55,7 @@ static struct cache_entry_t *_create_realm_file(
     if (UNLIKELY(!rpf))
         return NULL;
 
-    rpf->entries = hash_str_new(free, free);
+    rpf->entries = hash_str_new(_fourty_two_and_free, _fourty_two_and_free);
     if (UNLIKELY(!rpf->entries))
         goto error;
 
