@@ -60,7 +60,7 @@ static struct cache_entry_t *_create_realm_file(
         goto error;
 
     if (!config_open(&f, key))
-        goto error;
+        goto error_no_close;
 
     while (config_read_line(&f, &l)) {
         /* FIXME: Storing plain-text passwords in memory isn't a good idea. */
@@ -73,12 +73,11 @@ static struct cache_entry_t *_create_realm_file(
             if (!username || !password) {
                 free(username);
                 free(password);
-                config_close(&f);
                 goto error;
             }
 
             err = hash_add_unique(rpf->entries, username, password);
-            if (!err)
+            if (LIKELY(!err))
                 continue;
 
             if (err == -EEXIST)
@@ -92,7 +91,6 @@ static struct cache_entry_t *_create_realm_file(
             if (err == -EEXIST)
                 continue;
 
-            config_close(&f);
             goto error;
         }
         default:
@@ -104,7 +102,6 @@ static struct cache_entry_t *_create_realm_file(
     if (f.error_message) {
         lwan_status_error("Error on password file \"%s\", line %d: %s",
               key, f.line, f.error_message);
-        config_close(&f);
         goto error;
     }
 
@@ -112,6 +109,8 @@ static struct cache_entry_t *_create_realm_file(
     return (struct cache_entry_t *)rpf;
 
 error:
+    config_close(&f);
+error_no_close:
     hash_free(rpf->entries);
     free(rpf);
     return NULL;
