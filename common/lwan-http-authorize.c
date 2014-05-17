@@ -166,7 +166,7 @@ _authorize(coro_t *coro,
     if (UNLIKELY(decoded_len >= 1024))
         goto out;
 
-    colon = strchr((char *)decoded, ':');
+    colon = memchr(decoded, ':', decoded_len);
     if (UNLIKELY(!colon))
         goto out;
 
