@@ -29,30 +29,12 @@
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
 
-enum {
-    HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
-    HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
-    HTTP_STR_POST = MULTICHAR_CONSTANT('P','O','S','T')
-} lwan_http_method_str_t;
-
 typedef enum {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
     FINALIZER_YIELD_TRY_AGAIN,
     FINALIZER_ERROR_TOO_LARGE
 } lwan_read_finalizer_t;
-
-enum {
-    HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
-    HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
-    HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
-    HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
-    HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
-    HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
-    HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
-    HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
-    HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
-} lwan_http_header_str_t;
 
 typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 
@@ -79,6 +61,12 @@ static char *_ignore_leading_whitespace(char *buffer) __attribute__((pure));
 static ALWAYS_INLINE char *
 _identify_http_method(lwan_request_t *request, char *buffer)
 {
+    enum {
+        HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
+        HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
+        HTTP_STR_POST = MULTICHAR_CONSTANT('P','O','S','T')
+    };
+
     STRING_SWITCH(buffer) {
     case HTTP_STR_GET:
         request->flags |= REQUEST_METHOD_GET;
@@ -293,6 +281,18 @@ static ALWAYS_INLINE char *
 _parse_headers(lwan_request_parse_t *helper, char *buffer, char *buffer_end)
 {
     char *p;
+
+    enum {
+        HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
+        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
+        HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
+        HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
+        HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
+        HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
+        HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
+        HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
+        HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
+    };
 
     if (UNLIKELY(!buffer))
         return NULL;
