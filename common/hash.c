@@ -203,6 +203,9 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 			continue;
 		if (hash->free_value)
 			hash->free_value((void *)entry->value);
+		if (hash->free_key)
+			hash->free_key((void *)entry->key);
+
 		entry->key = key;
 		entry->value = value;
 		return 0;
