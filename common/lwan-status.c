@@ -157,7 +157,7 @@ _status_out(const char *file, const int line, const char *func,
 }
 
 #ifdef NDEBUG
-#define IMPLEMENT_FUNCTION(fn_name_, type_, abort_)\
+#define IMPLEMENT_FUNCTION(fn_name_, type_)        \
   void                                             \
   lwan_status_##fn_name_(const char *fmt, ...)     \
   {                                                \
@@ -167,10 +167,10 @@ _status_out(const char *file, const int line, const char *func,
        _status_out(type_, fmt, values);            \
        va_end(values);                             \
     }                                              \
-    if (abort_) abort();                           \
+    if ((type_) & STATUS_CRITICAL) abort();        \
   }
 #else
-#define IMPLEMENT_FUNCTION(fn_name_, type_, abort_)       \
+#define IMPLEMENT_FUNCTION(fn_name_, type_)               \
   void                                                    \
   lwan_status_##fn_name_##_debug(const char *file,        \
          const int line, const char *func,                \
@@ -182,18 +182,18 @@ _status_out(const char *file, const int line, const char *func,
        _status_out(file, line, func, type_, fmt, values); \
        va_end(values);                                    \
     }                                                     \
-    if (abort_) abort();                                  \
+    if ((type_) & STATUS_CRITICAL) abort();               \
   }
 
-IMPLEMENT_FUNCTION(debug, STATUS_DEBUG, 0)
+IMPLEMENT_FUNCTION(debug, STATUS_DEBUG)
 #endif
 
-IMPLEMENT_FUNCTION(info, STATUS_INFO, 0)
-IMPLEMENT_FUNCTION(warning, STATUS_WARNING, 0)
-IMPLEMENT_FUNCTION(error, STATUS_ERROR, 0)
-IMPLEMENT_FUNCTION(perror, STATUS_PERROR, 0)
+IMPLEMENT_FUNCTION(info, STATUS_INFO)
+IMPLEMENT_FUNCTION(warning, STATUS_WARNING)
+IMPLEMENT_FUNCTION(error, STATUS_ERROR)
+IMPLEMENT_FUNCTION(perror, STATUS_PERROR)
 
-IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL, 1)
-IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR, 1)
+IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL)
+IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR)
 
 #undef IMPLEMENT_FUNCTION
