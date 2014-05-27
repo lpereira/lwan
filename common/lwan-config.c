@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -67,12 +68,13 @@ long parse_long(const char *value, long default_value)
   }
 
 convert:
+  errno = 0;
   parsed = strtol(value, &endptr, base);
 
-  if (parsed == LONG_MIN || parsed == LONG_MAX)
+  if (errno != 0)
     return default_value;
 
-  if (*endptr != '\0')
+  if (*endptr != '\0' || value == endptr)
     return default_value;
 
   return parsed;
