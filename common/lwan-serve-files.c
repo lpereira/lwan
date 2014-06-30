@@ -558,7 +558,7 @@ serve_files_init(void *args)
     char *canonical_root;
     int root_fd;
     serve_files_priv_t *priv;
-    int open_mode = O_RDONLY | O_NOATIME;
+    int open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK;
 
     if (!settings->root_path) {
         lwan_status_error("root_path not specified");
