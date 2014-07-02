@@ -95,8 +95,8 @@ typedef enum {
     HTTP_NOT_MODIFIED = 304,
     HTTP_BAD_REQUEST = 400,
     HTTP_NOT_AUTHORIZED = 401,
-    HTTP_NOT_FOUND = 404,
     HTTP_FORBIDDEN = 403,
+    HTTP_NOT_FOUND = 404,
     HTTP_NOT_ALLOWED = 405,
     HTTP_TOO_LARGE = 413,
     HTTP_RANGE_UNSATISFIABLE = 416,
@@ -279,6 +279,8 @@ void lwan_response_send_event(lwan_request_t *request, const char *event);
 void lwan_format_rfc_time(time_t t, char buffer[static 30]);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status)
+    __attribute__((pure)) __attribute__((warn_unused_result));
+const char *lwan_http_status_as_string_with_code(lwan_http_status_t status)
     __attribute__((pure)) __attribute__((warn_unused_result));
 const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     __attribute__((pure)) __attribute__((warn_unused_result));

@@ -214,14 +214,6 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 #define APPEND_CHAR_NOCHECK(value_) \
     *p_headers++ = (value_)
 
-#define APPEND_INT8(value_) \
-    do { \
-        RETURN_0_ON_OVERFLOW(3); \
-        APPEND_CHAR_NOCHECK((char)(((value_) / 100) % 10 + '0')); \
-        APPEND_CHAR_NOCHECK((char)(((value_) / 10) % 10 + '0')); \
-        APPEND_CHAR_NOCHECK((char)((value_) % 10 + '0')); \
-    } while(0)
-
 #define APPEND_UINT(value_) \
     do { \
         char *tmp = uint_to_string((value_), buffer, &len); \
@@ -246,9 +238,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_CONSTANT("HTTP/1.0 ");
     else
         APPEND_CONSTANT("HTTP/1.1 ");
-    APPEND_INT8(status);
-    APPEND_CHAR(' ');
-    APPEND_STRING(lwan_http_status_as_string(status));
+    APPEND_STRING(lwan_http_status_as_string_with_code(status));
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");

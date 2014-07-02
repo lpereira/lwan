@@ -113,24 +113,30 @@ fallback:
 }
 
 const char *
-lwan_http_status_as_string(lwan_http_status_t status)
+lwan_http_status_as_string_with_code(lwan_http_status_t status)
 {
     switch (status) {
-    case HTTP_OK: return "OK";
-    case HTTP_PARTIAL_CONTENT: return "Partial content";
-    case HTTP_MOVED_PERMANENTLY: return "Moved permanently";
-    case HTTP_NOT_MODIFIED: return "Not modified";
-    case HTTP_BAD_REQUEST: return "Bad request";
-    case HTTP_NOT_AUTHORIZED: return "Not authorized";
-    case HTTP_NOT_FOUND: return "Not found";
-    case HTTP_FORBIDDEN: return "Forbidden";
-    case HTTP_NOT_ALLOWED: return "Not allowed";
-    case HTTP_TOO_LARGE: return "Request too large";
-    case HTTP_RANGE_UNSATISFIABLE: return "Requested range unsatisfiable";
-    case HTTP_INTERNAL_ERROR: return "Internal server error";
-    case HTTP_UNAVAILABLE: return "Service unavailable";
+    case HTTP_OK: return "200 OK";
+    case HTTP_PARTIAL_CONTENT: return "206 Partial content";
+    case HTTP_MOVED_PERMANENTLY: return "301 Moved permanently";
+    case HTTP_NOT_MODIFIED: return "304 Not modified";
+    case HTTP_BAD_REQUEST: return "400 Bad request";
+    case HTTP_NOT_AUTHORIZED: return "401 Not authorized";
+    case HTTP_FORBIDDEN: return "403 Forbidden";
+    case HTTP_NOT_FOUND: return "404 Not found";
+    case HTTP_NOT_ALLOWED: return "405 Not allowed";
+    case HTTP_TOO_LARGE: return "413 Request too large";
+    case HTTP_RANGE_UNSATISFIABLE: return "416 Requested range unsatisfiable";
+    case HTTP_INTERNAL_ERROR: return "500 Internal server error";
+    case HTTP_UNAVAILABLE: return "503 Service unavailable";
     }
-    return "Invalid";
+    return "999 Invalid";
+}
+
+ALWAYS_INLINE const char *
+lwan_http_status_as_string(lwan_http_status_t status)
+{
+    return lwan_http_status_as_string_with_code(status) + 4;
 }
 
 const char *
@@ -143,8 +149,8 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_NOT_MODIFIED: return "The content has not changed since previous request.";
     case HTTP_BAD_REQUEST: return "The client has issued a bad request.";
     case HTTP_NOT_AUTHORIZED: return "Client has no authorization to access this resource.";
-    case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
     case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
+    case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
     case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";
     case HTTP_TOO_LARGE: return "The request entity is too large.";
     case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
