@@ -110,6 +110,8 @@ lwan_socket_init(lwan_t *l)
             .sin_family = AF_INET
         };
 
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+
         if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
             lwan_status_critical_perror("bind");
 
@@ -117,7 +119,6 @@ lwan_socket_init(lwan_t *l)
             lwan_status_critical_perror("listen");
     }
 
-    SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
         ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
 
