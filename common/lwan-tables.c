@@ -26,14 +26,6 @@
 #include "lwan.h"
 #include "mime-types.h"
 
-enum {
-    EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
-    EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
-    EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
-    EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
-    EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
-    EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
-} lwan_mime_ext_t;
 
 static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static struct mime_entry mime_entries[MIME_ENTRIES];
@@ -89,6 +81,15 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     char *last_dot = strrchr(file_name, '.');
     if (UNLIKELY(!last_dot))
         goto fallback;
+
+    enum {
+        EXT_JPG = MULTICHAR_CONSTANT_L('.','j','p','g'),
+        EXT_PNG = MULTICHAR_CONSTANT_L('.','p','n','g'),
+        EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
+        EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
+        EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
+        EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
+    };
 
     STRING_SWITCH_L(last_dot) {
     case EXT_CSS: return "text/css";
