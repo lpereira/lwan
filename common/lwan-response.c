@@ -201,8 +201,7 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 #define APPEND_STRING(str_) \
     do { \
         size_t len = strlen(str_); \
-        RETURN_0_ON_OVERFLOW(len); \
-        p_headers = mempcpy(p_headers, (str_), len); \
+        APPEND_STRING_LEN((str_), len); \
     } while(0)
 
 #define APPEND_CHAR(value_) \
