@@ -111,6 +111,9 @@ lwan_socket_init(lwan_t *l)
         };
 
         SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+        if (l->config.reuse_port)
+            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                    (int[]){ 1 }, sizeof(int));
 
         if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
             lwan_status_critical_perror("bind");
@@ -126,9 +129,6 @@ lwan_socket_init(lwan_t *l)
                                             (int[]){ 5 }, sizeof(int));
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK,
                                             (int[]){ 0 }, sizeof(int));
-    if (l->config.reuse_port)
-        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                                (int[]){ 1 }, sizeof(int));
 
     l->main_socket = fd;
 
