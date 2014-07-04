@@ -200,7 +200,7 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 
 #define APPEND_STRING(str_) \
     do { \
-        len = strlen(str_); \
+        size_t len = strlen(str_); \
         RETURN_0_ON_OVERFLOW(len); \
         p_headers = mempcpy(p_headers, (str_), len); \
     } while(0)
@@ -216,6 +216,7 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
 
 #define APPEND_UINT(value_) \
     do { \
+        size_t len; \
         char *tmp = uint_to_string((value_), buffer, &len); \
         RETURN_0_ON_OVERFLOW(len); \
         APPEND_STRING_LEN(tmp, len); \
@@ -230,7 +231,6 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
     char buffer[INT_TO_STR_BUFFER_SIZE];
-    size_t len;
 
     p_headers = headers;
 
