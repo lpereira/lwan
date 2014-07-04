@@ -83,6 +83,49 @@ _get_listening_port(int fd)
     return ntohs(sin.sin_port);
 }
 
+static int
+_setup_socket_from_systemd(lwan_t *l)
+{
+    int fd = SD_LISTEN_FDS_START;
+
+    if (!sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, 0))
+        lwan_status_critical("Passed file descriptor is not a "
+            "listening TCP socket");
+
+    l->config.port = _get_listening_port(fd);
+
+    return fd;
+}
+
+static int
+_setup_socket_normally(lwan_t *l)
+{
+    int fd;
+
+    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd < 0)
+        lwan_status_critical_perror("socket");
+
+    struct sockaddr_in sin = {
+        .sin_port = htons((uint16_t)l->config.port),
+        .sin_addr.s_addr = INADDR_ANY,
+        .sin_family = AF_INET
+    };
+
+    SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+    if (l->config.reuse_port)
+        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                (int[]){ 1 }, sizeof(int));
+
+    if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+        lwan_status_critical_perror("bind");
+
+    if (listen(fd, _get_backlog_size()) < 0)
+        lwan_status_critical_perror("listen");
+
+    return fd;
+}
+
 void
 lwan_socket_init(lwan_t *l)
 {
@@ -94,32 +137,9 @@ lwan_socket_init(lwan_t *l)
     if (n > 1) {
         lwan_status_critical("Too many file descriptors received");
     } else if (n == 1) {
-        fd = SD_LISTEN_FDS_START;
-        if (!sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, 0))
-            lwan_status_critical("Passed file descriptor is not a "
-                "listening TCP socket");
-        l->config.port = _get_listening_port(fd);
+        fd = _setup_socket_from_systemd(l);
     } else {
-        fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (fd < 0)
-            lwan_status_critical_perror("socket");
-
-        struct sockaddr_in sin = {
-            .sin_port = htons((uint16_t)l->config.port),
-            .sin_addr.s_addr = INADDR_ANY,
-            .sin_family = AF_INET
-        };
-
-        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
-        if (l->config.reuse_port)
-            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                                    (int[]){ 1 }, sizeof(int));
-
-        if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-            lwan_status_critical_perror("bind");
-
-        if (listen(fd, _get_backlog_size()) < 0)
-            lwan_status_critical_perror("listen");
+        fd = _setup_socket_normally(l);
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
