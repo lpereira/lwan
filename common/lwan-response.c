@@ -264,11 +264,12 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {
-            APPEND_CHAR('\r');
-            APPEND_CHAR('\n');
+            RETURN_0_ON_OVERFLOW(4);
+            APPEND_CHAR_NOCHECK('\r');
+            APPEND_CHAR_NOCHECK('\n');
             APPEND_STRING(header->key);
-            APPEND_CHAR(':');
-            APPEND_CHAR(' ');
+            APPEND_CHAR_NOCHECK(':');
+            APPEND_CHAR_NOCHECK(' ');
             APPEND_STRING(header->value);
         }
     } else if (status == HTTP_NOT_AUTHORIZED) {
