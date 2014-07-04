@@ -884,11 +884,6 @@ serve_files_handle_cb(lwan_request_t *request, lwan_response_t *response, void *
         goto fail;
     }
 
-    while (*request->url.value == '/' && request->url.len > 0) {
-        ++request->url.value;
-        --request->url.len;
-    }
-
     ce = cache_coro_get_and_ref_entry(priv->cache, request->conn->coro,
                 request->url.value);
     if (LIKELY(ce)) {
@@ -911,5 +906,5 @@ lwan_handler_t serve_files = {
     .init_from_hash = serve_files_init_from_hash,
     .shutdown = serve_files_shutdown,
     .handle = serve_files_handle_cb,
-    .flags = HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
+    .flags = HANDLER_REMOVE_LEADING_SLASH | HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
 };

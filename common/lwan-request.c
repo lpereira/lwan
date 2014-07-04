@@ -665,6 +665,13 @@ _prepare_for_response(lwan_url_map_t *url_map,
             return HTTP_NOT_AUTHORIZED;
     }
 
+    if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
+        while (*request->url.value == '/' && request->url.len > 0) {
+            ++request->url.value;
+            --request->url.len;
+        }
+    }
+
     return HTTP_OK;
 }
 
