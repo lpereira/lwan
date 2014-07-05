@@ -424,6 +424,8 @@ lwan_response_send_event(lwan_request_t *request, const char *event)
 
     lwan_writev(request, vec, last);
 
-    strbuf_reset_length(request->response.buffer);
-    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    if (UNLIKELY(strbuf_reset_length(request->response.buffer)))
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    else
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
 }
