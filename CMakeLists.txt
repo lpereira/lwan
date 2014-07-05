@@ -3,16 +3,22 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 
+include(CheckCCompilerFlag)
+
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto -ffat-lto-objects")
 
-	include(CheckCCompilerFlag)
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
 	if (HAS_CRC32)
 		set(USE_HARDWARE_CRC32 1)
 		add_definitions("-DUSE_HARDWARE_CRC32=1")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32")
+	endif ()
+else ()
+	check_c_compiler_flag(-fsanitize=undefined HAS_UNDEFINED_SANITIZER)
+	if (HAS_UNDEFINED_SANITIZER)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
 	endif ()
 endif ()
 
