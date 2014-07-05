@@ -294,11 +294,13 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     return (size_t)(p_headers - headers - 1);
 }
 
-#undef APPEND_STRING_LEN
-#undef APPEND_STRING
-#undef APPEND_CONSTANT
 #undef APPEND_CHAR
-#undef APPEND_INT
+#undef APPEND_CHAR_NOCHECK
+#undef APPEND_CONSTANT
+#undef APPEND_STRING
+#undef APPEND_STRING_LEN
+#undef APPEND_UINT
+#undef RETURN_0_ON_OVERFLOW
 
 bool
 lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
