@@ -146,7 +146,6 @@ static ALWAYS_INLINE struct cache_entry_t *convert_to_temporary(
 {
   entry->flags = TEMPORARY;
   entry->time_to_die = 0;
-  entry->refs = 1;
   return entry;
 }
 
@@ -193,6 +192,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
 
   memset(entry, 0, sizeof(*entry));
   entry->key = strdup(key);
+  entry->refs = 1;
 
   if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
     /* Couldn't obtain hash lock: instead of waiting, just return
@@ -209,8 +209,6 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     pthread_rwlock_wrlock(&cache->queue.lock);
     list_add_tail(&cache->queue.list, &entry->entries);
     pthread_rwlock_unlock(&cache->queue.lock);
-
-    ATOMIC_INC(entry->refs);
   } else {
     /* Either there's another item with the same key (-EEXIST), or
      * there was an error inside the hash table. In either case,
