@@ -202,7 +202,7 @@ _parse_post_data(lwan_request_t *request, lwan_request_parse_t *helper)
             &request->post_data.base, &request->post_data.len);
 }
 
-static ALWAYS_INLINE char *
+static char *
 _identify_http_path(lwan_request_t *request, char *buffer,
             lwan_request_parse_t *helper)
 {
@@ -277,7 +277,7 @@ _identify_http_path(lwan_request_t *request, char *buffer,
 #define CASE_HEADER(hdr_const,hdr_name) \
     case hdr_const: MATCH_HEADER(hdr_name);
 
-static ALWAYS_INLINE char *
+static char *
 _parse_headers(lwan_request_parse_t *helper, char *buffer, char *buffer_end)
 {
     char *p;
@@ -353,7 +353,7 @@ end:
 #undef CASE_HEADER
 #undef MATCH_HEADER
 
-static ALWAYS_INLINE void
+static void
 _parse_if_modified_since(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     if (UNLIKELY(!helper->if_modified_since.len))
@@ -371,7 +371,7 @@ _parse_if_modified_since(lwan_request_t *request, lwan_request_parse_t *helper)
     request->header.if_modified_since = timegm(&t);
 }
 
-static ALWAYS_INLINE void
+static void
 _parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     if (UNLIKELY(helper->range.len <= (sizeof("bytes=") - 1)))
@@ -399,7 +399,7 @@ _parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
     }
 }
 
-static ALWAYS_INLINE void
+static void
 _parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     char *p;
@@ -459,9 +459,8 @@ _compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
         request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
-static lwan_http_status_t
-_read_from_request_socket(lwan_request_t *request, lwan_value_t *buffer,
-    const size_t buffer_size,
+static lwan_http_status_t _read_from_request_socket(lwan_request_t *request,
+    lwan_value_t *buffer, const size_t buffer_size,
     lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, lwan_value_t *buffer))
 {
     ssize_t n;
@@ -517,9 +516,8 @@ out:
     return HTTP_OK;
 }
 
-static lwan_read_finalizer_t
-_read_request_finalizer(size_t total_read, size_t buffer_size,
-    lwan_value_t *buffer)
+static lwan_read_finalizer_t _read_request_finalizer(size_t total_read,
+    size_t buffer_size, lwan_value_t *buffer)
 {
     if (UNLIKELY(total_read < 4))
         return FINALIZER_YIELD_TRY_AGAIN;
@@ -555,7 +553,7 @@ _read_post_data_finalizer(size_t total_read, size_t buffer_size,
     return FINALIZER_YIELD_TRY_AGAIN;
 }
 
-static ALWAYS_INLINE lwan_http_status_t
+static lwan_http_status_t
 _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
             *buffer)
 {
@@ -596,7 +594,7 @@ _read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
     return HTTP_OK;
 }
 
-static ALWAYS_INLINE lwan_http_status_t
+static lwan_http_status_t
 _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     char *buffer;
@@ -633,7 +631,7 @@ _parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
     return HTTP_OK;
 }
 
-static ALWAYS_INLINE lwan_http_status_t
+static lwan_http_status_t
 _prepare_for_response(lwan_url_map_t *url_map,
                       lwan_request_t *request,
                       lwan_request_parse_t *helper)
@@ -748,21 +746,21 @@ _value_array_bsearch(lwan_key_value_t *base, const size_t len, const char *key)
     return NULL;
 }
 
-const char *
+ALWAYS_INLINE const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
     return _value_array_bsearch(request->query_params.base,
                                             request->query_params.len, key);
 }
 
-const char *
+ALWAYS_INLINE const char *
 lwan_request_get_post_param(lwan_request_t *request, const char *key)
 {
     return _value_array_bsearch(request->post_data.base,
                                             request->post_data.len, key);
 }
 
-int
+ALWAYS_INLINE int
 lwan_connection_get_fd(lwan_connection_t *conn)
 {
     return (int)(ptrdiff_t)(conn - conn->thread->lwan->conns);
