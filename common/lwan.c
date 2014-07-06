@@ -378,12 +378,38 @@ static bool setup_from_config(lwan_t *lwan)
     return true;
 }
 
+static rlim_t
+_setup_open_file_count_limits(void)
+{
+    struct rlimit r;
+
+    if (getrlimit(RLIMIT_NOFILE, &r) < 0)
+        lwan_status_critical_perror("getrlimit");
+
+    if (r.rlim_max == RLIM_INFINITY)
+        r.rlim_cur *= 8;
+    else if (r.rlim_cur < r.rlim_max)
+        r.rlim_cur = r.rlim_max;
+
+    if (setrlimit(RLIMIT_NOFILE, &r) < 0)
+        lwan_status_critical_perror("setrlimit");
+
+    return r.rlim_cur;
+}
+
+static void
+_allocate_connections(lwan_t *l, rlim_t max_open_files)
+{
+    l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
+    if (!l->conns)
+        lwan_status_critical_perror("calloc");
+    for (--max_open_files; max_open_files; --max_open_files)
+        l->conns[max_open_files].response_buffer = strbuf_new();
+}
+
 void
 lwan_init(lwan_t *l)
 {
-    long max_threads = sysconf(_SC_NPROCESSORS_ONLN);
-    struct rlimit r;
-
     /* Load defaults */
     memcpy(&l->config, &default_config, sizeof(default_config));
 
@@ -405,27 +431,15 @@ lwan_init(lwan_t *l)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
+    long max_threads = sysconf(_SC_NPROCESSORS_ONLN);
     l->thread.count = (short)(max_threads > 0 ? max_threads : 2);
 
-    if (getrlimit(RLIMIT_NOFILE, &r) < 0)
-        lwan_status_critical_perror("getrlimit");
+    rlim_t max_open_files = _setup_open_file_count_limits();
+    _allocate_connections(l, max_open_files);
 
-    if (r.rlim_max == RLIM_INFINITY)
-        r.rlim_cur *= 8;
-    else if (r.rlim_cur < r.rlim_max)
-        r.rlim_cur = r.rlim_max;
-    if (setrlimit(RLIMIT_NOFILE, &r) < 0)
-        lwan_status_critical_perror("setrlimit");
-
-    l->conns = calloc(r.rlim_cur, sizeof(lwan_connection_t));
-    if (!l->conns)
-        lwan_status_critical_perror("calloc");
-    l->thread.max_fd = (unsigned)r.rlim_cur / (unsigned)l->thread.count;
+    l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
         l->thread.count, l->thread.max_fd);
-
-    for (--r.rlim_cur; r.rlim_cur; --r.rlim_cur)
-        l->conns[r.rlim_cur].response_buffer = strbuf_new();
 
     signal(SIGPIPE, SIG_IGN);
     close(STDIN_FILENO);
