@@ -162,8 +162,7 @@ _authorize(coro_t *coro,
     if (UNLIKELY(!decoded))
         return false;
 
-    /* 1024 is the line buffer size for config_* */
-    if (UNLIKELY(decoded_len >= 1024))
+    if (UNLIKELY(decoded_len >= sizeof(((config_line_t *)0)->buffer)))
         goto out;
 
     colon = memchr(decoded, ':', decoded_len);
