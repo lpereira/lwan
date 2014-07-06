@@ -491,18 +491,13 @@ _schedule_client(lwan_t *l, int fd)
     static int counter = 0;
     thread = counter++ % l->thread.count;
 #endif
-    int epoll_fd = l->thread.threads[thread].epoll_fd;
-
-    struct epoll_event event = {
-        .events = EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET,
-        .data.ptr = &l->conns[fd]
-    };
+    lwan_thread_t *t = &l->thread.threads[thread];
 
     l->conns[fd].flags = 0;
-    l->conns[fd].thread = &l->thread.threads[thread];
+    l->conns[fd].thread = t;
 
-    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
-        lwan_status_critical_perror("epoll_ctl");
+    if (UNLIKELY(write(t->socketpair[1], (int[]) { fd }, sizeof(int)) < 0))
+        lwan_status_perror("write");
 }
 
 static void

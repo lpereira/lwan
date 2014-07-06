@@ -266,15 +266,35 @@ _thread_io_loop(void *data)
             _update_date_cache(t);
 
             for (ep_event = events; n_fds--; ep_event++) {
-                lwan_connection_t *conn = ep_event->data.ptr;
+                lwan_connection_t *conn;
 
-                if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                    _destroy_coro(conn);
-                    continue;
+                if (!ep_event->data.ptr) {
+                    int fd;
+                    if (UNLIKELY(read(t->socketpair[0], &fd, sizeof(int)) != sizeof(int))) {
+                        lwan_status_perror("read");
+                        continue;
+                    }
+
+                    conn = &conns[fd];
+                    struct epoll_event event = {
+                        .events = events_by_write_flag[1],
+                        .data.ptr = conn
+                    };
+                    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+                        lwan_status_critical_perror("epoll_ctl");
+
+                    _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
+                } else {
+                    conn = ep_event->data.ptr;
+
+                    if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                        _destroy_coro(conn);
+                        continue;
+                    }
+
+                    _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
+                    _resume_coro_if_needed(conn, epoll_fd);
                 }
-
-                _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
-                _resume_coro_if_needed(conn, epoll_fd);
 
                 /*
                  * If the connection isn't keep alive, it might have a
@@ -327,6 +347,13 @@ _create_thread(lwan_t *l, short thread_n)
 
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, thread->socketpair) < 0)
+        lwan_status_critical_perror("socketpair");
+
+    struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
+    if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->socketpair[0], &event) < 0)
+        lwan_status_critical_perror("epoll_ctl");
 }
 
 void
@@ -358,8 +385,12 @@ lwan_thread_shutdown(lwan_t *l)
      * don't wait one thread to join when there are others to be
      * finalized.
      */
-    for (i = l->thread.count - 1; i >= 0; i--)
-        close(l->thread.threads[i].epoll_fd);
+    for (i = l->thread.count - 1; i >= 0; i--) {
+        lwan_thread_t *t = &l->thread.threads[i];
+        close(t->epoll_fd);
+        close(t->socketpair[0]);
+        close(t->socketpair[1]);
+    }
     for (i = l->thread.count - 1; i >= 0; i--)
 #ifdef __linux__
         pthread_tryjoin_np(l->thread.threads[i].self, NULL);
