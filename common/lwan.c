@@ -398,7 +398,7 @@ _setup_open_file_count_limits(void)
 }
 
 static void
-_allocate_connections(lwan_t *l, rlim_t max_open_files)
+_allocate_connections(lwan_t *l, size_t max_open_files)
 {
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
     if (!l->conns)
@@ -435,7 +435,7 @@ lwan_init(lwan_t *l)
     l->thread.count = (short)(max_threads > 0 ? max_threads : 2);
 
     rlim_t max_open_files = _setup_open_file_count_limits();
-    _allocate_connections(l, max_open_files);
+    _allocate_connections(l, (size_t)max_open_files);
 
     l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
