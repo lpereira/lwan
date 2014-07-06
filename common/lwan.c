@@ -312,7 +312,7 @@ static unsigned int _parse_expires(const char *str, unsigned int default_value)
                         multiplier);
         }
 
-        str = rawmemchr(str, multiplier) + 1;
+        str = (const char *)rawmemchr(str, multiplier) + 1;
     }
 
     return total ? total : default_value;

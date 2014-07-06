@@ -131,7 +131,7 @@ static char *find_line_end(char *line)
 {
   if (*line == '\0')
     return line;
-  return rawmemchr(line, '\0') - 1;
+  return (char *)rawmemchr(line, '\0') - 1;
 }
 
 static bool parse_section(char *line, config_line_t *l)
