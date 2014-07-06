@@ -339,7 +339,7 @@ lwan_response_send_chunk(lwan_request_t *request)
     }
 
     char chunk_size[3 * sizeof(size_t) + 2];
-    int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%lx\r\n", buffer_len);
+    int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%zx\r\n", buffer_len);
     if (UNLIKELY(converted_len < 0))
         return;
     size_t chunk_size_len = (size_t)converted_len;
