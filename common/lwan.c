@@ -460,7 +460,7 @@ lwan_shutdown(lwan_t *l)
 }
 
 static ALWAYS_INLINE void
-_push_request_fd(lwan_t *l, int fd)
+_schedule_client(lwan_t *l, int fd)
 {
     int thread;
 #ifdef __x86_64__
@@ -510,12 +510,12 @@ lwan_main_loop(lwan_t *l)
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int child_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
-        if (UNLIKELY(child_fd < 0)) {
+        int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+        if (UNLIKELY(client_fd < 0)) {
             lwan_status_perror("accept");
             continue;
         }
 
-        _push_request_fd(l, child_fd);
+        _schedule_client(l, client_fd);
     }
 }
