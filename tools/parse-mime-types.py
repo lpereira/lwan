@@ -2,7 +2,10 @@
 
 import sys
 import struct
-import zlib
+try:
+  import zopfli as zlib
+except:
+  import zlib
 from operator import itemgetter
 
 def to_bytes(s):
