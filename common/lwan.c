@@ -298,7 +298,7 @@ static unsigned int _parse_expires(const char *str, unsigned int default_value)
     unsigned int period;
     char multiplier;
 
-    while (*str && sscanf(str, "%d%c", &period, &multiplier) == 2) {
+    while (*str && sscanf(str, "%u%c", &period, &multiplier) == 2) {
         switch (multiplier) {
         case 's': total += period; break;
         case 'm': total += period * ONE_MINUTE; break;
