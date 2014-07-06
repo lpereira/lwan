@@ -464,7 +464,8 @@ _push_request_fd(lwan_t *l, int fd)
 {
     int thread;
 #ifdef __x86_64__
-    assert(sizeof(lwan_connection_t) == 32);
+    static_assert(sizeof(lwan_connection_t) == 32,
+                                        "Two connections per cache line");
     /* Since lwan_connection_t is guaranteed to be 32-byte long, two of them
      * can fill up a cache line.  This formula will group two connections
      * per thread in a way that false-sharing is avoided.  This gives wrong
