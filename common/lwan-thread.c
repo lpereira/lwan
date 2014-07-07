@@ -228,6 +228,25 @@ _spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
     conn->flags &= ~CONN_WRITE_EVENTS;
 }
 
+static lwan_connection_t *
+_grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
+{
+    int fd;
+    if (UNLIKELY(read(t->socketpair[0], &fd, sizeof(int)) != sizeof(int))) {
+        lwan_status_perror("read");
+        return NULL;
+    }
+
+    struct epoll_event event = {
+        .events = events_by_write_flag[1],
+        .data.ptr = &conns[fd]
+    };
+    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+        lwan_status_critical_perror("epoll_ctl");
+
+    return &conns[fd];
+}
+
 static void *
 _thread_io_loop(void *data)
 {
@@ -269,24 +288,12 @@ _thread_io_loop(void *data)
                 lwan_connection_t *conn;
 
                 if (!ep_event->data.ptr) {
-                    int fd;
-                    if (UNLIKELY(read(t->socketpair[0], &fd, sizeof(int)) != sizeof(int))) {
-                        lwan_status_perror("read");
+                    conn = _grab_and_watch_client(t, conns);
+                    if (UNLIKELY(!conn))
                         continue;
-                    }
-
-                    conn = &conns[fd];
-                    struct epoll_event event = {
-                        .events = events_by_write_flag[1],
-                        .data.ptr = conn
-                    };
-                    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
-                        lwan_status_critical_perror("epoll_ctl");
-
                     _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
                 } else {
                     conn = ep_event->data.ptr;
-
                     if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
                         _destroy_coro(conn);
                         continue;
