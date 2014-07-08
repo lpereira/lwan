@@ -178,11 +178,14 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
         lwan_connection_t *conn = _death_queue_first(dq);
 
         if (conn->time_to_die > dq->time)
-            break;
+            return;
 
         _death_queue_pop(dq);
         _destroy_coro(conn);
     }
+
+    /* Death queue exhausted: reset epoch */
+    dq->time = 0;
 }
 
 void
