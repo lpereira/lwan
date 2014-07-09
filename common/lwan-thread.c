@@ -367,6 +367,16 @@ _create_thread(lwan_t *l, short thread_n)
 }
 
 void
+lwan_thread_add_client(lwan_thread_t *t, int fd)
+{
+    t->lwan->conns[fd].flags = 0;
+    t->lwan->conns[fd].thread = t;
+
+    if (UNLIKELY(write(t->socketpair[1], &fd, sizeof(int)) < 0))
+        lwan_status_perror("write");
+}
+
+void
 lwan_thread_init(lwan_t *l)
 {
     short i;

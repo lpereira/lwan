@@ -492,12 +492,7 @@ _schedule_client(lwan_t *l, int fd)
     thread = counter++ % l->thread.count;
 #endif
     lwan_thread_t *t = &l->thread.threads[thread];
-
-    l->conns[fd].flags = 0;
-    l->conns[fd].thread = t;
-
-    if (UNLIKELY(write(t->socketpair[1], (int[]) { fd }, sizeof(int)) < 0))
-        lwan_status_perror("write");
+    lwan_thread_add_client(t, fd);
 }
 
 static void
