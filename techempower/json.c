@@ -37,7 +37,7 @@
 /* Sadly, strdup is not portable. */
 static char *json_strdup(const char *str)
 {
-	char *ret = (char*) malloc(strlen(str) + 1);
+	char *ret = malloc(strlen(str) + 1);
 	if (ret == NULL)
 		out_of_memory();
 	strcpy(ret, str);
@@ -156,9 +156,9 @@ typedef uint32_t uchar_t;
  *  * The sixty-six Unicode "non-characters" are permitted
  *    (namely, U+FDD0..U+FDEF, U+xxFFFE, and U+xxFFFF).
  */
-static size_t utf8_validate_cz(const unsigned char *s)
+static size_t utf8_validate_cz(const char *s)
 {
-	unsigned char c = *s++;
+	unsigned char c = (unsigned char)*s++;
 	
 	if (c <= 0x7F) {        /* 00..7F */
 		return 1;
@@ -211,7 +211,7 @@ static size_t utf8_validate_cz(const unsigned char *s)
 }
 
 /* Validate a null-terminated UTF-8 string. */
-static bool utf8_validate(const unsigned char *s)
+static bool utf8_validate(const char *s)
 {
 	size_t len;
 	
@@ -813,8 +813,8 @@ failure:
 
 bool parse_string(const char **sp, char **out)
 {
-	const unsigned char *s = (unsigned char *)*sp;
-	SB sb;
+	const char *s = (char *)*sp;
+	SB sb = {0};
 	char throwaway_buffer[4];
 		/* enough space for a UTF-8 character */
 	char *b;
@@ -831,7 +831,7 @@ bool parse_string(const char **sp, char **out)
 	}
 	
 	while (*s != '"') {
-		unsigned char c = *s++;
+		char c = *s++;
 		
 		/* Parse next character, and write it to b. */
 		if (c == '\\') {
@@ -890,7 +890,7 @@ bool parse_string(const char **sp, char **out)
 			goto failed;
 		} else {
 			/* Validate and echo a UTF-8 character. */
-			int len;
+			size_t len;
 			
 			s--;
 			len = utf8_validate_cz(s);
@@ -1141,7 +1141,7 @@ void emit_string(SB *out, const char *str)
 	
 	*b++ = '"';
 	while (*s != 0) {
-		unsigned char c = *s++;
+		char c = *s++;
 		
 		/* Encode the next character, and write it to b. */
 		switch (c) {
@@ -1174,7 +1174,7 @@ void emit_string(SB *out, const char *str)
 				*b++ = 't';
 				break;
 			default: {
-				int len;
+				size_t len;
 				
 				s--;
 				len = utf8_validate_cz(s);
@@ -1193,12 +1193,12 @@ void emit_string(SB *out, const char *str)
 						strcpy(b, "\\uFFFD");
 						b += 6;
 					} else {
-						*b++ = 0xEF;
-						*b++ = 0xBF;
-						*b++ = 0xBD;
+						*b++ = (char)0xEF;
+						*b++ = (char)0xBF;
+						*b++ = (char)0xBD;
 					}
 					s++;
-				} else if (c < 0x1F || (c >= 0x80 && escape_unicode)) {
+				} else if (c < 0x1F || ((unsigned char)c >= 0x80 && escape_unicode)) {
 					/* Encode using \u.... */
 					uint32_t unicode;
 					
@@ -1207,7 +1207,7 @@ void emit_string(SB *out, const char *str)
 					if (unicode <= 0xFFFF) {
 						*b++ = '\\';
 						*b++ = 'u';
-						b += write_hex16(b, unicode);
+						b += write_hex16(b, (uint16_t)unicode);
 					} else {
 						/* Produce a surrogate pair. */
 						uint16_t uc, lc;
@@ -1297,16 +1297,15 @@ static bool parse_hex16(const char **sp, uint16_t *out)
 	for (i = 0; i < 4; i++) {
 		c = *s++;
 		if (c >= '0' && c <= '9')
-			tmp = c - '0';
+			tmp = (uint16_t)(c - '0');
 		else if (c >= 'A' && c <= 'F')
-			tmp = c - 'A' + 10;
+			tmp = (uint16_t)(c - 'A' + 10);
 		else if (c >= 'a' && c <= 'f')
-			tmp = c - 'a' + 10;
+			tmp = (uint16_t)(c - 'a' + 10);
 		else
 			return false;
 
-		ret <<= 4;
-		ret += tmp;
+		ret = (uint16_t)((ret << 4) + tmp);
 	}
 	
 	if (out)
