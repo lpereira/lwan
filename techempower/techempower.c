@@ -120,7 +120,7 @@ queries(lwan_request_t *request,
 
     JsonNode *array = json_mkarray();
     if (UNLIKELY(!array))
-        return HTTP_BAD_REQUEST;
+        return HTTP_INTERNAL_ERROR;
 
     while (queries--) {
         JsonNode *object = db_query();
