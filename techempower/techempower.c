@@ -29,36 +29,35 @@ static const char hello_world[] = "Hello, World!";
 static sqlite3 *database = NULL;
 
 static lwan_http_status_t
-json(lwan_request_t *request __attribute__((unused)),
-     lwan_response_t *response,
-     void *data __attribute__((unused)))
+json_response(lwan_response_t *response, JsonNode *node)
 {
-    lwan_http_status_t status = HTTP_OK;
-
-    JsonNode *hello = json_mkobject();
-    if (UNLIKELY(!hello)) {
-        status = HTTP_INTERNAL_ERROR;
-        goto out;
-    }
-
-    json_append_member(hello, "message", json_mkstring(hello_world));
-
     size_t length;
-    char *serialized = json_stringify_length(hello, NULL, &length);
-    if (UNLIKELY(!serialized)) {
-        status = HTTP_INTERNAL_ERROR;
-        goto out_delete_json;
-    }
-    
+    char *serialized;
+
+    serialized = json_stringify_length(node, NULL, &length);
+    json_delete(node);
+    if (UNLIKELY(!serialized))
+        return HTTP_INTERNAL_ERROR;
+
     strbuf_set(response->buffer, serialized, length);
     free(serialized);
 
     response->mime_type = "application/json";
+    return HTTP_OK;
+}
 
-out_delete_json:
-    json_delete(hello);
-out:
-    return status;
+static lwan_http_status_t
+json(lwan_request_t *request __attribute__((unused)),
+     lwan_response_t *response,
+     void *data __attribute__((unused)))
+{
+    JsonNode *hello = json_mkobject();
+    if (UNLIKELY(!hello))
+        return HTTP_INTERNAL_ERROR;
+
+    json_append_member(hello, "message", json_mkstring(hello_world));
+
+    return json_response(response, hello);
 }
 
 static JsonNode *
@@ -98,23 +97,11 @@ db(lwan_request_t *request __attribute__((unused)),
    lwan_response_t *response,
    void *data __attribute__((unused)))
 {
-    size_t length;
-    char *serialized;
     JsonNode *object = db_query();
-    
     if (UNLIKELY(!object))
         return HTTP_INTERNAL_ERROR;
 
-    serialized = json_stringify_length(object, NULL, &length);
-    if (LIKELY(serialized)) {
-        strbuf_set(response->buffer, serialized, length);
-        free(serialized);
-
-        response->mime_type = "application/json";
-        return HTTP_OK;
-    }
-
-    return HTTP_INTERNAL_ERROR;
+    return json_response(response, object);
 }
 
 static lwan_http_status_t
@@ -122,8 +109,6 @@ queries(lwan_request_t *request,
         lwan_response_t *response,
         void *data __attribute__((unused)))
 {
-    size_t length;
-    char *serialized;
     const char *queries_str = lwan_request_get_query_param(request, "queries");
 
     if (UNLIKELY(!queries_str))
@@ -148,17 +133,7 @@ queries(lwan_request_t *request,
         json_append_element(array, object);
     }
 
-    serialized = json_stringify_length(array, NULL, &length);
-    if (UNLIKELY(!serialized)) {
-        json_delete(array);
-        return HTTP_INTERNAL_ERROR;
-    }
-
-    strbuf_set(response->buffer, serialized, length);
-    free(serialized);
-
-    response->mime_type = "application/json";
-    return HTTP_OK;
+    return json_response(response, array);
 }
 
 static lwan_http_status_t
