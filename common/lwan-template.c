@@ -177,15 +177,59 @@ _lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length)
         char *str;
     } *v = ptr;
 
+    *allocated = false;
+
     if (UNLIKELY(!v->str)) {
         *length = 0;
-        *allocated = false;
         return "";
     }
 
     *length = strlen(v->str);
-    *allocated = false;
     return v->str;
+}
+
+char *
+_lwan_tpl_str_to_str_escape(void *ptr, bool *allocated, size_t *length)
+{
+    struct v {
+        char *str;
+    } *v = ptr;
+
+    if (UNLIKELY(!v->str)) {
+        *allocated = false;
+        *length = 0;
+        return "";
+    }
+
+    size_t tmp_length = strlen(v->str) * 4; /* 4 = strlen("&gt;") */
+    char *tmp = malloc(tmp_length);
+    if (!tmp)
+        return NULL;
+
+    char *p = v->str;
+    char *orig_tmp = tmp;
+    while (*p) {
+        if (*p == '<') {
+            *tmp++ = '&';
+            *tmp++ = 'l';
+            *tmp++ = 't';
+            *tmp++ = ';';
+        } else if (*p == '>') {
+            *tmp++ = '&';
+            *tmp++ = 'g';
+            *tmp++ = 't';
+            *tmp++ = ';';
+        } else {
+            *tmp++ = *p;
+        }
+        p++;
+    }
+
+    *tmp = '\0';
+
+    *allocated = true;
+    *length = strlen(orig_tmp);
+    return orig_tmp;
 }
 
 bool

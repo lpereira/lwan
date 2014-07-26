@@ -64,6 +64,9 @@ struct lwan_var_descriptor_t_ {
 #define TPL_VAR_STR(struct_, var_) \
     TPL_VAR_SIMPLE(struct_, var_, _lwan_tpl_str_to_str, _lwan_tpl_str_is_empty)
 
+#define TPL_VAR_STR_ESCAPE(struct_, var_) \
+    TPL_VAR_SIMPLE(struct_, var_, _lwan_tpl_str_to_str_escape, _lwan_tpl_str_is_empty)
+
 #define TPL_VAR_SENTINEL \
     { NULL, 0, NULL, NULL, NULL, NULL }
 
@@ -75,6 +78,7 @@ struct lwan_var_descriptor_t_ {
 char	*_lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_int_is_empty(void *ptr);
 char	*_lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length);
+char	*_lwan_tpl_str_to_str_escape(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_str_is_empty(void *ptr);
 char	*_lwan_tpl_double_to_str(void *ptr, bool *allocated, size_t *length);
 bool	 _lwan_tpl_double_is_empty(void *ptr);
