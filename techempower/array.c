@@ -60,7 +60,7 @@ int array_append(struct array *array, const void *element)
 	idx = array->count;
 	array->array[idx] = (void *)element;
 	array->count++;
-	return idx;
+	return (int)idx;
 }
 
 int array_append_unique(struct array *array, const void *element)
