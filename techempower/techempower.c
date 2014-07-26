@@ -265,6 +265,7 @@ static int fortune_list_generator(coro_t *coro)
 
 out:
     array_free_array(&fortunes);
+    sqlite3_finalize(stmt);
     return 0;
 }
 
