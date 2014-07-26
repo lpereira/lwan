@@ -116,7 +116,9 @@ queries(lwan_request_t *request,
 
     long queries = parse_long(queries_str, -1);
     if (UNLIKELY(queries < 0))
-        return HTTP_BAD_REQUEST;
+        queries = 1;
+    else if (UNLIKELY(queries > 500))
+        queries = 500;
 
     JsonNode *array = json_mkarray();
     if (UNLIKELY(!array))
