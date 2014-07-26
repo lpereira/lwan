@@ -68,14 +68,14 @@ db_query(void)
     sqlite3_stmt *stmt;
     int id = rand() % 10000;
 
-    if (sqlite3_prepare(database, world_query, sizeof(world_query) - 1,
-        &stmt, NULL) != SQLITE_OK)
+    if (UNLIKELY(sqlite3_prepare(database, world_query, sizeof(world_query) - 1,
+        &stmt, NULL) != SQLITE_OK))
         return NULL;
 
-    if (sqlite3_bind_int(stmt, 1, id) != SQLITE_OK)
+    if (UNLIKELY(sqlite3_bind_int(stmt, 1, id) != SQLITE_OK))
         goto out;
 
-    if (sqlite3_step(stmt) != SQLITE_ROW)
+    if (UNLIKELY(sqlite3_step(stmt) != SQLITE_ROW))
         goto out;
 
     object = json_mkobject();
@@ -115,7 +115,7 @@ queries(lwan_request_t *request,
         return HTTP_BAD_REQUEST;
 
     long queries = parse_long(queries_str, -1);
-    if (queries < 0)
+    if (UNLIKELY(queries < 0))
         return HTTP_BAD_REQUEST;
 
     JsonNode *array = json_mkarray();
