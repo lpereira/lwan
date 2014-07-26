@@ -113,7 +113,7 @@ static char *sb_finish_length(SB *sb, size_t *length)
 {
 	*sb->cur = 0;
 	assert(sb->start <= sb->cur && strlen(sb->start) == (size_t)(sb->cur - sb->start));
-	*length = (size_t)(sb->end - sb->start);
+	*length = (size_t)(sb->cur - sb->start);
 	return sb->start;
 }
 
