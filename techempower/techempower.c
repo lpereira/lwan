@@ -307,6 +307,10 @@ main(void)
                              sqlite3_errmsg(database));
     }
 
+    sqlite3_exec(database, "PRAGMA mmap_size=44040192", NULL, NULL, NULL);
+    sqlite3_exec(database, "PRAGMA journal_mode=OFF", NULL, NULL, NULL);
+    sqlite3_exec(database, "PRAGMA locking_mode=EXCLUSIVE", NULL, NULL, NULL);
+
     fortune_tpl = lwan_tpl_compile_string(fortunes_template_str, fortune_desc);
     if (!fortune_tpl)
         lwan_status_critical("Could not compile fortune templates");
