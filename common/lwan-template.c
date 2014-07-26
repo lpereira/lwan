@@ -201,7 +201,7 @@ _lwan_tpl_str_to_str_escape(void *ptr, bool *allocated, size_t *length)
         return "";
     }
 
-    size_t tmp_length = strlen(v->str) * 4; /* 4 = strlen("&gt;") */
+    size_t tmp_length = strlen(v->str) * 4 + 1; /* 4 = strlen("&gt;") */
     char *tmp = malloc(tmp_length);
     if (!tmp)
         return NULL;
