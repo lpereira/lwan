@@ -66,7 +66,7 @@ static const lwan_var_descriptor_t fortune_desc[] = {
     TPL_VAR_SENTINEL
 };
 
-static sqlite3 *database = NULL;
+static sqlite3 *database;
 static lwan_tpl_t *fortune_tpl;
 
 static lwan_http_status_t
@@ -215,7 +215,7 @@ static bool append_fortune(coro_t *coro, struct array *fortunes,
 
     fortune = coro_malloc(coro, sizeof(*fortune));
     if (!fortune)
-       return false;
+        return false;
 
     fortune->item.id = id;
     fortune->item.message = strdup(message);
@@ -284,18 +284,17 @@ fortunes(lwan_request_t *request __attribute__((unused)),
     return HTTP_OK;
 }
 
-static const lwan_url_map_t url_map[] = {
-    { .prefix = "/json", .callback = json },
-    { .prefix = "/db", .callback = db },
-    { .prefix = "/queries", .callback = queries },
-    { .prefix = "/plaintext", .callback = plaintext },
-    { .prefix = "/fortunes", .callback = fortunes },
-    { .prefix = NULL }
-};
-
 int
 main(void)
 {
+    static const lwan_url_map_t url_map[] = {
+        { .prefix = "/json", .callback = json },
+        { .prefix = "/db", .callback = db },
+        { .prefix = "/queries", .callback = queries },
+        { .prefix = "/plaintext", .callback = plaintext },
+        { .prefix = "/fortunes", .callback = fortunes },
+        { .prefix = NULL }
+    };
     lwan_t l;
 
     lwan_init(&l);
