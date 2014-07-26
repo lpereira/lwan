@@ -17,16 +17,57 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <stdlib.h>
 #include <sqlite3.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "lwan.h"
 #include "lwan-config.h"
+#include "lwan-template.h"
+
+#include "array.h"
 #include "json.h"
 
 static const char hello_world[] = "Hello, World!";
 
+struct Fortune {
+    struct {
+        lwan_tpl_list_generator_t generator;
+
+        int id;
+        char *message;
+    } item;
+};
+
+static const char fortunes_template_str[] = "<!DOCTYPE html>" \
+"<html>" \
+"<head><title>Fortunes</title></head>" \
+"<body>" \
+"<table>" \
+"<tr><th>id</th><th>message</th></tr>" \
+"{{#item}}" \
+"<tr><td>{{item.id}}</td><td>{{item.message}}</td></tr>" \
+"{{/item}}" \
+"</table>" \
+"</body>" \
+"</html>";
+
+static int fortune_list_generator(coro_t *coro);
+
+static const lwan_var_descriptor_t fortune_item_desc[] = {
+    TPL_VAR_INT(struct Fortune, item.id),
+    TPL_VAR_STR_ESCAPE(struct Fortune, item.message),
+    TPL_VAR_SENTINEL
+};
+
+static const lwan_var_descriptor_t fortune_desc[] = {
+    TPL_VAR_SEQUENCE(struct Fortune, item,
+                     fortune_list_generator, fortune_item_desc),
+    TPL_VAR_SENTINEL
+};
+
 static sqlite3 *database = NULL;
+static lwan_tpl_t *fortune_tpl;
 
 static lwan_http_status_t
 json_response(lwan_response_t *response, JsonNode *node)
@@ -149,13 +190,97 @@ plaintext(lwan_request_t *request __attribute__((unused)),
     return HTTP_OK;
 }
 
-static void
-database_init()
+static int fortune_compare(const void *a, const void *b)
 {
-    if (sqlite3_open_v2("world.db", &database, SQLITE_OPEN_READONLY,
-            NULL) != SQLITE_OK)
-        lwan_status_critical("Could not open database: %s",
-                             sqlite3_errmsg(database));
+    const struct Fortune *fortune_a = *(const struct Fortune **)a;
+    const struct Fortune *fortune_b = *(const struct Fortune **)b;
+    size_t a_len = strlen(fortune_a->item.message);
+    size_t b_len = strlen(fortune_b->item.message);
+
+    if (!a_len || !b_len)
+        return a_len > b_len;
+
+    size_t min_len = a_len < b_len ? a_len : b_len;
+    int cmp = memcmp(fortune_a->item.message, fortune_b->item.message, min_len);
+    if (cmp == 0)
+        return a_len > b_len;
+
+    return cmp > 0;
+}
+
+static bool append_fortune(coro_t *coro, struct array *fortunes,
+                           int id, const char *message)
+{
+    struct Fortune *fortune;
+
+    fortune = coro_malloc(coro, sizeof(*fortune));
+    if (!fortune)
+       return false;
+
+    fortune->item.id = id;
+    fortune->item.message = strdup(message);
+    if (!fortune->item.message)
+        return false;
+
+    coro_defer(coro, CORO_DEFER(free), fortune->item.message);
+
+    return array_append(fortunes, fortune) >= 0;
+}
+
+static int fortune_list_generator(coro_t *coro)
+{
+    static const char fortune_query[] = "SELECT * FROM Fortune";
+    struct Fortune *fortune;
+    struct array fortunes;
+    sqlite3_stmt *stmt;
+    size_t i;
+
+    if (UNLIKELY(sqlite3_prepare(database, fortune_query, sizeof(fortune_query) - 1,
+        &stmt, NULL) != SQLITE_OK)) {
+        return 0;
+    }
+
+    array_init(&fortunes, 16);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        int id = sqlite3_column_int(stmt, 0);
+        const char *message = (const char *)sqlite3_column_text(stmt, 1);
+        if (!append_fortune(coro, &fortunes, id, message))
+            goto out;
+    }
+
+    if (!append_fortune(coro, &fortunes, 42,
+                            "Additional fortune added at request time."))
+        goto out;
+
+    array_sort(&fortunes, fortune_compare);
+
+    fortune = coro_get_data(coro);
+    for (i = 0; i < fortunes.count; i++) {
+        struct Fortune *f = fortunes.array[i];
+        fortune->item.id = f->item.id;
+        fortune->item.message = f->item.message;
+        coro_yield(coro, 1);
+    }
+
+out:
+    array_free_array(&fortunes);
+    return 0;
+}
+
+static lwan_http_status_t
+fortunes(lwan_request_t *request __attribute__((unused)),
+         lwan_response_t *response,
+         void *data __attribute__((unused)))
+{
+    struct Fortune fortune;
+
+    if (UNLIKELY(!lwan_tpl_apply_with_buffer(fortune_tpl,
+                                             response->buffer, &fortune)))
+       return HTTP_INTERNAL_ERROR;
+
+    response->mime_type = "text/html; charset=UTF-8";
+    return HTTP_OK;
 }
 
 static const lwan_url_map_t url_map[] = {
@@ -163,6 +288,7 @@ static const lwan_url_map_t url_map[] = {
     { .prefix = "/db", .callback = db },
     { .prefix = "/queries", .callback = queries },
     { .prefix = "/plaintext", .callback = plaintext },
+    { .prefix = "/fortunes", .callback = fortunes },
     { .prefix = NULL }
 };
 
@@ -175,10 +301,21 @@ main(void)
 
     srand((unsigned int)time(NULL));
 
-    database_init();
+    if (sqlite3_open_v2("techempower.db", &database, SQLITE_OPEN_READONLY,
+            NULL) != SQLITE_OK) {
+        lwan_status_critical("Could not open database: %s",
+                             sqlite3_errmsg(database));
+    }
+
+    fortune_tpl = lwan_tpl_compile_string(fortunes_template_str, fortune_desc);
+    if (!fortune_tpl)
+        lwan_status_critical("Could not compile fortune templates");
 
     lwan_set_url_map(&l, url_map);
     lwan_main_loop(&l);
+
+    lwan_tpl_free(fortune_tpl);
+    sqlite3_close(database);
     lwan_shutdown(&l);
 
     return 0;

@@ -4,6 +4,7 @@ pkg_check_modules(SQLITE REQUIRED sqlite3>=3.7.15.2)
 add_executable(techempower
 	techempower.c
 	json.c
+	array.c
 )
 
 target_link_libraries(techempower
