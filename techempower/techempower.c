@@ -214,15 +214,13 @@ static bool append_fortune(coro_t *coro, struct array *fortunes,
     struct Fortune *fortune;
 
     fortune = coro_malloc(coro, sizeof(*fortune));
-    if (!fortune)
+    if (UNLIKELY(!fortune))
         return false;
 
     fortune->item.id = id;
-    fortune->item.message = strdup(message);
-    if (!fortune->item.message)
+    fortune->item.message = coro_strdup(coro, message);
+    if (UNLIKELY(!fortune->item.message))
         return false;
-
-    coro_defer(coro, CORO_DEFER(free), fortune->item.message);
 
     return array_append(fortunes, fortune) >= 0;
 }

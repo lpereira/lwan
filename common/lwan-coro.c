@@ -313,6 +313,16 @@ coro_malloc(coro_t *coro, size_t size)
 }
 
 char *
+coro_strdup(coro_t *coro, const char *str)
+{
+    size_t len = strlen(str) + 1;
+    char *dup = coro_malloc(coro, len);
+    if (LIKELY(dup))
+        memcpy(dup, str, len);
+    return dup;
+}
+
+char *
 coro_printf(coro_t *coro, const char *fmt, ...)
 {
     va_list values;
