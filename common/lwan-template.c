@@ -135,16 +135,15 @@ symtab_pop(struct parser_state *state)
     free(tab);
 }
 
-char *
-_lwan_tpl_int_to_str(void *ptr, bool *allocated, size_t *length)
+void
+_lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr)
 {
-    char buf[INT_TO_STR_BUFFER_SIZE];
-    char *ret;
+    char convertbuf[INT_TO_STR_BUFFER_SIZE];
+    size_t len;
+    char *converted;
 
-    ret = int_to_string(*(int *)ptr, buf, length);
-    *allocated = true;
-
-    return strdup(ret);
+    converted = int_to_string(*(int *)ptr, convertbuf, &len);
+    strbuf_append_str(buf, converted, len);
 }
 
 bool
@@ -153,15 +152,10 @@ _lwan_tpl_int_is_empty(void *ptr)
     return (*(int *)ptr) == 0;
 }
 
-char *
-_lwan_tpl_double_to_str(void *ptr, bool *allocated, size_t *length __attribute__((unused)))
+void
+_lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr)
 {
-    char buf[32];
-
-    snprintf(buf, 32, "%f", *(double *)ptr);
-    *allocated = true;
-
-    return strdup(buf);
+    strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
 
 bool
@@ -170,66 +164,37 @@ _lwan_tpl_double_is_empty(void *ptr)
     return (*(double *)ptr) == 0.0f;
 }
 
-char *
-_lwan_tpl_str_to_str(void *ptr, bool *allocated, size_t *length)
+void
+_lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
 {
     struct v {
         char *str;
     } *v = ptr;
 
-    *allocated = false;
-
-    if (UNLIKELY(!v->str)) {
-        *length = 0;
-        return "";
-    }
-
-    *length = strlen(v->str);
-    return v->str;
+    if (LIKELY(v->str))
+        strbuf_append_str(buf, v->str, 0);
 }
 
-char *
-_lwan_tpl_str_to_str_escape(void *ptr, bool *allocated, size_t *length)
+void
+_lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 {
     struct v {
         char *str;
     } *v = ptr;
 
-    if (UNLIKELY(!v->str)) {
-        *allocated = false;
-        *length = 0;
-        return "";
-    }
-
-    size_t tmp_length = strlen(v->str) * 4 + 1; /* 4 = strlen("&gt;") */
-    char *tmp = malloc(tmp_length);
-    if (!tmp)
-        return NULL;
+    if (UNLIKELY(!v->str))
+        return;
 
     char *p = v->str;
-    char *orig_tmp = tmp;
     while (*p) {
-        if (*p == '<') {
-            *tmp++ = '&';
-            *tmp++ = 'l';
-            *tmp++ = 't';
-            *tmp++ = ';';
-        } else if (*p == '>') {
-            *tmp++ = '&';
-            *tmp++ = 'g';
-            *tmp++ = 't';
-            *tmp++ = ';';
-        } else {
-            *tmp++ = *p;
-        }
+        if (*p == '<')
+            strbuf_append_str(buf, "&lt;", 4);
+        else if (*p == '>')
+            strbuf_append_str(buf, "&gt;", 4);
+        else
+            strbuf_append_char(buf, *p);
         p++;
     }
-
-    *tmp = '\0';
-
-    *allocated = true;
-    *length = strlen(orig_tmp);
-    return orig_tmp;
 }
 
 bool
@@ -691,29 +656,15 @@ until_iter_end(lwan_tpl_chunk_t *chunk, void *data)
     return true;
 }
 
-static char*
-var_get_as_string(lwan_tpl_chunk_t *chunk,
-                  void *variables,
-                  bool *allocated,
-                  size_t *length)
+static void
+append_var_to_strbuf(lwan_tpl_chunk_t *chunk, void *variables,
+                     strbuf_t *buf)
 {
     lwan_var_descriptor_t *descriptor = chunk->data;
-    if (UNLIKELY(!descriptor))
-        goto end;
-
-    char *value;
-    value = descriptor->get_as_string((void *)((char *)variables + descriptor->offset),
-                allocated, length);
-    if (LIKELY(value))
-        return value;
-
-end:
-    if (LIKELY(allocated))
-        *allocated = false;
-
-    if (LIKELY(length))
-        *length = 0;
-    return NULL;
+    if (LIKELY(descriptor)) {
+        void *ptr = (void *)((char *)variables + descriptor->offset);
+        descriptor->append_to_strbuf(buf, ptr);
+    }
 }
 
 static bool
@@ -751,18 +702,9 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         case TPL_ACTION_APPEND_CHAR:
             strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
             break;
-        case TPL_ACTION_VARIABLE: {
-            bool allocated;
-            size_t length;
-            char *value;
-
-            value = var_get_as_string(chunk, variables,
-                    &allocated, &length);
-            strbuf_append_str(buf, value, length);
-            if (allocated)
-                free(value);
+        case TPL_ACTION_VARIABLE:
+            append_var_to_strbuf(chunk, variables, buf);
             break;
-        }
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
             struct chunk_descriptor *cd = chunk->data;
             if (!var_get_is_empty(cd->descriptor, variables)) {
