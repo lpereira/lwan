@@ -191,6 +191,8 @@ _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
             strbuf_append_str(buf, "&lt;", 4);
         else if (*p == '>')
             strbuf_append_str(buf, "&gt;", 4);
+        else if (*p == '&')
+            strbuf_append_str(buf, "&amp;", 5);
         else
             strbuf_append_char(buf, *p);
         p++;
