@@ -22,35 +22,54 @@
 
 ALWAYS_INLINE char *
 uint_to_string(size_t value,
-               char buffer[INT_TO_STR_BUFFER_SIZE],
-               size_t *len)
+               char dst[static INT_TO_STR_BUFFER_SIZE],
+               size_t *length_out)
 {
-    char *p = buffer + INT_TO_STR_BUFFER_SIZE - 1;
-
-    assert(len);
-
-    *p = '\0';
-    do {
-        *--p = (char)('0' + value % 10);
-    } while (value /= 10);
-
-    *len = (size_t)(INT_TO_STR_BUFFER_SIZE - (size_t)(p - buffer) - 1);
-
-    return p;
+    /*
+     * Based on routine by A. Alexandrescu, licensed under CC0
+     * https://creativecommons.org/publicdomain/zero/1.0/legalcode
+     */
+    static const size_t length = INT_TO_STR_BUFFER_SIZE;
+    size_t next = length - 1;
+    static const char digits[201] =
+	"0001020304050607080910111213141516171819"
+	"2021222324252627282930313233343536373839"
+	"4041424344454647484950515253545556575859"
+	"6061626364656667686970717273747576777879"
+	"8081828384858687888990919293949596979899";
+    dst[next--] = '\0';
+    while (value >= 100) {
+	const uint32_t i = (uint32_t)((value % 100) * 2);
+	value /= 100;
+	dst[next] = digits[i + 1];
+	dst[next - 1] = digits[i];
+	next -= 2;
+    }
+    // Handle last 1-2 digits
+    if (value < 10) {
+	dst[next] = (char)('0' + (uint32_t)value);
+	*length_out = length - next - 1;
+	return dst + next;
+    }
+    uint32_t i = (uint32_t)value * 2;
+    dst[next] = digits[i + 1];
+    dst[next - 1] = digits[i];
+    *length_out = length - next;
+    return dst + next - 1;
 }
 
 ALWAYS_INLINE char *
 int_to_string(ssize_t value,
-              char buffer[INT_TO_STR_BUFFER_SIZE],
-              size_t *len)
+              char dst[static INT_TO_STR_BUFFER_SIZE],
+              size_t *length_out)
 {
     if (value < 0) {
-        char *p = uint_to_string((size_t) -value, buffer, len);
+        char *p = uint_to_string((size_t) -value, dst, length_out);
         *--p = '-';
-        ++*len;
+        ++*length_out;
 
         return p;
     }
 
-    return uint_to_string((size_t) value, buffer, len);
+    return uint_to_string((size_t) value, dst, length_out);
 }
