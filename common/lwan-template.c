@@ -679,7 +679,7 @@ var_get_is_empty(lwan_var_descriptor_t *descriptor,
     return descriptor->get_is_empty((void *)((char *)variables + descriptor->offset));
 }
 
-lwan_tpl_chunk_t *
+static lwan_tpl_chunk_t *
 lwan_tpl_apply_until(lwan_tpl_t *tpl,
     lwan_tpl_chunk_t *chunks, strbuf_t *buf,
     void *variables,
