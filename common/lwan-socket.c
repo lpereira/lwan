@@ -29,26 +29,6 @@
 #include "lwan.h"
 #include "sd-daemon.h"
 
-#define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
-    do { \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
-            lwan_status_critical_perror("setsockopt"); \
-    } while(0)
-
-#define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
-    do { \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
-            lwan_status_warning("%s not supported by the kernel", \
-                #_option); \
-    } while(0)
-
-#ifndef TCP_FASTOPEN
-#define TCP_FASTOPEN 23
-#endif
-
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT 15
-#endif
 
 static int
 _get_backlog_size(void)
@@ -97,26 +77,40 @@ _setup_socket_from_systemd(lwan_t *l)
     return fd;
 }
 
+#define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_critical_perror("setsockopt"); \
+    } while(0)
+
+#define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_warning("%s not supported by the kernel", \
+                #_option); \
+    } while(0)
+
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif
+
 static int
 _setup_socket_normally(lwan_t *l)
 {
-    int fd;
-
-    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fd < 0)
         lwan_status_critical_perror("socket");
-
-    struct sockaddr_in sin = {
-        .sin_port = htons((uint16_t)l->config.port),
-        .sin_addr.s_addr = INADDR_ANY,
-        .sin_family = AF_INET
-    };
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
     if (l->config.reuse_port)
         SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
                                                 (int[]){ 1 }, sizeof(int));
 
+    struct sockaddr_in sin = {
+        .sin_port = htons((uint16_t)l->config.port),
+        .sin_addr.s_addr = INADDR_ANY,
+        .sin_family = AF_INET
+    };
     if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
         lwan_status_critical_perror("bind");
 
@@ -125,6 +119,10 @@ _setup_socket_normally(lwan_t *l)
 
     return fd;
 }
+
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN 23
+#endif
 
 void
 lwan_socket_init(lwan_t *l)
@@ -156,6 +154,7 @@ lwan_socket_init(lwan_t *l)
 }
 
 #undef SET_SOCKET_OPTION
+#undef SET_SOCKET_OPTION_MAY_FAIL
 
 void
 lwan_socket_shutdown(lwan_t *l)
