@@ -667,10 +667,8 @@ append_var_to_strbuf(lwan_tpl_chunk_t *chunk, void *variables,
                      strbuf_t *buf)
 {
     lwan_var_descriptor_t *descriptor = chunk->data;
-    if (LIKELY(descriptor)) {
-        void *ptr = (void *)((char *)variables + descriptor->offset);
-        descriptor->append_to_strbuf(buf, ptr);
-    }
+    if (LIKELY(descriptor))
+        descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
 }
 
 static bool
@@ -713,17 +711,13 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             break;
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
             struct chunk_descriptor *cd = chunk->data;
-            if (!var_get_is_empty(cd->descriptor, variables)) {
+            if (var_get_is_empty(cd->descriptor, variables)) {
+                chunk = cd->chunk;
+            } else {
                 chunk = lwan_tpl_apply_until(tpl,
-                                    (lwan_tpl_chunk_t *) chunk->list.next,
-                                    buf,
-                                    variables,
-                                    until_found_end_if,
-                                    cd->chunk);
-                break;
+                    (lwan_tpl_chunk_t *) chunk->list.next, buf, variables,
+                    until_found_end_if, cd->chunk);
             }
-
-            chunk = cd->chunk;
             break;
         }
         case TPL_ACTION_APPLY_TPL: {
