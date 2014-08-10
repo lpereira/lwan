@@ -185,8 +185,7 @@ _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
     if (UNLIKELY(!v->str))
         return;
 
-    char *p = v->str;
-    while (*p) {
+    for (char *p = v->str; *p; p++) {
         if (*p == '<')
             strbuf_append_str(buf, "&lt;", 4);
         else if (*p == '>')
@@ -195,7 +194,6 @@ _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
             strbuf_append_str(buf, "&amp;", 5);
         else
             strbuf_append_char(buf, *p);
-        p++;
     }
 }
 
