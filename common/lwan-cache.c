@@ -33,334 +33,335 @@
 #define GET_AND_REF_TRIES 5
 
 enum {
-  /* Entry flags */
-  FLOATING = 1<<0,
-  TEMPORARY = 1<<1,
+    /* Entry flags */
+    FLOATING = 1 << 0,
+    TEMPORARY = 1 << 1,
 
-  /* Cache flags */
-  SHUTTING_DOWN = 1<<0
+    /* Cache flags */
+    SHUTTING_DOWN = 1 << 0
 };
 
 struct cache_t {
-  struct {
-    struct hash *table;
-    pthread_rwlock_t lock;
-  } hash;
+    struct {
+        struct hash* table;
+        pthread_rwlock_t lock;
+    } hash;
 
-  struct {
-    struct list_head list;
-    pthread_rwlock_t lock;
-  } queue;
+    struct {
+        struct list_head list;
+        pthread_rwlock_t lock;
+    } queue;
 
-  struct {
-    CreateEntryCallback create_entry;
-    DestroyEntryCallback destroy_entry;
-    void *context;
-  } cb;
+    struct {
+        CreateEntryCallback create_entry;
+        DestroyEntryCallback destroy_entry;
+        void* context;
+    } cb;
 
-  struct {
-    time_t time_to_live;
-  } settings;
+    struct {
+        time_t time_to_live;
+    } settings;
 
-  unsigned flags;
+    unsigned flags;
 
 #ifndef NDEBUG
-  struct {
-    unsigned hits;
-    unsigned misses;
-    unsigned evicted;
-  } stats;
+    struct {
+        unsigned hits;
+        unsigned misses;
+        unsigned evicted;
+    } stats;
 #endif
 };
 
-static bool cache_pruner_job(void *data);
+static bool cache_pruner_job(void* data);
 
-struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
-      DestroyEntryCallback destroy_entry_cb,
-      void *cb_context,
-      time_t time_to_live)
+struct cache_t* cache_create(CreateEntryCallback create_entry_cb,
+                             DestroyEntryCallback destroy_entry_cb,
+                             void* cb_context,
+                             time_t time_to_live)
 {
-  struct cache_t *cache;
+    struct cache_t* cache;
 
-  assert(create_entry_cb);
-  assert(destroy_entry_cb);
-  assert(time_to_live > 0);
+    assert(create_entry_cb);
+    assert(destroy_entry_cb);
+    assert(time_to_live > 0);
 
-  cache = calloc(1, sizeof(*cache));
-  if (!cache)
-    return NULL;
+    cache = calloc(1, sizeof(*cache));
+    if (!cache)
+        return NULL;
 
-  cache->hash.table = hash_str_new(free, NULL);
-  if (!cache->hash.table)
-    goto error_no_hash;
+    cache->hash.table = hash_str_new(free, NULL);
+    if (!cache->hash.table)
+        goto error_no_hash;
 
-  if (pthread_rwlock_init(&cache->hash.lock, NULL))
-    goto error_no_hash_lock;
-  if (pthread_rwlock_init(&cache->queue.lock, NULL))
-    goto error_no_queue_lock;
+    if (pthread_rwlock_init(&cache->hash.lock, NULL))
+        goto error_no_hash_lock;
+    if (pthread_rwlock_init(&cache->queue.lock, NULL))
+        goto error_no_queue_lock;
 
-  cache->cb.create_entry = create_entry_cb;
-  cache->cb.destroy_entry = destroy_entry_cb;
-  cache->cb.context = cb_context;
+    cache->cb.create_entry = create_entry_cb;
+    cache->cb.destroy_entry = destroy_entry_cb;
+    cache->cb.context = cb_context;
 
-  cache->settings.time_to_live = time_to_live;
+    cache->settings.time_to_live = time_to_live;
 
-  list_head_init(&cache->queue.list);
+    list_head_init(&cache->queue.list);
 
-  lwan_job_add(cache_pruner_job, cache);
+    lwan_job_add(cache_pruner_job, cache);
 
-  return cache;
+    return cache;
 
 error_no_queue_lock:
-  pthread_rwlock_destroy(&cache->hash.lock);
+    pthread_rwlock_destroy(&cache->hash.lock);
 error_no_hash_lock:
-  hash_free(cache->hash.table);
+    hash_free(cache->hash.table);
 error_no_hash:
-  free(cache);
+    free(cache);
 
-  return NULL;
+    return NULL;
 }
 
-void cache_destroy(struct cache_t *cache)
+void cache_destroy(struct cache_t* cache)
 {
-  assert(cache);
+    assert(cache);
 
 #ifndef NDEBUG
     unsigned hits, misses, evictions;
     cache_get_stats(cache, &hits, &misses, &evictions);
     lwan_status_debug("Cache stats: %d hits, %d misses, %d evictions",
-            hits, misses, evictions);
+                      hits, misses, evictions);
 #endif
 
-  lwan_job_del(cache_pruner_job, cache);
-  cache->flags |= SHUTTING_DOWN;
-  cache_pruner_job(cache);
-  pthread_rwlock_destroy(&cache->hash.lock);
-  pthread_rwlock_destroy(&cache->queue.lock);
-  hash_free(cache->hash.table);
-  free(cache);
+    lwan_job_del(cache_pruner_job, cache);
+    cache->flags |= SHUTTING_DOWN;
+    cache_pruner_job(cache);
+    pthread_rwlock_destroy(&cache->hash.lock);
+    pthread_rwlock_destroy(&cache->queue.lock);
+    hash_free(cache->hash.table);
+    free(cache);
 }
 
-static ALWAYS_INLINE struct cache_entry_t *convert_to_temporary(
-      struct cache_entry_t *entry)
+static ALWAYS_INLINE struct cache_entry_t* convert_to_temporary(
+    struct cache_entry_t* entry)
 {
-  entry->flags = TEMPORARY;
-  entry->time_to_die = 0;
-  return entry;
-}
-
-struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
-      const char *key, int *error)
-{
-  struct cache_entry_t *entry;
-
-  assert(cache);
-  assert(error);
-  assert(key);
-
-  *error = 0;
-
-  /* If the lock can't be obtained, return an error to allow, for instance,
-   * yielding from the coroutine and trying to obtain the lock at a later
-   * time. */
-  if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->hash.lock) == EBUSY)) {
-    *error = EWOULDBLOCK;
-    return NULL;
-  }
-  /* Find the item in the hash table. If it's there, increment the reference
-   * and return it. */
-  entry = hash_find(cache->hash.table, key);
-  if (LIKELY(entry)) {
-    ATOMIC_INC(entry->refs);
-    pthread_rwlock_unlock(&cache->hash.lock);
-#ifndef NDEBUG
-    ATOMIC_INC(cache->stats.hits);
-#endif
+    entry->flags = TEMPORARY;
+    entry->time_to_die = 0;
     return entry;
-  }
+}
 
-  /* Unlock the cache so the item can be created. */
-  pthread_rwlock_unlock(&cache->hash.lock);
+struct cache_entry_t* cache_get_and_ref_entry(struct cache_t* cache,
+                                              const char* key, int* error)
+{
+    struct cache_entry_t* entry;
+
+    assert(cache);
+    assert(error);
+    assert(key);
+
+    *error = 0;
+
+    /* If the lock can't be obtained, return an error to allow, for instance,
+     * yielding from the coroutine and trying to obtain the lock at a later
+     * time. */
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->hash.lock) == EBUSY)) {
+        *error = EWOULDBLOCK;
+        return NULL;
+    }
+    /* Find the item in the hash table. If it's there, increment the reference
+     * and return it. */
+    entry = hash_find(cache->hash.table, key);
+    if (LIKELY(entry)) {
+        ATOMIC_INC(entry->refs);
+        pthread_rwlock_unlock(&cache->hash.lock);
+#ifndef NDEBUG
+        ATOMIC_INC(cache->stats.hits);
+#endif
+        return entry;
+    }
+
+    /* Unlock the cache so the item can be created. */
+    pthread_rwlock_unlock(&cache->hash.lock);
 
 #ifndef NDEBUG
-  ATOMIC_INC(cache->stats.misses);
+    ATOMIC_INC(cache->stats.misses);
 #endif
 
-  entry = cache->cb.create_entry(key, cache->cb.context);
-  if (!entry)
-    return NULL;
+    entry = cache->cb.create_entry(key, cache->cb.context);
+    if (!entry)
+        return NULL;
 
-  memset(entry, 0, sizeof(*entry));
-  entry->key = strdup(key);
-  entry->refs = 1;
+    memset(entry, 0, sizeof(*entry));
+    entry->key = strdup(key);
+    entry->refs = 1;
 
-  if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
-    /* Couldn't obtain hash lock: instead of waiting, just return
-     * the recently-created item as a temporary item. Might result
-     * in starvation, though, so this might be changed back to
-     * pthread_rwlock_wrlock() again someday if this proves to be
-     * a problem. */
-    return convert_to_temporary(entry);
-  }
-
-  if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
-    entry->time_to_die = time(NULL) + cache->settings.time_to_live;
-
-    pthread_rwlock_wrlock(&cache->queue.lock);
-    list_add_tail(&cache->queue.list, &entry->entries);
-    pthread_rwlock_unlock(&cache->queue.lock);
-  } else {
-    /* Either there's another item with the same key (-EEXIST), or
-     * there was an error inside the hash table. In either case,
-     * just return a TEMPORARY entry so that it is destroyed the first
-     * time someone unrefs this entry. TEMPORARY entries are pretty much
-     * like FLOATING entries, but unreffing them do not use atomic
-     * operations. */
-    convert_to_temporary(entry);
-  }
-
-  pthread_rwlock_unlock(&cache->hash.lock);
-  return entry;
-}
-
-void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
-{
-  assert(entry);
-
-  if (entry->flags & TEMPORARY) {
-    free(entry->key);
-    goto destroy_entry;
-  }
-
-  if (ATOMIC_DEC(entry->refs))
-    return;
-
-  /* FLOATING entries without references won't be picked up by the pruner
-   * job, so destroy them right here. */
-  if (entry->flags & FLOATING) {
-destroy_entry:
-    cache->cb.destroy_entry(entry, cache->cb.context);
-  }
-}
-
-static bool cache_pruner_job(void *data)
-{
-  struct cache_t *cache = data;
-  struct cache_entry_t *node, *next;
-  time_t now;
-  bool shutting_down = cache->flags & SHUTTING_DOWN;
-  unsigned evicted = 0;
-  struct list_head queue;
-
-  if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
-    return false;
-
-  /* If the queue is empty, there's nothing to do; unlock/return*/
-  if (list_empty(&cache->queue.list)) {
-    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
-      lwan_status_perror("pthread_rwlock_unlock");
-    return false;
-  }
-
-  /* There are things to do; assign cache queue to a local queue,
-   * initialize cache queue to an empty queue. Then unlock */
-  list_head_init(&queue);
-  list_append_list(&queue, &cache->queue.list);
-  list_head_init(&cache->queue.list);
-
-  if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
-    lwan_status_perror("pthread_rwlock_unlock");
-    goto end;
-  }
-
-  now = time(NULL);
-  list_for_each_safe(&queue, node, next, entries) {
-    char *key = node->key;
-
-    if (now < node->time_to_die && LIKELY(!shutting_down))
-      break;
-
-    list_del(&node->entries);
-
-    if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock) < 0)) {
-      lwan_status_perror("pthread_rwlock_wrlock");
-      continue;
+    if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
+        /* Couldn't obtain hash lock: instead of waiting, just return
+         * the recently-created item as a temporary item. Might result
+         * in starvation, though, so this might be changed back to
+         * pthread_rwlock_wrlock() again someday if this proves to be
+         * a problem. */
+        return convert_to_temporary(entry);
     }
 
-    hash_del(cache->hash.table, key);
+    if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
+        entry->time_to_die = time(NULL) + cache->settings.time_to_live;
 
-    if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
-      lwan_status_perror("pthread_rwlock_unlock");
-
-    if (!ATOMIC_READ(node->refs)) {
-      cache->cb.destroy_entry(node, cache->cb.context);
+        pthread_rwlock_wrlock(&cache->queue.lock);
+        list_add_tail(&cache->queue.list, &entry->entries);
+        pthread_rwlock_unlock(&cache->queue.lock);
     } else {
-      /* Increment reference so if cache_entry_unref() is called in the
-       * meantime, we can be sure the node is still alive.  */
-      ATOMIC_INC(node->refs);
-      ATOMIC_BITWISE(&node->flags, or, FLOATING);
-      /* Decrement the reference and see if we were genuinely the last one
-       * holding it.  If so, destroy the entry.  */
-      if (!ATOMIC_DEC(node->refs))
-        cache->cb.destroy_entry(node, cache->cb.context);
+        /* Either there's another item with the same key (-EEXIST), or
+         * there was an error inside the hash table. In either case,
+         * just return a TEMPORARY entry so that it is destroyed the first
+         * time someone unrefs this entry. TEMPORARY entries are pretty much
+         * like FLOATING entries, but unreffing them do not use atomic
+         * operations. */
+        convert_to_temporary(entry);
     }
 
-    evicted++;
-  }
+    pthread_rwlock_unlock(&cache->hash.lock);
+    return entry;
+}
 
-  /* If local queue has been entirely processed, there's no need to
-   * append items in the cache queue to it; just update statistics and
-   * return */
-  if (list_empty(&queue))
-    goto end;
+void cache_entry_unref(struct cache_t* cache, struct cache_entry_t* entry)
+{
+    assert(entry);
 
-  /* Prepend local, unprocessed queue, to the cache queue. Since the cache
-   * item TTL is constant, items created later will be destroyed later. */
-  if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
-    list_prepend_list(&cache->queue.list, &queue);
+    if (entry->flags & TEMPORARY) {
+        free(entry->key);
+        goto destroy_entry;
+    }
 
-    if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
-      lwan_status_perror("pthread_rwlock_unlock");
-  } else {
-    lwan_status_perror("pthread_rwlock_trywrlock");
-  }
+    if (ATOMIC_DEC(entry->refs))
+        return;
+
+    /* FLOATING entries without references won't be picked up by the pruner
+     * job, so destroy them right here. */
+    if (entry->flags & FLOATING) {
+    destroy_entry:
+        cache->cb.destroy_entry(entry, cache->cb.context);
+    }
+}
+
+static bool cache_pruner_job(void* data)
+{
+    struct cache_t* cache = data;
+    struct cache_entry_t* node, *next;
+    time_t now;
+    bool shutting_down = cache->flags & SHUTTING_DOWN;
+    unsigned evicted = 0;
+    struct list_head queue;
+
+    if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
+        return false;
+
+    /* If the queue is empty, there's nothing to do; unlock/return*/
+    if (list_empty(&cache->queue.list)) {
+        if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
+            lwan_status_perror("pthread_rwlock_unlock");
+        return false;
+    }
+
+    /* There are things to do; assign cache queue to a local queue,
+     * initialize cache queue to an empty queue. Then unlock */
+    list_head_init(&queue);
+    list_append_list(&queue, &cache->queue.list);
+    list_head_init(&cache->queue.list);
+
+    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
+        lwan_status_perror("pthread_rwlock_unlock");
+        goto end;
+    }
+
+    now = time(NULL);
+    list_for_each_safe(&queue, node, next, entries)
+    {
+        char* key = node->key;
+
+        if (now < node->time_to_die && LIKELY(!shutting_down))
+            break;
+
+        list_del(&node->entries);
+
+        if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock) < 0)) {
+            lwan_status_perror("pthread_rwlock_wrlock");
+            continue;
+        }
+
+        hash_del(cache->hash.table, key);
+
+        if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
+            lwan_status_perror("pthread_rwlock_unlock");
+
+        if (!ATOMIC_READ(node->refs)) {
+            cache->cb.destroy_entry(node, cache->cb.context);
+        } else {
+            /* Increment reference so if cache_entry_unref() is called in the
+             * meantime, we can be sure the node is still alive.  */
+            ATOMIC_INC(node->refs);
+            ATOMIC_BITWISE(&node->flags, or, FLOATING);
+            /* Decrement the reference and see if we were genuinely the last one
+             * holding it.  If so, destroy the entry.  */
+            if (!ATOMIC_DEC(node->refs))
+                cache->cb.destroy_entry(node, cache->cb.context);
+        }
+
+        evicted++;
+    }
+
+    /* If local queue has been entirely processed, there's no need to
+     * append items in the cache queue to it; just update statistics and
+     * return */
+    if (list_empty(&queue))
+        goto end;
+
+    /* Prepend local, unprocessed queue, to the cache queue. Since the cache
+     * item TTL is constant, items created later will be destroyed later. */
+    if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
+        list_prepend_list(&cache->queue.list, &queue);
+
+        if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
+            lwan_status_perror("pthread_rwlock_unlock");
+    } else {
+        lwan_status_perror("pthread_rwlock_trywrlock");
+    }
 
 end:
 #ifndef NDEBUG
-  ATOMIC_AAF(&cache->stats.evicted, evicted);
+    ATOMIC_AAF(&cache->stats.evicted, evicted);
 #endif
-  return evicted;
+    return evicted;
 }
 
-void cache_get_stats(struct cache_t *cache, unsigned *hits,
-      unsigned *misses, unsigned *evicted)
+void cache_get_stats(struct cache_t* cache, unsigned* hits,
+                     unsigned* misses, unsigned* evicted)
 {
-  assert(cache);
+    assert(cache);
 #ifndef NDEBUG
-  if (hits)
-    *hits = cache->stats.hits;
-  if (misses)
-    *misses = cache->stats.misses;
-  if (evicted)
-    *evicted = cache->stats.evicted;
+    if (hits)
+        *hits = cache->stats.hits;
+    if (misses)
+        *misses = cache->stats.misses;
+    if (evicted)
+        *evicted = cache->stats.evicted;
 #else
-  if (hits)
-    *hits = 0;
-  if (misses)
-    *misses = 0;
-  if (evicted)
-    *evicted = 0;
-  (void)cache;
+    if (hits)
+        *hits = 0;
+    if (misses)
+        *misses = 0;
+    if (evicted)
+        *evicted = 0;
+    (void)cache;
 #endif
 }
 
-struct cache_entry_t *
-cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
-      const char *key)
+struct cache_entry_t*
+cache_coro_get_and_ref_entry(struct cache_t* cache, coro_t* coro,
+                             const char* key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
-        struct cache_entry_t *ce = cache_get_and_ref_entry(cache, key, &error);
+        struct cache_entry_t* ce = cache_get_and_ref_entry(cache, key, &error);
 
         if (LIKELY(ce)) {
             /*
@@ -377,9 +378,9 @@ cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
          * try again. On any other error, just return NULL.
          */
         if (error == EWOULDBLOCK) {
-          coro_yield(coro, CONN_CORO_MAY_RESUME);
+            coro_yield(coro, CONN_CORO_MAY_RESUME);
         } else {
-          break;
+            break;
         }
     }
 
