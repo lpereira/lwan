@@ -254,7 +254,7 @@ static void *
 _thread_io_loop(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event *events, *ep_event;
+    struct epoll_event *events;
     lwan_connection_t *conns = t->lwan->conns;
     coro_switcher_t switcher;
     struct death_queue_t dq;
@@ -287,7 +287,7 @@ _thread_io_loop(void *data)
         default: /* activity in some of this poller's file descriptor */
             _update_date_cache(t);
 
-            for (ep_event = events; n_fds--; ep_event++) {
+            for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
                 lwan_connection_t *conn;
 
                 if (!ep_event->data.ptr) {
@@ -379,23 +379,19 @@ lwan_thread_add_client(lwan_thread_t *t, int fd)
 void
 lwan_thread_init(lwan_t *l)
 {
-    short i;
-
     lwan_status_debug("Initializing threads");
 
     l->thread.threads = calloc((size_t)l->thread.count, sizeof(lwan_thread_t));
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
-    for (i = 0; i < l->thread.count; i++)
+    for (short i = 0; i < l->thread.count; i++)
         _create_thread(l, i);
 }
 
 void
 lwan_thread_shutdown(lwan_t *l)
 {
-    int i;
-
     lwan_status_debug("Shutting down threads");
 
     /*
@@ -405,13 +401,13 @@ lwan_thread_shutdown(lwan_t *l)
      * don't wait one thread to join when there are others to be
      * finalized.
      */
-    for (i = l->thread.count - 1; i >= 0; i--) {
+    for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
         close(t->epoll_fd);
         close(t->socketpair[0]);
         close(t->socketpair[1]);
     }
-    for (i = l->thread.count - 1; i >= 0; i--)
+    for (int i = l->thread.count - 1; i >= 0; i--)
 #ifdef __linux__
         pthread_tryjoin_np(l->thread.threads[i].self, NULL);
 #else

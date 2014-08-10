@@ -148,11 +148,10 @@ _parse_urlencoded_keyvalues(lwan_request_t *request,
 
     char *key = helper_value->value;
     char *value = NULL;
-    char *ch;
     size_t values = 0;
     lwan_key_value_t kvs[256];
 
-    for (ch = key; *ch; ch++) {
+    for (char *ch = key; *ch; ch++) {
         switch (*ch) {
         case '=':
             *ch = '\0';
@@ -281,8 +280,6 @@ _identify_http_path(lwan_request_t *request, char *buffer,
 static char *
 _parse_headers(lwan_request_parse_t *helper, char *buffer, char *buffer_end)
 {
-    char *p;
-
     enum {
         HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
         HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
@@ -298,7 +295,7 @@ _parse_headers(lwan_request_parse_t *helper, char *buffer, char *buffer_end)
     if (UNLIKELY(!buffer))
         return NULL;
 
-    for (p = buffer; *p; buffer = ++p) {
+    for (char *p = buffer; *p; buffer = ++p) {
         char *value;
         size_t length;
 
@@ -403,8 +400,6 @@ _parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
 static void
 _parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
 {
-    char *p;
-
     if (!helper->accept_encoding.len)
         return;
 
@@ -413,7 +408,7 @@ _parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
         ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f')
     };
 
-    for (p = helper->accept_encoding.value; p && *p; p++) {
+    for (char *p = helper->accept_encoding.value; p && *p; p++) {
         STRING_SWITCH(p) {
         case ENCODING_DEFL1:
         case ENCODING_DEFL2:

@@ -178,11 +178,9 @@ lwan_trie_node_destroy(lwan_trie_t *trie, lwan_trie_node_t *node)
     if (!node)
         return;
 
-    int32_t i;
     int32_t nodes_destroyed = node->ref_count;
 
-    lwan_trie_leaf_t *leaf;
-    for (leaf = node->leaf; leaf;) {
+    for (lwan_trie_leaf_t *leaf = node->leaf; leaf;) {
         lwan_trie_leaf_t *tmp = leaf->next;
 
         if (trie->free_node)
@@ -193,7 +191,7 @@ lwan_trie_node_destroy(lwan_trie_t *trie, lwan_trie_node_t *node)
         leaf = tmp;
     }
 
-    for (i = 0; nodes_destroyed > 0 && i < 8; i++) {
+    for (int32_t i = 0; nodes_destroyed > 0 && i < 8; i++) {
         if (node->next[i]) {
             lwan_trie_node_destroy(trie, node->next[i]);
             --nodes_destroyed;

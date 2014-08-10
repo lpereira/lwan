@@ -50,9 +50,8 @@ lwan_tables_init(void)
         lwan_status_critical("Expected uncompressed length %d, got %ld",
             MIME_UNCOMPRESSED_LEN, uncompressed_length);
 
-    size_t i;
     unsigned char *ptr = uncompressed_mime_entries;
-    for (i = 0; i < MIME_ENTRIES; i++) {
+    for (size_t i = 0; i < MIME_ENTRIES; i++) {
         mime_entries[i].extension = (char*)ptr;
         ptr = (unsigned char *)rawmemchr(ptr + 1, '\0') + 1;
         mime_entries[i].type = (char*)ptr;

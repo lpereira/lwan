@@ -89,9 +89,7 @@ struct chunk_descriptor {
 static lwan_var_descriptor_t *
 symtab_lookup(struct parser_state *state, const char *var_name)
 {
-    struct symtab *tab = state->symtab;
-
-    for (; tab; tab = tab->next) {
+    for (struct symtab *tab = state->symtab; tab; tab = tab->next) {
         lwan_var_descriptor_t *var = hash_find(tab->hash, var_name);
         if (var)
             return var;
@@ -827,8 +825,7 @@ int main(int argc, char *argv[])
         return 1;
 
     printf("*** Applying template 100000 times...\n");
-    size_t i;
-    for (i = 0; i < 100000; i++) {
+    for (size_t i = 0; i < 100000; i++) {
         strbuf_t *applied = lwan_tpl_apply(tpl, (struct test_struct[]) {{
             .some_int = 42,
             .a_string = "some string"

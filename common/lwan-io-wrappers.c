@@ -36,9 +36,7 @@ int
 lwan_openat(lwan_request_t *request,
             int dirfd, const char *pathname, int flags)
 {
-    int tries;
-
-    for (tries = max_failed_tries; tries; tries--) {
+    for (int tries = max_failed_tries; tries; tries--) {
         int fd = openat(dirfd, pathname, flags);
         if (LIKELY(fd >= 0)) {
             coro_defer(request->conn->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
@@ -64,9 +62,8 @@ ssize_t
 lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
 {
     ssize_t retval;
-    int tries;
 
-    for (tries = max_failed_tries; tries; tries--) {
+    for (int tries = max_failed_tries; tries; tries--) {
         retval = writev(request->fd, iov, iovcnt);
         if (LIKELY(retval >= 0))
             return retval;
@@ -90,9 +87,8 @@ ssize_t
 lwan_write(lwan_request_t *request, const void *buf, size_t count)
 {
     ssize_t retval;
-    int tries;
 
-    for (tries = max_failed_tries; tries; tries--) {
+    for (int tries = max_failed_tries; tries; tries--) {
         retval = write(request->fd, buf, count);
         if (LIKELY(retval >= 0))
             return retval;
@@ -116,9 +112,8 @@ ssize_t
 lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 {
     ssize_t retval;
-    int tries;
 
-    for (tries = max_failed_tries; tries; tries--) {
+    for (int tries = max_failed_tries; tries; tries--) {
         retval = send(request->fd, buf, count, flags);
         if (LIKELY(retval >= 0))
             return retval;
