@@ -38,7 +38,8 @@ enum {
     TEMPORARY = 1 << 1,
 
     /* Cache flags */
-    SHUTTING_DOWN = 1 << 0
+    SHUTTING_DOWN = 1 << 0,
+    USE_COARSE_MONOTONIC_CLOCK = 1 << 1
 };
 
 struct cache_t {
@@ -75,6 +76,26 @@ struct cache_t {
 
 static bool cache_pruner_job(void* data);
 
+static bool is_coarse_monotonic_clock_supported()
+{
+    struct timespec ts;
+
+#ifdef CLOCK_MONOTONIC_COARSE
+    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts))
+        return true;
+#endif
+    return false;
+}
+
+static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
+    struct timespec *ts)
+{
+    clockid_t clkid = LIKELY(cache->flags & USE_COARSE_MONOTONIC_CLOCK) ?
+        CLOCK_MONOTONIC_COARSE : CLOCK_MONOTONIC;
+    if (UNLIKELY(clock_gettime(clkid, ts) < 0))
+        lwan_status_perror("clock_gettime");
+}
+
 struct cache_t* cache_create(CreateEntryCallback create_entry_cb,
                              DestroyEntryCallback destroy_entry_cb,
                              void* cb_context,
@@ -106,6 +127,9 @@ struct cache_t* cache_create(CreateEntryCallback create_entry_cb,
     cache->settings.time_to_live = time_to_live;
 
     list_head_init(&cache->queue.list);
+
+    if (is_coarse_monotonic_clock_supported())
+        cache->flags |= USE_COARSE_MONOTONIC_CLOCK;
 
     lwan_job_add(cache_pruner_job, cache);
 
@@ -145,7 +169,6 @@ static ALWAYS_INLINE struct cache_entry_t* convert_to_temporary(
     struct cache_entry_t* entry)
 {
     entry->flags = TEMPORARY;
-    entry->time_to_die = 0;
     return entry;
 }
 
@@ -204,7 +227,9 @@ struct cache_entry_t* cache_get_and_ref_entry(struct cache_t* cache,
     }
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
-        entry->time_to_die = time(NULL) + cache->settings.time_to_live;
+        clock_monotonic_gettime(cache, &entry->time_to_die);
+
+        entry->time_to_die.tv_sec += cache->settings.time_to_live;
 
         pthread_rwlock_wrlock(&cache->queue.lock);
         list_add_tail(&cache->queue.list, &entry->entries);
@@ -247,7 +272,7 @@ static bool cache_pruner_job(void* data)
 {
     struct cache_t* cache = data;
     struct cache_entry_t* node, *next;
-    time_t now;
+    struct timespec now;
     bool shutting_down = cache->flags & SHUTTING_DOWN;
     unsigned evicted = 0;
     struct list_head queue;
@@ -273,12 +298,13 @@ static bool cache_pruner_job(void* data)
         goto end;
     }
 
-    now = time(NULL);
+    clock_monotonic_gettime(cache, &now);
     list_for_each_safe(&queue, node, next, entries)
     {
         char* key = node->key;
 
-        if (now < node->time_to_die && LIKELY(!shutting_down))
+        if ((now.tv_sec < node->time_to_die.tv_sec &&
+                now.tv_nsec < node->time_to_die.tv_nsec) && LIKELY(!shutting_down))
             break;
 
         list_del(&node->entries);
