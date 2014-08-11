@@ -90,8 +90,12 @@ static bool is_coarse_monotonic_clock_supported()
 static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
     struct timespec *ts)
 {
+#ifdef CLOCK_MONOTONIC_COARSE
     clockid_t clkid = LIKELY(cache->flags & USE_COARSE_MONOTONIC_CLOCK) ?
         CLOCK_MONOTONIC_COARSE : CLOCK_MONOTONIC;
+#else
+    clockid_t clkid = CLOCK_MONOTONIC;
+#endif
     if (UNLIKELY(clock_gettime(clkid, ts) < 0))
         lwan_status_perror("clock_gettime");
 }
