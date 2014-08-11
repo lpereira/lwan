@@ -44,7 +44,7 @@ enum {
 
 struct cache_t {
     struct {
-        struct hash* table;
+        struct hash *table;
         pthread_rwlock_t lock;
     } hash;
 
@@ -56,7 +56,7 @@ struct cache_t {
     struct {
         CreateEntryCallback create_entry;
         DestroyEntryCallback destroy_entry;
-        void* context;
+        void *context;
     } cb;
 
     struct {
@@ -74,7 +74,7 @@ struct cache_t {
 #endif
 };
 
-static bool cache_pruner_job(void* data);
+static bool cache_pruner_job(void *data);
 
 static bool is_coarse_monotonic_clock_supported()
 {
@@ -100,12 +100,12 @@ static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
         lwan_status_perror("clock_gettime");
 }
 
-struct cache_t* cache_create(CreateEntryCallback create_entry_cb,
+struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
                              DestroyEntryCallback destroy_entry_cb,
-                             void* cb_context,
+                             void *cb_context,
                              time_t time_to_live)
 {
-    struct cache_t* cache;
+    struct cache_t *cache;
 
     assert(create_entry_cb);
     assert(destroy_entry_cb);
@@ -149,7 +149,7 @@ error_no_hash:
     return NULL;
 }
 
-void cache_destroy(struct cache_t* cache)
+void cache_destroy(struct cache_t *cache)
 {
     assert(cache);
 
@@ -169,17 +169,17 @@ void cache_destroy(struct cache_t* cache)
     free(cache);
 }
 
-static ALWAYS_INLINE struct cache_entry_t* convert_to_temporary(
-    struct cache_entry_t* entry)
+static ALWAYS_INLINE struct cache_entry_t *convert_to_temporary(
+    struct cache_entry_t *entry)
 {
     entry->flags = TEMPORARY;
     return entry;
 }
 
-struct cache_entry_t* cache_get_and_ref_entry(struct cache_t* cache,
-                                              const char* key, int* error)
+struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
+                                              const char *key, int *error)
 {
-    struct cache_entry_t* entry;
+    struct cache_entry_t *entry;
 
     assert(cache);
     assert(error);
@@ -252,7 +252,7 @@ struct cache_entry_t* cache_get_and_ref_entry(struct cache_t* cache,
     return entry;
 }
 
-void cache_entry_unref(struct cache_t* cache, struct cache_entry_t* entry)
+void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
 {
     assert(entry);
 
@@ -272,10 +272,10 @@ void cache_entry_unref(struct cache_t* cache, struct cache_entry_t* entry)
     }
 }
 
-static bool cache_pruner_job(void* data)
+static bool cache_pruner_job(void *data)
 {
-    struct cache_t* cache = data;
-    struct cache_entry_t* node, *next;
+    struct cache_t *cache = data;
+    struct cache_entry_t *node, *next;
     struct timespec now;
     bool shutting_down = cache->flags & SHUTTING_DOWN;
     unsigned evicted = 0;
@@ -305,7 +305,7 @@ static bool cache_pruner_job(void* data)
     clock_monotonic_gettime(cache, &now);
     list_for_each_safe(&queue, node, next, entries)
     {
-        char* key = node->key;
+        char *key = node->key;
 
         if ((now.tv_sec < node->time_to_die.tv_sec &&
                 now.tv_nsec < node->time_to_die.tv_nsec) && LIKELY(!shutting_down))
@@ -363,8 +363,8 @@ end:
     return evicted;
 }
 
-void cache_get_stats(struct cache_t* cache, unsigned* hits,
-                     unsigned* misses, unsigned* evicted)
+void cache_get_stats(struct cache_t *cache, unsigned *hits,
+                     unsigned *misses, unsigned *evicted)
 {
     assert(cache);
 #ifndef NDEBUG
@@ -386,12 +386,12 @@ void cache_get_stats(struct cache_t* cache, unsigned* hits,
 }
 
 struct cache_entry_t*
-cache_coro_get_and_ref_entry(struct cache_t* cache, coro_t* coro,
-                             const char* key)
+cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
+                             const char *key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
-        struct cache_entry_t* ce = cache_get_and_ref_entry(cache, key, &error);
+        struct cache_entry_t *ce = cache_get_and_ref_entry(cache, key, &error);
 
         if (LIKELY(ce)) {
             /*
