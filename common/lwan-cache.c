@@ -61,6 +61,7 @@ struct cache_t {
 
     struct {
         time_t time_to_live;
+        clockid_t clock_id;
     } settings;
 
     unsigned flags;
@@ -76,27 +77,21 @@ struct cache_t {
 
 static bool cache_pruner_job(void *data);
 
-static bool is_coarse_monotonic_clock_supported()
+static clockid_t detect_fastest_monotonic_clock(void)
 {
     struct timespec ts;
 
 #ifdef CLOCK_MONOTONIC_COARSE
     if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts))
-        return true;
+        return CLOCK_MONOTONIC_COARSE;
 #endif
-    return false;
+    return CLOCK_MONOTONIC;
 }
 
 static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
     struct timespec *ts)
 {
-#ifdef CLOCK_MONOTONIC_COARSE
-    clockid_t clkid = LIKELY(cache->flags & USE_COARSE_MONOTONIC_CLOCK) ?
-        CLOCK_MONOTONIC_COARSE : CLOCK_MONOTONIC;
-#else
-    clockid_t clkid = CLOCK_MONOTONIC;
-#endif
-    if (UNLIKELY(clock_gettime(clkid, ts) < 0))
+    if (UNLIKELY(clock_gettime(cache->settings.clock_id, ts) < 0))
         lwan_status_perror("clock_gettime");
 }
 
@@ -128,12 +123,10 @@ struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
     cache->cb.destroy_entry = destroy_entry_cb;
     cache->cb.context = cb_context;
 
+    cache->settings.clock_id = detect_fastest_monotonic_clock();
     cache->settings.time_to_live = time_to_live;
 
     list_head_init(&cache->queue.list);
-
-    if (is_coarse_monotonic_clock_supported())
-        cache->flags |= USE_COARSE_MONOTONIC_CLOCK;
 
     lwan_job_add(cache_pruner_job, cache);
 
