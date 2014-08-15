@@ -38,8 +38,7 @@ enum {
     TEMPORARY = 1 << 1,
 
     /* Cache flags */
-    SHUTTING_DOWN = 1 << 0,
-    USE_COARSE_MONOTONIC_CLOCK = 1 << 1
+    SHUTTING_DOWN = 1 << 0
 };
 
 struct cache_t {
