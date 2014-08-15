@@ -88,8 +88,9 @@ static struct cache_entry_t *_create_realm_file(
             free(username);
             free(password);
 
-            if (err != -EEXIST)
-                goto error;
+            if (err == -EEXIST)
+                continue;
+            goto error;
         }
         default:
             config_error(&f, "Expected username = password");
