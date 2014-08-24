@@ -299,8 +299,7 @@ static bool cache_pruner_job(void *data)
     {
         char *key = node->key;
 
-        if ((now.tv_sec < node->time_to_die.tv_sec &&
-                now.tv_nsec < node->time_to_die.tv_nsec) && LIKELY(!shutting_down))
+        if (now.tv_sec < node->time_to_die.tv_sec && LIKELY(!shutting_down))
             break;
 
         list_del(&node->entries);
