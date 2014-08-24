@@ -259,7 +259,7 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
     /* FLOATING entries without references won't be picked up by the pruner
      * job, so destroy them right here. */
     if (entry->flags & FLOATING) {
-    destroy_entry:
+destroy_entry:
         cache->cb.destroy_entry(entry, cache->cb.context);
     }
 }
