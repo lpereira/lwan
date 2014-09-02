@@ -407,6 +407,17 @@ _allocate_connections(lwan_t *l, size_t max_open_files)
         l->conns[max_open_files].response_buffer = strbuf_new();
 }
 
+static short
+_get_number_of_cpus(void)
+{
+    long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    if (UNLIKELY(n_online_cpus < 0)) {
+        lwan_status_warning("Could not get number of online CPUs, assuming 1 CPU.");
+        return 1;
+    }
+    return (short)n_online_cpus;
+}
+
 void
 lwan_init(lwan_t *l)
 {
@@ -431,8 +442,9 @@ lwan_init(lwan_t *l)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
-    long max_threads = sysconf(_SC_NPROCESSORS_ONLN);
-    l->thread.count = (short)(max_threads > 0 ? max_threads : 2);
+    l->thread.count = _get_number_of_cpus();
+    if (l->thread.count == 1)
+        l->thread.count = 2;
 
     rlim_t max_open_files = _setup_open_file_count_limits();
     _allocate_connections(l, (size_t)max_open_files);
