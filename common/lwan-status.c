@@ -66,17 +66,17 @@ _get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
   const char *retval;
 
   if (type & STATUS_INFO)
-    retval = "\033[40;36m";
+    retval = "\033[36m";
   else if (type & STATUS_WARNING)
-    retval = "\033[40;33m";
+    retval = "\033[33m";
   else if (type & STATUS_CRITICAL)
-    retval = "\033[40;31;1m";
+    retval = "\033[31;1m";
   else if (type & STATUS_DEBUG)
-    retval = "\033[40;34m";
+    retval = "\033[34m";
   else if (type & STATUS_PERROR)
-    retval = "\033[40;35m";
+    retval = "\033[35m";
   else
-    retval = "\033[40;32m";
+    retval = "\033[32m";
 
   *len_out = strlen(retval);
 
@@ -109,9 +109,9 @@ _status_out_msg(const char *file, const int line, const char *func,
     perror("pthread_mutex_lock");
 
 #ifndef NDEBUG
-  fprintf(stdout, "\033[40;30;1m%ld\033[0m", syscall(SYS_gettid));
+  fprintf(stdout, "\033[32;1m%ld\033[0m", syscall(SYS_gettid));
   fprintf(stdout, " \033[3m%s:%d\033[0m", basename(file), line);
-  fprintf(stdout, " \033[40;33m%s()\033[0m", func);
+  fprintf(stdout, " \033[33m%s()\033[0m", func);
   fprintf(stdout, " ");
 #endif
 
