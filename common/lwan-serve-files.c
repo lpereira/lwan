@@ -551,6 +551,30 @@ _destroy_cache_entry(struct cache_entry_t *entry, void *context __attribute__((u
     free(fce);
 }
 
+static int
+_try_open_directory(const char *path, int *open_mode)
+{
+    int fd;
+
+    *open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK;
+
+    fd = open(path, *open_mode | O_DIRECTORY);
+    if (fd < 0) {
+        /* O_NOATIME only works for directories owned by the process owner */
+        *open_mode &= ~O_NOATIME;
+
+        fd = open(path, *open_mode | O_DIRECTORY);
+        if (fd < 0) {
+            /* Although unlikely, this might fail */
+            *open_mode &= ~O_NONBLOCK;
+
+            fd = open(path, *open_mode | O_DIRECTORY);
+        }
+    }
+
+    return fd;
+}
+
 static void *
 serve_files_init(void *args)
 {
@@ -558,7 +582,7 @@ serve_files_init(void *args)
     char *canonical_root;
     int root_fd;
     serve_files_priv_t *priv;
-    int open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK;
+    int open_mode;
 
     if (!settings->root_path) {
         lwan_status_error("root_path not specified");
@@ -572,11 +596,7 @@ serve_files_init(void *args)
         goto out_realpath;
     }
 
-    root_fd = open(canonical_root, O_DIRECTORY | open_mode);
-    if (root_fd < 0) {
-        root_fd = open(canonical_root, O_DIRECTORY);
-        open_mode &= ~O_NOATIME;
-    }
+    root_fd = _try_open_directory(canonical_root, &open_mode);
     if (root_fd < 0) {
         lwan_status_perror("Could not open directory \"%s\"",
                             canonical_root);
