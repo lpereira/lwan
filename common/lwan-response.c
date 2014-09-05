@@ -230,6 +230,8 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
     char buffer[INT_TO_STR_BUFFER_SIZE];
+    bool date_overridden = false;
+    bool expires_overridden = false;
 
     p_headers = headers;
 
@@ -263,6 +265,13 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {
+            if (UNLIKELY(!strcmp(header->key, "Server")))
+                continue;
+            if (UNLIKELY(!strcmp(header->key, "Date")))
+                date_overridden = true;
+            if (UNLIKELY(!strcmp(header->key, "Expires")))
+                expires_overridden = true;
+
             RETURN_0_ON_OVERFLOW(4);
             APPEND_CHAR_NOCHECK('\r');
             APPEND_CHAR_NOCHECK('\n');
@@ -283,11 +292,15 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         }
     }
 
-    APPEND_CONSTANT("\r\nDate: ");
-    APPEND_STRING_LEN(request->conn->thread->date.date, 29);
+    if (LIKELY(!date_overridden)) {
+        APPEND_CONSTANT("\r\nDate: ");
+        APPEND_STRING_LEN(request->conn->thread->date.date, 29);
+    }
 
-    APPEND_CONSTANT("\r\nExpires: ");
-    APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
+    if (LIKELY(!expires_overridden)) {
+        APPEND_CONSTANT("\r\nExpires: ");
+        APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
+    }
 
     APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
