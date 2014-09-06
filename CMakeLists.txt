@@ -8,7 +8,7 @@ include(CheckCCompilerFlag)
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	message(STATUS "Enabling compiler optimizations")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O3 -flto -ffat-lto-objects")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O2 -flto -ffat-lto-objects")
 
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
 	if (HAS_CRC32)
