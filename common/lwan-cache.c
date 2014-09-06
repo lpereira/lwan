@@ -146,10 +146,9 @@ void cache_destroy(struct cache_t *cache)
     assert(cache);
 
 #ifndef NDEBUG
-    unsigned hits, misses, evictions;
-    cache_get_stats(cache, &hits, &misses, &evictions);
     lwan_status_debug("Cache stats: %d hits, %d misses, %d evictions",
-                      hits, misses, evictions);
+                      cache->stats.hits, cache->stats.misses,
+                      cache->stats.evicted);
 #endif
 
     lwan_job_del(cache_pruner_job, cache);
@@ -352,28 +351,6 @@ end:
     ATOMIC_AAF(&cache->stats.evicted, evicted);
 #endif
     return evicted;
-}
-
-void cache_get_stats(struct cache_t *cache, unsigned *hits,
-                     unsigned *misses, unsigned *evicted)
-{
-    assert(cache);
-#ifndef NDEBUG
-    if (hits)
-        *hits = cache->stats.hits;
-    if (misses)
-        *misses = cache->stats.misses;
-    if (evicted)
-        *evicted = cache->stats.evicted;
-#else
-    if (hits)
-        *hits = 0;
-    if (misses)
-        *misses = 0;
-    if (evicted)
-        *evicted = 0;
-    (void)cache;
-#endif
 }
 
 struct cache_entry_t*
