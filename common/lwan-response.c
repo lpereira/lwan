@@ -126,6 +126,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         if (UNLIKELY(!strbuf_reset_length(request->response.buffer)))
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
         lwan_response_send_chunk(request);
+        log_request(request, status);
         return;
     }
 
