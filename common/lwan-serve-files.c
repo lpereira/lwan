@@ -466,8 +466,10 @@ _create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
     if (UNLIKELY(!fce))
         return NULL;
 
-    if (LIKELY(funcs->init(fce, priv, full_path, st)))
+    if (LIKELY(funcs->init(fce, priv, full_path, st))) {
+        fce->funcs = funcs;
         return fce;
+    }
 
     free(fce);
 
@@ -502,9 +504,7 @@ _create_cache_entry(const char *key, void *context)
         return NULL;
 
     lwan_format_rfc_time(st.st_mtime, fce->last_modified.string);
-
     fce->last_modified.integer = st.st_mtime;
-    fce->funcs = funcs;
 
     return (struct cache_entry_t *)fce;
 }
