@@ -38,7 +38,7 @@ struct death_queue_t {
     lwan_connection_t *conns;
 };
 
-static const unsigned const events_by_write_flag[] = {
+static const unsigned events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };

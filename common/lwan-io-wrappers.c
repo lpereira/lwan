@@ -29,8 +29,8 @@
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
 
-static const int const max_failed_tries = 5;
-static const size_t const buffer_size = 1400;
+static const int max_failed_tries = 5;
+static const size_t buffer_size = 1400;
 
 int
 lwan_openat(lwan_request_t *request,

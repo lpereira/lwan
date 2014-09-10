@@ -26,7 +26,7 @@
 #include "strbuf.h"
 
 static const unsigned int STATIC = 1<<0;
-static const size_t const DEFAULT_BUF_SIZE = 64;
+static const size_t DEFAULT_BUF_SIZE = 64;
 
 static size_t
 find_next_power_of_two(size_t number)
