@@ -182,10 +182,10 @@ class TestFileServing(LwanTest):
     self.assertTrue('content-type' in r.headers)
     self.assertEqual(r.headers['content-type'], 'text/html')
 
-    self.assertTrue('<h1>Index of /icons</h1>' in r.text)
+    self.assertTrue('<h1>Index of &#x2f;icons</h1>' in r.text)
 
     def assertHasImage(name):
-      imgtag = "<a href=\"/icons/%s.png\">%s.png</a>" % (name, name)
+      imgtag = "<a href=\"&#x2f;icons/%s.png\">%s.png</a>" % (name, name)
       self.assertTrue(imgtag in r.text)
 
     assertHasImage('back')
