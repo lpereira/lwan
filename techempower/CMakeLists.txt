@@ -14,5 +14,6 @@ target_link_libraries(techempower
 	dl
 	${ZLIB_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
+	${RT_LIB}
 )
 

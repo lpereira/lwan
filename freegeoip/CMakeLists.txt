@@ -12,4 +12,5 @@ target_link_libraries(freegeoip
 	dl
 	${ZLIB_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
+	${RT_LIB}
 )

@@ -6,5 +6,6 @@ target_link_libraries(lwan
 	dl
 	${ZLIB_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
+	${RT_LIB}
 )
 
