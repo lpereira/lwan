@@ -97,11 +97,10 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "mov    24(%rsi),%r13\n\t"
     "mov    32(%rsi),%r14\n\t"
     "mov    40(%rsi),%r15\n\t"
-    "mov    64(%rsi),%rcx\n\t"
-    "push   %rcx\n\t"
     "mov    48(%rsi),%rdi\n\t"
+    "mov    64(%rsi),%rcx\n\t"
     "mov    56(%rsi),%rsi\n\t"
-    "retq\n\t");
+    "jmp    *%rcx\n\t");
 #elif defined(__i386__)
 void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
                 __attribute__((noinline));
