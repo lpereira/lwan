@@ -244,12 +244,23 @@ coro_resume(coro_t *coro)
     return coro->yield_value;
 }
 
-ALWAYS_INLINE void
+ALWAYS_INLINE int
+coro_resume_value(coro_t *coro, int value)
+{
+    assert(coro);
+    assert(coro->ended == false);
+
+    coro->yield_value = value;
+    return coro_resume(coro);
+}
+
+ALWAYS_INLINE int
 coro_yield(coro_t *coro, int value)
 {
     assert(coro);
     coro->yield_value = value;
     _coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
+    return coro->yield_value;
 }
 
 void

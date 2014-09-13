@@ -47,7 +47,8 @@ void	coro_free(coro_t *coro);
 void    coro_reset(coro_t *coro, coro_function_t func, void *data);
 
 int	coro_resume(coro_t *coro);
-void	coro_yield(coro_t *coro, int value);
+int	coro_resume_value(coro_t *coro, int value);
+int	coro_yield(coro_t *coro, int value);
 
 void   *coro_get_data(coro_t *coro);
 
