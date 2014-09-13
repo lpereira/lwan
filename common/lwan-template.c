@@ -51,6 +51,10 @@ typedef enum {
     TPL_ACTION_LAST
 } lwan_tpl_action_t;
 
+typedef enum {
+    TPL_FLAG_NEGATE = 1<<0
+} lwan_tpl_flag_t;
+
 enum {
     STATE_DEFAULT,
     STATE_FIRST_BRACE,
@@ -63,6 +67,7 @@ enum {
 struct lwan_tpl_chunk_t_ {
     struct list_node list;
     lwan_tpl_action_t action;
+    lwan_tpl_flag_t flags;
     void *data;
 };
 
@@ -250,7 +255,19 @@ compile_append_var(struct parser_state *state, strbuf_t *buf,
     char *variable = strbuf_get_buffer(buf);
     size_t length = strbuf_get_length(buf) - 1;
 
+    chunk->flags = 0;
+
+next_char:
     switch (*variable) {
+    case '^':
+        chunk->flags ^= TPL_FLAG_NEGATE;
+        variable++;
+        length--;
+        if (!length)
+            goto nokey;
+
+        goto next_char;
+
     case '!':
         free(chunk);
         strbuf_reset(buf);
@@ -504,14 +521,18 @@ post_process_template(lwan_tpl_t *tpl)
             cd->chunk = chunk;
             prev_chunk->data = cd;
         } else if (chunk->action == TPL_ACTION_LIST_START_ITER) {
+            lwan_tpl_flag_t flags = chunk->flags;
+
             prev_chunk = chunk;
 
             while ((chunk = (lwan_tpl_chunk_t *) chunk->list.next)) {
                 if (chunk->action == TPL_ACTION_LAST)
                     break;
                 if (chunk->action == TPL_ACTION_LIST_END_ITER
-                            && chunk->data == prev_chunk)
+                            && chunk->data == prev_chunk) {
+                    chunk->flags |= flags;
                     break;
+                }
             }
 
             struct chunk_descriptor *cd = malloc(sizeof(*cd));
@@ -740,10 +761,22 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             struct chunk_descriptor *cd = chunk->data;
             coro = coro_new(&switcher, cd->descriptor->generator, variables);
 
-            if (!coro_resume(coro)) {
+            bool resumed = coro_resume_value(coro, 0);
+            lwan_tpl_flag_t flags = chunk->flags;
+            if (flags & TPL_FLAG_NEGATE)
+                resumed = !resumed;
+            if (!resumed) {
                 chunk = cd->chunk;
+                if (flags & TPL_FLAG_NEGATE) {
+                    coro_resume_value(coro, 1);
+                    coro_free(coro);
+                    coro = NULL;
+                    continue;
+                }
+
                 coro_free(coro);
                 coro = NULL;
+
                 break;
             }
 
@@ -753,11 +786,12 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
         }
         case TPL_ACTION_LIST_END_ITER: {
             if (UNLIKELY(!coro)) {
-                lwan_status_warning("Coroutine is NULL when finishing iteration");
+                if (!chunk->flags)
+                    lwan_status_warning("Coroutine is NULL when finishing iteration");
                 break;
             }
 
-            if (!coro_resume(coro)) {
+            if (!coro_resume_value(coro, 0)) {
                 coro_free(coro);
                 coro = NULL;
                 break;

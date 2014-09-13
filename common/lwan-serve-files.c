@@ -220,6 +220,11 @@ static const char *directory_list_tpl_str = "<html>\n"
     "      <td>{{file_list.size}}{{file_list.unit}}</td>\n"
     "    </tr>\n"
     "{{/file_list}}"
+    "{{^#file_list}}"
+    "    <tr>\n"
+    "      <td colspan=\"4\">Empty directory.</td>\n"
+    "    </tr>\n"
+    "{{/file_list}}"
     "  </table>\n"
     "</body>\n"
     "</html>\n";
@@ -280,7 +285,8 @@ _directory_list_generator(coro_t *coro)
 
         fl->file_list.name = entry.d_name;
 
-        coro_yield(coro, 1);
+        if (coro_yield(coro, 1))
+            break;
     }
 
 out:
