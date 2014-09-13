@@ -251,6 +251,11 @@ compile_append_var(struct parser_state *state, strbuf_t *buf,
     size_t length = strbuf_get_length(buf) - 1;
 
     switch (*variable) {
+    case '!':
+        free(chunk);
+        strbuf_reset(buf);
+        return 0;
+
     case '>': {
         char template_file[PATH_MAX];
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
