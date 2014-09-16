@@ -735,7 +735,10 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
             break;
         case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
             struct chunk_descriptor *cd = chunk->data;
-            if (var_get_is_empty(cd->descriptor, variables)) {
+            bool empty = var_get_is_empty(cd->descriptor, variables);
+            if (chunk->flags & TPL_FLAG_NEGATE)
+                empty = !empty;
+            if (empty) {
                 chunk = cd->chunk;
             } else {
                 chunk = lwan_tpl_apply_until(tpl,
