@@ -78,9 +78,9 @@ static bool cache_pruner_job(void *data);
 
 static clockid_t detect_fastest_monotonic_clock(void)
 {
+#ifdef CLOCK_MONOTONIC_COARSE
     struct timespec ts;
 
-#ifdef CLOCK_MONOTONIC_COARSE
     if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts))
         return CLOCK_MONOTONIC_COARSE;
 #endif
