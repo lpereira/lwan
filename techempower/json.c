@@ -1292,10 +1292,9 @@ static bool parse_hex16(const char **sp, uint16_t *out)
 	uint16_t ret = 0;
 	uint16_t i;
 	uint16_t tmp;
-	char c;
 
 	for (i = 0; i < 4; i++) {
-		c = *s++;
+		char c = *s++;
 		if (c >= '0' && c <= '9')
 			tmp = (uint16_t)(c - '0');
 		else if (c >= 'A' && c <= 'F')
