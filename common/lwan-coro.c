@@ -32,7 +32,10 @@
 #include <valgrind/valgrind.h>
 #endif
 
-#define CORO_STACK_MIN		(3 * (PTHREAD_STACK_MIN)) / 2
+#define CORO_STACK_MIN		((3 * (PTHREAD_STACK_MIN)) / 2)
+
+static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
+    "Request buffer fits inside coroutine stack");
 
 typedef struct coro_defer_t_	coro_defer_t;
 
