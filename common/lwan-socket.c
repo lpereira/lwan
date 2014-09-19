@@ -19,15 +19,18 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/tcp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "lwan.h"
 #include "sd-daemon.h"
+#include "int-to-str.h"
 
 
 static int
@@ -97,26 +100,52 @@ _setup_socket_from_systemd(lwan_t *l)
 static int
 _setup_socket_normally(lwan_t *l)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (fd < 0)
-        lwan_status_critical_perror("socket");
-
-    SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
-    if (l->config.reuse_port)
-        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                                (int[]){ 1 }, sizeof(int));
-
-    struct sockaddr_in sin = {
-        .sin_port = htons((uint16_t)l->config.port),
-        .sin_addr.s_addr = INADDR_ANY,
-        .sin_family = AF_INET
+    char port_buf[INT_TO_STR_BUFFER_SIZE];
+    size_t port_len;
+    struct addrinfo *addrs, *a;
+    struct addrinfo hints = {
+        .ai_family = l->config.ipv6 ? AF_INET6 : AF_INET,
+        .ai_socktype = SOCK_STREAM,
+        .ai_flags = AI_PASSIVE
     };
-    if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-        lwan_status_critical_perror("bind");
+    int fd;
+
+    char *port = uint_to_string(l->config.port, port_buf, &port_len);
+    int ret = getaddrinfo(NULL, port, &hints, &addrs);
+    if (ret)
+        lwan_status_critical("getaddrinfo: %s\n", gai_strerror(ret));
+
+    /* Try each address until we bind one successfully. */
+    for (a = addrs; a; a = a->ai_next) {
+        fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+        if (fd < 0)
+            continue;
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+        if (l->config.reuse_port)
+            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                    (int[]){ 1 }, sizeof(int));
+        if (bind(fd, a->ai_addr, a->ai_addrlen) == 0)
+            break;
+        close(fd);
+    }
+    if (!a)
+        lwan_status_critical("Could not bind socket");
 
     if (listen(fd, _get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
+    char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
+    ret = getnameinfo(a->ai_addr, a->ai_addrlen, host_buf, sizeof(host_buf),
+                      serv_buf, sizeof(serv_buf), NI_NUMERICSERV);
+    if (ret)
+        lwan_status_critical("getnameinfo: %s\n", gai_strerror(ret));
+
+    if (a->ai_family == AF_INET6)
+        lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
+    else
+        lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
+
+    freeaddrinfo(addrs);
     return fd;
 }
 
@@ -149,8 +178,6 @@ lwan_socket_init(lwan_t *l)
                                             (int[]){ 0 }, sizeof(int));
 
     l->main_socket = fd;
-
-    lwan_status_info("Listening on http://0.0.0.0:%d", l->config.port);
 }
 
 #undef SET_SOCKET_OPTION
