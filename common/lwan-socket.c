@@ -57,13 +57,17 @@ _get_backlog_size(void)
 static uint16_t
 _get_listening_port(int fd)
 {
-    struct sockaddr_in sin;
-    socklen_t len = sizeof(sin);
+    struct sockaddr_storage sockaddr;
+    socklen_t len = sizeof(sockaddr);
 
-    if (getsockname(fd, (struct sockaddr *)&sin, &len) < 0)
+    if (getsockname(fd, (struct sockaddr *)&sockaddr, &len) < 0)
         lwan_status_critical_perror("getsockname");
 
-    return ntohs(sin.sin_port);
+    if (sockaddr.ss_family == AF_INET) {
+        return ntohs(((struct sockaddr_in *)&sockaddr)->sin_port);
+    } else {
+        return ntohs(((struct sockaddr_in6 *)&sockaddr)->sin6_port);
+    }
 }
 
 static int
@@ -71,7 +75,7 @@ _setup_socket_from_systemd(lwan_t *l)
 {
     int fd = SD_LISTEN_FDS_START;
 
-    if (!sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, 0))
+    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0))
         lwan_status_critical("Passed file descriptor is not a "
             "listening TCP socket");
 
