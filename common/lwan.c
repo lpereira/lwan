@@ -50,6 +50,7 @@ static const lwan_config_t default_config = {
     .keep_alive_timeout = 15,
     .quiet = false,
     .reuse_port = false,
+    .ipv6 = false,
     .expires = 1 * ONE_WEEK
 };
 
@@ -346,6 +347,9 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "reuse_port"))
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
+            else if (!strcmp(line.line.key, "ipv6"))
+                lwan->config.ipv6 = parse_bool(line.line.value,
+                            default_config.ipv6);
             else if (!strcmp(line.line.key, "expires"))
                 lwan->config.expires = _parse_expires(line.line.value,
                             default_config.expires);
