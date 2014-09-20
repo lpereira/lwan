@@ -63,9 +63,8 @@ _get_listening_port(int fd)
     if (getsockname(fd, (struct sockaddr *)&sockaddr, &len) < 0)
         lwan_status_critical_perror("getsockname");
 
-    if (sockaddr.ss_family == AF_INET) {
+    if (sockaddr.ss_family == AF_INET)
         return ntohs(((struct sockaddr_in *)&sockaddr)->sin_port);
-    }
     return ntohs(((struct sockaddr_in6 *)&sockaddr)->sin6_port);
 }
 
