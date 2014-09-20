@@ -65,9 +65,8 @@ _get_listening_port(int fd)
 
     if (sockaddr.ss_family == AF_INET) {
         return ntohs(((struct sockaddr_in *)&sockaddr)->sin_port);
-    } else {
-        return ntohs(((struct sockaddr_in6 *)&sockaddr)->sin6_port);
     }
+    return ntohs(((struct sockaddr_in6 *)&sockaddr)->sin6_port);
 }
 
 static int
