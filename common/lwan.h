@@ -269,7 +269,7 @@ const char *lwan_request_get_post_param(lwan_request_t *request, const char *key
     __attribute__((warn_unused_result));
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key)
     __attribute__((warn_unused_result));
-const char *lwan_request_get_remote_address(lwan_request_t *request, char *buffer)
+const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
     __attribute__((warn_unused_result));
 void lwan_process_request(lwan_t *l, lwan_request_t *request);
 

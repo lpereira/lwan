@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 #include "int-to-str.h"
 #include "lwan.h"
@@ -102,7 +103,7 @@ get_request_method(lwan_request_t *request)
 static void
 log_request(lwan_request_t *request, lwan_http_status_t status)
 {
-    char ip_buffer[16];
+    char ip_buffer[INET6_ADDRSTRLEN];
 
     lwan_status_debug("%s \"%s %s HTTP/%s\" %d %s",
         lwan_request_get_remote_address(request, ip_buffer),

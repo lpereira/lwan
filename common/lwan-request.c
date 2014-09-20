@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include "lwan.h"
 #include "lwan-config.h"
@@ -766,24 +767,16 @@ lwan_connection_get_fd(lwan_connection_t *conn)
 
 const char *
 lwan_request_get_remote_address(lwan_request_t *request,
-            char *buffer)
+            char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_in sock_addr;
-    socklen_t sock_len = sizeof(struct sockaddr_in);
-    if (UNLIKELY(getpeername(request->fd, &sock_addr, &sock_len) < 0))
+    struct sockaddr_storage sock_addr;
+    socklen_t sock_len = sizeof(struct sockaddr_storage);
+    if (UNLIKELY(getpeername(request->fd, (struct sockaddr *)&sock_addr, &sock_len) < 0))
         return NULL;
 
-    /* The definition of inet_ntoa() in the standard is not thread-safe. The
-     * glibc version uses a static buffer stored in the TLS to make do, but
-     * in the end, inet_ntoa() is actually a call to snprintf().  Call it
-     * ourselves, using a user-supplied buffer.  This should be a tiny wee
-     * little bit faster.  */
-    union {
-        unsigned char octets[sizeof(in_addr_t)];
-        in_addr_t address;
-    } u = { .address = sock_addr.sin_addr.s_addr };
-    if (UNLIKELY(snprintf(buffer, INET_ADDRSTRLEN, "%d.%d.%d.%d",
-                u.octets[0], u.octets[1], u.octets[2], u.octets[3]) < 0))
-        return NULL;
-    return buffer;
+    if (sock_addr.ss_family == AF_INET)
+        return inet_ntop(AF_INET, &((struct sockaddr_in *)&sock_addr)->sin_addr,
+                         buffer, INET6_ADDRSTRLEN);
+    return inet_ntop(AF_INET6, &((struct sockaddr_in6 *)&sock_addr)->sin6_addr,
+                     buffer, INET6_ADDRSTRLEN);
 }
