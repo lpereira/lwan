@@ -132,6 +132,7 @@ _parse_listener_ipv6(char *listener, char **node, char **port)
         listener[strlen(listener) - 1] = '\0';
         *node = listener + 1;
         *port = "8080";
+        lwan_status_info("%s", *node);
     }
 
     return AF_INET6;
