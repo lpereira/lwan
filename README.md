@@ -24,19 +24,21 @@ Features include:
     - Used for directory listing & error messages
     - Available for user-built handlers
   - Easy to use API to create web applications or extend the web server
-  - Supports rebimboba da parafuseta
+  - Supports rebimboca da parafuseta
   - Test suite written in Python tests the server as a black box
   - No-nonsense configuration file syntax
   - Supports a subset of HTTP/1.0 and HTTP/1.1
+  - systemd socket activation
+  - IPv6 ready
 
 The [web site](http://lwan.ws) has more details.
 
 Performance
 -----------
 
-It can achieve good performance, yielding about **300000 requests/second** on a Core i7 laptop for requests without disk access.
+It can achieve good performance, yielding about **320000 requests/second** on a Core i7 laptop for requests without disk access.
 
-When disk I/O is required, for files up to 16KiB, it yields about **285000 requests/second**; for larger files, this drops to **185000 requests/second**, which isn't too shabby either.
+When disk I/O is required, for files up to 16KiB, it yields about **290000 requests/second**; for larger files, this drops to **185000 requests/second**, which isn't too shabby either.
 
 These results, of course, with keep-alive connections, and with weighttp running on the same machine (and thus using resources that could be used for the webserver itself).
 
@@ -46,8 +48,6 @@ Portability
 -----------
 
 Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the Linux variant of sendfile(), it is fairly portable to other event-based pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).  An old version of lwan has been [successfully ported to FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually, some event library such as [libev](http://libev.schmorp.de) or [libevent](http://libevent.org) will be used to aid in portability.
-
-Work is underway to port it to [OSv](http://osv.io), an operating system designed specifically for virtual machines.
 
 Building
 --------
