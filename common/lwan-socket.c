@@ -187,7 +187,7 @@ _setup_socket_normally(lwan_t *l)
 
     char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
     ret = getnameinfo(a->ai_addr, a->ai_addrlen, host_buf, sizeof(host_buf),
-                      serv_buf, sizeof(serv_buf), NI_NUMERICSERV);
+                      serv_buf, sizeof(serv_buf), NI_NUMERICHOST | NI_NUMERICSERV);
     if (ret)
         lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
 
