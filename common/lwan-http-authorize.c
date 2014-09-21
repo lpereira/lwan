@@ -57,7 +57,7 @@ static struct cache_entry_t *_create_realm_file(
 
     rpf->entries = hash_str_new(_fourty_two_and_free, _fourty_two_and_free);
     if (UNLIKELY(!rpf->entries))
-        goto error;
+        goto error_no_close;
 
     if (!config_open(&f, key))
         goto error_no_close;
