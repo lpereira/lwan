@@ -124,12 +124,13 @@ _parse_listener_ipv6(char *listener, char **node, char **port)
 
     if (*(last_colon - 1) == ']') {
         /* [::]:8080 */
-        *last_colon = '\0';
-        *node = listener;
+        *(last_colon - 1) = '\0';
+        *node = listener + 1;
         *port = last_colon + 1;
     } else {
         /* [::1] */
-        *node = listener;
+        listener[strlen(listener) - 1] = '\0';
+        *node = listener + 1;
         *port = "8080";
     }
 
