@@ -83,21 +83,83 @@ _setup_socket_from_systemd(void)
 #define SO_REUSEPORT 15
 #endif
 
+static sa_family_t
+_parse_listener_ipv4(char *listener, char **node, char **port)
+{
+    char *colon = strrchr(listener, ':');
+    if (!colon) {
+        *port = "8080";
+        if (!strchr(listener, '.')) {
+            /* 8080 */
+            *node = "0.0.0.0";
+        } else {
+            /* 127.0.0.1 */
+            *node = listener;
+        }
+    } else {
+        /*
+         * 127.0.0.1:8080
+         * localhost:8080
+         */
+        *colon = '\0';
+        *node = listener;
+        *port = colon + 1;
+
+        if (!strcmp(*node, "*")) {
+            /* *:8080 */
+            *node = "0.0.0.0";
+        }
+    }
+
+    return AF_INET;
+}
+
+static sa_family_t
+_parse_listener_ipv6(char *listener, char **node, char **port)
+{
+    char *last_colon = strrchr(listener, ':');
+    if (!last_colon)
+        return AF_UNSPEC;
+
+    if (*(last_colon - 1) == ']') {
+        /* [::]:8080 */
+        *last_colon = '\0';
+        *node = listener;
+        *port = last_colon + 1;
+    } else {
+        /* [::1] */
+        *node = listener;
+        *port = "8080";
+    }
+
+    return AF_INET6;
+}
+
+static sa_family_t
+_parse_listener(char *listener, char **node, char **port)
+{
+    if (*listener == '[')
+        return _parse_listener_ipv6(listener, node, port);
+    return _parse_listener_ipv4(listener, node, port);
+}
+
 static int
 _setup_socket_normally(lwan_t *l)
 {
-    char port_buf[INT_TO_STR_BUFFER_SIZE];
-    size_t port_len;
+    char *node, *port;
+    sa_family_t family = _parse_listener(l->config.listener, &node, &port);
+    if (family == AF_UNSPEC)
+        lwan_status_critical("Could not parse listener: %s", l->config.listener);
+
     struct addrinfo *addrs, *a;
     struct addrinfo hints = {
-        .ai_family = l->config.ipv6 ? AF_INET6 : AF_INET,
+        .ai_family = family,
         .ai_socktype = SOCK_STREAM,
         .ai_flags = AI_PASSIVE
     };
     int fd;
 
-    char *port = uint_to_string(l->config.port, port_buf, &port_len);
-    int ret = getaddrinfo(NULL, port, &hints, &addrs);
+    int ret = getaddrinfo(node, port, &hints, &addrs);
     if (ret)
         lwan_status_critical("getaddrinfo: %s\n", gai_strerror(ret));
 

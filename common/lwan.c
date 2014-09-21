@@ -46,11 +46,10 @@ static jmp_buf cleanup_jmp_buf;
 #define ONE_YEAR (ONE_MONTH * 12)
 
 static const lwan_config_t default_config = {
-    .port = 8080,
+    .listener = "localhost:8080",
     .keep_alive_timeout = 15,
     .quiet = false,
     .reuse_port = false,
-    .ipv6 = false,
     .expires = 1 * ONE_WEEK
 };
 
@@ -249,7 +248,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 
 static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 {
-    lwan->config.port = (uint16_t)parse_long(l->section.param, 8080);
+    lwan->config.listener = strdup(l->section.param);
 
     while (config_read_line(c, l)) {
         switch (l->type) {
@@ -347,9 +346,6 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "reuse_port"))
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
-            else if (!strcmp(line.line.key, "ipv6"))
-                lwan->config.ipv6 = parse_bool(line.line.value,
-                            default_config.ipv6);
             else if (!strcmp(line.line.key, "expires"))
                 lwan->config.expires = _parse_expires(line.line.value,
                             default_config.expires);
@@ -469,6 +465,9 @@ void
 lwan_shutdown(lwan_t *l)
 {
     lwan_status_info("Shutting down");
+
+    if (l->config.listener != default_config.listener)
+        free(l->config.listener);
 
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);

@@ -235,11 +235,10 @@ struct lwan_thread_t_ {
 };
 
 struct lwan_config_t_ {
-    uint16_t port;
+    char *listener;
     unsigned short keep_alive_timeout;
     bool quiet;
     bool reuse_port;
-    bool ipv6;
     unsigned int expires;
 };
 
