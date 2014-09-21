@@ -1126,7 +1126,6 @@ static void emit_object_indented(SB *out, const JsonNode *object, const char *sp
 
 void emit_string(SB *out, const char *str)
 {
-	bool escape_unicode = false;
 	const char *s = str;
 	char *b;
 	
@@ -1189,16 +1188,11 @@ void emit_string(SB *out, const char *str)
 					 * due to the assertion at the beginning of this function.
 					 */
 					assert(false);
-					if (escape_unicode) {
-						strcpy(b, "\\uFFFD");
-						b += 6;
-					} else {
-						*b++ = (char)0xEF;
-						*b++ = (char)0xBF;
-						*b++ = (char)0xBD;
-					}
+					*b++ = (char)0xEF;
+					*b++ = (char)0xBF;
+					*b++ = (char)0xBD;
 					s++;
-				} else if (c < 0x1F || ((unsigned char)c >= 0x80 && escape_unicode)) {
+				} else if (c < 0x1F) {
 					/* Encode using \u.... */
 					uint32_t unicode;
 					
