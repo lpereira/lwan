@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -147,7 +148,8 @@ static int
 _setup_socket_normally(lwan_t *l)
 {
     char *node, *port;
-    sa_family_t family = _parse_listener(l->config.listener, &node, &port);
+    char *listener = strdupa(l->config.listener);
+    sa_family_t family = _parse_listener(listener, &node, &port);
     if (family == AF_UNSPEC)
         lwan_status_critical("Could not parse listener: %s", l->config.listener);
 
