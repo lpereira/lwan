@@ -161,7 +161,7 @@ _setup_socket_normally(lwan_t *l)
 
     int ret = getaddrinfo(node, port, &hints, &addrs);
     if (ret)
-        lwan_status_critical("getaddrinfo: %s\n", gai_strerror(ret));
+        lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
 
     /* Try each address until we bind one successfully. */
     for (a = addrs; a; a = a->ai_next) {
@@ -186,7 +186,7 @@ _setup_socket_normally(lwan_t *l)
     ret = getnameinfo(a->ai_addr, a->ai_addrlen, host_buf, sizeof(host_buf),
                       serv_buf, sizeof(serv_buf), NI_NUMERICSERV);
     if (ret)
-        lwan_status_critical("getnameinfo: %s\n", gai_strerror(ret));
+        lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
 
     if (a->ai_family == AF_INET6)
         lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
