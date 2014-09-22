@@ -65,19 +65,21 @@ _destroy_coro(lwan_connection_t *conn)
 static int
 _process_request_coro(coro_t *coro)
 {
+    strbuf_t strbuf;
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_request_t request = {
         .conn = conn,
         .fd = lwan_connection_get_fd(conn),
         .response = {
-            .buffer = conn->response_buffer
+            .buffer = &strbuf
         }
     };
 
     assert(conn->flags & CONN_IS_ALIVE);
 
-    strbuf_reset(conn->response_buffer);
+    strbuf_init(&strbuf);
     lwan_process_request(conn->thread->lwan, &request);
+    strbuf_free(&strbuf);
 
     return CONN_CORO_FINISHED;
 }

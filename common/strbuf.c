@@ -26,6 +26,7 @@
 #include "strbuf.h"
 
 static const unsigned int STATIC = 1<<0;
+static const unsigned int DYNAMICALLY_ALLOCATED = 1<<1;
 static const size_t DEFAULT_BUF_SIZE = 64;
 
 static size_t
@@ -78,22 +79,41 @@ grow_buffer_if_needed(strbuf_t *s, size_t size)
     return true;
 }
 
-strbuf_t *
-strbuf_new_with_size(size_t size)
+bool
+strbuf_init_with_size(strbuf_t *s, size_t size)
 {
-    strbuf_t *s = calloc(1, sizeof(*s));
-
     if (UNLIKELY(!s))
-        return NULL;
+        return false;
 
-    if (UNLIKELY(!grow_buffer_if_needed(s, size))) {
-        free(s);
-        return NULL;
-    }
+    memset(s, 0, sizeof(*s));
+
+    if (UNLIKELY(!grow_buffer_if_needed(s, size)))
+        return false;
 
     s->len.buffer = 0;
     s->value.buffer[0] = '\0';
 
+    return true;
+}
+
+ALWAYS_INLINE bool
+strbuf_init(strbuf_t *s)
+{
+    return strbuf_init_with_size(s, DEFAULT_BUF_SIZE);
+}
+
+strbuf_t *
+strbuf_new_with_size(size_t size)
+{
+    strbuf_t *s = malloc(sizeof(*s));
+    if (LIKELY(s)) {
+        if (!strbuf_init_with_size(s, size)) {
+            free(s);
+            s = NULL;
+        } else {
+            s->flags = DYNAMICALLY_ALLOCATED;
+        }
+    }
     return s;
 }
 
@@ -110,7 +130,8 @@ strbuf_free(strbuf_t *s)
         return;
     if (!(s->flags & STATIC))
         free(s->value.buffer);
-    free(s);
+    if (s->flags & DYNAMICALLY_ALLOCATED)
+        free(s);
 }
 
 bool

@@ -403,8 +403,6 @@ _allocate_connections(lwan_t *l, size_t max_open_files)
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
     if (!l->conns)
         lwan_status_critical_perror("calloc");
-    for (--max_open_files; max_open_files; --max_open_files)
-        l->conns[max_open_files].response_buffer = strbuf_new();
 }
 
 static short
@@ -475,10 +473,6 @@ lwan_shutdown(lwan_t *l)
 
     lwan_status_debug("Shutting down URL handlers");
     lwan_trie_destroy(l->url_map_trie);
-
-    unsigned i;
-    for (i = l->thread.max_fd * (unsigned)l->thread.count - 1; i != 0; --i)
-        strbuf_free(l->conns[i].response_buffer);
 
     free(l->conns);
 

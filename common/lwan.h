@@ -171,7 +171,7 @@ struct lwan_connection_t_ {
     unsigned int time_to_die;
     coro_t *coro;
     lwan_thread_t *thread;
-    strbuf_t *response_buffer; /* Leaky abstraction */
+    char padding[8];
 };
 
 struct lwan_request_t_ {
