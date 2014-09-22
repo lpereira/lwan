@@ -111,7 +111,7 @@ strbuf_new_with_size(size_t size)
             free(s);
             s = NULL;
         } else {
-            s->flags = DYNAMICALLY_ALLOCATED;
+            s->flags |= DYNAMICALLY_ALLOCATED;
         }
     }
     return s;

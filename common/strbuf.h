@@ -40,7 +40,15 @@ bool		 strbuf_init_with_size(strbuf_t *buf, size_t size);
 bool		 strbuf_init(strbuf_t *buf);
 strbuf_t	*strbuf_new_with_size(size_t size);
 strbuf_t	*strbuf_new(void);
-void		 strbuf_free(strbuf_t *s);
+
+/*
+ * __attribute__((noinline)) is required because gcc thinks free() is being
+ * called on strbufs allocated on the stack and initialized with strbuf_init().
+ * This is not the case as a flag is checked inside strbuf_free() to avoid
+ * that.
+ */
+void		 strbuf_free(strbuf_t *s) __attribute__((noinline));
+
 bool		 strbuf_append_char(strbuf_t *s, char c);
 bool		 strbuf_append_str(strbuf_t *s1, char *s2, size_t sz);
 bool		 strbuf_set_static(strbuf_t *s1, const char *s2, size_t sz);

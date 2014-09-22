@@ -79,7 +79,10 @@ _process_request_coro(coro_t *coro)
 
     strbuf_init(&strbuf);
     lwan_process_request(conn->thread->lwan, &request);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
     strbuf_free(&strbuf);
+#pragma GCC diagnostic pop
 
     return CONN_CORO_FINISHED;
 }
