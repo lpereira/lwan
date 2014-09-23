@@ -106,13 +106,11 @@ strbuf_t *
 strbuf_new_with_size(size_t size)
 {
     strbuf_t *s = malloc(sizeof(*s));
-    if (LIKELY(s)) {
-        if (!strbuf_init_with_size(s, size)) {
-            free(s);
-            s = NULL;
-        } else {
-            s->flags |= DYNAMICALLY_ALLOCATED;
-        }
+    if (UNLIKELY(!strbuf_init_with_size(s, size))) {
+        free(s);
+        s = NULL;
+    } else {
+        s->flags |= DYNAMICALLY_ALLOCATED;
     }
     return s;
 }
