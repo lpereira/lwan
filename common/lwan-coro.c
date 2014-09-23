@@ -286,6 +286,7 @@ _coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
 
     assert(func);
 
+    /* Some uses require deferred statements are arranged in a stack. */
     defer->next = coro->defer;
     defer->func = func;
     defer->data1 = data1;

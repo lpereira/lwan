@@ -65,24 +65,22 @@ _destroy_coro(lwan_connection_t *conn)
 static int
 _process_request_coro(coro_t *coro)
 {
-    strbuf_t strbuf;
+    strbuf_t *strbuf = coro_malloc(coro, sizeof(*strbuf));
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_request_t request = {
         .conn = conn,
         .fd = lwan_connection_get_fd(conn),
         .response = {
-            .buffer = &strbuf
+            .buffer = strbuf
         }
     };
 
     assert(conn->flags & CONN_IS_ALIVE);
 
-    strbuf_init(&strbuf);
+    strbuf_init(strbuf);
+    coro_defer(coro, CORO_DEFER(strbuf_free), strbuf);
+
     lwan_process_request(conn->thread->lwan, &request);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
-    strbuf_free(&strbuf);
-#pragma GCC diagnostic pop
 
     return CONN_CORO_FINISHED;
 }
