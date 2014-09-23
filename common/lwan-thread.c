@@ -66,6 +66,9 @@ static int
 _process_request_coro(coro_t *coro)
 {
     strbuf_t *strbuf = coro_malloc(coro, sizeof(*strbuf));
+    if (UNLIKELY(!strbuf))
+        return CONN_CORO_ABORT;
+
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_request_t request = {
         .conn = conn,
