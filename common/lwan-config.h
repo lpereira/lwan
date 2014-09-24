@@ -27,28 +27,28 @@ typedef struct config_t_ config_t;
 typedef struct config_line_t_ config_line_t;
 
 typedef enum {
-  CONFIG_LINE_TYPE_LINE,
-  CONFIG_LINE_TYPE_SECTION,
-  CONFIG_LINE_TYPE_SECTION_END
+    CONFIG_LINE_TYPE_LINE,
+    CONFIG_LINE_TYPE_SECTION,
+    CONFIG_LINE_TYPE_SECTION_END
 } config_line_type_t;
 
 struct config_t_ {
-  FILE *file;
-  int line;
-  char *error_message;
+    FILE *file;
+    int line;
+    char *error_message;
 };
 
 struct config_line_t_ {
-  union {
-    struct {
-      char *name, *param;
-    } section;
-    struct {
-      char *key, *value;
-    } line;
-  };
-  config_line_type_t type;
-  char buffer[1024];
+    union {
+        struct {
+            char *name, *param;
+        } section;
+        struct {
+            char *key, *value;
+        } line;
+    };
+    config_line_type_t type;
+    char buffer[1024];
 };
 
 bool config_open(config_t *conf, const char *path);
