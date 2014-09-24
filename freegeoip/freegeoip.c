@@ -394,12 +394,7 @@ templated_output(lwan_request_t *request,
 int
 main(void)
 {
-    lwan_t l = {
-        .config = {
-            .listener = "8080",
-            .keep_alive_timeout = 15 /*seconds */
-        }
-    };
+    lwan_t l;
 
     lwan_init(&l);
 
