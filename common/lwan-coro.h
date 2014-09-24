@@ -20,6 +20,7 @@
 #ifndef __LWAN_CORO_H__
 #define __LWAN_CORO_H__
 
+#include <stddef.h>
 #if defined(__x86_64__)
 #include <stdint.h>
 typedef uintptr_t coro_context_t[10];

@@ -20,6 +20,8 @@
 #ifndef LWAN_CACHE_H
 #define LWAN_CACHE_H
 
+#include <time.h>
+
 #include "list.h"
 #include "lwan-coro.h"
 

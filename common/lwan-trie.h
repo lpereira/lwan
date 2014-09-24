@@ -20,6 +20,9 @@
 #ifndef __LWAN_TRIE_H__
 #define __LWAN_TRIE_H__
 
+#include <stdbool.h>
+#include <stdint.h>
+
 typedef struct lwan_trie_t_		lwan_trie_t;
 
 lwan_trie_t	*lwan_trie_new(void (*free_node)(void *data));
