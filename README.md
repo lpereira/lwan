@@ -8,7 +8,7 @@ In development for about 2 years, Lwan was until now a personal research
 effort that focused mostly on building a **solid infrastructure** for
 a lightweight and speedy web server:
 
-  - Low memory footprint (~1.5MiB for 10k idle connections)
+  - Low memory footprint (~500KiB for 10k idle connections)
   - Minimal memory allocations & copies
   - Minimal system calls
   - Hand-crafted HTTP request parser
