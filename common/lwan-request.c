@@ -769,7 +769,7 @@ const char *
 lwan_request_get_remote_address(lwan_request_t *request,
             char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_storage sock_addr;
+    struct sockaddr_storage sock_addr = { 0 };
     socklen_t sock_len = sizeof(struct sockaddr_storage);
     if (UNLIKELY(getpeername(request->fd, (struct sockaddr *)&sock_addr, &sock_len) < 0))
         return NULL;
