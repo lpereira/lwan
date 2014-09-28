@@ -171,7 +171,7 @@ struct lwan_connection_t_ {
     unsigned int time_to_die;
     coro_t *coro;
     lwan_thread_t *thread;
-    char padding[8];
+    int prev, next; /* for death queue */
 };
 
 struct lwan_request_t_ {
