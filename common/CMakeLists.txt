@@ -17,6 +17,7 @@ add_library(lwan-common STATIC
 	lwan-http-authorize.c
 	lwan-io-wrappers.c
 	lwan-job.c
+	lwan-redirect.c
 	lwan-request.c
 	lwan-response.c
 	lwan-serve-files.c

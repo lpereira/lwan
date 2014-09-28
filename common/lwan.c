@@ -33,6 +33,7 @@
 #include "lwan-private.h"
 #include "lwan-config.h"
 #include "lwan-serve-files.h"
+#include "lwan-redirect.h"
 #include "lwan-http-authorize.h"
 #include "hash.h"
 
@@ -466,6 +467,7 @@ lwan_init(lwan_t *l)
 
     lwan_module_init(l);
     lwan_module_register(l, "serve_files", lwan_module_serve_files());
+    lwan_module_register(l, "redirect", lwan_module_redirect());
 
     /* Load the configuration file. */
     if (!setup_from_config(l))
