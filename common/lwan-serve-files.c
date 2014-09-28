@@ -927,7 +927,7 @@ fail:
     return return_status;
 }
 
-lwan_handler_t serve_files = {
+lwan_module_t serve_files = {
     .init = serve_files_init,
     .init_from_hash = serve_files_init_from_hash,
     .shutdown = serve_files_shutdown,

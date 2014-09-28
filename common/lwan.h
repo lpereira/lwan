@@ -78,7 +78,7 @@
 #define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 
 typedef struct lwan_t_			lwan_t;
-typedef struct lwan_handler_t_		lwan_handler_t;
+typedef struct lwan_module_t_		lwan_module_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
 typedef struct lwan_request_t_		lwan_request_t;
 typedef struct lwan_response_t_		lwan_response_t;
@@ -195,7 +195,7 @@ struct lwan_request_t_ {
     lwan_response_t response;
 };
 
-struct lwan_handler_t_ {
+struct lwan_module_t_ {
     void *(*init)(void *args);
     void *(*init_from_hash)(const struct hash *hash);
     void (*shutdown)(void *data);
@@ -204,14 +204,14 @@ struct lwan_handler_t_ {
 };
 
 struct lwan_url_map_t_ {
-    lwan_http_status_t (*callback)(lwan_request_t *request, lwan_response_t *response, void *data);
+    lwan_http_status_t (*handler)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
 
     char *prefix;
     size_t prefix_len;
     lwan_handler_flags_t flags;
 
-    lwan_handler_t *handler;
+    lwan_module_t *module;
     void *args;
 
     struct {

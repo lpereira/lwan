@@ -286,11 +286,11 @@ int
 main(void)
 {
     static const lwan_url_map_t url_map[] = {
-        { .prefix = "/json", .callback = json },
-        { .prefix = "/db", .callback = db },
-        { .prefix = "/queries", .callback = queries },
-        { .prefix = "/plaintext", .callback = plaintext },
-        { .prefix = "/fortunes", .callback = fortunes },
+        { .prefix = "/json", .handler = json },
+        { .prefix = "/db", .handler = db },
+        { .prefix = "/queries", .handler = queries },
+        { .prefix = "/plaintext", .handler = plaintext },
+        { .prefix = "/fortunes", .handler = fortunes },
         { .prefix = NULL }
     };
     lwan_t l;

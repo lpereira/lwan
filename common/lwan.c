@@ -70,10 +70,10 @@ static void destroy_urlmap(void *data)
 {
     lwan_url_map_t *url_map = data;
 
-    if (url_map->handler) {
-        lwan_handler_t *handler = url_map->handler;
-        if (handler->shutdown)
-            handler->shutdown(url_map->data);
+    if (url_map->module) {
+        lwan_module_t *module = url_map->module;
+        if (module->shutdown)
+            module->shutdown(url_map->data);
     } else if (url_map->data) {
         hash_free(url_map->data);
     }
@@ -151,23 +151,23 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan)
 {
     lwan_url_map_t url_map = {0};
     struct hash *hash = hash_str_new(free, free);
-    lwan_handler_t *handler = NULL;
-    void *callback = NULL;
+    lwan_module_t *module = NULL;
+    void *handler = NULL;
     char *prefix = strdupa(l->line.value);
 
     while (config_read_line(c, l)) {
       switch (l->type) {
       case CONFIG_LINE_TYPE_LINE:
-          if (!strcmp(l->line.key, "handler")) {
+          if (!strcmp(l->line.key, "module")) {
+              module = find_symbol(l->line.value);
+              if (!module) {
+                  config_error(c, "Could not find module \"%s\"", l->line.value);
+                  goto out;
+              }
+          } else if (!strcmp(l->line.key, "handler")) {
               handler = find_symbol(l->line.value);
               if (!handler) {
                   config_error(c, "Could not find handler \"%s\"", l->line.value);
-                  goto out;
-              }
-          } else if (!strcmp(l->line.key, "callback")) {
-              callback = find_symbol(l->line.value);
-              if (!callback) {
-                  config_error(c, "Could not find callback \"%s\"", l->line.value);
                   goto out;
               }
           } else {
@@ -193,27 +193,27 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan)
     goto out;
 
 add_map:
-    if (handler == callback && !callback) {
-        config_error(c, "Missing callback or handler");
+    if (module == handler && !handler) {
+        config_error(c, "Missing module or handler");
         goto out;
     }
-    if (handler && callback) {
-        config_error(c, "Callback and handler are mutually exclusive");
+    if (module && handler) {
+        config_error(c, "Handler and module are mutually exclusive");
         goto out;
     }
 
-    if (callback) {
-        url_map.callback = callback;
+    if (handler) {
+        url_map.handler = handler;
         url_map.flags |= HANDLER_PARSE_MASK;
         url_map.data = hash;
-        url_map.handler = NULL;
+        url_map.module = NULL;
 
         hash = NULL;
-    } else if (handler && handler->init_from_hash && handler->handle) {
-        url_map.data = handler->init_from_hash(hash);
-        url_map.callback = handler->handle;
-        url_map.flags |= handler->flags;
-        url_map.handler = handler;
+    } else if (module && module->init_from_hash && module->handle) {
+        url_map.data = module->init_from_hash(hash);
+        url_map.handler = module->handle;
+        url_map.flags |= module->flags;
+        url_map.module = module;
     } else {
         config_error(c, "Invalid handler");
         goto out;
@@ -236,10 +236,10 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
         if (UNLIKELY(!copy))
             continue;
 
-        if (copy->handler && copy->handler->init) {
-            copy->data = copy->handler->init(copy->args);
-            copy->flags = copy->handler->flags;
-            copy->callback = copy->handler->handle;
+        if (copy->handler && copy->module->init) {
+            copy->data = copy->module->init(copy->args);
+            copy->flags = copy->module->flags;
+            copy->handler = copy->module->handle;
         } else {
             copy->flags = HANDLER_PARSE_MASK;
         }

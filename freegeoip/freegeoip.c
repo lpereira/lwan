@@ -425,9 +425,9 @@ main(void)
 #endif
 
     const lwan_url_map_t default_map[] = {
-        { .prefix = "/json/", .callback = templated_output, .data = json_template },
-        { .prefix = "/xml/", .callback = templated_output, .data = xml_template },
-        { .prefix = "/csv/", .callback = templated_output, .data = csv_template },
+        { .prefix = "/json/", .handler = templated_output, .data = json_template },
+        { .prefix = "/xml/", .handler = templated_output, .data = xml_template },
+        { .prefix = "/csv/", .handler = templated_output, .data = csv_template },
         { .prefix = "/", SERVE_FILES("./static") },
         { .prefix = NULL }
     };

@@ -715,7 +715,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         return;
     }
 
-    status = url_map->callback(request, &request->response, url_map->data);
+    status = url_map->handler(request, &request->response, url_map->data);
     lwan_response(request, status);
 }
 
