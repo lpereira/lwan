@@ -27,10 +27,8 @@ struct lwan_serve_files_settings_t {
   char *index_html;
 };
 
-extern lwan_module_t serve_files;
-
 #define SERVE_FILES_SETTINGS(root_path_, index_html_) \
-  .module = &serve_files, \
+  .module = lwan_module_serve_files(), \
   .args = ((struct lwan_serve_files_settings_t[]) {{ \
     .root_path = root_path_, \
     .index_html = index_html_ \
@@ -39,5 +37,7 @@ extern lwan_module_t serve_files;
 
 #define SERVE_FILES(root_path) \
   SERVE_FILES_SETTINGS(root_path, NULL)
+
+const lwan_module_t *lwan_module_serve_files(void);
 
 #endif /* __LWAN_SERVE_FILES_H__ */

@@ -53,16 +53,36 @@ static const lwan_config_t default_config = {
     .expires = 1 * ONE_WEEK
 };
 
-static void *find_symbol(const char *name)
+static void lwan_module_init(lwan_t *l)
 {
-    /* FIXME: This is pretty ugly. Find a better way of doing this. */
+    if (!l->module_registry) {
+        lwan_status_debug("Initializing module registry");
+        l->module_registry = hash_str_new(NULL, NULL);
+    }
+}
+
+static void lwan_module_shutdown(lwan_t *l)
+{
+    hash_free(l->module_registry);
+}
+
+static void lwan_module_register(lwan_t *l, const char *name,
+                                            const lwan_module_t *module)
+{
+    lwan_status_debug("Registering module \"%s\"", name);
+    hash_add(l->module_registry, name, module);
+}
+
+static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
+{
+    return hash_find(l->module_registry, name);
+}
+
+static void *find_handler_symbol(const char *name)
+{
     void *symbol = dlsym(RTLD_NEXT, name);
     if (!symbol)
         symbol = dlsym(RTLD_DEFAULT, name);
-    if (!symbol) {
-        if (!strcmp(name, "serve_files"))
-            symbol = &serve_files;
-    }
     return symbol;
 }
 
@@ -71,7 +91,7 @@ static void destroy_urlmap(void *data)
     lwan_url_map_t *url_map = data;
 
     if (url_map->module) {
-        lwan_module_t *module = url_map->module;
+        const lwan_module_t *module = url_map->module;
         if (module->shutdown)
             module->shutdown(url_map->data);
     } else if (url_map->data) {
@@ -147,11 +167,11 @@ error:
     free(url_map->authorization.password_file);
 }
 
-static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan)
+static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan,
+    const lwan_module_t *module)
 {
     lwan_url_map_t url_map = {0};
     struct hash *hash = hash_str_new(free, free);
-    lwan_module_t *module = NULL;
     void *handler = NULL;
     char *prefix = strdupa(l->line.value);
 
@@ -159,13 +179,17 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan)
       switch (l->type) {
       case CONFIG_LINE_TYPE_LINE:
           if (!strcmp(l->line.key, "module")) {
-              module = find_symbol(l->line.value);
+              if (module) {
+                  config_error(c, "Module already specified");
+                  goto out;
+              }
+              module = lwan_module_find(lwan, l->line.value);
               if (!module) {
                   config_error(c, "Could not find module \"%s\"", l->line.value);
                   goto out;
               }
           } else if (!strcmp(l->line.key, "handler")) {
-              handler = find_symbol(l->line.value);
+              handler = find_handler_symbol(l->line.value);
               if (!handler) {
                   config_error(c, "Could not find handler \"%s\"", l->line.value);
                   goto out;
@@ -256,10 +280,17 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
             config_error(c, "Expecting prefix section");
             return;
         case CONFIG_LINE_TYPE_SECTION:
-            if (!strcmp(l->section.name, "prefix"))
-                parse_listener_prefix(c, l, lwan);
-            else
-                config_error(c, "Unknown section type: %s", l->section.name);
+            if (!strcmp(l->section.name, "prefix")) {
+                parse_listener_prefix(c, l, lwan, NULL);
+            } else {
+                const lwan_module_t *module = lwan_module_find(lwan, l->section.name);
+                if (!module) {
+                    config_error(c, "Invalid section name or module not found: %s",
+                        l->section.name);
+                } else {
+                    parse_listener_prefix(c, l, lwan, module);
+                }
+            }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
             return;
@@ -433,6 +464,9 @@ lwan_init(lwan_t *l)
     lwan_response_init();
     lwan_tables_init();
 
+    lwan_module_init(l);
+    lwan_module_register(l, "serve_files", lwan_module_serve_files());
+
     /* Load the configuration file. */
     if (!setup_from_config(l))
         lwan_status_warning("Could not read config file, using defaults");
@@ -480,6 +514,7 @@ lwan_shutdown(lwan_t *l)
     lwan_tables_shutdown();
     lwan_status_shutdown(l);
     lwan_http_authorize_shutdown();
+    lwan_module_shutdown(l);
 }
 
 static ALWAYS_INLINE void

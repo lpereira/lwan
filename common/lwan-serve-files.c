@@ -927,10 +927,18 @@ fail:
     return return_status;
 }
 
-lwan_module_t serve_files = {
-    .init = serve_files_init,
-    .init_from_hash = serve_files_init_from_hash,
-    .shutdown = serve_files_shutdown,
-    .handle = serve_files_handle_cb,
-    .flags = HANDLER_REMOVE_LEADING_SLASH | HANDLER_PARSE_IF_MODIFIED_SINCE | HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING
-};
+const lwan_module_t *lwan_module_serve_files(void)
+{
+    static const lwan_module_t serve_files = {
+        .init = serve_files_init,
+        .init_from_hash = serve_files_init_from_hash,
+        .shutdown = serve_files_shutdown,
+        .handle = serve_files_handle_cb,
+        .flags = HANDLER_REMOVE_LEADING_SLASH
+            | HANDLER_PARSE_IF_MODIFIED_SINCE
+            | HANDLER_PARSE_RANGE
+            | HANDLER_PARSE_ACCEPT_ENCODING
+    };
+
+    return &serve_files;
+}

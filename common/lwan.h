@@ -211,7 +211,7 @@ struct lwan_url_map_t_ {
     size_t prefix_len;
     lwan_handler_flags_t flags;
 
-    lwan_module_t *module;
+    const lwan_module_t *module;
     void *args;
 
     struct {
@@ -254,6 +254,8 @@ struct lwan_t_ {
         unsigned max_fd;
         lwan_thread_t *threads;
     } thread;
+
+    struct hash *module_registry;
 };
 
 void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map);
