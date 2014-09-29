@@ -164,7 +164,7 @@ _death_queue_epoll_timeout(struct death_queue_t *dq)
 static ALWAYS_INLINE void
 _destroy_coro(struct death_queue_t *dq, lwan_connection_t *conn)
 {
-    _death_queue_remove(dq, _death_queue_idx_to_node(dq, dq->head));
+    _death_queue_remove(dq, conn);
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
