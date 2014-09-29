@@ -452,6 +452,7 @@ void
 lwan_init(lwan_t *l)
 {
     /* Load defaults */
+    memset(l, 0, sizeof(*l));
     memcpy(&l->config, &default_config, sizeof(default_config));
 
     /* Initialize status first, as it is used by other things during
