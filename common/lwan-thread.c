@@ -30,10 +30,7 @@
 
 struct death_queue_t {
     lwan_connection_t *conns;
-
-    lwan_connection_t *head;
-    int epoll_fd;
-
+    lwan_connection_t head;
     unsigned time;
     unsigned short keep_alive_timeout;
 };
@@ -46,24 +43,22 @@ static const unsigned events_by_write_flag[] = {
 static inline int _death_queue_node_to_idx(struct death_queue_t *dq,
     lwan_connection_t *conn)
 {
-    return (int)(ptrdiff_t)(conn - dq->conns);
+    return (conn == &dq->head) ? -1 : (int)(ptrdiff_t)(conn - dq->conns);
 }
 
 static inline lwan_connection_t *_death_queue_idx_to_node(struct death_queue_t *dq,
     int idx)
 {
-    return &dq->conns[idx];
+    return (idx < 0) ? &dq->head : &dq->conns[idx];
 }
 
 static void _death_queue_insert(struct death_queue_t *dq,
     lwan_connection_t *new_node)
 {
-    new_node->next = _death_queue_node_to_idx(dq, dq->head);
-    new_node->prev = dq->head->prev;
-    lwan_connection_t *prev = _death_queue_idx_to_node(dq, dq->head->prev);
-    int idx = _death_queue_node_to_idx(dq, new_node);
-    prev->next = idx;
-    dq->head->prev = idx;
+    new_node->next = -1;
+    new_node->prev = dq->head.prev;
+    lwan_connection_t *prev = _death_queue_idx_to_node(dq, dq->head.prev);
+    dq->head.prev = prev->next = _death_queue_node_to_idx(dq, new_node);
 }
 
 static void _death_queue_remove(struct death_queue_t *dq,
@@ -77,7 +72,7 @@ static void _death_queue_remove(struct death_queue_t *dq,
 
 static bool _death_queue_empty(struct death_queue_t *dq)
 {
-    return dq->head->next == dq->epoll_fd;
+    return dq->head.next < 0;
 }
 
 static void _death_queue_move_to_last(struct death_queue_t *dq,
@@ -101,15 +96,12 @@ static void _death_queue_move_to_last(struct death_queue_t *dq,
 
 static void
 _death_queue_init(struct death_queue_t *dq, lwan_connection_t *conns,
-    unsigned short keep_alive_timeout, int epoll_fd)
+    unsigned short keep_alive_timeout)
 {
     dq->conns = conns;
     dq->time = 0;
     dq->keep_alive_timeout = keep_alive_timeout;
-
-    dq->head = _death_queue_idx_to_node(dq, epoll_fd);
-    dq->head->next = dq->head->prev = epoll_fd;
-    dq->epoll_fd = epoll_fd;
+    dq->head.next = dq->head.prev = -1;
 }
 
 static ALWAYS_INLINE int
@@ -207,7 +199,7 @@ _death_queue_kill_waiting(struct death_queue_t *dq)
     dq->time++;
 
     while (!_death_queue_empty(dq)) {
-        lwan_connection_t *conn = _death_queue_idx_to_node(dq, dq->head->next);
+        lwan_connection_t *conn = _death_queue_idx_to_node(dq, dq->head.next);
 
         if (conn->time_to_die > dq->time)
             return;
@@ -301,7 +293,7 @@ _thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
-    _death_queue_init(&dq, conns, t->lwan->config.keep_alive_timeout, epoll_fd);
+    _death_queue_init(&dq, conns, t->lwan->config.keep_alive_timeout);
 
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
