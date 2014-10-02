@@ -406,8 +406,8 @@ lwan_thread_shutdown(lwan_t *l)
     lwan_status_debug("Shutting down threads");
 
     /*
-     * Closing epoll_fd makes the thread gracefully finish; it might
-     * take a while to notice this if keep-alive timeout is high.
+     * Closing epoll_fd makes the thread gracefully finish.
+     *
      * Thread shutdown is performed in separate loops so that we
      * don't wait one thread to join when there are others to be
      * finalized.
