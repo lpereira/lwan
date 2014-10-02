@@ -47,29 +47,9 @@ long parse_long(const char *value, long default_value)
 {
     char *endptr;
     long parsed;
-    int base;
 
-    if (*value == '0') {
-        value++;
-        if (*value == 'x') {
-            base = 16;
-        } else if (*value == 'b') {
-            base = 2;
-        } else if (isdigit(*value)) {
-            base = 8;
-            goto convert;
-        } else {
-            return default_value;
-        }
-
-        value++;
-    } else {
-        base = 10;
-    }
-
-convert:
     errno = 0;
-    parsed = strtol(value, &endptr, base);
+    parsed = strtol(value, &endptr, 0);
 
     if (errno != 0)
         return default_value;
