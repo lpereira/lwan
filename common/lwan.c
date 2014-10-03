@@ -263,7 +263,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
         if (UNLIKELY(!copy))
             continue;
 
-        if (copy->handler && copy->module->init) {
+        if (copy->module && copy->module->init) {
             copy->data = copy->module->init(copy->args);
             copy->flags = copy->module->flags;
             copy->handler = copy->module->handle;
