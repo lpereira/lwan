@@ -196,6 +196,7 @@ struct lwan_request_t_ {
 };
 
 struct lwan_module_t_ {
+    const char *name;
     void *(*init)(void *args);
     void *(*init_from_hash)(const struct hash *hash);
     void (*shutdown)(void *data);

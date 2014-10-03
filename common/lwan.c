@@ -67,11 +67,13 @@ static void lwan_module_shutdown(lwan_t *l)
     hash_free(l->module_registry);
 }
 
-static void lwan_module_register(lwan_t *l, const char *name,
-                                            const lwan_module_t *module)
+static void lwan_module_register(lwan_t *l, const lwan_module_t *module)
 {
-    lwan_status_debug("Registering module \"%s\"", name);
-    hash_add(l->module_registry, name, module);
+    if (!module->name)
+        lwan_status_critical("Module at %p has no name", module);
+
+    lwan_status_debug("Registering module \"%s\"", module->name);
+    hash_add(l->module_registry, module->name, module);
 }
 
 static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
@@ -467,8 +469,8 @@ lwan_init(lwan_t *l)
     lwan_tables_init();
 
     lwan_module_init(l);
-    lwan_module_register(l, "serve_files", lwan_module_serve_files());
-    lwan_module_register(l, "redirect", lwan_module_redirect());
+    lwan_module_register(l, lwan_module_serve_files());
+    lwan_module_register(l, lwan_module_redirect());
 
     /* Load the configuration file. */
     if (!setup_from_config(l))
