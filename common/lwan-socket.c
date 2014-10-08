@@ -233,15 +233,3 @@ lwan_socket_init(lwan_t *l)
 
 #undef SET_SOCKET_OPTION
 #undef SET_SOCKET_OPTION_MAY_FAIL
-
-void
-lwan_socket_shutdown(lwan_t *l)
-{
-    lwan_status_debug("Shutting down sockets");
-    if (shutdown(l->main_socket, SHUT_RDWR) < 0) {
-        lwan_status_perror("shutdown");
-        close(l->main_socket);
-        exit(-4);
-    }
-    close(l->main_socket);
-}
