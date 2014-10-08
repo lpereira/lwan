@@ -21,13 +21,13 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <limits.h>
-#include <setjmp.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "lwan.h"
 #include "lwan-private.h"
@@ -36,8 +36,6 @@
 #include "lwan-redirect.h"
 #include "lwan-http-authorize.h"
 #include "hash.h"
-
-static jmp_buf cleanup_jmp_buf;
 
 #define ONE_MINUTE 60
 #define ONE_HOUR (ONE_MINUTE * 60)
@@ -508,7 +506,6 @@ lwan_shutdown(lwan_t *l)
 
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);
-    lwan_socket_shutdown(l);
 
     lwan_status_debug("Shutting down URL handlers");
     lwan_trie_destroy(l->url_map_trie);
@@ -544,20 +541,20 @@ _schedule_client(lwan_t *l, int fd)
     lwan_thread_add_client(t, fd);
 }
 
+static int main_socket;
+
 static void
 _signal_handler(int signal_number)
 {
     lwan_status_info("Signal %d (%s) received",
                                 signal_number, strsignal(signal_number));
-    longjmp(cleanup_jmp_buf, 1);
+    close(main_socket);
 }
 
 void
 lwan_main_loop(lwan_t *l)
 {
-    if (setjmp(cleanup_jmp_buf))
-        return;
-
+    main_socket = l->main_socket;
     if (signal(SIGINT, _signal_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
 
@@ -566,6 +563,8 @@ lwan_main_loop(lwan_t *l)
     for (;;) {
         int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
         if (UNLIKELY(client_fd < 0)) {
+            if (errno == EBADF) /* Likely closed by the SIGINT handler. */
+                break;
             lwan_status_perror("accept");
             continue;
         }
