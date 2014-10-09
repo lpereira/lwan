@@ -541,7 +541,7 @@ _schedule_client(lwan_t *l, int fd)
     lwan_thread_add_client(t, fd);
 }
 
-static int main_socket;
+static int main_socket = -1;
 
 static void
 _signal_handler(int signal_number)
@@ -549,12 +549,14 @@ _signal_handler(int signal_number)
     lwan_status_info("Signal %d (%s) received",
                                 signal_number, strsignal(signal_number));
     close(main_socket);
+    main_socket = -1;
 }
 
 void
 lwan_main_loop(lwan_t *l)
 {
     main_socket = l->main_socket;
+    assert(main_socket != -1);
     if (signal(SIGINT, _signal_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
 
