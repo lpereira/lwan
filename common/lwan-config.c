@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "lwan-config.h"
+#include "lwan-status.h"
 #include "hash.h"
 
 bool parse_bool(const char *value, bool default_value)
@@ -211,6 +212,11 @@ void config_close(config_t *conf)
         return;
     if (!conf->file)
         return;
-    fclose(conf->file);
+    while (fclose(conf->file) == EOF) {
+        if (errno != EINTR) {
+            lwan_status_perror("Could not close config file");
+            break;
+        }
+    }
     free(conf->error_message);
 }
