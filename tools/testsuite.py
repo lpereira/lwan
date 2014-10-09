@@ -49,7 +49,7 @@ class TestFileServing(LwanTest):
     table = (
       ('/', 'text/html'),
       ('/icons/back.png', 'image/png'),
-      ('/icons', 'text/html'),
+      ('/icons', 'text/plain'),
       ('/zero', 'application/octet-stream')
     )
 
