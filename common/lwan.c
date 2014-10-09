@@ -558,7 +558,8 @@ lwan_main_loop(lwan_t *l)
     if (setjmp(cleanup_jmp_buf))
         return;
 
-    signal(SIGINT, _signal_handler);
+    if (signal(SIGINT, _signal_handler) == SIG_ERR)
+        lwan_status_critical("Could not set signal handler");
 
     lwan_status_info("Ready to serve");
 
