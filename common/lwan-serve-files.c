@@ -404,6 +404,7 @@ _redir_init(file_cache_entry_t *ce,
     if (asprintf(&rd->redir_to, "%s/", full_path + priv->root.path_len) < 0)
         return false;
 
+    ce->mime_type = "text/plain";
     return true;
 }
 
