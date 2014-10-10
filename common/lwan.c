@@ -541,13 +541,13 @@ _schedule_client(lwan_t *l, int fd)
     lwan_thread_add_client(t, fd);
 }
 
-static int main_socket = -1;
+static volatile sig_atomic_t main_socket = -1;
 
 static void
-_signal_handler(int signal_number)
+_sigint_handler(int signal_number __attribute__((unused)))
 {
-    lwan_status_info("Signal %d (%s) received",
-                                signal_number, strsignal(signal_number));
+    if (main_socket < 0)
+        return;
     close(main_socket);
     main_socket = -1;
 }
@@ -557,7 +557,7 @@ lwan_main_loop(lwan_t *l)
 {
     assert(main_socket == -1);
     main_socket = l->main_socket;
-    if (signal(SIGINT, _signal_handler) == SIG_ERR)
+    if (signal(SIGINT, _sigint_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
 
     lwan_status_info("Ready to serve");
@@ -565,10 +565,18 @@ lwan_main_loop(lwan_t *l)
     for (;;) {
         int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
         if (UNLIKELY(client_fd < 0)) {
-            if (errno == EBADF) /* Likely closed by the SIGINT handler. */
-                break;
-            lwan_status_perror("accept");
-            continue;
+            if (errno != EBADF) {
+                lwan_status_perror("accept");
+                continue;
+            }
+
+            if (main_socket < 0) {
+                lwan_status_info("Signal 2 (Interrupt) received");
+            } else {
+                lwan_status_info("Main socket closed for unknown reasons");
+            }
+
+            break;
         }
 
         _schedule_client(l, client_fd);
