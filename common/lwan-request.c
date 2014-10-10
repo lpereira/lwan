@@ -462,8 +462,9 @@ static lwan_http_status_t _read_from_request_socket(lwan_request_t *request,
 {
     ssize_t n;
     size_t total_read = 0;
+    int packets_remaining = 16;
 
-    while(true) {
+    for (; packets_remaining > 0; packets_remaining--) {
         n = read(request->fd, buffer->value + total_read,
                     (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
@@ -507,6 +508,15 @@ yield_and_read_again:
         case FINALIZER_TRY_AGAIN: continue;
         }
     }
+
+    /*
+     * packets_remaining reached zero: return a timeout error to avoid clients
+     * being intentionally slow and hogging the server.
+     *
+     * FIXME: What should be the best approach? Error with 408, or give some more
+     * time by fiddling with the connection's time to die?
+     */
+    return HTTP_TIMEOUT;
 
 out:
     buffer->len = (size_t)total_read;

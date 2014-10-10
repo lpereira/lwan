@@ -125,6 +125,7 @@ lwan_http_status_as_string_with_code(lwan_http_status_t status)
     case HTTP_FORBIDDEN: return "403 Forbidden";
     case HTTP_NOT_FOUND: return "404 Not found";
     case HTTP_NOT_ALLOWED: return "405 Not allowed";
+    case HTTP_TIMEOUT: return "408 Request timeout";
     case HTTP_TOO_LARGE: return "413 Request too large";
     case HTTP_RANGE_UNSATISFIABLE: return "416 Requested range unsatisfiable";
     case HTTP_INTERNAL_ERROR: return "500 Internal server error";
@@ -152,6 +153,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
     case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
     case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";
+    case HTTP_TIMEOUT: return "Client did not produce a request within expected timeframe.";
     case HTTP_TOO_LARGE: return "The request entity is too large.";
     case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
     case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
