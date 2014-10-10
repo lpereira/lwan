@@ -313,12 +313,9 @@ static bool cache_pruner_job(void *data)
         if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
             lwan_status_perror("pthread_rwlock_unlock");
 
-        if (!ATOMIC_READ(node->refs)) {
+        if (ATOMIC_INC(node->refs) == 1) {
             cache->cb.destroy_entry(node, cache->cb.context);
         } else {
-            /* Increment reference so if cache_entry_unref() is called in the
-             * meantime, we can be sure the node is still alive.  */
-            ATOMIC_INC(node->refs);
             ATOMIC_BITWISE(&node->flags, or, FLOATING);
             /* Decrement the reference and see if we were genuinely the last one
              * holding it.  If so, destroy the entry.  */
