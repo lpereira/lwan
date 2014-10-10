@@ -555,8 +555,8 @@ _signal_handler(int signal_number)
 void
 lwan_main_loop(lwan_t *l)
 {
+    assert(main_socket == -1);
     main_socket = l->main_socket;
-    assert(main_socket != -1);
     if (signal(SIGINT, _signal_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
 
