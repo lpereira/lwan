@@ -109,10 +109,8 @@ static lwan_url_map_t *add_url_map(lwan_trie_t *t, const char *prefix, const lwa
 {
     lwan_url_map_t *copy = malloc(sizeof(*copy));
 
-    if (!copy) {
-        lwan_status_perror("Could not copy URL map");
-        ASSERT_NOT_REACHED_RETURN(NULL);
-    }
+    if (!copy)
+        lwan_status_critical_perror("Could not copy URL map");
 
     memcpy(copy, map, sizeof(*copy));
 
