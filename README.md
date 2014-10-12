@@ -4,7 +4,7 @@ lwan Web Server
 Lwan is a **high-performance** & **scalable** web server for glibc/Linux
 platforms.
 
-In development for about 2 years, Lwan was until now a personal research
+In development for almost 3 years, Lwan was until now a personal research
 effort that focused mostly on building a **solid infrastructure** for
 a lightweight and speedy web server:
 

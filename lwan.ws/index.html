@@ -212,7 +212,7 @@ RAM, Intel SSD SA2BW16, running an up-to-date Arch Linux, with Linux 3.11.6">?</
 </table>
 </div>
 
-<p>In development for about 2 years, Lwan was until now a personal research
+<p>In development for almost 3 years, Lwan was until now a personal research
 effort that focused mostly on building a <b>solid infrastructure</b> for a
 lightweight and speedy web server:</p>
 
@@ -270,6 +270,8 @@ the way you want it to is possible.  Features include:</p>
   <li>Test suite written in Python <b>tests the server</b> as a black box</li>
   <li><b>No-nonsense configuration</b> file syntax</li>
   <li>Supports a subset of HTTP/1.0 and HTTP/1.1</li>
+  <li>systemd socket activation</li>
+  <li>IPv6 ready</li>
 </ul>
 </p>
 
@@ -326,7 +328,10 @@ administrators very upset.  On the other hand, few (if any) people uses this
 server, so it is possible to innovate without guilt.</p>
 
 <p><strong>What does Lwan mean?</strong> Nobody knows. Tell us when you find
-out!</p>
+out! Someone suggested a recursive <a
+href="https://en.wikipedia.org/wiki/Backronym">bacronym</a>, "Lwan Will
+Annihilate Node.js", which is funny because this is simply not going to
+happen.</p>
 
 <p><strong>Where are the benchmarks?</strong> Benchmarking takes time.
 Numbers, charts, and benchmarking methodologies will appear here
@@ -343,12 +348,16 @@ novel ways to implement certain things.</p>
 fast?</strong> A good place to start are these <a
 href="http://tia.mat.br/blog/html/tags/lwan.html">blog posts</a>.  The code
 is fairly small as well, so lots of things can be inferred from reading
-it.</p>
+it. Also, there's a <a
+href="http://tia.mat.br/blog/html/2014/10/06/life_of_a_http_request.html">rather
+lenthy</a> post that explains the life of a HTTP request from Lwan's
+viewpoint.</p>
 
 <p><strong>Is it secure?</strong> We're not security experts, by any means. 
 The code has never been audited by one either.  But tools like Coverity,
 Clang Static Analyzer and Valgrind Memcheck are used regularly in addition
-to always building with <tt>-Wall -Wextra</tt>; this won't ensure the code
+to always building with <tt>-Wall -Wextra</tt> (and
+<tt>-fsanitize=undefined</tt> on debug builds); this won't ensure the code
 is secure, but these procedures helps finding some issues that could lead to
 security vulnerabilities.</p>
 
