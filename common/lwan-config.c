@@ -138,12 +138,8 @@ static bool parse_section(char *line, config_line_t *l)
     return true;
 }
 
-static bool parse_line(char *line, config_line_t *l)
+static bool parse_line(char *line, config_line_t *l, char *equal)
 {
-    char *equal = strchr(line, '=');
-    if (!equal)
-        return false;
-
     *equal = '\0';
     l->line.key = remove_trailing_spaces(remove_leading_spaces(line));
     l->line.value = remove_leading_spaces(equal + 1);
@@ -179,14 +175,17 @@ retry:
         goto retry;
     } else if (*line == '}' && line == line_end) {
         l->type = CONFIG_LINE_TYPE_SECTION_END;
-    } else if (strchr(line, '=')) {
-        if (!parse_line(line, l)) {
-            config_error(conf, "Malformed key=value line");
+    } else {
+        char *equal = strchr(line, '=');
+        if (equal) {
+            if (!parse_line(line, l, equal)) {
+                config_error(conf, "Malformed key=value line");
+                return false;
+            }
+        } else {
+            config_error(conf, "Expecting section or key=value");
             return false;
         }
-    } else {
-        config_error(conf, "Expecting section or key=value");
-        return false;
     }
 
     return true;
