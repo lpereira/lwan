@@ -43,4 +43,19 @@ void lwan_job_del(bool (*cb)(void *data), void *data);
 void lwan_tables_init(void);
 void lwan_tables_shutdown(void);
 
+static unsigned long lwan_long_has_zero_byte(unsigned long n) __attribute__((pure));
+static unsigned long lwan_chr_is_space(char ch) __attribute__((pure));
+
+static ALWAYS_INLINE unsigned long
+lwan_long_has_zero_byte(const unsigned long n)
+{
+    return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
+}
+
+static ALWAYS_INLINE unsigned long
+lwan_chr_is_space(const char ch)
+{
+    return lwan_long_has_zero_byte((0x1010101UL * (unsigned long)ch) ^ 0x090a0d20UL);
+}
+
 #endif /* __LWAN_PRIVATE_H__ */
