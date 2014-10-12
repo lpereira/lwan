@@ -67,29 +67,29 @@ static struct cache_entry_t *_create_realm_file(
         switch (l.type) {
         case CONFIG_LINE_TYPE_LINE: {
             char *username = strdup(l.line.key);
-            char *password = strdup(l.line.value);
-            int err;
+            if (!username)
+                goto error;
 
-            if (!username || !password) {
+            char *password = strdup(l.line.value);
+            if (!password) {
                 free(username);
-                free(password);
                 goto error;
             }
 
-            err = hash_add_unique(rpf->entries, username, password);
+            int err = hash_add_unique(rpf->entries, username, password);
             if (LIKELY(!err))
                 continue;
-
-            if (err == -EEXIST)
-                lwan_status_warning(
-                    "Username entry already exists, ignoring: \"%s\"",
-                    username);
 
             free(username);
             free(password);
 
-            if (err == -EEXIST)
+            if (err == -EEXIST) {
+                lwan_status_warning(
+                    "Username entry already exists, ignoring: \"%s\"",
+                    l.line.key);
                 continue;
+            }
+
             goto error;
         }
         default:
