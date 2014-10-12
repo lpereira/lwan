@@ -50,6 +50,7 @@ class TestFileServing(LwanTest):
       ('/', 'text/html'),
       ('/icons/back.png', 'image/png'),
       ('/icons', 'text/plain'),
+      ('/icons/', 'text/html'),
       ('/zero', 'application/octet-stream')
     )
 
