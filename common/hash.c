@@ -19,10 +19,7 @@
  */
 
 #include "hash.h"
-
-#ifndef USE_HARDWARE_CRC32
 #include "murmur3.h"
-#endif
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -135,12 +132,21 @@ struct hash *hash_int_new(void (*free_key)(void *value),
 struct hash *hash_str_new(void (*free_key)(void *value),
 			void (*free_value)(void *value))
 {
-	return hash_internal_new(
+	unsigned (*hash_func)(const void *key);
+
 #ifdef USE_HARDWARE_CRC32
-			hash_crc32,
+	__builtin_cpu_init();
+	if (__builtin_cpu_supports("sse4.2")) {
+		hash_func = hash_crc32;
+	} else {
+		hash_func = murmur3_simple;
+	}
 #else
-			murmur3_simple,
+	hash_func = murmur3_simple;
 #endif
+
+	return hash_internal_new(
+			hash_func,
 			(int (*)(const void *, const void *))strcmp,
 			free_key,
 			free_value);
