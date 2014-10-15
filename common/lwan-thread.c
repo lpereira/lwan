@@ -419,11 +419,7 @@ lwan_thread_shutdown(lwan_t *l)
         close(t->socketpair[1]);
     }
     for (int i = l->thread.count - 1; i >= 0; i--)
-#ifdef __linux__
         pthread_tryjoin_np(l->thread.threads[i].self, NULL);
-#else
-        pthread_join(l->thread.threads[i].self, NULL);
-#endif /* __linux__ */
 
     free(l->thread.threads);
 }

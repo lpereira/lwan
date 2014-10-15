@@ -21,10 +21,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-
-#ifdef __linux__
 #include <sys/sendfile.h>
-#endif /* __linux__ */
 
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
@@ -168,7 +165,6 @@ sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t co
     return total_bytes_written;
 }
 
-#ifdef __linux__
 static ALWAYS_INLINE ssize_t
 sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
@@ -198,7 +194,6 @@ sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_
 
     return (ssize_t)total_written;
 }
-#endif
 
 ssize_t
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
@@ -209,7 +204,6 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
             lwan_status_perror("posix_fadvise");
     }
 
-#ifdef __linux__
     ssize_t written_bytes = sendfile_linux_sendfile(
 			request->conn->coro, in_fd, request->fd, offset, count);
 
@@ -217,12 +211,8 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
         switch (errno) {
         case ENOSYS:
         case EINVAL:
-#endif
             return sendfile_read_write(request->conn->coro, in_fd, request->fd, offset, count);
-
-#ifdef __linux__
         }
     }
     return written_bytes;
-#endif
 }

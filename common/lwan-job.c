@@ -101,11 +101,7 @@ void lwan_job_thread_shutdown(void)
         free(node);
     }
     running = false;
-#ifdef __linux__
     if (pthread_tryjoin_np(self, NULL) < 0)
-#else
-    if (pthread_join(self, NULL) < 0)
-#endif
         lwan_status_critical_perror("pthread_join");
     pthread_mutex_unlock(&queue_mutex);
 }
