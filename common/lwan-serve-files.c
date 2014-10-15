@@ -129,51 +129,51 @@ struct file_list_t {
     } file_list;
 };
 
-static int _directory_list_generator(coro_t *coro);
+static int directory_list_generator(coro_t *coro);
 
-static bool _mmap_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
+static bool mmap_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
-static void _mmap_free(void *data);
-static lwan_http_status_t _mmap_serve(lwan_request_t *request, void *data);
-static bool _sendfile_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
+static void mmap_free(void *data);
+static lwan_http_status_t mmap_serve(lwan_request_t *request, void *data);
+static bool sendfile_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                            const char *full_path, struct stat *st);
-static void _sendfile_free(void *data);
-static lwan_http_status_t _sendfile_serve(lwan_request_t *request, void *data);
-static bool _dirlist_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
+static void sendfile_free(void *data);
+static lwan_http_status_t sendfile_serve(lwan_request_t *request, void *data);
+static bool dirlist_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
-static void _dirlist_free(void *data);
-static lwan_http_status_t _dirlist_serve(lwan_request_t *request, void *data);
-static bool _redir_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
+static void dirlist_free(void *data);
+static lwan_http_status_t dirlist_serve(lwan_request_t *request, void *data);
+static bool redir_init(file_cache_entry_t *ce, serve_files_priv_t *priv,
                        const char *full_path, struct stat *st);
-static void _redir_free(void *data);
-static lwan_http_status_t _redir_serve(lwan_request_t *request, void *data);
+static void redir_free(void *data);
+static lwan_http_status_t redir_serve(lwan_request_t *request, void *data);
 
 
 static const cache_funcs_t mmap_funcs = {
-    .init = _mmap_init,
-    .free = _mmap_free,
-    .serve = _mmap_serve,
+    .init = mmap_init,
+    .free = mmap_free,
+    .serve = mmap_serve,
     .struct_size = sizeof(mmap_cache_data_t)
 };
 
 static const cache_funcs_t sendfile_funcs = {
-    .init = _sendfile_init,
-    .free = _sendfile_free,
-    .serve = _sendfile_serve,
+    .init = sendfile_init,
+    .free = sendfile_free,
+    .serve = sendfile_serve,
     .struct_size = sizeof(sendfile_cache_data_t)
 };
 
 static const cache_funcs_t dirlist_funcs = {
-    .init = _dirlist_init,
-    .free = _dirlist_free,
-    .serve = _dirlist_serve,
+    .init = dirlist_init,
+    .free = dirlist_free,
+    .serve = dirlist_serve,
     .struct_size = sizeof(dir_list_cache_data_t)
 };
 
 static const cache_funcs_t redir_funcs = {
-    .init = _redir_init,
-    .free = _redir_free,
-    .serve = _redir_serve,
+    .init = redir_init,
+    .free = redir_free,
+    .serve = redir_serve,
     .struct_size = sizeof(redir_cache_data_t)
 };
 
@@ -191,7 +191,7 @@ static const lwan_var_descriptor_t file_list_desc[] = {
     TPL_VAR_STR_ESCAPE(struct file_list_t, full_path),
     TPL_VAR_STR_ESCAPE(struct file_list_t, rel_path),
     TPL_VAR_SEQUENCE(struct file_list_t, file_list,
-                _directory_list_generator, file_list_item_desc),
+                directory_list_generator, file_list_item_desc),
     TPL_VAR_SENTINEL
 };
 
@@ -230,7 +230,7 @@ static const char *directory_list_tpl_str = "<html>\n"
     "</html>\n";
 
 static int
-_directory_list_generator(coro_t *coro)
+directory_list_generator(coro_t *coro)
 {
     DIR *dir;
     struct dirent entry, *buffer;
@@ -295,7 +295,7 @@ out:
 }
 
 static void
-_compress_cached_entry(mmap_cache_data_t *md)
+compress_cached_entry(mmap_cache_data_t *md)
 {
     static const size_t deflated_header_size = sizeof("Content-Encoding: deflate");
 
@@ -319,7 +319,7 @@ error_zero_out:
 }
 
 static bool
-_mmap_init(file_cache_entry_t *ce,
+mmap_init(file_cache_entry_t *ce,
            serve_files_priv_t *priv,
            const char *full_path,
            struct stat *st)
@@ -345,7 +345,7 @@ _mmap_init(file_cache_entry_t *ce,
         lwan_status_perror("madvise");
 
     md->uncompressed.size = (size_t)st->st_size;
-    _compress_cached_entry(md);
+    compress_cached_entry(md);
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
                 full_path + priv->root.path_len);
@@ -359,7 +359,7 @@ close_file:
 }
 
 static bool
-_sendfile_init(file_cache_entry_t *ce,
+sendfile_init(file_cache_entry_t *ce,
                serve_files_priv_t *priv,
                const char *full_path,
                struct stat *st)
@@ -376,7 +376,7 @@ _sendfile_init(file_cache_entry_t *ce,
 }
 
 static bool
-_dirlist_init(file_cache_entry_t *ce,
+dirlist_init(file_cache_entry_t *ce,
                serve_files_priv_t *priv,
                const char *full_path,
                struct stat *st __attribute__((unused)))
@@ -394,7 +394,7 @@ _dirlist_init(file_cache_entry_t *ce,
 }
 
 static bool
-_redir_init(file_cache_entry_t *ce,
+redir_init(file_cache_entry_t *ce,
             serve_files_priv_t *priv,
             const char *full_path,
             struct stat *st __attribute__((unused)))
@@ -409,7 +409,7 @@ _redir_init(file_cache_entry_t *ce,
 }
 
 static const cache_funcs_t *
-_get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
+get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
     struct stat *st)
 {
     char index_html_path_buf[PATH_MAX];
@@ -464,7 +464,7 @@ _get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
 }
 
 static file_cache_entry_t *
-_create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
+create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
     struct stat *st, const cache_funcs_t *funcs)
 {
     file_cache_entry_t *fce;
@@ -483,11 +483,11 @@ _create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
     if (funcs != &mmap_funcs)
         return NULL;
 
-    return _create_cache_entry_from_funcs(priv, full_path, st, &sendfile_funcs);
+    return create_cache_entry_from_funcs(priv, full_path, st, &sendfile_funcs);
 }
 
 static struct cache_entry_t *
-_create_cache_entry(const char *key, void *context)
+create_cache_entry(const char *key, void *context)
 {
     serve_files_priv_t *priv = context;
     file_cache_entry_t *fce;
@@ -502,11 +502,11 @@ _create_cache_entry(const char *key, void *context)
     if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
         return NULL;
 
-    funcs = _get_funcs(priv, key, full_path, &st);
+    funcs = get_funcs(priv, key, full_path, &st);
     if (UNLIKELY(!funcs))
         return NULL;
 
-    fce = _create_cache_entry_from_funcs(priv, full_path, &st, funcs);
+    fce = create_cache_entry_from_funcs(priv, full_path, &st, funcs);
     if (UNLIKELY(!fce))
         return NULL;
 
@@ -517,7 +517,7 @@ _create_cache_entry(const char *key, void *context)
 }
 
 static void
-_mmap_free(void *data)
+mmap_free(void *data)
 {
     mmap_cache_data_t *md = data;
 
@@ -526,7 +526,7 @@ _mmap_free(void *data)
 }
 
 static void
-_sendfile_free(void *data)
+sendfile_free(void *data)
 {
     sendfile_cache_data_t *sd = data;
 
@@ -534,7 +534,7 @@ _sendfile_free(void *data)
 }
 
 static void
-_dirlist_free(void *data)
+dirlist_free(void *data)
 {
     dir_list_cache_data_t *dd = data;
 
@@ -542,7 +542,7 @@ _dirlist_free(void *data)
 }
 
 static void
-_redir_free(void *data)
+redir_free(void *data)
 {
     redir_cache_data_t *rd = data;
 
@@ -550,7 +550,7 @@ _redir_free(void *data)
 }
 
 static void
-_destroy_cache_entry(struct cache_entry_t *entry, void *context __attribute__((unused)))
+destroy_cache_entry(struct cache_entry_t *entry, void *context __attribute__((unused)))
 {
     file_cache_entry_t *fce = (file_cache_entry_t *)entry;
 
@@ -559,7 +559,7 @@ _destroy_cache_entry(struct cache_entry_t *entry, void *context __attribute__((u
 }
 
 static int
-_try_open_directory(const char *path, int *open_mode)
+try_open_directory(const char *path, int *open_mode)
 {
     int fd;
 
@@ -603,7 +603,7 @@ serve_files_init(void *args)
         goto out_realpath;
     }
 
-    root_fd = _try_open_directory(canonical_root, &open_mode);
+    root_fd = try_open_directory(canonical_root, &open_mode);
     if (root_fd < 0) {
         lwan_status_perror("Could not open directory \"%s\"",
                             canonical_root);
@@ -616,7 +616,7 @@ serve_files_init(void *args)
         goto out_malloc;
     }
 
-    priv->cache = cache_create(_create_cache_entry, _destroy_cache_entry,
+    priv->cache = cache_create(create_cache_entry, destroy_cache_entry,
                 priv, 5);
     if (!priv->cache) {
         lwan_status_error("Couldn't create cache");
@@ -678,13 +678,13 @@ serve_files_shutdown(void *data)
 }
 
 static ALWAYS_INLINE bool
-_client_has_fresh_content(lwan_request_t *request, time_t mtime)
+client_has_fresh_content(lwan_request_t *request, time_t mtime)
 {
     return request->header.if_modified_since && mtime <= request->header.if_modified_since;
 }
 
 static size_t
-_prepare_headers(lwan_request_t *request,
+prepare_headers(lwan_request_t *request,
                  lwan_http_status_t return_status,
                  file_cache_entry_t *fce,
                  size_t size,
@@ -711,7 +711,7 @@ _prepare_headers(lwan_request_t *request,
 }
 
 static ALWAYS_INLINE lwan_http_status_t
-_compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
+compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 {
     off_t f, t;
 
@@ -761,7 +761,7 @@ _compute_range(lwan_request_t *request, off_t *from, off_t *to, off_t size)
 }
 
 static lwan_http_status_t
-_sendfile_serve(lwan_request_t *request, void *data)
+sendfile_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(fce + 1);
@@ -770,14 +770,14 @@ _sendfile_serve(lwan_request_t *request, void *data)
     lwan_http_status_t return_status;
     off_t from, to;
 
-    return_status = _compute_range(request, &from, &to, (off_t)sd->size);
+    return_status = compute_range(request, &from, &to, (off_t)sd->size);
     if (UNLIKELY(return_status == HTTP_RANGE_UNSATISFIABLE))
         return HTTP_RANGE_UNSATISFIABLE;
 
-    if (_client_has_fresh_content(request, fce->last_modified.integer))
+    if (client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    header_len = _prepare_headers(request, return_status,
+    header_len = prepare_headers(request, return_status,
                                   fce, sd->size, false,
                                   headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
@@ -815,17 +815,17 @@ _sendfile_serve(lwan_request_t *request, void *data)
 }
 
 static lwan_http_status_t
-_serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
+serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
             bool deflated, void *contents, size_t size)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
     lwan_http_status_t return_status = HTTP_OK;
 
-    if (_client_has_fresh_content(request, fce->last_modified.integer))
+    if (client_has_fresh_content(request, fce->last_modified.integer))
         return_status = HTTP_NOT_MODIFIED;
 
-    header_len = _prepare_headers(request, return_status,
+    header_len = prepare_headers(request, return_status,
                                   fce, size, deflated,
                                   headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
@@ -846,31 +846,31 @@ _serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
 }
 
 static lwan_http_status_t
-_mmap_serve(lwan_request_t *request, void *data)
+mmap_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
 
     if ((request->flags & REQUEST_ACCEPT_DEFLATE) && md->compressed.size)
-        return _serve_contents_and_size(request, fce, true,
+        return serve_contents_and_size(request, fce, true,
                     md->compressed.contents, md->compressed.size);
 
-    return _serve_contents_and_size(request, fce, false,
+    return serve_contents_and_size(request, fce, false,
                 md->uncompressed.contents, md->uncompressed.size);
 }
 
 static lwan_http_status_t
-_dirlist_serve(lwan_request_t *request, void *data)
+dirlist_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     dir_list_cache_data_t *dd = (dir_list_cache_data_t *)(fce + 1);
 
-    return _serve_contents_and_size(request, fce, false,
+    return serve_contents_and_size(request, fce, false,
             strbuf_get_buffer(dd->rendered), strbuf_get_length(dd->rendered));
 }
 
 static lwan_http_status_t
-_redir_serve(lwan_request_t *request, void *data)
+redir_serve(lwan_request_t *request, void *data)
 {
     file_cache_entry_t *fce = data;
     redir_cache_data_t *rd = (redir_cache_data_t *)(fce + 1);

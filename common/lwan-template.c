@@ -140,7 +140,7 @@ symtab_pop(struct parser_state *state)
 }
 
 void
-_lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr)
 {
     char convertbuf[INT_TO_STR_BUFFER_SIZE];
     size_t len;
@@ -151,25 +151,25 @@ _lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr)
 }
 
 bool
-_lwan_tpl_int_is_empty(void *ptr)
+lwan_tpl_int_is_empty(void *ptr)
 {
     return (*(int *)ptr) == 0;
 }
 
 void
-_lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr)
 {
     strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
 
 bool
-_lwan_tpl_double_is_empty(void *ptr)
+lwan_tpl_double_is_empty(void *ptr)
 {
     return (*(double *)ptr) == 0.0f;
 }
 
 void
-_lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
 {
     struct v {
         char *str;
@@ -180,7 +180,7 @@ _lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
 }
 
 static bool
-_is_alphanumeric(const char c)
+is_alphanumeric(const char c)
 {
     if (c >= 'A' && c <= 'Z')
         return true;
@@ -192,7 +192,7 @@ _is_alphanumeric(const char c)
 }
 
 void
-_lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 {
     struct v {
         char *str;
@@ -210,7 +210,7 @@ _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
             strbuf_append_str(buf, "&amp;", 5);
         else if (*p == '"')
             strbuf_append_str(buf, "&quot;", 6);
-        else if (_is_alphanumeric(*p) || lwan_chr_is_space(*p))
+        else if (is_alphanumeric(*p) || lwan_chr_is_space(*p))
             strbuf_append_char(buf, *p);
         else
             strbuf_append_printf(buf, "&#x%x;", *p);
@@ -218,7 +218,7 @@ _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 }
 
 bool
-_lwan_tpl_str_is_empty(void *ptr)
+lwan_tpl_str_is_empty(void *ptr)
 {
     char *str = ptr;
     if (!str)

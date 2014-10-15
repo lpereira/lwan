@@ -322,7 +322,7 @@ out:
     return "lwan.conf";
 }
 
-static unsigned int _parse_expires(const char *str, unsigned int default_value)
+static unsigned int parse_expires(const char *str, unsigned int default_value)
 {
     unsigned int total = 0;
     unsigned int period;
@@ -377,7 +377,7 @@ static bool setup_from_config(lwan_t *lwan)
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
             else if (!strcmp(line.line.key, "expires"))
-                lwan->config.expires = _parse_expires(line.line.value,
+                lwan->config.expires = parse_expires(line.line.value,
                             default_config.expires);
             else
                 config_error(&conf, "Unknown config key: %s", line.line.key);
@@ -409,7 +409,7 @@ static bool setup_from_config(lwan_t *lwan)
 }
 
 static rlim_t
-_setup_open_file_count_limits(void)
+setup_open_file_count_limits(void)
 {
     struct rlimit r;
 
@@ -428,7 +428,7 @@ _setup_open_file_count_limits(void)
 }
 
 static void
-_allocate_connections(lwan_t *l, size_t max_open_files)
+allocate_connections(lwan_t *l, size_t max_open_files)
 {
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
     if (!l->conns)
@@ -436,7 +436,7 @@ _allocate_connections(lwan_t *l, size_t max_open_files)
 }
 
 static short
-_get_number_of_cpus(void)
+get_number_of_cpus(void)
 {
     long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
     if (UNLIKELY(n_online_cpus < 0)) {
@@ -475,12 +475,12 @@ lwan_init(lwan_t *l)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
-    l->thread.count = _get_number_of_cpus();
+    l->thread.count = get_number_of_cpus();
     if (l->thread.count == 1)
         l->thread.count = 2;
 
-    rlim_t max_open_files = _setup_open_file_count_limits();
-    _allocate_connections(l, (size_t)max_open_files);
+    rlim_t max_open_files = setup_open_file_count_limits();
+    allocate_connections(l, (size_t)max_open_files);
 
     l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
@@ -518,7 +518,7 @@ lwan_shutdown(lwan_t *l)
 }
 
 static ALWAYS_INLINE void
-_schedule_client(lwan_t *l, int fd)
+schedule_client(lwan_t *l, int fd)
 {
     int thread;
 #ifdef __x86_64__
@@ -542,7 +542,7 @@ _schedule_client(lwan_t *l, int fd)
 static volatile sig_atomic_t main_socket = -1;
 
 static void
-_sigint_handler(int signal_number __attribute__((unused)))
+sigint_handler(int signal_number __attribute__((unused)))
 {
     if (main_socket < 0)
         return;
@@ -555,7 +555,7 @@ lwan_main_loop(lwan_t *l)
 {
     assert(main_socket == -1);
     main_socket = l->main_socket;
-    if (signal(SIGINT, _sigint_handler) == SIG_ERR)
+    if (signal(SIGINT, sigint_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
 
     lwan_status_info("Ready to serve");
@@ -577,6 +577,6 @@ lwan_main_loop(lwan_t *l)
             break;
         }
 
-        _schedule_client(l, client_fd);
+        schedule_client(l, client_fd);
     }
 }

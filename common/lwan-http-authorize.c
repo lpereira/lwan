@@ -34,7 +34,7 @@ struct realm_password_file_t {
 
 static struct cache_t *realm_password_cache = NULL;
 
-static void _fourty_two_and_free(void *str)
+static void fourty_two_and_free(void *str)
 {
     if (LIKELY(str)) {
         char *s = str;
@@ -55,7 +55,7 @@ static struct cache_entry_t *_create_realm_file(
     if (UNLIKELY(!rpf))
         return NULL;
 
-    rpf->entries = hash_str_new(_fourty_two_and_free, _fourty_two_and_free);
+    rpf->entries = hash_str_new(fourty_two_and_free, fourty_two_and_free);
     if (UNLIKELY(!rpf->entries))
         goto error_no_close;
 
@@ -115,7 +115,7 @@ error_no_close:
     return NULL;
 }
 
-static void _destroy_realm_file(struct cache_entry_t *entry,
+static void destroy_realm_file(struct cache_entry_t *entry,
                                 void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = (struct realm_password_file_t *)entry;
@@ -127,7 +127,7 @@ bool
 lwan_http_authorize_init(void)
 {
     realm_password_cache = cache_create(_create_realm_file,
-          _destroy_realm_file, NULL, 60);
+          destroy_realm_file, NULL, 60);
 
     return !!realm_password_cache;
 }
@@ -139,7 +139,7 @@ lwan_http_authorize_shutdown(void)
 }
 
 static bool
-_authorize(coro_t *coro,
+authorize(coro_t *coro,
            lwan_value_t *authorization,
            const char *password_file)
 {
@@ -199,7 +199,7 @@ lwan_http_authorize(lwan_request_t *request,
     authorization->value += basic_len;
     authorization->len -= basic_len;
 
-    if (_authorize(request->conn->coro, authorization, password_file))
+    if (authorize(request->conn->coro, authorization, password_file))
         return true;
 
 unauthorized:

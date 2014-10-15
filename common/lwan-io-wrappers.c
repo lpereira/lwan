@@ -134,7 +134,7 @@ out:
 }
 
 static ALWAYS_INLINE ssize_t
-_sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
+sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     /* FIXME: Use lwan_{read,write}() here */
     ssize_t total_bytes_written = 0;
@@ -170,7 +170,7 @@ _sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t c
 
 #ifdef __linux__
 static ALWAYS_INLINE ssize_t
-_sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
+sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
 {
     size_t total_written = 0;
     size_t to_be_written = count;
@@ -210,7 +210,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
     }
 
 #ifdef __linux__
-    ssize_t written_bytes = _sendfile_linux_sendfile(
+    ssize_t written_bytes = sendfile_linux_sendfile(
 			request->conn->coro, in_fd, request->fd, offset, count);
 
     if (UNLIKELY(written_bytes < 0)) {
@@ -218,7 +218,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
         case ENOSYS:
         case EINVAL:
 #endif
-            return _sendfile_read_write(request->conn->coro, in_fd, request->fd, offset, count);
+            return sendfile_read_write(request->conn->coro, in_fd, request->fd, offset, count);
 
 #ifdef __linux__
         }

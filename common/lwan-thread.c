@@ -40,42 +40,42 @@ static const unsigned events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
-static inline int _death_queue_node_to_idx(struct death_queue_t *dq,
+static inline int death_queue_node_to_idx(struct death_queue_t *dq,
     lwan_connection_t *conn)
 {
     return (conn == &dq->head) ? -1 : (int)(ptrdiff_t)(conn - dq->conns);
 }
 
-static inline lwan_connection_t *_death_queue_idx_to_node(struct death_queue_t *dq,
+static inline lwan_connection_t *death_queue_idx_to_node(struct death_queue_t *dq,
     int idx)
 {
     return (idx < 0) ? &dq->head : &dq->conns[idx];
 }
 
-static void _death_queue_insert(struct death_queue_t *dq,
+static void death_queue_insert(struct death_queue_t *dq,
     lwan_connection_t *new_node)
 {
     new_node->next = -1;
     new_node->prev = dq->head.prev;
-    lwan_connection_t *prev = _death_queue_idx_to_node(dq, dq->head.prev);
-    dq->head.prev = prev->next = _death_queue_node_to_idx(dq, new_node);
+    lwan_connection_t *prev = death_queue_idx_to_node(dq, dq->head.prev);
+    dq->head.prev = prev->next = death_queue_node_to_idx(dq, new_node);
 }
 
-static void _death_queue_remove(struct death_queue_t *dq,
+static void death_queue_remove(struct death_queue_t *dq,
     lwan_connection_t *node)
 {
-    lwan_connection_t *prev = _death_queue_idx_to_node(dq, node->prev);
-    lwan_connection_t *next = _death_queue_idx_to_node(dq, node->next);
+    lwan_connection_t *prev = death_queue_idx_to_node(dq, node->prev);
+    lwan_connection_t *next = death_queue_idx_to_node(dq, node->next);
     next->prev = node->prev;
     prev->next = node->next;
 }
 
-static bool _death_queue_empty(struct death_queue_t *dq)
+static bool death_queue_empty(struct death_queue_t *dq)
 {
     return dq->head.next < 0;
 }
 
-static void _death_queue_move_to_last(struct death_queue_t *dq,
+static void death_queue_move_to_last(struct death_queue_t *dq,
     lwan_connection_t *conn)
 {
     /*
@@ -90,12 +90,12 @@ static void _death_queue_move_to_last(struct death_queue_t *dq,
             (unsigned)!!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
     conn->time_to_die = time_to_die;
 
-    _death_queue_remove(dq, conn);
-    _death_queue_insert(dq, conn);
+    death_queue_remove(dq, conn);
+    death_queue_insert(dq, conn);
 }
 
 static void
-_death_queue_init(struct death_queue_t *dq, lwan_connection_t *conns,
+death_queue_init(struct death_queue_t *dq, lwan_connection_t *conns,
     unsigned short keep_alive_timeout)
 {
     dq->conns = conns;
@@ -105,15 +105,15 @@ _death_queue_init(struct death_queue_t *dq, lwan_connection_t *conns,
 }
 
 static ALWAYS_INLINE int
-_death_queue_epoll_timeout(struct death_queue_t *dq)
+death_queue_epoll_timeout(struct death_queue_t *dq)
 {
-    return _death_queue_empty(dq) ? -1 : 1000;
+    return death_queue_empty(dq) ? -1 : 1000;
 }
 
 static ALWAYS_INLINE void
-_destroy_coro(struct death_queue_t *dq, lwan_connection_t *conn)
+destroy_coro(struct death_queue_t *dq, lwan_connection_t *conn)
 {
-    _death_queue_remove(dq, conn);
+    death_queue_remove(dq, conn);
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
@@ -131,7 +131,7 @@ min(const int a, const int b)
 }
 
 static int
-_process_request_coro(coro_t *coro)
+process_request_coro(coro_t *coro)
 {
     strbuf_t *strbuf = coro_malloc(coro, sizeof(*strbuf));
     if (UNLIKELY(!strbuf))
@@ -157,7 +157,7 @@ _process_request_coro(coro_t *coro)
 }
 
 static ALWAYS_INLINE void
-_resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
+resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
     int epoll_fd)
 {
     assert(conn->coro);
@@ -168,7 +168,7 @@ _resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
     lwan_connection_coro_yield_t yield_result = coro_resume(conn->coro);
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
     if (yield_result < CONN_CORO_MAY_RESUME) {
-        _destroy_coro(dq, conn);
+        destroy_coro(dq, conn);
         return;
     }
 
@@ -194,17 +194,17 @@ _resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
 }
 
 static void
-_death_queue_kill_waiting(struct death_queue_t *dq)
+death_queue_kill_waiting(struct death_queue_t *dq)
 {
     dq->time++;
 
-    while (!_death_queue_empty(dq)) {
-        lwan_connection_t *conn = _death_queue_idx_to_node(dq, dq->head.next);
+    while (!death_queue_empty(dq)) {
+        lwan_connection_t *conn = death_queue_idx_to_node(dq, dq->head.next);
 
         if (conn->time_to_die > dq->time)
             return;
 
-        _destroy_coro(dq, conn);
+        destroy_coro(dq, conn);
     }
 
     /* Death queue exhausted: reset epoch */
@@ -226,7 +226,7 @@ lwan_format_rfc_time(time_t t, char buffer[30])
 }
 
 static void
-_update_date_cache(lwan_thread_t *thread)
+update_date_cache(lwan_thread_t *thread)
 {
     time_t now = time(NULL);
     if (now != thread->date.last) {
@@ -238,18 +238,18 @@ _update_date_cache(lwan_thread_t *thread)
 }
 
 static ALWAYS_INLINE void
-_spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
+spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
             coro_switcher_t *switcher, struct death_queue_t *dq)
 {
     if (conn->coro) {
         if (conn->flags & CONN_SHOULD_RESUME_CORO)
             return;
 
-        coro_reset(conn->coro, _process_request_coro, conn);
+        coro_reset(conn->coro, process_request_coro, conn);
     } else {
-        conn->coro = coro_new(switcher, _process_request_coro, conn);
+        conn->coro = coro_new(switcher, process_request_coro, conn);
 
-        _death_queue_insert(dq, conn);
+        death_queue_insert(dq, conn);
         conn->flags |= CONN_IS_ALIVE;
     }
     conn->flags |= CONN_SHOULD_RESUME_CORO;
@@ -257,7 +257,7 @@ _spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
 }
 
 static lwan_connection_t *
-_grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
+grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
 {
     int fd;
     if (UNLIKELY(read(t->socketpair[0], &fd, sizeof(int)) != sizeof(int))) {
@@ -276,7 +276,7 @@ _grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
 }
 
 static void *
-_thread_io_loop(void *data)
+thread_io_loop(void *data)
 {
     lwan_thread_t *t = data;
     struct epoll_event *events;
@@ -293,11 +293,11 @@ _thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
-    _death_queue_init(&dq, conns, t->lwan->config.keep_alive_timeout);
+    death_queue_init(&dq, conns, t->lwan->config.keep_alive_timeout);
 
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
-                                   _death_queue_epoll_timeout(&dq))) {
+                                   death_queue_epoll_timeout(&dq))) {
         case -1:
             switch (errno) {
             case EBADF:
@@ -306,31 +306,31 @@ _thread_io_loop(void *data)
             }
             continue;
         case 0: /* timeout: shutdown waiting sockets */
-            _death_queue_kill_waiting(&dq);
+            death_queue_kill_waiting(&dq);
             break;
         default: /* activity in some of this poller's file descriptor */
-            _update_date_cache(t);
+            update_date_cache(t);
 
             for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
                 lwan_connection_t *conn;
 
                 if (!ep_event->data.ptr) {
-                    conn = _grab_and_watch_client(t, conns);
+                    conn = grab_and_watch_client(t, conns);
                     if (UNLIKELY(!conn))
                         continue;
-                    _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
+                    spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
                 } else {
                     conn = ep_event->data.ptr;
                     if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                        _destroy_coro(&dq, conn);
+                        destroy_coro(&dq, conn);
                         continue;
                     }
 
-                    _spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
-                    _resume_coro_if_needed(&dq, conn, epoll_fd);
+                    spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
+                    resume_coro_if_needed(&dq, conn, epoll_fd);
                 }
 
-                _death_queue_move_to_last(&dq, conn);
+                death_queue_move_to_last(&dq, conn);
             }
         }
     }
@@ -342,7 +342,7 @@ epoll_fd_closed:
 }
 
 static void
-_create_thread(lwan_t *l, short thread_n)
+create_thread(lwan_t *l, short thread_n)
 {
     pthread_attr_t attr;
     lwan_thread_t *thread = &l->thread.threads[thread_n];
@@ -363,7 +363,7 @@ _create_thread(lwan_t *l, short thread_n)
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
-    if (pthread_create(&thread->self, &attr, _thread_io_loop, thread))
+    if (pthread_create(&thread->self, &attr, thread_io_loop, thread))
         lwan_status_critical_perror("pthread_create");
 
     if (pthread_attr_destroy(&attr))
@@ -397,7 +397,7 @@ lwan_thread_init(lwan_t *l)
         lwan_status_critical("Could not allocate memory for threads");
 
     for (short i = 0; i < l->thread.count; i++)
-        _create_thread(l, i);
+        create_thread(l, i);
 }
 
 void

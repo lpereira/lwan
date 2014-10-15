@@ -67,7 +67,7 @@ lwan_tables_shutdown(void)
 }
 
 static int
-_compare_mime_entry(const void *a, const void *b)
+compare_mime_entry(const void *a, const void *b)
 {
     const struct mime_entry *me1 = a;
     const struct mime_entry *me2 = b;
@@ -103,7 +103,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         struct mime_entry *entry, key = { .extension = last_dot + 1 };
 
         entry = bsearch(&key, mime_entries, MIME_ENTRIES,
-                       sizeof(struct mime_entry), _compare_mime_entry);
+                       sizeof(struct mime_entry), compare_mime_entry);
         if (LIKELY(entry))
             return entry->type;
     }

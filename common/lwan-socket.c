@@ -35,7 +35,7 @@
 
 
 static int
-_get_backlog_size(void)
+get_backlog_size(void)
 {
 #ifdef SOMAXCONN
     int backlog = SOMAXCONN;
@@ -56,7 +56,7 @@ _get_backlog_size(void)
 }
 
 static int
-_setup_socket_from_systemd(void)
+setup_socket_from_systemd(void)
 {
     int fd = SD_LISTEN_FDS_START;
 
@@ -85,7 +85,7 @@ _setup_socket_from_systemd(void)
 #endif
 
 static sa_family_t
-_parse_listener_ipv4(char *listener, char **node, char **port)
+parse_listener_ipv4(char *listener, char **node, char **port)
 {
     char *colon = strrchr(listener, ':');
     if (!colon) {
@@ -116,7 +116,7 @@ _parse_listener_ipv4(char *listener, char **node, char **port)
 }
 
 static sa_family_t
-_parse_listener_ipv6(char *listener, char **node, char **port)
+parse_listener_ipv6(char *listener, char **node, char **port)
 {
     char *last_colon = strrchr(listener, ':');
     if (!last_colon)
@@ -138,19 +138,19 @@ _parse_listener_ipv6(char *listener, char **node, char **port)
 }
 
 static sa_family_t
-_parse_listener(char *listener, char **node, char **port)
+parse_listener(char *listener, char **node, char **port)
 {
     if (*listener == '[')
-        return _parse_listener_ipv6(listener, node, port);
-    return _parse_listener_ipv4(listener, node, port);
+        return parse_listener_ipv6(listener, node, port);
+    return parse_listener_ipv4(listener, node, port);
 }
 
 static int
-_setup_socket_normally(lwan_t *l)
+setup_socket_normally(lwan_t *l)
 {
     char *node, *port;
     char *listener = strdupa(l->config.listener);
-    sa_family_t family = _parse_listener(listener, &node, &port);
+    sa_family_t family = parse_listener(listener, &node, &port);
     if (family == AF_UNSPEC)
         lwan_status_critical("Could not parse listener: %s", l->config.listener);
 
@@ -182,7 +182,7 @@ _setup_socket_normally(lwan_t *l)
     if (!a)
         lwan_status_critical("Could not bind socket");
 
-    if (listen(fd, _get_backlog_size()) < 0)
+    if (listen(fd, get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
     char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
@@ -215,9 +215,9 @@ lwan_socket_init(lwan_t *l)
     if (n > 1) {
         lwan_status_critical("Too many file descriptors received");
     } else if (n == 1) {
-        fd = _setup_socket_from_systemd();
+        fd = setup_socket_from_systemd();
     } else {
-        fd = _setup_socket_normally(l);
+        fd = setup_socket_normally(l);
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,

@@ -61,7 +61,7 @@ lwan_status_shutdown(lwan_t *l __attribute__((unused)))
 }
 
 static const char *
-_get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
+get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
 {
     const char *retval;
 
@@ -84,7 +84,7 @@ _get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
 }
 
 static const char *
-_get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
+get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
                         size_t *len_out)
 {
     static const char *retval = "\033[0m";
@@ -94,16 +94,16 @@ _get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
 
 static void
 #ifdef NDEBUG
-_status_out_msg(lwan_status_type_t type, const char *msg, size_t msg_len)
+status_out_msg(lwan_status_type_t type, const char *msg, size_t msg_len)
 #else
-_status_out_msg(const char *file, const int line, const char *func,
+status_out_msg(const char *file, const int line, const char *func,
                 lwan_status_type_t type, const char *msg, size_t msg_len)
 #endif
 {
     int error_number = errno; /* Make sure no library call below modifies errno */
     size_t start_len, end_len;
-    const char *start_color = _get_color_start_for_type(type, &start_len);
-    const char *end_color = _get_color_end_for_type(type, &end_len);
+    const char *start_color = get_color_start_for_type(type, &start_len);
+    const char *end_color = get_color_end_for_type(type, &end_len);
 
     if (UNLIKELY(pthread_mutex_lock(&mutex) < 0))
         perror("pthread_mutex_lock");
@@ -136,9 +136,9 @@ _status_out_msg(const char *file, const int line, const char *func,
 
 static void
 #ifdef NDEBUG
-_status_out(lwan_status_type_t type, const char *fmt, va_list values)
+status_out(lwan_status_type_t type, const char *fmt, va_list values)
 #else
-_status_out(const char *file, const int line, const char *func,
+status_out(const char *file, const int line, const char *func,
             lwan_status_type_t type, const char *fmt, va_list values)
 #endif
 {
@@ -148,9 +148,9 @@ _status_out(const char *file, const int line, const char *func,
     len = vasprintf(&output, fmt, values);
     if (len >= 0) {
 #ifdef NDEBUG
-        _status_out_msg(type, output, (size_t)len);
+        status_out_msg(type, output, (size_t)len);
 #else
-        _status_out_msg(file, line, func, type, output, (size_t)len);
+        status_out_msg(file, line, func, type, output, (size_t)len);
 #endif
         free(output);
     }
@@ -164,7 +164,7 @@ _status_out(const char *file, const int line, const char *func,
       if (!quiet) {                                  \
          va_list values;                             \
          va_start(values, fmt);                      \
-         _status_out(type_, fmt, values);            \
+         status_out(type_, fmt, values);             \
          va_end(values);                             \
       }                                              \
       if ((type_) & STATUS_CRITICAL) abort();        \
@@ -179,7 +179,7 @@ _status_out(const char *file, const int line, const char *func,
       if (!quiet) {                                         \
          va_list values;                                    \
          va_start(values, fmt);                             \
-         _status_out(file, line, func, type_, fmt, values); \
+         status_out(file, line, func, type_, fmt, values);  \
          va_end(values);                                    \
       }                                                     \
       if ((type_) & STATUS_CRITICAL) abort();               \

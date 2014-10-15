@@ -54,7 +54,7 @@ lwan_trie_new(void (*free_node)(void *data))
 }
 
 static ALWAYS_INLINE lwan_trie_leaf_t *
-_find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
+find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
 {
     lwan_trie_leaf_t *leaf = node->leaf;
 
@@ -98,7 +98,7 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     /* Get the leaf node (allocate it if necessary) */
     GET_NODE();
 
-    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
+    lwan_trie_leaf_t *leaf = find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf) {
         leaf = malloc(sizeof(*leaf));
@@ -121,7 +121,7 @@ oom:
 #undef GET_NODE
 
 static ALWAYS_INLINE lwan_trie_node_t *
-_lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
+lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
 {
     lwan_trie_node_t *node, *previous_node = NULL;
     const char *orig_key = key;
@@ -147,10 +147,10 @@ lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix)
         return NULL;
 
     size_t prefix_len;
-    lwan_trie_node_t *node = _lookup_node(trie->root, key, prefix, &prefix_len);
+    lwan_trie_node_t *node = lookup_node(trie->root, key, prefix, &prefix_len);
     if (!node)
         return NULL;
-    lwan_trie_leaf_t *leaf = _find_leaf_with_key(node, key, prefix_len);
+    lwan_trie_leaf_t *leaf = find_leaf_with_key(node, key, prefix_len);
     return leaf ? leaf->data : NULL;
 }
 

@@ -56,16 +56,16 @@ struct lwan_var_descriptor_t_ {
     }
 
 #define TPL_VAR_INT(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, _lwan_append_int_to_strbuf, _lwan_tpl_int_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, lwan_append_int_to_strbuf, lwan_tpl_int_is_empty)
 
 #define TPL_VAR_DOUBLE(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, _lwan_append_double_to_strbuf, _lwan_tpl_double_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, lwan_append_double_to_strbuf, lwan_tpl_double_is_empty)
 
 #define TPL_VAR_STR(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, _lwan_append_str_to_strbuf, _lwan_tpl_str_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, lwan_append_str_to_strbuf, lwan_tpl_str_is_empty)
 
 #define TPL_VAR_STR_ESCAPE(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, _lwan_append_str_escaped_to_strbuf, _lwan_tpl_str_is_empty)
+    TPL_VAR_SIMPLE(struct_, var_, lwan_append_str_escaped_to_strbuf, lwan_tpl_str_is_empty)
 
 #define TPL_VAR_SENTINEL \
     { NULL, 0, NULL, NULL, NULL, NULL }
@@ -75,13 +75,13 @@ struct lwan_var_descriptor_t_ {
  * prefix. We do need a pointer to them, though, that's why they're
  * exported. Eventually this will move to something more opaque.
  */
-void	 _lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr);
-bool	 _lwan_tpl_int_is_empty(void *ptr);
-void	 _lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr);
-void	 _lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr);
-bool	 _lwan_tpl_str_is_empty(void *ptr);
-void	 _lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr);
-bool	 _lwan_tpl_double_is_empty(void *ptr);
+void	 lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr);
+bool	 lwan_tpl_int_is_empty(void *ptr);
+void	 lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr);
+void	 lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr);
+bool	 lwan_tpl_str_is_empty(void *ptr);
+void	 lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr);
+bool	 lwan_tpl_double_is_empty(void *ptr);
 
 lwan_tpl_t	*lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor);
 lwan_tpl_t	*lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor);

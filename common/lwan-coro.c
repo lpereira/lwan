@@ -61,7 +61,7 @@ struct coro_t_ {
     bool ended;
 };
 
-static void _coro_entry_point(coro_t *data, coro_function_t func);
+static void coro_entry_point(coro_t *data, coro_function_t func);
 
 /*
  * This swapcontext() implementation was obtained from glibc and modified
@@ -74,13 +74,13 @@ static void _coro_entry_point(coro_t *data, coro_function_t func);
  *     -- Leandro
  */
 #if defined(__x86_64__)
-void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
+void coro_swapcontext(coro_context_t *current, coro_context_t *other)
                 __attribute__((noinline));
     asm(
     ".text\n\t"
     ".p2align 4\n\t"
-    ".globl _coro_swapcontext\n\t"
-    "_coro_swapcontext:\n\t"
+    ".globl coro_swapcontext\n\t"
+    "coro_swapcontext:\n\t"
     "mov    %rbx,0(%rdi)\n\t"
     "mov    %rbp,8(%rdi)\n\t"
     "mov    %r12,16(%rdi)\n\t"
@@ -105,13 +105,13 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "mov    56(%rsi),%rsi\n\t"
     "jmp    *%rcx\n\t");
 #elif defined(__i386__)
-void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
+void coro_swapcontext(coro_context_t *current, coro_context_t *other)
                 __attribute__((noinline));
     asm(
     ".text\n\t"
     ".p2align 16\n\t"
-    ".globl _coro_swapcontext\n\t"
-    "_coro_swapcontext:\n\t"
+    ".globl coro_swapcontext\n\t"
+    "coro_swapcontext:\n\t"
     "movl   0x4(%esp),%eax\n\t"
     "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
     "movl   %ebx,0x0(%eax)\n\t"  /* EBX */
@@ -133,11 +133,11 @@ void _coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "movl   0x1c(%eax),%ecx\n\t" /* ECX */
     "ret\n\t");
 #else
-#define _coro_swapcontext(cur,oth) swapcontext(cur, oth)
+#define coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
 
 static void
-_coro_entry_point(coro_t *coro, coro_function_t func)
+coro_entry_point(coro_t *coro, coro_function_t func)
 {
     int return_value = func(coro);
     coro->ended = true;
@@ -145,7 +145,7 @@ _coro_entry_point(coro_t *coro, coro_function_t func)
 }
 
 static void
-_coro_run_deferred(coro_t *coro)
+coro_run_deferred(coro_t *coro)
 {
     for (coro_defer_t *defer = coro->defer; defer;) {
         coro_defer_t *tmp = defer;
@@ -164,12 +164,12 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->ended = false;
     coro->data = data;
 
-    _coro_run_deferred(coro);
+    coro_run_deferred(coro);
 
 #if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
-    coro->context[8 /* RIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
     coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
 #elif defined(__i386__)
     /* Align stack and make room for two arguments */
@@ -181,7 +181,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     *argp++ = (uintptr_t)coro;
     *argp++ = (uintptr_t)func;
 
-    coro->context[5 /* EIP */] = (uintptr_t) _coro_entry_point;
+    coro->context[5 /* EIP */] = (uintptr_t) coro_entry_point;
     coro->context[6 /* ESP */] = (uintptr_t) stack;
 #else
     getcontext(&coro->context);
@@ -227,7 +227,7 @@ coro_resume(coro_t *coro)
     assert(coro->ended == false);
 
 #if defined(__x86_64__) || defined(__i386__)
-    _coro_swapcontext(&coro->switcher->caller, &coro->context);
+    coro_swapcontext(&coro->switcher->caller, &coro->context);
     if (!coro->ended)
         memcpy(&coro->context, &coro->switcher->callee,
                     sizeof(coro->context));
@@ -235,7 +235,7 @@ coro_resume(coro_t *coro)
     coro_context_t prev_caller;
 
     memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
-    _coro_swapcontext(&coro->switcher->caller, &coro->context);
+    coro_swapcontext(&coro->switcher->caller, &coro->context);
     if (!coro->ended) {
         memcpy(&coro->context, &coro->switcher->callee,
                     sizeof(coro->context));
@@ -262,7 +262,7 @@ coro_yield(coro_t *coro, int value)
 {
     assert(coro);
     coro->yield_value = value;
-    _coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
+    coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
     return coro->yield_value;
 }
 
@@ -273,12 +273,12 @@ coro_free(coro_t *coro)
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
-    _coro_run_deferred(coro);
+    coro_run_deferred(coro);
     free(coro);
 }
 
 static void
-_coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
+coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
 {
     coro_defer_t *defer = malloc(sizeof(*defer));
     if (UNLIKELY(!defer))
@@ -297,14 +297,14 @@ _coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
 ALWAYS_INLINE void
 coro_defer(coro_t *coro, void (*func)(void *data), void *data)
 {
-    _coro_defer_any(coro, func, data, NULL);
+    coro_defer_any(coro, func, data, NULL);
 }
 
 ALWAYS_INLINE void
 coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
             void *data1, void *data2)
 {
-    _coro_defer_any(coro, func, data1, data2);
+    coro_defer_any(coro, func, data1, data2);
 }
 
 static void nothing()
