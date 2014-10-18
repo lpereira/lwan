@@ -34,7 +34,6 @@
 #include "hash.h"
 #include "int-to-str.h"
 #include "list.h"
-#include "lwan-private.h"
 #include "lwan-template.h"
 #include "strbuf.h"
 
@@ -179,18 +178,6 @@ lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
         strbuf_append_str(buf, v->str, 0);
 }
 
-static bool
-is_alphanumeric(const char c)
-{
-    if (c >= 'A' && c <= 'Z')
-        return true;
-    if (c >= 'a' && c <= 'z')
-        return true;
-    if (c >= '0' && c <= '9')
-        return true;
-    return false;
-}
-
 void
 lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 {
@@ -210,10 +197,12 @@ lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
             strbuf_append_str(buf, "&amp;", 5);
         else if (*p == '"')
             strbuf_append_str(buf, "&quot;", 6);
-        else if (is_alphanumeric(*p) || lwan_chr_is_space(*p))
-            strbuf_append_char(buf, *p);
+        else if (*p == '\'')
+            strbuf_append_str(buf, "&#x27;", 6);
+        else if (*p == '/')
+            strbuf_append_str(buf, "&#x2f;", 6);
         else
-            strbuf_append_printf(buf, "&#x%x;", *p);
+            strbuf_append_char(buf, *p);
     }
 }
 

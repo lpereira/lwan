@@ -30,7 +30,6 @@
 #include "lwan.h"
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
-#include "lwan-private.h"
 
 typedef enum {
     FINALIZER_DONE,
@@ -57,6 +56,8 @@ struct lwan_request_parse_t_ {
 
 static char decode_hex_digit(char ch) __attribute__((pure));
 static bool is_hex_digit(char ch) __attribute__((pure));
+static unsigned long has_zero_byte(unsigned long n) __attribute__((pure));
+static unsigned long is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 
 static ALWAYS_INLINE char *
@@ -421,10 +422,22 @@ parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
     }
 }
 
+static ALWAYS_INLINE unsigned long
+has_zero_byte(unsigned long n)
+{
+    return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
+}
+
+static ALWAYS_INLINE unsigned long
+is_space(char ch)
+{
+    return has_zero_byte((0x1010101UL * (unsigned long)ch) ^ 0x090a0d20UL);
+}
+
 static ALWAYS_INLINE char *
 ignore_leading_whitespace(char *buffer)
 {
-    while (*buffer && lwan_chr_is_space(*buffer))
+    while (*buffer && is_space(*buffer))
         buffer++;
     return buffer;
 }
