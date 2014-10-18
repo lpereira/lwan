@@ -156,7 +156,7 @@ queries(lwan_request_t *request,
         return HTTP_BAD_REQUEST;
 
     long queries = parse_long(queries_str, -1);
-    if (UNLIKELY(queries < 0))
+    if (UNLIKELY(queries <= 0))
         queries = 1;
     else if (UNLIKELY(queries > 500))
         queries = 500;
