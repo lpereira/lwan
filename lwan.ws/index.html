@@ -353,15 +353,33 @@ href="http://tia.mat.br/blog/html/2014/10/06/life_of_a_http_request.html">rather
 lenthy</a> post that explains the life of a HTTP request from Lwan's
 viewpoint.</p>
 
+<p><strong>What's the license?</strong> GPLv2+, plus a few other bits and
+pieces licensed under other permissive stuff. Refer to each file for their
+respective credits and legalese.</p> <p>It might move to LGPLv2+ (with a
+static linking exception) in the future, though.</p>
+
 <p><strong>Is it secure?</strong> We're not security experts, by any means. 
-The code has never been audited by one either.  But tools like Coverity,
-Clang Static Analyzer and Valgrind Memcheck are used regularly in addition
-to always building with <tt>-Wall -Wextra</tt> (and
-<tt>-fsanitize=undefined</tt> on debug builds); this won't ensure the code
-is secure, but these procedures helps finding some issues that could lead to
-security vulnerabilities.</p>
-
-
+The code has never been audited by one either.  Having said that:</p> <ul>
+<li>Lwan has a <b>0.0 defect density</b> as reported by <a
+href="https://scan.coverity.com/projects/375">Coverity</a>.</li> <li>Lwan
+has two false positives when analyzed with <a
+href="http://buildbot.lwan.ws/builders/clang-analyze">Clang Static
+Analyzer</a>.  Every commit is automatically checked with this tool.</li>
+<li>It produces no warnings when executed on <a
+href="http://valgrind.org/">Valgrind Memcheck</a> (with debug builds:
+release builds disable some things that Memcheck relies on keep sanity when
+coroutines switches stacks).</li> <li>It is also always built using
+<tt>-Wall -Wextra -Wshadow -Wconversion</tt> (plus
+<tt>-fsanitize=undefined</tt> on debug builds).  <b>No warnings</b> are
+produced while building Lwan.</li> <li>It has been also fuzzed with Sulley
+and no problems were found.  (But this was also the first time we did this
+kind of thing, so don't take our word for it.)</li> </ul> <p>So, to answer
+the question: <b>we have no idea</b>.  We were dead serious when we said
+we're not security experts.  But care is being taken to at least find the
+most mundane sources of vulnerabilities and fix them before they hit the
+source tree.</p> <p>However, if <b>you're</b> a bored <b>security expert</b>
+and wants to find exploits in Lwan, please contact us.  We're here to have
+fun and learn.</p>
 
 
 <div style="padding-top: 240px; font-size: 80%">Brought to you by <a
