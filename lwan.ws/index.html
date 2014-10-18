@@ -316,26 +316,28 @@ main(void)
 
 <p>No language other than C is supported at the moment, but it is possible
 to write a handler to glue the language runtime library and Lwan. Lua (and
-maybe LuaJit) is being considered but work hasn't started on that yet.</p>
+maybe LuaJIT) is being considered but work hasn't started on that yet.</p>
 
 <h2>FAQ</h2>
 
 <p><strong>Why not use Nginx or Apache?</strong> If you're asking this
 question, then you probably should.  These web servers are well known,
 stable, compatible with almost everything under the sun.  People depend on
-them. Breaking their behavior will most likely make some system
-administrators very upset.  On the other hand, few (if any) people uses this
-server, so it is possible to innovate without guilt.</p>
+them.  Breaking their behavior will most likely make some <a
+href="https://xkcd.com/705/">system administrators</a> very upset.  On the
+other hand, few (if any) people uses this server, so it is possible to
+innovate without guilt.</p>
 
 <p><strong>What does Lwan mean?</strong> Nobody knows. Tell us when you find
 out! Someone suggested a recursive <a
 href="https://en.wikipedia.org/wiki/Backronym">bacronym</a>, "Lwan Will
-Annihilate Node.js", which is funny because this is simply not going to
+Annihilate Node.js", which is funny because this is very unlikely to ever
 happen.</p>
 
-<p><strong>Where are the benchmarks?</strong> Benchmarking takes time.
-Numbers, charts, and benchmarking methodologies will appear here
-someday.</p>
+<p><strong>Where are the benchmarks?</strong> We're hoping to get included
+in <a href="http://techempower.com">TechEmpower's</a> <a
+href="http://www.techempower.com/benchmarks/">next round of
+benchmarks</a>. A pull request has been already issued.</p>
 
 <p><strong>Two years is a long time for a project this small!</strong>  This
 isn't a question, but, yes, it is a long time.  Keep in mind that this has
@@ -351,24 +353,25 @@ is fairly small as well, so lots of things can be inferred from reading
 it. Also, there's a <a
 href="http://tia.mat.br/blog/html/2014/10/06/life_of_a_http_request.html">rather
 lenthy</a> post that explains the life of a HTTP request from Lwan's
-viewpoint.</p>
+viewpoint, which gives lots of insights.</p>
 
-<p><strong>What's the license?</strong> GPLv2+, plus a few other bits and
-pieces licensed under other permissive stuff. Refer to each file for their
-respective credits and legalese.</p> <p>It might move to LGPLv2+ (with a
-static linking exception) in the future, though.</p>
+<p><strong>What's the license?</strong> <a
+href="https://www.gnu.org/licenses/gpl-2.0.txt">GNU GPLv2+</a>, plus a few
+other bits and pieces licensed under other permissive stuff.  Refer to each
+file for their respective credits and legalese.  It might move to LGPLv2+
+(with a static linking exception) in the future, though.</p>
 
 <p><strong>Is it secure?</strong> We're not security experts, by any means. 
 The code has never been audited by one either.  Having said that:</p> <ul>
 <li>Lwan has a <b>0.0 defect density</b> as reported by <a
 href="https://scan.coverity.com/projects/375">Coverity</a>.</li> <li>Lwan
-has two false positives when analyzed with <a
+has only two false positives when analyzed with <a
 href="http://buildbot.lwan.ws/builders/clang-analyze">Clang Static
 Analyzer</a>.  Every commit is automatically checked with this tool.</li>
 <li>It produces no warnings when executed on <a
 href="http://valgrind.org/">Valgrind Memcheck</a> (with debug builds:
 release builds disable some things that Memcheck relies on keep sanity when
-coroutines switches stacks).</li> <li>It is also always built using
+coroutines switches stacks.)</li> <li>It is also always built using
 <tt>-Wall -Wextra -Wshadow -Wconversion</tt> (plus
 <tt>-fsanitize=undefined</tt> on debug builds).  <b>No warnings</b> are
 produced while building Lwan.</li> <li>It has been also fuzzed with Sulley
