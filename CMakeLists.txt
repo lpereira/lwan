@@ -1,6 +1,9 @@
 project(lwan C)
 cmake_minimum_required(VERSION 2.8)
 
+find_package(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 add_definitions("-D_FILE_OFFSET_BITS=64")
 
@@ -33,8 +36,6 @@ else ()
 	endif ()
 endif ()
 
-find_package(ZLIB REQUIRED)
-find_package(Threads REQUIRED)
 
 find_library(TCMALLOC_LIBRARY
 	NAMES tcmalloc_minimal tcmalloc
