@@ -247,7 +247,7 @@ static int fortune_list_generator(coro_t *coro)
             goto out;
     }
 
-    if (!append_fortune(coro, &fortunes, 42,
+    if (!append_fortune(coro, &fortunes, 0,
                             "Additional fortune added at request time."))
         goto out;
 
