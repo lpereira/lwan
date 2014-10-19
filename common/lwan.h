@@ -34,6 +34,9 @@
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
 
+#undef static_assert
+#define static_assert(expr, msg)	_Static_assert((expr), msg)
+
 #define ASSERT_NOT_REACHED()  assert(!"Not reached")
 #define ASSERT_NOT_REACHED_RETURN(...) \
     do { \
