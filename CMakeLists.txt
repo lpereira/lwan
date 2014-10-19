@@ -1,5 +1,5 @@
 project(lwan C)
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 add_definitions("-D_FILE_OFFSET_BITS=64")
