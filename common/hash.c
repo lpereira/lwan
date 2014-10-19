@@ -65,7 +65,7 @@ static inline unsigned hash_int(const void *keyptr)
 	return key;
 }
 
-#ifdef USE_HARDWARE_CRC32
+#if defined(HAVE_BUILTIN_CPU_INIT) && defined(USE_HARDWARE_CRC32)
 static inline unsigned hash_crc32(const void *keyptr)
 {
 	unsigned hash = 0xABAD1DEA;
@@ -134,7 +134,7 @@ struct hash *hash_str_new(void (*free_key)(void *value),
 {
 	unsigned (*hash_func)(const void *key);
 
-#ifdef USE_HARDWARE_CRC32
+#if defined(HAVE_BUILTIN_CPU_INIT) && defined(USE_HARDWARE_CRC32)
 	__builtin_cpu_init();
 	if (__builtin_cpu_supports("sse4.2")) {
 		hash_func = hash_crc32;

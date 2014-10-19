@@ -4,6 +4,12 @@ cmake_minimum_required(VERSION 2.8)
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 
+include(CheckCSourceCompiles)
+check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)
+if (HAVE_BUILTIN_CPU_INIT)
+	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
+endif ()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 add_definitions("-D_FILE_OFFSET_BITS=64")
 
