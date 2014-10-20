@@ -171,6 +171,10 @@ p, li {
 h2 {
   padding-top: 54px;
 }
+h3 {
+  padding-top: 27px;
+  margin-bottom: 13.5px;
+}
 </style>
 </head>
 <body>
@@ -320,7 +324,7 @@ maybe LuaJIT) is being considered but work hasn't started on that yet.</p>
 
 <h2>FAQ</h2>
 
-<p><strong>Why not use Nginx or Apache?</strong> If you're asking this
+<p><h3>Why not use Nginx or Apache?</h3> If you're asking this
 question, then you probably should.  These web servers are well known,
 stable, compatible with almost everything under the sun.  People depend on
 them.  Breaking their behavior will most likely make some <a
@@ -328,26 +332,26 @@ href="https://xkcd.com/705/">system administrators</a> very upset.  On the
 other hand, few (if any) people uses this server, so it is possible to
 innovate without guilt.</p>
 
-<p><strong>What does Lwan mean?</strong> Nobody knows. Tell us when you find
+<p><h3>What does Lwan mean?</h3> Nobody knows. Tell us when you find
 out! Someone suggested a recursive <a
 href="https://en.wikipedia.org/wiki/Backronym">bacronym</a>, "Lwan Will
 Annihilate Node.js", which is funny because this is very unlikely to ever
 happen.</p>
 
-<p><strong>Where are the benchmarks?</strong> We're hoping to get included
+<p><h3>Where are the benchmarks?</h3> We're hoping to get included
 in <a href="http://techempower.com">TechEmpower's</a> <a
 href="http://www.techempower.com/benchmarks/">next round of
 benchmarks</a>. A pull request has been already issued.</p>
 
-<p><strong>Two years is a long time for a project this small!</strong>  This
+<p><h3>Two years is a long time for a project this small!</h3>  This
 isn't a question, but, yes, it is a long time.  Keep in mind that this has
 been written exclusively on the spare time of a single developer, who works
 full-time on a real job.  Also consider that this was exclusively a research
 project: the goal was not to write a web server, but to learn while finding
 novel ways to implement certain things.</p>
 
-<p><strong>Could you share some details on how exactly Lwan is this
-fast?</strong> A good place to start are these <a
+<p><h3>Could you share some details on how exactly Lwan is this
+fast?</h3> A good place to start are these <a
 href="http://tia.mat.br/blog/html/tags/lwan.html">blog posts</a>.  The code
 is fairly small as well, so lots of things can be inferred from reading
 it. Also, there's a <a
@@ -355,13 +359,13 @@ href="http://tia.mat.br/blog/html/2014/10/06/life_of_a_http_request.html">rather
 lenthy</a> post that explains the life of a HTTP request from Lwan's
 viewpoint, which gives lots of insights.</p>
 
-<p><strong>What's the license?</strong> <a
+<p><h3>What's the license?</h3> <a
 href="https://www.gnu.org/licenses/gpl-2.0.txt">GNU GPLv2+</a>, plus a few
 other bits and pieces licensed under other permissive stuff.  Refer to each
 file for their respective credits and legalese.  It might move to LGPLv2+
 (with a static linking exception) in the future, though.</p>
 
-<p><strong>Is it secure?</strong> We're not security experts, by any means. 
+<p><h3>Is it secure?</h3> We're not security experts, by any means.
 The code has never been audited by one either.  Having said that:</p> <ul>
 <li>Lwan has a <b>0.0 defect density</b> as reported by <a
 href="https://scan.coverity.com/projects/375">Coverity</a>.</li> <li>Lwan
