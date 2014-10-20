@@ -54,7 +54,6 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
 	if (HAS_CRC32)
-		set(USE_HARDWARE_CRC32 1)
 		add_definitions("-DUSE_HARDWARE_CRC32=1")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32")
 	endif ()
