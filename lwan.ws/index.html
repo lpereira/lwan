@@ -1,5 +1,5 @@
 <html><head>
-<meta charset="utf-8"> 
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <title>Lwan Web Server</title>
 <link href="prism.css" rel="stylesheet" type="text/css">
@@ -281,10 +281,15 @@ the way you want it to is possible.  Features include:</p>
 
 <h2>API example</h2>
 
-<p>Even the simplest <b>Hello, World!</b> handler can be written using the
-same API that is used by the static file server and the included sample
-Freegeoip application. As a reference, here's the whole code used to
-generate the above graph:</p>
+<p>Lwan isn't just a simple static file server: it can be used as a library
+to build web services on.  In fact, the static file server isn't a special
+case: it just uses the same APIs that are available when Lwan is used as a
+library.</p>
+
+<p>The <b>Hello, World!</b> handler, shown below, was used to generate the
+above chart. While the API is simple, Lwan isn't a framework, so not
+everything is built-in; some features will actually require changes to the
+internals, as they're very bare-bones.</p>
 
 <pre><code class="language-clike">#include "lwan.h"
 
