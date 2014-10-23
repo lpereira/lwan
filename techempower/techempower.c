@@ -17,7 +17,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <sqlite3.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +25,7 @@
 #include "lwan-template.h"
 
 #include "array.h"
+#include "database.h"
 #include "json.h"
 
 static const char hello_world[] = "Hello, World!";
@@ -66,7 +66,7 @@ static const lwan_var_descriptor_t fortune_desc[] = {
     TPL_VAR_SENTINEL
 };
 
-static sqlite3 *database;
+static struct db *database;
 static lwan_tpl_t *fortune_tpl;
 
 static lwan_http_status_t
@@ -106,17 +106,24 @@ db_query(void)
 {
     static const char world_query[] = "SELECT randomNumber FROM World WHERE id=?";
     JsonNode *object = NULL;
-    sqlite3_stmt *stmt;
+    struct db_stmt *stmt;
     int id = rand() % 10000;
 
-    if (UNLIKELY(sqlite3_prepare(database, world_query, sizeof(world_query) - 1,
-        &stmt, NULL) != SQLITE_OK))
+    stmt = database->prepare(database, world_query, sizeof(world_query) - 1);
+    if (UNLIKELY(!stmt))
         return NULL;
 
-    if (UNLIKELY(sqlite3_bind_int(stmt, 1, id) != SQLITE_OK))
+    struct db_row rows[1] = {
+        {
+            .u.i = id,
+            .kind = 'i'
+        }
+    };
+    if (UNLIKELY(!stmt->bind(stmt, rows, 1)))
         goto out;
 
-    if (UNLIKELY(sqlite3_step(stmt) != SQLITE_ROW))
+    struct db_row results[1];
+    if (UNLIKELY(!stmt->step(stmt, results)))
         goto out;
 
     object = json_mkobject();
@@ -124,11 +131,10 @@ db_query(void)
         goto out;
 
     json_append_member(object, "id", json_mknumber(id));
-    json_append_member(object, "randomNumber",
-        json_mknumber(sqlite3_column_int(stmt, 0)));
+    json_append_member(object, "randomNumber", json_mknumber(results[0].u.i));
 
 out:
-    sqlite3_finalize(stmt);
+    stmt->finalize(stmt);
 
     return object;
 }
@@ -230,20 +236,18 @@ static int fortune_list_generator(coro_t *coro)
     static const char fortune_query[] = "SELECT * FROM Fortune";
     struct Fortune *fortune;
     struct array fortunes;
-    sqlite3_stmt *stmt;
+    struct db_stmt *stmt;
     size_t i;
 
-    if (UNLIKELY(sqlite3_prepare(database, fortune_query, sizeof(fortune_query) - 1,
-        &stmt, NULL) != SQLITE_OK)) {
+    stmt = database->prepare(database, fortune_query, sizeof(fortune_query) - 1);
+    if (UNLIKELY(!stmt))
         return 0;
-    }
 
     array_init(&fortunes, 16);
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        int id = sqlite3_column_int(stmt, 0);
-        const char *message = (const char *)sqlite3_column_text(stmt, 1);
-        if (!append_fortune(coro, &fortunes, id, message))
+    struct db_row results[2];
+    while (stmt->step(stmt, results)) {
+        if (!append_fortune(coro, &fortunes, results[0].u.i, results[0].u.s))
             goto out;
     }
 
@@ -263,7 +267,7 @@ static int fortune_list_generator(coro_t *coro)
 
 out:
     array_free_array(&fortunes);
-    sqlite3_finalize(stmt);
+    stmt->finalize(stmt);
     return 0;
 }
 
@@ -299,15 +303,31 @@ main(void)
 
     srand((unsigned int)time(NULL));
 
-    if (sqlite3_open_v2("techempower.db", &database, SQLITE_OPEN_READONLY,
-            NULL) != SQLITE_OK) {
-        lwan_status_critical("Could not open database: %s",
-                             sqlite3_errmsg(database));
+    if (getenv("USE_MYSQL")) {
+        const char *user = getenv("MYSQL_USER");
+        const char *password = getenv("MYSQL_PASS");
+        const char *hostname = getenv("MYSQL_HOST");
+
+        if (!user)
+            lwan_status_critical("No MySQL user provided");
+        if (!password)
+            lwan_status_critical("No MySQL password provided");
+        if (!hostname)
+            lwan_status_critical("No MySQL hostname provided");
+
+        database = db_connect_mysql(hostname, user, password);
+    } else {
+        const char *pragmas[] = {
+            "PRAGMA mmap_size=44040192",
+            "PRAGMA journal_mode=OFF",
+            "PRAGMA locking_mode=EXCLUSIVE",
+            NULL
+        };
+        database = db_connect_sqlite("techempower.db", true, pragmas);
     }
 
-    sqlite3_exec(database, "PRAGMA mmap_size=44040192", NULL, NULL, NULL);
-    sqlite3_exec(database, "PRAGMA journal_mode=OFF", NULL, NULL, NULL);
-    sqlite3_exec(database, "PRAGMA locking_mode=EXCLUSIVE", NULL, NULL, NULL);
+    if (!database)
+        lwan_status_critical("Could not connect to the database");
 
     fortune_tpl = lwan_tpl_compile_string(fortunes_template_str, fortune_desc);
     if (!fortune_tpl)
@@ -317,7 +337,7 @@ main(void)
     lwan_main_loop(&l);
 
     lwan_tpl_free(fortune_tpl);
-    sqlite3_close(database);
+    database->disconnect(database);
     lwan_shutdown(&l);
 
     return 0;
