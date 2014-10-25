@@ -77,6 +77,9 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
         for (struct db_row *r = row; r->kind != '\0'; r++)
             n_rows++;
 
+        if (!n_rows)
+            return false;
+
         stmt_mysql->result_bind = calloc(n_rows, sizeof(*stmt_mysql->result_bind));
         if (!stmt_mysql->result_bind)
             return false;
