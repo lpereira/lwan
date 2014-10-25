@@ -229,6 +229,7 @@ static bool append_fortune(coro_t *coro, struct array *fortunes,
 static int fortune_list_generator(coro_t *coro)
 {
     static const char fortune_query[] = "SELECT * FROM Fortune";
+    char fortune_buffer[256];
     struct Fortune *fortune;
     struct array fortunes;
     struct db_stmt *stmt;
@@ -240,7 +241,11 @@ static int fortune_list_generator(coro_t *coro)
 
     array_init(&fortunes, 16);
 
-    struct db_row results[] = {{ .kind = 'i' }, { .kind = 's' }, { .kind = '\0' }};
+    struct db_row results[] = {
+        { .kind = 'i' },
+        { .kind = 's', .u.s = fortune_buffer, .buffer_length = sizeof(fortune_buffer) },
+        { .kind = '\0' }
+    };
     while (stmt->step(stmt, results)) {
         if (!append_fortune(coro, &fortunes, results[0].u.i, results[1].u.s))
             goto out;
@@ -302,6 +307,7 @@ main(void)
         const char *user = getenv("MYSQL_USER");
         const char *password = getenv("MYSQL_PASS");
         const char *hostname = getenv("MYSQL_HOST");
+        const char *db = getenv("MYSQL_DB");
 
         if (!user)
             lwan_status_critical("No MySQL user provided");
@@ -309,8 +315,10 @@ main(void)
             lwan_status_critical("No MySQL password provided");
         if (!hostname)
             lwan_status_critical("No MySQL hostname provided");
+        if (!db)
+            lwan_status_critical("No MySQL database provided");
 
-        database = db_connect_mysql(hostname, user, password);
+        database = db_connect_mysql(hostname, user, password, db);
     } else {
         const char *pragmas[] = {
             "PRAGMA mmap_size=44040192",

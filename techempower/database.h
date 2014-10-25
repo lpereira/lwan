@@ -43,6 +43,6 @@ struct db {
 };
 
 struct db *db_connect_sqlite(const char *path, bool read_only, const char *pragmas[]);
-struct db *db_connect_mysql(const char *host, const char *user, const char *pass);
+struct db *db_connect_mysql(const char *host, const char *user, const char *pass, const char *database);
 
 #endif /* __DATABASE_H__ */

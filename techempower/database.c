@@ -107,7 +107,7 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
             return false;
     }
 
-    return !mysql_stmt_fetch(stmt_mysql->stmt);
+    return mysql_stmt_fetch(stmt_mysql->stmt) == 0;
 }
 
 static void db_stmt_finalize_mysql(struct db_stmt *stmt)
@@ -158,7 +158,8 @@ static void db_disconnect_mysql(struct db *db)
     free(db);
 }
 
-struct db *db_connect_mysql(const char *host, const char *user, const char *pass)
+struct db *db_connect_mysql(const char *host, const char *user, const char *pass,
+        const char *database)
 {
     struct db_mysql *db_mysql = malloc(sizeof(*db_mysql));
 
@@ -171,16 +172,21 @@ struct db *db_connect_mysql(const char *host, const char *user, const char *pass
         return NULL;
     }
 
-    if (!mysql_real_connect(db_mysql->con, host, user, pass, NULL, 0, NULL, 0)) {
-        mysql_close(db_mysql->con);
-        free(db_mysql);
-        return NULL;
-    }
+    if (!mysql_real_connect(db_mysql->con, host, user, pass, database, 0, NULL, 0))
+        goto error;
+
+    if (mysql_set_character_set(db_mysql->con, "utf8"))
+        goto error;
 
     db_mysql->base.disconnect = db_disconnect_mysql;
     db_mysql->base.prepare = db_prepare_mysql;
 
     return (struct db *)db_mysql;
+
+error:
+    mysql_close(db_mysql->con);
+    free(db_mysql);
+    return NULL;
 }
 
 /* SQLite */
