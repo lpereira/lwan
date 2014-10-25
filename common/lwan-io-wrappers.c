@@ -77,7 +77,7 @@ lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
 
 out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    ASSERT_NOT_REACHED_RETURN(-1);
+    __builtin_unreachable();
 }
 
 ssize_t
@@ -102,7 +102,7 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
 
 out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    ASSERT_NOT_REACHED_RETURN(-1);
+    __builtin_unreachable();
 }
 
 ssize_t
@@ -127,7 +127,7 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 
 out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    ASSERT_NOT_REACHED_RETURN(-1);
+    __builtin_unreachable();
 }
 
 static ALWAYS_INLINE ssize_t
@@ -148,13 +148,13 @@ sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t co
         ssize_t read_bytes = read(in_fd, buffer, buffer_size);
         if (read_bytes < 0) {
             coro_yield(coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED_RETURN(-1);
+            __builtin_unreachable();
         }
 
         ssize_t bytes_written = write(out_fd, buffer, (size_t)read_bytes);
         if (bytes_written < 0) {
             coro_yield(coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED_RETURN(-1);
+            __builtin_unreachable();
         }
 
         total_bytes_written += bytes_written;
@@ -182,7 +182,7 @@ sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_
 
             default:
                 coro_yield(coro, CONN_CORO_ABORT);
-                ASSERT_NOT_REACHED_RETURN(-1);
+                __builtin_unreachable();
             }
         }
 

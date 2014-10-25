@@ -470,7 +470,7 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED();
+            __builtin_unreachable();
         }
 
         if (UNLIKELY(n < 0)) {
@@ -495,7 +495,7 @@ yield_and_read_again:
 
             /* Unexpected error, kill coro */
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            ASSERT_NOT_REACHED();
+            __builtin_unreachable();
         }
 
         total_read += (size_t)n;

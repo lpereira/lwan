@@ -37,13 +37,6 @@
 #undef static_assert
 #define static_assert(expr, msg)	_Static_assert((expr), msg)
 
-#define ASSERT_NOT_REACHED()  assert(!"Not reached")
-#define ASSERT_NOT_REACHED_RETURN(...) \
-    do { \
-        ASSERT_NOT_REACHED(); \
-        return (__VA_ARGS__); \
-    } while(0)
-
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
