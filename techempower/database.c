@@ -198,9 +198,10 @@ struct db_stmt_sqlite {
 static bool db_stmt_bind_sqlite(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows)
 {
     const struct db_stmt_sqlite *stmt_sqlite = (const struct db_stmt_sqlite *)stmt;
+    const struct db_row *rows_1_based = rows - 1;
 
-    for (size_t row = 0; row < n_rows; row++) {
-        struct db_row *r = &rows[row];
+    for (size_t row = 1; row <= n_rows; row++) {
+        const struct db_row *r = &rows_1_based[row];
         if (r->kind == '\0') break;
 
         if (r->kind == 's') {

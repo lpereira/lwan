@@ -113,16 +113,11 @@ db_query(void)
     if (UNLIKELY(!stmt))
         return NULL;
 
-    struct db_row rows[1] = {
-        {
-            .u.i = id,
-            .kind = 'i'
-        }
-    };
+    struct db_row rows[1] = {{ .u.i = id, .kind = 'i' }};
     if (UNLIKELY(!stmt->bind(stmt, rows, 1)))
         goto out;
 
-    struct db_row results[1];
+    struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
     if (UNLIKELY(!stmt->step(stmt, results)))
         goto out;
 
@@ -245,9 +240,9 @@ static int fortune_list_generator(coro_t *coro)
 
     array_init(&fortunes, 16);
 
-    struct db_row results[2];
+    struct db_row results[] = {{ .kind = 'i' }, { .kind = 's' }, { .kind = '\0' }};
     while (stmt->step(stmt, results)) {
-        if (!append_fortune(coro, &fortunes, results[0].u.i, results[0].u.s))
+        if (!append_fortune(coro, &fortunes, results[0].u.i, results[1].u.s))
             goto out;
     }
 
