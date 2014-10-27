@@ -109,16 +109,16 @@ db_query(void)
     struct db_stmt *stmt;
     int id = rand() % 10000;
 
-    stmt = database->prepare(database, world_query, sizeof(world_query) - 1);
+    stmt = db_prepare_stmt(database, world_query, sizeof(world_query) - 1);
     if (UNLIKELY(!stmt))
         return NULL;
 
     struct db_row rows[1] = {{ .u.i = id, .kind = 'i' }};
-    if (UNLIKELY(!stmt->bind(stmt, rows, 1)))
+    if (UNLIKELY(!db_stmt_bind(stmt, rows, 1)))
         goto out;
 
     struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
-    if (UNLIKELY(!stmt->step(stmt, results)))
+    if (UNLIKELY(!db_stmt_step(stmt, results)))
         goto out;
 
     object = json_mkobject();
@@ -129,7 +129,7 @@ db_query(void)
     json_append_member(object, "randomNumber", json_mknumber(results[0].u.i));
 
 out:
-    stmt->finalize(stmt);
+    db_stmt_finalize(stmt);
 
     return object;
 }
@@ -235,7 +235,7 @@ static int fortune_list_generator(coro_t *coro)
     struct db_stmt *stmt;
     size_t i;
 
-    stmt = database->prepare(database, fortune_query, sizeof(fortune_query) - 1);
+    stmt = db_prepare_stmt(database, fortune_query, sizeof(fortune_query) - 1);
     if (UNLIKELY(!stmt))
         return 0;
 
@@ -246,7 +246,7 @@ static int fortune_list_generator(coro_t *coro)
         { .kind = 's', .u.s = fortune_buffer, .buffer_length = sizeof(fortune_buffer) },
         { .kind = '\0' }
     };
-    while (stmt->step(stmt, results)) {
+    while (db_stmt_step(stmt, results)) {
         if (!append_fortune(coro, &fortunes, results[0].u.i, results[1].u.s))
             goto out;
     }
@@ -267,7 +267,7 @@ static int fortune_list_generator(coro_t *coro)
 
 out:
     array_free_array(&fortunes);
-    stmt->finalize(stmt);
+    db_stmt_finalize(stmt);
     return 0;
 }
 
@@ -340,7 +340,7 @@ main(void)
     lwan_main_loop(&l);
 
     lwan_tpl_free(fortune_tpl);
-    database->disconnect(database);
+    db_disconnect(database);
     lwan_shutdown(&l);
 
     return 0;

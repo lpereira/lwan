@@ -24,6 +24,17 @@
 
 #include "database.h"
 
+struct db_stmt {
+    bool (*bind)(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows);
+    bool (*step)(const struct db_stmt *stmt, struct db_row *row);
+    void (*finalize)(struct db_stmt *stmt);
+};
+
+struct db {
+    void (*disconnect)(struct db *db);
+    struct db_stmt *(*prepare)(const struct db *db, const char *sql, const size_t sql_len);
+};
+
 /* MySQL */
 
 struct db_mysql {
@@ -309,4 +320,32 @@ struct db *db_connect_sqlite(const char *path, bool read_only, const char *pragm
     db_sqlite->base.prepare = db_prepare_sqlite;
 
     return (struct db *)db_sqlite;
+}
+
+/* Generic */
+
+inline bool db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows)
+{
+    return stmt->bind(stmt, rows, n_rows);
+}
+
+inline bool db_stmt_step(const struct db_stmt *stmt, struct db_row *row)
+{
+    return stmt->step(stmt, row);
+}
+
+inline void db_stmt_finalize(struct db_stmt *stmt)
+{
+    stmt->finalize(stmt);
+}
+
+inline void db_disconnect(struct db *db)
+{
+    db->disconnect(db);
+}
+
+inline struct db_stmt *db_prepare_stmt(const struct db *db, const char *sql,
+    const size_t sql_len)
+{
+    return db->prepare(db, sql, sql_len);
 }

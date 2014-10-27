@@ -22,6 +22,9 @@
 
 #include <stdbool.h>
 
+struct db;
+struct db_stmt;
+
 struct db_row {
     union {
         char *s;
@@ -31,16 +34,12 @@ struct db_row {
     size_t buffer_length;
 };
 
-struct db_stmt {
-    bool (*bind)(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows);
-    bool (*step)(const struct db_stmt *stmt, struct db_row *row);
-    void (*finalize)(struct db_stmt *stmt);
-};
-
-struct db {
-    void (*disconnect)(struct db *db);
-    struct db_stmt *(*prepare)(const struct db *db, const char *sql, const size_t sql_len);
-};
+bool db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows);
+bool db_stmt_step(const struct db_stmt *stmt, struct db_row *row);
+void db_stmt_finalize(struct db_stmt *stmt);
+void db_disconnect(struct db *db);
+struct db_stmt *db_prepare_stmt(const struct db *db, const char *sql,
+    const size_t sql_len);
 
 struct db *db_connect_sqlite(const char *path, bool read_only, const char *pragmas[]);
 struct db *db_connect_mysql(const char *host, const char *user, const char *pass, const char *database);
