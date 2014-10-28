@@ -29,6 +29,7 @@
 #include "json.h"
 
 static const char hello_world[] = "Hello, World!";
+static const char random_number_query[] = "SELECT randomNumber FROM World WHERE id=?";
 
 struct Fortune {
     struct {
@@ -102,22 +103,16 @@ json(lwan_request_t *request __attribute__((unused)),
 }
 
 static JsonNode *
-db_query(void)
+db_query(struct db_stmt *stmt, struct db_row rows[], struct db_row results[])
 {
-    static const char world_query[] = "SELECT randomNumber FROM World WHERE id=?";
     JsonNode *object = NULL;
-    struct db_stmt *stmt;
     int id = rand() % 10000;
 
-    stmt = db_prepare_stmt(database, world_query, sizeof(world_query) - 1);
-    if (UNLIKELY(!stmt))
-        return NULL;
+    rows[0].u.i = id;
 
-    struct db_row rows[1] = {{ .u.i = id, .kind = 'i' }};
     if (UNLIKELY(!db_stmt_bind(stmt, rows, 1)))
         goto out;
 
-    struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
     if (UNLIKELY(!db_stmt_step(stmt, results)))
         goto out;
 
@@ -129,8 +124,6 @@ db_query(void)
     json_append_member(object, "randomNumber", json_mknumber(results[0].u.i));
 
 out:
-    db_stmt_finalize(stmt);
-
     return object;
 }
 
@@ -139,7 +132,16 @@ db(lwan_request_t *request __attribute__((unused)),
    lwan_response_t *response,
    void *data __attribute__((unused)))
 {
-    JsonNode *object = db_query();
+    struct db_row rows[1] = {{ .kind = 'i' }};
+    struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
+    struct db_stmt *stmt = db_prepare_stmt(database, random_number_query,
+            sizeof(random_number_query) - 1);
+    if (UNLIKELY(!stmt))
+        return HTTP_INTERNAL_ERROR;
+
+    JsonNode *object = db_query(stmt, rows, results);
+    db_stmt_finalize(stmt);
+
     if (UNLIKELY(!object))
         return HTTP_INTERNAL_ERROR;
 
@@ -162,22 +164,34 @@ queries(lwan_request_t *request,
     else if (UNLIKELY(queries > 500))
         queries = 500;
 
-    JsonNode *array = json_mkarray();
-    if (UNLIKELY(!array))
+    struct db_stmt *stmt = db_prepare_stmt(database, random_number_query,
+            sizeof(random_number_query) - 1);
+    if (UNLIKELY(!stmt))
         return HTTP_INTERNAL_ERROR;
 
+    JsonNode *array = json_mkarray();
+    if (UNLIKELY(!array))
+        goto out_no_array;
+
+    struct db_row rows[1] = {{ .kind = 'i' }};
+    struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
     while (queries--) {
-        JsonNode *object = db_query();
+        JsonNode *object = db_query(stmt, rows, results);
         
-        if (UNLIKELY(!object)) {
-            json_delete(array);
-            return HTTP_INTERNAL_ERROR;
-        }
+        if (UNLIKELY(!object))
+            goto out_array;
 
         json_append_element(array, object);
     }
 
+    db_stmt_finalize(stmt);
     return json_response(response, array);
+
+out_array:
+    json_delete(array);
+out_no_array:
+    db_stmt_finalize(stmt);
+    return HTTP_INTERNAL_ERROR;
 }
 
 static lwan_http_status_t

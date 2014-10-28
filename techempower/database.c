@@ -54,9 +54,13 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
-    stmt_mysql->param_bind = calloc(n_rows, sizeof(*stmt_mysql->param_bind));
-    if (!stmt_mysql->param_bind)
-        return false;
+    if (!stmt_mysql->param_bind) {
+        stmt_mysql->param_bind = calloc(n_rows, sizeof(*stmt_mysql->param_bind));
+        if (!stmt_mysql->param_bind)
+            return false;
+    } else {
+        mysql_stmt_reset(stmt_mysql->stmt);
+    }
 
     for (size_t row = 0; row < n_rows; row++) {
         if (rows[row].kind == '\0') break;
@@ -219,16 +223,22 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt, struct db_row *rows,
 {
     const struct db_stmt_sqlite *stmt_sqlite = (const struct db_stmt_sqlite *)stmt;
     const struct db_row *rows_1_based = rows - 1;
+    int ret;
+
+    sqlite3_reset(stmt_sqlite->sqlite);
+    sqlite3_clear_bindings(stmt_sqlite->sqlite);
 
     for (size_t row = 1; row <= n_rows; row++) {
         const struct db_row *r = &rows_1_based[row];
         if (r->kind == '\0') break;
 
         if (r->kind == 's') {
-            if (sqlite3_bind_text(stmt_sqlite->sqlite, (int)row, r->u.s, -1, NULL) != SQLITE_OK)
+            ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row, r->u.s, -1, NULL);
+            if (ret != SQLITE_OK)
                 return false;
         } else if (r->kind == 'i') {
-            if (sqlite3_bind_int(stmt_sqlite->sqlite, (int)row, r->u.i) != SQLITE_OK)
+            ret = sqlite3_bind_int(stmt_sqlite->sqlite, (int)row, r->u.i);
+            if (ret != SQLITE_OK)
                 return false;
         } else {
             return false;
