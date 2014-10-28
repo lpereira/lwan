@@ -47,12 +47,15 @@ struct db_stmt_mysql {
     MYSQL_STMT *stmt;
     MYSQL_BIND *param_bind;
     MYSQL_BIND *result_bind;
+    bool must_execute_again;
 };
 
 static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
         struct db_row *rows, size_t n_rows)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
+
+    stmt_mysql->must_execute_again = true;
 
     if (!stmt_mysql->param_bind) {
         stmt_mysql->param_bind = calloc(n_rows, sizeof(*stmt_mysql->param_bind));
@@ -84,10 +87,13 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
-    if (!stmt_mysql->result_bind) {
+    if (stmt_mysql->must_execute_again) {
+        stmt_mysql->must_execute_again = false;
         if (mysql_stmt_execute(stmt_mysql->stmt))
             return false;
+    }
 
+    if (!stmt_mysql->result_bind) {
         size_t n_rows = 0;
         for (struct db_row *r = row; r->kind != '\0'; r++)
             n_rows++;
@@ -164,6 +170,7 @@ static struct db_stmt *db_prepare_mysql(const struct db *db, const char *sql,
     stmt_mysql->base.finalize = db_stmt_finalize_mysql;
     stmt_mysql->result_bind = NULL;
     stmt_mysql->param_bind = NULL;
+    stmt_mysql->must_execute_again = true;
 
     return (struct db_stmt*)stmt_mysql;
 }
