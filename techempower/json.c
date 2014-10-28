@@ -34,16 +34,6 @@
 		exit(EXIT_FAILURE);                     \
 	} while (0)
 
-/* Sadly, strdup is not portable. */
-static char *json_strdup(const char *str)
-{
-	char *ret = malloc(strlen(str) + 1);
-	if (ret == NULL)
-		out_of_memory();
-	strcpy(ret, str);
-	return ret;
-}
-
 /* String buffer */
 
 typedef struct
@@ -534,7 +524,7 @@ static JsonNode *mkstring(char *s)
 
 JsonNode *json_mkstring(const char *s)
 {
-	return mkstring(json_strdup(s));
+	return mkstring(strdup(s));
 }
 
 JsonNode *json_mknumber(double n)
@@ -607,7 +597,7 @@ void json_append_member(JsonNode *object, const char *key, JsonNode *value)
 	assert(object->tag == JSON_OBJECT);
 	assert(value->parent == NULL);
 	
-	append_member(object, json_strdup(key), value);
+	append_member(object, strdup(key), value);
 }
 
 void json_prepend_member(JsonNode *object, const char *key, JsonNode *value)
@@ -615,7 +605,7 @@ void json_prepend_member(JsonNode *object, const char *key, JsonNode *value)
 	assert(object->tag == JSON_OBJECT);
 	assert(value->parent == NULL);
 	
-	value->key = json_strdup(key);
+	value->key = strdup(key);
 	prepend_node(object, value);
 }
 
