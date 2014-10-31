@@ -309,7 +309,7 @@ int
 main(void)
 {
     const lwan_url_map_t default_map[] = {
-        { .prefix = "/", .callback = hello_world },
+        { .prefix = "/", .handler = hello_world },
         { .prefix = NULL }
     };
     lwan_t l;
