@@ -133,7 +133,7 @@ min(const int a, const int b)
 static int
 process_request_coro(coro_t *coro)
 {
-    strbuf_t *strbuf = coro_malloc(coro, sizeof(*strbuf));
+    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
     if (UNLIKELY(!strbuf))
         return CONN_CORO_ABORT;
 
@@ -149,8 +149,6 @@ process_request_coro(coro_t *coro)
     assert(conn->flags & CONN_IS_ALIVE);
 
     strbuf_init(strbuf);
-    coro_defer(coro, CORO_DEFER(strbuf_free), strbuf);
-
     lwan_process_request(conn->thread->lwan, &request);
 
     return CONN_CORO_FINISHED;

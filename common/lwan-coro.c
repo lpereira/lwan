@@ -307,22 +307,31 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
     coro_defer_any(coro, func, data1, data2);
 }
 
-static void nothing()
-{
-}
-
 void *
-coro_malloc(coro_t *coro, size_t size)
+coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 {
     coro_defer_t *defer = malloc(sizeof(*defer) + size);
     if (UNLIKELY(!defer))
         return NULL;
 
     defer->next = coro->defer;
-    defer->func = nothing;
+    defer->func = destroy_func;
+    defer->data1 = defer;
+    defer->data2 = NULL;
+
     coro->defer = defer;
 
     return defer + 1;
+}
+
+static void nothing()
+{
+}
+
+inline void *
+coro_malloc(coro_t *coro, size_t size)
+{
+    return coro_malloc_full(coro, size, nothing);
 }
 
 char *
