@@ -316,7 +316,7 @@ coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 
     defer->next = coro->defer;
     defer->func = destroy_func;
-    defer->data1 = defer;
+    defer->data1 = defer + 1;
     defer->data2 = NULL;
 
     coro->defer = defer;
