@@ -111,10 +111,8 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
     assert(cb);
 
     struct job_t *job = calloc(1, sizeof(*job));
-    if (!job) {
+    if (!job)
         lwan_status_critical_perror("calloc");
-        return;
-    }
 
     job->cb = cb;
     job->data = data;
