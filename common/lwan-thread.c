@@ -20,6 +20,7 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -258,7 +259,7 @@ static lwan_connection_t *
 grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
 {
     int fd;
-    if (UNLIKELY(read(t->socketpair[0], &fd, sizeof(int)) != sizeof(int))) {
+    if (UNLIKELY(read(t->pipe_fd[0], &fd, sizeof(int)) != sizeof(int))) {
         lwan_status_perror("read");
         return NULL;
     }
@@ -367,11 +368,11 @@ create_thread(lwan_t *l, short thread_n)
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
 
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, thread->socketpair) < 0)
-        lwan_status_critical_perror("socketpair");
+    if (pipe2(thread->pipe_fd, O_NONBLOCK) < 0)
+        lwan_status_critical_perror("pipe");
 
     struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
-    if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->socketpair[0], &event) < 0)
+    if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->pipe_fd[0], &event) < 0)
         lwan_status_critical_perror("epoll_ctl");
 }
 
@@ -381,7 +382,7 @@ lwan_thread_add_client(lwan_thread_t *t, int fd)
     t->lwan->conns[fd].flags = 0;
     t->lwan->conns[fd].thread = t;
 
-    if (UNLIKELY(write(t->socketpair[1], &fd, sizeof(int)) < 0))
+    if (UNLIKELY(write(t->pipe_fd[1], &fd, sizeof(int)) < 0))
         lwan_status_perror("write");
 }
 
@@ -413,8 +414,8 @@ lwan_thread_shutdown(lwan_t *l)
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
         close(t->epoll_fd);
-        close(t->socketpair[0]);
-        close(t->socketpair[1]);
+        close(t->pipe_fd[0]);
+        close(t->pipe_fd[1]);
     }
     for (int i = l->thread.count - 1; i >= 0; i--)
         pthread_tryjoin_np(l->thread.threads[i].self, NULL);

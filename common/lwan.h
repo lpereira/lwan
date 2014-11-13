@@ -229,7 +229,7 @@ struct lwan_thread_t_ {
 
     pthread_t self;
     int epoll_fd;
-    int socketpair[2];
+    int pipe_fd[2];
 };
 
 struct lwan_config_t_ {
