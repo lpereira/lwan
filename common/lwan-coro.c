@@ -191,7 +191,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-    makecontext(&coro->context, (void (*)())_coro_entry_point, 2, coro, func);
+    makecontext(&coro->context, (void (*)())coro_entry_point, 2, coro, func);
 #endif
 }
 
