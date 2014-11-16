@@ -146,6 +146,51 @@ parse_listener(char *listener, char **node, char **port)
 }
 
 static int
+listen_addrinfo(int fd, const struct addrinfo *addr)
+{
+    if (listen(fd, get_backlog_size()) < 0)
+        lwan_status_critical_perror("listen");
+
+    char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
+    int ret = getnameinfo(addr->ai_addr, addr->ai_addrlen, host_buf, sizeof(host_buf),
+                      serv_buf, sizeof(serv_buf), NI_NUMERICHOST | NI_NUMERICSERV);
+    if (ret)
+        lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
+
+    if (addr->ai_family == AF_INET6)
+        lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
+    else
+        lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
+
+    return fd;
+}
+
+static int
+bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
+{
+    const struct addrinfo *addr;
+
+    /* Try each address until we bind one successfully. */
+    for (addr = addrs; addr; addr = addr->ai_next) {
+        int fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+        if (fd < 0)
+            continue;
+
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
+        if (reuse_port)
+            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                    (int[]){ 1 }, sizeof(int));
+
+        if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
+            return listen_addrinfo(fd, addr);
+
+        close(fd);
+    }
+
+    lwan_status_critical("Could not bind socket");
+}
+
+static int
 setup_socket_normally(lwan_t *l)
 {
     char *node, *port;
@@ -154,48 +199,18 @@ setup_socket_normally(lwan_t *l)
     if (family == AF_UNSPEC)
         lwan_status_critical("Could not parse listener: %s", l->config.listener);
 
-    struct addrinfo *addrs, *a;
+    struct addrinfo *addrs;
     struct addrinfo hints = {
         .ai_family = family,
         .ai_socktype = SOCK_STREAM,
         .ai_flags = AI_PASSIVE
     };
-    int fd;
 
     int ret = getaddrinfo(node, port, &hints, &addrs);
     if (ret)
         lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
 
-    /* Try each address until we bind one successfully. */
-    for (a = addrs; a; a = a->ai_next) {
-        fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-        if (fd < 0)
-            continue;
-        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
-        if (l->config.reuse_port)
-            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                                    (int[]){ 1 }, sizeof(int));
-        if (bind(fd, a->ai_addr, a->ai_addrlen) == 0)
-            break;
-        close(fd);
-    }
-    if (!a)
-        lwan_status_critical("Could not bind socket");
-
-    if (listen(fd, get_backlog_size()) < 0)
-        lwan_status_critical_perror("listen");
-
-    char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
-    ret = getnameinfo(a->ai_addr, a->ai_addrlen, host_buf, sizeof(host_buf),
-                      serv_buf, sizeof(serv_buf), NI_NUMERICHOST | NI_NUMERICSERV);
-    if (ret)
-        lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
-
-    if (a->ai_family == AF_INET6)
-        lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
-    else
-        lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
-
+    int fd = bind_and_listen_addrinfos(addrs, l->config.reuse_port);
     freeaddrinfo(addrs);
     return fd;
 }
