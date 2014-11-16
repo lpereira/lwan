@@ -72,7 +72,7 @@ get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
     else if (type & STATUS_CRITICAL)
         retval = "\033[31;1m";
     else if (type & STATUS_DEBUG)
-        retval = "\033[34m";
+        retval = "\033[37m";
     else if (type & STATUS_PERROR)
         retval = "\033[35m";
     else
