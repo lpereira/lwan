@@ -404,21 +404,17 @@ lwan_thread_shutdown(lwan_t *l)
 {
     lwan_status_debug("Shutting down threads");
 
-    /*
-     * Closing epoll_fd makes the thread gracefully finish.
-     *
-     * Thread shutdown is performed in separate loops so that we
-     * don't wait one thread to join when there are others to be
-     * finalized.
-     */
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
+
+        /* Closing epoll_fd makes the thread gracefully finish. */
         close(t->epoll_fd);
+
         close(t->pipe_fd[0]);
         close(t->pipe_fd[1]);
-    }
-    for (int i = l->thread.count - 1; i >= 0; i--)
+
         pthread_tryjoin_np(l->thread.threads[i].self, NULL);
+    }
 
     free(l->thread.threads);
 }
