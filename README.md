@@ -79,10 +79,14 @@ The CMake script should look for libraries like
 
 Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations, like [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization)
-and tune the code for current architecture. Passing
-`-DCMAKE_BUILD_TYPE=Debug` will generate code suitable to be used under
-a debugger like [gdb](http://www.gnu.org/software/gdb/) and force debug
-messages to be printed to the terminal.
+and tune the code for current architecture. Please use this version
+when benchmarking, as the default is the Debug build, which not only
+logs all requests to the standard output, but does so while holding a
+mutex.
+
+Passing `-DCMAKE_BUILD_TYPE=Debug` will generate code suitable to be used
+under a debugger like [gdb](http://www.gnu.org/software/gdb/) and force
+debug messages to be printed to the terminal.
 
 Running
 -------
