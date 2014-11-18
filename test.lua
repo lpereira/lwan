@@ -1,7 +1,10 @@
 
 function entry_point()
-	for i = 0, 10 do
-		lwan.say(i .. "\n")
+	name = lwan.query_param("name")
+	if name then
+		lwan.set_response("Hello, " .. name .. "!")
+	else
+		lwan.set_response("Hello, World!")
 	end
 end
 

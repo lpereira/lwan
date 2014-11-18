@@ -78,7 +78,26 @@ static int func_set_response(lua_State *L)
     return 0;
 }
 
+static int func_query_param(lua_State *L)
+{
+    /* FIXME: Ideally this should be a table; I still don't know how to
+     * do this on demand. */
+    size_t key_str_len;
+    const char *key_str = lua_tolstring(L, -1, &key_str_len);
+    lwan_request_t *request = get_request_from_lua_state(L);
+
+    const char *value = lwan_request_get_query_param(request, key_str);
+
+    if (!value)
+        lua_pushnil(L);
+    else
+        lua_pushstring(L, value);
+
+    return 1;
+}
+
 static const struct luaL_reg funcs[] = {
+    { "query_param", func_query_param },
     { "yield", func_yield },
     { "set_response", func_set_response },
     { "say", func_say },
@@ -267,7 +286,7 @@ const lwan_module_t *lwan_module_lua(void)
         .init_from_hash = lua_init_from_hash,
         .shutdown = lua_shutdown,
         .handle = lua_handle_cb,
-        .flags = 0
+        .flags = HANDLER_PARSE_QUERY_STRING
     };
 
     return &lua_module;
