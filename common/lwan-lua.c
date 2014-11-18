@@ -67,8 +67,19 @@ static int func_yield(lua_State *L)
     return lua_yield(L, 0);
 }
 
+static int func_set_response(lua_State *L)
+{
+    size_t response_str_len;
+    const char *response_str = lua_tolstring(L, -1, &response_str_len);
+    lwan_request_t *request = get_request_from_lua_state(L);
+
+    strbuf_set(request->response.buffer, response_str, response_str_len);
+    return 1;
+}
+
 static const struct luaL_reg funcs[] = {
     { "yield", func_yield },
+    { "set_response", func_set_response },
     { "say", func_say },
     { NULL, NULL }
 };
