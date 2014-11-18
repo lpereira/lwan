@@ -67,23 +67,6 @@ setup_socket_from_systemd(void)
     return fd;
 }
 
-#define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
-    do { \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
-            lwan_status_critical_perror("setsockopt"); \
-    } while(0)
-
-#define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
-    do { \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
-            lwan_status_warning("%s not supported by the kernel", \
-                #_option); \
-    } while(0)
-
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT 15
-#endif
-
 static sa_family_t
 parse_listener_ipv4(char *listener, char **node, char **port)
 {
@@ -164,6 +147,23 @@ listen_addrinfo(int fd, const struct addrinfo *addr)
 
     return fd;
 }
+
+#define SET_SOCKET_OPTION(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_critical_perror("setsockopt"); \
+    } while(0)
+
+#define SET_SOCKET_OPTION_MAY_FAIL(_domain,_option,_param,_size) \
+    do { \
+        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0) \
+            lwan_status_warning("%s not supported by the kernel", \
+                #_option); \
+    } while(0)
+
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif
 
 static int
 bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
