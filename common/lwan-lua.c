@@ -22,8 +22,10 @@
 #include <lualib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "lwan.h"
+#include "lwan-cache.h"
 #include "lwan-lua.h"
 
 static const char request_key = 'R';
@@ -31,6 +33,12 @@ static const char request_key = 'R';
 struct lwan_lua_priv_t {
     char *default_type;
     char *script_file;
+    pthread_key_t cache_key;
+};
+
+struct lwan_lua_state_t {
+    struct cache_entry_t base;
+    lua_State *L;
 };
 
 static int func_say(lua_State *L)
@@ -53,48 +61,95 @@ static const struct luaL_reg funcs[] = {
     { NULL, NULL }
 };
 
+static struct cache_entry_t *state_create(const char *key __attribute__((unused)),
+        void *context)
+{
+    struct lwan_lua_priv_t *priv = context;
+    struct lwan_lua_state_t *state = malloc(sizeof(*state));
+
+    if (UNLIKELY(!state))
+        return NULL;
+
+    state->L = luaL_newstate();
+    if (UNLIKELY(!state->L)) {
+        free(state);
+        return NULL;
+    }
+
+    luaL_openlibs(state->L);
+    luaL_register(state->L, "lwan", funcs);
+
+    if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
+        lwan_status_error("Error opening Lua script %s: %s",
+                    priv->script_file, lua_tostring(state->L, -1));
+        lua_close(state->L);
+        free(state);
+        return NULL;
+    }
+
+    return (struct cache_entry_t *)state;
+}
+
+static void state_destroy(struct cache_entry_t *entry,
+        void *context __attribute__((unused)))
+{
+    struct lwan_lua_state_t *state = (struct lwan_lua_state_t *)entry;
+
+    lua_close(state->L);
+    free(state);
+}
+
+static struct cache_t *get_or_create_cache(struct lwan_lua_priv_t *priv)
+{
+    struct cache_t *cache = pthread_getspecific(priv->cache_key);
+    if (UNLIKELY(!cache)) {
+        lwan_status_debug("Creating cache for this thread");
+        cache = cache_create(state_create, state_destroy, priv, 15);
+        if (UNLIKELY(!cache))
+            lwan_status_error("Could not create cache");
+        pthread_setspecific(priv->cache_key, cache);
+    }
+    return cache;
+}
+
 static lwan_http_status_t
 lua_handle_cb(lwan_request_t *request,
               lwan_response_t *response,
               void *data)
 {
-    lwan_http_status_t status = HTTP_OK;
     struct lwan_lua_priv_t *priv = data;
 
     if (UNLIKELY(!priv))
         return HTTP_INTERNAL_ERROR;
 
-    /* FIXME: Ideally, for each script file, there would be one lua_State per
-     * thread. This way, it would be possible to use lua_newthread() and avoid
-     * having to perform all the setup. To allow for scripts to be reloaded,
-     * Lwan caching subsystem could be used to cache this for a predetermined
-     * amount of time. */
-    lua_State *L = luaL_newstate();
-    if (UNLIKELY(!L))
+    struct cache_t *cache = get_or_create_cache(priv);
+    if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;
 
-    luaL_openlibs(L);
-    luaL_register(L, "lwan", funcs);
+    struct lwan_lua_state_t *state = (struct lwan_lua_state_t *)cache_coro_get_and_ref_entry(
+            cache, request->conn->coro, "entry_point");
+    if (UNLIKELY(!state))
+        return HTTP_NOT_FOUND;
+
+    lua_State *L = lua_newthread(state->L);
+    if (UNLIKELY(!L))
+        return HTTP_INTERNAL_ERROR;
 
     lua_pushlightuserdata(L, (void *)&request_key);
     lua_pushlightuserdata(L, request);
     lua_settable(L, LUA_REGISTRYINDEX);
 
-    if (UNLIKELY(luaL_loadfile(L, priv->script_file) != 0)) {
-        lwan_status_error("Error opening Lua script %s: %s",
-                    priv->script_file, lua_tostring(L, -1));
-        status = HTTP_INTERNAL_ERROR;
-    } else {
-        response->mime_type = priv->default_type;
+    response->mime_type = priv->default_type;
 
-        if (UNLIKELY(lua_pcall(L, 0, LUA_MULTRET, 0) != 0)) {
-            lwan_status_error("Error executing Lua script: %s", lua_tostring(L, -1));
-            status = HTTP_INTERNAL_ERROR;
-        }
+    lua_getglobal(state->L, "entry_point");
+    lua_xmove(state->L, L, 1);
+    lua_getglobal(L, "entry_point");
+    if (UNLIKELY(lua_resume(L, 0) != 0)) {
+        lwan_status_error("Error executing Lua script: %s", lua_tostring(L, -1));
+        return HTTP_INTERNAL_ERROR;
     }
 
-    lua_close(L);
-    return status;
+    return HTTP_OK;
 }
 
 static void *lua_init(void *data)
@@ -125,8 +180,15 @@ static void *lua_init(void *data)
         goto out_no_script_file;
     }
 
+    if (pthread_key_create(&priv->cache_key, NULL)) {
+        lwan_status_perror("pthread_key_create");
+        goto out_key_create;
+    }
+
     return priv;
 
+out_key_create:
+    free(priv->script_file);
 out_no_script_file:
     free(priv->default_type);
 out_no_default_type:
@@ -138,6 +200,7 @@ static void lua_shutdown(void *data)
 {
     struct lwan_lua_priv_t *priv = data;
     if (priv) {
+        pthread_key_delete(priv->cache_key);
         free(priv->default_type);
         free(priv->script_file);
         free(priv);
