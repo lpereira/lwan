@@ -31,11 +31,12 @@
 
 #include "lwan.h"
 #include "lwan-private.h"
+
 #include "lwan-config.h"
-#include "lwan-serve-files.h"
-#include "lwan-redirect.h"
 #include "lwan-http-authorize.h"
-#include "hash.h"
+#include "lwan-lua.h"
+#include "lwan-redirect.h"
+#include "lwan-serve-files.h"
 
 #define ONE_MINUTE 60
 #define ONE_HOUR (ONE_MINUTE * 60)
@@ -467,6 +468,7 @@ lwan_init(lwan_t *l)
     lwan_module_init(l);
     lwan_module_register(l, lwan_module_serve_files());
     lwan_module_register(l, lwan_module_redirect());
+    lwan_module_register(l, lwan_module_lua());
 
     /* Load the configuration file. */
     if (!setup_from_config(l))
