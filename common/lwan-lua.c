@@ -119,6 +119,13 @@ static struct cache_t *get_or_create_cache(struct lwan_lua_priv_t *priv)
     return cache;
 }
 
+static void unref_thread(void *data1, void *data2)
+{
+    lua_State *L = data1;
+    int thread_ref = (int)(intptr_t)data2;
+    luaL_unref(L, LUA_REGISTRYINDEX, thread_ref);
+}
+
 static lwan_http_status_t
 lua_handle_cb(lwan_request_t *request,
               lwan_response_t *response,
@@ -141,6 +148,10 @@ lua_handle_cb(lwan_request_t *request,
     lua_State *L = lua_newthread(state->L);
     if (UNLIKELY(!L))
         return HTTP_INTERNAL_ERROR;
+
+    int thread_ref = luaL_ref(state->L, LUA_REGISTRYINDEX);
+    coro_defer2(request->conn->coro, CORO_DEFER2(unref_thread),
+        state->L, (void *)(intptr_t)thread_ref);
 
     lua_pushlightuserdata(L, (void *)&request_key);
     lua_pushlightuserdata(L, request);
