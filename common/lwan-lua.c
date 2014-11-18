@@ -26,6 +26,7 @@
 
 #include "lwan.h"
 #include "lwan-cache.h"
+#include "lwan-config.h"
 #include "lwan-lua.h"
 
 static const char request_key = 'R';
@@ -34,6 +35,7 @@ struct lwan_lua_priv_t {
     char *default_type;
     char *script_file;
     pthread_key_t cache_key;
+    unsigned cache_period;
 };
 
 struct lwan_lua_state_t {
@@ -104,7 +106,7 @@ static struct cache_t *get_or_create_cache(struct lwan_lua_priv_t *priv)
     struct cache_t *cache = pthread_getspecific(priv->cache_key);
     if (UNLIKELY(!cache)) {
         lwan_status_debug("Creating cache for this thread");
-        cache = cache_create(state_create, state_destroy, priv, 15);
+        cache = cache_create(state_create, state_destroy, priv, priv->cache_period);
         if (UNLIKELY(!cache))
             lwan_status_error("Could not create cache");
         pthread_setspecific(priv->cache_key, cache);
@@ -185,6 +187,8 @@ static void *lua_init(void *data)
         goto out_key_create;
     }
 
+    priv->cache_period = settings->cache_period;
+
     return priv;
 
 out_key_create:
@@ -211,7 +215,8 @@ static void *lua_init_from_hash(const struct hash *hash)
 {
     struct lwan_lua_settings_t settings = {
         .default_type = hash_find(hash, "default type"),
-        .script_file = hash_find(hash, "script file")
+        .script_file = hash_find(hash, "script file"),
+        .cache_period = parse_time_period(hash_find(hash, "cache period"), 15)
     };
     return lua_init(&settings);
 }

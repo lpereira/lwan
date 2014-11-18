@@ -25,6 +25,7 @@
 struct lwan_lua_settings_t {
     const char *default_type;
     const char *script_file;
+    unsigned int cache_period;
 };
 
 #define LUA(default_type_) \
