@@ -58,7 +58,13 @@ static int func_say(lua_State *L)
     return 1;
 }
 
+static int func_yield(lua_State *L)
+{
+    return lua_yield(L, 0);
+}
+
 static const struct luaL_reg funcs[] = {
+    { "yield", func_yield },
     { "say", func_say },
     { NULL, NULL }
 };
