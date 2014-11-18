@@ -26,7 +26,7 @@
 #include "lwan.h"
 #include "lwan-lua.h"
 
-static char *request_key = "request";
+static const char request_key = 'R';
 
 struct lwan_lua_priv_t {
     char *default_type;
@@ -38,7 +38,7 @@ static int func_say(lua_State *L)
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
-    lua_pushlightuserdata(L, request_key);
+    lua_pushlightuserdata(L, (void *)&request_key);
     lua_gettable(L, LUA_REGISTRYINDEX);
     lwan_request_t *request = lua_touserdata(L, -1);
 
@@ -76,7 +76,7 @@ lua_handle_cb(lwan_request_t *request,
     luaL_openlibs(L);
     luaL_register(L, "lwan", funcs);
 
-    lua_pushlightuserdata(L, request_key);
+    lua_pushlightuserdata(L, (void *)&request_key);
     lua_pushlightuserdata(L, request);
     lua_settable(L, LUA_REGISTRYINDEX);
 
