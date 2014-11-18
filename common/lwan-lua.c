@@ -88,8 +88,7 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
     luaL_register(state->L, "lwan", funcs);
 
     if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
-        lwan_status_error("Error opening Lua script %s: %s",
-                    priv->script_file, lua_tostring(state->L, -1));
+        lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
         lua_close(state->L);
         free(state);
         return NULL;
