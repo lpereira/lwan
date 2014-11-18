@@ -37,6 +37,9 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
     unsigned int period;
     char multiplier;
 
+    if (!str)
+        return default_value;
+
     while (*str && sscanf(str, "%u%c", &period, &multiplier) == 2) {
         switch (multiplier) {
         case 's': total += period; break;
