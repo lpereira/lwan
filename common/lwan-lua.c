@@ -59,7 +59,7 @@ static int func_say(lua_State *L)
     strbuf_set(request->response.buffer, response_str, response_str_len);
     lwan_response_send_chunk(request);
 
-    return 1;
+    return 0;
 }
 
 static int func_yield(lua_State *L)
@@ -74,7 +74,8 @@ static int func_set_response(lua_State *L)
     lwan_request_t *request = get_request_from_lua_state(L);
 
     strbuf_set(request->response.buffer, response_str, response_str_len);
-    return 1;
+
+    return 0;
 }
 
 static const struct luaL_reg funcs[] = {
