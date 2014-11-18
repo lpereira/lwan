@@ -177,9 +177,8 @@ bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
             continue;
 
         SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){ 1 }, sizeof(int));
-        if (reuse_port)
-            SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                                    (int[]){ 1 }, sizeof(int));
+        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
+                                                (int[]){ reuse_port }, sizeof(int));
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
             return listen_addrinfo(fd, addr);
