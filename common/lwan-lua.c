@@ -29,6 +29,7 @@
 static char *request_key = "request";
 
 struct lwan_lua_priv_t {
+    char *default_type;
     char *script_file;
 };
 
@@ -84,7 +85,7 @@ lua_handle_cb(lwan_request_t *request,
                     priv->script_file, lua_tostring(L, -1));
         status = HTTP_INTERNAL_ERROR;
     } else {
-        response->mime_type = "text/plain";
+        response->mime_type = priv->default_type;
 
         if (UNLIKELY(lua_pcall(L, 0, LUA_MULTRET, 0) != 0)) {
             lwan_status_error("Error executing Lua script: %s", lua_tostring(L, -1));
@@ -107,9 +108,18 @@ static void *lua_init(void *data)
         return NULL;
     }
 
+    priv->default_type = strdup(
+        settings->default_type ? settings->default_type : "text/plain");
+    if (!priv->default_type) {
+        lwan_status_perror("strdup");
+        free(priv);
+        return NULL;
+    }
+
     priv->script_file = strdup(settings->script_file);
     if (!priv->script_file) {
         lwan_status_perror("strdup");
+        free(priv->default_type);
         free(priv);
         return NULL;
     }
@@ -121,6 +131,7 @@ static void lua_shutdown(void *data)
 {
     struct lwan_lua_priv_t *priv = data;
     if (priv) {
+        free(priv->default_type);
         free(priv->script_file);
         free(priv);
     }
