@@ -6,11 +6,8 @@ add_executable(freegeoip
 )
 
 target_link_libraries(freegeoip
-	${MALLOC_LIB}
+	${ADDITIONAL_LIBRARIES}
 	${SQLITE_LIBRARIES}
 	lwan-common
 	dl
-	${ZLIB_LIBRARIES}
-	${CMAKE_THREAD_LIBS_INIT}
-	${RT_LIB}
 )

@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 2.8)
 
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
+set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+
 
 include(CheckCSourceCompiles)
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)
@@ -10,37 +12,32 @@ if (HAVE_BUILTIN_CPU_INIT)
 	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
 endif ()
 
+
 include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES time.h)
 check_function_exists(clock_gettime HAS_CLOCK_GETTIME)
 if (HAS_CLOCK_GETTIME)
 	message(STATUS "libc has clock_gettime(). Good.")
 else ()
-	set(RT_LIB "-lrt")
+	list(APPEND ADDITIONAL_LIBRARIES rt)
 	message(STATUS "No clock_gettime() in libc. Linking with -lrt.")
 endif ()
 
-find_library(TCMALLOC_LIBRARY
-	NAMES tcmalloc_minimal tcmalloc
-	PATHS /usr/lib /usr/local/lib)
+
+find_library(TCMALLOC_LIBRARY NAMES tcmalloc_minimal tcmalloc)
 if (TCMALLOC_LIBRARY)
 	message(STATUS "tcmalloc found: ${TCMALLOC_LIBRARY}")
-	set(MALLOC_LIB ${TCMALLOC_LIBRARY})
+	list(APPEND ADDITIONAL_LIBRARIES ${TCMALLOC_LIBRARY})
 else ()
-	find_library(JEMALLOC_LIBRARY
-		NAMES jemalloc
-		PATHS /usr/lib /usr/local/lib)
+	find_library(JEMALLOC_LIBRARY NAMES jemalloc)
 	if (JEMALLOC_LIBRARY)
 		message(STATUS "jemalloc found: ${JEMALLOC_LIBRARY}")
-		set(MALLOC_LIB ${JEMALLOC_LIBRARY})
+		list(APPEND ADDITIONAL_LIBRARIES ${JEMALLOC_LIBRARY})
 	else ()
 		message(STATUS "jemalloc and tcmalloc were not found, using system malloc")
-		set(MALLOC_LIB "")
 	endif()
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
-add_definitions("-D_FILE_OFFSET_BITS=64")
 
 include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
@@ -73,6 +70,8 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
+add_definitions("-D_FILE_OFFSET_BITS=64")
 
 add_subdirectory(common)
 
