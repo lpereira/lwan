@@ -112,19 +112,26 @@ static void *lua_init(void *data)
         settings->default_type ? settings->default_type : "text/plain");
     if (!priv->default_type) {
         lwan_status_perror("strdup");
-        free(priv);
-        return NULL;
+        goto out_no_default_type;
     }
 
+    if (!settings->script_file) {
+        lwan_status_error("No Lua script file provided");
+        goto out_no_script_file;
+    }
     priv->script_file = strdup(settings->script_file);
     if (!priv->script_file) {
         lwan_status_perror("strdup");
-        free(priv->default_type);
-        free(priv);
-        return NULL;
+        goto out_no_script_file;
     }
 
     return priv;
+
+out_no_script_file:
+    free(priv->default_type);
+out_no_default_type:
+    free(priv);
+    return NULL;
 }
 
 static void lua_shutdown(void *data)
