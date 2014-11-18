@@ -43,14 +43,18 @@ struct lwan_lua_state_t {
     lua_State *L;
 };
 
+static lwan_request_t *get_request_from_lua_state(lua_State *L)
+{
+    lua_pushlightuserdata(L, (void *)&request_key);
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    return lua_touserdata(L, -1);
+}
+
 static int func_say(lua_State *L)
 {
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
-
-    lua_pushlightuserdata(L, (void *)&request_key);
-    lua_gettable(L, LUA_REGISTRYINDEX);
-    lwan_request_t *request = lua_touserdata(L, -1);
+    lwan_request_t *request = get_request_from_lua_state(L);
 
     strbuf_set(request->response.buffer, response_str, response_str_len);
     lwan_response_send_chunk(request);
