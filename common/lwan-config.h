@@ -20,6 +20,13 @@
 #ifndef __LWAN_CONFIG_H__
 #define __LWAN_CONFIG_H__
 
+#define ONE_MINUTE 60
+#define ONE_HOUR (ONE_MINUTE * 60)
+#define ONE_DAY (ONE_HOUR * 24)
+#define ONE_WEEK (ONE_DAY * 7)
+#define ONE_MONTH (ONE_DAY * 31)
+#define ONE_YEAR (ONE_MONTH * 12)
+
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -58,5 +65,6 @@ bool config_read_line(config_t *conf, config_line_t *l);
 
 bool parse_bool(const char *value, bool default_value);
 long parse_long(const char *value, long default_value);
+unsigned int parse_time_period(const char *str, unsigned int default_value);
 
 #endif  /* __LWAN_CONFIG_H__ */

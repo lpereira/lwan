@@ -31,6 +31,32 @@
 #include "lwan-status.h"
 #include "hash.h"
 
+unsigned int parse_time_period(const char *str, unsigned int default_value)
+{
+    unsigned int total = 0;
+    unsigned int period;
+    char multiplier;
+
+    while (*str && sscanf(str, "%u%c", &period, &multiplier) == 2) {
+        switch (multiplier) {
+        case 's': total += period; break;
+        case 'm': total += period * ONE_MINUTE; break;
+        case 'h': total += period * ONE_HOUR; break;
+        case 'd': total += period * ONE_DAY; break;
+        case 'w': total += period * ONE_WEEK; break;
+        case 'M': total += period * ONE_MONTH; break;
+        case 'y': total += period * ONE_YEAR; break;
+        default:
+            lwan_status_warning("Ignoring unknown multiplier: %c",
+                        multiplier);
+        }
+
+        str = (const char *)rawmemchr(str, multiplier) + 1;
+    }
+
+    return total ? total : default_value;
+}
+
 bool parse_bool(const char *value, bool default_value)
 {
     if (!strcmp(value, "true") || !strcmp(value, "1")
