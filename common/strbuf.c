@@ -133,7 +133,7 @@ strbuf_free(strbuf_t *s)
 }
 
 bool
-strbuf_append_char(strbuf_t *s, char c)
+strbuf_append_char(strbuf_t *s, const char c)
 {
     if (UNLIKELY(!grow_buffer_if_needed(s, s->len.buffer + 2)))
         return false;
@@ -145,7 +145,7 @@ strbuf_append_char(strbuf_t *s, char c)
 }
 
 bool
-strbuf_append_str(strbuf_t *s1, char *s2, size_t sz)
+strbuf_append_str(strbuf_t *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -176,7 +176,7 @@ strbuf_set_static(strbuf_t *s1, const char *s2, size_t sz)
 }
 
 bool
-strbuf_set(strbuf_t *s1, char *s2, size_t sz)
+strbuf_set(strbuf_t *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -203,7 +203,7 @@ strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
 }
 
 static ALWAYS_INLINE bool
-internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, char *, size_t), const char *fmt, va_list values)
+internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, const char *, size_t), const char *fmt, va_list values)
 {
     char *s2;
     int len;
