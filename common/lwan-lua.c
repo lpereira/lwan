@@ -146,12 +146,18 @@ lua_handle_cb(lwan_request_t *request,
     lua_getglobal(state->L, "entry_point");
     lua_xmove(state->L, L, 1);
     lua_getglobal(L, "entry_point");
-    if (UNLIKELY(lua_resume(L, 0) != 0)) {
-        lwan_status_error("Error executing Lua script: %s", lua_tostring(L, -1));
-        return HTTP_INTERNAL_ERROR;
-    }
 
-    return HTTP_OK;
+    while (true) {
+        switch (lua_resume(L, 0)) {
+        case LUA_YIELD:
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+            break;
+        case 0:
+            return HTTP_OK;
+        default:
+            return HTTP_INTERNAL_ERROR;
+        }
+    }
 }
 
 static void *lua_init(void *data)
