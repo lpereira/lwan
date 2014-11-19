@@ -44,7 +44,7 @@ static void fourty_two_and_free(void *str)
     }
 }
 
-static struct cache_entry_t *_create_realm_file(
+static struct cache_entry_t *create_realm_file(
           const char *key,
           void *context __attribute__((unused)))
 {
@@ -126,7 +126,7 @@ static void destroy_realm_file(struct cache_entry_t *entry,
 bool
 lwan_http_authorize_init(void)
 {
-    realm_password_cache = cache_create(_create_realm_file,
+    realm_password_cache = cache_create(create_realm_file,
           destroy_realm_file, NULL, 60);
 
     return !!realm_password_cache;
