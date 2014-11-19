@@ -1,20 +1,20 @@
-function handle_get_hello()
-	local name = lwan.query_param("name")
+function handle_get_hello(req)
+	local name = req:query_param("name")
 	if name then
-		lwan.set_response("Hello, " .. name .. "!")
+		req:set_response("Hello, " .. name .. "!")
 	else
-		lwan.set_response("Hello, World!")
+		req:set_response("Hello, World!")
 	end
 end
 
-function handle_get_chunked()
+function handle_get_chunked(req)
 	for i = 0, 10 do
-		lwan.say("Chunk #" .. i .. "\n")
+		req:say("Chunk #" .. i .. "\n")
 	end
 end
 
-function handle_get_random()
-	lwan.set_response("Random number: " .. math.random())
+function handle_get_random(req)
+	req:set_response("Random number: " .. math.random())
 end
 
 function string.starts(String, Start)
@@ -22,10 +22,10 @@ function string.starts(String, Start)
    return string.sub(String, 1, string.len(Start)) == Start
 end
 
-function handle_get_root()
+function handle_get_root(req)
 	for key, value in pairs(_G) do
 		if string.starts(key, "handle_get_") and type(value) == "function" then
-			lwan.say("<li><a href=" .. string.sub(key, 12) .. ">" .. key .. "</a></li>\n")
+			req:say("<li><a href=" .. string.sub(key, 12) .. ">" .. key .. "</a></li>\n")
 		end
 	end	
 end

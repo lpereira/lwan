@@ -31,7 +31,7 @@
 #include "lwan-config.h"
 #include "lwan-lua.h"
 
-static const char request_key = 'R';
+static const char *request_metatable_name = "Lwan.Request";
 
 struct lwan_lua_priv_t {
     char *default_type;
@@ -43,20 +43,19 @@ struct lwan_lua_priv_t {
 struct lwan_lua_state_t {
     struct cache_entry_t base;
     lua_State *L;
+    int userdata_metatable_ref;
 };
 
-static lwan_request_t *get_request_from_lua_state(lua_State *L)
+static ALWAYS_INLINE lwan_request_t *userdata_as_request(lua_State *L, int n)
 {
-    lua_pushlightuserdata(L, (void *)&request_key);
-    lua_gettable(L, LUA_REGISTRYINDEX);
-    return lua_touserdata(L, -1);
+    return *((lwan_request_t **)luaL_checkudata(L, n, request_metatable_name));
 }
 
 static int func_say(lua_State *L)
 {
+    lwan_request_t *request = userdata_as_request(L, 1);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
-    lwan_request_t *request = get_request_from_lua_state(L);
 
     strbuf_set(request->response.buffer, response_str, response_str_len);
     lwan_response_send_chunk(request);
@@ -71,9 +70,9 @@ static int func_yield(lua_State *L)
 
 static int func_set_response(lua_State *L)
 {
+    lwan_request_t *request = userdata_as_request(L, 1);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
-    lwan_request_t *request = get_request_from_lua_state(L);
 
     strbuf_set(request->response.buffer, response_str, response_str_len);
 
@@ -83,10 +82,10 @@ static int func_set_response(lua_State *L)
 static int request_param_getter(lua_State *L,
         const char *(*getter)(lwan_request_t *req, const char *key))
 {
+    lwan_request_t *request = userdata_as_request(L, 1);
     /* FIXME: Ideally this should be a table; I still don't know how to
      * do this on demand. */
     const char *key_str = lua_tostring(L, -1);
-    lwan_request_t *request = get_request_from_lua_state(L);
 
     const char *value = getter(request, key_str);
     if (!value)
@@ -107,7 +106,7 @@ static int func_post_param(lua_State *L)
     return request_param_getter(L, lwan_request_get_post_param);
 }
 
-static const struct luaL_reg funcs[] = {
+static const struct luaL_reg lwan_request_meta_regs[] = {
     { "query_param", func_query_param },
     { "post_param", func_post_param },
     { "yield", func_yield },
@@ -132,7 +131,10 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
     }
 
     luaL_openlibs(state->L);
-    luaL_register(state->L, "lwan", funcs);
+
+    luaL_newmetatable(state->L, request_metatable_name);
+    luaL_register(state->L, NULL, lwan_request_meta_regs);
+    lua_setfield(state->L, -1, "__index");
 
     if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
         lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
@@ -227,6 +229,26 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
     return lua_isfunction(L, -1);
 }
 
+static void push_request(lua_State *L, lwan_request_t *request)
+{
+    lwan_request_t **userdata = lua_newuserdata(L, sizeof(lwan_request_t *));
+    *userdata = request;
+    luaL_getmetatable(L, request_metatable_name);
+    lua_setmetatable(L, -2);
+}
+
+static lua_State *push_newthread(lua_State *L, coro_t *coro)
+{
+    lua_State *L1 = lua_newthread(L);
+    if (UNLIKELY(!L1))
+        return NULL;
+
+    int thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    coro_defer2(coro, CORO_DEFER2(unref_thread), L, (void *)(intptr_t)thread_ref);
+
+    return L1;
+}
+
 static lwan_http_status_t
 lua_handle_cb(lwan_request_t *request,
               lwan_response_t *response,
@@ -246,24 +268,17 @@ lua_handle_cb(lwan_request_t *request,
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
 
-    lua_State *L = lua_newthread(state->L);
+    lua_State *L = push_newthread(state->L, request->conn->coro);
     if (UNLIKELY(!L))
         return HTTP_INTERNAL_ERROR;
-
-    int thread_ref = luaL_ref(state->L, LUA_REGISTRYINDEX);
-    coro_defer2(request->conn->coro, CORO_DEFER2(unref_thread),
-        state->L, (void *)(intptr_t)thread_ref);
-
-    lua_pushlightuserdata(L, (void *)&request_key);
-    lua_pushlightuserdata(L, request);
-    lua_settable(L, LUA_REGISTRYINDEX);
 
     if (UNLIKELY(!get_handler_function(L, request)))
         return HTTP_NOT_FOUND;
 
+    push_request(L, request);
     response->mime_type = priv->default_type;
     while (true) {
-        switch (lua_resume(L, 0)) {
+        switch (lua_resume(L, 1)) {
         case LUA_YIELD:
             coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
