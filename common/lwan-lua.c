@@ -50,7 +50,7 @@ static ALWAYS_INLINE lwan_request_t *userdata_as_request(lua_State *L, int n)
     return *((lwan_request_t **)luaL_checkudata(L, n, request_metatable_name));
 }
 
-static int func_say(lua_State *L)
+static int req_say_cb(lua_State *L)
 {
     lwan_request_t *request = userdata_as_request(L, 1);
     size_t response_str_len;
@@ -62,12 +62,12 @@ static int func_say(lua_State *L)
     return 0;
 }
 
-static int func_yield(lua_State *L)
+static int req_yield_cb(lua_State *L)
 {
     return lua_yield(L, 0);
 }
 
-static int func_set_response(lua_State *L)
+static int req_set_response_cb(lua_State *L)
 {
     lwan_request_t *request = userdata_as_request(L, 1);
     size_t response_str_len;
@@ -95,22 +95,22 @@ static int request_param_getter(lua_State *L,
     return 1;
 }
 
-static int func_query_param(lua_State *L)
+static int req_query_param_cb(lua_State *L)
 {
     return request_param_getter(L, lwan_request_get_query_param);
 }
 
-static int func_post_param(lua_State *L)
+static int req_post_param_cb(lua_State *L)
 {
     return request_param_getter(L, lwan_request_get_post_param);
 }
 
 static const struct luaL_reg lwan_request_meta_regs[] = {
-    { "query_param", func_query_param },
-    { "post_param", func_post_param },
-    { "yield", func_yield },
-    { "set_response", func_set_response },
-    { "say", func_say },
+    { "query_param", req_query_param_cb },
+    { "post_param", req_post_param_cb },
+    { "yield", req_yield_cb },
+    { "set_response", req_set_response_cb },
+    { "say", req_say_cb },
     { NULL, NULL }
 };
 
