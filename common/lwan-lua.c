@@ -163,33 +163,55 @@ static void unref_thread(void *data1, void *data2)
     luaL_unref(L, LUA_REGISTRYINDEX, thread_ref);
 }
 
-static bool get_handler_function(lua_State *L, lwan_request_t *request)
+static ALWAYS_INLINE const char *get_handle_prefix(lwan_request_t *request, size_t *len)
 {
-    const char *method;
-
-    if (request->flags & REQUEST_METHOD_GET)
-        method = "_get_";
-    else if (request->flags & REQUEST_METHOD_POST)
-        method = "_post_";
-    else if (request->flags & REQUEST_METHOD_HEAD)
-        method = "_head_";
-    else
-        return false;
-
-    char *url = strdupa(request->url.len ? request->url.value : "root");
-    char handler_name[256];
-    for (char *c = url; *c; c++) {
-        if (*c == '/') {
-            *c = '\0';
-            break;
-        }
-        if (!isalnum(*c) && *c != '_')
-            return false;
+    if (request->flags & REQUEST_METHOD_GET) {
+        *len = sizeof("handle_get_");
+        return "handle_get_";
+    }
+    if (request->flags & REQUEST_METHOD_POST) {
+        *len = sizeof("handle_post_");
+        return "handle_post_";
+    }
+    if (request->flags & REQUEST_METHOD_HEAD) {
+        *len = sizeof("handle_head_");
+        return "handle_head_";
     }
 
-    int printed = snprintf(handler_name, sizeof(handler_name), "handle%s%s", method, url);
-    if (printed >= (int)sizeof(handler_name))
+    return NULL;
+}
+
+static bool get_handler_function(lua_State *L, lwan_request_t *request)
+{
+    size_t handle_prefix_len;
+    const char *handle_prefix = get_handle_prefix(request, &handle_prefix_len);
+    if (UNLIKELY(!handle_prefix))
         return false;
+
+    char handler_name[128];
+    char *method_name = mempcpy(handler_name, handle_prefix, handle_prefix_len);
+
+    char *url;
+    size_t url_len;
+    if (request->url.len) {
+        url = strdupa(request->url.value);
+        for (char *c = url; *c; c++) {
+            if (*c == '/') {
+                *c = '\0';
+                break;
+            }
+            if (UNLIKELY(!isalnum(*c) && *c != '_'))
+                return false;
+        }
+        url_len = strlen(url);
+    } else {
+        url = "root";
+        url_len = 4;
+    }
+
+    if (UNLIKELY((handle_prefix_len + url_len + 1) > sizeof(handler_name)))
+        return false;
+    memcpy(method_name - 1, url, sizeof(handler_name) - url_len - 1);
 
     lua_getglobal(L, handler_name);
     return lua_isfunction(L, -1);
@@ -226,10 +248,10 @@ lua_handle_cb(lwan_request_t *request,
     lua_pushlightuserdata(L, request);
     lua_settable(L, LUA_REGISTRYINDEX);
 
-    response->mime_type = priv->default_type;
-
-    if (!get_handler_function(L, request))
+    if (UNLIKELY(!get_handler_function(L, request)))
         return HTTP_NOT_FOUND;
+
+    response->mime_type = priv->default_type;
     while (true) {
         switch (lua_resume(L, 0)) {
         case LUA_YIELD:
