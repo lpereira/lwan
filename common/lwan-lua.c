@@ -85,12 +85,10 @@ static int request_param_getter(lua_State *L,
 {
     /* FIXME: Ideally this should be a table; I still don't know how to
      * do this on demand. */
-    size_t key_str_len;
-    const char *key_str = lua_tolstring(L, -1, &key_str_len);
+    const char *key_str = lua_tostring(L, -1);
     lwan_request_t *request = get_request_from_lua_state(L);
 
     const char *value = getter(request, key_str);
-
     if (!value)
         lua_pushnil(L);
     else
