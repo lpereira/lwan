@@ -17,12 +17,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#define _GNU_SOURCE
+#include <ctype.h>
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 #include "lwan.h"
 #include "lwan-cache.h"
@@ -161,6 +163,38 @@ static void unref_thread(void *data1, void *data2)
     luaL_unref(L, LUA_REGISTRYINDEX, thread_ref);
 }
 
+static bool get_handler_function(lua_State *L, lwan_request_t *request)
+{
+    const char *method;
+
+    if (request->flags & REQUEST_METHOD_GET)
+        method = "_get_";
+    else if (request->flags & REQUEST_METHOD_POST)
+        method = "_post_";
+    else if (request->flags & REQUEST_METHOD_HEAD)
+        method = "_head_";
+    else
+        return false;
+
+    char *url = strdupa(request->url.len ? request->url.value : "root");
+    char handler_name[256];
+    for (char *c = url; *c; c++) {
+        if (*c == '/') {
+            *c = '\0';
+            break;
+        }
+        if (!isalnum(*c) && *c != '_')
+            return false;
+    }
+
+    int printed = snprintf(handler_name, sizeof(handler_name), "handle%s%s", method, url);
+    if (printed >= (int)sizeof(handler_name))
+        return false;
+
+    lua_getglobal(L, handler_name);
+    return lua_isfunction(L, -1);
+}
+
 static lwan_http_status_t
 lua_handle_cb(lwan_request_t *request,
               lwan_response_t *response,
@@ -194,7 +228,8 @@ lua_handle_cb(lwan_request_t *request,
 
     response->mime_type = priv->default_type;
 
-    lua_getglobal(L, "entry_point");
+    if (!get_handler_function(L, request))
+        return HTTP_NOT_FOUND;
     while (true) {
         switch (lua_resume(L, 0)) {
         case LUA_YIELD:
@@ -284,6 +319,7 @@ const lwan_module_t *lwan_module_lua(void)
         .shutdown = lua_shutdown,
         .handle = lua_handle_cb,
         .flags = HANDLER_PARSE_QUERY_STRING
+            | HANDLER_REMOVE_LEADING_SLASH
     };
 
     return &lua_module;
