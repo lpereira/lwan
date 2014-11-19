@@ -43,7 +43,6 @@ struct lwan_lua_priv_t {
 struct lwan_lua_state_t {
     struct cache_entry_t base;
     lua_State *L;
-    int userdata_metatable_ref;
 };
 
 static ALWAYS_INLINE lwan_request_t *userdata_as_request(lua_State *L, int n)
