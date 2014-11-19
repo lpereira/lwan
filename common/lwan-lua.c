@@ -242,7 +242,7 @@ lua_handle_cb(lwan_request_t *request,
         return HTTP_INTERNAL_ERROR;
 
     struct lwan_lua_state_t *state = (struct lwan_lua_state_t *)cache_coro_get_and_ref_entry(
-            cache, request->conn->coro, "entry_point");
+            cache, request->conn->coro, "");
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
 
