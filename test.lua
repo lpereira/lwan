@@ -1,5 +1,5 @@
 function handle_get_hello()
-	name = lwan.query_param("name")
+	local name = lwan.query_param("name")
 	if name then
 		lwan.set_response("Hello, " .. name .. "!")
 	else
