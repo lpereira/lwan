@@ -194,10 +194,7 @@ lua_handle_cb(lwan_request_t *request,
 
     response->mime_type = priv->default_type;
 
-    lua_getglobal(state->L, "entry_point");
-    lua_xmove(state->L, L, 1);
     lua_getglobal(L, "entry_point");
-
     while (true) {
         switch (lua_resume(L, 0)) {
         case LUA_YIELD:
