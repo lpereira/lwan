@@ -270,6 +270,7 @@ lua_handle_cb(lwan_request_t *request,
         case 0:
             return HTTP_OK;
         default:
+            lwan_status_error("Error from Lua script: %s", lua_tostring(L, -1));
             return HTTP_INTERNAL_ERROR;
         }
     }
