@@ -6,8 +6,8 @@ add_executable(freegeoip
 )
 
 target_link_libraries(freegeoip
-	${ADDITIONAL_LIBRARIES}
-	${SQLITE_LIBRARIES}
 	lwan-common
 	dl
+	${ADDITIONAL_LIBRARIES}
+	${SQLITE_LIBRARIES}
 )

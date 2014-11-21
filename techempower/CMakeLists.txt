@@ -34,10 +34,10 @@ add_executable(techempower
 )
 
 target_link_libraries(techempower
+	lwan-common
+	dl
 	${ADDITIONAL_LIBRARIES}
 	${SQLITE_LIBRARIES}
 	${MYSQL_LIBRARY}
-	lwan-common
-	dl
 )
 
