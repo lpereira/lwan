@@ -274,12 +274,14 @@ lua_handle_cb(lwan_request_t *request,
     if (UNLIKELY(!get_handler_function(L, request)))
         return HTTP_NOT_FOUND;
 
+    int n_arguments = 1;
     push_request(L, request);
     response->mime_type = priv->default_type;
     while (true) {
-        switch (lua_resume(L, 1)) {
+        switch (lua_resume(L, n_arguments)) {
         case LUA_YIELD:
             coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+            n_arguments = 0;
             break;
         case 0:
             return HTTP_OK;
