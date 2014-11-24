@@ -174,6 +174,8 @@ static struct cache_t *get_or_create_cache(struct lwan_lua_priv_t *priv)
         cache = cache_create(state_create, state_destroy, priv, priv->cache_period);
         if (UNLIKELY(!cache))
             lwan_status_error("Could not create cache");
+        /* FIXME: This cache instance leaks: store it somewhere and
+         * free it on module shutdown */
         pthread_setspecific(priv->cache_key, cache);
     }
     return cache;
