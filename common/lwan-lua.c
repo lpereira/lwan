@@ -56,7 +56,7 @@ static int req_say_cb(lua_State *L)
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
-    strbuf_set(request->response.buffer, response_str, response_str_len);
+    strbuf_set_static(request->response.buffer, response_str, response_str_len);
     lwan_response_send_chunk(request);
 
     return 0;
@@ -69,7 +69,7 @@ static int req_send_event_cb(lua_State *L)
     const char *event_str = lua_tolstring(L, -1, &event_str_len);
     const char *event_name = lua_tostring(L, -2);
 
-    strbuf_set(request->response.buffer, event_str, event_str_len);
+    strbuf_set_static(request->response.buffer, event_str, event_str_len);
     lwan_response_send_event(request, event_name);
 
     return 0;
