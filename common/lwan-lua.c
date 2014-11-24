@@ -95,8 +95,6 @@ static int request_param_getter(lua_State *L,
         const char *(*getter)(lwan_request_t *req, const char *key))
 {
     lwan_request_t *request = userdata_as_request(L, 1);
-    /* FIXME: Ideally this should be a table; I still don't know how to
-     * do this on demand. */
     const char *key_str = lua_tostring(L, -1);
 
     const char *value = getter(request, key_str);
