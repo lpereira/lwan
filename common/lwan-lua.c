@@ -62,6 +62,19 @@ static int req_say_cb(lua_State *L)
     return 0;
 }
 
+static int req_send_event_cb(lua_State *L)
+{
+    lwan_request_t *request = userdata_as_request(L, 1);
+    size_t event_str_len;
+    const char *event_str = lua_tolstring(L, -1, &event_str_len);
+    const char *event_name = lua_tostring(L, -2);
+
+    strbuf_set(request->response.buffer, event_str, event_str_len);
+    lwan_response_send_event(request, event_name);
+
+    return 0;
+}
+
 static int req_yield_cb(lua_State *L)
 {
     return lua_yield(L, 0);
@@ -111,6 +124,7 @@ static const struct luaL_reg lwan_request_meta_regs[] = {
     { "yield", req_yield_cb },
     { "set_response", req_set_response_cb },
     { "say", req_say_cb },
+    { "send_event", req_send_event_cb },
     { NULL, NULL }
 };
 
