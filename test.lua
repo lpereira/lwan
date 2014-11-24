@@ -7,6 +7,12 @@ function handle_get_hello(req)
     end
 end
 
+function handle_get_sse(req)
+    for i = 0, 10 do
+        req:send_event("counter-changed", "event" .. i)
+    end
+end
+
 function handle_get_chunked(req)
     for i = 0, 10 do
         req:say("Chunk #" .. i .. "\n")
