@@ -28,9 +28,16 @@ function string.starts(String, Start)
    return string.sub(String, 1, string.len(Start)) == Start
 end
 
+function is_get_handler(s, func)
+    if string.starts(s, "handle_get_") then
+        return type(func) == "function"
+    end
+    return false
+end
+
 function handle_get_root(req)
     for key, value in pairs(_G) do
-        if string.starts(key, "handle_get_") and type(value) == "function" then
+        if is_get_handler(key, value) then
             req:say("<li><a href=" .. string.sub(key, 12) .. ">" .. key .. "</a></li>\n")
         end
     end
