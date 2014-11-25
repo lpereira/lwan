@@ -16,7 +16,6 @@ endif ()
 set(MYSQL_NAMES mysqlclient mysqlclient_r)
 find_library(MYSQL_LIBRARY
 	NAMES ${MYSQL_NAMES}
-	PATHS /usr/lib /usr/local/lib
 	PATH_SUFFIXES mysql
 )
 
