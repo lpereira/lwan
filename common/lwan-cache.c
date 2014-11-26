@@ -259,6 +259,9 @@ void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
      * job, so destroy them right here. */
     if (entry->flags & FLOATING) {
 destroy_entry:
+        /* FIXME: There's a race condition here: if the cache is destroyed
+         * while there are cache items floating around, this will dereference
+         * deallocated memory. */
         cache->cb.destroy_entry(entry, cache->cb.context);
     }
 }
