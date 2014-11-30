@@ -852,16 +852,19 @@ mmap_serve(lwan_request_t *request, void *data)
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
     void *contents;
     size_t size;
+    bool compressed;
 
     if (md->compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
         contents = md->compressed.contents;
         size = md->compressed.size;
+        compressed = true;
     } else {
         contents = md->uncompressed.contents;
         size = md->uncompressed.size;
+        compressed = false;
     }
 
-    return serve_contents_and_size(request, fce, false, contents, size);
+    return serve_contents_and_size(request, fce, compressed, contents, size);
 }
 
 static lwan_http_status_t
