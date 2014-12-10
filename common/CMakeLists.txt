@@ -28,7 +28,7 @@ add_library(lwan-common STATIC
 )
 
 include(FindPkgConfig)
-foreach (pc_file luajit>=2.0 lua=5.1 lua51 lua5.1 lua-5.1)
+foreach (pc_file luajit>=2.0 lua>=5.1,lua<5.2 lua51 lua5.1 lua-5.1)
         pkg_check_modules(LUA ${pc_file})
         if (LUA_FOUND)
                 list(APPEND ADDITIONAL_LIBRARIES ${LUA_LIBRARIES})
