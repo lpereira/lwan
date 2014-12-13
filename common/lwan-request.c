@@ -502,10 +502,15 @@ yield_and_read_again:
         buffer->value[total_read] = '\0';
 
         switch (finalizer(total_read, buffer_size, buffer)) {
-        case FINALIZER_YIELD_TRY_AGAIN: goto yield_and_read_again;
-        case FINALIZER_ERROR_TOO_LARGE: return HTTP_TOO_LARGE;
-        case FINALIZER_DONE: goto out;
-        case FINALIZER_TRY_AGAIN: continue;
+        case FINALIZER_DONE:
+            buffer->len = (size_t)total_read;
+            return HTTP_OK;
+        case FINALIZER_TRY_AGAIN:
+            continue;
+        case FINALIZER_YIELD_TRY_AGAIN:
+            goto yield_and_read_again;
+        case FINALIZER_ERROR_TOO_LARGE:
+            return HTTP_TOO_LARGE;
         }
     }
 
@@ -517,10 +522,6 @@ yield_and_read_again:
      * time by fiddling with the connection's time to die?
      */
     return HTTP_TIMEOUT;
-
-out:
-    buffer->len = (size_t)total_read;
-    return HTTP_OK;
 }
 
 static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
