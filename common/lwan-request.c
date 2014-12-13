@@ -446,10 +446,10 @@ static ALWAYS_INLINE void
 compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     bool is_keep_alive;
-    if (!(request->flags & REQUEST_IS_HTTP_1_0))
-        is_keep_alive = (helper->connection != 'c');
-    else
+    if (request->flags & REQUEST_IS_HTTP_1_0)
         is_keep_alive = (helper->connection == 'k');
+    else
+        is_keep_alive = (helper->connection != 'c');
     if (is_keep_alive)
         request->conn->flags |= CONN_KEEP_ALIVE;
     else
