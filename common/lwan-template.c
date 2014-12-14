@@ -293,11 +293,6 @@ next_char:
         break;
     }
     case '#':
-        if (chunk->flags & TPL_FLAG_NEGATE) {
-            free(chunk);
-            return -EILSEQ;
-        }
-
         chunk->data = symtab_lookup(state, variable + 1);
         if (!chunk->data)
             goto nokey;
