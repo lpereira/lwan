@@ -367,10 +367,12 @@ lwan_response_send_chunk(lwan_request_t *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (UNLIKELY(strbuf_reset_length(request->response.buffer)))
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-    else
+    if (UNLIKELY(!strbuf_reset_length(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+
+    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 }
 
 bool
@@ -439,8 +441,10 @@ lwan_response_send_event(lwan_request_t *request, const char *event)
 
     lwan_writev(request, vec, last);
 
-    if (UNLIKELY(strbuf_reset_length(request->response.buffer)))
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-    else
+    if (UNLIKELY(!strbuf_reset_length(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+
+    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 }
