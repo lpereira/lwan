@@ -275,7 +275,7 @@ next_char:
         return 0;
 
     case '>': {
-        if (flags & TPL_FLAG_NEGATE) {
+        if (chunk->flags & TPL_FLAG_NEGATE) {
             free(chunk);
             return -EILSEQ;
         }
@@ -293,7 +293,7 @@ next_char:
         break;
     }
     case '#':
-        if (flags & TPL_FLAG_NEGATE) {
+        if (chunk->flags & TPL_FLAG_NEGATE) {
             free(chunk);
             return -EILSEQ;
         }
@@ -307,7 +307,7 @@ next_char:
         symtab_push(state, child->list_desc);
         break;
     case '/': {
-        if (flags & TPL_FLAG_NEGATE) {
+        if (chunk->flags & TPL_FLAG_NEGATE) {
             free(chunk);
             return -EILSEQ;
         }
