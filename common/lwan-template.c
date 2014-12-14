@@ -261,7 +261,7 @@ next_char:
     switch (*variable) {
     case '\0':
         free(chunk);
-        return -EINVAL;
+        return -ENOTNAM;
 
     case '^':
         chunk->flags ^= TPL_FLAG_NEGATE;
@@ -288,14 +288,13 @@ next_char:
         break;
     }
     case '#':
-        chunk->action = TPL_ACTION_LIST_START_ITER;
         chunk->data = symtab_lookup(state, variable + 1);
-        if (!chunk->data) {
+        if (!chunk->data)
             goto nokey;
-        } else {
-            lwan_var_descriptor_t *child = chunk->data;
-            symtab_push(state, child->list_desc);
-        }
+
+        chunk->action = TPL_ACTION_LIST_START_ITER;
+        lwan_var_descriptor_t *child = chunk->data;
+        symtab_push(state, child->list_desc);
         break;
     case '/': {
         lwan_tpl_chunk_t *start_chunk;
@@ -464,7 +463,7 @@ feed_into_compiler(struct parser_state *parser_state,
 
     case STATE_SECOND_CLOSING_BRACE:
         switch (compile_append_var(parser_state, buf, descriptor)) {
-        case -EINVAL:
+        case -ENOTNAM:
             PARSE_ERROR("Expecting variable name");
         case -ENOKEY:
             PARSE_ERROR("Unknown variable: ``%s''", strbuf_get_buffer(buf));
