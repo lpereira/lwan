@@ -259,13 +259,14 @@ compile_append_var(struct parser_state *state, strbuf_t *buf,
 
 next_char:
     switch (*variable) {
+    case '\0':
+        free(chunk);
+        return -EINVAL;
+
     case '^':
         chunk->flags ^= TPL_FLAG_NEGATE;
         variable++;
         length--;
-        if (!length)
-            goto nokey;
-
         goto next_char;
 
     case '!':
@@ -462,10 +463,9 @@ feed_into_compiler(struct parser_state *parser_state,
         PARSE_ERROR("Closing brace expected");
 
     case STATE_SECOND_CLOSING_BRACE:
-        if (strbuf_get_length(buf) == 0)
-            PARSE_ERROR("Expecting variable name");
-
         switch (compile_append_var(parser_state, buf, descriptor)) {
+        case -EINVAL:
+            PARSE_ERROR("Expecting variable name");
         case -ENOKEY:
             PARSE_ERROR("Unknown variable: ``%s''", strbuf_get_buffer(buf));
         case -ENOMEM:
