@@ -275,6 +275,11 @@ next_char:
         return 0;
 
     case '>': {
+        if (flags & TPL_FLAG_NEGATE) {
+            free(chunk);
+            return -EILSEQ;
+        }
+
         char template_file[PATH_MAX];
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
 
@@ -288,6 +293,11 @@ next_char:
         break;
     }
     case '#':
+        if (flags & TPL_FLAG_NEGATE) {
+            free(chunk);
+            return -EILSEQ;
+        }
+
         chunk->data = symtab_lookup(state, variable + 1);
         if (!chunk->data)
             goto nokey;
@@ -297,6 +307,11 @@ next_char:
         symtab_push(state, child->list_desc);
         break;
     case '/': {
+        if (flags & TPL_FLAG_NEGATE) {
+            free(chunk);
+            return -EILSEQ;
+        }
+
         lwan_tpl_chunk_t *start_chunk;
         lwan_var_descriptor_t *descr;
         bool was_if = false;
@@ -463,6 +478,8 @@ feed_into_compiler(struct parser_state *parser_state,
 
     case STATE_SECOND_CLOSING_BRACE:
         switch (compile_append_var(parser_state, buf, descriptor)) {
+        case -EILSEQ:
+            PARSE_ERROR("Negation not supported for ``%s''", strbuf_get_buffer(buf));
         case -ENOTNAM:
             PARSE_ERROR("Expecting variable name");
         case -ENOKEY:
