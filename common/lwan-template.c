@@ -558,7 +558,7 @@ post_process_template(lwan_tpl_t *tpl)
             cd->descriptor = prev_chunk->data;
             prev_chunk->data = cd;
 
-            if (chunk->action == TPL_ACTION_LAST)
+            if (!chunk || chunk->action == TPL_ACTION_LAST)
                 cd->chunk = chunk;
             else
                 cd->chunk = (lwan_tpl_chunk_t *)chunk->list.next;
