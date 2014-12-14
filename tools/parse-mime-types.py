@@ -31,20 +31,13 @@ for l in open(sys.argv[1]):
     continue
   mime_type = l[:last_tab].strip()
   for extension in l[last_tab:].split():
-    if extension in known_exts:
-      continue
-    known_exts.add(extension)
-    types.append((mime_type, extension))
-
-types.sort(key = itemgetter(1))
-
-max_ext_len = max(len(ext) for typ, ext in types)
-max_typ_len = max(len(typ) for typ, ext in types)
-total_len = len(types) * (max_ext_len + 1 + max_typ_len + 1)
+    if not extension in known_exts:
+      known_exts.add(extension)
+      types.append((mime_type, extension))
 
 out = b''
 entries = 0
-for typ, ext in types:
+for typ, ext in sorted(types, key = itemgetter(1)):
   entries += 1
   out += pack_string(ext)
   out += pack_string(typ)
@@ -73,10 +66,8 @@ for index, b in enumerate(compressed_out):
 
   if isinstance(b, str):
     b = ord(b)
-  if b < 0x10:
-    line.append('0x0%x,' % b)
-  else:
-    line.append('0x%x,' % b)
+
+  line.append('0x%x,' % b)
 
 if line:
   print(' '.join(line))
