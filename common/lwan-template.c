@@ -275,10 +275,8 @@ next_char:
         return 0;
 
     case '>': {
-        if (chunk->flags & TPL_FLAG_NEGATE) {
-            free(chunk);
-            return -EILSEQ;
-        }
+        if (chunk->flags & TPL_FLAG_NEGATE)
+            goto invalid_negate;
 
         char template_file[PATH_MAX];
         snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
@@ -295,17 +293,15 @@ next_char:
     case '#':
         chunk->data = symtab_lookup(state, variable + 1);
         if (!chunk->data)
-            goto nokey;
+            goto no_such_key;
 
         chunk->action = TPL_ACTION_LIST_START_ITER;
         lwan_var_descriptor_t *child = chunk->data;
         symtab_push(state, child->list_desc);
         break;
     case '/': {
-        if (chunk->flags & TPL_FLAG_NEGATE) {
-            free(chunk);
-            return -EILSEQ;
-        }
+        if (chunk->flags & TPL_FLAG_NEGATE)
+            goto invalid_negate;
 
         lwan_tpl_chunk_t *start_chunk;
         lwan_var_descriptor_t *descr;
@@ -345,10 +341,8 @@ next_char:
         goto no_such_key;
     }
     default:
-        if (chunk->flags & TPL_FLAG_NEGATE) {
-            free(chunk);
-            return -EILSEQ;
-        }
+        if (chunk->flags & TPL_FLAG_NEGATE)
+            goto invalid_negate;
 
         if (variable[length] == '?') {
             chunk->action = TPL_ACTION_IF_VARIABLE_NOT_EMPTY;
@@ -371,6 +365,10 @@ add_chunk:
 no_such_key:
     free(chunk);
     return -ENOKEY;
+
+invalid_negate:
+    free(chunk);
+    return -EILSEQ;
 }
 
 static void
