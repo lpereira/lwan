@@ -345,6 +345,11 @@ next_char:
         goto nokey;
     }
     default:
+        if (chunk->flags & TPL_FLAG_NEGATE) {
+            free(chunk);
+            return -EILSEQ;
+        }
+
         if (variable[length] == '?') {
             chunk->action = TPL_ACTION_IF_VARIABLE_NOT_EMPTY;
             variable[length] = '\0';
