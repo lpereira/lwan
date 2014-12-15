@@ -318,7 +318,7 @@ next_char:
 
         descr = symtab_lookup(state, variable + 1);
         if (!descr)
-            goto nokey;
+            goto no_such_key;
 
         if (was_if) {
             chunk->action = TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY;
@@ -342,7 +342,7 @@ next_char:
             }
         }
 
-        goto nokey;
+        goto no_such_key;
     }
     default:
         if (chunk->flags & TPL_FLAG_NEGATE) {
@@ -358,7 +358,7 @@ next_char:
         }
         chunk->data = symtab_lookup(state, variable);
         if (!chunk->data)
-            goto nokey;
+            goto no_such_key;
     }
 
 add_chunk:
@@ -368,7 +368,7 @@ add_chunk:
 
     return 0;
 
-nokey:
+no_such_key:
     free(chunk);
     return -ENOKEY;
 }
