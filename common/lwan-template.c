@@ -253,15 +253,17 @@ compile_append_var(struct parser_state *state, strbuf_t *buf,
         return -ENOMEM;
 
     char *variable = strbuf_get_buffer(buf);
-    size_t length = strbuf_get_length(buf) - 1;
+    size_t length = strbuf_get_length(buf);
+    if (!length)
+        goto empty_variable;
 
+    length--;
     chunk->flags = 0;
 
 next_char:
     switch (*variable) {
     case '\0':
-        free(chunk);
-        return -ENOTNAM;
+        goto empty_variable;
 
     case '^':
         chunk->flags ^= TPL_FLAG_NEGATE;
@@ -369,6 +371,10 @@ no_such_key:
 invalid_negate:
     free(chunk);
     return -EILSEQ;
+
+empty_variable:
+    free(chunk);
+    return -ENOTNAM;
 }
 
 static void
