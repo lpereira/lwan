@@ -133,21 +133,30 @@ out:
 ssize_t
 lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 {
-    ssize_t retval;
+    ssize_t total_sent = 0;
 
-    for (int tries = max_failed_tries; tries; tries--) {
-        retval = send(request->fd, buf, count, flags);
-        if (LIKELY(retval >= 0))
-            return retval;
+    for (int tries = max_failed_tries; tries;) {
+        ssize_t written = send(request->fd, buf, count, flags);
+        if (UNLIKELY(written < 0)) {
+            tries--;
 
-        switch (errno) {
-        case EAGAIN:
-        case EINTR:
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-            break;
-        default:
-            goto out;
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                goto try_again;
+            default:
+                goto out;
+            }
         }
+
+        total_sent += written;
+        if ((size_t)total_sent == count)
+            return total_sent;
+        if ((size_t)total_sent < count)
+            buf = (char *)buf + written;
+
+try_again:
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     }
 
 out:
