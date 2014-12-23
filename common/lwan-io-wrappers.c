@@ -99,21 +99,30 @@ out:
 ssize_t
 lwan_write(lwan_request_t *request, const void *buf, size_t count)
 {
-    ssize_t retval;
+    ssize_t total_written = 0;
 
-    for (int tries = max_failed_tries; tries; tries--) {
-        retval = write(request->fd, buf, count);
-        if (LIKELY(retval >= 0))
-            return retval;
+    for (int tries = max_failed_tries; tries;) {
+        ssize_t written = write(request->fd, buf, count);
+        if (UNLIKELY(written < 0)) {
+            tries--;
 
-        switch (errno) {
-        case EAGAIN:
-        case EINTR:
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-            break;
-        default:
-            goto out;
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                goto try_again;
+            default:
+                goto out;
+            }
         }
+
+        total_written += written;
+        if ((size_t)total_written == count)
+            return total_written;
+        if ((size_t)total_written < count)
+            buf = (char *)buf + written;
+
+try_again:
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     }
 
 out:
