@@ -26,14 +26,14 @@
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
 
-static const int max_failed_tries = 5;
-static const size_t buffer_size = 1400;
+static const int MAX_FAILED_TRIES = 5;
+static const size_t BUFFER_SIZE = 1400;
 
 int
 lwan_openat(lwan_request_t *request,
             int dirfd, const char *pathname, int flags)
 {
-    for (int tries = max_failed_tries; tries; tries--) {
+    for (int tries = MAX_FAILED_TRIES; tries; tries--) {
         int fd = openat(dirfd, pathname, flags);
         if (LIKELY(fd >= 0)) {
             coro_defer(request->conn->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
@@ -61,7 +61,7 @@ lwan_writev(lwan_request_t *request, struct iovec *iov, int iov_count)
     ssize_t total_written = 0;
     int curr_iov = 0;
 
-    for (int tries = max_failed_tries; tries;) {
+    for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t written = writev(request->fd, iov + curr_iov, iov_count - curr_iov);
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
@@ -101,7 +101,7 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
 {
     ssize_t total_written = 0;
 
-    for (int tries = max_failed_tries; tries;) {
+    for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t written = write(request->fd, buf, count);
         if (UNLIKELY(written < 0)) {
             tries--;
@@ -135,7 +135,7 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 {
     ssize_t total_sent = 0;
 
-    for (int tries = max_failed_tries; tries;) {
+    for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t written = send(request->fd, buf, count, flags);
         if (UNLIKELY(written < 0)) {
             tries--;
@@ -171,7 +171,7 @@ sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t co
     ssize_t total_bytes_written = 0;
     /* This buffer is allocated on the heap in order to minimize stack usage
      * inside the coroutine */
-    char *buffer = coro_malloc(coro, buffer_size);
+    char *buffer = coro_malloc(coro, BUFFER_SIZE);
 
     if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
         lwan_status_perror("lseek");
@@ -179,7 +179,7 @@ sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t co
     }
 
     while (count > 0) {
-        ssize_t read_bytes = read(in_fd, buffer, buffer_size);
+        ssize_t read_bytes = read(in_fd, buffer, BUFFER_SIZE);
         if (read_bytes < 0) {
             coro_yield(coro, CONN_CORO_ABORT);
             __builtin_unreachable();
@@ -232,7 +232,7 @@ sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_
 ssize_t
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 {
-    if (count > buffer_size * 5) {
+    if (count > BUFFER_SIZE * 5) {
         if (UNLIKELY(posix_fadvise(in_fd, offset, (off_t)count,
                                             POSIX_FADV_SEQUENTIAL) < 0))
             lwan_status_perror("posix_fadvise");
