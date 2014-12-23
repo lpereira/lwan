@@ -27,7 +27,7 @@
 
 int lwan_openat(lwan_request_t *request, int dirfd, const char *pathname,
                 int flags);
-ssize_t lwan_writev(lwan_request_t *request, const struct iovec *iov,
+ssize_t lwan_writev(lwan_request_t *request, struct iovec *iov,
                     int iovcnt);
 ssize_t lwan_write(lwan_request_t *request, const void *buffer,
                    size_t count);

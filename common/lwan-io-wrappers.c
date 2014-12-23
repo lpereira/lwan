@@ -56,23 +56,39 @@ lwan_openat(lwan_request_t *request,
 }
 
 ssize_t
-lwan_writev(lwan_request_t *request, const struct iovec *iov, int iovcnt)
+lwan_writev(lwan_request_t *request, struct iovec *iov, int iov_count)
 {
-    ssize_t retval;
+    ssize_t total_written = 0;
+    int curr_iov = 0;
 
-    for (int tries = max_failed_tries; tries; tries--) {
-        retval = writev(request->fd, iov, iovcnt);
-        if (LIKELY(retval >= 0))
-            return retval;
+    for (int tries = max_failed_tries; tries;) {
+        ssize_t written = writev(request->fd, iov + curr_iov, iov_count - curr_iov);
+        if (UNLIKELY(written < 0)) {
+            /* FIXME: Consider short writes as another try as well? */
+            tries--;
 
-        switch (errno) {
-        case EAGAIN:
-        case EINTR:
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-            break;
-        default:
-            goto out;
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                goto try_again;
+            default:
+                goto out;
+            }
         }
+
+        total_written += written;
+
+        while (written >= (ssize_t)iov[curr_iov].iov_len)
+            written -= (ssize_t)iov[curr_iov++].iov_len;
+
+        if (curr_iov == iov_count)
+            return total_written;
+
+        iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
+        iov[curr_iov].iov_len -= (size_t)written;
+
+try_again:
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     }
 
 out:
