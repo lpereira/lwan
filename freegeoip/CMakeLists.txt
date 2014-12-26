@@ -1,5 +1,5 @@
 include(FindPkgConfig)
-pkg_check_modules(SQLITE REQUIRED sqlite3>=3.7.9)
+pkg_check_modules(SQLITE REQUIRED sqlite3>=3.6.20)
 
 add_executable(freegeoip
 	freegeoip.c
