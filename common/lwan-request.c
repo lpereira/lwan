@@ -211,6 +211,8 @@ identify_http_path(lwan_request_t *request, char *buffer,
                             (helper->buffer.len - (size_t)(buffer - helper->buffer.value)));
     if (UNLIKELY(!end_of_line))
         return NULL;
+    if (UNLIKELY((size_t)(end_of_line - buffer) < sizeof("GET / HTTP/1.0")))
+        return NULL;
     *end_of_line = '\0';
 
     char *space = end_of_line - sizeof("HTTP/X.X");
