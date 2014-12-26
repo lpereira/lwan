@@ -37,7 +37,7 @@ Features include:
   - systemd socket activation
   - IPv6 ready
 
-The [web site](http://lwan.ws) has more details.
+The [web site](http://lwan.ws) has more details, including a FAQ about the name of the project and security concerns.
 
 Performance
 -----------
@@ -70,12 +70,13 @@ Building
 --------
 
 Lwan uses CMake for its build system. To build it, create a build
-directory, issue `cmake $LWAN_SOURCE_TREE`, and then `make`, as usual.
+directory, issue `cmake $LWAN_SOURCE_TREE`, and then `make`, as usual. CMake should be at least version 2.8.
 
-The CMake script should look for libraries like
-[TCMalloc](https://code.google.com/p/gperftools/),
-[jemalloc](http://www.canonware.com/jemalloc), and
-[Valgrind](http://valgrind.org), and enable/link as appropriate.
+The CMake script should look for libraries like [TCMalloc](https://code.google.com/p/gperftools/), [jemalloc](http://www.canonware.com/jemalloc), and [Valgrind](http://valgrind.org), and enable/link as appropriate.
+
+Other libraries, such as [ZLib](http://zlib.net/), [SQLite 3](https://sqlite.org/), [Lua 5.1](http://www.lua.org/) or [LuaJIT 2.0](http://luajit.org/), and client libraries for either [MySQL](https://dev.mysql.com/) or [MariaDB](https://mariadb.org/) are required to build Lwan. In the future, some of these might be converted to optional dependencies as the core does not depend on them.
+
+Python is also a build time dependency: it is required to parse and compress the MIME Type table. The script is compatible with at least Python 2.6 and should work fine with Python 3.x.
 
 Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations, like [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization)
@@ -95,10 +96,11 @@ Set up the server by editing the provided `lwan.conf`; the format is
 very simple and should be self-explanatory.
 
 Configuration files are loaded from the current directory. If no changes
-are made to this file, running lwan will serve static files located on
-`./wwwroot` directory, and also provide a `Hello, World!` handler (which
-serves as an example of how to use its internal APIs).  Lwan will listen
-on port 8080 on all interfaces.
+are made to this file, running lwan will serve static files located in
+the `./wwwroot` directory, and also provide a `Hello, World!` handler (which
+serves as an example of how to use some of its internal APIs).
+
+Lwan will listenon port 8080 on all interfaces.
 
 Build status
 ------------
