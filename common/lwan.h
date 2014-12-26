@@ -35,7 +35,11 @@
 #define DEFAULT_HEADERS_SIZE 512
 
 #undef static_assert
-#define static_assert(expr, msg)	_Static_assert((expr), msg)
+#if HAVE_STATIC_ASSERT
+#define static_assert(expr, msg)	_Static_assert(expr, msg)
+#else
+#define static_assert(expr, msg)
+#endif
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 

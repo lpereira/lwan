@@ -12,6 +12,11 @@ if (HAVE_BUILTIN_CPU_INIT)
 	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
 endif ()
 
+check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
+if (HAVE_STATIC_ASSERT)
+	add_definitions("-DHAVE_STATIC_ASSERT")
+endif ()
+
 
 include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES time.h)
