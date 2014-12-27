@@ -132,6 +132,17 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.text, 'X' * 100)
 
 
+  def test_get_root(self):
+    r = requests.get('http://127.0.0.1:8080/')
+
+    self.assertEqual(r.status_code, 200)
+
+    self.assertTrue('content-type' in r.headers)
+    self.assertEqual(r.headers['content-type'], 'text/html')
+
+    self.assertTrue('It works!' in r.text)
+
+
   def test_compressed_small_file(self):
     encodings = (
       'deflate',

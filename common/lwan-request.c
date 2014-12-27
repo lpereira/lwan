@@ -207,11 +207,13 @@ static char *
 identify_http_path(lwan_request_t *request, char *buffer,
             lwan_request_parse_t *helper)
 {
+    static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
+
     char *end_of_line = memchr(buffer, '\r',
                             (helper->buffer.len - (size_t)(buffer - helper->buffer.value)));
     if (UNLIKELY(!end_of_line))
         return NULL;
-    if (UNLIKELY((size_t)(end_of_line - buffer) < sizeof("/ HTTP/1.0")))
+    if (UNLIKELY((size_t)(end_of_line - buffer) < minimal_request_line_len))
         return NULL;
     *end_of_line = '\0';
 
