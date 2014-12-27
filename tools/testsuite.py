@@ -231,6 +231,19 @@ class TestMalformedRequests(LwanTest):
     self.assertRegexpMatches(contents, r'^HTTP/1\.[01] ' + str(code) + r' ')
 
 
+  def test_random_flood(self):
+    with open('/dev/urandom', 'rb') as urandom:
+      for step in range(10):
+
+        buffer = b''
+        while len(buffer) < 8192:
+          buffer += urandom.read(8192 - len(buffer))
+
+        sock = self.connect()
+        sock.send(buffer)
+        self.assertHttpCode(sock, 413)
+
+
   def test_cat_sleeping_on_keyboard(self):
     sock = self.connect()
     sock.send('asldkfjg238045tgqwdcjv1li	2u4ftw dfjkb12345t\r\n\r\n')
