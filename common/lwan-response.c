@@ -356,7 +356,7 @@ lwan_response_send_chunk(lwan_request_t *request)
     char chunk_size[3 * sizeof(size_t) + 2];
     int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%zx\r\n", buffer_len);
     if (UNLIKELY(converted_len < 0))
-        return;
+        goto abort_coro;
     size_t chunk_size_len = (size_t)converted_len;
 
     struct iovec chunk_vec[] = {
@@ -367,12 +367,14 @@ lwan_response_send_chunk(lwan_request_t *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (UNLIKELY(!strbuf_reset_length(request->response.buffer))) {
-        coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
+    if (LIKELY(strbuf_reset_length(request->response.buffer))) {
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+        return;
     }
 
-    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+abort_coro:
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
 }
 
 bool
