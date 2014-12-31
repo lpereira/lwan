@@ -32,6 +32,11 @@ def weighttp(url, n_threads, n_connections, n_requests, keep_alive):
   return json.loads(output)
 
 
+def weighttp_has_json_output():
+  output = commands.getoutput('weighttp -j')
+  return not 'unknown option: -j' in output
+
+
 def steprange(initial, final, steps=10):
   step = (final - initial) / steps
 
@@ -129,6 +134,11 @@ class MatplotlibOutput:
 
 
 if __name__ == '__main__':
+  if not weighttp_has_json_output():
+    print 'This script requires a special version of weighttp which supports JSON'
+    print 'output. Get it at http://github.com/lpereira/weighttp'
+    sys.exit(1)
+
   plot = cmdlineboolarg('--plot')
   xkcd = cmdlineboolarg('--xkcd')
   n_threads = cmdlineintarg('--threads', 2)
