@@ -80,7 +80,7 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
     lwan_connection_t *conn)
 {
     /*
-     * If the connection isn't keep alive, it might have a coroutine that
+     * If the connection is keep alive, it might have a coroutine that
      * should be resumed.  If that's the case, schedule for this request to
      * die according to the keep alive timeout.
      *
@@ -88,7 +88,7 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
      * resumed -- then just mark it to be reaped right away.
      */
     conn->time_to_die = dq->time + dq->keep_alive_timeout *
-            (unsigned)!!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
+            (unsigned)!!(conn->flags & (CONN_KEEP_ALIVE & CONN_SHOULD_RESUME_CORO));
 
     death_queue_remove(dq, conn);
     death_queue_insert(dq, conn);
