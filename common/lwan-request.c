@@ -760,14 +760,14 @@ value_array_bsearch(lwan_key_value_t *base, const size_t len, const char *key)
     return NULL;
 }
 
-ALWAYS_INLINE const char *
+const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
     return value_array_bsearch(request->query_params.base,
                                             request->query_params.len, key);
 }
 
-ALWAYS_INLINE const char *
+const char *
 lwan_request_get_post_param(lwan_request_t *request, const char *key)
 {
     return value_array_bsearch(request->post_data.base,
