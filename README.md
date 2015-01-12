@@ -71,8 +71,7 @@ Building
 
 Before installing Lwan, ensure all dependencies are installed. All of them are common dependencies found in any GNU/Linux distribution; package names will be different, but it shouldn't be difficult to search using whatever package management tool that's used by your distribution.
 
-Required dependencies
-=====================
+### Required dependencies
 
  - [CMake](http://cmake.org), at least version 2.8
  - [Python](http://python.org), at least version 2.6 (3.x is OK)
@@ -81,8 +80,7 @@ Required dependencies
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
  - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
 
-Optional dependencies
-=====================
+### Optional dependencies
 
 The build system will look for these libraries and enable/link if available.
 
@@ -90,13 +88,11 @@ The build system will look for these libraries and enable/link if available.
  - [jemalloc](http://www.canonware.com/jemalloc)
  - [Valgrind](http://valgrind.org)
 
-Common distribution package names
-=================================
+### Common distribution package names
 
  - ArchLinux: `pacman -S cmake python zlib sqlite luajit libmariadbclient gperftools valgrind`
 
-Build commands
-==============
+### Build commands
 
     ~$ git clone git://github.com/lpereira/lwan
     ~$ cd lwan
