@@ -307,7 +307,8 @@ const char *get_config_path(char *path_buf)
     path = strrchr(path_buf, '/');
     if (!path)
         goto out;
-    if (snprintf(path_buf, PATH_MAX, "%s.conf", path + 1) < 0)
+    int ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
+    if (ret < 0 || ret >= PATH_MAX)
         goto out;
 
     return path_buf;

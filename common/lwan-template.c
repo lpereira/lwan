@@ -281,13 +281,14 @@ next_char:
             goto invalid_negate;
 
         char template_file[PATH_MAX];
-        snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
+        int ret = snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
+        if (ret < 0 || ret >= (int)sizeof(template_file))
+            goto invalid_template;
 
         lwan_tpl_t *included = lwan_tpl_compile_file(template_file, descriptor);
-        if (!included) {
-            free(chunk);
-            return -ENOENT;
-        }
+        if (!included)
+            goto invalid_template;
+
         chunk->action = TPL_ACTION_APPLY_TPL;
         chunk->data = included;
         break;
@@ -364,6 +365,10 @@ add_chunk:
 
     return 0;
 
+invalid_template:
+    free(chunk);
+    return -ENOENT;
+
 no_such_key:
     free(chunk);
     return -ENOKEY;
@@ -424,7 +429,9 @@ lwan_tpl_free(lwan_tpl_t *tpl)
 
 #define PARSE_ERROR(msg,...) \
     do { \
-        snprintf(error_msg, 512, msg, ##__VA_ARGS__); \
+        int ret = snprintf(error_msg, 512, msg, ##__VA_ARGS__); \
+        if (ret < 0 || ret >= 512) \
+            lwan_status_error("Error truncated"); \
         return STATE_PARSE_ERROR; \
     } while(0)
 

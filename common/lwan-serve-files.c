@@ -429,8 +429,8 @@ get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
             if (*(key_end - 1) != '/')
                 return &redir_funcs;
 
-            if (UNLIKELY(snprintf(index_html_path, PATH_MAX, "%s%s",
-                        key, priv->index_html) < 0))
+            int ret = snprintf(index_html_path, PATH_MAX, "%s%s", key, priv->index_html);
+            if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
                 return NULL;
         }
 
