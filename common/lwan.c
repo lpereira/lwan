@@ -531,7 +531,7 @@ lwan_main_loop(lwan_t *l)
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK);
+        int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (UNLIKELY(client_fd < 0)) {
             if (errno != EBADF) {
                 lwan_status_perror("accept");
