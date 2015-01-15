@@ -224,7 +224,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
         struct timespec time_to_die;
         clock_monotonic_gettime(cache, &time_to_die);
-        entry->time_to_die = time_to_die.tv_sec;
+        entry->time_to_die = time_to_die.tv_sec + cache->settings.time_to_live;
 
         pthread_rwlock_wrlock(&cache->queue.lock);
         list_add_tail(&cache->queue.list, &entry->entries);
