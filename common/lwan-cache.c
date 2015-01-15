@@ -222,9 +222,9 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     }
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
-        clock_monotonic_gettime(cache, &entry->time_to_die);
-
-        entry->time_to_die.tv_sec += cache->settings.time_to_live;
+        struct timespec time_to_die;
+        clock_monotonic_gettime(cache, &time_to_die);
+        entry->time_to_die = time_to_die.tv_sec;
 
         pthread_rwlock_wrlock(&cache->queue.lock);
         list_add_tail(&cache->queue.list, &entry->entries);
@@ -301,7 +301,7 @@ static bool cache_pruner_job(void *data)
     {
         char *key = node->key;
 
-        if (now.tv_sec < node->time_to_die.tv_sec && LIKELY(!shutting_down))
+        if (now.tv_sec < node->time_to_die && LIKELY(!shutting_down))
             break;
 
         list_del(&node->entries);

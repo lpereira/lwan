@@ -30,7 +30,7 @@ struct cache_entry_t {
   char *key;
   unsigned refs;
   unsigned flags;
-  struct timespec time_to_die;
+  time_t time_to_die;
 };
 
 typedef struct cache_entry_t *(*CreateEntryCallback)(
