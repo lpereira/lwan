@@ -44,7 +44,7 @@ get_backlog_size(void)
 #endif
     FILE *somaxconn;
 
-    somaxconn = fopen("/proc/sys/net/core/somaxconn", "r");
+    somaxconn = fopen("/proc/sys/net/core/somaxconn", "re");
     if (somaxconn) {
         int tmp;
         if (fscanf(somaxconn, "%d", &tmp) == 1)

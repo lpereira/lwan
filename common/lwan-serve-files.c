@@ -563,7 +563,7 @@ try_open_directory(const char *path, int *open_mode)
 {
     int fd;
 
-    *open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK;
+    *open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK | O_CLOEXEC;
 
     fd = open(path, *open_mode | O_DIRECTORY);
     if (fd < 0) {

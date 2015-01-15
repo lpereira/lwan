@@ -669,7 +669,7 @@ lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descrip
     char *mapped;
     lwan_tpl_t *tpl = NULL;
 
-    fd = open(filename, O_RDONLY);
+    fd = open(filename, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         goto end;
 

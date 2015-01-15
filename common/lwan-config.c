@@ -226,7 +226,7 @@ bool config_open(config_t *conf, const char *path)
         return false;
     if (!path)
         return false;
-    conf->file = fopen(path, "r");
+    conf->file = fopen(path, "re");
     if (!conf->file)
         return false;
     conf->line = 0;
