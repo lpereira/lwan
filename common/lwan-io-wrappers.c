@@ -78,8 +78,10 @@ lwan_writev(lwan_request_t *request, struct iovec *iov, int iov_count)
 
         total_written += written;
 
-        while (written >= (ssize_t)iov[curr_iov].iov_len)
-            written -= (ssize_t)iov[curr_iov++].iov_len;
+        while (curr_iov <= iov_count && written >= (ssize_t)iov[curr_iov].iov_len) {
+            written -= (ssize_t)iov[curr_iov].iov_len;
+            curr_iov++;
+        }
 
         if (curr_iov == iov_count)
             return total_written;
