@@ -240,11 +240,6 @@ void config_close(config_t *conf)
         return;
     if (!conf->file)
         return;
-    while (fclose(conf->file) == EOF) {
-        if (errno != EINTR) {
-            lwan_status_perror("Could not close config file");
-            break;
-        }
-    }
+    fclose(conf->file);
     free(conf->error_message);
 }
