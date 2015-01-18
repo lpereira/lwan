@@ -21,14 +21,19 @@
 #include "hash.h"
 #include "murmur3.h"
 
-#include <stdint.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 static const unsigned n_buckets = 512;
 static const unsigned steps = 64;
+static unsigned odd_constant = 0x27d4eb2d;
 
 struct hash_entry {
 	const char *key;
@@ -51,11 +56,29 @@ struct hash {
 	struct hash_bucket buckets[];
 };
 
+__attribute__((constructor))
+static void initialize_odd_constant(void)
+{
+	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
+	if (fd < 0) {
+		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
+		if (fd < 0)
+			goto use_default_constant;
+	}
+	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
+		goto use_default_constant;
+	close(fd);
+	return;
+
+use_default_constant:
+	odd_constant = 0x27d4eb2d;
+}
+
 static inline unsigned hash_int(const void *keyptr)
 {
 	/* http://www.concentric.net/~Ttwang/tech/inthash.htm */
 	unsigned key = (unsigned)(long)keyptr;
-	unsigned c2 = 0x27d4eb2d; // a prime or an odd constant
+	unsigned c2 = odd_constant;
 
 	key = (key ^ 61) ^ (key >> 16);
 	key += key << 3;
@@ -68,7 +91,7 @@ static inline unsigned hash_int(const void *keyptr)
 #if defined(HAVE_BUILTIN_CPU_INIT) && defined(USE_HARDWARE_CRC32)
 static inline unsigned hash_crc32(const void *keyptr)
 {
-	unsigned hash = 0xABAD1DEA;
+	unsigned hash = odd_constant;
 	const char *key = keyptr;
 	size_t len = strlen(key);
 
