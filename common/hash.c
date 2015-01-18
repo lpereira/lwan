@@ -121,9 +121,9 @@ static inline unsigned hash_crc32(const void *keyptr)
 
 static inline int hash_int_key_cmp(const void *k1, const void *k2)
 {
-	int a = (int)(long)k1;
-	int b = (int)(long)k2;
-	return a - b;
+	int a = (int)(intptr_t)k1;
+	int b = (int)(intptr_t)k2;
+	return (a > b) - (a < b);
 }
 
 static struct hash *hash_internal_new(
