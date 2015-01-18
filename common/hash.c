@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -59,6 +60,12 @@ struct hash {
 __attribute__((constructor))
 static void initialize_odd_constant(void)
 {
+#ifdef SYS_getrandom
+	long int ret = syscall(SYS_getrandom, &odd_constant, sizeof(odd_constant), 0);
+	if (ret == sizeof(odd_constant))
+		return;
+#endif
+
 	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
 	if (fd < 0) {
 		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
