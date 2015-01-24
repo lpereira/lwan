@@ -349,7 +349,7 @@ create_thread(lwan_t *l, short thread_n)
     thread->lwan = l;
     thread->id = thread_n;
 
-    if ((thread->epoll_fd = epoll_create1(0)) < 0)
+    if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
         lwan_status_critical_perror("epoll_create");
 
     if (pthread_attr_init(&attr))
@@ -367,7 +367,7 @@ create_thread(lwan_t *l, short thread_n)
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
 
-    if (pipe2(thread->pipe_fd, O_NONBLOCK) < 0)
+    if (pipe2(thread->pipe_fd, O_NONBLOCK | O_CLOEXEC) < 0)
         lwan_status_critical_perror("pipe");
 
     struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
