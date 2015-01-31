@@ -63,7 +63,7 @@ static void initialize_odd_constant(void)
 #ifdef SYS_getrandom
 	long int ret = syscall(SYS_getrandom, &odd_constant, sizeof(odd_constant), 0);
 	if (ret == sizeof(odd_constant))
-		return;
+		goto oddify_constant;
 #endif
 
 	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
@@ -75,6 +75,9 @@ static void initialize_odd_constant(void)
 	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
 		goto use_default_constant;
 	close(fd);
+
+oddify_constant:
+	odd_constant |= 1;
 	return;
 
 use_default_constant:
