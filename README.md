@@ -109,9 +109,12 @@ when benchmarking*, as the default is the Debug build, which not only
 logs all requests to the standard output, but does so while holding a
 mutex.
 
-Passing `-DCMAKE_BUILD_TYPE=Debug` will generate code suitable to be used
-under a debugger like [gdb](http://www.gnu.org/software/gdb/) and force
-debug messages to be printed to the terminal.
+The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
+a version suitable for debugging purposes. This version can be used under
+Valgrind, is built with Undefined Behavior Sanitizer, and includes debugging
+messages that are stripped in the release version. Debugging messages are
+printed while holding a mutex, and are printed for each and every request;
+so do not use this version for benchmarking purposes.
 
 Running
 -------
@@ -125,6 +128,10 @@ the `./wwwroot` directory, and also provide a `Hello, World!` handler (which
 serves as an example of how to use some of its internal APIs).
 
 Lwan will listen on port 8080 on all interfaces.
+
+Lwan will detect the number of CPUs, will increase the maximum number of
+open file descriptors and generally try its best to autodetect reasonable
+settings for the environment it's running on.
 
 Build status
 ------------
