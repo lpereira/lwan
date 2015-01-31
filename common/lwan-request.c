@@ -410,7 +410,9 @@ parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
 
     enum {
         ENCODING_DEFL1 = MULTICHAR_CONSTANT('d','e','f','l'),
-        ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f')
+        ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f'),
+        ENCODING_GZIP1 = MULTICHAR_CONSTANT('g','z','i','p'),
+        ENCODING_GZIP2 = MULTICHAR_CONSTANT(' ','g','z','i')
     };
 
     for (char *p = helper->accept_encoding.value; p && *p; p++) {
@@ -418,7 +420,11 @@ parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
         case ENCODING_DEFL1:
         case ENCODING_DEFL2:
             request->flags |= REQUEST_ACCEPT_DEFLATE;
-            return;
+            break;
+        case ENCODING_GZIP1:
+        case ENCODING_GZIP2:
+            request->flags |= REQUEST_ACCEPT_GZIP;
+            break;
         }
 
         if (!(p = strchr(p, ',')))

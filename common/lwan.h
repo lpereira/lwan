@@ -119,13 +119,14 @@ typedef enum {
 
 typedef enum {
     REQUEST_ACCEPT_DEFLATE     = 1<<0,
-    REQUEST_IS_HTTP_1_0        = 1<<1,
-    REQUEST_METHOD_GET         = 1<<2,
-    REQUEST_METHOD_HEAD        = 1<<3,
-    REQUEST_METHOD_POST        = 1<<4,
-    RESPONSE_SENT_HEADERS      = 1<<5,
-    RESPONSE_CHUNKED_ENCODING  = 1<<6,
-    RESPONSE_NO_CONTENT_LENGTH = 1<<7
+    REQUEST_ACCEPT_GZIP        = 1<<1,
+    REQUEST_IS_HTTP_1_0        = 1<<2,
+    REQUEST_METHOD_GET         = 1<<3,
+    REQUEST_METHOD_HEAD        = 1<<4,
+    REQUEST_METHOD_POST        = 1<<5,
+    RESPONSE_SENT_HEADERS      = 1<<6,
+    RESPONSE_CHUNKED_ENCODING  = 1<<7,
+    RESPONSE_NO_CONTENT_LENGTH = 1<<8
 } lwan_request_flags_t;
 
 typedef enum {
