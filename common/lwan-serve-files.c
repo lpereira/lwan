@@ -919,7 +919,7 @@ mmap_serve(lwan_request_t *request, void *data)
     size_t size;
     int compressed;
 
-    if (md->compressed.size) {
+    if (md->compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
         contents = md->compressed.contents;
         size = md->compressed.size;
         compressed = REQUEST_ACCEPT_DEFLATE;
