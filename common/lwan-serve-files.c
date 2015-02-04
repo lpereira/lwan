@@ -375,6 +375,7 @@ sendfile_init(file_cache_entry_t *ce,
                struct stat *st)
 {
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(ce + 1);
+    struct stat compressed_st;
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
                 full_path + priv->root.path_len);
@@ -384,21 +385,11 @@ sendfile_init(file_cache_entry_t *ce,
     if (UNLIKELY(len < 0 || len >= PATH_MAX))
         goto only_uncompressed;
 
-    struct stat compressed_st;
     int ret = fstatat(priv->root.fd, sd->compressed.filename, &compressed_st, 0);
     if (LIKELY(ret >= 0 && compressed_st.st_mtime >= st->st_mtime &&
             is_compression_worthy((size_t)compressed_st.st_size, (size_t)st->st_size))) {
         sd->compressed.size = (size_t)compressed_st.st_size;
-        lwan_status_debug("Compressed payload available for %s", full_path);
     } else {
-        if (ret < 0) {
-            lwan_status_debug("%s not found, not considering compressed payload",
-                    sd->compressed.filename);
-        } else {
-            lwan_status_debug("%s found but is older than non-compressed %s",
-                    sd->compressed.filename, full_path);
-        }
-
         free(sd->compressed.filename);
 
 only_uncompressed:
