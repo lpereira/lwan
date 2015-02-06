@@ -41,7 +41,9 @@
         headers[number_].value = (value_); \
     } while(0)
 
-#define NO_COMPRESSION 0
+static const char *compression_none = NULL;
+static const char *compression_gzip = "gzip";
+static const char *compression_deflate = "deflate";
 
 typedef struct serve_files_priv_t_	serve_files_priv_t;
 typedef struct file_cache_entry_t_	file_cache_entry_t;
@@ -722,7 +724,7 @@ prepare_headers(lwan_request_t *request,
                  lwan_http_status_t return_status,
                  file_cache_entry_t *fce,
                  size_t size,
-                 int deflated_or_gzipped,
+                 const char *compression_type,
                  char *header_buf,
                  size_t header_buf_size)
 {
@@ -733,16 +735,10 @@ prepare_headers(lwan_request_t *request,
 
     SET_NTH_HEADER(0, "Last-Modified", fce->last_modified.string);
 
-    switch (deflated_or_gzipped) {
-    case REQUEST_ACCEPT_DEFLATE:
-        SET_NTH_HEADER(1, "Content-Encoding", "deflate");
+    if (compression_type) {
+        SET_NTH_HEADER(1, "Content-Encoding", (char *)compression_type);
         SET_NTH_HEADER(2, NULL, NULL);
-        break;
-    case REQUEST_ACCEPT_GZIP:
-        SET_NTH_HEADER(1, "Content-Encoding", "gzip");
-        SET_NTH_HEADER(2, NULL, NULL);
-        break;
-    default:
+    } else {
         SET_NTH_HEADER(1, NULL, NULL);
     }
 
@@ -809,7 +805,7 @@ sendfile_serve(lwan_request_t *request, void *data)
     size_t header_len;
     lwan_http_status_t return_status;
     off_t from, to;
-    int compressed;
+    const char *compressed;
     char *filename;
     size_t size;
 
@@ -817,7 +813,7 @@ sendfile_serve(lwan_request_t *request, void *data)
         from = 0;
         to = (off_t)sd->compressed.size;
 
-        compressed = REQUEST_ACCEPT_GZIP;
+        compressed = compression_gzip;
         filename = sd->compressed.filename;
         size = sd->compressed.size;
 
@@ -827,7 +823,7 @@ sendfile_serve(lwan_request_t *request, void *data)
         if (UNLIKELY(return_status == HTTP_RANGE_UNSATISFIABLE))
             return HTTP_RANGE_UNSATISFIABLE;
 
-        compressed = NO_COMPRESSION;
+        compressed = compression_none;
         filename = sd->uncompressed.filename;
         size = sd->uncompressed.size;
     }
@@ -872,7 +868,7 @@ sendfile_serve(lwan_request_t *request, void *data)
 
 static lwan_http_status_t
 serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
-            int deflated_or_gzipped, void *contents, size_t size)
+            const char *compression_type, void *contents, size_t size)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
@@ -882,7 +878,7 @@ serve_contents_and_size(lwan_request_t *request, file_cache_entry_t *fce,
         return_status = HTTP_NOT_MODIFIED;
 
     header_len = prepare_headers(request, return_status,
-                                  fce, size, deflated_or_gzipped,
+                                  fce, size, compression_type,
                                   headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
@@ -908,16 +904,16 @@ mmap_serve(lwan_request_t *request, void *data)
     mmap_cache_data_t *md = (mmap_cache_data_t *)(fce + 1);
     void *contents;
     size_t size;
-    int compressed;
+    const char *compressed;
 
     if (md->compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
         contents = md->compressed.contents;
         size = md->compressed.size;
-        compressed = REQUEST_ACCEPT_DEFLATE;
+        compressed = compression_deflate;
     } else {
         contents = md->uncompressed.contents;
         size = md->uncompressed.size;
-        compressed = NO_COMPRESSION;
+        compressed = compression_none;
     }
 
     return serve_contents_and_size(request, fce, compressed, contents, size);
@@ -929,7 +925,7 @@ dirlist_serve(lwan_request_t *request, void *data)
     file_cache_entry_t *fce = data;
     dir_list_cache_data_t *dd = (dir_list_cache_data_t *)(fce + 1);
 
-    return serve_contents_and_size(request, fce, NO_COMPRESSION,
+    return serve_contents_and_size(request, fce, compression_none,
             strbuf_get_buffer(dd->rendered), strbuf_get_length(dd->rendered));
 }
 
