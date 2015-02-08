@@ -243,6 +243,7 @@ struct lwan_config_t_ {
     bool quiet;
     bool reuse_port;
     unsigned int expires;
+    short unsigned int n_threads;
 };
 
 struct lwan_t_ {
@@ -253,7 +254,7 @@ struct lwan_t_ {
     lwan_config_t config;
 
     struct {
-        short count;
+        unsigned short int count;
         unsigned max_fd;
         lwan_thread_t *threads;
     } thread;
