@@ -275,7 +275,7 @@ static bool cache_pruner_job(void *data)
     unsigned evicted = 0;
     struct list_head queue;
 
-    if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->queue.lock) == EBUSY))
         return false;
 
     /* If the queue is empty, there's nothing to do; unlock/return*/
