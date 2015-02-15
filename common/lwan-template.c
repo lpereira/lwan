@@ -738,29 +738,41 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
     void *variables,
     bool (*until)(lwan_tpl_chunk_t *chunk, void *data), void *until_data)
 {
+    static const void *const dispatch_table[] = {
+        [TPL_ACTION_APPEND] = &&action_append,
+        [TPL_ACTION_APPEND_CHAR] = &&action_append_char,
+        [TPL_ACTION_VARIABLE] = &&action_variable,
+        [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
+        [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
+        [TPL_ACTION_LIST_START_ITER] = &&action_list_start_iter,
+        [TPL_ACTION_LIST_END_ITER] = &&action_list_end_iter,
+        [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&next_action,
+        [TPL_ACTION_LAST] = &&finalize
+    };
     coro_switcher_t switcher;
     coro_t *coro = NULL;
     lwan_tpl_chunk_t *chunk = chunks;
 
     if (UNLIKELY(!chunk))
-        goto out;
+        return NULL;
 
-    do {
-        if (until(chunk, until_data))
-            break;
+    while (!until(chunk, until_data)) {
+	goto *dispatch_table[chunk->action];
 
-        switch (chunk->action) {
-        case TPL_ACTION_APPEND:
-            strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
-                        strbuf_get_length(chunk->data));
-            break;
-        case TPL_ACTION_APPEND_CHAR:
-            strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
-            break;
-        case TPL_ACTION_VARIABLE:
-            append_var_to_strbuf(chunk, variables, buf);
-            break;
-        case TPL_ACTION_IF_VARIABLE_NOT_EMPTY: {
+action_append:
+        strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
+                    strbuf_get_length(chunk->data));
+        goto next_action;
+
+action_append_char:
+        strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
+        goto next_action;
+
+action_variable:
+        append_var_to_strbuf(chunk, variables, buf);
+        goto next_action;
+
+action_if_variable_not_empty: {
             struct chunk_descriptor *cd = chunk->data;
             bool empty = var_get_is_empty(cd->descriptor, variables);
             if (chunk->flags & TPL_FLAG_NEGATE)
@@ -772,20 +784,20 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                     (lwan_tpl_chunk_t *) chunk->list.next, buf, variables,
                     until_found_end_if, cd->chunk);
             }
-            break;
+            goto next_action;
         }
-        case TPL_ACTION_APPLY_TPL: {
-            strbuf_t *tmp;
 
-            tmp = lwan_tpl_apply(chunk->data, variables);
+action_apply_tpl: {
+            strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
             strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
             strbuf_free(tmp);
-            break;
+            goto next_action;
         }
-        case TPL_ACTION_LIST_START_ITER: {
+
+action_list_start_iter: {
             if (UNLIKELY(coro != NULL)) {
                 lwan_status_warning("Coroutine is not NULL when starting iteration");
-                break;
+                goto next_action;
             }
 
             struct chunk_descriptor *cd = chunk->data;
@@ -807,24 +819,25 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                 coro_free(coro);
                 coro = NULL;
 
-                break;
+                goto next_action;
             }
 
             chunk = lwan_tpl_apply_until(tpl, (lwan_tpl_chunk_t *) chunk->list.next,
                         buf, variables, until_iter_end, chunk);
             continue;
         }
-        case TPL_ACTION_LIST_END_ITER: {
+
+action_list_end_iter: {
             if (UNLIKELY(!coro)) {
                 if (!chunk->flags)
                     lwan_status_warning("Coroutine is NULL when finishing iteration");
-                break;
+                goto next_action;
             }
 
             if (!coro_resume_value(coro, 0)) {
                 coro_free(coro);
                 coro = NULL;
-                break;
+                goto next_action;
             }
 
             lwan_tpl_chunk_t *next = chunk->data;
@@ -834,18 +847,12 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
                         chunk->data);
             continue;
         }
-        case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
-        case TPL_ACTION_LAST:
-            /* Shouldn't happen */
-            break;
-        }
 
-        if (!chunk)
-            break;
+next_action:
         chunk = (lwan_tpl_chunk_t *)chunk->list.next;
-    } while (chunk);
+    }
 
-out:
+finalize:
     return chunk;
 }
 
@@ -858,7 +865,9 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
     if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
         return NULL;
 
-    lwan_tpl_apply_until(tpl, (lwan_tpl_chunk_t *)&tpl->chunks.n, buf, variables, until_end, NULL);
+    lwan_tpl_chunk_t *chunks = container_of_var(tpl->chunks.n.next, chunks, list);
+    lwan_tpl_apply_until(tpl, chunks, buf, variables, until_end, NULL);
+
     return buf;
 }
 
