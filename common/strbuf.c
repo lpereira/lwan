@@ -243,18 +243,6 @@ strbuf_append_printf(strbuf_t *s, const char *fmt, ...)
     return could_printf;
 }
 
-ALWAYS_INLINE size_t
-strbuf_get_length(strbuf_t *s)
-{
-    return s->len.buffer;
-}
-
-ALWAYS_INLINE char *
-strbuf_get_buffer(strbuf_t *s)
-{
-    return s->value.buffer;
-}
-
 bool
 strbuf_shrink_to(strbuf_t *s, size_t new_size)
 {
