@@ -169,25 +169,23 @@ lwan_tpl_double_is_empty(void *ptr)
 void
 lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
 {
-    struct v {
-        char *str;
-    } *v = ptr;
+    const char *str = *(char **)ptr;
 
-    if (LIKELY(v->str))
-        strbuf_append_str(buf, v->str, 0);
+    if (LIKELY(str))
+        strbuf_append_str(buf, str, 0);
 }
 
 void
 lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 {
-    struct v {
-        char *str;
-    } *v = ptr;
-
-    if (UNLIKELY(!v->str))
+    if (UNLIKELY(!ptr))
         return;
 
-    for (char *p = v->str; *p; p++) {
+    const char *str = *(char **)ptr;
+    if (UNLIKELY(!str))
+        return;
+
+    for (const char *p = str; *p; p++) {
         if (*p == '<')
             strbuf_append_str(buf, "&lt;", 4);
         else if (*p == '>')
@@ -208,12 +206,11 @@ lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
 bool
 lwan_tpl_str_is_empty(void *ptr)
 {
-    char *str = ptr;
-    if (!str)
+    if (UNLIKELY(!ptr))
         return true;
-    if (*str == '\0')
-        return true;
-    return false;
+
+    const char *str = *(char **)ptr;
+    return LIKELY(str) && *str;
 }
 
 static int
