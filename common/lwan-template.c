@@ -740,9 +740,9 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
     if (UNLIKELY(!chunk))
         return NULL;
 
-    while (true) {
-	goto *dispatch_table[chunk->action];
+    goto *dispatch_table[chunk->action];
 
+    while (true) {
 action_append:
         strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
                     strbuf_get_length(chunk->data));
@@ -805,7 +805,7 @@ action_list_start_iter: {
                     coro_resume_value(coro, 1);
                     coro_free(coro);
                     coro = NULL;
-                    continue;
+                    goto dispatch;
                 }
 
                 coro_free(coro);
@@ -815,7 +815,7 @@ action_list_start_iter: {
             }
 
             chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
-            continue;
+            goto dispatch;
         }
 
 action_list_end_iter: {
@@ -837,11 +837,13 @@ action_list_end_iter: {
             struct chunk *next = chunk->data;
             next = (struct chunk *)next->list.next;
             chunk = apply_until(tpl, next, buf, variables, chunk->data);
-            continue;
+            goto dispatch;
         }
 
 next_action:
         chunk = (struct chunk *)chunk->list.next;
+dispatch:
+	goto *dispatch_table[chunk->action];
     }
 
 finalize:
