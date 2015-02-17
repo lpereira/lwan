@@ -708,8 +708,8 @@ var_get_is_empty(lwan_var_descriptor_t *descriptor,
 }
 
 static struct chunk *
-lwan_tpl_apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf,
-                     void *variables, void *until_data)
+apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variables,
+            void *until_data)
 {
     static const void *const dispatch_table[] = {
         [TPL_ACTION_APPEND] = &&action_append,
@@ -753,7 +753,7 @@ action_if_variable_not_empty: {
             if (empty) {
                 chunk = cd->chunk;
             } else {
-                chunk = lwan_tpl_apply_until(tpl,
+                chunk = apply_until(tpl,
                     (struct chunk *) chunk->list.next, buf, variables, cd->chunk);
             }
             goto next_action;
@@ -799,8 +799,7 @@ action_list_start_iter: {
                 goto next_action;
             }
 
-            chunk = lwan_tpl_apply_until(tpl, (struct chunk *) chunk->list.next,
-                        buf, variables, chunk);
+            chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
             continue;
         }
 
@@ -822,7 +821,7 @@ action_list_end_iter: {
 
             struct chunk *next = chunk->data;
             next = (struct chunk *)next->list.next;
-            chunk = lwan_tpl_apply_until(tpl, next, buf, variables, chunk->data);
+            chunk = apply_until(tpl, next, buf, variables, chunk->data);
             continue;
         }
 
@@ -844,7 +843,7 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
         return NULL;
 
     struct chunk *chunks = container_of_var(tpl->chunks.n.next, chunks, list);
-    lwan_tpl_apply_until(tpl, chunks, buf, variables, NULL);
+    apply_until(tpl, chunks, buf, variables, NULL);
 
     return buf;
 }
