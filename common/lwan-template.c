@@ -688,28 +688,6 @@ end:
     return tpl;
 }
 
-static bool
-until_end(struct chunk *chunk, void *data __attribute__((unused)))
-{
-    return chunk->action == TPL_ACTION_LAST;
-}
-
-static bool
-until_found_end_if(struct chunk *chunk, void *data)
-{
-    return chunk == data;
-}
-
-static bool
-until_iter_end(struct chunk *chunk, void *data)
-{
-    if (chunk->action != TPL_ACTION_LIST_END_ITER)
-        return false;
-    if (data != chunk->data)
-        return false;
-    return true;
-}
-
 static void
 append_var_to_strbuf(struct chunk *chunk, void *variables,
                      strbuf_t *buf)
@@ -730,20 +708,18 @@ var_get_is_empty(lwan_var_descriptor_t *descriptor,
 }
 
 static struct chunk *
-lwan_tpl_apply_until(lwan_tpl_t *tpl,
-    struct chunk *chunks, strbuf_t *buf,
-    void *variables,
-    bool (*until)(struct chunk *chunk, void *data), void *until_data)
+lwan_tpl_apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf,
+                     void *variables, void *until_data)
 {
     static const void *const dispatch_table[] = {
         [TPL_ACTION_APPEND] = &&action_append,
         [TPL_ACTION_APPEND_CHAR] = &&action_append_char,
         [TPL_ACTION_VARIABLE] = &&action_variable,
         [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
+        [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
         [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
         [TPL_ACTION_LIST_START_ITER] = &&action_list_start_iter,
         [TPL_ACTION_LIST_END_ITER] = &&action_list_end_iter,
-        [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&next_action,
         [TPL_ACTION_LAST] = &&finalize
     };
     coro_switcher_t switcher;
@@ -753,7 +729,7 @@ lwan_tpl_apply_until(lwan_tpl_t *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-    while (!until(chunk, until_data)) {
+    while (true) {
 	goto *dispatch_table[chunk->action];
 
 action_append:
@@ -778,11 +754,15 @@ action_if_variable_not_empty: {
                 chunk = cd->chunk;
             } else {
                 chunk = lwan_tpl_apply_until(tpl,
-                    (struct chunk *) chunk->list.next, buf, variables,
-                    until_found_end_if, cd->chunk);
+                    (struct chunk *) chunk->list.next, buf, variables, cd->chunk);
             }
             goto next_action;
         }
+
+action_end_if_variable_not_empty:
+        if (until_data == chunk)
+            break;
+        goto next_action;
 
 action_apply_tpl: {
             strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
@@ -820,11 +800,14 @@ action_list_start_iter: {
             }
 
             chunk = lwan_tpl_apply_until(tpl, (struct chunk *) chunk->list.next,
-                        buf, variables, until_iter_end, chunk);
+                        buf, variables, chunk);
             continue;
         }
 
 action_list_end_iter: {
+            if (until_data == chunk->data)
+                goto finalize;
+
             if (UNLIKELY(!coro)) {
                 if (!chunk->flags)
                     lwan_status_warning("Coroutine is NULL when finishing iteration");
@@ -839,9 +822,7 @@ action_list_end_iter: {
 
             struct chunk *next = chunk->data;
             next = (struct chunk *)next->list.next;
-
-            chunk = lwan_tpl_apply_until(tpl, next, buf, variables, until_iter_end,
-                        chunk->data);
+            chunk = lwan_tpl_apply_until(tpl, next, buf, variables, chunk->data);
             continue;
         }
 
@@ -863,7 +844,7 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
         return NULL;
 
     struct chunk *chunks = container_of_var(tpl->chunks.n.next, chunks, list);
-    lwan_tpl_apply_until(tpl, chunks, buf, variables, until_end, NULL);
+    lwan_tpl_apply_until(tpl, chunks, buf, variables, NULL);
 
     return buf;
 }
