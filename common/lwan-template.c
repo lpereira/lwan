@@ -41,6 +41,7 @@ typedef enum {
     TPL_ACTION_APPEND,
     TPL_ACTION_APPEND_CHAR,
     TPL_ACTION_VARIABLE,
+    TPL_ACTION_VARIABLE_STR,
     TPL_ACTION_LIST_START_ITER,
     TPL_ACTION_LIST_END_ITER,
     TPL_ACTION_IF_VARIABLE_NOT_EMPTY,
@@ -390,6 +391,7 @@ free_chunk(struct chunk *chunk)
     case TPL_ACTION_LAST:
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
+    case TPL_ACTION_VARIABLE_STR:
     case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
     case TPL_ACTION_LIST_END_ITER:
         /* do nothing */
@@ -570,6 +572,12 @@ post_process_template(lwan_tpl_t *tpl)
                 cd->chunk = chunk;
             else
                 cd->chunk = (struct chunk *)chunk->list.next;
+        } else if (chunk->action == TPL_ACTION_VARIABLE) {
+            lwan_var_descriptor_t *descriptor = chunk->data;
+            if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
+                chunk->action = TPL_ACTION_VARIABLE_STR;
+                chunk->data = (void *)descriptor->offset;
+            }
         } else if (chunk->action == TPL_ACTION_LAST) {
             break;
         }
@@ -715,6 +723,7 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
         [TPL_ACTION_APPEND] = &&action_append,
         [TPL_ACTION_APPEND_CHAR] = &&action_append_char,
         [TPL_ACTION_VARIABLE] = &&action_variable,
+        [TPL_ACTION_VARIABLE_STR] = &&action_variable_str,
         [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
         [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
         [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
@@ -743,6 +752,10 @@ action_append_char:
 
 action_variable:
         append_var_to_strbuf(chunk, variables, buf);
+        goto next_action;
+
+action_variable_str:
+        lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
         goto next_action;
 
 action_if_variable_not_empty: {
