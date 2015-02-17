@@ -521,8 +521,8 @@ append_text:
     return state;
 }
 
-static void
-post_process_template(lwan_tpl_t *tpl)
+static int
+post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
 {
     struct chunk *chunk;
     struct chunk *prev_chunk;
@@ -577,11 +577,15 @@ post_process_template(lwan_tpl_t *tpl)
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
                 chunk->action = TPL_ACTION_VARIABLE_STR;
                 chunk->data = (void *)descriptor->offset;
+            } else if (!descriptor->append_to_strbuf) {
+                PARSE_ERROR("Invalid variable descriptor");
             }
         } else if (chunk->action == TPL_ACTION_LAST) {
             break;
         }
     }
+
+    return 0;
 }
 
 lwan_tpl_t *
@@ -644,9 +648,8 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
     strbuf_free(buf);
     symtab_pop(&parser_state);
 
-    post_process_template(tpl);
-
-    return tpl;
+    if (post_process_template(tpl, error_msg) != STATE_PARSE_ERROR)
+        return tpl;
 
 parse_error:
     lwan_status_error("Line %d, column %d: %s", line, column, error_msg);
@@ -701,8 +704,7 @@ append_var_to_strbuf(struct chunk *chunk, void *variables,
                      strbuf_t *buf)
 {
     lwan_var_descriptor_t *descriptor = chunk->data;
-    if (LIKELY(descriptor))
-        descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
+    descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
 }
 
 static bool
