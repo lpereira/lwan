@@ -737,24 +737,30 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
     if (UNLIKELY(!chunk))
         return NULL;
 
-    goto *dispatch_table[chunk->action];
+#define DISPATCH()	goto *dispatch_table[chunk->action]
+#define NEXT_ACTION()	do { 						\
+                            chunk = (struct chunk *)chunk->list.next;	\
+                            DISPATCH();					\
+                        } while(false)
+
+    DISPATCH();
 
 action_append:
     strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
                 strbuf_get_length(chunk->data));
-    goto next_action;
+    NEXT_ACTION();
 
 action_append_char:
     strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
-    goto next_action;
+    NEXT_ACTION();
 
 action_variable:
     append_var_to_strbuf(chunk, variables, buf);
-    goto next_action;
+    NEXT_ACTION();
 
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
-    goto next_action;
+    NEXT_ACTION();
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
@@ -767,25 +773,25 @@ action_if_variable_not_empty: {
             chunk = apply_until(tpl,
                 (struct chunk *) chunk->list.next, buf, variables, cd->chunk);
         }
-        goto next_action;
+        NEXT_ACTION();
     }
 
 action_end_if_variable_not_empty:
     if (LIKELY(until_data == chunk))
         goto finalize;
-    goto next_action;
+    NEXT_ACTION();
 
 action_apply_tpl: {
         strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
         strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
         strbuf_free(tmp);
-        goto next_action;
+        NEXT_ACTION();
     }
 
 action_list_start_iter: {
         if (UNLIKELY(coro != NULL)) {
             lwan_status_warning("Coroutine is not NULL when starting iteration");
-            goto next_action;
+            NEXT_ACTION();
         }
 
         struct chunk_descriptor *cd = chunk->data;
@@ -801,17 +807,17 @@ action_list_start_iter: {
                 coro_resume_value(coro, 1);
                 coro_free(coro);
                 coro = NULL;
-                goto dispatch;
+                DISPATCH();
             }
 
             coro_free(coro);
             coro = NULL;
 
-            goto next_action;
+            NEXT_ACTION();
         }
 
         chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
-        goto dispatch;
+        DISPATCH();
     }
 
 action_list_end_iter: {
@@ -821,28 +827,25 @@ action_list_end_iter: {
         if (UNLIKELY(!coro)) {
             if (!chunk->flags)
                 lwan_status_warning("Coroutine is NULL when finishing iteration");
-            goto next_action;
+            NEXT_ACTION();
         }
 
         if (!coro_resume_value(coro, 0)) {
             coro_free(coro);
             coro = NULL;
-            goto next_action;
+            NEXT_ACTION();
         }
 
         struct chunk *next = chunk->data;
         next = (struct chunk *)next->list.next;
         chunk = apply_until(tpl, next, buf, variables, chunk->data);
-        goto dispatch;
+        DISPATCH();
     }
-
-next_action:
-    chunk = (struct chunk *)chunk->list.next;
-dispatch:
-    goto *dispatch_table[chunk->action];
 
 finalize:
     return chunk;
+#undef DISPATCH
+#undef NEXT_ACTION
 }
 
 strbuf_t *
