@@ -99,30 +99,38 @@ static inline unsigned hash_int(const void *keyptr)
 }
 
 #if defined(HAVE_BUILTIN_CPU_INIT) && defined(USE_HARDWARE_CRC32)
+#ifdef __x86_64__
+static inline uint64_t has_zero_byte_64(uint64_t n)
+{
+    return ((n - 0x0101010101010101ULL) & ~n) & 0x8080808080808080ULL;
+}
+#endif
+
+static inline uint32_t has_zero_byte_32(uint32_t n)
+{
+    return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
+}
+
 static inline unsigned hash_crc32(const void *keyptr)
 {
 	unsigned hash = odd_constant;
 	const char *key = keyptr;
-	size_t len = strlen(key);
 
 #if __x86_64__
-	while (len >= sizeof(uint64_t)) {
+	while (!has_zero_byte_64(*((uint64_t *)key))) {
 		hash = (unsigned)__builtin_ia32_crc32di(hash, *((uint64_t *)key));
 		key += sizeof(uint64_t);
-		len -= sizeof(uint64_t);
 	}
 #endif	/* __x86_64__ */
-	while (len >= sizeof(uint32_t)) {
+	while (!has_zero_byte_32(*((uint32_t *)key))) {
 		hash = __builtin_ia32_crc32si(hash, *((uint32_t *)key));
 		key += sizeof(uint32_t);
-		len -= sizeof(uint32_t);
 	}
-	if (len >= sizeof(uint16_t)) {
+	if (*key && *(key + 1)) {
 		hash = __builtin_ia32_crc32hi(hash, *((uint16_t *)key));
 		key += sizeof(uint16_t);
-		len -= sizeof(uint16_t);
 	}
-	if (len)
+	if (*key)
 		hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
 
 	return hash;
