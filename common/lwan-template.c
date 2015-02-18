@@ -708,9 +708,6 @@ static bool
 var_get_is_empty(lwan_var_descriptor_t *descriptor,
                  void *variables)
 {
-    if (UNLIKELY(!descriptor))
-        return true;
-
     return descriptor->get_is_empty((void *)((char *)variables + descriptor->offset));
 }
 
