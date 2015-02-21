@@ -42,8 +42,8 @@ typedef enum {
     TPL_ACTION_APPEND_CHAR,
     TPL_ACTION_VARIABLE,
     TPL_ACTION_VARIABLE_STR,
-    TPL_ACTION_LIST_START_ITER,
-    TPL_ACTION_LIST_END_ITER,
+    TPL_ACTION_START_ITER,
+    TPL_ACTION_END_ITER,
     TPL_ACTION_IF_VARIABLE_NOT_EMPTY,
     TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY,
     TPL_ACTION_APPLY_TPL,
@@ -294,7 +294,7 @@ next_char:
         if (!chunk->data)
             goto no_such_key;
 
-        chunk->action = TPL_ACTION_LIST_START_ITER;
+        chunk->action = TPL_ACTION_START_ITER;
         lwan_var_descriptor_t *child = chunk->data;
         symtab_push(state, child->list_desc);
         break;
@@ -327,7 +327,7 @@ next_char:
                 goto add_chunk;
             }
         } else {
-            chunk->action = TPL_ACTION_LIST_END_ITER;
+            chunk->action = TPL_ACTION_END_ITER;
             list_for_each_rev(&state->tpl->chunks, start_chunk, list) {
                 if (start_chunk->data == descr) {
                     chunk->data = start_chunk;
@@ -390,11 +390,11 @@ free_chunk(struct chunk *chunk)
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_VARIABLE_STR:
     case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_LIST_END_ITER:
+    case TPL_ACTION_END_ITER:
         /* do nothing */
         break;
     case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_LIST_START_ITER:
+    case TPL_ACTION_START_ITER:
         free(chunk->data);
         break;
     case TPL_ACTION_APPEND:
@@ -543,7 +543,7 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
             cd->descriptor = prev_chunk->data;
             cd->chunk = chunk;
             prev_chunk->data = cd;
-        } else if (chunk->action == TPL_ACTION_LIST_START_ITER) {
+        } else if (chunk->action == TPL_ACTION_START_ITER) {
             lwan_tpl_flag_t flags = chunk->flags;
 
             prev_chunk = chunk;
@@ -551,7 +551,7 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
             while ((chunk = (struct chunk *) chunk->list.next)) {
                 if (chunk->action == TPL_ACTION_LAST)
                     break;
-                if (chunk->action == TPL_ACTION_LIST_END_ITER
+                if (chunk->action == TPL_ACTION_END_ITER
                             && chunk->data == prev_chunk) {
                     chunk->flags |= flags;
                     break;
@@ -723,8 +723,8 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
         [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
         [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
         [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
-        [TPL_ACTION_LIST_START_ITER] = &&action_list_start_iter,
-        [TPL_ACTION_LIST_END_ITER] = &&action_list_end_iter,
+        [TPL_ACTION_START_ITER] = &&action_start_iter,
+        [TPL_ACTION_END_ITER] = &&action_end_iter,
         [TPL_ACTION_LAST] = &&finalize
     };
     coro_switcher_t switcher;
@@ -785,7 +785,7 @@ action_apply_tpl: {
         NEXT_ACTION();
     }
 
-action_list_start_iter: {
+action_start_iter: {
         if (UNLIKELY(coro != NULL)) {
             lwan_status_warning("Coroutine is not NULL when starting iteration");
             NEXT_ACTION();
@@ -817,7 +817,7 @@ action_list_start_iter: {
         DISPATCH();
     }
 
-action_list_end_iter: {
+action_end_iter: {
         if (until_data == chunk->data)
             goto finalize;
 
