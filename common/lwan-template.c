@@ -708,7 +708,7 @@ static bool
 var_get_is_empty(lwan_var_descriptor_t *descriptor,
                  void *variables)
 {
-    return descriptor->get_is_empty((void *)((char *)variables + descriptor->offset));
+    return descriptor->get_is_empty((char *)variables + descriptor->offset);
 }
 
 static struct chunk *
