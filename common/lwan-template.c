@@ -296,7 +296,9 @@ next_char:
 
         chunk->action = TPL_ACTION_START_ITER;
         lwan_var_descriptor_t *child = chunk->data;
-        symtab_push(state, child->list_desc);
+        if (!symtab_push(state, child->list_desc))
+            goto not_enough_memory;
+
         break;
     case '/': {
         if (chunk->flags & TPL_FLAG_NEGATE)
@@ -360,6 +362,10 @@ add_chunk:
     strbuf_reset(buf);
 
     return 0;
+
+not_enough_memory:
+    free(chunk);
+    return -ENOMEM;
 
 invalid_template:
     free(chunk);
