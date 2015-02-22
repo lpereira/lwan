@@ -549,6 +549,8 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
             cd->descriptor = prev_chunk->data;
             cd->chunk = chunk;
             prev_chunk->data = cd;
+
+            chunk = (struct chunk *)prev_chunk->list.next;
         } else if (chunk->action == TPL_ACTION_START_ITER) {
             lwan_tpl_flag_t flags = chunk->flags;
 
@@ -575,6 +577,8 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
                 cd->chunk = chunk;
             else
                 cd->chunk = (struct chunk *)chunk->list.next;
+
+            chunk = (struct chunk *)prev_chunk->list.next;
         } else if (chunk->action == TPL_ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
