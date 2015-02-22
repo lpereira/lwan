@@ -806,16 +806,16 @@ action_start_iter: {
             resumed = !resumed;
         if (!resumed) {
             chunk = cd->chunk;
-            if (flags & TPL_FLAG_NEGATE) {
+
+            lwan_tpl_action_t negate = flags & TPL_FLAG_NEGATE;
+            if (negate)
                 coro_resume_value(coro, 1);
-                coro_free(coro);
-                coro = NULL;
-                DISPATCH();
-            }
 
             coro_free(coro);
             coro = NULL;
 
+            if (negate)
+                DISPATCH();
             NEXT_ACTION();
         }
 
