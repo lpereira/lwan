@@ -795,59 +795,57 @@ action_apply_tpl: {
         NEXT_ACTION();
     }
 
-action_start_iter: {
-        if (UNLIKELY(coro != NULL)) {
-            lwan_status_warning("Coroutine is not NULL when starting iteration");
-            NEXT_ACTION();
-        }
-
-        struct chunk_descriptor *cd = chunk->data;
-        coro = coro_new(&switcher, cd->descriptor->generator, variables);
-
-        bool resumed = coro_resume_value(coro, 0);
-        lwan_tpl_flag_t flags = chunk->flags;
-        if (flags & TPL_FLAG_NEGATE)
-            resumed = !resumed;
-        if (!resumed) {
-            chunk = cd->chunk;
-
-            lwan_tpl_action_t negate = flags & TPL_FLAG_NEGATE;
-            if (negate)
-                coro_resume_value(coro, 1);
-
-            coro_free(coro);
-            coro = NULL;
-
-            if (negate)
-                DISPATCH();
-            NEXT_ACTION();
-        }
-
-        chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
-        DISPATCH();
+action_start_iter:
+    if (UNLIKELY(coro != NULL)) {
+        lwan_status_warning("Coroutine is not NULL when starting iteration");
+        NEXT_ACTION();
     }
 
-action_end_iter: {
-        if (until_data == chunk->data)
-            goto finalize;
+    struct chunk_descriptor *cd = chunk->data;
+    coro = coro_new(&switcher, cd->descriptor->generator, variables);
 
-        if (UNLIKELY(!coro)) {
-            if (!chunk->flags)
-                lwan_status_warning("Coroutine is NULL when finishing iteration");
-            NEXT_ACTION();
-        }
+    bool resumed = coro_resume_value(coro, 0);
+    lwan_tpl_flag_t flags = chunk->flags;
+    if (flags & TPL_FLAG_NEGATE)
+        resumed = !resumed;
+    if (!resumed) {
+        chunk = cd->chunk;
 
-        if (!coro_resume_value(coro, 0)) {
-            coro_free(coro);
-            coro = NULL;
-            NEXT_ACTION();
-        }
+        lwan_tpl_action_t negate = flags & TPL_FLAG_NEGATE;
+        if (negate)
+            coro_resume_value(coro, 1);
 
-        struct chunk *next = chunk->data;
-        next = (struct chunk *)next->list.next;
-        chunk = apply_until(tpl, next, buf, variables, chunk->data);
-        DISPATCH();
+        coro_free(coro);
+        coro = NULL;
+
+        if (negate)
+            DISPATCH();
+        NEXT_ACTION();
     }
+
+    chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
+    DISPATCH();
+
+action_end_iter:
+    if (until_data == chunk->data)
+        goto finalize;
+
+    if (UNLIKELY(!coro)) {
+        if (!chunk->flags)
+            lwan_status_warning("Coroutine is NULL when finishing iteration");
+        NEXT_ACTION();
+    }
+
+    if (!coro_resume_value(coro, 0)) {
+        coro_free(coro);
+        coro = NULL;
+        NEXT_ACTION();
+    }
+
+    struct chunk *next = chunk->data;
+    next = (struct chunk *)next->list.next;
+    chunk = apply_until(tpl, next, buf, variables, chunk->data);
+    DISPATCH();
 
 finalize:
     return chunk;
