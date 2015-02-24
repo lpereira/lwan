@@ -706,21 +706,6 @@ end:
     return tpl;
 }
 
-static void
-append_var_to_strbuf(struct chunk *chunk, void *variables,
-                     strbuf_t *buf)
-{
-    lwan_var_descriptor_t *descriptor = chunk->data;
-    descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
-}
-
-static bool
-var_get_is_empty(lwan_var_descriptor_t *descriptor,
-                 void *variables)
-{
-    return descriptor->get_is_empty((char *)variables + descriptor->offset);
-}
-
 static struct chunk *
 apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variables,
             void *until_data)
@@ -761,9 +746,11 @@ action_append_char:
     strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
     NEXT_ACTION();
 
-action_variable:
-    append_var_to_strbuf(chunk, variables, buf);
-    NEXT_ACTION();
+action_variable: {
+        lwan_var_descriptor_t *descriptor = chunk->data;
+        descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
+        NEXT_ACTION();
+    }
 
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
@@ -771,7 +758,7 @@ action_variable_str:
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
-        bool empty = var_get_is_empty(cd->descriptor, variables);
+        bool empty = cd->descriptor->get_is_empty((char *)variables + cd->descriptor->offset);
         if (chunk->flags & TPL_FLAG_NEGATE)
             empty = !empty;
         if (empty) {
