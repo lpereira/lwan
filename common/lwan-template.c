@@ -729,6 +729,7 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
     if (UNLIKELY(!chunk))
         return NULL;
 
+#define NEXT(c)		((struct chunk *)(c)->list.next)
 #define DISPATCH()	goto *dispatch_table[chunk->action]
 #define NEXT_ACTION()	do { 						\
                             chunk = (struct chunk *)chunk->list.next;	\
@@ -764,8 +765,7 @@ action_if_variable_not_empty: {
         if (empty) {
             chunk = cd->chunk;
         } else {
-            chunk = apply_until(tpl,
-                (struct chunk *) chunk->list.next, buf, variables, cd->chunk);
+            chunk = apply_until(tpl, NEXT(chunk), buf, variables, cd->chunk);
         }
         NEXT_ACTION();
     }
@@ -810,7 +810,7 @@ action_start_iter:
         NEXT_ACTION();
     }
 
-    chunk = apply_until(tpl, (struct chunk *) chunk->list.next, buf, variables, chunk);
+    chunk = apply_until(tpl, NEXT(chunk), buf, variables, chunk);
     DISPATCH();
 
 action_end_iter:
@@ -829,15 +829,14 @@ action_end_iter:
         NEXT_ACTION();
     }
 
-    struct chunk *next = chunk->data;
-    next = (struct chunk *)next->list.next;
-    chunk = apply_until(tpl, next, buf, variables, chunk->data);
+    chunk = apply_until(tpl, NEXT((struct chunk *)chunk->data), buf, variables, chunk->data);
     DISPATCH();
 
 finalize:
     return chunk;
 #undef DISPATCH
 #undef NEXT_ACTION
+#undef NEXT
 }
 
 strbuf_t *
