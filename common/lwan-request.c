@@ -789,7 +789,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 
         lwan_value_t buffer_helper = helper.buffer;
-        memset(&helper, sizeof(helper), 0);
+        memset(&helper, 0, sizeof(helper));
         helper.buffer = buffer_helper;
     }
 }
