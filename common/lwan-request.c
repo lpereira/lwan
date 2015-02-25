@@ -33,6 +33,7 @@
 
 typedef enum {
     FINALIZER_DONE,
+    FINALIZER_DONE_PIPELINED,
     FINALIZER_TRY_AGAIN,
     FINALIZER_YIELD_TRY_AGAIN,
     FINALIZER_ERROR_TOO_LARGE
@@ -489,6 +490,12 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
     int packets_remaining = 16;
 
     for (; packets_remaining > 0; packets_remaining--) {
+        if (request->flags & REQUEST_PIPELINED) {
+            request->flags &= ~REQUEST_PIPELINED;
+            total_read = buffer->len;
+            goto try_to_finalize;
+        }
+
         n = read(request->fd, buffer->value + total_read,
                     (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
@@ -524,10 +531,14 @@ yield_and_read_again:
 
         total_read += (size_t)n;
         buffer->value[total_read] = '\0';
+        buffer->len = (size_t)total_read;
 
+try_to_finalize:
         switch (finalizer(total_read, buffer_size, buffer)) {
+        case FINALIZER_DONE_PIPELINED:
+            request->flags |= REQUEST_PIPELINED;
+            /* Fallthrough */
         case FINALIZER_DONE:
-            buffer->len = (size_t)total_read;
             return HTTP_OK;
         case FINALIZER_TRY_AGAIN:
             continue;
@@ -557,13 +568,21 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read == buffer_size))
         return FINALIZER_ERROR_TOO_LARGE;
 
-    if (LIKELY(!memcmp(buffer->value + total_read - 4, "\r\n\r\n", 4)))
+    char *terminator = memmem(buffer->value, buffer->len, "\n\r\n", 3);
+    if (LIKELY(terminator)) {
+        if (get_http_method(terminator + 3) && terminator != buffer->value) {
+            /* FIXME: Store terminator somewhere if it's pipelined? */
+            return FINALIZER_DONE_PIPELINED;
+        }
         return FINALIZER_DONE;
+    }
 
-    char *post_data_separator = strrchr(buffer->value, '\n');
-    if (post_data_separator) {
-        if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
-            return FINALIZER_DONE;
+    if (get_http_method(buffer->value) == REQUEST_METHOD_POST) {
+        char *post_data_separator = strrchr(buffer->value, '\n');
+        if (post_data_separator) {
+            if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
+                return FINALIZER_DONE;
+        }
     }
 
     return FINALIZER_TRY_AGAIN;
@@ -572,6 +591,17 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
 static ALWAYS_INLINE lwan_http_status_t
 read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 {
+    if (request->flags & REQUEST_PIPELINED) {
+        lwan_value_t *buffer = &helper->buffer;
+        char *next_request = memmem(buffer->value, buffer->len, "\0\n\r\n", 4);
+        if (LIKELY(next_request)) {
+            next_request += 4;
+            buffer->len -= (size_t)(next_request - buffer->value);
+            memmove(buffer->value, next_request, buffer->len);
+        }
+
+    }
+
     return read_from_request_socket(request, &helper->buffer,
                         DEFAULT_BUFFER_SIZE, read_request_finalizer);
 }
@@ -720,38 +750,48 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         }
     };
 
-    status = read_request(request, &helper);
-    if (UNLIKELY(status != HTTP_OK)) {
-        /* If status is anything but a bad request at this point, give up. */
-        if (status != HTTP_BAD_REQUEST)
+    while (true) {
+        status = read_request(request, &helper);
+        if (UNLIKELY(status != HTTP_OK)) {
+            /* If status is anything but a bad request at this point, give up. */
+            if (status != HTTP_BAD_REQUEST)
+                lwan_default_response(request, status);
+
+            return;
+        }
+
+        status = parse_http_request(request, &helper);
+        if (UNLIKELY(status != HTTP_OK)) {
             lwan_default_response(request, status);
+            return;
+        }
 
-        return;
+        url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
+        if (UNLIKELY(!url_map)) {
+            lwan_default_response(request, HTTP_NOT_FOUND);
+            return;
+        }
+
+        request->url.value += url_map->prefix_len;
+        request->url.len -= url_map->prefix_len;
+
+        status = prepare_for_response(url_map, request, &helper);
+        if (UNLIKELY(status != HTTP_OK)) {
+            lwan_default_response(request, status);
+            return;
+        }
+
+        status = url_map->handler(request, &request->response, url_map->data);
+        lwan_response(request, status);
+
+        if (!(request->flags & REQUEST_PIPELINED))
+            break;
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+
+        lwan_value_t buffer_helper = helper.buffer;
+        memset(&helper, sizeof(helper), 0);
+        helper.buffer = buffer_helper;
     }
-
-    status = parse_http_request(request, &helper);
-    if (UNLIKELY(status != HTTP_OK)) {
-        lwan_default_response(request, status);
-        return;
-    }
-
-    url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
-    if (UNLIKELY(!url_map)) {
-        lwan_default_response(request, HTTP_NOT_FOUND);
-        return;
-    }
-
-    request->url.value += url_map->prefix_len;
-    request->url.len -= url_map->prefix_len;
-
-    status = prepare_for_response(url_map, request, &helper);
-    if (UNLIKELY(status != HTTP_OK)) {
-        lwan_default_response(request, status);
-        return;
-    }
-
-    status = url_map->handler(request, &request->response, url_map->data);
-    lwan_response(request, status);
 }
 
 static const char *
