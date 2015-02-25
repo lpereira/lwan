@@ -60,8 +60,8 @@ static unsigned long has_zero_byte(unsigned long n) __attribute__((pure));
 static unsigned long is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 
-static ALWAYS_INLINE char *
-identify_http_method(lwan_request_t *request, char *buffer)
+static ALWAYS_INLINE lwan_request_flags_t
+get_http_method(char *buffer)
 {
     enum {
         HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
@@ -71,14 +71,28 @@ identify_http_method(lwan_request_t *request, char *buffer)
 
     STRING_SWITCH(buffer) {
     case HTTP_STR_GET:
-        request->flags |= REQUEST_METHOD_GET;
-        return buffer + 4;
+        return REQUEST_METHOD_GET;
     case HTTP_STR_HEAD:
-        request->flags |= REQUEST_METHOD_HEAD;
-        return buffer + 5;
+        return REQUEST_METHOD_HEAD;
     case HTTP_STR_POST:
-        request->flags |= REQUEST_METHOD_POST;
-        return buffer + 5;
+        return REQUEST_METHOD_POST;
+    }
+
+    return 0;
+}
+
+static ALWAYS_INLINE char *
+identify_http_method(lwan_request_t *request, char *buffer)
+{
+    lwan_request_flags_t flags = get_http_method(buffer);
+    static const char sizes[] = {
+        [REQUEST_METHOD_GET] = 4,
+        [REQUEST_METHOD_HEAD] = 5,
+        [REQUEST_METHOD_POST] = 5,
+    };
+    if (LIKELY(flags)) {
+        request->flags |= flags;
+        return buffer + sizes[flags];
     }
     return NULL;
 }
