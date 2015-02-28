@@ -489,13 +489,13 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
     size_t total_read = 0;
     int packets_remaining = 16;
 
-    for (; packets_remaining > 0; packets_remaining--) {
-        if (request->flags & REQUEST_PIPELINED) {
-            request->flags &= ~REQUEST_PIPELINED;
-            total_read = buffer->len;
-            goto try_to_finalize;
-        }
+    if (request->flags & REQUEST_PIPELINED) {
+        request->flags &= ~REQUEST_PIPELINED;
+        total_read = buffer->len;
+        goto try_to_finalize;
+    }
 
+    for (; packets_remaining > 0; packets_remaining--) {
         n = read(request->fd, buffer->value + total_read,
                     (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
@@ -509,14 +509,8 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
             case EAGAIN:
             case EINTR:
 yield_and_read_again:
-                /* Toggle write events so the scheduler thinks we're in a
-                 * "can read" state (and thus resumable). */
-                request->conn->flags ^= CONN_WRITE_EVENTS;
-                /* Yield 1 so the scheduler doesn't kill the coroutine. */
+                request->conn->flags |= CONN_MUST_READ;
                 coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-                /* Put the WRITE_EVENTS flag back on. */
-                request->conn->flags ^= CONN_WRITE_EVENTS;
-                /* We can probably read again, so try it */
                 continue;
             }
 
@@ -539,6 +533,7 @@ try_to_finalize:
             request->flags |= REQUEST_PIPELINED;
             /* Fallthrough */
         case FINALIZER_DONE:
+            request->conn->flags &= ~CONN_MUST_READ;
             return HTTP_OK;
         case FINALIZER_TRY_AGAIN:
             continue;
@@ -597,9 +592,10 @@ read_request(lwan_request_t *request, lwan_request_parse_t *helper)
         if (LIKELY(next_request)) {
             next_request += 4;
             buffer->len -= (size_t)(next_request - buffer->value);
+            /* FIXME: This memmove() could be eventually removed if a better
+             * stucture were used for the request buffer. */
             memmove(buffer->value, next_request, buffer->len);
         }
-
     }
 
     return read_from_request_socket(request, &helper->buffer,

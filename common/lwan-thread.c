@@ -170,21 +170,28 @@ resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
         return;
     }
 
-    bool should_resume_coro = yield_result == CONN_CORO_MAY_RESUME;
-    bool write_events = conn->flags & CONN_WRITE_EVENTS;
-    if (should_resume_coro)
-        conn->flags |= CONN_SHOULD_RESUME_CORO;
-    else
-        conn->flags &= ~CONN_SHOULD_RESUME_CORO;
-    if (should_resume_coro == write_events)
-        return;
+    bool write_events;
+    if (conn->flags & CONN_MUST_READ) {
+        write_events = true;
+    } else {
+        bool should_resume_coro = (yield_result == CONN_CORO_MAY_RESUME);
 
-    int fd = lwan_connection_get_fd(conn);
+        if (should_resume_coro)
+            conn->flags |= CONN_SHOULD_RESUME_CORO;
+        else
+            conn->flags &= ~CONN_SHOULD_RESUME_CORO;
+
+        write_events = (conn->flags & CONN_WRITE_EVENTS);
+        if (should_resume_coro == write_events)
+            return;
+    }
+
     struct epoll_event event = {
         .events = events_by_write_flag[write_events],
         .data.ptr = conn
     };
 
+    int fd = lwan_connection_get_fd(conn);
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
 
