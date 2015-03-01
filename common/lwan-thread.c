@@ -148,7 +148,6 @@ process_request_coro(coro_t *coro)
 
     assert(conn->flags & CONN_IS_ALIVE);
 
-    strbuf_init(strbuf);
     lwan_process_request(conn->thread->lwan, &request);
 
     return CONN_CORO_FINISHED;

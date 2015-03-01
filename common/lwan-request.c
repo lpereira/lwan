@@ -737,6 +737,8 @@ prepare_for_response(lwan_url_map_t *url_map,
         }
     }
 
+    strbuf_init(request->response.buffer);
+
     return HTTP_OK;
 }
 
