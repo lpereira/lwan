@@ -337,13 +337,13 @@ static bool cache_pruner_job(void *data)
 
     /* Prepend local, unprocessed queue, to the cache queue. Since the cache
      * item TTL is constant, items created later will be destroyed later. */
-    if (pthread_rwlock_trywrlock(&cache->queue.lock) >= 0) {
+    if (pthread_rwlock_wrlock(&cache->queue.lock) >= 0) {
         list_prepend_list(&cache->queue.list, &queue);
 
         if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
             lwan_status_perror("pthread_rwlock_unlock");
     } else {
-        lwan_status_perror("pthread_rwlock_trywrlock");
+        lwan_status_perror("pthread_rwlock_wrlock");
     }
 
 end:
