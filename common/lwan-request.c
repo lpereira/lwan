@@ -39,9 +39,7 @@ typedef enum {
     FINALIZER_ERROR_TOO_LARGE
 } lwan_read_finalizer_t;
 
-typedef struct lwan_request_parse_t_	lwan_request_parse_t;
-
-struct lwan_request_parse_t_ {
+struct request_parser_helper {
     lwan_value_t buffer;
     lwan_value_t accept_encoding;
     lwan_value_t if_modified_since;
@@ -202,14 +200,14 @@ oom:
 #undef DECODE_AND_ADD
 
 static void
-parse_query_string(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_query_string(lwan_request_t *request, struct request_parser_helper *helper)
 {
     parse_urlencoded_keyvalues(request, &helper->query_string,
             &request->query_params.base, &request->query_params.len);
 }
 
 static void
-parse_post_data(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
 {
     static const char content_type[] = "application/x-www-form-urlencoded";
 
@@ -224,7 +222,7 @@ parse_post_data(lwan_request_t *request, lwan_request_parse_t *helper)
 
 static char *
 identify_http_path(lwan_request_t *request, char *buffer,
-            lwan_request_parse_t *helper)
+            struct request_parser_helper *helper)
 {
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
 
@@ -302,7 +300,7 @@ identify_http_path(lwan_request_t *request, char *buffer,
     case hdr_const: MATCH_HEADER(hdr_name);
 
 static char *
-parse_headers(lwan_request_parse_t *helper, char *buffer, char *buffer_end)
+parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_end)
 {
     enum {
         HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
@@ -376,7 +374,7 @@ end:
 #undef MATCH_HEADER
 
 static void
-parse_if_modified_since(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_if_modified_since(lwan_request_t *request, struct request_parser_helper *helper)
 {
     if (UNLIKELY(!helper->if_modified_since.len))
         return;
@@ -394,7 +392,7 @@ parse_if_modified_since(lwan_request_t *request, lwan_request_parse_t *helper)
 }
 
 static void
-parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_range(lwan_request_t *request, struct request_parser_helper *helper)
 {
     if (UNLIKELY(helper->range.len <= (sizeof("bytes=") - 1)))
         return;
@@ -422,7 +420,7 @@ parse_range(lwan_request_t *request, lwan_request_parse_t *helper)
 }
 
 static void
-parse_accept_encoding(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_accept_encoding(lwan_request_t *request, struct request_parser_helper *helper)
 {
     if (!helper->accept_encoding.len)
         return;
@@ -472,7 +470,7 @@ ignore_leading_whitespace(char *buffer)
 }
 
 static ALWAYS_INLINE void
-compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
+compute_keep_alive_flag(lwan_request_t *request, struct request_parser_helper *helper)
 {
     bool is_keep_alive;
     if (request->flags & REQUEST_IS_HTTP_1_0)
@@ -486,8 +484,8 @@ compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
 }
 
 static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
-    lwan_value_t *buffer, lwan_request_parse_t *helper, const size_t buffer_size,
-    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, lwan_request_parse_t *helper))
+    lwan_value_t *buffer, struct request_parser_helper *helper, const size_t buffer_size,
+    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, struct request_parser_helper *helper))
 {
     ssize_t n;
     size_t total_read = 0;
@@ -559,7 +557,7 @@ try_to_finalize:
 }
 
 static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
-    size_t buffer_size, lwan_request_parse_t *helper)
+    size_t buffer_size, struct request_parser_helper *helper)
 {
     if (UNLIKELY(total_read < 4))
         return FINALIZER_YIELD_TRY_AGAIN;
@@ -589,7 +587,7 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
 }
 
 static ALWAYS_INLINE lwan_http_status_t
-read_request(lwan_request_t *request, lwan_request_parse_t *helper)
+read_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
     if (request->flags & REQUEST_PIPELINED) {
         char *next_request = helper->request_terminator;
@@ -611,7 +609,7 @@ read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 
 static lwan_read_finalizer_t
 read_post_data_finalizer(size_t total_read, size_t buffer_size,
-    lwan_request_parse_t *helper __attribute__((unused)))
+    struct request_parser_helper *helper __attribute__((unused)))
 {
     if (LIKELY(total_read == buffer_size))
         return FINALIZER_DONE;
@@ -619,7 +617,7 @@ read_post_data_finalizer(size_t total_read, size_t buffer_size,
 }
 
 static lwan_http_status_t
-read_post_data(lwan_request_t *request, lwan_request_parse_t *helper,
+read_post_data(lwan_request_t *request, struct request_parser_helper *helper,
         char *buffer)
 {
     long parsed_length;
@@ -663,7 +661,7 @@ read_post_data(lwan_request_t *request, lwan_request_parse_t *helper,
 }
 
 static lwan_http_status_t
-parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
+parse_http_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
     char *buffer;
 
@@ -702,7 +700,7 @@ parse_http_request(lwan_request_t *request, lwan_request_parse_t *helper)
 static lwan_http_status_t
 prepare_for_response(lwan_url_map_t *url_map,
                       lwan_request_t *request,
-                      lwan_request_parse_t *helper)
+                      struct request_parser_helper *helper)
 {
     if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
         parse_query_string(request, helper);
@@ -747,7 +745,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
     char buffer[DEFAULT_BUFFER_SIZE];
-    lwan_request_parse_t helper = {
+    struct request_parser_helper helper = {
         .buffer = {
             .value = buffer,
             .len = 0
