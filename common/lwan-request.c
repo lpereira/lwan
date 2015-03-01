@@ -787,15 +787,17 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         status = url_map->handler(request, &request->response, url_map->data);
         lwan_response(request, status);
 
-        if (!(request->flags & REQUEST_PIPELINED))
-            break;
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+        if (request->flags & REQUEST_PIPELINED) {
+            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 
-        lwan_value_t buffer_helper = helper.buffer;
-        char *terminator = helper.request_terminator;
-        memset(&helper, 0, sizeof(helper));
-        helper.buffer = buffer_helper;
-        helper.request_terminator = terminator;
+            lwan_value_t buffer_helper = helper.buffer;
+            char *terminator = helper.request_terminator;  /* It'll be back */
+            memset(&helper, 0, sizeof(helper));
+            helper.buffer = buffer_helper;
+            helper.request_terminator = terminator;        /* Told you */
+        } else {
+            break;
+        }
     }
 }
 
