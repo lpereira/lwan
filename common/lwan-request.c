@@ -795,7 +795,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
                 .request_terminator = helper.request_terminator
             };
         } else {
-            break;
+            return;
         }
     }
 }
