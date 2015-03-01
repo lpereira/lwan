@@ -62,6 +62,7 @@ static bool is_hex_digit(char ch) __attribute__((pure));
 static unsigned long has_zero_byte(unsigned long n) __attribute__((pure));
 static unsigned long is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
+static lwan_request_flags_t get_http_method(char *buffer) __attribute__((pure));
 
 static ALWAYS_INLINE lwan_request_flags_t
 get_http_method(char *buffer)
