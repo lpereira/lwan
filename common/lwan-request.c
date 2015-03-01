@@ -43,13 +43,15 @@ typedef struct lwan_request_parse_t_	lwan_request_parse_t;
 
 struct lwan_request_parse_t_ {
     lwan_value_t buffer;
-    lwan_value_t query_string;
+    lwan_value_t accept_encoding;
     lwan_value_t if_modified_since;
     lwan_value_t range;
-    lwan_value_t accept_encoding;
+
+    lwan_value_t query_string;
     lwan_value_t fragment;
     lwan_value_t content_length;
     lwan_value_t post_data;
+
     lwan_value_t content_type;
     lwan_value_t authorization;
     char connection;
