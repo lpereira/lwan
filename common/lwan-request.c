@@ -740,7 +740,7 @@ prepare_for_response(lwan_url_map_t *url_map,
     return HTTP_OK;
 }
 
-bool
+void
 lwan_process_request(lwan_t *l, lwan_request_t *request,
     char buffer[static DEFAULT_BUFFER_SIZE])
 {
@@ -758,19 +758,19 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
         /* If status is anything but a bad request at this point, give up. */
         if (status != HTTP_BAD_REQUEST)
             lwan_default_response(request, status);
-        return false;
+        return;
     }
 
     status = parse_http_request(request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
-        return false;
+        return;
     }
 
     url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
         lwan_default_response(request, HTTP_NOT_FOUND);
-        return false;
+        return;
     }
 
     request->url.value += url_map->prefix_len;
@@ -779,18 +779,11 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
     status = prepare_for_response(url_map, request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
-        return false;
+        return;
     }
 
     status = url_map->handler(request, &request->response, url_map->data);
     lwan_response(request, status);
-
-    if (request->flags & REQUEST_PIPELINED) {
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-        return true;
-    }
-
-    return false;
 }
 
 static const char *

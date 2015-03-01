@@ -153,7 +153,10 @@ process_request_coro(coro_t *coro)
         assert(conn->flags & CONN_IS_ALIVE);
         strbuf_init(strbuf);
 
-        if (!lwan_process_request(conn->thread->lwan, &request, buffer))
+        lwan_process_request(conn->thread->lwan, &request, buffer);
+        if (request.flags & REQUEST_PIPELINED)
+            coro_yield(coro, CONN_CORO_MAY_RESUME);
+        else
             break;
     }
 
