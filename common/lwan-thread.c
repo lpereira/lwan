@@ -27,7 +27,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 
 struct death_queue_t {
     lwan_connection_t *conns;
@@ -138,17 +138,24 @@ process_request_coro(coro_t *coro)
         return CONN_CORO_ABORT;
 
     lwan_connection_t *conn = coro_get_data(coro);
-    lwan_request_t request = {
-        .conn = conn,
-        .fd = lwan_connection_get_fd(conn),
-        .response = {
-            .buffer = strbuf
-        }
-    };
+    int fd = lwan_connection_get_fd(conn);
+    char buffer[DEFAULT_BUFFER_SIZE];
 
-    assert(conn->flags & CONN_IS_ALIVE);
+    while (true) {
+        lwan_request_t request = {
+            .conn = conn,
+            .fd = fd,
+            .response = {
+                .buffer = strbuf
+            }
+        };
 
-    lwan_process_request(conn->thread->lwan, &request);
+        assert(conn->flags & CONN_IS_ALIVE);
+        strbuf_init(strbuf);
+
+        if (!lwan_process_request(conn->thread->lwan, &request, buffer))
+            break;
+    }
 
     return CONN_CORO_FINISHED;
 }

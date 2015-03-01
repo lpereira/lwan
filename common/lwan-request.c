@@ -737,17 +737,15 @@ prepare_for_response(lwan_url_map_t *url_map,
         }
     }
 
-    strbuf_init(request->response.buffer);
-
     return HTTP_OK;
 }
 
-void
-lwan_process_request(lwan_t *l, lwan_request_t *request)
+bool
+lwan_process_request(lwan_t *l, lwan_request_t *request,
+    char buffer[static DEFAULT_BUFFER_SIZE])
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    char buffer[DEFAULT_BUFFER_SIZE];
     struct request_parser_helper helper = {
         .buffer = {
             .value = buffer,
@@ -755,51 +753,50 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         }
     };
 
-    while (true) {
-        status = read_request(request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
-            /* If status is anything but a bad request at this point, give up. */
-            if (status != HTTP_BAD_REQUEST)
-                lwan_default_response(request, status);
-
-            return;
-        }
-
-        status = parse_http_request(request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
+    status = read_request(request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        /* If status is anything but a bad request at this point, give up. */
+        if (status != HTTP_BAD_REQUEST)
             lwan_default_response(request, status);
-            return;
-        }
-
-        url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
-        if (UNLIKELY(!url_map)) {
-            lwan_default_response(request, HTTP_NOT_FOUND);
-            return;
-        }
-
-        request->url.value += url_map->prefix_len;
-        request->url.len -= url_map->prefix_len;
-
-        status = prepare_for_response(url_map, request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
-            lwan_default_response(request, status);
-            return;
-        }
-
-        status = url_map->handler(request, &request->response, url_map->data);
-        lwan_response(request, status);
-
-        if (request->flags & REQUEST_PIPELINED) {
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-
-            helper = (struct request_parser_helper) {
-                .buffer = helper.buffer,
-                .request_terminator = helper.request_terminator
-            };
-        } else {
-            return;
-        }
+        return false;
     }
+
+    status = parse_http_request(request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
+        return false;
+    }
+
+    url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
+    if (UNLIKELY(!url_map)) {
+        lwan_default_response(request, HTTP_NOT_FOUND);
+        return false;
+    }
+
+    request->url.value += url_map->prefix_len;
+    request->url.len -= url_map->prefix_len;
+
+    status = prepare_for_response(url_map, request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
+        return false;
+    }
+
+    status = url_map->handler(request, &request->response, url_map->data);
+    lwan_response(request, status);
+
+    if (request->flags & REQUEST_PIPELINED) {
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+
+        helper = (struct request_parser_helper) {
+            .buffer = helper.buffer,
+            .request_terminator = helper.request_terminator
+        };
+
+        return true;
+    }
+
+    return false;
 }
 
 static const char *

@@ -279,7 +279,6 @@ const char *lwan_request_get_query_param(lwan_request_t *request, const char *ke
     __attribute__((warn_unused_result));
 const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
     __attribute__((warn_unused_result));
-void lwan_process_request(lwan_t *l, lwan_request_t *request);
 
 bool lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status);
 void lwan_response_send_chunk(lwan_request_t *request);
