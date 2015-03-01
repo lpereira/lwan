@@ -787,12 +787,6 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
 
     if (request->flags & REQUEST_PIPELINED) {
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-
-        helper = (struct request_parser_helper) {
-            .buffer = helper.buffer,
-            .request_terminator = helper.request_terminator
-        };
-
         return true;
     }
 
