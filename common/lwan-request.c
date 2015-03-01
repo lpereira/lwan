@@ -87,9 +87,9 @@ identify_http_method(lwan_request_t *request, char *buffer)
 {
     lwan_request_flags_t flags = get_http_method(buffer);
     static const char sizes[] = {
-        [REQUEST_METHOD_GET] = 4,
-        [REQUEST_METHOD_HEAD] = 5,
-        [REQUEST_METHOD_POST] = 5,
+        [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
+        [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
+        [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
     };
     if (LIKELY(flags)) {
         request->flags |= flags;
