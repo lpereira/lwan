@@ -569,8 +569,9 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     lwan_value_t *buffer = &helper->buffer;
     char *terminator = memmem(buffer->value, buffer->len, "\n\r\n", 3);
     if (LIKELY(terminator)) {
-        if (get_http_method(terminator + 3) && terminator != buffer->value) {
-            helper->request_terminator = terminator;
+        char *method = terminator + 3;
+        if (get_http_method(method) && terminator != buffer->value) {
+            helper->request_terminator = method;
             return FINALIZER_DONE_PIPELINED;
         }
         return FINALIZER_DONE;
@@ -595,7 +596,6 @@ read_request(lwan_request_t *request, struct request_parser_helper *helper)
         if (LIKELY(next_request)) {
             lwan_value_t *buffer = &helper->buffer;
 
-            next_request += 3;
             buffer->len -= (size_t)(next_request - buffer->value);
             /* FIXME: This memmove() could be eventually removed if a better
              * stucture were used for the request buffer. */
