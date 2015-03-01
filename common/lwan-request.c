@@ -50,11 +50,13 @@ struct lwan_request_parse_t_ {
     lwan_value_t query_string;
     lwan_value_t fragment;
     lwan_value_t content_length;
-    lwan_value_t post_data;
+    char *request_terminator;
+    char connection;
+    char padding[sizeof(size_t) - 1];
 
+    lwan_value_t post_data;
     lwan_value_t content_type;
     lwan_value_t authorization;
-    char connection;
 };
 
 static char decode_hex_digit(char ch) __attribute__((pure));
@@ -484,8 +486,8 @@ compute_keep_alive_flag(lwan_request_t *request, lwan_request_parse_t *helper)
 }
 
 static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
-    lwan_value_t *buffer, const size_t buffer_size,
-    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, lwan_value_t *buffer))
+    lwan_value_t *buffer, lwan_request_parse_t *helper, const size_t buffer_size,
+    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, lwan_request_parse_t *helper))
 {
     ssize_t n;
     size_t total_read = 0;
@@ -530,7 +532,7 @@ yield_and_read_again:
         buffer->len = (size_t)total_read;
 
 try_to_finalize:
-        switch (finalizer(total_read, buffer_size, buffer)) {
+        switch (finalizer(total_read, buffer_size, helper)) {
         case FINALIZER_DONE_PIPELINED:
             request->flags |= REQUEST_PIPELINED;
             /* Fallthrough */
@@ -557,7 +559,7 @@ try_to_finalize:
 }
 
 static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
-    size_t buffer_size, lwan_value_t *buffer)
+    size_t buffer_size, lwan_request_parse_t *helper)
 {
     if (UNLIKELY(total_read < 4))
         return FINALIZER_YIELD_TRY_AGAIN;
@@ -565,10 +567,11 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read == buffer_size))
         return FINALIZER_ERROR_TOO_LARGE;
 
+    lwan_value_t *buffer = &helper->buffer;
     char *terminator = memmem(buffer->value, buffer->len, "\n\r\n", 3);
     if (LIKELY(terminator)) {
         if (get_http_method(terminator + 3) && terminator != buffer->value) {
-            /* FIXME: Store terminator somewhere if it's pipelined? */
+            helper->request_terminator = terminator;
             return FINALIZER_DONE_PIPELINED;
         }
         return FINALIZER_DONE;
@@ -589,24 +592,26 @@ static ALWAYS_INLINE lwan_http_status_t
 read_request(lwan_request_t *request, lwan_request_parse_t *helper)
 {
     if (request->flags & REQUEST_PIPELINED) {
-        lwan_value_t *buffer = &helper->buffer;
-        char *next_request = memmem(buffer->value, buffer->len, "\0\n\r\n", 4);
+        char *next_request = helper->request_terminator;
         if (LIKELY(next_request)) {
-            next_request += 4;
+            lwan_value_t *buffer = &helper->buffer;
+
+            next_request += 3;
             buffer->len -= (size_t)(next_request - buffer->value);
             /* FIXME: This memmove() could be eventually removed if a better
              * stucture were used for the request buffer. */
             memmove(buffer->value, next_request, buffer->len);
+            helper->request_terminator = NULL;
         }
     }
 
-    return read_from_request_socket(request, &helper->buffer,
+    return read_from_request_socket(request, &helper->buffer, helper,
                         DEFAULT_BUFFER_SIZE, read_request_finalizer);
 }
 
 static lwan_read_finalizer_t
 read_post_data_finalizer(size_t total_read, size_t buffer_size,
-    lwan_value_t *buffer __attribute__((unused)))
+    lwan_request_parse_t *helper __attribute__((unused)))
 {
     if (LIKELY(total_read == buffer_size))
         return FINALIZER_DONE;
@@ -614,8 +619,8 @@ read_post_data_finalizer(size_t total_read, size_t buffer_size,
 }
 
 static lwan_http_status_t
-read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
-            *buffer)
+read_post_data(lwan_request_t *request, lwan_request_parse_t *helper,
+        char *buffer)
 {
     long parsed_length;
 
@@ -647,6 +652,7 @@ read_post_data(lwan_request_t *request, lwan_request_parse_t *helper, char
 
     lwan_http_status_t status = read_from_request_socket(request,
                         &helper->post_data,
+                        helper,
                         post_data_size - curr_post_data_len,
                         read_post_data_finalizer);
     if (status != HTTP_OK)
@@ -787,8 +793,10 @@ lwan_process_request(lwan_t *l, lwan_request_t *request)
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 
         lwan_value_t buffer_helper = helper.buffer;
+        char *terminator = helper.request_terminator;
         memset(&helper, 0, sizeof(helper));
         helper.buffer = buffer_helper;
+        helper.request_terminator = terminator;
     }
 }
 
