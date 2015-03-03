@@ -89,15 +89,13 @@ identify_http_method(lwan_request_t *request, char *buffer)
 {
     lwan_request_flags_t flags = get_http_method(buffer);
     static const char sizes[] = {
+        [0] = 0,
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
         [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
         [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
     };
-    if (LIKELY(flags)) {
-        request->flags |= flags;
-        return buffer + sizes[flags];
-    }
-    return NULL;
+    request->flags |= flags;
+    return buffer + sizes[flags];
 }
 
 static ALWAYS_INLINE char
@@ -666,11 +664,11 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
     if (UNLIKELY(!*buffer))
         return HTTP_BAD_REQUEST;
 
-    buffer = identify_http_method(request, buffer);
-    if (UNLIKELY(!buffer))
+    char *path = identify_http_method(request, buffer);
+    if (UNLIKELY(buffer == path))
         return HTTP_NOT_ALLOWED;
 
-    buffer = identify_http_path(request, buffer, helper);
+    buffer = identify_http_path(request, path, helper);
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
