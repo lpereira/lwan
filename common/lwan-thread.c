@@ -36,7 +36,7 @@ struct death_queue_t {
     unsigned short keep_alive_timeout;
 };
 
-static const unsigned events_by_write_flag[] = {
+static const uint32_t events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
