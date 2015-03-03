@@ -40,7 +40,8 @@ typedef enum {
 } lwan_read_finalizer_t;
 
 struct request_parser_helper {
-    lwan_value_t buffer;
+    lwan_value_t *buffer;
+    char *next_request;			/* For pipelined requests */
     lwan_value_t accept_encoding;
     lwan_value_t if_modified_since;
     lwan_value_t range;
@@ -48,13 +49,11 @@ struct request_parser_helper {
     lwan_value_t query_string;
     lwan_value_t fragment;
     lwan_value_t content_length;
-    char *request_terminator;
-    char connection;
-    char padding[sizeof(size_t) - 1];
-
     lwan_value_t post_data;
+
     lwan_value_t content_type;
     lwan_value_t authorization;
+    char connection;
 };
 
 static char decode_hex_digit(char ch) __attribute__((pure));
@@ -90,15 +89,13 @@ identify_http_method(lwan_request_t *request, char *buffer)
 {
     lwan_request_flags_t flags = get_http_method(buffer);
     static const char sizes[] = {
+        [0] = 0,
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
         [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
         [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
     };
-    if (LIKELY(flags)) {
-        request->flags |= flags;
-        return buffer + sizes[flags];
-    }
-    return NULL;
+    request->flags |= flags;
+    return buffer + sizes[flags];
 }
 
 static ALWAYS_INLINE char
@@ -228,7 +225,7 @@ identify_http_path(lwan_request_t *request, char *buffer,
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
 
     char *end_of_line = memchr(buffer, '\r',
-                            (helper->buffer.len - (size_t)(buffer - helper->buffer.value)));
+                            (helper->buffer->len - (size_t)(buffer - helper->buffer->value)));
     if (UNLIKELY(!end_of_line))
         return NULL;
     if (UNLIKELY((size_t)(end_of_line - buffer) < minimal_request_line_len))
@@ -566,19 +563,18 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read == buffer_size))
         return FINALIZER_ERROR_TOO_LARGE;
 
-    lwan_value_t *buffer = &helper->buffer;
-    char *terminator = memmem(buffer->value, buffer->len, "\n\r\n", 3);
+    char *terminator = memmem(helper->buffer->value, helper->buffer->len, "\n\r\n", 3);
     if (LIKELY(terminator)) {
         char *method = terminator + 3;
-        if (get_http_method(method) && terminator != buffer->value) {
-            helper->request_terminator = method;
+        if (get_http_method(method) && terminator != helper->buffer->value) {
+            helper->next_request = method;
             return FINALIZER_DONE_PIPELINED;
         }
         return FINALIZER_DONE;
     }
 
-    if (get_http_method(buffer->value) == REQUEST_METHOD_POST) {
-        char *post_data_separator = strrchr(buffer->value, '\n');
+    if (get_http_method(helper->buffer->value) == REQUEST_METHOD_POST) {
+        char *post_data_separator = strrchr(helper->buffer->value, '\n');
         if (post_data_separator) {
             if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
                 return FINALIZER_DONE;
@@ -592,19 +588,17 @@ static ALWAYS_INLINE lwan_http_status_t
 read_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
     if (request->flags & REQUEST_PIPELINED) {
-        char *next_request = helper->request_terminator;
+        char *next_request = helper->next_request;
         if (LIKELY(next_request)) {
-            lwan_value_t *buffer = &helper->buffer;
-
-            buffer->len -= (size_t)(next_request - buffer->value);
+            helper->buffer->len -= (size_t)(next_request - helper->buffer->value);
             /* FIXME: This memmove() could be eventually removed if a better
              * stucture were used for the request buffer. */
-            memmove(buffer->value, next_request, buffer->len);
-            helper->request_terminator = NULL;
+            memmove(helper->buffer->value, next_request, helper->buffer->len);
+            helper->next_request = NULL;
         }
     }
 
-    return read_from_request_socket(request, &helper->buffer, helper,
+    return read_from_request_socket(request, helper->buffer, helper,
                         DEFAULT_BUFFER_SIZE, read_request_finalizer);
 }
 
@@ -633,7 +627,7 @@ read_post_data(lwan_request_t *request, struct request_parser_helper *helper,
 
     size_t post_data_size = (size_t)parsed_length;
     size_t curr_post_data_len =
-                    (helper->buffer.len - (size_t)(buffer - helper->buffer.value));
+                    (helper->buffer->len - (size_t)(buffer - helper->buffer->value));
     if (curr_post_data_len == post_data_size) {
         helper->post_data.value = buffer;
         helper->post_data.len = (size_t)post_data_size;
@@ -666,19 +660,19 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
 {
     char *buffer;
 
-    buffer = ignore_leading_whitespace(helper->buffer.value);
+    buffer = ignore_leading_whitespace(helper->buffer->value);
     if (UNLIKELY(!*buffer))
         return HTTP_BAD_REQUEST;
 
-    buffer = identify_http_method(request, buffer);
-    if (UNLIKELY(!buffer))
+    char *path = identify_http_method(request, buffer);
+    if (UNLIKELY(buffer == path))
         return HTTP_NOT_ALLOWED;
 
-    buffer = identify_http_path(request, buffer, helper);
+    buffer = identify_http_path(request, path, helper);
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    buffer = parse_headers(helper, buffer, helper->buffer.value + helper->buffer.len);
+    buffer = parse_headers(helper, buffer, helper->buffer->value + helper->buffer->len);
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
@@ -740,64 +734,52 @@ prepare_for_response(lwan_url_map_t *url_map,
     return HTTP_OK;
 }
 
-void
-lwan_process_request(lwan_t *l, lwan_request_t *request)
+char *
+lwan_process_request(lwan_t *l, lwan_request_t *request,
+    lwan_value_t *buffer, char *next_request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    char buffer[DEFAULT_BUFFER_SIZE];
+
     struct request_parser_helper helper = {
-        .buffer = {
-            .value = buffer,
-            .len = 0
-        }
+        .buffer = buffer,
+        .next_request = next_request
     };
 
-    while (true) {
-        status = read_request(request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
-            /* If status is anything but a bad request at this point, give up. */
-            if (status != HTTP_BAD_REQUEST)
-                lwan_default_response(request, status);
-
-            return;
-        }
-
-        status = parse_http_request(request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
+    status = read_request(request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        /* If status is anything but a bad request at this point, give up. */
+        if (status != HTTP_BAD_REQUEST)
             lwan_default_response(request, status);
-            return;
-        }
-
-        url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
-        if (UNLIKELY(!url_map)) {
-            lwan_default_response(request, HTTP_NOT_FOUND);
-            return;
-        }
-
-        request->url.value += url_map->prefix_len;
-        request->url.len -= url_map->prefix_len;
-
-        status = prepare_for_response(url_map, request, &helper);
-        if (UNLIKELY(status != HTTP_OK)) {
-            lwan_default_response(request, status);
-            return;
-        }
-
-        status = url_map->handler(request, &request->response, url_map->data);
-        lwan_response(request, status);
-
-        if (request->flags & REQUEST_PIPELINED) {
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-
-            helper = (struct request_parser_helper) {
-                .buffer = helper.buffer,
-                .request_terminator = helper.request_terminator
-            };
-        } else {
-            break;
-        }
+        goto out;
     }
+
+    status = parse_http_request(request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
+        goto out;
+    }
+
+    url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
+    if (UNLIKELY(!url_map)) {
+        lwan_default_response(request, HTTP_NOT_FOUND);
+        goto out;
+    }
+
+    request->url.value += url_map->prefix_len;
+    request->url.len -= url_map->prefix_len;
+
+    status = prepare_for_response(url_map, request, &helper);
+    if (UNLIKELY(status != HTTP_OK)) {
+        lwan_default_response(request, status);
+        goto out;
+    }
+
+    status = url_map->handler(request, &request->response, url_map->data);
+    lwan_response(request, status);
+
+out:
+    return helper.next_request;
 }
 
 static const char *
