@@ -139,7 +139,13 @@ process_request_coro(coro_t *coro)
 
     lwan_connection_t *conn = coro_get_data(coro);
     int fd = lwan_connection_get_fd(conn);
-    char buffer[DEFAULT_BUFFER_SIZE];
+    char request_buffer[DEFAULT_BUFFER_SIZE];
+    lwan_value_t buffer = {
+        .value = request_buffer,
+        .len = 0
+    };
+    char *next_request = NULL;
+    lwan_request_flags_t pipelined_flags = 0;
 
     while (true) {
         lwan_request_t request = {
@@ -147,17 +153,22 @@ process_request_coro(coro_t *coro)
             .fd = fd,
             .response = {
                 .buffer = strbuf
-            }
+            },
+            .flags = pipelined_flags
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
         strbuf_init(strbuf);
 
-        lwan_process_request(conn->thread->lwan, &request, buffer);
-        if (request.flags & REQUEST_PIPELINED)
+        next_request = lwan_process_request(conn->thread->lwan, &request, &buffer,
+            next_request);
+
+        if (request.flags & REQUEST_PIPELINED) {
             coro_yield(coro, CONN_CORO_MAY_RESUME);
-        else
+            pipelined_flags = REQUEST_PIPELINED;
+        } else {
             break;
+        }
     }
 
     return CONN_CORO_FINISHED;

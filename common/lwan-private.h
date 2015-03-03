@@ -43,7 +43,7 @@ void lwan_job_del(bool (*cb)(void *data), void *data);
 void lwan_tables_init(void);
 void lwan_tables_shutdown(void);
 
-void lwan_process_request(lwan_t *l, lwan_request_t *request,
-                          char buffer[static DEFAULT_BUFFER_SIZE]);
+char *lwan_process_request(lwan_t *l, lwan_request_t *request,
+                           lwan_value_t *buffer, char *next_request);
 
 #endif /* __LWAN_PRIVATE_H__ */
