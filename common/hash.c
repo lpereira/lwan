@@ -32,9 +32,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static const unsigned n_buckets = 512;
-static const unsigned steps = 64;
-static unsigned odd_constant = 0x27d4eb2d;
+enum {
+	n_buckets = 512,
+	steps = 64,
+	default_odd_constant = 0x27d4eb2d
+};
+static unsigned odd_constant = default_odd_constant;
 
 struct hash_entry {
 	const char *key;
@@ -69,19 +72,17 @@ static void initialize_odd_constant(void)
 	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
 	if (fd < 0) {
 		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
-		if (fd < 0)
-			goto use_default_constant;
+		if (fd < 0) {
+			odd_constant = default_odd_constant;
+			return;
+		}
 	}
 	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
-		goto use_default_constant;
+		odd_constant = default_odd_constant;
 	close(fd);
 
 oddify_constant:
 	odd_constant |= 1;
-	return;
-
-use_default_constant:
-	odd_constant = 0x27d4eb2d;
 }
 
 static inline unsigned hash_int(const void *keyptr)
