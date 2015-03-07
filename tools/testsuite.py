@@ -10,6 +10,7 @@ import requests
 import socket
 import sys
 import os
+import re
 
 LWAN_PATH = './build/lwan/lwan'
 for arg in sys.argv[1:]:
@@ -210,7 +211,7 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.headers['location'], '/icons/')
 
 
-class TestMalformedRequests(LwanTest):
+class SocketTest(LwanTest):
   def connect(self, host='127.0.0.1', port=8080):
     def _connect(host, port):
       try:
@@ -224,7 +225,7 @@ class TestMalformedRequests(LwanTest):
     self.assertNotEqual(sock, None)
     return sock
 
-
+class TestMalformedRequests(SocketTest):
   def assertHttpCode(self, sock, code):
     contents = sock.recv(128)
 
@@ -420,6 +421,30 @@ class TestCache(LwanTest):
 
     requests.get('http://127.0.0.1:8080/100.html')
     self.assertEqual(self.count_mmaps('/100.html'), 1)
+
+class TestPipelinedRequests(SocketTest):
+  def test_pipelined_requests(self):
+    response_separator = re.compile('\r\n\r\n')
+    names = ['name%04x' % x for x in range(16)]
+    reqs = '\r\n\r\n'.join('''GET /hello?name=%s HTTP/1.1\r
+Host: localhost\r
+Connection: keep-alive\r
+Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.7''' % name for name in names)
+    reqs += '\r\n\r\n'
+
+    sock = self.connect()
+    sock.send(reqs)
+
+    responses = ''
+    while len(response_separator.findall(responses)) != 16:
+      response = sock.recv(32)
+      if response:
+        responses += response
+      else:
+        break
+
+    for name in names:
+      self.assertTrue(('Hello, %s!' % name) in responses)
 
 if __name__ == '__main__':
   unittest.main()
