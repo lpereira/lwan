@@ -91,6 +91,7 @@ The build system will look for these libraries and enable/link if available.
 ### Common distribution package names
 
  - ArchLinux: `pacman -S cmake python zlib sqlite luajit libmariadbclient gperftools valgrind`
+ - Ubuntu 14: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysql++-dev`
 
 ### Build commands
 
@@ -99,6 +100,7 @@ The build system will look for these libraries and enable/link if available.
     ~/lwan$ mkdir build
     ~/lwan$ cd build
     ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=Release
+    ~/lwan/build$ make
 
 It is important to build outside of the tree; in-tree builds *are not supported*.
 
