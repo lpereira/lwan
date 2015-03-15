@@ -71,9 +71,9 @@ struct lwan_var_descriptor_t_ {
     { NULL, 0, NULL, NULL, NULL, NULL }
 
 /*
- * These functions are not meant to be used directly, hence the '_'
- * prefix. We do need a pointer to them, though, that's why they're
- * exported. Eventually this will move to something more opaque.
+ * These functions are not meant to be used directly. We do need a pointer to
+ * them, though, that's why they're exported. Eventually this will move to
+ * something more opaque.
  */
 void	 lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr);
 bool	 lwan_tpl_int_is_empty(void *ptr);
