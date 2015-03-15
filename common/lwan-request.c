@@ -566,7 +566,9 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     char *terminator = memmem(helper->buffer->value, helper->buffer->len, "\n\r\n", 3);
     if (LIKELY(terminator)) {
         char *method = terminator + 3;
-        if (get_http_method(method) && terminator != helper->buffer->value) {
+        if ((size_t)(method - helper->buffer->value) < helper->buffer->len &&
+                get_http_method(method) &&
+                terminator != helper->buffer->value) {
             helper->next_request = method;
             return FINALIZER_DONE_PIPELINED;
         }
