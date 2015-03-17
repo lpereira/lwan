@@ -444,7 +444,9 @@ Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q
         break
 
     for name in names:
-      self.assertTrue(('Hello, %s!' % name) in responses)
+      s = 'Hello, %s!' % name
+      self.assertTrue(s in responses)
+      responses = responses.replace(s, '')
 
 if __name__ == '__main__':
   unittest.main()
