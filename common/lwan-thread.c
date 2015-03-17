@@ -133,11 +133,9 @@ min(const int a, const int b)
 static int
 process_request_coro(coro_t *coro)
 {
-    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
-    if (UNLIKELY(!strbuf))
-        return CONN_CORO_ABORT;
-
+    strbuf_t strbuf;
     lwan_connection_t *conn = coro_get_data(coro);
+    lwan_t *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
     lwan_value_t buffer = {
@@ -146,21 +144,22 @@ process_request_coro(coro_t *coro)
     };
     char *next_request = NULL;
 
+    strbuf_init(&strbuf);
+    coro_defer(conn->coro, CORO_DEFER(strbuf_free), &strbuf);
+
     while (true) {
         lwan_request_t request = {
             .conn = conn,
             .fd = fd,
             .response = {
-                .buffer = strbuf
+                .buffer = &strbuf
             },
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
-        strbuf_init(strbuf);
+        strbuf_reset_length(&strbuf);
 
-        next_request = lwan_process_request(conn->thread->lwan, &request, &buffer,
-            next_request);
-
+        next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         if (!next_request)
             break;
 
