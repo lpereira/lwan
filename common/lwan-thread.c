@@ -145,7 +145,6 @@ process_request_coro(coro_t *coro)
         .len = 0
     };
     char *next_request = NULL;
-    lwan_request_flags_t pipelined_flags = 0;
 
     while (true) {
         lwan_request_t request = {
@@ -154,7 +153,6 @@ process_request_coro(coro_t *coro)
             .response = {
                 .buffer = strbuf
             },
-            .flags = pipelined_flags
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
@@ -163,12 +161,10 @@ process_request_coro(coro_t *coro)
         next_request = lwan_process_request(conn->thread->lwan, &request, &buffer,
             next_request);
 
-        if (request.flags & REQUEST_PIPELINED) {
-            coro_yield(coro, CONN_CORO_MAY_RESUME);
-            pipelined_flags = REQUEST_PIPELINED;
-        } else {
+        if (!next_request)
             break;
-        }
+
+        coro_yield(coro, CONN_CORO_MAY_RESUME);
     }
 
     return CONN_CORO_FINISHED;

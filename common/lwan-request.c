@@ -33,7 +33,6 @@
 
 typedef enum {
     FINALIZER_DONE,
-    FINALIZER_DONE_PIPELINED,
     FINALIZER_TRY_AGAIN,
     FINALIZER_YIELD_TRY_AGAIN,
     FINALIZER_ERROR_TOO_LARGE
@@ -66,6 +65,7 @@ static lwan_request_flags_t get_http_method(char *buffer) __attribute__((pure));
 static ALWAYS_INLINE lwan_request_flags_t
 get_http_method(char *buffer)
 {
+    /* Note: keep in sync in identify_http_method() and parse_headers() */
     enum {
         HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
@@ -310,10 +310,10 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
         HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
         HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
         HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
+        HTTP_HDR_REQUEST_END_GET   = MULTICHAR_CONSTANT_L('\r','\n','G','E'),
+        HTTP_HDR_REQUEST_END_HEAD  = MULTICHAR_CONSTANT_L('\r','\n','H','E'),
+        HTTP_HDR_REQUEST_END_POST  = MULTICHAR_CONSTANT_L('\r','\n','P','O'),
     };
-
-    if (UNLIKELY(!buffer))
-        return NULL;
 
     for (char *p = buffer; *p; buffer = ++p) {
         char *value;
@@ -324,6 +324,13 @@ retry:
             break;
 
         STRING_SWITCH_L(p) {
+        case HTTP_HDR_REQUEST_END_GET:
+        case HTTP_HDR_REQUEST_END_HEAD:
+        case HTTP_HDR_REQUEST_END_POST:
+            *p = '\0';
+            helper->next_request = p + sizeof("\r\n") - 1;
+            return p;
+
         CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
             helper->connection = (*value | 0x20);
             break;
@@ -489,8 +496,11 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
     size_t total_read = 0;
     int packets_remaining = 16;
 
-    if (request->flags & REQUEST_PIPELINED) {
-        request->flags &= ~REQUEST_PIPELINED;
+    if (helper->next_request) {
+        buffer->len -= (size_t)(helper->next_request - buffer->value);
+        /* FIXME: This memmove() could be eventually removed if a better
+         * stucture were used for the request buffer. */
+        memmove(buffer->value, helper->next_request, buffer->len);
         total_read = buffer->len;
         goto try_to_finalize;
     }
@@ -529,9 +539,6 @@ yield_and_read_again:
 
 try_to_finalize:
         switch (finalizer(total_read, buffer_size, helper)) {
-        case FINALIZER_DONE_PIPELINED:
-            request->flags |= REQUEST_PIPELINED;
-            /* Fallthrough */
         case FINALIZER_DONE:
             request->conn->flags &= ~CONN_MUST_READ;
             return HTTP_OK;
@@ -551,6 +558,7 @@ try_to_finalize:
      * FIXME: What should be the best approach? Error with 408, or give some more
      * time by fiddling with the connection's time to die?
      */
+
     return HTTP_TIMEOUT;
 }
 
@@ -563,15 +571,13 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read == buffer_size))
         return FINALIZER_ERROR_TOO_LARGE;
 
-    char *terminator = memmem(helper->buffer->value, helper->buffer->len, "\n\r\n", 3);
-    if (LIKELY(terminator)) {
-        char *method = terminator + 3;
-        if (get_http_method(method) && terminator != helper->buffer->value) {
-            helper->next_request = method;
-            return FINALIZER_DONE_PIPELINED;
-        }
+    if (LIKELY(helper->next_request)) {
+        helper->next_request = NULL;
         return FINALIZER_DONE;
     }
+
+    if (LIKELY(!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4)))
+        return FINALIZER_DONE;
 
     if (get_http_method(helper->buffer->value) == REQUEST_METHOD_POST) {
         char *post_data_separator = strrchr(helper->buffer->value, '\n');
@@ -587,17 +593,6 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
 static ALWAYS_INLINE lwan_http_status_t
 read_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
-    if (request->flags & REQUEST_PIPELINED) {
-        char *next_request = helper->next_request;
-        if (LIKELY(next_request)) {
-            helper->buffer->len -= (size_t)(next_request - helper->buffer->value);
-            /* FIXME: This memmove() could be eventually removed if a better
-             * stucture were used for the request buffer. */
-            memmove(helper->buffer->value, next_request, helper->buffer->len);
-            helper->next_request = NULL;
-        }
-    }
-
     return read_from_request_socket(request, helper->buffer, helper,
                         DEFAULT_BUFFER_SIZE, read_request_finalizer);
 }
