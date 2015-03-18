@@ -157,7 +157,8 @@ process_request_coro(coro_t *coro)
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
-        strbuf_reset_length(&strbuf);
+        if (UNLIKELY(!strbuf_reset_length(&strbuf)))
+            return CONN_CORO_ABORT;
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         if (!next_request)
