@@ -392,6 +392,9 @@ setup_open_file_count_limits(void)
     if (getrlimit(RLIMIT_NOFILE, &r) < 0)
         lwan_status_critical_perror("getrlimit");
 
+    if (r.rlim_max == r.rlim_cur)
+        return r.rlim_cur;
+
     if (r.rlim_max == RLIM_INFINITY)
         r.rlim_cur *= 8;
     else if (r.rlim_cur < r.rlim_max)
