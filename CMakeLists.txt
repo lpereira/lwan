@@ -1,6 +1,11 @@
 project(lwan C)
 cmake_minimum_required(VERSION 2.8)
 
+if (NOT CMAKE_BUILD_TYPE)
+	message(STATUS "No build type selected, defaulting to Debug")
+	set(CMAKE_BUILD_TYPE "Debug")
+endif ()
+
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
@@ -43,32 +48,31 @@ else ()
 	endif()
 endif()
 
+set(C_FLAGS_REL "-mtune=native")
 
 include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
-	message(STATUS "Enabling compiler optimizations")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -O2")
 
 	check_c_compiler_flag(-flto HAS_LTO)
 	if (HAS_LTO)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto")
+
+		set(C_FLAGS_REL "${C_FLAGS_REL} -flto")
 
 		check_c_compiler_flag(-ffat-lto-objects HAS_FAT_LTO_OBJECTS)
 		if (HAS_FAT_LTO_OBJECTS)
-			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffat-lto-objects")
+			set(C_FLAGS_REL "${C_FLAGS_REL} -ffat-lto-objects")
 		endif ()
-
 	endif ()
 
 	check_c_compiler_flag(-mcrc32 HAS_CRC32)
 	if (HAS_CRC32)
 		add_definitions("-DUSE_HARDWARE_CRC32=1")
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcrc32")
+		set(C_FLAGS_REL "${C_FLAGS_REL} -mcrc32")
 	endif ()
 else ()
 	check_c_compiler_flag(-fsanitize=undefined HAS_UNDEFINED_SANITIZER)
 	if (HAS_UNDEFINED_SANITIZER)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
 	endif ()
 endif ()
 
@@ -81,7 +85,10 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
+set(CMAKE_C_FLAGS "-Wall -Wextra -Wshadow -Wconversion -std=gnu99")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}")
+set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_REL}")
 add_definitions("-D_FILE_OFFSET_BITS=64")
 
 add_subdirectory(common)
