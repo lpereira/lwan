@@ -7,7 +7,9 @@ import subprocess
 import time
 import unittest
 import requests
+import datetime
 import socket
+import uuid
 import sys
 import os
 import re
@@ -299,12 +301,24 @@ class TestHelloWorld(LwanTest):
     self.assertEqual(r.text, '')
 
 
+  def test_has_request_id(self):
+    time = datetime.datetime.utcnow()
+    r = requests.get('http://127.0.0.1:8080/hello')
+    self.assertTrue('x-request-id' in r.headers)
+    request_id = uuid.UUID(r.headers['x-request-id'])
+    request_time = datetime.datetime.utcfromtimestamp(
+      (request_id.time - 0x01b21dd213814000L) * 100 / 1e9
+    )
+    self.assertLess(
+      (request_time - time).total_seconds(),
+      0.001
+    )
+
   def test_has_custom_header(self):
     r = requests.get('http://127.0.0.1:8080/hello')
 
     self.assertTrue('x-the-answer-to-the-universal-question' in r.headers)
     self.assertEqual(r.headers['x-the-answer-to-the-universal-question'], '42')
-
 
   def test_no_param(self):
     r = requests.get('http://127.0.0.1:8080/hello')

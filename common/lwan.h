@@ -184,6 +184,7 @@ struct lwan_request_t_ {
     lwan_value_t url;
     lwan_value_t original_url;
     lwan_connection_t *conn;
+    char *id;
 
     struct {
         lwan_key_value_t *base;
@@ -230,10 +231,11 @@ struct lwan_thread_t_ {
     struct {
         char date[30];
         char expires[30];
-        time_t last;
+        struct timespec last;
     } date;
     short id;
-
+    unsigned short clock_seq;
+    unsigned long long node;
     pthread_t self;
     int epoll_fd;
     int pipe_fd[2];

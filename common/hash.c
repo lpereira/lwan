@@ -21,6 +21,7 @@
 #include "hash.h"
 #include "murmur3.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -37,6 +38,7 @@ enum {
 	steps = 64,
 	default_odd_constant = 0x27d4eb2d
 };
+
 static unsigned odd_constant = default_odd_constant;
 
 struct hash_entry {
@@ -63,26 +65,27 @@ struct hash {
 __attribute__((constructor))
 static void initialize_odd_constant(void)
 {
+    hash_random(&odd_constant, sizeof(odd_constant));
+	odd_constant |= 1;
+}
+
+void hash_random(void *p, unsigned short size)
+{
 #ifdef SYS_getrandom
-	long int ret = syscall(SYS_getrandom, &odd_constant, sizeof(odd_constant), 0);
-	if (ret == sizeof(odd_constant))
-		goto oddify_constant;
+	long int ret = syscall(SYS_getrandom, p, size, 0);
+	if (ret == size)
+		return;
 #endif
 
 	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
 	if (fd < 0) {
 		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
-		if (fd < 0) {
-			odd_constant = default_odd_constant;
-			return;
-		}
-	}
-	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
-		odd_constant = default_odd_constant;
-	close(fd);
+        if (fd < 0)
+            return;
+    }
 
-oddify_constant:
-	odd_constant |= 1;
+	assert(read(fd, p, size) == size);
+    close(fd);
 }
 
 static inline unsigned hash_int(const void *keyptr)

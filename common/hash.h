@@ -15,6 +15,7 @@ struct hash *hash_int_new(void (*free_key)(void *value),
 			void (*free_value)(void *value));
 struct hash *hash_str_new(void (*free_key)(void *value),
 			void (*free_value)(void *value));
+void hash_random(void *p, unsigned short size);
 void hash_free(struct hash *hash);
 int hash_add(struct hash *hash, const void *key, const void *value);
 int hash_add_unique(struct hash *hash, const void *key, const void *value);

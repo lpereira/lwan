@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
@@ -40,6 +41,8 @@ static const uint32_t events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
+
+static const char hex_str[] = "0123456789abcdef";
 
 static inline int death_queue_node_to_idx(struct death_queue_t *dq,
     lwan_connection_t *conn)
@@ -130,14 +133,83 @@ min(const int a, const int b)
     return a < b ? a : b;
 }
 
+static void
+update_date_cache(lwan_thread_t *thread)
+{
+    struct timespec now;
+    time_t previous;
+
+    clock_gettime(CLOCK_REALTIME, &now);
+    previous = thread->date.last.tv_sec;
+    thread->date.last = now;
+    thread->clock_seq = 0;
+
+    if (now.tv_sec != previous) {
+        lwan_format_rfc_time(now.tv_sec, thread->date.date);
+        lwan_format_rfc_time(now.tv_sec + (time_t)thread->lwan->config.expires,
+                             thread->date.expires);
+    }
+}
+
+#define APPEND_CHAR(value_) \
+    *id++ = (value_)
+
+#define APPEND_HEX(value_, offset_) \
+    *id++ = hex_str[(((char *) &value_)[offset_] >> 4) & 0x0F]; \
+    *id++ = hex_str[(((char *) &value_)[offset_]     ) & 0x0F];
+
+static ALWAYS_INLINE void
+generate_request_id(char *id, struct timespec time, unsigned short clock_seq,
+                    unsigned long long node)
+{
+    unsigned long long ossp_time;
+    unsigned long time_low;
+    unsigned int time_mid, time_hi_and_version;
+    unsigned short clock_seq_low;
+    unsigned short clock_seq_hi_variant;
+    ossp_time = (unsigned long) time.tv_sec;
+    ossp_time += (unsigned long long) 141427 * 24 * 60 * 60;
+    ossp_time *= 10000000;
+    ossp_time += time.tv_nsec > 0 ? (unsigned long) time.tv_nsec / 100 : 0;
+    time_low = htonl(ossp_time & 0xffffffff);
+    time_mid = htons((ossp_time >> 32) & 0xffff);
+    time_hi_and_version = htons((ossp_time >> 48) & 0x0fff);
+    clock_seq_low = clock_seq & 0xff;
+    clock_seq_hi_variant = (clock_seq >> 8) & 0x3f;
+    APPEND_HEX(time_low, 0);
+    APPEND_HEX(time_low, 1);
+    APPEND_HEX(time_low, 2);
+    APPEND_HEX(time_low, 3);
+    APPEND_CHAR('-');
+    APPEND_HEX(time_mid, 0);
+    APPEND_HEX(time_mid, 1);
+    APPEND_CHAR('-');
+    APPEND_HEX(time_hi_and_version, 0);
+    APPEND_HEX(time_hi_and_version, 1);
+    APPEND_CHAR('-');
+    APPEND_HEX(clock_seq_hi_variant, 0);
+    APPEND_HEX(clock_seq_low, 0);
+    APPEND_CHAR('-');
+    APPEND_HEX(node, 0);
+    APPEND_HEX(node, 1);
+    APPEND_HEX(node, 2);
+    APPEND_HEX(node, 3);
+    APPEND_HEX(node, 4);
+    APPEND_HEX(node, 5);
+}
+
 static int
 process_request_coro(coro_t *coro)
 {
     strbuf_t strbuf;
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
+    unsigned short *clock_seq_p = &conn->thread->clock_seq;
+    unsigned short clock_seq;
+    unsigned long long node = conn->thread->node;
     int fd = lwan_connection_get_fd(conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
+    char request_id[37] = {0};
     lwan_value_t buffer = {
         .value = request_buffer,
         .len = 0
@@ -151,6 +223,7 @@ process_request_coro(coro_t *coro)
         lwan_request_t request = {
             .conn = conn,
             .fd = fd,
+            .id = request_id,
             .response = {
                 .buffer = &strbuf
             },
@@ -160,6 +233,13 @@ process_request_coro(coro_t *coro)
         if (UNLIKELY(!strbuf_reset_length(&strbuf)))
             return CONN_CORO_ABORT;
 
+        clock_seq = ++*clock_seq_p;
+
+        /* The clock sequence is 14 bits so update time if reached */
+        if (clock_seq == 16384)
+            update_date_cache(conn->thread);
+
+        generate_request_id(request_id, conn->thread->date.last, clock_seq, node);
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         if (!next_request)
             break;
@@ -169,6 +249,9 @@ process_request_coro(coro_t *coro)
 
     return CONN_CORO_FINISHED;
 }
+
+#undef APPEND_CHAR
+#undef APPEND_HEX
 
 static ALWAYS_INLINE void
 resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
@@ -246,18 +329,6 @@ lwan_format_rfc_time(time_t t, char buffer[30])
         lwan_status_perror("strftime");
 }
 
-static void
-update_date_cache(lwan_thread_t *thread)
-{
-    time_t now = time(NULL);
-    if (now != thread->date.last) {
-        thread->date.last = now;
-        lwan_format_rfc_time(now, thread->date.date);
-        lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
-                    thread->date.expires);
-    }
-}
-
 static ALWAYS_INLINE void
 spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
             coro_switcher_t *switcher, struct death_queue_t *dq)
@@ -309,6 +380,7 @@ thread_io_loop(void *data)
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
 
     lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
+    hash_random(&t->node, 8);
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
