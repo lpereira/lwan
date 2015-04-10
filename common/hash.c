@@ -84,7 +84,8 @@ void hash_random(void *p, unsigned short size)
             return;
     }
 
-	assert(read(fd, p, size) == size);
+    size -= read(fd, p, size);
+    assert(!size);
     close(fd);
 }
 
