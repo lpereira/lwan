@@ -54,11 +54,11 @@ include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	check_c_compiler_flag(-flto HAS_LTO)
 	if (HAS_LTO)
-		set(C_FLAGS_REL "${CMAKE_C_FLAGS} -flto")
+		set(C_FLAGS_REL "${C_FLAGS_REL} -flto")
 
 		check_c_compiler_flag(-ffat-lto-objects HAS_FAT_LTO_OBJECTS)
 		if (HAS_FAT_LTO_OBJECTS)
-			set(C_FLAGS_REL "${CMAKE_C_FLAGS} -ffat-lto-objects")
+			set(C_FLAGS_REL "${C_FLAGS_REL} -ffat-lto-objects")
 		endif ()
 	endif ()
 
