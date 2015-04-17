@@ -48,7 +48,7 @@ else ()
 	endif()
 endif()
 
-set(C_FLAGS_REL "-mtune=native -flto")
+set(C_FLAGS_REL "-mtune=native")
 
 include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
