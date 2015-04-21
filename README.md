@@ -76,14 +76,14 @@ Before installing Lwan, ensure all dependencies are installed. All of them are c
  - [CMake](http://cmake.org), at least version 2.8
  - [Python](http://python.org), at least version 2.6 (3.x is OK)
  - [ZLib](http://zlib.net)
- - [SQLite 3](http://sqlite.org)
- - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
- - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
 
 ### Optional dependencies
 
 The build system will look for these libraries and enable/link if available.
 
+ - [SQLite 3](http://sqlite.org)
+ - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
+ - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
  - [TCMalloc](https://code.google.com/p/gperftools/)
  - [jemalloc](http://www.canonware.com/jemalloc)
  - [Valgrind](http://valgrind.org)
