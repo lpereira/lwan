@@ -34,9 +34,12 @@
 
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
-#include "lwan-lua.h"
 #include "lwan-redirect.h"
 #include "lwan-serve-files.h"
+
+#if defined(HAVE_LUA)
+#include "lwan-lua.h"
+#endif
 
 static const lwan_config_t default_config = {
     .listener = "localhost:8080",
@@ -446,7 +449,9 @@ lwan_init(lwan_t *l)
     lwan_module_init(l);
     lwan_module_register(l, lwan_module_serve_files());
     lwan_module_register(l, lwan_module_redirect());
+#if defined(HAVE_LUA)
     lwan_module_register(l, lwan_module_lua());
+#endif
 
     /* Load the configuration file. */
     if (!setup_from_config(l))
