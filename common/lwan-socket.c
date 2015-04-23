@@ -242,7 +242,7 @@ lwan_socket_init(lwan_t *l)
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
-        ((struct linger[]){{ .l_onoff = 1, .l_linger = 1 }}), sizeof(struct linger));
+        (&(struct linger){ .l_onoff = 1, .l_linger = 1 }), sizeof(struct linger));
 
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN,
                                             (int[]){ 5 }, sizeof(int));

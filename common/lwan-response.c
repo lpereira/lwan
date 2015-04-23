@@ -183,10 +183,10 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
     request->response.mime_type = "text/html";
 
     lwan_tpl_apply_with_buffer(error_template, request->response.buffer,
-        (struct error_template_t[]) {{
+        &(struct error_template_t) {
             .short_message = lwan_http_status_as_string(status),
             .long_message = lwan_http_status_as_descriptive_string(status)
-        }});
+        });
 
     lwan_response(request, status);
 }

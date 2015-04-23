@@ -887,10 +887,10 @@ int main(int argc, char *argv[])
 
     printf("*** Applying template 100000 times...\n");
     for (size_t i = 0; i < 100000; i++) {
-        strbuf_t *applied = lwan_tpl_apply(tpl, (struct test_struct[]) {{
+        strbuf_t *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
             .some_int = 42,
             .a_string = "some string"
-        }});
+        });
         strbuf_free(applied);
     }
 
