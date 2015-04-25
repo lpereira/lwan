@@ -19,6 +19,10 @@
 
 #pragma once
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -283,16 +287,12 @@ const char *lwan_request_get_post_param(lwan_request_t *request, const char *key
     __attribute__((warn_unused_result));
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key)
     __attribute__((warn_unused_result));
-const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
-    __attribute__((warn_unused_result));
 
 bool lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status);
 void lwan_response_send_chunk(lwan_request_t *request);
 
 bool lwan_response_set_event_stream(lwan_request_t *request, lwan_http_status_t status);
 void lwan_response_send_event(lwan_request_t *request, const char *event);
-
-void lwan_format_rfc_time(time_t t, char buffer[static 30]);
 
 const char *lwan_http_status_as_string(lwan_http_status_t status)
     __attribute__((pure)) __attribute__((warn_unused_result));
@@ -309,3 +309,15 @@ void lwan_shutdown(lwan_t *l);
 int lwan_connection_get_fd(lwan_connection_t *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
+#if defined (__cplusplus)
+const char *lwan_request_get_remote_address(lwan_request_t *request, char* buffer)
+    __attribute__((warn_unused_result));
+
+void lwan_format_rfc_time(time_t t, char* buffer);
+}
+#else
+const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
+    __attribute__((warn_unused_result));
+
+void lwan_format_rfc_time(time_t t, char buffer[static 30]);
+#endif
