@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_TRIE_H__
-#define __LWAN_TRIE_H__
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,4 +32,3 @@ void 		*lwan_trie_lookup_prefix(lwan_trie_t *trie, const char *key);
 void		*lwan_trie_lookup_exact(lwan_trie_t *trie, const char *key);
 int32_t		 lwan_trie_entry_count(lwan_trie_t *trie);
 
-#endif	/* __LWAN_TRIE_H__ */

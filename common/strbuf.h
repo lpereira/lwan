@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __STRBUF_H__
-#define __STRBUF_H__
+#pragma once
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -57,4 +56,3 @@ bool		 strbuf_reset_length(strbuf_t *s);
 #define strbuf_get_length(s)	(((strbuf_t *)(s))->len.buffer)
 #define strbuf_get_buffer(s)	(((strbuf_t *)(s))->value.buffer)
 
-#endif /* __STRBUF_H__ */

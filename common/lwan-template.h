@@ -16,8 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#ifndef __TEMPLATE_H__
-#define __TEMPLATE_H__
+#pragma once
 
 #include <stddef.h>
 #include "strbuf.h"
@@ -89,4 +88,3 @@ strbuf_t	*lwan_tpl_apply(lwan_tpl_t *tpl, void *variables);
 strbuf_t	*lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables);
 void	 	 lwan_tpl_free(lwan_tpl_t *tpl);
 
-#endif /* __TEMPLATE_H__ */

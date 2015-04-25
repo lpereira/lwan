@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef _LWAN_STATUS_H_
-#define _LWAN_STATUS_H_
+#pragma once
 
 #ifdef NDEBUG
 #define DECLARE_STATUS_PROTO(type_, ...)                             \
@@ -59,4 +58,3 @@ DECLARE_STATUS_PROTO(perror)
 DECLARE_STATUS_PROTO(critical, __attribute__((noreturn)))
 DECLARE_STATUS_PROTO(critical_perror, __attribute__((noreturn)))
 
-#endif /* _LWAN_STATUS_H_ */

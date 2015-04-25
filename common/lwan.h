@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_H__
-#define __LWAN_H__
+#pragma once
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -310,4 +309,3 @@ void lwan_shutdown(lwan_t *l);
 int lwan_connection_get_fd(lwan_connection_t *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
-#endif /* __LWAN_H__ */

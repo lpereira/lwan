@@ -44,8 +44,7 @@ for typ, ext in sorted(types, key = itemgetter(1)):
 
 compressed_out = zlib.compress(out, 9)
 
-print('#ifndef __MIME_TYPES_H__')
-print('#define __MIME_TYPES_H__')
+print('#pragma once')
 print('/* Auto generated from parse-mime-types.py, do not modify */')
 
 print('#define MIME_UNCOMPRESSED_LEN %d' % len(out))
@@ -73,5 +72,3 @@ if line:
   print(' '.join(line))
 
 print('};')
-
-print('#endif  /* __MIME_TYPES_H__ */')

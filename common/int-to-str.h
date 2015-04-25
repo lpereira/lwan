@@ -16,8 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#ifndef __INT_TO_STR_H__
-#define __INT_TO_STR_H__
+#pragma once
 
 #include "lwan.h"
 
@@ -29,6 +28,4 @@ char *int_to_string(ssize_t value,
 char *uint_to_string(size_t value,
                      char buffer[static INT_TO_STR_BUFFER_SIZE],
                      size_t *len);
-
-#endif /* __INT_TO_STR_H__ */
 

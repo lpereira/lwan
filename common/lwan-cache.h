@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef LWAN_CACHE_H
-#define LWAN_CACHE_H
+#pragma once
 
 #include <time.h>
 
@@ -51,5 +50,3 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
 void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry);
 struct cache_entry_t *cache_coro_get_and_ref_entry(struct cache_t *cache,
       coro_t *coro, const char *key);
-
-#endif /* LWAN_CACHE_H */

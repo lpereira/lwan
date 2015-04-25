@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosddaemonhfoo
-#define foosddaemonhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -256,4 +255,3 @@ int sd_booted(void);
 */
 int sd_watchdog_enabled(int unset_environment, uint64_t *usec);
 
-#endif

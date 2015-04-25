@@ -3,8 +3,7 @@
 // public domain. The author hereby disclaims copyright to this source
 // code.
 
-#ifndef _MURMURHASH3_H_
-#define _MURMURHASH3_H_
+#pragma once
 
 //-----------------------------------------------------------------------------
 
@@ -12,4 +11,3 @@ unsigned int murmur3_simple(const void *key);
 
 //-----------------------------------------------------------------------------
 
-#endif // _MURMURHASH3_H_

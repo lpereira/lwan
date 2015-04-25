@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_PRIVATE_H__
-#define __LWAN_PRIVATE_H__
+#pragma once
 
 #include "lwan.h"
 
@@ -46,4 +45,3 @@ void lwan_tables_shutdown(void);
 char *lwan_process_request(lwan_t *l, lwan_request_t *request,
                            lwan_value_t *buffer, char *next_request);
 
-#endif /* __LWAN_PRIVATE_H__ */

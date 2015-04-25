@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __DATABASE_H__
-#define __DATABASE_H__
+#pragma once
 
 #include <stdbool.h>
 
@@ -44,4 +43,3 @@ struct db_stmt *db_prepare_stmt(const struct db *db, const char *sql,
 struct db *db_connect_sqlite(const char *path, bool read_only, const char *pragmas[]);
 struct db *db_connect_mysql(const char *host, const char *user, const char *pass, const char *database);
 
-#endif /* __DATABASE_H__ */

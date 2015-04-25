@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef LWAN_HTTP_AUTHORIZE_H
-#define LWAN_HTTP_AUTHORIZE_H
+#pragma once
 
 #include "lwan.h"
 
@@ -30,5 +29,3 @@ lwan_http_authorize(lwan_request_t *request,
                     lwan_value_t *authorization,
                     const char *realm,
                     const char *password_file);
-
-#endif /* LWAN_HTTP_AUTHORIZE_H */

@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_CORO_H__
-#define __LWAN_CORO_H__
+#pragma once
 
 #include <stddef.h>
 #if defined(__x86_64__)
@@ -64,4 +63,3 @@ char   *coro_printf(coro_t *coro, const char *fmt, ...);
 #define CORO_DEFER(fn)		((void (*)(void *))(fn))
 #define CORO_DEFER2(fn)		((void (*)(void *, void *))(fn))
 
-#endif /* __LWAN_CORO_H__ */

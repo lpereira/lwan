@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_LUA_H__
-#define __LWAN_LUA_H__
+#pragma once
 
 #include "lwan.h"
 
@@ -37,4 +36,3 @@ struct lwan_lua_settings_t {
 
 const lwan_module_t *lwan_module_lua(void);
 
-#endif /* __LWAN_LUA_H__ */

@@ -17,8 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __LWAN_IO_WRAPPERS_H__
-#define __LWAN_IO_WRAPPERS_H__
+#pragma once
 
 #include <unistd.h>
 #include <sys/uio.h>
@@ -36,4 +35,3 @@ ssize_t lwan_send(lwan_request_t *request, const void *buf, size_t count,
 ssize_t lwan_sendfile(lwan_request_t *request, int in_fd,
                       off_t offset, size_t count);
 
-#endif /* __LWAN_IO_WRAPPERS_H__ */

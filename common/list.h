@@ -27,8 +27,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef _LIST_H
-#define _LIST_H
+#pragma once
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
@@ -731,5 +730,3 @@ static inline struct list_node *list_node_from_off_(void *ptr, size_t off)
 #define list_off_var_(var, member)			\
 	(container_off_var(var, member) +		\
 	 check_type(var->member, struct list_node))
-
-#endif /* _LIST_H */
