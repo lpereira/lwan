@@ -57,11 +57,11 @@ add_library(lwan-common STATIC ${SOURCES})
 
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
-	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/parse-mime-types.py ${CMAKE_SOURCE_DIR}/tools/mime.types > ${CMAKE_BINARY_DIR}/mime-types.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types ${CMAKE_SOURCE_DIR}/tools/parse-mime-types.py
+	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/generate-mime-types-table.py ${CMAKE_SOURCE_DIR}/tools/mime.types > ${CMAKE_BINARY_DIR}/mime-types.h
+	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types ${CMAKE_SOURCE_DIR}/tools/generate-mime-types-table.py
 )
-add_custom_target(tables_mime_types DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
-add_dependencies(lwan-common tables_mime_types)
+add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
+add_dependencies(lwan-common generate_mime_types_table)
 include_directories(${CMAKE_BINARY_DIR})
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
