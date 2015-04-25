@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <netinet/in.h>
 
 #include "lwan-coro.h"
@@ -53,8 +54,15 @@
 
 #define MULTICHAR_CONSTANT_L(a,b,c,d) (MULTICHAR_CONSTANT(a,b,c,d) | 0x20202020)
 
-#define STRING_SWITCH(s) switch (*((int32_t *)(s)))
-#define STRING_SWITCH_L(s) switch (*((int32_t *)(s)) | 0x20202020)
+static inline int32_t string_as_int32(const char *s)
+{
+    int32_t i;
+    memcpy(&i, s, sizeof(int32_t));
+    return i;
+}
+
+#define STRING_SWITCH(s) switch (string_as_int32(s))
+#define STRING_SWITCH_L(s) switch (string_as_int32(s) | 0x20202020)
 
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
