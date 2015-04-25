@@ -24,18 +24,20 @@
 struct lwan_serve_files_settings_t {
   char *root_path;
   char *index_html;
+  bool serve_precompressed_files;
 };
 
-#define SERVE_FILES_SETTINGS(root_path_, index_html_) \
+#define SERVE_FILES_SETTINGS(root_path_, index_html_, serve_precompressed_files_) \
   .module = lwan_module_serve_files(), \
   .args = ((struct lwan_serve_files_settings_t[]) {{ \
     .root_path = root_path_, \
-    .index_html = index_html_ \
+    .index_html = index_html_, \
+    .serve_precompressed_files = serve_precompressed_files_ \
   }}), \
   .flags = 0
 
 #define SERVE_FILES(root_path) \
-  SERVE_FILES_SETTINGS(root_path, NULL)
+  SERVE_FILES_SETTINGS(root_path, NULL, true)
 
 const lwan_module_t *lwan_module_serve_files(void);
 

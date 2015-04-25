@@ -29,6 +29,7 @@
 
 #include "lwan.h"
 #include "lwan-cache.h"
+#include "lwan-config.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-serve-files.h"
 #include "lwan-template.h"
@@ -54,6 +55,8 @@ typedef struct dir_list_cache_data_t_	dir_list_cache_data_t;
 typedef struct redir_cache_data_t_	redir_cache_data_t;
 
 struct serve_files_priv_t_ {
+    struct cache_t *cache;
+
     struct {
         char *path;
         size_t path_len;
@@ -63,8 +66,9 @@ struct serve_files_priv_t_ {
     int open_mode;
     const char *index_html;
 
-    struct cache_t *cache;
     lwan_tpl_t *directory_list_tpl;
+
+    bool serve_precompressed_files;
 };
 
 struct cache_funcs_t_ {
@@ -382,6 +386,9 @@ sendfile_init(file_cache_entry_t *ce,
     ce->mime_type = lwan_determine_mime_type_for_file_name(
                 full_path + priv->root.path_len);
 
+    if (UNLIKELY(!priv->serve_precompressed_files))
+        goto only_uncompressed;
+
     /* Try to serve a compressed file using sendfile() if $FILENAME.gz exists */
     int len = asprintf(&sd->compressed.filename, "%s.gz", full_path + priv->root.path_len + 1);
     if (UNLIKELY(len < 0 || len >= PATH_MAX))
@@ -671,6 +678,7 @@ serve_files_init(void *args)
     priv->root.fd = root_fd;
     priv->open_mode = open_mode;
     priv->index_html = settings->index_html ? settings->index_html : "index.html";
+    priv->serve_precompressed_files = settings->serve_precompressed_files;
 
     return priv;
 
@@ -691,7 +699,9 @@ serve_files_init_from_hash(const struct hash *hash)
 {
     struct lwan_serve_files_settings_t settings = {
         .root_path = hash_find(hash, "path"),
-        .index_html = hash_find(hash, "index_path")
+        .index_html = hash_find(hash, "index_path"),
+        .serve_precompressed_files =
+            parse_bool(hash_find(hash, "serve precompressed files"), true)
     };
     return serve_files_init(&settings);
 }
