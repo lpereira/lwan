@@ -133,7 +133,7 @@ min(const int a, const int b)
 static int
 process_request_coro(coro_t *coro)
 {
-    strbuf_t strbuf;
+    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(conn);
@@ -144,27 +144,27 @@ process_request_coro(coro_t *coro)
     };
     char *next_request = NULL;
 
-    strbuf_init(&strbuf);
-    coro_defer(conn->coro, CORO_DEFER(strbuf_free), &strbuf);
+    strbuf_init(strbuf);
 
     while (true) {
         lwan_request_t request = {
             .conn = conn,
             .fd = fd,
             .response = {
-                .buffer = &strbuf
+                .buffer = strbuf
             },
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
-        if (UNLIKELY(!strbuf_reset_length(&strbuf)))
-            return CONN_CORO_ABORT;
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         if (!next_request)
             break;
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
+
+        if (UNLIKELY(!strbuf_reset_length(strbuf)))
+            return CONN_CORO_ABORT;
     }
 
     return CONN_CORO_FINISHED;
