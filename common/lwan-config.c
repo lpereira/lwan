@@ -62,6 +62,9 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
 
 bool parse_bool(const char *value, bool default_value)
 {
+    if (!value)
+        return default_value;
+
     if (!strcmp(value, "true") || !strcmp(value, "1")
             || !strcmp(value, "on") || !strcmp(value, "yes"))
         return true;
