@@ -83,7 +83,7 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wshadow -Wconversion -std=gnu99")
+set(CMAKE_C_FLAGS "-Wall -Wextra -Wshadow -Wconversion -std=gnu11")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_REL}")
