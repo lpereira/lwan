@@ -699,7 +699,7 @@ serve_files_init_from_hash(const struct hash *hash)
 {
     struct lwan_serve_files_settings_t settings = {
         .root_path = hash_find(hash, "path"),
-        .index_html = hash_find(hash, "index_path"),
+        .index_html = hash_find(hash, "index path"),
         .serve_precompressed_files =
             parse_bool(hash_find(hash, "serve precompressed files"), true)
     };
