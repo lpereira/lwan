@@ -38,12 +38,6 @@ static FORCE_INLINE uint64_t rotl64(uint64_t x, int8_t r)
 #define BIG_CONSTANT(x) (x##LLU)
 
 //-----------------------------------------------------------------------------
-// Block read - if your platform needs to do endian-swapping or can only
-// handle aligned reads, do the conversion here
-
-#define getblock(p, i) (p[i])
-
-//-----------------------------------------------------------------------------
 // Finalization mix - force all bits of a hash block to avalanche
 #ifndef __x86_64__
 static FORCE_INLINE uint32_t fmix32(uint32_t h)
@@ -85,7 +79,10 @@ MurmurHash3_x86_32(const void *key, size_t len, uint32_t seed, void *out)
     // body
     const uint32_t *blocks = (const uint32_t *)(data + nblocks * 4);
     for (i = -nblocks; i; i++) {
-        uint32_t k1 = getblock(blocks, i);
+        uint32_t k1;
+
+        memcpy(&k1, blocks + i, sizeof(k1));
+
         k1 *= c1;
         k1 = ROTL32(k1, 15);
         k1 *= c2;
@@ -143,10 +140,12 @@ FORCE_INLINE static void MurmurHash3_x86_128 (const void *key, const size_t len,
     const uint32_t * blocks = (const uint32_t *)(data + nblocks*16);
 
     for(i = -nblocks; i; i++) {
-        uint32_t k1 = getblock(blocks,i*4+0);
-        uint32_t k2 = getblock(blocks,i*4+1);
-        uint32_t k3 = getblock(blocks,i*4+2);
-        uint32_t k4 = getblock(blocks,i*4+3);
+        uint32_t k1, k2, k3, k4;
+
+        memcpy(&k1, blocks + i * 4 + 0, sizeof(k1));
+        memcpy(&k2, blocks + i * 4 + 1, sizeof(k2));
+        memcpy(&k3, blocks + i * 4 + 2, sizeof(k3));
+        memcpy(&k4, blocks + i * 4 + 3, sizeof(k4));
 
         k1 *= c1; k1 = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
         h1 = ROTL32(h1,19); h1 += h2; h1 = h1*5+0x561ccd1b;
@@ -234,8 +233,11 @@ MurmurHash3_x64_128(const void *key, const size_t len, const uint32_t seed,
     // body
     const uint64_t *blocks = (const uint64_t *)(data);
     for (i = 0; i < nblocks; i++) {
-        uint64_t k1 = getblock(blocks, i * 2 + 0);
-        uint64_t k2 = getblock(blocks, i * 2 + 1);
+        uint64_t k1, k2;
+
+        memcpy(&k1, blocks + i * 2 + 0, sizeof(k1));
+        memcpy(&k2, blocks + i * 2 + 1, sizeof(k2));
+
         k1 *= c1;
         k1 = ROTL64(k1, 31);
         k1 *= c2;
