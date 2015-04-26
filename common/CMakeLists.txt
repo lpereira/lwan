@@ -65,3 +65,10 @@ add_dependencies(lwan-common generate_mime_types_table)
 include_directories(${CMAKE_BINARY_DIR})
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
+
+INSTALL(TARGETS lwan-common
+  DESTINATION "lib"
+)
+INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
+  DESTINATION "include/lwan"
+)
