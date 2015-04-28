@@ -47,26 +47,6 @@ extern "C" {
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#  define MULTICHAR_CONSTANT(a,b,c,d) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#  define MULTICHAR_CONSTANT(d,c,b,a) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
-#elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
-#  error A PDP? Seriously?
-#endif
-
-#define MULTICHAR_CONSTANT_L(a,b,c,d) (MULTICHAR_CONSTANT(a,b,c,d) | 0x20202020)
-
-static inline int32_t string_as_int32(const char *s)
-{
-    int32_t i;
-    memcpy(&i, s, sizeof(int32_t));
-    return i;
-}
-
-#define STRING_SWITCH(s) switch (string_as_int32(s))
-#define STRING_SWITCH_L(s) switch (string_as_int32(s) | 0x20202020)
-
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
 #else
@@ -78,6 +58,27 @@ static inline int32_t string_as_int32(const char *s)
 #else
 #  define LIKELY_IS(x,y)	__builtin_expect((x), (y))
 #endif
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define MULTICHAR_CONSTANT(a,b,c,d) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#  define MULTICHAR_CONSTANT(d,c,b,a) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
+#  error A PDP? Seriously?
+#endif
+
+#define MULTICHAR_CONSTANT_L(a,b,c,d) (MULTICHAR_CONSTANT(a,b,c,d) | 0x20202020)
+
+static ALWAYS_INLINE int32_t string_as_int32(const char *s)
+{
+    int32_t i;
+    memcpy(&i, s, sizeof(int32_t));
+    return i;
+}
+
+#define STRING_SWITCH(s) switch (string_as_int32(s))
+#define STRING_SWITCH_L(s) switch (string_as_int32(s) | 0x20202020)
+
 
 #define LIKELY(x)	LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x)	LIKELY_IS((x), 0)
