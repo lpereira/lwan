@@ -279,7 +279,7 @@ identify_http_path(lwan_request_t *request, char *buffer,
         char *end; \
         p += sizeof(hdr) - 1; \
         if (p >= buffer_end)            /* reached the end of header blocks */ \
-          goto end; \
+          return NULL; \
         if (UNLIKELY(*p++ != ':'))	/* not the header we're looking for */ \
           goto did_not_match; \
         if (UNLIKELY(*p++ != ' '))	/* not the header we're looking for */ \
@@ -371,7 +371,6 @@ did_not_match:
             break;
     }
 
-end:
     return buffer;
 }
 
