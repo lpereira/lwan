@@ -38,13 +38,6 @@ extern "C" {
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
 
-#undef static_assert
-#if HAVE_STATIC_ASSERT
-#define static_assert(expr, msg)	_Static_assert(expr, msg)
-#else
-#define static_assert(expr, msg)
-#endif
-
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
 #ifdef DISABLE_INLINE_FUNCTIONS
@@ -317,6 +310,7 @@ const char *lwan_request_get_remote_address(lwan_request_t *request, char* buffe
 void lwan_format_rfc_time(time_t t, char* buffer);
 }
 #else
+
 const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
     __attribute__((warn_unused_result));
 
