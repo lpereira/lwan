@@ -69,6 +69,6 @@ set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
 INSTALL(TARGETS lwan-common
   DESTINATION "lib"
 )
-INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
+INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h lwan-template.h
   DESTINATION "include/lwan"
 )
