@@ -321,7 +321,7 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
 
 retry:
         if ((p + sizeof(int32_t)) >= buffer_end)
-            break;
+            return NULL;
 
         STRING_SWITCH_L(p) {
         case HTTP_HDR_REQUEST_END_GET:
