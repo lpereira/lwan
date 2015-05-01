@@ -37,6 +37,8 @@
 #include "lwan-template.h"
 #include "strbuf.h"
 
+#define ERROR_MSG_BUF_LEN	512
+
 typedef enum {
     TPL_ACTION_APPEND,
     TPL_ACTION_APPEND_CHAR,
@@ -431,8 +433,8 @@ lwan_tpl_free(lwan_tpl_t *tpl)
 
 #define PARSE_ERROR(msg,...) \
     do { \
-        int ret = snprintf(error_msg, 512, msg, ##__VA_ARGS__); \
-        if (ret < 0 || ret >= 512) \
+        int ret = snprintf(error_msg, ERROR_MSG_BUF_LEN, msg, ##__VA_ARGS__); \
+        if (ret < 0 || ret >= ERROR_MSG_BUF_LEN) \
             lwan_status_error("Error truncated"); \
         return STATE_PARSE_ERROR; \
     } while(0)
@@ -525,7 +527,7 @@ append_text:
 }
 
 static int
-post_process_template(lwan_tpl_t *tpl, char error_msg[static 512])
+post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
 {
     struct chunk *chunk;
     struct chunk *prev_chunk;
@@ -601,7 +603,7 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
     lwan_tpl_t *tpl;
     strbuf_t *buf;
     int state = STATE_DEFAULT;
-    char error_msg[512];
+    char error_msg[ERROR_MSG_BUF_LEN];
     struct parser_state parser_state;
 
     tpl = calloc(1, sizeof(*tpl));
