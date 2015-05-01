@@ -82,6 +82,12 @@ static ALWAYS_INLINE int32_t string_as_int32(const char *s)
 #define ATOMIC_DEC(V)		ATOMIC_AAF(&(V), -1)
 #define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 
+#if defined (__cplusplus)
+#define ENFORCE_STATIC_BUFFER_LENGTH
+#else
+#define ENFORCE_STATIC_BUFFER_LENGTH	static
+#endif
+
 typedef struct lwan_t_			lwan_t;
 typedef struct lwan_module_t_		lwan_module_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
@@ -303,16 +309,13 @@ void lwan_shutdown(lwan_t *l);
 int lwan_connection_get_fd(lwan_connection_t *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
+
+const char *lwan_request_get_remote_address(lwan_request_t *request,
+            char buffer[ENFORCE_STATIC_BUFFER_LENGTH INET6_ADDRSTRLEN])
+    __attribute__((warn_unused_result));
+
+void lwan_format_rfc_time(time_t t, char buffer[ENFORCE_STATIC_BUFFER_LENGTH 30]);
+
 #if defined (__cplusplus)
-const char *lwan_request_get_remote_address(lwan_request_t *request, char* buffer)
-    __attribute__((warn_unused_result));
-
-void lwan_format_rfc_time(time_t t, char* buffer);
 }
-#else
-
-const char *lwan_request_get_remote_address(lwan_request_t *request, char buffer[static INET6_ADDRSTRLEN])
-    __attribute__((warn_unused_result));
-
-void lwan_format_rfc_time(time_t t, char buffer[static 30]);
 #endif
