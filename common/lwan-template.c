@@ -733,10 +733,7 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
 
 #define NEXT(c)		((struct chunk *)(c)->list.next)
 #define DISPATCH()	goto *dispatch_table[chunk->action]
-#define NEXT_ACTION()	do { 						\
-                            chunk = (struct chunk *)chunk->list.next;	\
-                            DISPATCH();					\
-                        } while(false)
+#define NEXT_ACTION()	do { chunk = NEXT(chunk); DISPATCH(); } while(false)
 
     DISPATCH();
 
