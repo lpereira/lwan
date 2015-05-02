@@ -190,7 +190,7 @@ static const cache_funcs_t redir_funcs = {
 static const lwan_var_descriptor_t file_list_item_desc[] = {
     TPL_VAR_STR(struct file_list_t, file_list.icon),
     TPL_VAR_STR(struct file_list_t, file_list.icon_alt),
-    TPL_VAR_STR_ESCAPE(struct file_list_t, file_list.name),
+    TPL_VAR_STR(struct file_list_t, file_list.name),
     TPL_VAR_STR(struct file_list_t, file_list.type),
     TPL_VAR_INT(struct file_list_t, file_list.size),
     TPL_VAR_STR(struct file_list_t, file_list.unit),
@@ -225,7 +225,7 @@ static const char *directory_list_tpl_str = "<html>\n"
     "{{#file_list}}"
     "    <tr>\n"
     "      <td><img src=\"/icons/{{file_list.icon}}.png\" alt=\"{{file_list.icon_alt}}\"></td>\n"
-    "      <td><a href=\"{{rel_path}}/{{file_list.name}}\">{{file_list.name}}</a></td>\n"
+    "      <td><a href=\"{{rel_path}}/{{{file_list.name}}}\">{{{file_list.name}}}</a></td>\n"
     "      <td>{{file_list.type}}</td>\n"
     "      <td>{{file_list.size}}{{file_list.unit}}</td>\n"
     "    </tr>\n"
