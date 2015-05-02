@@ -44,6 +44,7 @@ typedef enum {
     TPL_ACTION_APPEND_CHAR,
     TPL_ACTION_VARIABLE,
     TPL_ACTION_VARIABLE_STR,
+    TPL_ACTION_VARIABLE_STR_ESCAPE,
     TPL_ACTION_START_ITER,
     TPL_ACTION_END_ITER,
     TPL_ACTION_IF_VARIABLE_NOT_EMPTY,
@@ -53,15 +54,18 @@ typedef enum {
 } lwan_tpl_action_t;
 
 typedef enum {
-    TPL_FLAG_NEGATE = 1<<0
+    TPL_FLAG_NEGATE = 1<<0,
+    TPL_FLAG_ESCAPE = 1<<1
 } lwan_tpl_flag_t;
 
 enum {
     STATE_DEFAULT,
     STATE_FIRST_BRACE,
     STATE_SECOND_BRACE,
+    STATE_THIRD_BRACE,
     STATE_FIRST_CLOSING_BRACE,
     STATE_SECOND_CLOSING_BRACE,
+    STATE_THIRD_CLOSING_BRACE,
     STATE_PARSE_ERROR
 };
 
@@ -244,7 +248,7 @@ compile_append_text(struct parser_state *state, strbuf_t *buf)
 
 static int
 compile_append_var(struct parser_state *state, strbuf_t *buf,
-            const lwan_var_descriptor_t *descriptor)
+            const lwan_var_descriptor_t *descriptor, bool escape)
 {
     struct chunk *chunk = malloc(sizeof(*chunk));
     if (!chunk)
@@ -264,6 +268,9 @@ next_char:
         goto empty_variable;
 
     case '^':
+        if (escape)
+            goto cannot_escape;
+
         chunk->flags ^= TPL_FLAG_NEGATE;
         variable++;
         length--;
@@ -275,6 +282,8 @@ next_char:
         return 0;
 
     case '>': {
+        if (escape)
+            goto cannot_escape;
         if (chunk->flags & TPL_FLAG_NEGATE)
             goto invalid_negate;
 
@@ -292,6 +301,9 @@ next_char:
         break;
     }
     case '#':
+        if (escape)
+            goto cannot_escape;
+
         chunk->data = symtab_lookup(state, variable + 1);
         if (!chunk->data)
             goto no_such_key;
@@ -303,6 +315,8 @@ next_char:
 
         break;
     case '/': {
+        if (escape)
+            goto cannot_escape;
         if (chunk->flags & TPL_FLAG_NEGATE)
             goto invalid_negate;
 
@@ -348,6 +362,9 @@ next_char:
             goto invalid_negate;
 
         if (variable[length] == '?') {
+            if (escape)
+                goto cannot_escape;
+
             chunk->action = TPL_ACTION_IF_VARIABLE_NOT_EMPTY;
             variable[length] = '\0';
         } else {
@@ -359,11 +376,18 @@ next_char:
     }
 
 add_chunk:
+    if (escape)
+        chunk->flags |= TPL_FLAG_ESCAPE;
+
     list_add_tail(&state->tpl->chunks, &chunk->list);
     state->tpl->minimum_size += length + 1;
     strbuf_reset(buf);
 
     return 0;
+
+cannot_escape:
+    free(chunk);
+    return -ENOSTR;
 
 not_enough_memory:
     free(chunk);
@@ -397,6 +421,7 @@ free_chunk(struct chunk *chunk)
     case TPL_ACTION_APPEND_CHAR:
     case TPL_ACTION_VARIABLE:
     case TPL_ACTION_VARIABLE_STR:
+    case TPL_ACTION_VARIABLE_STR_ESCAPE:
     case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
     case TPL_ACTION_END_ITER:
         /* do nothing */
@@ -448,6 +473,7 @@ feed_into_compiler(struct parser_state *parser_state,
     char *error_msg)
 {
     bool last_pass = ch == EOF;
+    bool escape = false;
 
     switch (state) {
     case STATE_DEFAULT:
@@ -476,9 +502,18 @@ feed_into_compiler(struct parser_state *parser_state,
 
     case STATE_SECOND_BRACE:
         if (ch == '{')
-            PARSE_ERROR("Unexpected open brace");
+            return STATE_THIRD_BRACE;
         if (ch == '}')
             return STATE_FIRST_CLOSING_BRACE;
+        if (last_pass)
+            PARSE_ERROR("Missing close brace");
+
+        strbuf_append_char(buf, (char)ch);
+        break;
+
+    case STATE_THIRD_BRACE:
+        if (ch == '}')
+            return STATE_THIRD_CLOSING_BRACE;
         if (last_pass)
             PARSE_ERROR("Missing close brace");
 
@@ -491,8 +526,17 @@ feed_into_compiler(struct parser_state *parser_state,
 
         PARSE_ERROR("Closing brace expected");
 
+    case STATE_THIRD_CLOSING_BRACE:
+        escape = true;
+        /* fallthrough */
+
     case STATE_SECOND_CLOSING_BRACE:
-        switch (compile_append_var(parser_state, buf, descriptor)) {
+        if (ch == '}')
+            return STATE_THIRD_CLOSING_BRACE;
+
+        switch (compile_append_var(parser_state, buf, descriptor, escape)) {
+        case -ENOSTR:
+            PARSE_ERROR("Triple mustache not supported for ``%s''", strbuf_get_buffer(buf));
         case -EILSEQ:
             PARSE_ERROR("Negation not supported for ``%s''", strbuf_get_buffer(buf));
         case -ENOTNAM:
@@ -583,9 +627,16 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
             chunk = (struct chunk *)prev_chunk->list.next;
         } else if (chunk->action == TPL_ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
+            bool escape = chunk->flags & TPL_FLAG_ESCAPE;
+
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
-                chunk->action = TPL_ACTION_VARIABLE_STR;
+                if (escape)
+                    chunk->action = TPL_ACTION_VARIABLE_STR_ESCAPE;
+                else
+                    chunk->action = TPL_ACTION_VARIABLE_STR;
                 chunk->data = (void *)descriptor->offset;
+            } else if (escape) {
+                PARSE_ERROR("Variable must be string to be escaped");
             } else if (!descriptor->append_to_strbuf) {
                 PARSE_ERROR("Invalid variable descriptor");
             }
@@ -717,6 +768,7 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
         [TPL_ACTION_APPEND_CHAR] = &&action_append_char,
         [TPL_ACTION_VARIABLE] = &&action_variable,
         [TPL_ACTION_VARIABLE_STR] = &&action_variable_str,
+        [TPL_ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
         [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
         [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
         [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
@@ -754,6 +806,10 @@ action_variable: {
 
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
+    NEXT_ACTION();
+
+action_variable_str_escape:
+    lwan_append_str_escaped_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
     NEXT_ACTION();
 
 action_if_variable_not_empty: {
