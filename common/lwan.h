@@ -54,13 +54,16 @@ extern "C" {
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #  define MULTICHAR_CONSTANT(a,b,c,d) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#  define MULTICHAR_CONSTANT_SMALL(a,b) ((int16_t)((a) | (b) << 8))
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #  define MULTICHAR_CONSTANT(d,c,b,a) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#  define MULTICHAR_CONSTANT_SMALL(b,a) ((int16_t)((a) | (b) << 8))
 #elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
 #  error A PDP? Seriously?
 #endif
 
 #define MULTICHAR_CONSTANT_L(a,b,c,d) (MULTICHAR_CONSTANT(a,b,c,d) | 0x20202020)
+#define MULTICHAR_CONSTANT_SMALL_L(a,b) (MULTICHAR_CONSTANT_SMALL(a,b) | 0x2020)
 
 static ALWAYS_INLINE int32_t string_as_int32(const char *s)
 {
@@ -69,9 +72,18 @@ static ALWAYS_INLINE int32_t string_as_int32(const char *s)
     return i;
 }
 
+static ALWAYS_INLINE int16_t string_as_int16(const char *s)
+{
+    int16_t i;
+    memcpy(&i, s, sizeof(int16_t));
+    return i;
+}
+
 #define STRING_SWITCH(s) switch (string_as_int32(s))
 #define STRING_SWITCH_L(s) switch (string_as_int32(s) | 0x20202020)
 
+#define STRING_SWITCH_SMALL(s) switch (string_as_int16(s))
+#define STRING_SWITCH_SMALL_L(s) switch (string_as_int16(s) | 0x2020)
 
 #define LIKELY(x)	LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x)	LIKELY_IS((x), 0)

@@ -65,7 +65,7 @@ static lwan_request_flags_t get_http_method(char *buffer) __attribute__((pure));
 static ALWAYS_INLINE lwan_request_flags_t
 get_http_method(char *buffer)
 {
-    /* Note: keep in sync in identify_http_method() and parse_headers() */
+    /* Note: keep in sync in identify_http_method() */
     enum {
         HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
@@ -301,18 +301,16 @@ static char *
 parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_end)
 {
     enum {
-        HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
-        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
-        HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
-        HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
-        HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
+        HTTP_HDR_REQUEST_END       = MULTICHAR_CONSTANT_SMALL('\r','\n'),
         HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
         HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
         HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
+        HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
         HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
-        HTTP_HDR_REQUEST_END_GET   = MULTICHAR_CONSTANT_L('\r','\n','G','E'),
-        HTTP_HDR_REQUEST_END_HEAD  = MULTICHAR_CONSTANT_L('\r','\n','H','E'),
-        HTTP_HDR_REQUEST_END_POST  = MULTICHAR_CONSTANT_L('\r','\n','P','O'),
+        HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
+        HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
+        HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
+        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g')
     };
 
     for (char *p = buffer; *p; buffer = ++p) {
@@ -323,29 +321,14 @@ retry:
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
 
-        STRING_SWITCH_L(p) {
-        case HTTP_HDR_REQUEST_END_GET:
-        case HTTP_HDR_REQUEST_END_HEAD:
-        case HTTP_HDR_REQUEST_END_POST:
+        STRING_SWITCH_SMALL(p) {
+        case HTTP_HDR_REQUEST_END:
             *p = '\0';
             helper->next_request = p + sizeof("\r\n") - 1;
             return p;
+        }
 
-        CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
-            helper->connection = (*value | 0x20);
-            break;
-        CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
-            helper->if_modified_since.value = value;
-            helper->if_modified_since.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_RANGE, "Range")
-            helper->range.value = value;
-            helper->range.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_AUTHORIZATION, "Authorization")
-            helper->authorization.value = value;
-            helper->authorization.len = length;
-            break;
+        STRING_SWITCH_L(p) {
         CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
             helper->accept_encoding.value = value;
             helper->accept_encoding.len = length;
@@ -358,12 +341,27 @@ retry:
             helper->content_length.value = value;
             helper->content_length.len = length;
             break;
-        case HTTP_HDR_CONTENT:
-            p += sizeof("Content") - 1;
-            goto retry;
         case HTTP_HDR_ACCEPT:
             p += sizeof("Accept") - 1;
             goto retry;
+        CASE_HEADER(HTTP_HDR_AUTHORIZATION, "Authorization")
+            helper->authorization.value = value;
+            helper->authorization.len = length;
+            break;
+        CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
+            helper->connection = (*value | 0x20);
+            break;
+        case HTTP_HDR_CONTENT:
+            p += sizeof("Content") - 1;
+            goto retry;
+        CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
+            helper->if_modified_since.value = value;
+            helper->if_modified_since.len = length;
+            break;
+        CASE_HEADER(HTTP_HDR_RANGE, "Range")
+            helper->range.value = value;
+            helper->range.len = length;
+            break;
         }
 did_not_match:
         p = memchr(p, '\n', (size_t)(buffer_end - p));
