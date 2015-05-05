@@ -20,11 +20,15 @@
  * Ideas from Mustache logic-less templates: http://mustache.github.com/
  */
 
+#define _GNU_SOURCE
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -39,7 +43,7 @@
 
 #define ERROR_MSG_BUF_LEN	512
 
-typedef enum {
+enum action {
     TPL_ACTION_APPEND,
     TPL_ACTION_APPEND_CHAR,
     TPL_ACTION_VARIABLE,
@@ -51,28 +55,51 @@ typedef enum {
     TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY,
     TPL_ACTION_APPLY_TPL,
     TPL_ACTION_LAST
-} lwan_tpl_action_t;
+};
 
-typedef enum {
-    TPL_FLAG_NEGATE = 1<<0,
-    TPL_FLAG_ESCAPE = 1<<1
-} lwan_tpl_flag_t;
+enum flags {
+    FLAGS_ALL = -1,
+    FLAGS_NEGATE = 1<<0,
+    FLAGS_QUOTE = 1<<1
+};
 
-enum {
-    STATE_DEFAULT,
-    STATE_FIRST_BRACE,
-    STATE_SECOND_BRACE,
-    STATE_THIRD_BRACE,
-    STATE_FIRST_CLOSING_BRACE,
-    STATE_SECOND_CLOSING_BRACE,
-    STATE_THIRD_CLOSING_BRACE,
-    STATE_PARSE_ERROR
+enum item_type {
+    ITEM_ERROR,
+    ITEM_EOF,
+    ITEM_IDENTIFIER,
+    ITEM_LEFT_META,
+    ITEM_HASH,
+    ITEM_RIGHT_META,
+    ITEM_TEXT,
+    ITEM_SLASH,
+    ITEM_QUESTION_MARK,
+    ITEM_HAT,
+    ITEM_GREATER_THAN,
+    ITEM_OPEN_CURLY_BRACE,
+    ITEM_CLOSE_CURLY_BRACE,
+    TOTAL_ITEMS
+};
+
+static const char *item_type_str[TOTAL_ITEMS] = {
+    [ITEM_ERROR] = "ERROR",
+    [ITEM_EOF] = "EOF",
+    [ITEM_IDENTIFIER] = "IDENTIFIER",
+    [ITEM_LEFT_META] = "LEFT_META",
+    [ITEM_HASH] = "HASH",
+    [ITEM_RIGHT_META] = "RIGHT_META",
+    [ITEM_TEXT] = "TEXT",
+    [ITEM_SLASH] = "SLASH",
+    [ITEM_QUESTION_MARK] = "QUESTION_MARK",
+    [ITEM_HAT] = "HAT",
+    [ITEM_GREATER_THAN] = "GREATER_THAN",
+    [ITEM_OPEN_CURLY_BRACE] = "ITEM_OPEN_CURLY_BRACE",
+    [ITEM_CLOSE_CURLY_BRACE] = "ITEM_CLOSE_CURLY_BRACE"
 };
 
 struct chunk {
     struct list_node list;
-    lwan_tpl_action_t action;
-    lwan_tpl_flag_t flags;
+    enum action action;
+    enum flags flags;
     void *data;
 };
 
@@ -86,9 +113,37 @@ struct symtab {
     struct symtab *next;
 };
 
-struct parser_state {
+struct item {
+    enum item_type type;
+    struct {
+        const char *value;
+        size_t len;
+    } value;
+};
+
+struct lexer {
+    void *(*state)(struct lexer *);
+    const char *start, *pos, *end;
+
+    struct {
+        struct item items[4];
+        size_t first;
+        size_t last;
+        size_t population;
+    } ring_buffer;
+};
+
+struct parser {
     lwan_tpl_t *tpl;
     struct symtab *symtab;
+    struct lexer lexer;
+    enum flags flags;
+    struct list_head stack;
+};
+
+struct stacked_item {
+    struct list_node stack;
+    struct item item;
 };
 
 struct chunk_descriptor {
@@ -96,10 +151,31 @@ struct chunk_descriptor {
     lwan_var_descriptor_t *descriptor;
 };
 
+static const char left_meta[] = "{{";
+static const char right_meta[] = "}}";
+
+static void *lex_inside_action(struct lexer *lexer);
+static void *lex_identifier(struct lexer *lexer);
+static void *lex_left_meta(struct lexer *lexer);
+static void *lex_right_meta(struct lexer *lexer);
+static void *lex_text(struct lexer *lexer);
+
+static void *parser_meta(struct parser *parser, struct item *item);
+static void *parser_text(struct parser *parser, struct item *item);
+static void *parser_iter(struct parser *parser, struct item *item);
+static void *parser_slash(struct parser *parser, struct item *item);
+static void *parser_end_iter(struct parser *parser, struct item *item);
+static void *parser_end_var_not_empty(struct parser *parser, struct item *item);
+static void *parser_slash(struct parser *parser, struct item *item);
+static void *parser_iter(struct parser *parser, struct item *item);
+static void *parser_negate_iter(struct parser *parser, struct item *item);
+static void *parser_meta(struct parser *parser, struct item *item);
+static void *parser_text(struct parser *parser, struct item *item);
+
 static lwan_var_descriptor_t *
-symtab_lookup(struct parser_state *state, const char *var_name)
+symtab_lookup(struct parser *parser, const char *var_name)
 {
-    for (struct symtab *tab = state->symtab; tab; tab = tab->next) {
+    for (struct symtab *tab = parser->symtab; tab; tab = tab->next) {
         lwan_var_descriptor_t *var = hash_find(tab->hash, var_name);
         if (var)
             return var;
@@ -109,7 +185,7 @@ symtab_lookup(struct parser_state *state, const char *var_name)
 }
 
 static bool
-symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
+symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
 {
     struct symtab *tab = malloc(sizeof(*tab));
 
@@ -122,25 +198,531 @@ symtab_push(struct parser_state *state, const lwan_var_descriptor_t *descriptor)
         return false;
     }
 
-    tab->next = state->symtab;
-    state->symtab = tab;
+    tab->next = parser->symtab;
+    parser->symtab = tab;
 
     for (; descriptor->name; descriptor++)
-        hash_add(state->symtab->hash, descriptor->name, descriptor);
+        hash_add(parser->symtab->hash, descriptor->name, descriptor);
 
     return true;
 }
 
 static void
-symtab_pop(struct parser_state *state)
+symtab_pop(struct parser *parser)
 {
-    struct symtab *tab = state->symtab;
+    struct symtab *tab = parser->symtab;
 
     assert(tab);
 
     hash_free(tab->hash);
-    state->symtab = tab->next;
+    parser->symtab = tab->next;
     free(tab);
+}
+
+static void emit_item(struct lexer *lexer, struct item *item)
+{
+    lexer->ring_buffer.items[lexer->ring_buffer.last] = *item;
+    lexer->ring_buffer.last = (lexer->ring_buffer.last + 1) % N_ELEMENTS(lexer->ring_buffer.items);
+    lexer->ring_buffer.population++;
+
+    lexer->start = lexer->pos;
+}
+
+static bool pop_item(struct lexer *lexer, struct item **item)
+{
+    if (!lexer->ring_buffer.population)
+        return false;
+
+    *item = &lexer->ring_buffer.items[lexer->ring_buffer.first];
+    lexer->ring_buffer.first = (lexer->ring_buffer.first + 1) % N_ELEMENTS(lexer->ring_buffer.items);
+    lexer->ring_buffer.population--;
+
+    return true;
+}
+
+static void emit(struct lexer *lexer, enum item_type item_type)
+{
+    struct item item = {
+        .type = item_type,
+        .value = {
+            .value = lexer->start,
+            .len = (size_t)(lexer->pos - lexer->start)
+        }
+    };
+    emit_item(lexer, &item);
+}
+
+static int next(struct lexer *lexer)
+{
+    if (lexer->pos >= lexer->end)
+        return EOF;
+    int r = *lexer->pos;
+    lexer->pos++;
+    return r;
+}
+
+static void ignore(struct lexer *lexer)
+{
+    lexer->start = lexer->pos;
+}
+
+static void backup(struct lexer *lexer)
+{
+    lexer->pos--;
+}
+
+static void *error_vitem(struct item *item, const char *msg, va_list ap)
+{
+    int r;
+
+    item->type = ITEM_ERROR;
+
+    r = vasprintf((char **)&item->value.value, msg, ap);
+    if (r < 0) {
+        item->value.value = strdup(strerror(errno));
+        if (!item->value.value)
+            return NULL;
+
+        item->value.len = strlen(item->value.value);
+    } else {
+        item->value.len = (size_t)r;
+    }
+
+    return NULL;
+}
+
+static void *error_item(struct item *item, const char *msg, ...)
+{
+    void *ret;
+    va_list ap;
+
+    va_start(ap, msg);
+    ret = error_vitem(item, msg, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+static void *lex_error(struct lexer *lexer, const char *msg, ...)
+{
+    struct item item;
+    va_list ap;
+
+    va_start(ap, msg);
+    error_vitem(&item, msg, ap);
+    va_end(ap);
+
+    emit_item(lexer, &item);
+    return NULL;
+}
+
+static bool isident(int ch)
+{
+    return isalnum(ch) || ch == '_' || ch == '.';
+}
+
+static void *lex_identifier(struct lexer *lexer)
+{
+    while (isident(next(lexer)))
+        ;
+    backup(lexer);
+    emit(lexer, ITEM_IDENTIFIER);
+    return lex_inside_action;
+}
+
+static void *lex_quoted_identifier(struct lexer *lexer)
+{
+    emit(lexer, ITEM_OPEN_CURLY_BRACE);
+    lex_identifier(lexer);
+
+    if (next(lexer) != '}')
+        return lex_error(lexer, "expecting `}'");
+
+    emit(lexer, ITEM_CLOSE_CURLY_BRACE);
+    return lex_inside_action;
+}
+
+static void *lex_comment(struct lexer *lexer)
+{
+    size_t brackets = strlen(left_meta);
+
+    assert(strlen(left_meta) == strlen(right_meta));
+
+    do {
+        int r = next(lexer);
+        if (r == '{')
+            brackets++;
+        else if (r == '}')
+            brackets--;
+        else if (r == EOF)
+            return lex_error(lexer, "unexpected EOF while scanning comment end");
+    } while (brackets);
+
+    ignore(lexer);
+    return lex_text;
+}
+
+static void *lex_inside_action(struct lexer *lexer)
+{
+    while (true) {
+        int r;
+
+        if (!strncmp(lexer->pos, right_meta, strlen(right_meta)))
+            return lex_right_meta;
+
+        r = next(lexer);
+        if (r == EOF)
+            return lex_error(lexer, "unexpected EOF while scanning action");
+        if (r == '\n')
+            return lex_error(lexer, "actions cannot span multiple lines");
+
+        if (isspace(r)) {
+            ignore(lexer);
+        } else if (r == '#') {
+            emit(lexer, ITEM_HASH);
+        } else if (r == '/') {
+            emit(lexer, ITEM_SLASH);
+        } else if (r == '?') {
+            emit(lexer, ITEM_QUESTION_MARK);
+        } else if (r == '^') {
+            emit(lexer, ITEM_HAT);
+        } else if (r == '>') {
+            emit(lexer, ITEM_GREATER_THAN);
+        } else if (r == '{') {
+            return lex_quoted_identifier;
+        } else if (isalnum(r) || r == '_') {
+            backup(lexer);
+            return lex_identifier;
+        } else {
+            return lex_error(lexer, "unexpected character: %c", r);
+        }
+    }
+}
+
+static void *lex_left_meta(struct lexer *lexer)
+{
+    lexer->pos += strlen(left_meta);
+    int r = next(lexer);
+    if (r == '!')
+        return lex_comment;
+    backup(lexer);
+
+    emit(lexer, ITEM_LEFT_META);
+    return lex_inside_action;
+}
+
+static void *lex_right_meta(struct lexer *lexer)
+{
+    lexer->pos += strlen(right_meta);
+    emit(lexer, ITEM_RIGHT_META);
+    return lex_text;
+}
+
+static void *lex_text(struct lexer *lexer)
+{
+    do {
+        if (!strncmp(lexer->pos, left_meta, strlen(left_meta))) {
+            if (lexer->pos > lexer->start)
+                emit(lexer, ITEM_TEXT);
+            return lex_left_meta;
+        }
+        if (!strncmp(lexer->pos, right_meta, strlen(right_meta)))
+            return lex_error(lexer, "unexpected action close sequence");
+    } while (next(lexer) != EOF);
+    if (lexer->pos > lexer->start)
+        emit(lexer, ITEM_TEXT);
+    emit(lexer, ITEM_EOF);
+    return NULL;
+}
+
+static bool lex_next(struct lexer *lexer, struct item **item)
+{
+    while (lexer->state) {
+        if (pop_item(lexer, item))
+            return true;
+        lexer->state = lexer->state(lexer);
+    }
+
+    return pop_item(lexer, item);
+}
+
+static void lex_init(struct lexer *lexer, const char *input)
+{
+    lexer->state = lex_text;
+    lexer->pos = lexer->start = input;
+    lexer->end = rawmemchr(input, '\0');
+}
+
+static void *unexpected_lexeme(struct item *item)
+{
+    return error_item(item, "unexpected lexeme: %s [%.*s]",
+        item_type_str[item->type], (int)item->value.len, item->value.value);
+}
+
+static void *unexpected_lexeme_or_lex_error(struct item *item, struct item *lex_error)
+{
+    if (lex_error && (lex_error->type == ITEM_ERROR || lex_error->type == ITEM_EOF)) {
+        *item = *lex_error;
+        return NULL;
+    }
+
+    return unexpected_lexeme(item);
+}
+
+static bool parser_next_is(struct parser *parser, enum item_type type)
+{
+    struct item *item;
+    return lex_next(&parser->lexer, &item) ? item->type == type : false;
+}
+
+static void parser_push_item(struct parser *parser, struct item *item)
+{
+    struct stacked_item *stacked_item = malloc(sizeof(*stacked_item));
+    if (stacked_item) {
+        stacked_item->item = *item;
+        list_add(&parser->stack, &stacked_item->stack);
+    }
+}
+
+static void emit_chunk(struct parser *parser, enum action action,
+        enum flags flags, void *data)
+{
+    struct chunk *chunk = malloc(sizeof(*chunk));
+    if (!chunk)
+        return;	/* FIXME: { error_item(oom); return false; } */
+
+    chunk->action = action;
+    chunk->flags = flags;
+    chunk->data = data;
+    list_add_tail(&parser->tpl->chunks, &chunk->list);
+}
+
+static bool parser_stack_top_matches(struct parser *parser, struct item *item, enum item_type type)
+{
+    if (list_empty(&parser->stack)) {
+        error_item(item, "unexpected {{/%.*s}}", (int)item->value.len, item->value.value);
+        return false;
+    }
+
+    struct stacked_item *stacked_item = (struct stacked_item *)parser->stack.n.next;
+    bool matches = (stacked_item->item.type == type
+            && item->value.len == stacked_item->item.value.len
+            && !memcmp(stacked_item->item.value.value, item->value.value, item->value.len));
+    if (matches) {
+        list_del(&stacked_item->stack);
+        free(stacked_item);
+        return true;
+    }
+
+    error_item(item, "expecting %s `%.*s' but found `%.*s'",
+        item_type_str[stacked_item->item.type],
+        (int)stacked_item->item.value.len, stacked_item->item.value.value,
+        (int)item->value.len, item->value.value);
+    return false;
+}
+
+static void *parser_end_iter(struct parser *parser, struct item *item)
+{
+    struct chunk *iter;
+    lwan_var_descriptor_t *symbol;
+
+    if (!parser_stack_top_matches(parser, item, ITEM_IDENTIFIER))
+        return NULL;
+
+    symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+    if (!symbol) {
+        return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
+            item->value.value);
+    }
+
+    list_for_each_rev(&parser->tpl->chunks, iter, list) {
+        if (iter->action != TPL_ACTION_START_ITER)
+            continue;
+        if (iter->data == symbol) {
+            emit_chunk(parser, TPL_ACTION_END_ITER, 0, iter);
+            symtab_pop(parser);
+            return parser_text;
+        }
+    }
+
+    return error_item(item, "Could not find {{#%.*s}}", (int)item->value.len, item->value.value);
+}
+
+static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
+{
+    struct chunk *iter;
+    lwan_var_descriptor_t *symbol;
+
+    if (!parser_next_is(parser, ITEM_RIGHT_META))
+        return unexpected_lexeme(item);
+    if (!parser_stack_top_matches(parser, item, ITEM_IDENTIFIER))
+        return NULL;
+
+    symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+    if (!symbol) {
+        return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
+            item->value.value);
+    }
+
+    list_for_each_rev(&parser->tpl->chunks, iter, list) {
+        if (iter->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
+            continue;
+        if (iter->data == symbol) {
+            emit_chunk(parser, TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY, 0, symbol);
+            return parser_text;
+        }
+    }
+
+    return error_item(item, "Could not find {{%.*s?}}", (int)item->value.len, item->value.value);
+}
+
+static void *parser_slash(struct parser *parser, struct item *item)
+{
+    if (item->type == ITEM_IDENTIFIER) {
+        struct item *next = NULL;
+
+        if (!lex_next(&parser->lexer, &next))
+            return unexpected_lexeme_or_lex_error(item, next);
+
+        if (next->type == ITEM_RIGHT_META)
+            return parser_end_iter(parser, item);
+
+        if (next->type == ITEM_QUESTION_MARK)
+            return parser_end_var_not_empty(parser, item);
+
+        return unexpected_lexeme_or_lex_error(item, next);
+    }
+
+    return unexpected_lexeme(item);
+}
+
+static void *parser_iter(struct parser *parser, struct item *item)
+{
+    if (item->type == ITEM_IDENTIFIER) {
+        enum flags negate = parser->flags & FLAGS_NEGATE;
+        lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+        if (!symbol) {
+            return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
+                item->value.value);
+        }
+
+        if (!parser_next_is(parser, ITEM_RIGHT_META))
+            return error_item(item, "expecting `}}'");
+
+        if (!symtab_push(parser, symbol->list_desc))
+            return error_item(item, "Out of memory");
+
+        emit_chunk(parser, TPL_ACTION_START_ITER, negate, symbol);
+
+        parser_push_item(parser, item);
+        parser->flags &= ~FLAGS_NEGATE;
+        return parser_text;
+    }
+
+    return unexpected_lexeme(item);
+}
+
+static void *parser_negate_iter(struct parser *parser, struct item *item)
+{
+    if (item->type != ITEM_HASH)
+        return unexpected_lexeme(item);
+
+    parser->flags ^= FLAGS_NEGATE;
+    return parser_iter;
+}
+
+static void *parser_meta(struct parser *parser, struct item *item)
+{
+    if (item->type == ITEM_OPEN_CURLY_BRACE) {
+        parser->flags |= FLAGS_QUOTE;
+        return parser_meta;
+    }
+
+    if (item->type == ITEM_IDENTIFIER) {
+        struct item *next = NULL;
+
+        if (!lex_next(&parser->lexer, &next))
+            return unexpected_lexeme_or_lex_error(item, next);
+
+        if (parser->flags & FLAGS_QUOTE) {
+            if (next->type != ITEM_CLOSE_CURLY_BRACE)
+                return error_item(item, "Expecting closing brace");
+            if (!lex_next(&parser->lexer, &next))
+                return unexpected_lexeme_or_lex_error(item, next);
+        }
+
+        if (next->type == ITEM_RIGHT_META) {
+            enum flags quote = parser->flags & FLAGS_QUOTE;
+            lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+            if (!symbol) {
+                return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
+                    item->value.value);
+            }
+
+            emit_chunk(parser, TPL_ACTION_VARIABLE, quote, symbol);
+
+            parser->tpl->minimum_size += item->value.len + 1;
+            parser->flags &= ~FLAGS_QUOTE;
+            return parser_text;
+        }
+
+        if (next->type == ITEM_QUESTION_MARK) {
+            lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+            if (!symbol) {
+                return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
+                    item->value.value);
+            }
+
+            if (!parser_next_is(parser, ITEM_RIGHT_META))
+                return unexpected_lexeme_or_lex_error(item, next);
+
+            emit_chunk(parser, TPL_ACTION_IF_VARIABLE_NOT_EMPTY, 0, symbol);
+            parser_push_item(parser, item);
+
+            return parser_text;
+        }
+
+        return unexpected_lexeme_or_lex_error(item, next);
+    }
+
+    if (item->type == ITEM_GREATER_THAN)
+        return error_item(item, "Template inclusion not supported yet");
+
+    if (item->type == ITEM_HASH)
+        return parser_iter;
+
+    if (item->type == ITEM_HAT)
+        return parser_negate_iter;
+
+    if (item->type == ITEM_SLASH)
+        return parser_slash;
+
+    return unexpected_lexeme(item);
+}
+
+static void *parser_text(struct parser *parser, struct item *item)
+{
+    if (item->type == ITEM_LEFT_META)
+        return parser_meta;
+    if (item->type == ITEM_TEXT) {
+        if (item->value.len == 1) {
+            emit_chunk(parser, TPL_ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*item->value.value);
+        } else {
+            strbuf_t *buf = strbuf_new_with_size(item->value.len);
+            if (!buf)
+                return error_item(item, "Out of memory");
+            strbuf_set(buf, item->value.value, item->value.len);
+            emit_chunk(parser, TPL_ACTION_APPEND, 0, buf);
+        }
+        parser->tpl->minimum_size += item->value.len;
+        return parser_text;
+    }
+    if (item->type == ITEM_EOF) {
+        emit_chunk(parser, TPL_ACTION_LAST, 0, NULL);
+        return NULL;
+    }
+
+    return unexpected_lexeme(item);
 }
 
 void
@@ -219,197 +801,6 @@ lwan_tpl_str_is_empty(void *ptr)
     return LIKELY(str) && *str;
 }
 
-static int
-compile_append_text(struct parser_state *state, strbuf_t *buf)
-{
-    size_t length = strbuf_get_length(buf);
-    if (!length)
-        return 0;
-
-    struct chunk *chunk = malloc(sizeof(*chunk));
-    if (!chunk)
-        return -ENOMEM;
-
-    if (length == 1) {
-        chunk->action = TPL_ACTION_APPEND_CHAR;
-        chunk->data = (void *)((uintptr_t)strbuf_get_buffer(buf)[0]);
-    } else {
-        chunk->action = TPL_ACTION_APPEND;
-        chunk->data = strbuf_new_with_size(length);
-        strbuf_set(chunk->data, strbuf_get_buffer(buf), length);
-    }
-
-    list_add_tail(&state->tpl->chunks, &chunk->list);
-    state->tpl->minimum_size += length;
-    strbuf_reset(buf);
-
-    return 0;
-}
-
-static int
-compile_append_var(struct parser_state *state, strbuf_t *buf,
-            const lwan_var_descriptor_t *descriptor, bool escape)
-{
-    struct chunk *chunk = malloc(sizeof(*chunk));
-    if (!chunk)
-        return -ENOMEM;
-
-    char *variable = strbuf_get_buffer(buf);
-    size_t length = strbuf_get_length(buf);
-    if (!length)
-        goto empty_variable;
-
-    length--;
-    chunk->flags = 0;
-
-next_char:
-    switch (*variable) {
-    case '\0':
-        goto empty_variable;
-
-    case '^':
-        if (escape)
-            goto cannot_escape;
-
-        chunk->flags ^= TPL_FLAG_NEGATE;
-        variable++;
-        length--;
-        goto next_char;
-
-    case '!':
-        free(chunk);
-        strbuf_reset(buf);
-        return 0;
-
-    case '>': {
-        if (escape)
-            goto cannot_escape;
-        if (chunk->flags & TPL_FLAG_NEGATE)
-            goto invalid_negate;
-
-        char template_file[PATH_MAX];
-        int ret = snprintf(template_file, sizeof(template_file), "%s.tpl", variable + 1);
-        if (ret < 0 || ret >= (int)sizeof(template_file))
-            goto invalid_template;
-
-        lwan_tpl_t *included = lwan_tpl_compile_file(template_file, descriptor);
-        if (!included)
-            goto invalid_template;
-
-        chunk->action = TPL_ACTION_APPLY_TPL;
-        chunk->data = included;
-        break;
-    }
-    case '#':
-        if (escape)
-            goto cannot_escape;
-
-        chunk->data = symtab_lookup(state, variable + 1);
-        if (!chunk->data)
-            goto no_such_key;
-
-        chunk->action = TPL_ACTION_START_ITER;
-        lwan_var_descriptor_t *child = chunk->data;
-        if (!symtab_push(state, child->list_desc))
-            goto not_enough_memory;
-
-        break;
-    case '/': {
-        if (escape)
-            goto cannot_escape;
-        if (chunk->flags & TPL_FLAG_NEGATE)
-            goto invalid_negate;
-
-        struct chunk *start_chunk;
-        lwan_var_descriptor_t *descr;
-        bool was_if = false;
-
-        if (variable[length] == '?') {
-            variable[length] = '\0';
-            was_if = true;
-        }
-
-        descr = symtab_lookup(state, variable + 1);
-        if (!descr)
-            goto no_such_key;
-
-        if (was_if) {
-            chunk->action = TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY;
-            list_for_each_rev(&state->tpl->chunks, start_chunk, list) {
-                if (start_chunk->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
-                    continue;
-                if (start_chunk->data != descr)
-                    continue;
-
-                chunk->data = descr;
-                goto add_chunk;
-            }
-        } else {
-            chunk->action = TPL_ACTION_END_ITER;
-            list_for_each_rev(&state->tpl->chunks, start_chunk, list) {
-                if (start_chunk->data == descr) {
-                    chunk->data = start_chunk;
-                    symtab_pop(state);
-                    goto add_chunk;
-                }
-            }
-        }
-
-        goto no_such_key;
-    }
-    default:
-        if (chunk->flags & TPL_FLAG_NEGATE)
-            goto invalid_negate;
-
-        if (variable[length] == '?') {
-            if (escape)
-                goto cannot_escape;
-
-            chunk->action = TPL_ACTION_IF_VARIABLE_NOT_EMPTY;
-            variable[length] = '\0';
-        } else {
-            chunk->action = TPL_ACTION_VARIABLE;
-        }
-        chunk->data = symtab_lookup(state, variable);
-        if (!chunk->data)
-            goto no_such_key;
-    }
-
-add_chunk:
-    if (escape)
-        chunk->flags |= TPL_FLAG_ESCAPE;
-
-    list_add_tail(&state->tpl->chunks, &chunk->list);
-    state->tpl->minimum_size += length + 1;
-    strbuf_reset(buf);
-
-    return 0;
-
-cannot_escape:
-    free(chunk);
-    return -ENOSTR;
-
-not_enough_memory:
-    free(chunk);
-    return -ENOMEM;
-
-invalid_template:
-    free(chunk);
-    return -ENOENT;
-
-no_such_key:
-    free(chunk);
-    return -ENOKEY;
-
-invalid_negate:
-    free(chunk);
-    return -EILSEQ;
-
-empty_variable:
-    free(chunk);
-    return -ENOTNAM;
-}
-
 static void
 free_chunk(struct chunk *chunk)
 {
@@ -456,122 +847,8 @@ lwan_tpl_free(lwan_tpl_t *tpl)
     free(tpl);
 }
 
-#define PARSE_ERROR(msg,...) \
-    do { \
-        int ret = snprintf(error_msg, ERROR_MSG_BUF_LEN, msg, ##__VA_ARGS__); \
-        if (ret < 0 || ret >= ERROR_MSG_BUF_LEN) \
-            lwan_status_error("Error truncated"); \
-        return STATE_PARSE_ERROR; \
-    } while(0)
-
-static int
-feed_into_compiler(struct parser_state *parser_state,
-    const lwan_var_descriptor_t *descriptor,
-    int state,
-    strbuf_t *buf,
-    int ch,
-    char *error_msg)
-{
-    bool last_pass = ch == EOF;
-    bool escape = false;
-
-    switch (state) {
-    case STATE_DEFAULT:
-        if (ch == '{')
-            return STATE_FIRST_BRACE;
-        if (last_pass)
-            goto append_text;
-
-        strbuf_append_char(buf, (char)ch);
-        break;
-
-    case STATE_FIRST_BRACE:
-        if (ch == '{') {
-            state = STATE_SECOND_BRACE;
-            goto append_text;
-        }
-
-        strbuf_append_char(buf, '{');
-
-        if (last_pass)
-            goto append_text;
-
-        strbuf_append_char(buf, (char)ch);
-
-        return STATE_DEFAULT;
-
-    case STATE_SECOND_BRACE:
-        if (ch == '{')
-            return STATE_THIRD_BRACE;
-        if (ch == '}')
-            return STATE_FIRST_CLOSING_BRACE;
-        if (last_pass)
-            PARSE_ERROR("Missing close brace");
-
-        strbuf_append_char(buf, (char)ch);
-        break;
-
-    case STATE_THIRD_BRACE:
-        if (ch == '}')
-            return STATE_THIRD_CLOSING_BRACE;
-        if (last_pass)
-            PARSE_ERROR("Missing close brace");
-
-        strbuf_append_char(buf, (char)ch);
-        break;
-
-    case STATE_FIRST_CLOSING_BRACE:
-        if (ch == '}')
-            return STATE_SECOND_CLOSING_BRACE;
-
-        PARSE_ERROR("Closing brace expected");
-
-    case STATE_THIRD_CLOSING_BRACE:
-        escape = true;
-        /* fallthrough */
-
-    case STATE_SECOND_CLOSING_BRACE:
-        if (ch == '}')
-            return STATE_THIRD_CLOSING_BRACE;
-
-        switch (compile_append_var(parser_state, buf, descriptor, escape)) {
-        case -ENOSTR:
-            PARSE_ERROR("Triple mustache not supported for ``%s''", strbuf_get_buffer(buf));
-        case -EILSEQ:
-            PARSE_ERROR("Negation not supported for ``%s''", strbuf_get_buffer(buf));
-        case -ENOTNAM:
-            PARSE_ERROR("Expecting variable name");
-        case -ENOKEY:
-            PARSE_ERROR("Unknown variable: ``%s''", strbuf_get_buffer(buf));
-        case -ENOMEM:
-            PARSE_ERROR("Out of memory while appending variable");
-        case -ENOENT:
-            PARSE_ERROR("Cannot find template to include: ``%s''",
-                strbuf_get_buffer(buf) + 1);
-        }
-
-        if (last_pass)
-            return STATE_DEFAULT;
-        if (ch == '{')
-            return STATE_FIRST_BRACE;
-
-        strbuf_append_char(buf, (char)ch);
-        return STATE_DEFAULT;
-    }
-
-    return state;
-
-append_text:
-    switch (compile_append_text(parser_state, buf)) {
-    case -ENOMEM:
-        PARSE_ERROR("Out of memory while appending text");
-    }
-
-    return state;
-}
-
-static int
-post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
+static bool
+post_process_template(lwan_tpl_t *tpl)
 {
     struct chunk *chunk;
     struct chunk *prev_chunk;
@@ -598,7 +875,7 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
 
             chunk = (struct chunk *)prev_chunk->list.next;
         } else if (chunk->action == TPL_ACTION_START_ITER) {
-            lwan_tpl_flag_t flags = chunk->flags;
+            enum flags flags = chunk->flags;
 
             prev_chunk = chunk;
 
@@ -627,7 +904,7 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
             chunk = (struct chunk *)prev_chunk->list.next;
         } else if (chunk->action == TPL_ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
-            bool escape = chunk->flags & TPL_FLAG_ESCAPE;
+            bool escape = chunk->flags & FLAGS_QUOTE;
 
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
                 if (escape)
@@ -636,98 +913,86 @@ post_process_template(lwan_tpl_t *tpl, char error_msg[static ERROR_MSG_BUF_LEN])
                     chunk->action = TPL_ACTION_VARIABLE_STR;
                 chunk->data = (void *)descriptor->offset;
             } else if (escape) {
-                PARSE_ERROR("Variable must be string to be escaped");
+                lwan_status_error("Variable must be string to be escaped");
+                return false;
             } else if (!descriptor->append_to_strbuf) {
-                PARSE_ERROR("Invalid variable descriptor");
+                lwan_status_error("Invalid variable descriptor");
+                return false;
             }
         } else if (chunk->action == TPL_ACTION_LAST) {
             break;
         }
     }
 
-    return 0;
+    return true;
+}
+
+static bool parse_string(struct parser *parser, const char *string)
+{
+    void *(*state)(struct parser *parser, struct item *item) = parser_text;
+    struct item *item = NULL;
+    bool errors = false;
+
+    lex_init(&parser->lexer, string);
+    list_head_init(&parser->stack);
+
+    while (state && lex_next(&parser->lexer, &item))
+        state = state(parser, item);
+
+    if (!state && item->type == ITEM_ERROR && item->value.value) {
+        lwan_status_error("Parser error %.*s\n", (int)item->value.len, item->value.value);
+        free((char *)item->value.value);
+
+        errors = true;
+    }
+
+    if (!list_empty(&parser->stack)) {
+        struct stacked_item *stacked, *stacked_next;
+
+        list_for_each_safe(&parser->stack, stacked, stacked_next, stack) {
+            lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}\n",
+                (int)stacked->item.value.len, stacked->item.value.value);
+            list_del(&stacked->stack);
+            free(stacked);
+        }
+
+        errors = true;
+    }
+
+    return errors;
 }
 
 lwan_tpl_t *
 lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
 {
     lwan_tpl_t *tpl;
-    strbuf_t *buf;
-    int state = STATE_DEFAULT;
-    char error_msg[ERROR_MSG_BUF_LEN];
-    struct parser_state parser_state;
 
     tpl = calloc(1, sizeof(*tpl));
     if (!tpl)
-        goto error_allocate_tpl;
+        return NULL;
 
     list_head_init(&tpl->chunks);
 
-    parser_state.tpl = tpl;
-    parser_state.symtab = NULL;
-    if (!symtab_push(&parser_state, descriptor))
+    struct parser parser = {
+        .tpl = tpl,
+        .symtab = NULL
+    };
+
+    if (!symtab_push(&parser, descriptor))
         goto error_symtab_push;
 
-    buf = strbuf_new();
-    if (!buf)
-        goto error_allocate_strbuf;
-
-    int line = 1;
-    int column = 1;
-    for (; *string; string++) {
-        if (*string == '\n') {
-            if (state == STATE_DEFAULT)
-                strbuf_append_char(buf, '\n');
-
-            ++line;
-            column = 1;
-            continue;
-        }
-        ++column;
-
-        state = feed_into_compiler(&parser_state, descriptor, state,
-                    buf, *string, error_msg);
-        if (state == STATE_PARSE_ERROR)
-            goto parse_error;
-    }
-
-    state = feed_into_compiler(&parser_state, descriptor, state,
-                buf, EOF, error_msg);
-    if (state == STATE_PARSE_ERROR)
+    if (parse_string(&parser, string))
         goto parse_error;
 
-    struct chunk *last = malloc(sizeof(*last));
-    if (!last)
-        goto free_strbuf;
-
-    last->action = TPL_ACTION_LAST;
-    last->data = NULL;
-
-    list_add_tail(&parser_state.tpl->chunks, &last->list);
-
-    strbuf_free(buf);
-    symtab_pop(&parser_state);
-
-    if (post_process_template(tpl, error_msg) != STATE_PARSE_ERROR)
+    if (post_process_template(tpl))
         return tpl;
 
 parse_error:
-    lwan_status_error("Line %d, column %d: %s", line, column, error_msg);
-
-free_strbuf:
-    strbuf_free(buf);
-
-error_allocate_strbuf:
-    symtab_pop(&parser_state);
-
+    symtab_pop(&parser);
 error_symtab_push:
     lwan_tpl_free(tpl);
-
-error_allocate_tpl:
     return NULL;
 }
-
-#undef PARSE_ERROR
 
 lwan_tpl_t *
 lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor)
@@ -815,7 +1080,7 @@ action_variable_str_escape:
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
         bool empty = cd->descriptor->get_is_empty((char *)variables + cd->descriptor->offset);
-        if (chunk->flags & TPL_FLAG_NEGATE)
+        if (chunk->flags & FLAGS_NEGATE)
             empty = !empty;
         if (empty) {
             chunk = cd->chunk;
@@ -847,13 +1112,12 @@ action_start_iter:
     coro = coro_new(&switcher, cd->descriptor->generator, variables);
 
     bool resumed = coro_resume_value(coro, 0);
-    lwan_tpl_flag_t flags = chunk->flags;
-    if (flags & TPL_FLAG_NEGATE)
+    enum flags negate = chunk->flags & FLAGS_NEGATE;
+    if (negate)
         resumed = !resumed;
     if (!resumed) {
         chunk = cd->chunk;
 
-        lwan_tpl_action_t negate = flags & TPL_FLAG_NEGATE;
         if (negate)
             coro_resume_value(coro, 1);
 
