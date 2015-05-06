@@ -226,7 +226,7 @@ static void emit_item(struct lexer *lexer, struct item *item)
     lexer->start = lexer->pos;
 }
 
-static bool pop_item(struct lexer *lexer, struct item **item)
+static bool consume_item(struct lexer *lexer, struct item **item)
 {
     if (!lexer->ring_buffer.population)
         return false;
@@ -436,12 +436,12 @@ static void *lex_text(struct lexer *lexer)
 static bool lex_next(struct lexer *lexer, struct item **item)
 {
     while (lexer->state) {
-        if (pop_item(lexer, item))
+        if (consume_item(lexer, item))
             return true;
         lexer->state = lexer->state(lexer);
     }
 
-    return pop_item(lexer, item);
+    return consume_item(lexer, item);
 }
 
 static void lex_init(struct lexer *lexer, const char *input)
