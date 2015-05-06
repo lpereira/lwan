@@ -933,20 +933,21 @@ post_process_template(lwan_tpl_t *tpl)
     return true;
 }
 
-static bool parse_string(struct parser *parser, const char *string, const lwan_var_descriptor_t *descriptor)
+static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor)
 {
+    struct parser parser = { .tpl = tpl, .symtab = NULL };
     void *(*state)(struct parser *parser, struct item *item) = parser_text;
     struct item *item = NULL;
     bool errors = false;
 
-    if (!symtab_push(parser, descriptor))
+    if (!symtab_push(&parser, descriptor))
         return true;
 
-    lex_init(&parser->lexer, string);
-    list_head_init(&parser->stack);
+    lex_init(&parser.lexer, string);
+    list_head_init(&parser.stack);
 
-    while (state && lex_next(&parser->lexer, &item))
-        state = state(parser, item);
+    while (state && lex_next(&parser.lexer, &item))
+        state = state(&parser, item);
 
     if (!state && item->type == ITEM_ERROR && item->value.value) {
         lwan_status_error("Parser error: %.*s", (int)item->value.len, item->value.value);
@@ -955,10 +956,10 @@ static bool parse_string(struct parser *parser, const char *string, const lwan_v
         errors = true;
     }
 
-    if (!list_empty(&parser->stack)) {
+    if (!list_empty(&parser.stack)) {
         struct stacked_item *stacked, *stacked_next;
 
-        list_for_each_safe(&parser->stack, stacked, stacked_next, stack) {
+        list_for_each_safe(&parser.stack, stacked, stacked_next, stack) {
             lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}",
                 (int)stacked->item.value.len, stacked->item.value.value);
             list_del(&stacked->stack);
@@ -968,12 +969,12 @@ static bool parse_string(struct parser *parser, const char *string, const lwan_v
         errors = true;
     }
 
-    symtab_pop(parser);
-    if (parser->symtab) {
+    symtab_pop(&parser);
+    if (parser.symtab) {
         lwan_status_error("Parser error: Symbol table not empty when finishing parser");
 
-        while (parser->symtab)
-            symtab_pop(parser);
+        while (parser.symtab)
+            symtab_pop(&parser);
 
         errors = true;
     }
@@ -992,16 +993,13 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
 
     list_head_init(&tpl->chunks);
 
-    struct parser parser = { .tpl = tpl, .symtab = NULL };
-
-    if (parse_string(&parser, string, descriptor))
+    if (parse_string(tpl, string, descriptor))
         goto parse_error;
 
     if (post_process_template(tpl))
         return tpl;
 
 parse_error:
-    symtab_pop(&parser);
     lwan_tpl_free(tpl);
     return NULL;
 }
