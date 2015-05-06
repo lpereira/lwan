@@ -940,7 +940,7 @@ static bool parse_string(struct parser *parser, const char *string)
         state = state(parser, item);
 
     if (!state && item->type == ITEM_ERROR && item->value.value) {
-        lwan_status_error("Parser error %.*s\n", (int)item->value.len, item->value.value);
+        lwan_status_error("Parser error: %.*s", (int)item->value.len, item->value.value);
         free((char *)item->value.value);
 
         errors = true;
@@ -950,7 +950,7 @@ static bool parse_string(struct parser *parser, const char *string)
         struct stacked_item *stacked, *stacked_next;
 
         list_for_each_safe(&parser->stack, stacked, stacked_next, stack) {
-            lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}\n",
+            lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}",
                 (int)stacked->item.value.len, stacked->item.value.value);
             list_del(&stacked->stack);
             free(stacked);
