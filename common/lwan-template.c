@@ -927,11 +927,14 @@ post_process_template(lwan_tpl_t *tpl)
     return true;
 }
 
-static bool parse_string(struct parser *parser, const char *string)
+static bool parse_string(struct parser *parser, const char *string, const lwan_var_descriptor_t *descriptor)
 {
     void *(*state)(struct parser *parser, struct item *item) = parser_text;
     struct item *item = NULL;
     bool errors = false;
+
+    if (!symtab_push(parser, descriptor))
+        return true;
 
     lex_init(&parser->lexer, string);
     list_head_init(&parser->stack);
@@ -959,6 +962,16 @@ static bool parse_string(struct parser *parser, const char *string)
         errors = true;
     }
 
+    symtab_pop(parser);
+    if (parser->symtab) {
+        lwan_status_error("Parser error: Symbol table not empty when finishing parser");
+
+        while (parser->symtab)
+            symtab_pop(parser);
+
+        errors = true;
+    }
+
     return errors;
 }
 
@@ -978,10 +991,7 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
         .symtab = NULL
     };
 
-    if (!symtab_push(&parser, descriptor))
-        goto error_symtab_push;
-
-    if (parse_string(&parser, string))
+    if (parse_string(&parser, string, descriptor))
         goto parse_error;
 
     if (post_process_template(tpl))
@@ -989,7 +999,6 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
 
 parse_error:
     symtab_pop(&parser);
-error_symtab_push:
     lwan_tpl_free(tpl);
     return NULL;
 }
