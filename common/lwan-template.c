@@ -986,10 +986,7 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
 
     list_head_init(&tpl->chunks);
 
-    struct parser parser = {
-        .tpl = tpl,
-        .symtab = NULL
-    };
+    struct parser parser = { .tpl = tpl, .symtab = NULL };
 
     if (parse_string(&parser, string, descriptor))
         goto parse_error;
