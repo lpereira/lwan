@@ -41,8 +41,6 @@
 #include "lwan-template.h"
 #include "strbuf.h"
 
-#define ERROR_MSG_BUF_LEN	512
-
 enum action {
     TPL_ACTION_APPEND,
     TPL_ACTION_APPEND_CHAR,
