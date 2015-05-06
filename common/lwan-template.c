@@ -18,6 +18,8 @@
  */
 /*
  * Ideas from Mustache logic-less templates: http://mustache.github.com/
+ * Lexer+parser implemented using ideas from Rob Pike's talk "Lexical Scanning
+ * in Go" (https://www.youtube.com/watch?v=HxaD_trXwRE).
  */
 
 #define _GNU_SOURCE
