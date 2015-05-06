@@ -170,6 +170,13 @@ static void *parser_negate_iter(struct parser *parser, struct item *item);
 static void *parser_meta(struct parser *parser, struct item *item);
 static void *parser_text(struct parser *parser, struct item *item);
 
+static void *error_vitem(struct item *item, const char *msg, va_list ap)
+    __attribute__((format(printf, 2, 0)));
+static void *error_item(struct item *item, const char *msg, ...)
+    __attribute__((format(printf, 2, 3)));
+static void *lex_error(struct lexer *lexer, const char *msg, ...)
+    __attribute__((format(printf, 2, 3)));
+
 static lwan_var_descriptor_t *
 symtab_lookup(struct parser *parser, const char *var_name)
 {
