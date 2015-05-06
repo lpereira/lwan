@@ -641,18 +641,25 @@ static void *parser_negate_iter(struct parser *parser, struct item *item)
 
 static void *parser_meta(struct parser *parser, struct item *item)
 {
+    struct item *next = NULL;
+    bool quote = false;
+
     if (item->type == ITEM_OPEN_CURLY_BRACE) {
-        parser->flags |= FLAGS_QUOTE;
-        return parser_meta;
-    }
-
-    if (item->type == ITEM_IDENTIFIER) {
-        struct item *next = NULL;
-
         if (!lex_next(&parser->lexer, &next))
             return unexpected_lexeme_or_lex_error(item, next);
 
-        if (parser->flags & FLAGS_QUOTE) {
+        if (next->type != ITEM_IDENTIFIER)
+            return unexpected_lexeme(next);
+
+        quote = true;
+        item = next;
+    }
+
+    if (item->type == ITEM_IDENTIFIER) {
+        if (!lex_next(&parser->lexer, &next))
+            return unexpected_lexeme_or_lex_error(item, next);
+
+        if (quote) {
             if (next->type != ITEM_CLOSE_CURLY_BRACE)
                 return error_item(item, "Expecting closing brace");
             if (!lex_next(&parser->lexer, &next))
@@ -660,17 +667,15 @@ static void *parser_meta(struct parser *parser, struct item *item)
         }
 
         if (next->type == ITEM_RIGHT_META) {
-            enum flags quote = parser->flags & FLAGS_QUOTE;
             lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
             if (!symbol) {
                 return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
                     item->value.value);
             }
 
-            emit_chunk(parser, TPL_ACTION_VARIABLE, quote, symbol);
+            emit_chunk(parser, TPL_ACTION_VARIABLE, quote ? FLAGS_QUOTE : 0, symbol);
 
             parser->tpl->minimum_size += item->value.len + 1;
-            parser->flags &= ~FLAGS_QUOTE;
             return parser_text;
         }
 
