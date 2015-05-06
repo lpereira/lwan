@@ -476,10 +476,11 @@ static bool parser_next_is(struct parser *parser, enum item_type type)
 static void parser_push_item(struct parser *parser, struct item *item)
 {
     struct stacked_item *stacked_item = malloc(sizeof(*stacked_item));
-    if (stacked_item) {
-        stacked_item->item = *item;
-        list_add(&parser->stack, &stacked_item->stack);
-    }
+    if (!stacked_item)
+        lwan_status_critical_perror("Could not push parser item");
+
+    stacked_item->item = *item;
+    list_add(&parser->stack, &stacked_item->stack);
 }
 
 static void emit_chunk(struct parser *parser, enum action action,
@@ -487,7 +488,7 @@ static void emit_chunk(struct parser *parser, enum action action,
 {
     struct chunk *chunk = malloc(sizeof(*chunk));
     if (!chunk)
-        return;	/* FIXME: { error_item(oom); return false; } */
+        lwan_status_critical_perror("Could not emit template chunk");
 
     chunk->action = action;
     chunk->flags = flags;
