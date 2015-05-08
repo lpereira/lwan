@@ -24,6 +24,7 @@ set(SOURCES
 	sd-daemon.c
 	strbuf.c
 	murmur3.c
+	reallocarray.c
 )
 
 
