@@ -42,6 +42,7 @@
 #include "list.h"
 #include "lwan-template.h"
 #include "strbuf.h"
+#include "reallocarray.h"
 
 enum action {
     TPL_ACTION_APPEND,
@@ -97,14 +98,16 @@ static const char *item_type_str[TOTAL_ITEMS] = {
 };
 
 struct chunk {
-    struct list_node list;
     enum action action;
     enum flags flags;
     void *data;
 };
 
 struct lwan_tpl_t_ {
-    struct list_head chunks;
+    struct {
+        struct chunk *data;
+        size_t used, reserved;
+    } chunks;
     size_t minimum_size;
 };
 
@@ -150,6 +153,8 @@ struct chunk_descriptor {
     struct chunk *chunk;
     lwan_var_descriptor_t *descriptor;
 };
+
+static const size_t array_increment_step = 16;
 
 static const char left_meta[] = "{{";
 static const char right_meta[] = "}}";
@@ -339,11 +344,14 @@ static void *lex_identifier(struct lexer *lexer)
 
 static void *lex_quoted_identifier(struct lexer *lexer)
 {
+    int r;
+
     emit(lexer, ITEM_OPEN_CURLY_BRACE);
     lex_identifier(lexer);
 
-    if (next(lexer) != '}')
-        return lex_error(lexer, "expecting `}'");
+    r = next(lexer);
+    if (r != '}')
+        return lex_error(lexer, "expecting `}', found `%c'", r);
 
     emit(lexer, ITEM_CLOSE_CURLY_BRACE);
     return lex_inside_action;
@@ -495,14 +503,23 @@ static void parser_push_item(struct parser *parser, struct item *item)
 static void emit_chunk(struct parser *parser, enum action action,
         enum flags flags, void *data)
 {
-    struct chunk *chunk = malloc(sizeof(*chunk));
-    if (!chunk)
-        lwan_status_critical_perror("Could not emit template chunk");
+    struct chunk *chunk;
 
+    if (parser->tpl->chunks.used >= parser->tpl->chunks.reserved) {
+        parser->tpl->chunks.reserved += array_increment_step;
+
+        chunk = reallocarray(parser->tpl->chunks.data,
+            parser->tpl->chunks.reserved, sizeof(struct chunk));
+        if (!chunk)
+            lwan_status_critical_perror("Could not emit template chunk");
+
+        parser->tpl->chunks.data = chunk;
+    }
+
+    chunk = &parser->tpl->chunks.data[parser->tpl->chunks.used++];
     chunk->action = action;
     chunk->flags = flags;
     chunk->data = data;
-    list_add_tail(&parser->tpl->chunks, &chunk->list);
 }
 
 static bool parser_stack_top_matches(struct parser *parser, struct item *item, enum item_type type)
@@ -533,6 +550,7 @@ static void *parser_end_iter(struct parser *parser, struct item *item)
 {
     struct chunk *iter;
     lwan_var_descriptor_t *symbol;
+    size_t idx;
 
     if (!parser_stack_top_matches(parser, item, ITEM_IDENTIFIER))
         return NULL;
@@ -543,7 +561,11 @@ static void *parser_end_iter(struct parser *parser, struct item *item)
             item->value.value);
     }
 
-    list_for_each_rev(&parser->tpl->chunks, iter, list) {
+    if (!parser->tpl->chunks.used)
+        return error_item(item, "No chunks were emitted but parsing end iter");
+    for (idx = parser->tpl->chunks.used - 1; idx != 0; idx--) {
+        iter = &parser->tpl->chunks.data[idx];
+
         if (iter->action != TPL_ACTION_START_ITER)
             continue;
         if (iter->data == symbol) {
@@ -560,6 +582,7 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
 {
     struct chunk *iter;
     lwan_var_descriptor_t *symbol;
+    size_t idx;
 
     if (!parser_next_is(parser, ITEM_RIGHT_META))
         return unexpected_lexeme(item);
@@ -572,7 +595,10 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
             item->value.value);
     }
 
-    list_for_each_rev(&parser->tpl->chunks, iter, list) {
+    if (!parser->tpl->chunks.used)
+        return error_item(item, "No chunks were emitted but parsing end var not empty");
+    for (idx = parser->tpl->chunks.used - 1; idx != 0; idx--) {
+        iter = &parser->tpl->chunks.data[idx];
         if (iter->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
             continue;
         if (iter->data == symbol) {
@@ -642,24 +668,22 @@ static void *parser_negate_iter(struct parser *parser, struct item *item)
 static void *parser_meta(struct parser *parser, struct item *item)
 {
     struct item *next = NULL;
-    bool quote = false;
+    bool quote = parser->flags & FLAGS_QUOTE;
 
     if (item->type == ITEM_OPEN_CURLY_BRACE) {
-        if (!lex_next(&parser->lexer, &next))
-            return unexpected_lexeme_or_lex_error(item, next);
-
-        if (next->type != ITEM_IDENTIFIER)
-            return unexpected_lexeme(next);
-
-        quote = true;
-        item = next;
+        parser->flags |= FLAGS_QUOTE;
+        return parser_meta;
     }
 
     if (item->type == ITEM_IDENTIFIER) {
-        if (!lex_next(&parser->lexer, &next))
-            return unexpected_lexeme_or_lex_error(item, next);
+        if (!lex_next(&parser->lexer, &next)) {
+            *item = *next;
+            return NULL;
+        }
+
 
         if (quote) {
+            parser->flags &= ~FLAGS_QUOTE;
             if (next->type != ITEM_CLOSE_CURLY_BRACE)
                 return error_item(item, "Expecting closing brace");
             if (!lex_next(&parser->lexer, &next))
@@ -841,36 +865,32 @@ free_chunk(struct chunk *chunk)
         lwan_tpl_free(chunk->data);
         break;
     }
-
-    free(chunk);
 }
 
 void
 lwan_tpl_free(lwan_tpl_t *tpl)
 {
+    size_t idx;
     if (!tpl)
         return;
 
-    struct chunk *chunk;
-    struct chunk *next;
-    list_for_each_safe(&tpl->chunks, chunk, next, list) {
-        list_del(&chunk->list);
-        free_chunk(chunk);
-    }
+    for (idx = 0; idx < tpl->chunks.used; idx++)
+        free_chunk(&tpl->chunks.data[idx]);
+    free(tpl->chunks.data);
     free(tpl);
 }
 
 static bool
 post_process_template(lwan_tpl_t *tpl)
 {
-    struct chunk *chunk;
-    struct chunk *prev_chunk;
+    size_t idx;
+    struct chunk *prev_chunk, *resized;
 
-    list_for_each(&tpl->chunks, chunk, list) {
+    for (idx = 0; idx < tpl->chunks.used; idx++) {
+        struct chunk *chunk = &tpl->chunks.data[idx];
+
         if (chunk->action == TPL_ACTION_IF_VARIABLE_NOT_EMPTY) {
-            prev_chunk = chunk;
-
-            while ((chunk = (struct chunk *) chunk->list.next)) {
+            for (prev_chunk = chunk; ; chunk++) {
                 if (chunk->action == TPL_ACTION_LAST)
                     break;
                 if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY
@@ -886,17 +906,14 @@ post_process_template(lwan_tpl_t *tpl)
             cd->chunk = chunk;
             prev_chunk->data = cd;
 
-            chunk = (struct chunk *)prev_chunk->list.next;
+            chunk = prev_chunk + 1;
         } else if (chunk->action == TPL_ACTION_START_ITER) {
             enum flags flags = chunk->flags;
 
-            prev_chunk = chunk;
-
-            while ((chunk = (struct chunk *) chunk->list.next)) {
+            for (prev_chunk = chunk; ; chunk++) {
                 if (chunk->action == TPL_ACTION_LAST)
                     break;
-                if (chunk->action == TPL_ACTION_END_ITER
-                            && chunk->data == prev_chunk) {
+                if (chunk->action == TPL_ACTION_END_ITER && chunk->data == prev_chunk) {
                     chunk->flags |= flags;
                     break;
                 }
@@ -912,9 +929,9 @@ post_process_template(lwan_tpl_t *tpl)
             if (!chunk || chunk->action == TPL_ACTION_LAST)
                 cd->chunk = chunk;
             else
-                cd->chunk = (struct chunk *)chunk->list.next;
+                cd->chunk = chunk + 1;
 
-            chunk = (struct chunk *)prev_chunk->list.next;
+            chunk = prev_chunk + 1;
         } else if (chunk->action == TPL_ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
             bool escape = chunk->flags & FLAGS_QUOTE;
@@ -936,6 +953,12 @@ post_process_template(lwan_tpl_t *tpl)
             break;
         }
     }
+
+    lwan_status_debug("Template parsing done, reallocating array from %zu to %zu elements",
+        tpl->chunks.reserved, tpl->chunks.used);
+    resized = reallocarray(tpl->chunks.data, tpl->chunks.used, sizeof(struct chunk));
+    if (resized)
+        tpl->chunks.data = resized;
 
     return true;
 }
@@ -998,7 +1021,14 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
     if (!tpl)
         return NULL;
 
-    list_head_init(&tpl->chunks);
+    tpl->chunks.used = 0;
+    tpl->chunks.reserved = array_increment_step;
+    tpl->chunks.data = reallocarray(NULL, tpl->chunks.reserved, sizeof(struct chunk));
+    if (!tpl->chunks.data) {
+        free(tpl);
+        return NULL;
+    }
+
     if (parse_string(tpl, string, descriptor)) {
         if (post_process_template(tpl))
             return tpl;
@@ -1062,9 +1092,8 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define NEXT(c)		((struct chunk *)(c)->list.next)
-#define DISPATCH()	goto *dispatch_table[chunk->action]
-#define NEXT_ACTION()	do { chunk = NEXT(chunk); DISPATCH(); } while(false)
+#define DISPATCH()	do { goto *dispatch_table[chunk->action]; } while(false)
+#define NEXT_ACTION()	do { chunk++; DISPATCH(); } while(false)
 
     DISPATCH();
 
@@ -1099,7 +1128,7 @@ action_if_variable_not_empty: {
         if (empty) {
             chunk = cd->chunk;
         } else {
-            chunk = apply_until(tpl, NEXT(chunk), buf, variables, cd->chunk);
+            chunk = apply_until(tpl, chunk + 1, buf, variables, cd->chunk);
         }
         NEXT_ACTION();
     }
@@ -1143,7 +1172,7 @@ action_start_iter:
         NEXT_ACTION();
     }
 
-    chunk = apply_until(tpl, NEXT(chunk), buf, variables, chunk);
+    chunk = apply_until(tpl, chunk + 1, buf, variables, chunk);
     DISPATCH();
 
 action_end_iter:
@@ -1162,14 +1191,13 @@ action_end_iter:
         NEXT_ACTION();
     }
 
-    chunk = apply_until(tpl, NEXT((struct chunk *)chunk->data), buf, variables, chunk->data);
+    chunk = apply_until(tpl, ((struct chunk *)chunk->data) + 1, buf, variables, chunk->data);
     DISPATCH();
 
 finalize:
     return chunk;
 #undef DISPATCH
 #undef NEXT_ACTION
-#undef NEXT
 }
 
 strbuf_t *
@@ -1181,8 +1209,7 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
     if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
         return NULL;
 
-    struct chunk *chunks = container_of_var(tpl->chunks.n.next, chunks, list);
-    apply_until(tpl, chunks, buf, variables, NULL);
+    apply_until(tpl, tpl->chunks.data, buf, variables, NULL);
 
     return buf;
 }
