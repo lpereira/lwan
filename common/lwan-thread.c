@@ -308,9 +308,9 @@ thread_io_loop(void *data)
     int read_pipe_fd = t->pipe_fd[0];
     int n_fds;
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
-    unsigned short tid = (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads);
 
-    lwan_status_debug("Starting IO loop on thread #%d", tid + 1);
+    lwan_status_debug("Starting IO loop on thread #%d",
+        (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) + 1);
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
