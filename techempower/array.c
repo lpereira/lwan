@@ -19,6 +19,7 @@
  */
 
 #include "array.h"
+#include "reallocarray.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -31,7 +32,7 @@
 
 static int array_realloc(struct array *array, size_t new_total)
 {
-	void *tmp = realloc(array->array, sizeof(void *) * new_total);
+	void *tmp = reallocarray(array->array, sizeof(void *), new_total);
 	if (tmp == NULL)
 		return -ENOMEM;
 	array->array = tmp;
