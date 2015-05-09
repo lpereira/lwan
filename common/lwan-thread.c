@@ -278,10 +278,10 @@ spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
 }
 
 static lwan_connection_t *
-grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
+grab_and_watch_client(int epoll_fd, int pipe_fd, lwan_connection_t *conns)
 {
     int fd;
-    if (UNLIKELY(read(t->pipe_fd[0], &fd, sizeof(int)) != sizeof(int))) {
+    if (UNLIKELY(read(pipe_fd, &fd, sizeof(int)) != sizeof(int))) {
         lwan_status_perror("read");
         return NULL;
     }
@@ -290,7 +290,7 @@ grab_and_watch_client(lwan_thread_t *t, lwan_connection_t *conns)
         .events = events_by_write_flag[1],
         .data.ptr = &conns[fd]
     };
-    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
         lwan_status_critical_perror("epoll_ctl");
 
     return &conns[fd];
@@ -305,6 +305,7 @@ thread_io_loop(void *data)
     coro_switcher_t switcher;
     struct death_queue_t dq;
     int epoll_fd = t->epoll_fd;
+    int read_pipe_fd = t->pipe_fd[0];
     int n_fds;
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
     unsigned short tid = (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads);
@@ -337,7 +338,7 @@ thread_io_loop(void *data)
                 lwan_connection_t *conn;
 
                 if (!ep_event->data.ptr) {
-                    conn = grab_and_watch_client(t, conns);
+                    conn = grab_and_watch_client(epoll_fd, read_pipe_fd, conns);
                     if (UNLIKELY(!conn))
                         continue;
                     spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
