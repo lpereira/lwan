@@ -197,18 +197,20 @@ symtab_lookup(struct parser *parser, const char *var_name)
     return NULL;
 }
 
-static bool
+static int
 symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
 {
     struct symtab *tab = malloc(sizeof(*tab));
 
     if (!tab)
-        return false;
+        return -errno;
+    if (!descriptor)
+        return -ENODEV;
 
     tab->hash = hash_str_new(NULL, NULL);
     if (!tab->hash) {
         free(tab);
-        return false;
+        return -ENOMEM;
     }
 
     tab->next = parser->symtab;
@@ -217,7 +219,7 @@ symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
     for (; descriptor->name; descriptor++)
         hash_add(parser->symtab->hash, descriptor->name, descriptor);
 
-    return true;
+    return 0;
 }
 
 static void
@@ -633,7 +635,8 @@ static void *parser_iter(struct parser *parser, struct item *item)
 {
     if (item->type == ITEM_IDENTIFIER) {
         enum flags negate = parser->flags & FLAGS_NEGATE;
-        lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(item->value.value, item->value.len));
+        const char *symname = strndupa(item->value.value, item->value.len);
+        lwan_var_descriptor_t *symbol = symtab_lookup(parser, symname);
         if (!symbol) {
             return error_item(item, "Unknown variable: %.*s", (int)item->value.len,
                 item->value.value);
@@ -642,8 +645,12 @@ static void *parser_iter(struct parser *parser, struct item *item)
         if (!parser_next_is(parser, ITEM_RIGHT_META))
             return error_item(item, "expecting `}}'");
 
-        if (!symtab_push(parser, symbol->list_desc))
-            return error_item(item, "Out of memory");
+        int r = symtab_push(parser, symbol->list_desc);
+        if (r < 0) {
+            if (r == -ENODEV)
+                return error_item(item, "Couldn't find descriptor for variable `%s'", symname);
+            return error_item(item, "Could not push symbol table (out of memory)");
+        }
 
         emit_chunk(parser, TPL_ACTION_START_ITER, negate, symbol);
 
@@ -983,7 +990,7 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
     struct item *item = NULL;
     bool success = true;
 
-    if (!symtab_push(&parser, descriptor))
+    if (symtab_push(&parser, descriptor) < 0)
         return false;
 
     parser.chunks.data = reallocarray(NULL, parser.chunks.reserved, sizeof(struct chunk));
