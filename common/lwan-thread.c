@@ -307,8 +307,9 @@ thread_io_loop(void *data)
     int epoll_fd = t->epoll_fd;
     int n_fds;
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
+    unsigned short tid = (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads);
 
-    lwan_status_debug("Starting IO loop on thread #%d", t->id + 1);
+    lwan_status_debug("Starting IO loop on thread #%d", tid + 1);
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
@@ -363,14 +364,12 @@ epoll_fd_closed:
 }
 
 static void
-create_thread(lwan_t *l, short thread_n)
+create_thread(lwan_t *l, lwan_thread_t *thread)
 {
     pthread_attr_t attr;
-    lwan_thread_t *thread = &l->thread.threads[thread_n];
 
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
-    thread->id = thread_n;
 
     if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
         lwan_status_critical_perror("epoll_create");
@@ -418,7 +417,7 @@ lwan_thread_init(lwan_t *l)
         lwan_status_critical("Could not allocate memory for threads");
 
     for (short i = 0; i < l->thread.count; i++)
-        create_thread(l, i);
+        create_thread(l, &l->thread.threads[i]);
 }
 
 void

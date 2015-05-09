@@ -255,11 +255,10 @@ struct lwan_thread_t_ {
         char expires[30];
         time_t last;
     } date;
-    short id;
 
-    pthread_t self;
     int epoll_fd;
     int pipe_fd[2];
+    pthread_t self;
 };
 
 struct lwan_config_t_ {
