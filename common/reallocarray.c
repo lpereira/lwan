@@ -15,24 +15,37 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
+#if !defined(HAVE_BUILTIN_UMULL_OVERFLOW)
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
  */
 #define MUL_NO_OVERFLOW	((size_t)1 << (sizeof(size_t) * 4))
 
+static inline bool umull_overflow(size_t a, size_t b, size_t *out)
+{
+    if ((a >= MUL_NO_OVERFLOW || b >= MUL_NO_OVERFLOW) && a > 0 && SIZE_MAX / a < b)
+        return true;
+    *out = a * b;
+    return false;
+}
+#else
+#define umull_overflow __builtin_umull_overflow
+#endif
+
 void *
 reallocarray(void *optr, size_t nmemb, size_t size)
 {
-	if ((nmemb >= MUL_NO_OVERFLOW || size >= MUL_NO_OVERFLOW) &&
-	    nmemb > 0 && SIZE_MAX / nmemb < size) {
-		errno = ENOMEM;
-		return NULL;
-	}
-	return realloc(optr, size * nmemb);
+    size_t total_size;
+    if (umull_overflow(nmemb, size, &total_size)) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    return realloc(optr, total_size);
 }

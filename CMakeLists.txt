@@ -16,6 +16,10 @@ check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_
 if (HAVE_BUILTIN_CPU_INIT)
 	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
 endif ()
+check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_umull_overflow(0, 0, &p); }" HAVE_BUILTIN_UMULL_OVERFLOW)
+if (HAVE_BUILTIN_UMULL_OVERFLOW)
+	add_definitions("-DHAVE_BUILTIN_UMULL_OVERFLOW")
+endif ()
 
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
 if (HAVE_STATIC_ASSERT)
