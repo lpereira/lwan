@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "lwan.h"
+
 #if !defined(HAVE_BUILTIN_UMULL_OVERFLOW)
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
@@ -43,7 +45,7 @@ void *
 reallocarray(void *optr, size_t nmemb, size_t size)
 {
     size_t total_size;
-    if (umull_overflow(nmemb, size, &total_size)) {
+    if (UNLIKELY(umull_overflow(nmemb, size, &total_size))) {
         errno = ENOMEM;
         return NULL;
     }
