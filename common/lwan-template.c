@@ -550,7 +550,7 @@ static void *parser_end_iter(struct parser *parser, struct item *item)
 {
     struct chunk *iter;
     lwan_var_descriptor_t *symbol;
-    size_t idx;
+    ssize_t idx;
 
     if (!parser_stack_top_matches(parser, item, ITEM_IDENTIFIER))
         return NULL;
@@ -563,7 +563,7 @@ static void *parser_end_iter(struct parser *parser, struct item *item)
 
     if (!parser->tpl->chunks.used)
         return error_item(item, "No chunks were emitted but parsing end iter");
-    for (idx = parser->tpl->chunks.used - 1; idx != 0; idx--) {
+    for (idx = (ssize_t)parser->tpl->chunks.used - 1; idx >= 0; idx--) {
         iter = &parser->tpl->chunks.data[idx];
 
         if (iter->action != TPL_ACTION_START_ITER)
@@ -582,7 +582,7 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
 {
     struct chunk *iter;
     lwan_var_descriptor_t *symbol;
-    size_t idx;
+    ssize_t idx;
 
     if (!parser_next_is(parser, ITEM_RIGHT_META))
         return unexpected_lexeme(item);
@@ -595,9 +595,7 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
             item->value.value);
     }
 
-    if (!parser->tpl->chunks.used)
-        return error_item(item, "No chunks were emitted but parsing end var not empty");
-    for (idx = parser->tpl->chunks.used - 1; idx != 0; idx--) {
+    for (idx = (ssize_t)parser->tpl->chunks.used - 1; idx >= 0; idx--) {
         iter = &parser->tpl->chunks.data[idx];
         if (iter->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
             continue;
