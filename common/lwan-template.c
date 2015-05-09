@@ -959,11 +959,13 @@ post_process_template(struct parser *parser)
         }
     }
 
-    lwan_status_debug("Template parsing done, reallocating array from %zu to %zu elements",
-        parser->chunks.reserved, parser->chunks.used);
-    resized = reallocarray(parser->chunks.data, parser->chunks.used, sizeof(struct chunk));
-    if (resized)
-        parser->chunks.data = resized;
+    if (parser->chunks.reserved != parser->chunks.used) {
+        lwan_status_debug("Template parsing done, reallocating array from %zu to %zu elements",
+            parser->chunks.reserved, parser->chunks.used);
+        resized = reallocarray(parser->chunks.data, parser->chunks.used, sizeof(struct chunk));
+        if (resized)
+            parser->chunks.data = resized;
+    }
 
     return true;
 
