@@ -832,7 +832,7 @@ lwan_tpl_str_is_empty(void *ptr)
     if (UNLIKELY(!ptr))
         return true;
 
-    const char *str = *(char **)ptr;
+    const char *str = *(const char **)ptr;
     return LIKELY(str) && *str;
 }
 
