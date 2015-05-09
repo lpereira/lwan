@@ -884,6 +884,8 @@ post_process_template(lwan_tpl_t *tpl)
     size_t idx;
     struct chunk *prev_chunk, *resized;
 
+#define CHUNK_IDX(c) (size_t)(ptrdiff_t)((c) - tpl->chunks.data)
+
     for (idx = 0; idx < tpl->chunks.used; idx++) {
         struct chunk *chunk = &tpl->chunks.data[idx];
 
@@ -904,7 +906,7 @@ post_process_template(lwan_tpl_t *tpl)
             cd->chunk = chunk;
             prev_chunk->data = cd;
 
-            chunk = prev_chunk + 1;
+            idx = CHUNK_IDX(prev_chunk) + 1;
         } else if (chunk->action == TPL_ACTION_START_ITER) {
             enum flags flags = chunk->flags;
 
@@ -929,7 +931,7 @@ post_process_template(lwan_tpl_t *tpl)
             else
                 cd->chunk = chunk + 1;
 
-            chunk = prev_chunk + 1;
+            idx = CHUNK_IDX(prev_chunk) + 1;
         } else if (chunk->action == TPL_ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
             bool escape = chunk->flags & FLAGS_QUOTE;
@@ -959,6 +961,8 @@ post_process_template(lwan_tpl_t *tpl)
         tpl->chunks.data = resized;
 
     return true;
+
+#undef CHUNK_IDX
 }
 
 static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor)
