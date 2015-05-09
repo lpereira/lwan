@@ -23,8 +23,27 @@
 #include <stdint.h>
 
 typedef struct lwan_trie_t_		lwan_trie_t;
+typedef struct lwan_trie_node_t_	lwan_trie_node_t;
+typedef struct lwan_trie_leaf_t_	lwan_trie_leaf_t;
 
-lwan_trie_t	*lwan_trie_new(void (*free_node)(void *data));
+struct lwan_trie_node_t_ {
+    lwan_trie_node_t *next[8];
+    lwan_trie_leaf_t *leaf;
+    int ref_count;
+};
+
+struct lwan_trie_leaf_t_ {
+    char *key;
+    void *data;
+    lwan_trie_leaf_t *next;
+};
+
+struct lwan_trie_t_ {
+    lwan_trie_node_t *root;
+    void (*free_node)(void *data);
+};
+
+bool		 lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data));
 void		 lwan_trie_destroy(lwan_trie_t *trie);
 void		 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data);
 void 		*lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix);

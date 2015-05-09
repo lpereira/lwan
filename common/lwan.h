@@ -272,19 +272,18 @@ struct lwan_config_t_ {
 };
 
 struct lwan_t_ {
-    lwan_trie_t *url_map_trie;
+    lwan_trie_t url_map_trie;
     lwan_connection_t *conns;
-    int main_socket;
-
-    lwan_config_t config;
 
     struct {
-        unsigned short int count;
-        unsigned max_fd;
         lwan_thread_t *threads;
+        unsigned int max_fd;
+        unsigned short count;
     } thread;
 
     struct hash *module_registry;
+    lwan_config_t config;
+    int main_socket;
 };
 
 void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map);

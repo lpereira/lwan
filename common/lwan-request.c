@@ -752,7 +752,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
         goto out;
     }
 
-    url_map = lwan_trie_lookup_prefix(l->url_map_trie, request->url.value);
+    url_map = lwan_trie_lookup_prefix(&l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
         lwan_default_response(request, HTTP_NOT_FOUND);
         goto out;

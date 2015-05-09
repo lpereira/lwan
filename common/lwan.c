@@ -240,7 +240,7 @@ add_map:
         goto out;
     }
 
-    add_url_map(lwan->url_map_trie, prefix, &url_map);
+    add_url_map(&lwan->url_map_trie, prefix, &url_map);
 
 out:
     hash_free(hash);
@@ -248,11 +248,12 @@ out:
 
 void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
 {
-    lwan_trie_destroy(l->url_map_trie);
-    l->url_map_trie = lwan_trie_new(destroy_urlmap);
+    lwan_trie_destroy(&l->url_map_trie);
+    if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
+        lwan_status_critical_perror("Could not initialize trie");
 
     for (; map->prefix; map++) {
-        lwan_url_map_t *copy = add_url_map(l->url_map_trie, NULL, map);
+        lwan_url_map_t *copy = add_url_map(&l->url_map_trie, NULL, map);
 
         if (UNLIKELY(!copy))
             continue;
@@ -332,7 +333,8 @@ static bool setup_from_config(lwan_t *lwan)
     path = get_config_path(path_buf);
     lwan_status_info("Loading configuration file: %s", path);
 
-    lwan->url_map_trie = lwan_trie_new(destroy_urlmap);
+    if (!lwan_trie_init(&lwan->url_map_trie, destroy_urlmap))
+        return false;
 
     if (!config_open(&conf, path))
         return false;
@@ -495,7 +497,7 @@ lwan_shutdown(lwan_t *l)
     lwan_thread_shutdown(l);
 
     lwan_status_debug("Shutting down URL handlers");
-    lwan_trie_destroy(l->url_map_trie);
+    lwan_trie_destroy(&l->url_map_trie);
 
     free(l->conns);
 
@@ -550,7 +552,7 @@ lwan_main_loop(lwan_t *l)
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int client_fd = accept4(l->main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+        int client_fd = accept4(main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (UNLIKELY(client_fd < 0)) {
             if (errno != EBADF) {
                 lwan_status_perror("accept");

@@ -22,35 +22,14 @@
 
 #include "lwan.h"
 
-typedef struct lwan_trie_node_t_	lwan_trie_node_t;
-typedef struct lwan_trie_leaf_t_	lwan_trie_leaf_t;
-
-struct lwan_trie_node_t_ {
-    lwan_trie_node_t *next[8];
-    lwan_trie_leaf_t *leaf;
-    int ref_count;
-};
-
-struct lwan_trie_leaf_t_ {
-    char *key;
-    void *data;
-    lwan_trie_leaf_t *next;
-};
-
-struct lwan_trie_t_ {
-    lwan_trie_node_t *root;
-    void (*free_node)(void *data);
-};
-
-lwan_trie_t *
-lwan_trie_new(void (*free_node)(void *data))
+bool
+lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data))
 {
-    lwan_trie_t *trie;
-    trie = calloc(1, sizeof(lwan_trie_t));
     if (!trie)
-        return NULL;
+        return false;
+    trie->root = NULL;
     trie->free_node = free_node;
-    return trie;
+    return true;
 }
 
 static ALWAYS_INLINE lwan_trie_leaf_t *
@@ -207,5 +186,4 @@ lwan_trie_destroy(lwan_trie_t *trie)
     if (!trie || !trie->root)
         return;
     lwan_trie_node_destroy(trie, trie->root);
-    free(trie);
 }
