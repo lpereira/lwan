@@ -967,8 +967,6 @@ post_process_template(struct parser *parser)
             parser->chunks.data = resized;
     }
 
-    tpl->chunks = parser.chunks.data;
-
     return true;
 
 #undef CHUNK_IDX
@@ -1032,6 +1030,8 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
 
     if (success)
         success = post_process_template(&parser);
+
+    tpl->chunks = parser.chunks.data;
 
     if (!success) {
         /* Emit a TPL_ACTION_LAST chunk so that lwan_tpl_free() knows when to stop */
