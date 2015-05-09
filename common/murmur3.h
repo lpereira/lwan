@@ -5,9 +5,11 @@
 
 #pragma once
 
+#include <stdint.h>
+
 //-----------------------------------------------------------------------------
 
+void murmur3_set_seed(const uint32_t seed);
 unsigned int murmur3_simple(const void *key);
 
 //-----------------------------------------------------------------------------
-

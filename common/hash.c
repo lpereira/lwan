@@ -83,6 +83,7 @@ static void initialize_odd_constant(void)
 
 oddify_constant:
 	odd_constant |= 1;
+	murmur3_set_seed(odd_constant);
 }
 
 static inline unsigned hash_int(const void *keyptr)

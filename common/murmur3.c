@@ -37,6 +37,8 @@ static FORCE_INLINE uint64_t rotl64(uint64_t x, int8_t r)
 
 #define BIG_CONSTANT(x) (x##LLU)
 
+static uint32_t seed_value = 0xdeadbeef;
+
 //-----------------------------------------------------------------------------
 // Finalization mix - force all bits of a hash block to avalanche
 #ifndef __x86_64__
@@ -335,4 +337,10 @@ murmur3_simple(const void *keyptr)
     MurmurHash3_x86_128(keyptr, len, 0xdeadbeef, hash);
     return hash[3];
 #endif
+}
+
+void
+murmur3_set_seed(const uint32_t seed)
+{
+    seed_value = seed;
 }
