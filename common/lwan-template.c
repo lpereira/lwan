@@ -98,8 +98,8 @@ static const char *item_type_str[TOTAL_ITEMS] = {
 };
 
 struct chunk {
-    void *data;
     enum action action;
+    void *data;
     enum flags flags;
 };
 
