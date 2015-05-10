@@ -1079,7 +1079,7 @@ lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descrip
 {
     lwan_tpl_t *tpl;
 
-    tpl = malloc(sizeof(*tpl));
+    tpl = calloc(1, sizeof(*tpl));
     if (tpl) {
         if (parse_string(tpl, string, descriptor))
             return tpl;
