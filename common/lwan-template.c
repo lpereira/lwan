@@ -979,6 +979,8 @@ post_process_template(struct parser *parser)
             parser->chunks.data = resized;
     }
 
+    parser->tpl->chunks = parser->chunks.data;
+
     return true;
 
 #undef CHUNK_IDX
@@ -987,11 +989,14 @@ post_process_template(struct parser *parser)
 static bool parser_init(struct parser *parser, const lwan_var_descriptor_t *descriptor,
     const char *string)
 {
+    struct chunk *chunks;
+
     if (symtab_push(parser, descriptor) < 0)
         return false;
 
-    parser->chunks.data = reallocarray(NULL, parser->chunks.reserved, sizeof(struct chunk));
-    if (!parser->chunks.data) {
+    chunks = reallocarray(NULL, parser->chunks.reserved, sizeof(struct chunk));
+    parser->tpl->chunks = parser->chunks.data = chunks;
+    if (!chunks) {
         symtab_pop(parser);
         return false;
     }
@@ -1062,8 +1067,6 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
 
     while (state && lex_next(&parser.lexer, &item) && item->type != ITEM_ERROR)
         state = state(&parser, item);
-
-    tpl->chunks = parser.chunks.data;
 
     if (!parser_shutdown(&parser, item))
         return false;
