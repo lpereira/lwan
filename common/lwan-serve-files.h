@@ -19,11 +19,15 @@
 
 #pragma once
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
 #include "lwan.h"
 
 struct lwan_serve_files_settings_t {
-  char *root_path;
-  char *index_html;
+  const char *root_path;
+  const char *index_html;
   bool serve_precompressed_files;
 };
 
@@ -34,10 +38,13 @@ struct lwan_serve_files_settings_t {
     .index_html = index_html_, \
     .serve_precompressed_files = serve_precompressed_files_ \
   }}), \
-  .flags = 0
+  .flags = (lwan_handler_flags_t)0
 
 #define SERVE_FILES(root_path) \
   SERVE_FILES_SETTINGS(root_path, NULL, true)
 
 const lwan_module_t *lwan_module_serve_files(void);
 
+#if defined (__cplusplus)
+}
+#endif
