@@ -200,12 +200,14 @@ symtab_lookup(struct parser *parser, const char *var_name)
 static int
 symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
 {
-    struct symtab *tab = malloc(sizeof(*tab));
+    struct symtab *tab;
 
-    if (!tab)
-        return -errno;
     if (!descriptor)
         return -ENODEV;
+
+    tab = malloc(sizeof(*tab));
+    if (!tab)
+        return -errno;
 
     tab->hash = hash_str_new(NULL, NULL);
     if (!tab->hash) {
