@@ -300,14 +300,14 @@ static void *
 thread_io_loop(void *data)
 {
     lwan_thread_t *t = data;
-    struct epoll_event *events;
+    const int epoll_fd = t->epoll_fd;
+    const int read_pipe_fd = t->pipe_fd[0];
+    const int max_events = min((int)t->lwan->thread.max_fd, 1024);
     lwan_connection_t *conns = t->lwan->conns;
+    struct epoll_event *events;
     coro_switcher_t switcher;
     struct death_queue_t dq;
-    int epoll_fd = t->epoll_fd;
-    int read_pipe_fd = t->pipe_fd[0];
     int n_fds;
-    const int max_events = min((int)t->lwan->thread.max_fd, 1024);
 
     lwan_status_debug("Starting IO loop on thread #%d",
         (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) + 1);
@@ -384,18 +384,18 @@ create_thread(lwan_t *l, lwan_thread_t *thread)
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
-    if (pthread_create(&thread->self, &attr, thread_io_loop, thread))
-        lwan_status_critical_perror("pthread_create");
-
-    if (pthread_attr_destroy(&attr))
-        lwan_status_critical_perror("pthread_attr_destroy");
-
     if (pipe2(thread->pipe_fd, O_NONBLOCK | O_CLOEXEC) < 0)
         lwan_status_critical_perror("pipe");
 
     struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
     if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->pipe_fd[0], &event) < 0)
         lwan_status_critical_perror("epoll_ctl");
+
+    if (pthread_create(&thread->self, &attr, thread_io_loop, thread))
+        lwan_status_critical_perror("pthread_create");
+
+    if (pthread_attr_destroy(&attr))
+        lwan_status_critical_perror("pthread_attr_destroy");
 }
 
 void
