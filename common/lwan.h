@@ -235,7 +235,7 @@ struct lwan_url_map_t_ {
     lwan_http_status_t (*handler)(lwan_request_t *request, lwan_response_t *response, void *data);
     void *data;
 
-    char *prefix;
+    const char *prefix;
     size_t prefix_len;
     lwan_handler_flags_t flags;
 
