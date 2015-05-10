@@ -99,7 +99,7 @@ static void destroy_urlmap(void *data)
 
     free(url_map->authorization.realm);
     free(url_map->authorization.password_file);
-    free(url_map->prefix);
+    free((char *)url_map->prefix);
     free(url_map);
 }
 
