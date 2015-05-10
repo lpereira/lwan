@@ -1068,10 +1068,7 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
     while (state && lex_next(&parser.lexer, &item) && item->type != ITEM_ERROR)
         state = state(&parser, item);
 
-    if (!parser_shutdown(&parser, item))
-        return false;
-
-    return true;
+    return parser_shutdown(&parser, item);
 }
 
 lwan_tpl_t *
