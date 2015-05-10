@@ -886,9 +886,12 @@ lwan_tpl_free(lwan_tpl_t *tpl)
     if (!tpl)
         return;
 
-    for (iter = tpl->chunks; iter->action != TPL_ACTION_LAST; iter++)
-        free_chunk(iter);
-    free(tpl->chunks);
+    if (tpl->chunks) {
+        for (iter = tpl->chunks; iter->action != TPL_ACTION_LAST; iter++)
+            free_chunk(iter);
+        free(tpl->chunks);
+    }
+
     free(tpl);
 }
 
@@ -999,11 +1002,11 @@ static bool parser_init(struct parser *parser, const lwan_var_descriptor_t *desc
     return true;
 }
 
-static bool parser_shutdown(struct parser *parser, void *state, struct item *item)
+static bool parser_shutdown(struct parser *parser, struct item *item)
 {
     bool success = true;
 
-    if (state && item->type == ITEM_ERROR && item->value.value) {
+    if (item->type == ITEM_ERROR && item->value.value) {
         lwan_status_error("Parser error: %.*s", (int)item->value.len, item->value.value);
         free((char *)item->value.value);
 
@@ -1057,11 +1060,13 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
     if (!parser_init(&parser, descriptor, string))
         return false;
 
-    while (state && lex_next(&parser.lexer, &item))
+    while (state && lex_next(&parser.lexer, &item) && item->type != ITEM_ERROR)
         state = state(&parser, item);
 
-    if (!parser_shutdown(&parser, state, item))
+    if (!parser_shutdown(&parser, item)) {
+        tpl->chunks = NULL;
         return false;
+    }
 
     tpl->chunks = parser.chunks.data;
     return true;
