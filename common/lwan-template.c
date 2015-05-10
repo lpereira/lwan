@@ -979,43 +979,39 @@ post_process_template(struct parser *parser)
 #undef CHUNK_IDX
 }
 
-static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor)
+static bool parser_init(struct parser *parser, const lwan_var_descriptor_t *descriptor,
+    const char *string)
 {
-    struct parser parser = {
-        .tpl = tpl,
-        .symtab = NULL,
-        .chunks = { .used = 0, .reserved = array_increment_step }
-    };
-    void *(*state)(struct parser *parser, struct item *item) = parser_text;
-    struct item *item = NULL;
-    bool success = true;
-
-    if (symtab_push(&parser, descriptor) < 0)
+    if (symtab_push(parser, descriptor) < 0)
         return false;
 
-    parser.chunks.data = reallocarray(NULL, parser.chunks.reserved, sizeof(struct chunk));
-    if (!parser.chunks.data) {
-        symtab_pop(&parser);
+    parser->chunks.data = reallocarray(NULL, parser->chunks.reserved, sizeof(struct chunk));
+    if (!parser->chunks.data) {
+        symtab_pop(parser);
         return false;
     }
 
-    lex_init(&parser.lexer, string);
-    list_head_init(&parser.stack);
+    lex_init(&parser->lexer, string);
+    list_head_init(&parser->stack);
 
-    while (state && lex_next(&parser.lexer, &item))
-        state = state(&parser, item);
+    return true;
+}
 
-    if (!state && item->type == ITEM_ERROR && item->value.value) {
+static bool parser_shutdown(struct parser *parser, void *state, struct item *item)
+{
+    bool success = true;
+
+    if (state && item->type == ITEM_ERROR && item->value.value) {
         lwan_status_error("Parser error: %.*s", (int)item->value.len, item->value.value);
         free((char *)item->value.value);
 
         success = false;
     }
 
-    if (!list_empty(&parser.stack)) {
+    if (!list_empty(&parser->stack)) {
         struct stacked_item *stacked, *stacked_next;
 
-        list_for_each_safe(&parser.stack, stacked, stacked_next, stack) {
+        list_for_each_safe(&parser->stack, stacked, stacked_next, stack) {
             lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}",
                 (int)stacked->item.value.len, stacked->item.value.value);
             list_del(&stacked->stack);
@@ -1025,27 +1021,48 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
         success = false;
     }
 
-    symtab_pop(&parser);
-    if (parser.symtab) {
+    symtab_pop(parser);
+    if (parser->symtab) {
         lwan_status_error("Parser error: Symbol table not empty when finishing parser");
 
-        while (parser.symtab)
-            symtab_pop(&parser);
+        while (parser->symtab)
+            symtab_pop(parser);
 
         success = false;
     }
 
     if (success)
-        success = post_process_template(&parser);
-
-    tpl->chunks = parser.chunks.data;
+        success = post_process_template(parser);
 
     if (!success) {
         /* Emit a TPL_ACTION_LAST chunk so that lwan_tpl_free() knows when to stop */
-        emit_chunk(&parser, TPL_ACTION_LAST, 0, NULL);
+        emit_chunk(parser, TPL_ACTION_LAST, 0, NULL);
     }
 
     return success;
+}
+
+static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor)
+{
+    struct parser parser = {
+        .tpl = tpl,
+        .symtab = NULL,
+        .chunks = { .used = 0, .reserved = array_increment_step }
+    };
+    void *(*state)(struct parser *parser, struct item *item) = parser_text;
+    struct item *item = NULL;
+
+    if (!parser_init(&parser, descriptor, string))
+        return false;
+
+    while (state && lex_next(&parser.lexer, &item))
+        state = state(&parser, item);
+
+    if (!parser_shutdown(&parser, state, item))
+        return false;
+
+    tpl->chunks = parser.chunks.data;
+    return true;
 }
 
 lwan_tpl_t *
