@@ -20,6 +20,7 @@
 
 #include "hash.h"
 #include "murmur3.h"
+#include "reallocarray.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -233,8 +234,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 
 	if (bucket->used + 1 >= bucket->total) {
 		unsigned new_total = bucket->total + steps;
-		size_t size = new_total * sizeof(struct hash_entry);
-		struct hash_entry *tmp = realloc(bucket->entries, size);
+		struct hash_entry *tmp = reallocarray(bucket->entries, new_total, sizeof(*tmp));
 		if (tmp == NULL)
 			return -errno;
 		bucket->entries = tmp;
@@ -276,8 +276,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 
 	if (bucket->used + 1 >= bucket->total) {
 		unsigned new_total = bucket->total + steps;
-		size_t size = new_total * sizeof(struct hash_entry);
-		struct hash_entry *tmp = realloc(bucket->entries, size);
+		struct hash_entry *tmp = reallocarray(bucket->entries, new_total, sizeof(*tmp));
 		if (tmp == NULL)
 			return -errno;
 		bucket->entries = tmp;
@@ -358,9 +357,8 @@ int hash_del(struct hash *hash, const void *key)
 	steps_used = bucket->used / steps;
 	steps_total = bucket->total / steps;
 	if (steps_used + 1 < steps_total) {
-		size_t size = (steps_used + 1) *
-			steps * sizeof(struct hash_entry);
-		struct hash_entry *tmp = realloc(bucket->entries, size);
+		struct hash_entry *tmp = reallocarray(bucket->entries, steps_used + 1,
+			steps * sizeof(*tmp));
 		if (tmp) {
 			bucket->entries = tmp;
 			bucket->total = (steps_used + 1) * steps;
