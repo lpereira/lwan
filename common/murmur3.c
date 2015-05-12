@@ -324,17 +324,17 @@ murmur3_simple(const void *keyptr)
     size_t len = strlen((char *)keyptr);
 #ifdef __x86_64__
     uint64_t hash[2];
-    MurmurHash3_x64_128(keyptr, len, seed, hash);
+    MurmurHash3_x64_128(keyptr, len, seed_value, hash);
     return (unsigned int)hash[1];
 #else
     if (len <= 16) {
         unsigned int hash;
-        MurmurHash3_x86_32(keyptr, len, seed, &hash);
+        MurmurHash3_x86_32(keyptr, len, seed_value, &hash);
         return hash;
     }
 
     unsigned int hash[4];
-    MurmurHash3_x86_128(keyptr, len, seed, hash);
+    MurmurHash3_x86_128(keyptr, len, seed_value, hash);
     return hash[3];
 #endif
 }
