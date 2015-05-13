@@ -943,7 +943,7 @@ post_process_template(struct parser *parser)
             cd->descriptor = prev_chunk->data;
             prev_chunk->data = cd;
 
-            if (!chunk || chunk->action == TPL_ACTION_LAST)
+            if (chunk->action == TPL_ACTION_LAST)
                 cd->chunk = chunk;
             else
                 cd->chunk = chunk + 1;
