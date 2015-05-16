@@ -128,6 +128,7 @@ lwan_http_status_as_string_with_code(lwan_http_status_t status)
     case HTTP_TIMEOUT: return "408 Request timeout";
     case HTTP_TOO_LARGE: return "413 Request too large";
     case HTTP_RANGE_UNSATISFIABLE: return "416 Requested range unsatisfiable";
+    case HTTP_I_AM_A_TEAPOT: return "418 I'm a teapot";
     case HTTP_INTERNAL_ERROR: return "500 Internal server error";
     case HTTP_UNAVAILABLE: return "503 Service unavailable";
     }
@@ -156,6 +157,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_TIMEOUT: return "Client did not produce a request within expected timeframe.";
     case HTTP_TOO_LARGE: return "The request entity is too large.";
     case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
+    case HTTP_I_AM_A_TEAPOT: return "Client requested to brew coffee but device is a teapot.";
     case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
     case HTTP_UNAVAILABLE: return "The server is either overloaded or down for maintenance.";
     }
