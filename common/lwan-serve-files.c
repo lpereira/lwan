@@ -622,7 +622,15 @@ try_open_directory(const char *path, int *open_mode)
         }
     }
 
-    return fd;
+    if (fd < 0)
+        return -1;
+
+    /* Passing O_PATH masks all modes except O_CLOEXEC | O_DIRECTORY |
+     * O_NOFOLLOW.  The open(2) calls above detects if O_NOATIME and
+     * O_NONBLOCK can be used.  Close and open the directory again when
+     * modes have been properly detected with O_PATH.  */
+    close(fd);
+    return open(path, *open_mode | O_DIRECTORY | O_PATH);
 }
 
 static void *
