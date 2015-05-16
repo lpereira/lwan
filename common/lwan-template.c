@@ -1041,6 +1041,15 @@ static bool parser_shutdown(struct parser *parser, struct item *item)
         success = false;
     }
 
+    if (parser->flags & FLAGS_NEGATE) {
+        lwan_status_error("Parser error: unmatched negation");
+        success = false;
+    }
+    if (parser->flags & FLAGS_QUOTE) {
+        lwan_status_error("Parser error: unmatched quote");
+        success = false;
+    }
+
     if (success)
         success = post_process_template(parser);
 
