@@ -105,8 +105,9 @@ log_request(lwan_request_t *request, lwan_http_status_t status)
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug("%s \"%s %s HTTP/%s\" %d %s",
+    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s",
         lwan_request_get_remote_address(request, ip_buffer),
+        request->conn->thread->date.date,
         get_request_method(request),
         request->original_url.value,
         request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
