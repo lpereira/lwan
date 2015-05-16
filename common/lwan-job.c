@@ -37,7 +37,7 @@ struct job_t {
 };
 
 static pthread_t self;
-static pthread_mutex_t queue_mutex;
+static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool running = false;
 static struct list_head jobs;
 
@@ -47,13 +47,16 @@ job_thread(void *data __attribute__((unused)))
     struct timespec rgtp = { 1, 0 };
 
     while (running) {
-        struct job_t *job;
         bool had_job = false;
 
-        pthread_mutex_lock(&queue_mutex);
-        list_for_each(&jobs, job, jobs)
-            had_job |= job->cb(job->data);
-        pthread_mutex_unlock(&queue_mutex);
+        if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
+            struct job_t *job;
+
+            list_for_each(&jobs, job, jobs)
+                had_job |= job->cb(job->data);
+
+            pthread_mutex_unlock(&queue_mutex);
+        }
 
         if (had_job)
             rgtp.tv_sec = 1;
@@ -94,16 +97,17 @@ void lwan_job_thread_shutdown(void)
 {
     lwan_status_debug("Shutting down job thread");
 
-    pthread_mutex_lock(&queue_mutex);
-    struct job_t *node, *next;
-    list_for_each_safe(&jobs, node, next, jobs) {
-        list_del(&node->jobs);
-        free(node);
+    if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
+        struct job_t *node, *next;
+        list_for_each_safe(&jobs, node, next, jobs) {
+            list_del(&node->jobs);
+            free(node);
+        }
+        running = false;
+        if (pthread_tryjoin_np(self, NULL) < 0)
+            lwan_status_critical_perror("pthread_join");
+        pthread_mutex_unlock(&queue_mutex);
     }
-    running = false;
-    if (pthread_tryjoin_np(self, NULL) < 0)
-        lwan_status_critical_perror("pthread_join");
-    pthread_mutex_unlock(&queue_mutex);
 }
 
 void lwan_job_add(bool (*cb)(void *data), void *data)
@@ -117,9 +121,10 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
     job->cb = cb;
     job->data = data;
 
-    pthread_mutex_lock(&queue_mutex);
-    list_add(&jobs, &job->jobs);
-    pthread_mutex_unlock(&queue_mutex);
+    if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
+        list_add(&jobs, &job->jobs);
+        pthread_mutex_unlock(&queue_mutex);
+    }
 }
 
 void lwan_job_del(bool (*cb)(void *data), void *data)
@@ -128,12 +133,13 @@ void lwan_job_del(bool (*cb)(void *data), void *data)
 
     assert(cb);
 
-    pthread_mutex_lock(&queue_mutex);
-    list_for_each_safe(&jobs, node, next, jobs) {
-        if (cb == node->cb && data == node->data) {
-            list_del(&node->jobs);
-            free(node);
+    if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
+        list_for_each_safe(&jobs, node, next, jobs) {
+            if (cb == node->cb && data == node->data) {
+                list_del(&node->jobs);
+                free(node);
+            }
         }
+        pthread_mutex_unlock(&queue_mutex);
     }
-    pthread_mutex_unlock(&queue_mutex);
 }
