@@ -45,17 +45,17 @@
 #include "reallocarray.h"
 
 enum action {
-    TPL_ACTION_APPEND,
-    TPL_ACTION_APPEND_CHAR,
-    TPL_ACTION_VARIABLE,
-    TPL_ACTION_VARIABLE_STR,
-    TPL_ACTION_VARIABLE_STR_ESCAPE,
-    TPL_ACTION_START_ITER,
-    TPL_ACTION_END_ITER,
-    TPL_ACTION_IF_VARIABLE_NOT_EMPTY,
-    TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY,
-    TPL_ACTION_APPLY_TPL,
-    TPL_ACTION_LAST
+    ACTION_APPEND,
+    ACTION_APPEND_CHAR,
+    ACTION_VARIABLE,
+    ACTION_VARIABLE_STR,
+    ACTION_VARIABLE_STR_ESCAPE,
+    ACTION_START_ITER,
+    ACTION_END_ITER,
+    ACTION_IF_VARIABLE_NOT_EMPTY,
+    ACTION_END_IF_VARIABLE_NOT_EMPTY,
+    ACTION_APPLY_TPL,
+    ACTION_LAST
 };
 
 enum flags {
@@ -571,10 +571,10 @@ static void *parser_end_iter(struct parser *parser, struct item *item)
     for (idx = (ssize_t)parser->chunks.used - 1; idx >= 0; idx--) {
         iter = &parser->chunks.data[idx];
 
-        if (iter->action != TPL_ACTION_START_ITER)
+        if (iter->action != ACTION_START_ITER)
             continue;
         if (iter->data == symbol) {
-            emit_chunk(parser, TPL_ACTION_END_ITER, 0, iter);
+            emit_chunk(parser, ACTION_END_ITER, 0, iter);
             symtab_pop(parser);
             return parser_text;
         }
@@ -602,10 +602,10 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
 
     for (idx = (ssize_t)parser->chunks.used - 1; idx >= 0; idx--) {
         iter = &parser->chunks.data[idx];
-        if (iter->action != TPL_ACTION_IF_VARIABLE_NOT_EMPTY)
+        if (iter->action != ACTION_IF_VARIABLE_NOT_EMPTY)
             continue;
         if (iter->data == symbol) {
-            emit_chunk(parser, TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY, 0, symbol);
+            emit_chunk(parser, ACTION_END_IF_VARIABLE_NOT_EMPTY, 0, symbol);
             return parser_text;
         }
     }
@@ -654,7 +654,7 @@ static void *parser_iter(struct parser *parser, struct item *item)
             return error_item(item, "Could not push symbol table (out of memory)");
         }
 
-        emit_chunk(parser, TPL_ACTION_START_ITER, negate, symbol);
+        emit_chunk(parser, ACTION_START_ITER, negate, symbol);
 
         parser_push_item(parser, item);
         parser->flags &= ~FLAGS_NEGATE;
@@ -697,7 +697,7 @@ static void *parse_identifier(struct parser *parser, struct item *item)
                 item->value.value);
         }
 
-        emit_chunk(parser, TPL_ACTION_VARIABLE, parser->flags, symbol);
+        emit_chunk(parser, ACTION_VARIABLE, parser->flags, symbol);
 
         parser->flags &= ~FLAGS_QUOTE;
         parser->tpl->minimum_size += item->value.len + 1;
@@ -714,7 +714,7 @@ static void *parse_identifier(struct parser *parser, struct item *item)
         if (!parser_next_is(parser, ITEM_RIGHT_META))
             return unexpected_lexeme_or_lex_error(item, next);
 
-        emit_chunk(parser, TPL_ACTION_IF_VARIABLE_NOT_EMPTY, 0, symbol);
+        emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, 0, symbol);
         parser_push_item(parser, item);
 
         return parser_text;
@@ -754,19 +754,19 @@ static void *parser_text(struct parser *parser, struct item *item)
         return parser_meta;
     if (item->type == ITEM_TEXT) {
         if (item->value.len == 1) {
-            emit_chunk(parser, TPL_ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*item->value.value);
+            emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*item->value.value);
         } else {
             strbuf_t *buf = strbuf_new_with_size(item->value.len);
             if (!buf)
                 return error_item(item, "Out of memory");
             strbuf_set(buf, item->value.value, item->value.len);
-            emit_chunk(parser, TPL_ACTION_APPEND, 0, buf);
+            emit_chunk(parser, ACTION_APPEND, 0, buf);
         }
         parser->tpl->minimum_size += item->value.len;
         return parser_text;
     }
     if (item->type == ITEM_EOF) {
-        emit_chunk(parser, TPL_ACTION_LAST, 0, NULL);
+        emit_chunk(parser, ACTION_LAST, 0, NULL);
         return NULL;
     }
 
@@ -856,23 +856,23 @@ free_chunk(struct chunk *chunk)
         return;
 
     switch (chunk->action) {
-    case TPL_ACTION_LAST:
-    case TPL_ACTION_APPEND_CHAR:
-    case TPL_ACTION_VARIABLE:
-    case TPL_ACTION_VARIABLE_STR:
-    case TPL_ACTION_VARIABLE_STR_ESCAPE:
-    case TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_END_ITER:
+    case ACTION_LAST:
+    case ACTION_APPEND_CHAR:
+    case ACTION_VARIABLE:
+    case ACTION_VARIABLE_STR:
+    case ACTION_VARIABLE_STR_ESCAPE:
+    case ACTION_END_IF_VARIABLE_NOT_EMPTY:
+    case ACTION_END_ITER:
         /* do nothing */
         break;
-    case TPL_ACTION_IF_VARIABLE_NOT_EMPTY:
-    case TPL_ACTION_START_ITER:
+    case ACTION_IF_VARIABLE_NOT_EMPTY:
+    case ACTION_START_ITER:
         free(chunk->data);
         break;
-    case TPL_ACTION_APPEND:
+    case ACTION_APPEND:
         strbuf_free(chunk->data);
         break;
-    case TPL_ACTION_APPLY_TPL:
+    case ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
         break;
     }
@@ -887,7 +887,7 @@ lwan_tpl_free(lwan_tpl_t *tpl)
         return;
 
     if (tpl->chunks) {
-        for (iter = tpl->chunks; iter->action != TPL_ACTION_LAST; iter++)
+        for (iter = tpl->chunks; iter->action != ACTION_LAST; iter++)
             free_chunk(iter);
         free(tpl->chunks);
     }
@@ -906,11 +906,11 @@ post_process_template(struct parser *parser)
     for (idx = 0; idx < parser->chunks.used; idx++) {
         struct chunk *chunk = &parser->chunks.data[idx];
 
-        if (chunk->action == TPL_ACTION_IF_VARIABLE_NOT_EMPTY) {
+        if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
             for (prev_chunk = chunk; ; chunk++) {
-                if (chunk->action == TPL_ACTION_LAST)
+                if (chunk->action == ACTION_LAST)
                     break;
-                if (chunk->action == TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY
+                if (chunk->action == ACTION_END_IF_VARIABLE_NOT_EMPTY
                             && chunk->data == prev_chunk->data)
                     break;
             }
@@ -924,13 +924,13 @@ post_process_template(struct parser *parser)
             prev_chunk->data = cd;
 
             idx = CHUNK_IDX(prev_chunk) + 1;
-        } else if (chunk->action == TPL_ACTION_START_ITER) {
+        } else if (chunk->action == ACTION_START_ITER) {
             enum flags flags = chunk->flags;
 
             for (prev_chunk = chunk; ; chunk++) {
-                if (chunk->action == TPL_ACTION_LAST)
+                if (chunk->action == ACTION_LAST)
                     break;
-                if (chunk->action == TPL_ACTION_END_ITER && chunk->data == prev_chunk) {
+                if (chunk->action == ACTION_END_ITER && chunk->data == prev_chunk) {
                     chunk->flags |= flags;
                     break;
                 }
@@ -943,21 +943,21 @@ post_process_template(struct parser *parser)
             cd->descriptor = prev_chunk->data;
             prev_chunk->data = cd;
 
-            if (chunk->action == TPL_ACTION_LAST)
+            if (chunk->action == ACTION_LAST)
                 cd->chunk = chunk;
             else
                 cd->chunk = chunk + 1;
 
             idx = CHUNK_IDX(prev_chunk) + 1;
-        } else if (chunk->action == TPL_ACTION_VARIABLE) {
+        } else if (chunk->action == ACTION_VARIABLE) {
             lwan_var_descriptor_t *descriptor = chunk->data;
             bool escape = chunk->flags & FLAGS_QUOTE;
 
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
                 if (escape)
-                    chunk->action = TPL_ACTION_VARIABLE_STR_ESCAPE;
+                    chunk->action = ACTION_VARIABLE_STR_ESCAPE;
                 else
-                    chunk->action = TPL_ACTION_VARIABLE_STR;
+                    chunk->action = ACTION_VARIABLE_STR;
                 chunk->data = (void *)descriptor->offset;
             } else if (escape) {
                 lwan_status_error("Variable must be string to be escaped");
@@ -966,7 +966,7 @@ post_process_template(struct parser *parser)
                 lwan_status_error("Invalid variable descriptor");
                 return false;
             }
-        } else if (chunk->action == TPL_ACTION_LAST) {
+        } else if (chunk->action == ACTION_LAST) {
             break;
         }
     }
@@ -1045,8 +1045,8 @@ static bool parser_shutdown(struct parser *parser, struct item *item)
         success = post_process_template(parser);
 
     if (!success) {
-        /* Emit a TPL_ACTION_LAST chunk so that lwan_tpl_free() knows when to stop */
-        emit_chunk(parser, TPL_ACTION_LAST, 0, NULL);
+        /* Emit a ACTION_LAST chunk so that lwan_tpl_free() knows when to stop */
+        emit_chunk(parser, ACTION_LAST, 0, NULL);
     }
 
     return success;
@@ -1121,17 +1121,17 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
             void *until_data)
 {
     static const void *const dispatch_table[] = {
-        [TPL_ACTION_APPEND] = &&action_append,
-        [TPL_ACTION_APPEND_CHAR] = &&action_append_char,
-        [TPL_ACTION_VARIABLE] = &&action_variable,
-        [TPL_ACTION_VARIABLE_STR] = &&action_variable_str,
-        [TPL_ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
-        [TPL_ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
-        [TPL_ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
-        [TPL_ACTION_APPLY_TPL] = &&action_apply_tpl,
-        [TPL_ACTION_START_ITER] = &&action_start_iter,
-        [TPL_ACTION_END_ITER] = &&action_end_iter,
-        [TPL_ACTION_LAST] = &&finalize
+        [ACTION_APPEND] = &&action_append,
+        [ACTION_APPEND_CHAR] = &&action_append_char,
+        [ACTION_VARIABLE] = &&action_variable,
+        [ACTION_VARIABLE_STR] = &&action_variable_str,
+        [ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
+        [ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
+        [ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
+        [ACTION_APPLY_TPL] = &&action_apply_tpl,
+        [ACTION_START_ITER] = &&action_start_iter,
+        [ACTION_END_ITER] = &&action_end_iter,
+        [ACTION_LAST] = &&finalize
     };
     coro_switcher_t switcher;
     coro_t *coro = NULL;
