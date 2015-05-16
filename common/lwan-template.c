@@ -159,6 +159,8 @@ static const size_t array_increment_step = 16;
 
 static const char left_meta[] = "{{";
 static const char right_meta[] = "}}";
+static_assert(sizeof(left_meta) == sizeof(right_meta),
+    "right_meta and left_meta are the same length");
 
 static void *lex_inside_action(struct lexer *lexer);
 static void *lex_identifier(struct lexer *lexer);
@@ -365,8 +367,6 @@ static void *lex_quoted_identifier(struct lexer *lexer)
 static void *lex_comment(struct lexer *lexer)
 {
     size_t brackets = strlen(left_meta);
-
-    assert(strlen(left_meta) == strlen(right_meta));
 
     do {
         int r = next(lexer);
