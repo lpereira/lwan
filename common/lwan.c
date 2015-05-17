@@ -433,9 +433,21 @@ get_number_of_cpus(void)
 void
 lwan_init(lwan_t *l)
 {
+    lwan_init_with_config(l, &default_config);
+}
+
+const lwan_config_t *
+lwan_get_default_config(void)
+{
+    return &default_config;
+}
+
+void
+lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
+{
     /* Load defaults */
     memset(l, 0, sizeof(*l));
-    memcpy(&l->config, &default_config, sizeof(default_config));
+    memcpy(&l->config, config, sizeof(*config));
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
@@ -456,8 +468,10 @@ lwan_init(lwan_t *l)
 #endif
 
     /* Load the configuration file. */
-    if (!setup_from_config(l))
-        lwan_status_warning("Could not read config file, using defaults");
+    if (config == &default_config) {
+        if (!setup_from_config(l))
+            lwan_status_warning("Could not read config file, using defaults");
+    }
 
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");

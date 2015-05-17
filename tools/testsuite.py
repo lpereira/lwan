@@ -23,7 +23,7 @@ print 'Using', LWAN_PATH, 'for lwan'
 class LwanTest(unittest.TestCase):
   def setUp(self):
     for spawn_try in range(20):
-      self.lwan = subprocess.Popen([LWAN_PATH],
+      self.lwan=subprocess.Popen([LWAN_PATH, '-c'],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
       for request_try in range(20):

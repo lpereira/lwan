@@ -316,7 +316,10 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
 void lwan_init(lwan_t *l);
+void lwan_init_with_config(lwan_t *l, const lwan_config_t *config);
 void lwan_shutdown(lwan_t *l);
+
+const lwan_config_t *lwan_get_default_config(void);
 
 int lwan_connection_get_fd(lwan_connection_t *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
