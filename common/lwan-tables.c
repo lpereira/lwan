@@ -130,6 +130,7 @@ lwan_http_status_as_string_with_code(lwan_http_status_t status)
     case HTTP_RANGE_UNSATISFIABLE: return "416 Requested range unsatisfiable";
     case HTTP_I_AM_A_TEAPOT: return "418 I'm a teapot";
     case HTTP_INTERNAL_ERROR: return "500 Internal server error";
+    case HTTP_NOT_IMPLEMENTED: return "501 Not implemented";
     case HTTP_UNAVAILABLE: return "503 Service unavailable";
     }
     return "999 Invalid";
@@ -159,6 +160,7 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
     case HTTP_I_AM_A_TEAPOT: return "Client requested to brew coffee but device is a teapot.";
     case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
+    case HTTP_NOT_IMPLEMENTED: return "Server lacks the ability to fulfil the request.";
     case HTTP_UNAVAILABLE: return "The server is either overloaded or down for maintenance.";
     }
     return "Invalid";

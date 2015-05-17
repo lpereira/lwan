@@ -126,6 +126,7 @@ typedef enum {
     HTTP_RANGE_UNSATISFIABLE = 416,
     HTTP_I_AM_A_TEAPOT = 418,
     HTTP_INTERNAL_ERROR = 500,
+    HTTP_NOT_IMPLEMENTED = 501,
     HTTP_UNAVAILABLE = 503,
 } lwan_http_status_t;
 
