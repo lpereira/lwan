@@ -27,8 +27,8 @@
 
 enum args {
   ARGS_FAILED,
-  ARGS_OK,
-  ARGS_USE_CONFIG
+  ARGS_USE_CONFIG,
+  ARGS_SERVE_FILES
 };
 
 lwan_http_status_t
@@ -142,24 +142,23 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
     { .name = "root", .has_arg = 1, .val = 'r' },
     { .name = "listen", .has_arg = 1, .val = 'l' },
     { .name = "help", .val = 'h' },
-    { .name = "config", .val = 'c' },
     { }
   };
   int c, optidx = 0;
+  enum args result = ARGS_USE_CONFIG;
 
-  while ((c = getopt_long(argc, argv, "chr:l:", opts, &optidx)) != -1) {
+  while ((c = getopt_long(argc, argv, "hr:l:", opts, &optidx)) != -1) {
     switch (c) {
-    case 'c':
-      return ARGS_USE_CONFIG;
-
     case 'l':
       free(config->listener);
       config->listener = strdup(optarg);
+      result = ARGS_SERVE_FILES;
       break;
 
     case 'r':
       free(*root);
       *root = strdup(optarg);
+      result = ARGS_SERVE_FILES;
       break;
 
     default:
@@ -174,7 +173,6 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
       printf("Options:\n");
       printf("\t-r, --root      Path to serve files from (default: current dir).\n");
       printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
-      printf("\t-c, --config    Use configuration file.\n");
       printf("\t-h, --help      This.\n");
       printf("\n");
       printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
@@ -182,7 +180,7 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
     }
   }
 
-  return ARGS_OK;
+  return result;
 }
 
 int
@@ -196,7 +194,7 @@ main(int argc, char *argv[])
     c.listener = strdup("*:8080");
 
     switch (parse_args(argc, argv, &c, &root)) {
-    case ARGS_OK:
+    case ARGS_SERVE_FILES:
         lwan_status_info("Serving files from %s", root);
         lwan_init_with_config(&l, &c);
 
