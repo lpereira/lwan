@@ -226,9 +226,12 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
         clock_monotonic_gettime(cache, &time_to_die);
         entry->time_to_die = time_to_die.tv_sec + cache->settings.time_to_live;
 
-        pthread_rwlock_wrlock(&cache->queue.lock);
-        list_add_tail(&cache->queue.list, &entry->entries);
-        pthread_rwlock_unlock(&cache->queue.lock);
+        if (LIKELY(!pthread_rwlock_wrlock(&cache->queue.lock))) {
+            list_add_tail(&cache->queue.list, &entry->entries);
+            pthread_rwlock_unlock(&cache->queue.lock);
+        } else {
+            return convert_to_temporary(entry);
+        }
     } else {
         /* Either there's another item with the same key (-EEXIST), or
          * there was an error inside the hash table. In either case,
@@ -280,7 +283,7 @@ static bool cache_pruner_job(void *data)
 
     /* If the queue is empty, there's nothing to do; unlock/return*/
     if (list_empty(&cache->queue.list)) {
-        if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0))
+        if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock)))
             lwan_status_perror("pthread_rwlock_unlock");
         return false;
     }
@@ -291,14 +294,13 @@ static bool cache_pruner_job(void *data)
     list_append_list(&queue, &cache->queue.list);
     list_head_init(&cache->queue.list);
 
-    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock) < 0)) {
+    if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock))) {
         lwan_status_perror("pthread_rwlock_unlock");
         goto end;
     }
 
     clock_monotonic_gettime(cache, &now);
-    list_for_each_safe(&queue, node, next, entries)
-    {
+    list_for_each_safe(&queue, node, next, entries) {
         char *key = node->key;
 
         if (now.tv_sec < node->time_to_die && LIKELY(!shutting_down))
@@ -306,14 +308,14 @@ static bool cache_pruner_job(void *data)
 
         list_del(&node->entries);
 
-        if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock) < 0)) {
+        if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock))) {
             lwan_status_perror("pthread_rwlock_wrlock");
             continue;
         }
 
         hash_del(cache->hash.table, key);
 
-        if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock) < 0))
+        if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock)))
             lwan_status_perror("pthread_rwlock_unlock");
 
         if (ATOMIC_INC(node->refs) == 1) {
@@ -337,11 +339,9 @@ static bool cache_pruner_job(void *data)
 
     /* Prepend local, unprocessed queue, to the cache queue. Since the cache
      * item TTL is constant, items created later will be destroyed later. */
-    if (pthread_rwlock_wrlock(&cache->queue.lock) >= 0) {
+    if (LIKELY(!pthread_rwlock_wrlock(&cache->queue.lock))) {
         list_prepend_list(&cache->queue.list, &queue);
-
-        if (pthread_rwlock_unlock(&cache->queue.lock) < 0)
-            lwan_status_perror("pthread_rwlock_unlock");
+        pthread_rwlock_unlock(&cache->queue.lock);
     } else {
         lwan_status_perror("pthread_rwlock_wrlock");
     }
