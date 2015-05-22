@@ -209,6 +209,9 @@ main(int argc, char *argv[])
         lwan_set_url_map(&l, map);
         break;
     case ARGS_USE_CONFIG:
+        free(c.listener);
+        free(root);
+
         lwan_init(&l);
         break;
     case ARGS_FAILED:
