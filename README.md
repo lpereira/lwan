@@ -135,6 +135,9 @@ Lwan will detect the number of CPUs, will increase the maximum number of
 open file descriptors and generally try its best to autodetect reasonable
 settings for the environment it's running on.
 
+Optionally, the `lwan` binary can be used for one-shot static file serving
+without any configuration file. Run it with `--help` for help on that.
+
 Build status
 ------------
 

@@ -175,6 +175,10 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
       printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
       printf("\t-h, --help      This.\n");
       printf("\n");
+      printf("Examples:\n");
+      printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv[0]);
+      printf("        Serve on a different port: %s -l '*:1337'\n", argv[0]);
+      printf("\n");
       printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
       return ARGS_FAILED;
     }
