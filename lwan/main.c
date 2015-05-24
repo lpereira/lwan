@@ -193,6 +193,7 @@ main(int argc, char *argv[])
     lwan_t l;
     lwan_config_t c;
     char *root = get_current_dir_name();
+    int exit_status = EXIT_SUCCESS;
 
     c = *lwan_get_default_config();
     c.listener = strdup("*:8080");
@@ -212,12 +213,17 @@ main(int argc, char *argv[])
         lwan_init(&l);
         break;
     case ARGS_FAILED:
-        return EXIT_FAILURE;
+        exit_status = EXIT_FAILURE;
+        goto out;
     }
 
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
+out:
+
     free(root);
     free(c.listener);
+
+    return exit_status;
 }
