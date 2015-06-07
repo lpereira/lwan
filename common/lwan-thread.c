@@ -181,7 +181,7 @@ resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
 
     lwan_connection_coro_yield_t yield_result = coro_resume(conn->coro);
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
-    if (yield_result < CONN_CORO_MAY_RESUME) {
+    if (yield_result <= CONN_CORO_FINISHED) {
         destroy_coro(dq, conn);
         return;
     }

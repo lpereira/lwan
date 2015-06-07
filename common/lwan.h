@@ -166,8 +166,8 @@ typedef enum {
 
 typedef enum {
     CONN_CORO_ABORT = -1,
-    CONN_CORO_MAY_RESUME = 0,
-    CONN_CORO_FINISHED = 1
+    CONN_CORO_FINISHED = 0,
+    CONN_CORO_MAY_RESUME = 1
 } lwan_connection_coro_yield_t;
 
 struct lwan_key_value_t_ {
