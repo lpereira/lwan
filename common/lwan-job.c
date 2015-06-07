@@ -124,6 +124,9 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
     if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
         list_add(&jobs, &job->jobs);
         pthread_mutex_unlock(&queue_mutex);
+    } else {
+        lwan_status_warning("Couldn't lock job mutex");
+        free(job);
     }
 }
 
