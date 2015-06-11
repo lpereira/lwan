@@ -281,17 +281,15 @@ static lwan_connection_t *
 grab_and_watch_client(int epoll_fd, int pipe_fd, lwan_connection_t *conns)
 {
     int fd;
-    if (UNLIKELY(read(pipe_fd, &fd, sizeof(int)) != sizeof(int))) {
-        lwan_status_perror("read");
+    if (UNLIKELY(read(pipe_fd, &fd, sizeof(int)) != sizeof(int)))
         return NULL;
-    }
 
     struct epoll_event event = {
         .events = events_by_write_flag[1],
         .data.ptr = &conns[fd]
     };
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
-        lwan_status_critical_perror("epoll_ctl");
+        return NULL;
 
     return &conns[fd];
 }
@@ -428,14 +426,27 @@ lwan_thread_shutdown(lwan_t *l)
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
+        char less_than_int = 0;
 
-        /* Closing epoll_fd makes the thread gracefully finish. */
+        lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
+            t->epoll_fd);
+
+        /* Close the epoll_fd and write less than an int to signal the
+         * thread to gracefully finish.  */
         close(t->epoll_fd);
+        write(t->pipe_fd[1], &less_than_int, sizeof(less_than_int));
+    }
 
+    for (int i = l->thread.count - 1; i >= 0; i--) {
+        lwan_thread_t *t = &l->thread.threads[i];
+
+        lwan_status_debug("Waiting for thread %d to finish", i);
+        pthread_join(l->thread.threads[i].self, NULL);
+
+        lwan_status_debug("Closing pipe (%d, %d)", t->pipe_fd[0],
+            t->pipe_fd[1]);
         close(t->pipe_fd[0]);
         close(t->pipe_fd[1]);
-
-        pthread_tryjoin_np(l->thread.threads[i].self, NULL);
     }
 
     free(l->thread.threads);
