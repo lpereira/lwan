@@ -61,7 +61,8 @@ enum action {
 enum flags {
     FLAGS_ALL = -1,
     FLAGS_NEGATE = 1<<0,
-    FLAGS_QUOTE = 1<<1
+    FLAGS_QUOTE = 1<<1,
+    FLAGS_NO_FREE = 1<<2,
 };
 
 enum item_type {
@@ -518,7 +519,7 @@ static void emit_chunk(struct parser *parser, enum action action,
         if (!chunk)
             lwan_status_critical_perror("Could not emit template chunk");
 
-        parser->chunks.data = chunk;
+        parser->tpl->chunks = parser->chunks.data = chunk;
     }
 
     chunk = &parser->chunks.data[parser->chunks.used++];
@@ -654,7 +655,7 @@ static void *parser_iter(struct parser *parser, struct item *item)
             return error_item(item, "Could not push symbol table (out of memory)");
         }
 
-        emit_chunk(parser, ACTION_START_ITER, negate, symbol);
+        emit_chunk(parser, ACTION_START_ITER, negate | FLAGS_NO_FREE, symbol);
 
         parser_push_item(parser, item);
         parser->flags &= ~FLAGS_NEGATE;
@@ -714,7 +715,7 @@ static void *parse_identifier(struct parser *parser, struct item *item)
         if (!parser_next_is(parser, ITEM_RIGHT_META))
             return unexpected_lexeme_or_lex_error(item, next);
 
-        emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, 0, symbol);
+        emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, FLAGS_NO_FREE, symbol);
         parser_push_item(parser, item);
 
         return parser_text;
@@ -854,6 +855,8 @@ free_chunk(struct chunk *chunk)
 {
     if (!chunk)
         return;
+    if (chunk->flags & FLAGS_NO_FREE)
+        return;
 
     switch (chunk->action) {
     case ACTION_LAST:
@@ -922,6 +925,7 @@ post_process_template(struct parser *parser)
             cd->descriptor = prev_chunk->data;
             cd->chunk = chunk;
             prev_chunk->data = cd;
+            prev_chunk->flags &= ~FLAGS_NO_FREE;
 
             idx = CHUNK_IDX(prev_chunk) + 1;
         } else if (chunk->action == ACTION_START_ITER) {
@@ -942,6 +946,7 @@ post_process_template(struct parser *parser)
 
             cd->descriptor = prev_chunk->data;
             prev_chunk->data = cd;
+            prev_chunk->flags &= ~FLAGS_NO_FREE;
 
             if (chunk->action == ACTION_LAST)
                 cd->chunk = chunk;
