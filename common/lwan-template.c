@@ -136,6 +136,7 @@ struct lexer {
 
 struct parser {
     lwan_tpl_t *tpl;
+    const lwan_var_descriptor_t *descriptor;
     struct symtab *symtab;
     struct lexer lexer;
     enum flags flags;
@@ -674,7 +675,7 @@ static void *parser_negate_iter(struct parser *parser, struct item *item)
     return parser_iter;
 }
 
-static void *parse_identifier(struct parser *parser, struct item *item)
+static void *parser_identifier(struct parser *parser, struct item *item)
 {
     struct item *next = NULL;
 
@@ -724,6 +725,26 @@ static void *parse_identifier(struct parser *parser, struct item *item)
     return unexpected_lexeme_or_lex_error(item, next);
 }
 
+static void *parser_partial(struct parser *parser, struct item *item)
+{
+    lwan_tpl_t *tpl;
+    char *filename = strndupa(item->value.value, item->value.len);
+
+    if (item->type != ITEM_IDENTIFIER)
+        return unexpected_lexeme(item);
+
+    if (!parser_next_is(parser, ITEM_RIGHT_META))
+        return unexpected_lexeme(item);
+
+    tpl = lwan_tpl_compile_file(filename, parser->descriptor);
+    if (tpl) {
+        emit_chunk(parser, ACTION_APPLY_TPL, 0, tpl);
+        return parser_text;
+    }
+
+    return error_item(item, "Could not compile template ``%s''", filename);
+}
+
 static void *parser_meta(struct parser *parser, struct item *item)
 {
     if (item->type == ITEM_OPEN_CURLY_BRACE) {
@@ -732,10 +753,10 @@ static void *parser_meta(struct parser *parser, struct item *item)
     }
 
     if (item->type == ITEM_IDENTIFIER)
-        return parse_identifier(parser, item);
+        return parser_identifier(parser, item);
 
     if (item->type == ITEM_GREATER_THAN)
-        return error_item(item, "Template inclusion not supported yet");
+        return parser_partial;
 
     if (item->type == ITEM_HASH)
         return parser_iter;
@@ -1071,7 +1092,8 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
     struct parser parser = {
         .tpl = tpl,
         .symtab = NULL,
-        .chunks = { .used = 0, .reserved = array_increment_step }
+        .chunks = { .used = 0, .reserved = array_increment_step },
+        .descriptor = descriptor
     };
     void *(*state)(struct parser *parser, struct item *item) = parser_text;
     struct item *item = NULL;
