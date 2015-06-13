@@ -547,7 +547,8 @@ static bool parser_stack_top_matches(struct parser *parser, struct item *item, e
     return false;
 }
 
-static void *parser_right_meta(struct parser *parser, struct item *item)
+static void *parser_right_meta(struct parser *parser __attribute__((unused)),
+    struct item *item)
 {
     if (item->type != ITEM_RIGHT_META)
         return unexpected_lexeme(item);
