@@ -211,7 +211,7 @@ internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, const char *, size_t)
     if (UNLIKELY((len = vasprintf(&s2, fmt, values)) < 0))
         return false;
 
-    bool success = save_str(s1, s2, (size_t)len + 1);
+    bool success = save_str(s1, s2, (size_t)len);
     free(s2);
 
     return success;
