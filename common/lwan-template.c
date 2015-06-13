@@ -491,12 +491,6 @@ static void *unexpected_lexeme_or_lex_error(struct item *item, struct item *lex_
     return unexpected_lexeme(item);
 }
 
-static bool parser_next_is(struct parser *parser, enum item_type type)
-{
-    struct item *item;
-    return lex_next(&parser->lexer, &item) ? item->type == type : false;
-}
-
 static void parser_push_item(struct parser *parser, struct item *item)
 {
     struct stacked_item *stacked_item = malloc(sizeof(*stacked_item));
@@ -553,6 +547,13 @@ static bool parser_stack_top_matches(struct parser *parser, struct item *item, e
     return false;
 }
 
+static void *parser_right_meta(struct parser *parser, struct item *item)
+{
+    if (item->type != ITEM_RIGHT_META)
+        return unexpected_lexeme(item);
+    return parser_text;
+}
+
 static void *parser_end_iter(struct parser *parser, struct item *item)
 {
     struct chunk *iter;
@@ -591,8 +592,6 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
     lwan_var_descriptor_t *symbol;
     ssize_t idx;
 
-    if (!parser_next_is(parser, ITEM_RIGHT_META))
-        return unexpected_lexeme(item);
     if (!parser_stack_top_matches(parser, item, ITEM_IDENTIFIER))
         return NULL;
 
@@ -608,7 +607,7 @@ static void *parser_end_var_not_empty(struct parser *parser, struct item *item)
             continue;
         if (iter->data == symbol) {
             emit_chunk(parser, ACTION_END_IF_VARIABLE_NOT_EMPTY, 0, symbol);
-            return parser_text;
+            return parser_right_meta;
         }
     }
 
@@ -646,9 +645,6 @@ static void *parser_iter(struct parser *parser, struct item *item)
                 item->value.value);
         }
 
-        if (!parser_next_is(parser, ITEM_RIGHT_META))
-            return error_item(item, "expecting `}}'");
-
         int r = symtab_push(parser, symbol->list_desc);
         if (r < 0) {
             if (r == -ENODEV)
@@ -660,7 +656,7 @@ static void *parser_iter(struct parser *parser, struct item *item)
 
         parser_push_item(parser, item);
         parser->flags &= ~FLAGS_NEGATE;
-        return parser_text;
+        return parser_right_meta;
     }
 
     return unexpected_lexeme(item);
@@ -713,13 +709,10 @@ static void *parser_identifier(struct parser *parser, struct item *item)
                 item->value.value);
         }
 
-        if (!parser_next_is(parser, ITEM_RIGHT_META))
-            return unexpected_lexeme_or_lex_error(item, next);
-
         emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, FLAGS_NO_FREE, symbol);
         parser_push_item(parser, item);
 
-        return parser_text;
+        return parser_right_meta;
     }
 
     return unexpected_lexeme_or_lex_error(item, next);
@@ -733,13 +726,10 @@ static void *parser_partial(struct parser *parser, struct item *item)
     if (item->type != ITEM_IDENTIFIER)
         return unexpected_lexeme(item);
 
-    if (!parser_next_is(parser, ITEM_RIGHT_META))
-        return unexpected_lexeme(item);
-
     tpl = lwan_tpl_compile_file(filename, parser->descriptor);
     if (tpl) {
         emit_chunk(parser, ACTION_APPLY_TPL, 0, tpl);
-        return parser_text;
+        return parser_right_meta;
     }
 
     return error_item(item, "Could not compile template ``%s''", filename);
