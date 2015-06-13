@@ -105,7 +105,7 @@ The build system will look for these libraries and enable/link if available.
 It is important to build outside of the tree; in-tree builds *are not supported*.
 
 Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
-optimizations, like [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization)
+optimizations (such as [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization))
 and tune the code for current architecture. *Please use this version
 when benchmarking*, as the default is the Debug build, which not only
 logs all requests to the standard output, but does so while holding a
