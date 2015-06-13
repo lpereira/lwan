@@ -155,7 +155,7 @@ strbuf_append_str(strbuf_t *s1, const char *s2, size_t sz)
 
     memcpy(s1->value.buffer + s1->len.buffer, s2, sz);
     s1->len.buffer += sz;
-    s1->value.buffer[s1->len.buffer + 1] = '\0';
+    s1->value.buffer[s1->len.buffer] = '\0';
 
     return true;
 }
@@ -186,7 +186,7 @@ strbuf_set(strbuf_t *s1, const char *s2, size_t sz)
 
     memcpy(s1->value.buffer, s2, sz);
     s1->len.buffer = sz;
-    s1->value.buffer[sz + 1] = '\0';
+    s1->value.buffer[sz] = '\0';
 
     return true;
 }
