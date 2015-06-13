@@ -138,6 +138,13 @@ settings for the environment it's running on.
 Optionally, the `lwan` binary can be used for one-shot static file serving
 without any configuration file. Run it with `--help` for help on that.
 
+IRC Channel
+-----------
+
+There is an IRC channel (`#lwan`) on [Freenode](http://freenode.net). A
+standard IRC client can be used.  A [web IRC gateway](http://webchat.freenode.net?channels=%23lwan&uio=d4)
+is also available.
+
 Build status
 ------------
 
