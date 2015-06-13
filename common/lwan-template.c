@@ -739,6 +739,9 @@ static void *parser_partial(struct parser *parser, struct item *item)
 static void *parser_meta(struct parser *parser, struct item *item)
 {
     if (item->type == ITEM_OPEN_CURLY_BRACE) {
+        if (parser->flags & FLAGS_QUOTE)
+            return unexpected_lexeme(item);
+
         parser->flags |= FLAGS_QUOTE;
         return parser_meta;
     }
