@@ -136,10 +136,8 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
         return NULL;
 
     state->L = luaL_newstate();
-    if (UNLIKELY(!state->L)) {
-        free(state);
-        return NULL;
-    }
+    if (UNLIKELY(!state->L))
+        goto free_state;
 
     luaL_openlibs(state->L);
 
@@ -149,12 +147,16 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
 
     if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
         lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
-        lua_close(state->L);
-        free(state);
-        return NULL;
+        goto close_lua_state;
     }
 
     return (struct cache_entry_t *)state;
+
+close_lua_state:
+    lua_close(state->L);
+free_state:
+    free(state);
+    return NULL;
 }
 
 static void state_destroy(struct cache_entry_t *entry,
