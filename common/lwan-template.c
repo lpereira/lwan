@@ -339,7 +339,7 @@ static void *lex_error(struct lexer *lexer, const char *msg, ...)
 
 static bool isident(int ch)
 {
-    return isalnum(ch) || ch == '_' || ch == '.';
+    return isalnum(ch) || ch == '_' || ch == '.' || ch == '/';
 }
 
 static void *lex_identifier(struct lexer *lexer)
@@ -349,6 +349,27 @@ static void *lex_identifier(struct lexer *lexer)
     backup(lexer);
     emit(lexer, ITEM_IDENTIFIER);
     return lex_inside_action;
+}
+
+static void *lex_partial(struct lexer *lexer)
+{
+    while (true) {
+        int r = next(lexer);
+
+        if (r == EOF)
+            return lex_error(lexer, "unexpected EOF while scanning action");
+        if (r == '\n')
+            return lex_error(lexer, "actions cannot span multiple lines");
+        if (isspace(r)) {
+            ignore(lexer);
+            continue;
+        }
+        if (isident(r)) {
+            backup(lexer);
+            return lex_identifier;
+        }
+        return lex_error(lexer, "unexpected character: %c", r);
+    }
 }
 
 static void *lex_quoted_identifier(struct lexer *lexer)
@@ -402,17 +423,18 @@ static void *lex_inside_action(struct lexer *lexer)
             ignore(lexer);
         } else if (r == '#') {
             emit(lexer, ITEM_HASH);
-        } else if (r == '/') {
-            emit(lexer, ITEM_SLASH);
         } else if (r == '?') {
             emit(lexer, ITEM_QUESTION_MARK);
         } else if (r == '^') {
             emit(lexer, ITEM_HAT);
         } else if (r == '>') {
             emit(lexer, ITEM_GREATER_THAN);
+            return lex_partial;
         } else if (r == '{') {
             return lex_quoted_identifier;
-        } else if (isalnum(r) || r == '_') {
+        } else if (r == '/') {
+            emit(lexer, ITEM_SLASH);
+        } else if (isident(r)) {
             backup(lexer);
             return lex_identifier;
         } else {
