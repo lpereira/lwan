@@ -69,6 +69,10 @@ static void death_queue_remove(struct death_queue_t *dq,
     lwan_connection_t *next = death_queue_idx_to_node(dq, node->next);
     next->prev = node->prev;
     prev->next = node->next;
+
+    /* FIXME: This shouldn't be required; there may be a bug somewhere
+     * that manifests if lots of chunked encoding requests are performed. */
+    node->next = node->prev = -1;
 }
 
 static bool death_queue_empty(struct death_queue_t *dq)
