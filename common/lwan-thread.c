@@ -236,6 +236,15 @@ death_queue_kill_waiting(struct death_queue_t *dq)
     dq->time = 0;
 }
 
+static void
+death_queue_kill_all(struct death_queue_t *dq)
+{
+    while (!death_queue_empty(dq)) {
+        lwan_connection_t *conn = death_queue_idx_to_node(dq, dq->head.next);
+        destroy_coro(dq, conn);
+    }
+}
+
 void
 lwan_format_rfc_time(time_t t, char buffer[30])
 {
@@ -361,6 +370,7 @@ thread_io_loop(void *data)
     }
 
 epoll_fd_closed:
+    death_queue_kill_all(&dq);
     free(events);
 
     return NULL;
