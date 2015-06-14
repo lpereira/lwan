@@ -356,7 +356,7 @@ lwan_response_send_chunk(lwan_request_t *request)
 
     char chunk_size[3 * sizeof(size_t) + 2];
     int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%zx\r\n", buffer_len);
-    if (UNLIKELY(converted_len < 0))
+    if (UNLIKELY(converted_len < 0 || (size_t)converted_len >= sizeof(chunk_size)))
         goto abort_coro;
     size_t chunk_size_len = (size_t)converted_len;
 
