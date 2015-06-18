@@ -725,11 +725,12 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
     if (UNLIKELY(status != HTTP_OK)) {
         /* This request was bad, but maybe there's a good one in the
          * pipeline.  */
-        if (status == HTTP_BAD_REQUEST)
+        if (status == HTTP_BAD_REQUEST && helper.next_request)
             goto out;
 
-        /* Response here can be: HTTP_TOO_LARGE, HTTP_TIMEOUT. Nothing to
-         * do, just abort the coroutine.  */
+        /* Response here can be: HTTP_TOO_LARGE, HTTP_BAD_REQUEST (without
+         * next request), or HTTP_TIMEOUT.  Nothing to do, just abort the
+         * coroutine.  */
         lwan_default_response(request, status);
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
