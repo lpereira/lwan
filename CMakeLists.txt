@@ -52,7 +52,7 @@ else ()
 	endif()
 endif()
 
-set(C_FLAGS_REL "-mtune=native")
+set(C_FLAGS_REL "-mtune=native -fno-asynchronous-unwind-tables")
 
 include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
