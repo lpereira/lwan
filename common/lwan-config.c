@@ -147,13 +147,9 @@ static char *find_line_end(char *line)
     return (char *)rawmemchr(line, '\0') - 1;
 }
 
-static bool parse_section(char *line, config_line_t *l)
+static bool parse_section(char *line, config_line_t *l, char *bracket)
 {
     char *name, *param;
-    char *bracket = strrchr(line, '{');
-    if (!bracket)
-        return false;
-
     char *space = strchr(line, ' ');
     if (!space)
         return false;
@@ -199,7 +195,7 @@ retry:
     line_end = find_line_end(line);
 
     if (*line_end == '{') {
-        if (!parse_section(line, l)) {
+        if (!parse_section(line, l, line_end)) {
             config_error(conf, "Malformed section opening");
             return false;
         }
