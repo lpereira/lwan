@@ -4,8 +4,13 @@ import sys
 import struct
 try:
   import zopfli as zlib
+  zlib.compress
 except:
-  import zlib
+  try:
+    from zopfli import zopfli as zlib
+    zlib.compress
+  except:
+    import zlib
 from operator import itemgetter
 
 def to_bytes(s):
