@@ -27,7 +27,7 @@ struct lwan_redirect_settings_t {
 
 #define REDIRECT(to_) \
   .module = lwan_module_redirect(), \
-  .args = ((struct lwan_redirect_t[]) {{ \
+  .args = ((struct lwan_redirect_settings_t[]) {{ \
     .to = to_ \
   }}), \
   .flags = 0
