@@ -35,6 +35,7 @@
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
 #include "lwan-redirect.h"
+#include "lwan-rewrite.h"
 #include "lwan-serve-files.h"
 
 #if defined(HAVE_LUA)
@@ -171,6 +172,12 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan,
     struct hash *hash = hash_str_new(free, free);
     void *handler = NULL;
     char *prefix = strdupa(l->line.value);
+    config_t isolated = {0};
+
+    if (!config_isolate_section(c, l, &isolated)) {
+        config_error(c, "Could not isolate configuration file");
+        goto out;
+    }
 
     while (config_read_line(c, l)) {
       switch (l->type) {
@@ -200,8 +207,10 @@ static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan,
           if (!strcmp(l->section.name, "authorization")) {
               parse_listener_prefix_authorization(c, l, &url_map);
           } else {
-              config_error(c, "Unknown section type: \"%s\"", l->section.name);
-              goto out;
+              if (!config_skip_section(c, l)) {
+                  config_error(c, "Could not skip section");
+                  goto out;
+              }
           }
 
           break;
@@ -232,6 +241,13 @@ add_map:
         hash = NULL;
     } else if (module && module->init_from_hash && module->handle) {
         url_map.data = module->init_from_hash(hash);
+        if (isolated.file && module->parse_conf) {
+            if (!module->parse_conf(url_map.data, &isolated)) {
+                config_error(c, "Error from module: %s",
+                    isolated.error_message ? isolated.error_message : "Unknown");
+                goto out;
+            }
+        }
         url_map.handler = module->handle;
         url_map.flags |= module->flags;
         url_map.module = module;
@@ -244,6 +260,7 @@ add_map:
 
 out:
     hash_free(hash);
+    config_close(&isolated);
 }
 
 void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
@@ -463,6 +480,7 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
     lwan_module_init(l);
     lwan_module_register(l, lwan_module_serve_files());
     lwan_module_register(l, lwan_module_redirect());
+    lwan_module_register(l, lwan_module_rewrite());
 #if defined(HAVE_LUA)
     lwan_module_register(l, lwan_module_lua());
 #endif

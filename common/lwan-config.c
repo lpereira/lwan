@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "lwan-config.h"
 #include "lwan-status.h"
@@ -176,6 +177,78 @@ static bool parse_line(char *line, config_line_t *l, char *equal)
     return true;
 }
 
+static bool find_section_end(config_t *config, config_line_t *line, int recursion_level)
+{
+    if (recursion_level > 10) {
+        config_error(config, "Recursion level too deep");
+        return false;
+    }
+
+    while (config_read_line(config, line)) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_LINE:
+            continue;
+        case CONFIG_LINE_TYPE_SECTION:
+            if (!find_section_end(config, line, recursion_level + 1))
+                return false;
+            break;
+        case CONFIG_LINE_TYPE_SECTION_END:
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool config_skip_section(config_t *conf, config_line_t *line)
+{
+    if (conf->error_message)
+        return false;
+    if (line->type != CONFIG_LINE_TYPE_SECTION)
+        return false;
+    return find_section_end(conf, line, 0);
+}
+
+bool config_isolate_section(config_t *current_conf,
+    config_line_t *current_line, config_t *isolated)
+{
+    long startpos, endpos;
+    bool r = false;
+
+    *isolated = *current_conf;
+
+    if (current_conf->error_message)
+        return false;
+    if (current_line->type != CONFIG_LINE_TYPE_SECTION)
+        return false;
+
+    startpos = ftell(current_conf->file);
+    if (startpos < 0)
+        return false;
+    if (!find_section_end(current_conf, current_line, 0))
+        goto resetpos;
+    endpos = ftell(current_conf->file);
+    if (endpos < 0)
+        goto resetpos;
+
+    if (!config_open(isolated, current_conf->path))
+        goto resetpos;
+    if (fseek(isolated->file, startpos, SEEK_SET) < 0)
+        goto resetpos;
+
+    isolated->isolated.end = endpos;
+    r = true;
+
+resetpos:
+    if (fseek(current_conf->file, startpos, SEEK_SET) < 0) {
+        config_error(current_conf, "Could not reset file position");
+        return false;
+    }
+    if (!r)
+        config_error(current_conf, "Unknown error while isolating section");
+    return r;
+}
+
 bool config_read_line(config_t *conf, config_line_t *l)
 {
     char *line, *line_end;
@@ -187,6 +260,15 @@ retry:
     if (!fgets(l->buffer, sizeof(l->buffer), conf->file))
         return false;
 
+    if (conf->isolated.end > 0) {
+        long curpos = ftell(conf->file);
+        if (curpos < 0) {
+            config_error(conf, "Could not obtain file position");
+            return false;
+        }
+        if (curpos >= conf->isolated.end)
+            return false;
+    }
     conf->line++;
 
     line = remove_comments(l->buffer);
@@ -228,6 +310,8 @@ bool config_open(config_t *conf, const char *path)
     conf->file = fopen(path, "re");
     if (!conf->file)
         return false;
+    conf->path = strdup(path);
+    conf->isolated.end = -1;
     conf->line = 0;
     conf->error_message = NULL;
     return true;
@@ -239,6 +323,8 @@ void config_close(config_t *conf)
         return;
     if (!conf->file)
         return;
+    free(conf->path);
     fclose(conf->file);
     free(conf->error_message);
 }
+

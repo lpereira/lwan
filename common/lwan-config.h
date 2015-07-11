@@ -40,8 +40,11 @@ typedef enum {
 
 struct config_t_ {
     FILE *file;
+    char *path, *error_message;
+    struct {
+        long end;
+    } isolated;
     int line;
-    char *error_message;
 };
 
 struct config_line_t_ {
@@ -61,6 +64,10 @@ bool config_open(config_t *conf, const char *path);
 void config_close(config_t *conf);
 bool config_error(config_t *conf, const char *fmt, ...);
 bool config_read_line(config_t *conf, config_line_t *l);
+
+bool config_isolate_section(config_t *current_conf,
+    config_line_t *current_line, config_t *isolated);
+bool config_skip_section(config_t *conf, config_line_t *line);
 
 bool parse_bool(const char *value, bool default_value);
 long parse_long(const char *value, long default_value);

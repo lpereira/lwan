@@ -29,11 +29,12 @@ extern "C" {
 #include <string.h>
 #include <netinet/in.h>
 
-#include "lwan-coro.h"
-#include "lwan-trie.h"
-#include "lwan-status.h"
-#include "strbuf.h"
 #include "hash.h"
+#include "lwan-config.h"
+#include "lwan-coro.h"
+#include "lwan-status.h"
+#include "lwan-trie.h"
+#include "strbuf.h"
 
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
@@ -229,6 +230,7 @@ struct lwan_module_t_ {
     void *(*init)(void *args);
     void *(*init_from_hash)(const struct hash *hash);
     void (*shutdown)(void *data);
+    bool (*parse_conf)(void *data, config_t *config);
     lwan_http_status_t (*handle)(lwan_request_t *request, lwan_response_t *response, void *data);
     lwan_handler_flags_t flags;
 };

@@ -13,6 +13,7 @@ set(SOURCES
 	lwan-redirect.c
 	lwan-request.c
 	lwan-response.c
+	lwan-rewrite.c
 	lwan-serve-files.c
 	lwan-socket.c
 	lwan-status.c
@@ -20,11 +21,12 @@ set(SOURCES
 	lwan-template.c
 	lwan-thread.c
 	lwan-trie.c
+	murmur3.c
+	patterns.c
+	reallocarray.c
 	realpathat.c
 	sd-daemon.c
 	strbuf.c
-	murmur3.c
-	reallocarray.c
 )
 
 
