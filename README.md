@@ -145,6 +145,18 @@ There is an IRC channel (`#lwan`) on [Freenode](http://freenode.net). A
 standard IRC client can be used.  A [web IRC gateway](http://webchat.freenode.net?channels=%23lwan&uio=d4)
 is also available.
 
+
+Lwan in the wild
+----------------
+
+Here's a non-definitive list of third-party stuff that uses Lwan and have
+been seen in the wild.  *Help build this list!*
+
+* A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://registry.hub.docker.com/u/jaxgeller/lwan/).
+* A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
+* [An experimental version of Node.js using Lwan](https://github.com/raadad/node-lwan) as its HTTP server is maintained by [@raadad](https://github.com/raadad).
+* The beginnings of a C++11 [web framework](https://github.com/vileda/wfpp) based on Lwan written by [@vileda](https://github.com/vileda).
+
 Build status
 ------------
 
