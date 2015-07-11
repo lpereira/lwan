@@ -91,7 +91,7 @@ The build system will look for these libraries and enable/link if available.
 ### Common distribution package names
 
  - ArchLinux: `pacman -S cmake python zlib sqlite luajit libmariadbclient gperftools valgrind`
- - Ubuntu 14: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysql++-dev`
+ - Ubuntu 14: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
 
 ### Build commands
 
