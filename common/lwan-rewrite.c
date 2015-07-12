@@ -175,7 +175,7 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
 
     pattern = calloc(1, sizeof(*pattern));
     if (!pattern)
-        goto out;
+        goto out_no_free;
     
     pattern->pattern = strdup(line->section.param);
     if (!pattern)
@@ -203,9 +203,10 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
     }
 
 out:
-    config_error(config, "Could not copy pattern");
     free(pattern->pattern);
     free(pattern->redirect_to);
+out_no_free:
+    config_error(config, "Could not copy pattern");
     return false;
 }
 
