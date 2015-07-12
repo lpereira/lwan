@@ -54,18 +54,23 @@ module_redirect_to(lwan_request_t *request, const char *where)
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static bool
-append_str(char *dest, size_t dest_size, size_t *dest_len,
-    const char *src, size_t src_len)
-{
-    size_t total_size = *dest_len + src_len + 1 /* for the \0 */;
+struct str_builder {
+    char *buffer;
+    size_t size, len;
+};
 
-    if (total_size > dest_size)
+static bool
+append_str(struct str_builder *builder, const char *src, size_t src_len)
+{
+    size_t total_size = builder->len + src_len + 1 /* for the \0 */;
+    char *dest;
+
+    if (total_size > builder->size)
         return false;
 
-    dest = mempcpy(dest + *dest_len, src, src_len);
+    dest = mempcpy(builder->buffer + builder->len, src, src_len);
     *dest = '\0';
-    *dest_len = total_size - 1;
+    builder->len = total_size - 1;
 
     return true;
 }
@@ -77,7 +82,6 @@ module_handle_cb(lwan_request_t *request,
 {
     const char *url = request->url.value;
     char final_url[PATH_MAX];
-    size_t final_url_len;
     struct private_data *pd = data;
     struct pattern *p;
 
@@ -85,6 +89,7 @@ module_handle_cb(lwan_request_t *request,
         return HTTP_INTERNAL_ERROR;
 
     list_for_each(&pd->patterns, p, list) {
+        struct str_builder uri_builder = { .buffer = final_url, .size = sizeof(final_url) };
         struct str_find sf[MAXCAPTURES];
         const char *errmsg, *to = p->redirect_to;
         char *ptr;
@@ -98,13 +103,11 @@ module_handle_cb(lwan_request_t *request,
         if (!ptr)
             return module_redirect_to(request, to);
 
-        final_url[0] = '\0';
-        final_url_len = 0;
         do {
             size_t index_len = strspn(ptr + 1, "0123456789");
 
             if (ptr > to) {
-                if (!append_str(final_url, sizeof(final_url), &final_url_len, to, (size_t)(ptr - to)))
+                if (!append_str(&uri_builder, to, (size_t)(ptr - to)))
                     return HTTP_INTERNAL_ERROR;
                 to += ptr - to;
             }
@@ -115,7 +118,7 @@ module_handle_cb(lwan_request_t *request,
                 if (index < 0 || index > ret)
                     return HTTP_INTERNAL_ERROR;
 
-                if (append_str(final_url, sizeof(final_url), &final_url_len, url + sf[index].sm_so,
+                if (append_str(&uri_builder, url + sf[index].sm_so,
                         (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
                     ptr += index_len + 1;
                     to += index_len + 1;
@@ -123,7 +126,7 @@ module_handle_cb(lwan_request_t *request,
                     return HTTP_INTERNAL_ERROR;
                 }
             } else {
-                if (!append_str(final_url, sizeof(final_url), &final_url_len, "%", 1))
+                if (!append_str(&uri_builder, "%", 1))
                     return HTTP_INTERNAL_ERROR;
 
                 ptr++;
@@ -132,11 +135,11 @@ module_handle_cb(lwan_request_t *request,
         } while ((ptr = strchr(ptr, '%')));
 
         if (*to) {
-            if (!append_str(final_url, sizeof(final_url), &final_url_len, to, strlen(to)))
+            if (!append_str(&uri_builder, to, strlen(to)))
                 return HTTP_INTERNAL_ERROR;
         }
 
-        if (!final_url_len)
+        if (!uri_builder.len)
             return HTTP_INTERNAL_ERROR;
 
         return module_redirect_to(request, final_url);
