@@ -96,22 +96,24 @@ module_handle_cb(lwan_request_t *request,
 
         final_url[0] = '\0';
         do {
+            size_t index_len = strspn(ptr + 1, "0123456789");
+
             if (ptr > to) {
                 if (!append_str(final_url, sizeof(final_url), to, (size_t)(ptr - to)))
                     return HTTP_INTERNAL_ERROR;
                 to += ptr - to;
             }
-            if (isdigit(*(ptr + 1))) {
-                // FIXME: Maybe use strspn() and parse_long() here?
-                int index = *(ptr + 1) - '0';
 
-                if (index > ret)
+            if (index_len > 0) {
+                int index = parse_int(strndupa(ptr + 1, index_len), -1);
+
+                if (index < 0 || index > ret)
                     return HTTP_INTERNAL_ERROR;
 
                 if (append_str(final_url, sizeof(final_url), url + sf[index].sm_so,
                     (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
-                    ptr += 2;
-                    to += 2;
+                    ptr += index_len + 1;
+                    to += index_len + 1;
                 } else {
                     return HTTP_INTERNAL_ERROR;
                 }
