@@ -94,6 +94,16 @@ long parse_long(const char *value, long default_value)
     return parsed;
 }
 
+int parse_int(const char *value, int default_value)
+{
+    long long_value = parse_long(value, default_value);
+
+    if ((long)(int)long_value != long_value)
+        return default_value;
+
+    return (int)long_value;
+}
+
 bool config_error(config_t *conf, const char *fmt, ...)
 {
     va_list values;
