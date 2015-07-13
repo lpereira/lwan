@@ -218,6 +218,30 @@ parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
             &request->post_data.base, &request->post_data.len);
 }
 
+static void
+parse_fragment_and_query(lwan_request_t *request,
+    struct request_parser_helper *helper, const char *space)
+{
+    /* Most of the time, fragments are small -- so search backwards */
+    char *fragment = memrchr(request->url.value, '#', request->url.len);
+    if (fragment) {
+        *fragment = '\0';
+        helper->fragment.value = fragment + 1;
+        helper->fragment.len = (size_t)(space - fragment - 1);
+        request->url.len -= helper->fragment.len + 1;
+    }
+
+    /* Most of the time, query string values are larger than the URL, so
+       search from the beginning */
+    char *query_string = memchr(request->url.value, '?', request->url.len);
+    if (query_string) {
+        *query_string = '\0';
+        helper->query_string.value = query_string + 1;
+        helper->query_string.len = (size_t)((fragment ? fragment : space) - query_string - 1);
+        request->url.len -= helper->query_string.len + 1;
+    }
+}
+
 static char *
 identify_http_path(lwan_request_t *request, char *buffer,
             struct request_parser_helper *helper)
@@ -249,27 +273,9 @@ identify_http_path(lwan_request_t *request, char *buffer,
     request->url.value = buffer;
     request->url.len = (size_t)(space - buffer);
 
-    /* Most of the time, fragments are small -- so search backwards */
-    char *fragment = memrchr(buffer, '#', request->url.len);
-    if (fragment) {
-        *fragment = '\0';
-        helper->fragment.value = fragment + 1;
-        helper->fragment.len = (size_t)(space - fragment - 1);
-        request->url.len -= helper->fragment.len + 1;
-    }
+    parse_fragment_and_query(request, helper, space);
 
-    /* Most of the time, query string values are larger than the URL, so
-       search from the beginning */
-    char *query_string = memchr(buffer, '?', request->url.len);
-    if (query_string) {
-        *query_string = '\0';
-        helper->query_string.value = query_string + 1;
-        helper->query_string.len = (size_t)((fragment ? fragment : space) - query_string - 1);
-        request->url.len -= helper->query_string.len + 1;
-    }
-
-    request->original_url.value = buffer;
-    request->original_url.len = request->url.len;
+    request->original_url = request->url;
 
     return end_of_line + 1;
 }
@@ -715,6 +721,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
+    int urls_rewritten = 0;
 
     struct request_parser_helper helper = {
         .buffer = buffer,
@@ -742,6 +749,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
         goto out;
     }
 
+lookup_again:
     url_map = lwan_trie_lookup_prefix(&l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
         lwan_default_response(request, HTTP_NOT_FOUND);
@@ -758,6 +766,23 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
     }
 
     status = url_map->handler(request, &request->response, url_map->data);
+    if (UNLIKELY(url_map->flags & HANDLER_CAN_REWRITE_URL)) {
+        if (request->flags & RESPONSE_URL_REWRITTEN) {
+            request->flags &= ~RESPONSE_URL_REWRITTEN;
+
+            parse_fragment_and_query(request, &helper,
+                request->url.value + request->url.len);
+
+            urls_rewritten++;
+            if (UNLIKELY(urls_rewritten > 4)) {
+                lwan_default_response(request, HTTP_INTERNAL_ERROR);
+                goto out;
+            }
+
+            goto lookup_again;
+        }
+    }
+
     lwan_response(request, status);
 
 out:

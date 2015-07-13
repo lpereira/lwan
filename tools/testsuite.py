@@ -218,6 +218,13 @@ class TestRewrite(LwanTest):
     self.assertTrue('location' in r.headers)
     self.assertEqual(r.headers['location'], '/hello?name=prexmiddle5678othermiddle1234post')
 
+  def test_pattern_rewrite_as(self):
+    r = requests.get('http://127.0.0.1:8080/pattern/bar/42/test', allow_redirects=False)
+
+    self.assertResponsePlain(r, 200)
+    self.assertFalse('location' in r.headers)
+    self.assertEqual(r.text, 'Hello, rewritten42!')
+
 
 class SocketTest(LwanTest):
   def connect(self, host='127.0.0.1', port=8080):

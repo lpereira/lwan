@@ -139,6 +139,7 @@ typedef enum {
     HANDLER_PARSE_POST_DATA = 1<<4,
     HANDLER_MUST_AUTHORIZE = 1<<5,
     HANDLER_REMOVE_LEADING_SLASH = 1<<6,
+    HANDLER_CAN_REWRITE_URL = 1<<7,
 
     HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4
 } lwan_handler_flags_t;
@@ -153,7 +154,8 @@ typedef enum {
     REQUEST_IS_HTTP_1_0        = 1<<5,
     RESPONSE_SENT_HEADERS      = 1<<6,
     RESPONSE_CHUNKED_ENCODING  = 1<<7,
-    RESPONSE_NO_CONTENT_LENGTH = 1<<8
+    RESPONSE_NO_CONTENT_LENGTH = 1<<8,
+    RESPONSE_URL_REWRITTEN     = 1<<9
 } lwan_request_flags_t;
 
 typedef enum {
