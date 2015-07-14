@@ -75,7 +75,7 @@ static void initialize_odd_constant(void)
 		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
 		if (fd < 0) {
 			odd_constant = default_odd_constant;
-			return;
+			goto set_seed;
 		}
 	}
 	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
@@ -84,6 +84,7 @@ static void initialize_odd_constant(void)
 
 oddify_constant:
 	odd_constant |= 1;
+set_seed:
 	murmur3_set_seed(odd_constant);
 }
 
