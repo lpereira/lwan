@@ -939,7 +939,7 @@ static bool
 post_process_template(struct parser *parser)
 {
     size_t idx;
-    struct chunk *prev_chunk, *resized;
+    struct chunk *prev_chunk;
 
 #define CHUNK_IDX(c) (size_t)(ptrdiff_t)((c) - parser->chunks.data)
 
@@ -1014,8 +1014,11 @@ post_process_template(struct parser *parser)
     }
 
     if (parser->chunks.reserved != parser->chunks.used) {
-        lwan_status_debug("Template parsing done, reallocating array from %zu to %zu elements",
+        struct chunk *resized;
+
+        lwan_status_debug("Parsing done, shrinking array from %zu to %zu elements",
             parser->chunks.reserved, parser->chunks.used);
+
         resized = reallocarray(parser->chunks.data, parser->chunks.used, sizeof(struct chunk));
         if (resized)
             parser->chunks.data = resized;
