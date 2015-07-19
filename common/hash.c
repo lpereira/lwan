@@ -61,30 +61,33 @@ struct hash {
 	struct hash_bucket buckets[];
 };
 
-__attribute__((constructor))
-static void initialize_odd_constant(void)
+static unsigned get_random_unsigned(void)
 {
+	unsigned value;
+
 #ifdef SYS_getrandom
-	long int ret = syscall(SYS_getrandom, &odd_constant, sizeof(odd_constant), 0);
-	if (ret == sizeof(odd_constant))
-		goto oddify_constant;
+	long int ret = syscall(SYS_getrandom, &value, sizeof(value), 0);
+	if (ret == sizeof(value))
+		return value;
 #endif
 
 	int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
 	if (fd < 0) {
 		fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
-		if (fd < 0) {
-			odd_constant = default_odd_constant;
-			goto set_seed;
-		}
+		if (fd < 0)
+			return default_odd_constant;
 	}
-	if (read(fd, &odd_constant, sizeof(odd_constant)) != sizeof(odd_constant))
-		odd_constant = default_odd_constant;
+	if (read(fd, &value, sizeof(value)) != sizeof(value))
+		value = default_odd_constant;
 	close(fd);
 
-oddify_constant:
-	odd_constant |= 1;
-set_seed:
+	return value;
+}
+
+__attribute__((constructor))
+static void initialize_odd_constant(void)
+{
+	odd_constant = get_random_unsigned() | 1;
 	murmur3_set_seed(odd_constant);
 }
 
