@@ -19,7 +19,9 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <ctype.h>
 #include <dlfcn.h>
+#include <errno.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -27,7 +29,6 @@
 #include <sys/epoll.h>
 #include <sys/resource.h>
 #include <unistd.h>
-#include <errno.h>
 
 #include "lwan.h"
 #include "lwan-private.h"
@@ -64,26 +65,56 @@ static void lwan_module_shutdown(lwan_t *l)
     hash_free(l->module_registry);
 }
 
-static void lwan_module_register(lwan_t *l, const lwan_module_t *module)
-{
-    if (!module->name)
-        lwan_status_critical("Module at %p has no name", module);
-
-    lwan_status_debug("Registering module \"%s\"", module->name);
-    hash_add(l->module_registry, module->name, module);
-}
-
-static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
-{
-    return hash_find(l->module_registry, name);
-}
-
 static void *find_handler_symbol(const char *name)
 {
     void *symbol = dlsym(RTLD_NEXT, name);
     if (!symbol)
         symbol = dlsym(RTLD_DEFAULT, name);
     return symbol;
+}
+
+static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
+{
+    lwan_module_t *module = hash_find(l->module_registry, name);
+    if (!module) {
+        lwan_module_t *(*module_fn)(void);
+        char module_symbol[128];
+        int r;
+
+        for (const char *p = name; *p; p++) {
+            if (isalnum(*p) || *p == '_')
+                continue;
+
+            lwan_status_error("Module name (%s) contains invalid character: %c",
+                name, *p);
+            return NULL;
+        }
+
+        r = snprintf(module_symbol, sizeof(module_symbol),
+            "lwan_module_%s", name);
+        if (r < 0 || r > (int)sizeof(module_symbol)) {
+            lwan_status_error("Module name too long: %s", name);
+            return NULL;
+        }
+
+        module_fn = find_handler_symbol(module_symbol);
+        if (!module_fn) {
+            lwan_status_error("Module \"%s\" does not exist", name);
+            return NULL;
+        }
+
+        module = module_fn();
+        if (!module) {
+            lwan_status_error("Function \"%s()\" didn't return a module",
+                module_symbol);
+            return NULL;
+        }
+
+        lwan_status_debug("Module \"%s\" registered", name);
+        hash_add(l->module_registry, module->name, module);
+    }
+
+    return module;
 }
 
 static void destroy_urlmap(void *data)
@@ -478,12 +509,6 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
     lwan_tables_init();
 
     lwan_module_init(l);
-    lwan_module_register(l, lwan_module_serve_files());
-    lwan_module_register(l, lwan_module_redirect());
-    lwan_module_register(l, lwan_module_rewrite());
-#if defined(HAVE_LUA)
-    lwan_module_register(l, lwan_module_lua());
-#endif
 
     /* Load the configuration file. */
     if (config == &default_config) {

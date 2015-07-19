@@ -7,7 +7,7 @@ if (SQLITE_FOUND)
 	)
 
 	target_link_libraries(freegeoip
-		lwan-common
+		-Wl,-whole-archive lwan-common -Wl,-no-whole-archive
 		dl
 		${ADDITIONAL_LIBRARIES}
 		${SQLITE_LIBRARIES}

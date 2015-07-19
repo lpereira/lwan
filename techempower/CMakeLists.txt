@@ -27,7 +27,7 @@ if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
 		)
 
 		target_link_libraries(techempower
-			lwan-common
+			-Wl,-whole-archive lwan-common -Wl,-no-whole-archive
 			dl
 			${ADDITIONAL_LIBRARIES}
 			${SQLITE_LIBRARIES}
