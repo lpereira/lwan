@@ -92,7 +92,7 @@ static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
 
         r = snprintf(module_symbol, sizeof(module_symbol),
             "lwan_module_%s", name);
-        if (r < 0 || r > (int)sizeof(module_symbol)) {
+        if (r < 0 || r >= (int)sizeof(module_symbol)) {
             lwan_status_error("Module name too long: %s", name);
             return NULL;
         }
