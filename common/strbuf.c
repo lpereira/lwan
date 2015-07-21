@@ -18,9 +18,10 @@
  */
 
 #define _GNU_SOURCE
+#include <limits.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 
 #include "lwan.h"
 #include "strbuf.h"
@@ -32,6 +33,19 @@ static const size_t DEFAULT_BUF_SIZE = 64;
 static size_t
 find_next_power_of_two(size_t number)
 {
+#if HAVE_BUILTIN_CLZLL
+    static const int size_bits = (int)sizeof(number) * CHAR_BIT;
+
+    if (sizeof(size_t) == sizeof(unsigned int)) {
+        return 1U << (size_bits - __builtin_clzll(number));
+    } else if (sizeof(size_t) == sizeof(unsigned long)) {
+        return 1UL << (size_bits - __builtin_clzll(number));
+    } else if (sizeof(size_t) == sizeof(unsigned long long)) {
+        return 1ULL << (size_bits - __builtin_clzll(number));
+    } else {
+        __builtin_unreachable();
+    }
+#else
     number--;
     number |= number >> 1;
     number |= number >> 2;
@@ -39,6 +53,7 @@ find_next_power_of_two(size_t number)
     number |= number >> 8;
     number |= number >> 16;
     return number + 1;
+#endif
 }
 
 static ALWAYS_INLINE size_t
