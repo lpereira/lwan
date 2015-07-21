@@ -37,11 +37,11 @@ find_next_power_of_two(size_t number)
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
 
     if (sizeof(size_t) == sizeof(unsigned int)) {
-        return 1U << (size_bits - __builtin_clzll(number));
+        return 1U << (size_bits - __builtin_clz((unsigned int)number));
     } else if (sizeof(size_t) == sizeof(unsigned long)) {
-        return 1UL << (size_bits - __builtin_clzll(number));
+        return 1UL << (size_bits - __builtin_clzl((unsigned long)number));
     } else if (sizeof(size_t) == sizeof(unsigned long long)) {
-        return 1ULL << (size_bits - __builtin_clzll(number));
+        return 1ULL << (size_bits - __builtin_clzll((unsigned long long)number));
     } else {
         __builtin_unreachable();
     }
