@@ -52,6 +52,8 @@ struct request_parser_helper {
 
     lwan_value_t content_type;
     lwan_value_t authorization;
+
+    int urls_rewritten;
     char connection;
 };
 
@@ -718,13 +720,28 @@ prepare_for_response(lwan_url_map_t *url_map,
     return HTTP_OK;
 }
 
+static bool
+handle_rewrite(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    request->flags &= ~RESPONSE_URL_REWRITTEN;
+
+    parse_fragment_and_query(request, helper,
+        request->url.value + request->url.len);
+
+    helper->urls_rewritten++;
+    if (UNLIKELY(helper->urls_rewritten > 4)) {
+        lwan_default_response(request, HTTP_INTERNAL_ERROR);
+        return false;
+    }
+
+    return true;
+}
 char *
 lwan_process_request(lwan_t *l, lwan_request_t *request,
     lwan_value_t *buffer, char *next_request)
 {
     lwan_http_status_t status;
     lwan_url_map_t *url_map;
-    int urls_rewritten = 0;
 
     struct request_parser_helper helper = {
         .buffer = buffer,
@@ -768,18 +785,9 @@ lookup_again:
     status = url_map->handler(request, &request->response, url_map->data);
     if (UNLIKELY(url_map->flags & HANDLER_CAN_REWRITE_URL)) {
         if (request->flags & RESPONSE_URL_REWRITTEN) {
-            request->flags &= ~RESPONSE_URL_REWRITTEN;
-
-            parse_fragment_and_query(request, &helper,
-                request->url.value + request->url.len);
-
-            urls_rewritten++;
-            if (UNLIKELY(urls_rewritten > 4)) {
-                lwan_default_response(request, HTTP_INTERNAL_ERROR);
-                goto out;
-            }
-
-            goto lookup_again;
+            if (LIKELY(handle_rewrite(request, &helper)))
+                goto lookup_again;
+            goto out;
         }
     }
 
