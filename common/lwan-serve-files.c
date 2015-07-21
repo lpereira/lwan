@@ -187,21 +187,20 @@ static const cache_funcs_t redir_funcs = {
     .struct_size = sizeof(redir_cache_data_t)
 };
 
-static const lwan_var_descriptor_t file_list_item_desc[] = {
-    TPL_VAR_STR(struct file_list_t, file_list.icon),
-    TPL_VAR_STR(struct file_list_t, file_list.icon_alt),
-    TPL_VAR_STR(struct file_list_t, file_list.name),
-    TPL_VAR_STR(struct file_list_t, file_list.type),
-    TPL_VAR_INT(struct file_list_t, file_list.size),
-    TPL_VAR_STR(struct file_list_t, file_list.unit),
-    TPL_VAR_SENTINEL
-};
-
 static const lwan_var_descriptor_t file_list_desc[] = {
     TPL_VAR_STR_ESCAPE(struct file_list_t, full_path),
     TPL_VAR_STR_ESCAPE(struct file_list_t, rel_path),
-    TPL_VAR_SEQUENCE(struct file_list_t, file_list,
-                directory_list_generator, file_list_item_desc),
+    TPL_VAR_SEQUENCE(struct file_list_t, file_list, directory_list_generator, (
+        (const lwan_var_descriptor_t[]) {
+            TPL_VAR_STR(struct file_list_t, file_list.icon),
+            TPL_VAR_STR(struct file_list_t, file_list.icon_alt),
+            TPL_VAR_STR(struct file_list_t, file_list.name),
+            TPL_VAR_STR(struct file_list_t, file_list.type),
+            TPL_VAR_INT(struct file_list_t, file_list.size),
+            TPL_VAR_STR(struct file_list_t, file_list.unit),
+            TPL_VAR_SENTINEL
+        }
+    )),
     TPL_VAR_SENTINEL
 };
 
