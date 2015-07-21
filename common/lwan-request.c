@@ -678,6 +678,9 @@ prepare_for_response(lwan_url_map_t *url_map,
                       lwan_request_t *request,
                       struct request_parser_helper *helper)
 {
+    request->url.value += url_map->prefix_len;
+    request->url.len -= url_map->prefix_len;
+
     if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
         parse_query_string(request, helper);
 
@@ -755,9 +758,6 @@ lookup_again:
         lwan_default_response(request, HTTP_NOT_FOUND);
         goto out;
     }
-
-    request->url.value += url_map->prefix_len;
-    request->url.len -= url_map->prefix_len;
 
     status = prepare_for_response(url_map, request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
