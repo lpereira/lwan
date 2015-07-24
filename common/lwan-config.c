@@ -317,13 +317,22 @@ bool config_open(config_t *conf, const char *path)
         return false;
     if (!path)
         return false;
+
     conf->file = fopen(path, "re");
     if (!conf->file)
         return false;
+
     conf->path = strdup(path);
+    if (!conf->path) {
+        fclose(conf->file);
+        conf->file = NULL;
+        return false;
+    }
+
     conf->isolated.end = -1;
     conf->line = 0;
     conf->error_message = NULL;
+
     return true;
 }
 
@@ -333,8 +342,8 @@ void config_close(config_t *conf)
         return;
     if (!conf->file)
         return;
-    free(conf->path);
     fclose(conf->file);
+    free(conf->path);
     free(conf->error_message);
 }
 
