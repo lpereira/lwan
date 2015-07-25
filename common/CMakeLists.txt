@@ -31,9 +31,9 @@ set(SOURCES
 
 
 include(FindPkgConfig)
-foreach (pc_file luajit lua lua lua51 lua5.1 lua-5.1)
+foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 	if (${pc_file} STREQUAL "luajit")
-		pkg_check_modules(LUA luajit>=2.0 luajit<=2.0.9999)
+		pkg_check_modules(LUA luajit>=2.0 luajit<=2.0.999)
 	else ()
 		pkg_check_modules(LUA ${pc_file}>=5.1.0 ${pc_file}<=5.1.999)
 	endif ()
