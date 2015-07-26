@@ -229,7 +229,7 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
         goto out_no_free;
     
     pattern->pattern = strdup(line->section.param);
-    if (!pattern)
+    if (!pattern->pattern)
         goto out;
 
     while (config_read_line(config, line)) {
