@@ -269,6 +269,7 @@ out:
     free(pattern->pattern);
     free(pattern->redirect_to);
     free(pattern->rewrite_as);
+    free(pattern);
 out_no_free:
     config_error(config, "Could not copy pattern");
     return false;
