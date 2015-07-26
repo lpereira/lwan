@@ -93,6 +93,58 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
     return true;
 }
 
+static bool
+expand(const char *pattern, const char *orig, struct str_builder *builder,
+    struct str_find *sf, int captures)
+{
+    char *ptr;
+
+    ptr = strchr(pattern, '%');
+    if (!ptr) {
+        builder->buffer = (char *)pattern;
+        return true;
+    }
+
+    do {
+        size_t index_len = strspn(ptr + 1, "0123456789");
+
+        if (ptr > pattern) {
+            if (!append_str(builder, pattern, (size_t)(ptr - pattern)))
+                return false;
+            pattern += ptr - pattern;
+        }
+
+        if (index_len > 0) {
+            int index = parse_int(strndupa(ptr + 1, index_len), -1);
+
+            if (index < 0 || index > captures)
+                return false;
+
+            if (append_str(builder, orig + sf[index].sm_so,
+                    (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
+                ptr += index_len + 1;
+                pattern += index_len + 1;
+            } else {
+                return false;
+            }
+        } else {
+            if (!append_str(builder, "%", 1))
+                return false;
+
+            ptr++;
+            pattern++;
+        }
+    } while ((ptr = strchr(ptr, '%')));
+
+    if (*pattern && !append_str(builder, pattern, strlen(pattern)))
+        return false;
+
+    if (!builder->len)
+        return false;
+
+    return true;
+}
+
 static lwan_http_status_t
 module_handle_cb(lwan_request_t *request,
     lwan_response_t *response __attribute__((unused)),
@@ -110,64 +162,25 @@ module_handle_cb(lwan_request_t *request,
         lwan_http_status_t (*handle_fn)(lwan_request_t *request, const char *url);
         struct str_builder uri_builder = { .buffer = final_url, .size = sizeof(final_url) };
         struct str_find sf[MAXCAPTURES];
-        const char *errmsg, *new_pattern;
-        char *ptr;
-        int ret;
+        const char *errmsg, *pattern;
+        int captures;
 
         if (p->redirect_to) {
             handle_fn = module_redirect_to;
-            new_pattern = p->redirect_to;
+            pattern = p->redirect_to;
         } else {
             handle_fn = module_rewrite_as;
-            new_pattern = p->rewrite_as;
+            pattern = p->rewrite_as;
         }
 
-        ret = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
-        if (ret <= 0)
+        captures = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
+        if (captures <= 0)
             continue;
 
-        ptr = strchr(new_pattern, '%');
-        if (!ptr)
-            return handle_fn(request, new_pattern);
-
-        do {
-            size_t index_len = strspn(ptr + 1, "0123456789");
-
-            if (ptr > new_pattern) {
-                if (!append_str(&uri_builder, new_pattern, (size_t)(ptr - new_pattern)))
-                    return HTTP_INTERNAL_ERROR;
-                new_pattern += ptr - new_pattern;
-            }
-
-            if (index_len > 0) {
-                int index = parse_int(strndupa(ptr + 1, index_len), -1);
-
-                if (index < 0 || index > ret)
-                    return HTTP_INTERNAL_ERROR;
-
-                if (append_str(&uri_builder, url + sf[index].sm_so,
-                        (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
-                    ptr += index_len + 1;
-                    new_pattern += index_len + 1;
-                } else {
-                    return HTTP_INTERNAL_ERROR;
-                }
-            } else {
-                if (!append_str(&uri_builder, "%", 1))
-                    return HTTP_INTERNAL_ERROR;
-
-                ptr++;
-                new_pattern++;
-            }
-        } while ((ptr = strchr(ptr, '%')));
-
-        if (*new_pattern && !append_str(&uri_builder, new_pattern, strlen(new_pattern)))
+        if (UNLIKELY(!expand(pattern, url, &uri_builder, sf, captures)))
             return HTTP_INTERNAL_ERROR;
 
-        if (!uri_builder.len)
-            return HTTP_INTERNAL_ERROR;
-
-        return handle_fn(request, final_url);
+        return handle_fn(request, uri_builder.buffer);
     }
 
     return HTTP_NOT_FOUND;
