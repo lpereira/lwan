@@ -673,7 +673,7 @@ str_match(const char *string, const char *pattern, struct str_match *m,
 	memset(m, 0, sizeof(*m));
 
 	ret = str_find_aux(&ms, pattern, string, sm, nsm, 0);
-	if (ret == 0 || ms.error != NULL) {
+	if (ret <= 0 || ms.error != NULL) {
 		/* Return -1 on error and store the error string */
 		*errstr = ms.error;
 		return (-1);
