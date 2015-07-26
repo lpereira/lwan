@@ -93,24 +93,23 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
     return true;
 }
 
-static bool
-expand(const char *pattern, const char *orig, struct str_builder *builder,
+static const char *
+expand(const char *pattern, const char *orig, char buffer[static PATH_MAX],
     struct str_find *sf, int captures)
 {
+    struct str_builder builder = { .buffer = buffer, .size = PATH_MAX };
     char *ptr;
 
     ptr = strchr(pattern, '%');
-    if (!ptr) {
-        builder->buffer = (char *)pattern;
-        return true;
-    }
+    if (!ptr)
+        return pattern;
 
     do {
         size_t index_len = strspn(ptr + 1, "0123456789");
 
         if (ptr > pattern) {
-            if (!append_str(builder, pattern, (size_t)(ptr - pattern)))
-                return false;
+            if (!append_str(&builder, pattern, (size_t)(ptr - pattern)))
+                return NULL;
             pattern += ptr - pattern;
         }
 
@@ -118,31 +117,31 @@ expand(const char *pattern, const char *orig, struct str_builder *builder,
             int index = parse_int(strndupa(ptr + 1, index_len), -1);
 
             if (index < 0 || index > captures)
-                return false;
+                return NULL;
 
-            if (append_str(builder, orig + sf[index].sm_so,
+            if (append_str(&builder, orig + sf[index].sm_so,
                     (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
                 ptr += index_len + 1;
                 pattern += index_len + 1;
             } else {
-                return false;
+                return NULL;
             }
         } else {
-            if (!append_str(builder, "%", 1))
-                return false;
+            if (!append_str(&builder, "%", 1))
+                return NULL;
 
             ptr++;
             pattern++;
         }
     } while ((ptr = strchr(ptr, '%')));
 
-    if (*pattern && !append_str(builder, pattern, strlen(pattern)))
-        return false;
+    if (*pattern && !append_str(&builder, pattern, strlen(pattern)))
+        return NULL;
 
-    if (!builder->len)
-        return false;
+    if (!builder.len)
+        return NULL;
 
-    return true;
+    return builder.buffer;
 }
 
 static lwan_http_status_t
@@ -160,9 +159,8 @@ module_handle_cb(lwan_request_t *request,
 
     list_for_each(&pd->patterns, p, list) {
         lwan_http_status_t (*handle_fn)(lwan_request_t *request, const char *url);
-        struct str_builder uri_builder = { .buffer = final_url, .size = sizeof(final_url) };
         struct str_find sf[MAXCAPTURES];
-        const char *errmsg, *pattern;
+        const char *errmsg, *pattern, *expanded;
         int captures;
 
         if (p->redirect_to) {
@@ -177,10 +175,11 @@ module_handle_cb(lwan_request_t *request,
         if (captures <= 0)
             continue;
 
-        if (UNLIKELY(!expand(pattern, url, &uri_builder, sf, captures)))
+        expanded = expand(pattern, url, final_url, sf, captures);
+        if (UNLIKELY(!expanded))
             return HTTP_INTERNAL_ERROR;
 
-        return handle_fn(request, uri_builder.buffer);
+        return handle_fn(request, expanded);
     }
 
     return HTTP_NOT_FOUND;
