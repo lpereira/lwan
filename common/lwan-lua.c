@@ -368,9 +368,9 @@ static void lua_shutdown(void *data)
 static void *lua_init_from_hash(const struct hash *hash)
 {
     struct lwan_lua_settings_t settings = {
-        .default_type = hash_find(hash, "default type"),
-        .script_file = hash_find(hash, "script file"),
-        .cache_period = parse_time_period(hash_find(hash, "cache period"), 15)
+        .default_type = hash_find(hash, "default_type"),
+        .script_file = hash_find(hash, "script_file"),
+        .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15)
     };
     return lua_init(&settings);
 }

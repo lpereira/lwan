@@ -167,7 +167,7 @@ static void parse_listener_prefix_authorization(config_t *c,
             if (!strcmp(l->line.key, "realm")) {
                 free(url_map->authorization.realm);
                 url_map->authorization.realm = strdup(l->line.value);
-            } else if (!strcmp(l->line.key, "password file")) {
+            } else if (!strcmp(l->line.key, "password_file")) {
                 free(url_map->authorization.password_file);
                 url_map->authorization.password_file = strdup(l->line.value);
             }

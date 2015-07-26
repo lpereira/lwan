@@ -177,10 +177,22 @@ static bool parse_section(char *line, config_line_t *l, char *bracket)
     return true;
 }
 
+static char *replace_space_with_underscore(char *line)
+{
+    for (char *ptr = line; *ptr; ptr++) {
+        if (*ptr == ' ')
+            *ptr = '_';
+    }
+    return line;
+}
+
 static bool parse_line(char *line, config_line_t *l, char *equal)
 {
     *equal = '\0';
-    l->line.key = remove_trailing_spaces(remove_leading_spaces(line));
+    line = remove_leading_spaces(line);
+    line = remove_trailing_spaces(line);
+
+    l->line.key = replace_space_with_underscore(line);
     l->line.value = remove_leading_spaces(equal + 1);
     l->type = CONFIG_LINE_TYPE_LINE;
 

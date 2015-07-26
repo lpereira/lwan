@@ -235,11 +235,11 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
     while (config_read_line(config, line)) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (!strcmp(line->line.key, "redirect to")) {
+            if (!strcmp(line->line.key, "redirect_to")) {
                 pattern->redirect_to = strdup(line->line.value);
                 if (!pattern->redirect_to)
                     goto out;
-            } else if (!strcmp(line->line.key, "rewrite as")) {
+            } else if (!strcmp(line->line.key, "rewrite_as")) {
                 pattern->rewrite_as = strdup(line->line.value);
                 if (!pattern->rewrite_as)
                     goto out;
