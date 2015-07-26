@@ -171,6 +171,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
                                               const char *key, int *error)
 {
     struct cache_entry_t *entry;
+    char *key_copy;
 
     assert(cache);
     assert(error);
@@ -204,12 +205,20 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     ATOMIC_INC(cache->stats.misses);
 #endif
 
-    entry = cache->cb.create_entry(key, cache->cb.context);
-    if (!entry)
+    key_copy = strdup(key);
+    if (UNLIKELY(!key_copy)) {
+        *error = ENOMEM;
         return NULL;
+    }
+
+    entry = cache->cb.create_entry(key, cache->cb.context);
+    if (!entry) {
+        free(key_copy);
+        return NULL;
+    }
 
     memset(entry, 0, sizeof(*entry));
-    entry->key = strdup(key);
+    entry->key = key_copy;
     entry->refs = 1;
 
     if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
