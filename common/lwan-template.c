@@ -884,7 +884,7 @@ lwan_tpl_str_is_empty(void *ptr)
         return true;
 
     const char *str = *(const char **)ptr;
-    return LIKELY(str) && *str;
+    return !str || *str == '\0';
 }
 
 static void
