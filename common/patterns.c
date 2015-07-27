@@ -308,7 +308,7 @@ match_capture(struct match_state *ms, const char *s, int l)
 	l = check_capture(ms, l);
 	if (l == -1)
 		return NULL;
-	len = ms->capture[l].len;
+	len = (size_t)ms->capture[l].len;
 	if ((size_t) (ms->src_end - s) >= len &&
 	    memcmp(ms->capture[l].init, s, len) == 0)
 		return s + len;
@@ -482,40 +482,33 @@ match(struct match_state *ms, const char *s, const char *p)
 }
 
 static const char *
-lmemfind(const char *s1, size_t l1,
-    const char *s2, size_t l2)
+lmemfind(const char *s1, size_t l1, const char *s2, size_t l2)
 {
 	const char *init;
 
-	if (l2 == 0) {
-		/* empty strings are everywhere */
-		return (s1);
-	} else if (l2 > l1) {
-		/* avoids a negative 'l1' */
-		return (NULL);
-	} else {
-		/*
-		 * to search for a '*s2' inside 's1'
-		 * - 1st char will be checked by 'memchr'
-		 * - 's2' cannot be found after that
-		 */
-		l2--;
-		l1 = l1 - l2;
-		while (l1 > 0 &&
-		    (init = (const char *)memchr(s1, *s2, l1)) != NULL) {
-			/* 1st char is already checked */
-			init++;
-			if (memcmp(init, s2 + 1, l2) == 0)
-				return init - 1;
-			else {
-				/* correct 'l1' and 's1' to try again */
-				l1 -= init - s1;
-				s1 = init;
-			}
-		}
-		/* not found */
-		return (NULL);
-	}
+	if (l2 == 0)
+		return (s1); /* empty strings are everywhere */
+	if (l2 > l1)
+		return (NULL); /* avoids a negative 'l1' */
+        /*
+         * to search for a '*s2' inside 's1'
+         * - 1st char will be checked by 'memchr'
+         * - 's2' cannot be found after that
+         */
+        l2--;
+        l1 = l1 - l2;
+        while (l1 > 0 && (init = (const char *)memchr(s1, *s2, l1)) != NULL) {
+                /* 1st char is already checked */
+                init++;
+                if (memcmp(init, s2 + 1, l2) == 0)
+                        return init - 1;
+
+                /* correct 'l1' and 's1' to try again */
+                l1 -= (size_t)(init - s1);
+                s1 = init;
+        }
+        /* not found */
+        return (NULL);
 }
 
 static int
@@ -544,11 +537,11 @@ static int
 push_captures(struct match_state *ms, const char *s, const char *e,
     struct str_find *sm, size_t nsm)
 {
-	unsigned int i;
-	unsigned int nlevels = (ms->level <= 0 && s) ? 1 : ms->level;
+	int i;
+	int nlevels = (ms->level <= 0 && s) ? 1 : ms->level;
 
-	if (nlevels > nsm)
-		nlevels = nsm;
+	if (nlevels > (int)nsm)
+		nlevels = (int)nsm;
 	for (i = 0; i < nlevels; i++)
 		if (push_onecapture(ms, i, s, e, sm + i) == -1)
 			break;
@@ -596,18 +589,18 @@ str_find_aux(struct match_state *ms, const char *pattern, const char *string,
 	if (nospecials(p, lp)) {
 		/* do a plain search */
 		s2 = lmemfind(s1, ls - (size_t)init, p, lp);
-		if (s2 != NULL) {
-			i = 0;
-			sm[i].sm_so = 0;
-			sm[i].sm_eo = ls;
-			if (nsm > 1) {
-				i++;
-				sm[i].sm_so = s2 - s;
-				sm[i].sm_eo = (s2 - s) + lp;
-			}
-			return (i + 1);
+		if (s2 == NULL)
+			return (0);
+
+		i = 0;
+		sm[i].sm_so = 0;
+		sm[i].sm_eo = (off_t)ls;
+		if (nsm > 1) {
+			i++;
+			sm[i].sm_so = s2 - s;
+			sm[i].sm_eo = (off_t)((s2 - s) + (off_t)lp);
 		}
-		return (0);
+		return (i + 1);
 	}
 
 	anchor = (*p == '^');
@@ -615,7 +608,7 @@ str_find_aux(struct match_state *ms, const char *pattern, const char *string,
 		p++;
 		lp--;	/* skip anchor character */
 	}
-	ms->maxcaptures = (nsm > MAXCAPTURES ? MAXCAPTURES : nsm) - 1;
+	ms->maxcaptures = (int)((nsm > MAXCAPTURES ? MAXCAPTURES : nsm) - 1);
 	ms->matchdepth = MAXCCALLS;
 	ms->repetitioncounter = MAXREPETITION;
 	ms->src_init = s;
@@ -626,7 +619,7 @@ str_find_aux(struct match_state *ms, const char *pattern, const char *string,
 		ms->level = 0;
 		if ((res = match(ms, s1, p)) != NULL) {
 			sm->sm_so = 0;
-			sm->sm_eo = ls;
+			sm->sm_eo = (off_t)ls;
 			return push_captures(ms, s1, res, sm + 1, nsm - 1) + 1;
 
 		} else if (ms->error != NULL) {
@@ -664,7 +657,7 @@ str_match(const char *string, const char *pattern, struct str_match *m,
 {
 	struct str_find		 sm[MAXCAPTURES];
 	struct match_state	 ms;
-	int			 ret, i;
+	int			 i, ret;
 	size_t			 len, nsm;
 
 	nsm = MAXCAPTURES;
@@ -679,7 +672,7 @@ str_match(const char *string, const char *pattern, struct str_match *m,
 		return (-1);
 	}
 
-	if ((m->sm_match = calloc(ret, sizeof(char *))) == NULL) {
+	if ((m->sm_match = calloc((size_t)ret, sizeof(char *))) == NULL) {
 		*errstr = strerror(errno);
 		return (-1);
 	}
@@ -688,7 +681,7 @@ str_match(const char *string, const char *pattern, struct str_match *m,
 	for (i = 0; i < ret; i++) {
 		if (sm[i].sm_so > sm[i].sm_eo)
 			continue;
-		len = sm[i].sm_eo - sm[i].sm_so;
+		len = (size_t)(sm[i].sm_eo - sm[i].sm_so);
 		if ((m->sm_match[i] = strndup(string +
 		    sm[i].sm_so, len)) == NULL) {
 			*errstr = strerror(errno);
@@ -704,7 +697,8 @@ str_match(const char *string, const char *pattern, struct str_match *m,
 void
 str_match_free(struct str_match *m)
 {
-	unsigned int	 i = 0;
+	int	 i;
+
 	for (i = 0; i < m->sm_nmatch; i++)
 		free(m->sm_match[i]);
 	free(m->sm_match);

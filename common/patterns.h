@@ -33,7 +33,7 @@ struct str_find {
 
 struct str_match {
 	char		**sm_match; /* allocated array of matched strings */
-	unsigned int	 sm_nmatch; /* number of elements in array */
+	int		  sm_nmatch; /* number of elements in array */
 };
 
 __BEGIN_DECLS
