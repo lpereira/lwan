@@ -108,37 +108,35 @@ expand(const char *pattern, const char *orig, char buffer[static PATH_MAX],
         size_t index_len = strspn(ptr + 1, "0123456789");
 
         if (ptr > pattern) {
-            if (!append_str(&builder, pattern, (size_t)(ptr - pattern)))
+            if (UNLIKELY(!append_str(&builder, pattern, (size_t)(ptr - pattern))))
                 return NULL;
+
             pattern += ptr - pattern;
         }
 
-        if (index_len > 0) {
+        if (LIKELY(index_len > 0)) {
             int index = parse_int(strndupa(ptr + 1, index_len), -1);
 
-            if (index < 0 || index > captures)
+            if (UNLIKELY(index < 0 || index > captures))
                 return NULL;
 
-            if (append_str(&builder, orig + sf[index].sm_so,
-                    (size_t)(sf[index].sm_eo - sf[index].sm_so))) {
-                ptr += index_len + 1;
-                pattern += index_len + 1;
-            } else {
-                return NULL;
-            }
-        } else {
-            if (!append_str(&builder, "%", 1))
+            if (UNLIKELY(!append_str(&builder, orig + sf[index].sm_so,
+                    (size_t)(sf[index].sm_eo - sf[index].sm_so))))
                 return NULL;
 
-            ptr++;
-            pattern++;
+            ptr += index_len;
+            pattern += index_len;
+        } else if (UNLIKELY(!append_str(&builder, "%", 1))) {
+            return NULL;
         }
-    } while ((ptr = strchr(ptr, '%')));
+
+        pattern++;
+    } while ((ptr = strchr(ptr + 1, '%')));
 
     if (*pattern && !append_str(&builder, pattern, strlen(pattern)))
         return NULL;
 
-    if (!builder.len)
+    if (UNLIKELY(!builder.len))
         return NULL;
 
     return builder.buffer;
