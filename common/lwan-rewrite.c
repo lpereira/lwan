@@ -163,6 +163,10 @@ module_handle_cb(lwan_request_t *request,
         const char *errmsg, *pattern, *expanded;
         int captures;
 
+        captures = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
+        if (captures <= 0)
+            continue;
+
         if (p->redirect_to) {
             handle_fn = module_redirect_to;
             pattern = p->redirect_to;
@@ -170,10 +174,6 @@ module_handle_cb(lwan_request_t *request,
             handle_fn = module_rewrite_as;
             pattern = p->rewrite_as;
         }
-
-        captures = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
-        if (captures <= 0)
-            continue;
 
         expanded = expand(pattern, url, final_url, sf, captures);
         if (UNLIKELY(!expanded))
