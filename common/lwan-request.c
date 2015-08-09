@@ -838,9 +838,9 @@ lwan_request_get_post_param(lwan_request_t *request, const char *key)
 }
 
 ALWAYS_INLINE int
-lwan_connection_get_fd(lwan_connection_t *conn)
+lwan_connection_get_fd(const lwan_t *lwan, const lwan_connection_t *conn)
 {
-    return (int)(ptrdiff_t)(conn - conn->thread->lwan->conns);
+    return (int)(ptrdiff_t)(conn - lwan->conns);
 }
 
 const char *

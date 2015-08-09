@@ -325,7 +325,7 @@ void lwan_shutdown(lwan_t *l);
 
 const lwan_config_t *lwan_get_default_config(void);
 
-int lwan_connection_get_fd(lwan_connection_t *conn)
+int lwan_connection_get_fd(const lwan_t *lwan, const lwan_connection_t *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
 

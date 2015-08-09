@@ -30,6 +30,7 @@
 #include "lwan-private.h"
 
 struct death_queue_t {
+    const lwan_t *lwan;
     lwan_connection_t *conns;
     lwan_connection_t head;
     unsigned time;
@@ -99,12 +100,12 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
 }
 
 static void
-death_queue_init(struct death_queue_t *dq, lwan_connection_t *conns,
-    unsigned short keep_alive_timeout)
+death_queue_init(struct death_queue_t *dq, const lwan_t *lwan)
 {
-    dq->conns = conns;
+    dq->lwan = lwan;
+    dq->conns = lwan->conns;
     dq->time = 0;
-    dq->keep_alive_timeout = keep_alive_timeout;
+    dq->keep_alive_timeout = lwan->config.keep_alive_timeout;
     dq->head.next = dq->head.prev = -1;
 }
 
@@ -124,7 +125,7 @@ destroy_coro(struct death_queue_t *dq, lwan_connection_t *conn)
     }
     if (conn->flags & CONN_IS_ALIVE) {
         conn->flags &= ~CONN_IS_ALIVE;
-        close(lwan_connection_get_fd(conn));
+        close(lwan_connection_get_fd(dq->lwan, conn));
     }
 }
 
@@ -140,7 +141,7 @@ process_request_coro(coro_t *coro)
     strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
-    int fd = lwan_connection_get_fd(conn);
+    int fd = lwan_connection_get_fd(lwan, conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
     lwan_value_t buffer = {
         .value = request_buffer,
@@ -211,7 +212,7 @@ resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
         .data.ptr = conn
     };
 
-    int fd = lwan_connection_get_fd(conn);
+    int fd = lwan_connection_get_fd(dq->lwan, conn);
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
 
@@ -314,7 +315,8 @@ thread_io_loop(void *data)
     const int epoll_fd = t->epoll_fd;
     const int read_pipe_fd = t->pipe_fd[0];
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
-    lwan_connection_t *conns = t->lwan->conns;
+    const lwan_t *lwan = t->lwan;
+    lwan_connection_t *conns = lwan->conns;
     struct epoll_event *events;
     coro_switcher_t switcher;
     struct death_queue_t dq;
@@ -327,7 +329,7 @@ thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
-    death_queue_init(&dq, conns, t->lwan->config.keep_alive_timeout);
+    death_queue_init(&dq, lwan);
 
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
