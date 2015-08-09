@@ -1013,17 +1013,6 @@ post_process_template(struct parser *parser)
         }
     }
 
-    if (parser->chunks.reserved != parser->chunks.used) {
-        struct chunk *resized;
-
-        lwan_status_debug("Parsing done, shrinking array from %zu to %zu elements",
-            parser->chunks.reserved, parser->chunks.used);
-
-        resized = reallocarray(parser->chunks.data, parser->chunks.used, sizeof(struct chunk));
-        if (resized)
-            parser->chunks.data = resized;
-    }
-
     parser->tpl->chunks = parser->chunks.data;
 
     return true;
