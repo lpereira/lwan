@@ -539,13 +539,13 @@ yield_and_read_again:
         }
 
         total_read += (size_t)n;
-        buffer->value[total_read] = '\0';
         buffer->len = (size_t)total_read;
 
 try_to_finalize:
         switch (finalizer(total_read, buffer_size, helper)) {
         case FINALIZER_DONE:
             request->conn->flags &= ~CONN_MUST_READ;
+            buffer->value[buffer->len] = '\0';
             return HTTP_OK;
         case FINALIZER_TRY_AGAIN:
             continue;
