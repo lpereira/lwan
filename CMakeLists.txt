@@ -20,9 +20,9 @@ check_c_source_compiles("int main(void) { __builtin_clzll(0); }" HAVE_BUILTIN_CL
 if (HAVE_BUILTIN_CLZLL)
 	add_definitions("-DHAVE_BUILTIN_CLZLL")
 endif ()
-check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_umull_overflow(0, 0, &p); }" HAVE_BUILTIN_UMULL_OVERFLOW)
-if (HAVE_BUILTIN_UMULL_OVERFLOW)
-	add_definitions("-DHAVE_BUILTIN_UMULL_OVERFLOW")
+check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_mul_overflow(0, 0, &p); }" HAVE_BUILTIN_MUL_OVERFLOW)
+if (HAVE_BUILTIN_MUL_OVERFLOW)
+	add_definitions("-DHAVE_BUILTIN_MUL_OVERFLOW")
 endif ()
 
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)

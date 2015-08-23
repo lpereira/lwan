@@ -23,7 +23,7 @@
 
 #include "lwan.h"
 
-#if !defined(HAVE_BUILTIN_UMULL_OVERFLOW)
+#if !defined(HAVE_BUILTIN_MUL_OVERFLOW)
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
@@ -38,7 +38,7 @@ static inline bool umull_overflow(size_t a, size_t b, size_t *out)
     return false;
 }
 #else
-#define umull_overflow __builtin_umull_overflow
+#define umull_overflow __builtin_mul_overflow
 #endif
 
 void *
