@@ -36,12 +36,6 @@
 #include "realpathat.h"
 #include "hash.h"
 
-#define SET_NTH_HEADER(number_, key_, value_) \
-    do { \
-        headers[number_].key = (key_); \
-        headers[number_].value = (value_); \
-    } while(0)
-
 static const char *compression_none = NULL;
 static const char *compression_gzip = "gzip";
 static const char *compression_deflate = "deflate";
@@ -745,18 +739,20 @@ prepare_headers(lwan_request_t *request,
                  char *header_buf,
                  size_t header_buf_size)
 {
-    lwan_key_value_t headers[3];
+    lwan_key_value_t headers[3] = {
+        { .key = "Last-Modified", .value = fce->last_modified.string },
+        { },
+        { }
+    };
 
     request->response.headers = headers;
     request->response.content_length = size;
 
-    SET_NTH_HEADER(0, "Last-Modified", fce->last_modified.string);
-
     if (compression_type) {
-        SET_NTH_HEADER(1, "Content-Encoding", (char *)compression_type);
-        SET_NTH_HEADER(2, NULL, NULL);
-    } else {
-        SET_NTH_HEADER(1, NULL, NULL);
+        headers[1] = (lwan_key_value_t) {
+            .key = "Content-Encoding",
+            .value = (char *)compression_type
+        };
     }
 
     return lwan_prepare_response_header(request, return_status,
@@ -953,13 +949,13 @@ redir_serve(lwan_request_t *request, void *data)
     redir_cache_data_t *rd = (redir_cache_data_t *)(fce + 1);
     char header_buf[DEFAULT_BUFFER_SIZE];
     size_t header_buf_size;
-    lwan_key_value_t headers[2];
+    lwan_key_value_t headers[2] = {
+        { .key = "Location", .value = rd->redir_to },
+        { }
+    };
 
     request->response.headers = headers;
     request->response.content_length = strlen(rd->redir_to);
-
-    SET_NTH_HEADER(0, "Location", rd->redir_to);
-    SET_NTH_HEADER(1, NULL, NULL);
 
     header_buf_size = lwan_prepare_response_header(request,
                 HTTP_MOVED_PERMANENTLY, header_buf, DEFAULT_BUFFER_SIZE);
