@@ -35,8 +35,8 @@ struct private_data {
 struct pattern {
     struct list_node list;
     char *pattern;
-    char *redirect_to;
-    char *rewrite_as;
+    char *expand;
+    lwan_http_status_t (*handle)(lwan_request_t *request, const char *url);
 };
 
 struct str_builder {
@@ -156,28 +156,19 @@ module_handle_cb(lwan_request_t *request,
         return HTTP_INTERNAL_ERROR;
 
     list_for_each(&pd->patterns, p, list) {
-        lwan_http_status_t (*handle_fn)(lwan_request_t *request, const char *url);
         struct str_find sf[MAXCAPTURES];
-        const char *errmsg, *pattern, *expanded;
+        const char *errmsg, *expanded;
         int captures;
 
         captures = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
         if (captures <= 0)
             continue;
 
-        if (p->redirect_to) {
-            handle_fn = module_redirect_to;
-            pattern = p->redirect_to;
-        } else {
-            handle_fn = module_rewrite_as;
-            pattern = p->rewrite_as;
-        }
+        expanded = expand(p->expand, url, final_url, sf, captures);
+        if (LIKELY(expanded))
+            return p->handle(request, expanded);
 
-        expanded = expand(pattern, url, final_url, sf, captures);
-        if (UNLIKELY(!expanded))
-            return HTTP_INTERNAL_ERROR;
-
-        return handle_fn(request, expanded);
+        return HTTP_INTERNAL_ERROR;
     }
 
     return HTTP_NOT_FOUND;
@@ -203,8 +194,7 @@ module_shutdown(void *data)
 
     list_for_each_safe(&pd->patterns, iter, next, list) {
         free(iter->pattern);
-        free(iter->redirect_to);
-        free(iter->rewrite_as);
+        free(iter->expand);
         free(iter);
     }
     free(pd);
@@ -220,6 +210,7 @@ static bool
 module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line_t *line)
 {
     struct pattern *pattern;
+    char *redirect_to = NULL, *rewrite_as = NULL;
 
     pattern = calloc(1, sizeof(*pattern));
     if (!pattern)
@@ -233,12 +224,12 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             if (!strcmp(line->line.key, "redirect_to")) {
-                pattern->redirect_to = strdup(line->line.value);
-                if (!pattern->redirect_to)
+                redirect_to = strdup(line->line.value);
+                if (!redirect_to)
                     goto out;
             } else if (!strcmp(line->line.key, "rewrite_as")) {
-                pattern->rewrite_as = strdup(line->line.value);
-                if (!pattern->rewrite_as)
+                rewrite_as = strdup(line->line.value);
+                if (!rewrite_as)
                     goto out;
             } else {
                 config_error(config, "Unexpected key: %s", line->line.key);
@@ -249,11 +240,17 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
             config_error(config, "Unexpected section: %s", line->section.name);
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
-            if (pattern->redirect_to && pattern->rewrite_as) {
+            if (redirect_to && rewrite_as) {
                 config_error(config, "`redirect to` and `rewrite as` are mutually exclusive");
                 goto out;
             }
-            if (!pattern->redirect_to && !pattern->rewrite_as) {
+            if (redirect_to) {
+                pattern->expand = redirect_to;
+                pattern->handle = module_redirect_to;
+            } else if (rewrite_as) {
+                pattern->expand = rewrite_as;
+                pattern->handle = module_rewrite_as;
+            } else {
                 config_error(config, "either `redirect to` or `rewrite as` are required");
                 goto out;
             }
@@ -264,8 +261,8 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
 
 out:
     free(pattern->pattern);
-    free(pattern->redirect_to);
-    free(pattern->rewrite_as);
+    free(redirect_to);
+    free(rewrite_as);
     free(pattern);
 out_no_free:
     config_error(config, "Could not copy pattern");
