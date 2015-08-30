@@ -160,11 +160,9 @@ void cache_destroy(struct cache_t *cache)
     free(cache);
 }
 
-static ALWAYS_INLINE struct cache_entry_t *convert_to_temporary(
-    struct cache_entry_t *entry)
+static ALWAYS_INLINE void convert_to_temporary(struct cache_entry_t *entry)
 {
     entry->flags = TEMPORARY;
-    return entry;
 }
 
 struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
@@ -227,7 +225,8 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
          * in starvation, though, so this might be changed back to
          * pthread_rwlock_wrlock() again someday if this proves to be
          * a problem. */
-        return convert_to_temporary(entry);
+        convert_to_temporary(entry);
+        return entry;
     }
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
@@ -239,7 +238,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
             list_add_tail(&cache->queue.list, &entry->entries);
             pthread_rwlock_unlock(&cache->queue.lock);
         } else {
-            return convert_to_temporary(entry);
+            convert_to_temporary(entry);
         }
     } else {
         /* Either there's another item with the same key (-EEXIST), or
