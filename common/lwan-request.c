@@ -284,21 +284,25 @@ identify_http_path(lwan_request_t *request, char *buffer,
 
 #define MATCH_HEADER(hdr) \
   do { \
-        char *end; \
         p += sizeof(hdr) - 1; \
         if (UNLIKELY(p >= buffer_end)) /* reached the end of header blocks */ \
-          return NULL; \
+            return NULL; \
+        \
         if (UNLIKELY(string_as_int16(p) != HTTP_HDR_COLON_SPACE)) \
-          goto did_not_match; \
-        p += 2; \
-        if (LIKELY(end = strchr(p, '\r'))) { \
-          *end = '\0'; \
-          value = p; \
-          p = end + 1; \
-          length = (size_t)(end - value); \
-          if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
-        } else goto did_not_match;      /* couldn't find line end */ \
+        p += 2; \
+        \
+        char *end = strchr(p, '\r'); \
+        if (UNLIKELY(!end)) \
+            goto did_not_match; \
+        \
+        *end = '\0'; \
+        value = p; \
+        p = end + 1; \
+        length = (size_t)(end - value); \
+        \
+        if (UNLIKELY(*p != '\n')) \
+            goto did_not_match; \
   } while (0)
 
 #define CASE_HEADER(hdr_const,hdr_name) \
