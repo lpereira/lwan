@@ -286,7 +286,7 @@ identify_http_path(lwan_request_t *request, char *buffer,
   do { \
         char *end; \
         p += sizeof(hdr) - 1; \
-        if (p >= buffer_end)            /* reached the end of header blocks */ \
+        if (UNLIKELY(p >= buffer_end)) /* reached the end of header blocks */ \
           return NULL; \
         if (UNLIKELY(string_as_int16(p) != HTTP_HDR_COLON_SPACE)) \
           goto did_not_match; \
