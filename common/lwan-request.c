@@ -298,9 +298,9 @@ identify_http_path(lwan_request_t *request, char *buffer,
         \
         *end = '\0'; \
         value = p; \
-        p = end + 1; \
         length = (size_t)(end - value); \
         \
+        p = end + 1; \
         if (UNLIKELY(*p != '\n')) \
             goto did_not_match; \
   } while (0)
