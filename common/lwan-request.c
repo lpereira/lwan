@@ -288,10 +288,9 @@ identify_http_path(lwan_request_t *request, char *buffer,
         p += sizeof(hdr) - 1; \
         if (p >= buffer_end)            /* reached the end of header blocks */ \
           return NULL; \
-        if (UNLIKELY(*p++ != ':'))	/* not the header we're looking for */ \
+        if (UNLIKELY(string_as_int16(p) != HTTP_HDR_COLON_SPACE)) \
           goto did_not_match; \
-        if (UNLIKELY(*p++ != ' '))	/* not the header we're looking for */ \
-          goto did_not_match; \
+        p += 2; \
         if (LIKELY(end = strchr(p, '\r'))) { \
           *end = '\0'; \
           value = p; \
@@ -309,6 +308,7 @@ static char *
 parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_end)
 {
     enum {
+        HTTP_HDR_COLON_SPACE       = MULTICHAR_CONSTANT_SMALL(':', ' '),
         HTTP_HDR_REQUEST_END       = MULTICHAR_CONSTANT_SMALL('\r','\n'),
         HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
         HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
