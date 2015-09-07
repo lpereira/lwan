@@ -140,8 +140,9 @@ typedef enum {
     HANDLER_MUST_AUTHORIZE = 1<<5,
     HANDLER_REMOVE_LEADING_SLASH = 1<<6,
     HANDLER_CAN_REWRITE_URL = 1<<7,
+    HANDLER_PARSE_COOKIES = 1<<8,
 
-    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4
+    HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4 | 1<<8
 } lwan_handler_flags_t;
 
 typedef enum {
@@ -216,7 +217,7 @@ struct lwan_request_t_ {
     struct {
         lwan_key_value_t *base;
         size_t len;
-    } query_params, post_data;
+    } query_params, post_data, cookies;
     struct {
         time_t if_modified_since;
         struct {
@@ -302,6 +303,8 @@ size_t lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t 
 const char *lwan_request_get_post_param(lwan_request_t *request, const char *key)
     __attribute__((warn_unused_result));
 const char *lwan_request_get_query_param(lwan_request_t *request, const char *key)
+    __attribute__((warn_unused_result));
+const char * lwan_request_get_cookie(lwan_request_t *request, const char *key)
     __attribute__((warn_unused_result));
 
 bool lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status);

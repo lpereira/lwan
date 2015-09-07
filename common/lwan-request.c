@@ -44,6 +44,7 @@ struct request_parser_helper {
     lwan_value_t accept_encoding;
     lwan_value_t if_modified_since;
     lwan_value_t range;
+    lwan_value_t cookie;
 
     lwan_value_t query_string;
     lwan_value_t fragment;
@@ -221,6 +222,56 @@ parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
 }
 
 static void
+parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    char *ptr = helper->cookie.value;
+    lwan_key_value_t kvs[256];
+    size_t values = 0;
+
+    if (!helper->cookie.len)
+        return;
+
+    do {
+        char *key, *value, *end_value;
+
+        while (*ptr && is_space(*ptr))
+            ptr++;
+
+        key = ptr;
+        value = strchr(ptr, '=');
+        if (!value)
+            break;
+        *value = '\0';
+        value++;
+
+        end_value = strchr(value, ';');
+        if (!end_value) {
+            end_value = strchr(value, '\0');
+            if (!end_value)
+                break;
+        }
+        *end_value = '\0';
+
+        ptr = end_value + 1;
+
+        kvs[values].key = key;
+        kvs[values].value = value;
+
+        values++;
+    } while (ptr && values < N_ELEMENTS(kvs));
+
+    kvs[values].key = kvs[values].value = NULL;
+
+    lwan_key_value_t *kv = coro_malloc(request->conn->coro,
+        (1 + values) * sizeof(lwan_key_value_t));
+    if (LIKELY(kv)) {
+        qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
+        request->cookies.base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
+        request->cookies.len = values;
+    }
+}
+
+static void
 parse_fragment_and_query(lwan_request_t *request,
     struct request_parser_helper *helper, const char *space)
 {
@@ -322,7 +373,8 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
         HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
         HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
         HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
-        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g')
+        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
+        HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k')
     };
 
     for (char *p = buffer; *p; buffer = ++p) {
@@ -373,6 +425,10 @@ retry:
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             helper->range.value = value;
             helper->range.len = length;
+            break;
+        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
+            helper->cookie.value = value;
+            helper->cookie.len = length;
             break;
         }
 did_not_match:
@@ -699,6 +755,9 @@ prepare_for_response(lwan_url_map_t *url_map,
     if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
         parse_accept_encoding(request, helper);
 
+    if (url_map->flags & HANDLER_PARSE_COOKIES)
+        parse_cookies(request, helper);
+
     if (request->flags & REQUEST_METHOD_POST) {
         if (url_map->flags & HANDLER_PARSE_POST_DATA)
             parse_post_data(request, helper);
@@ -839,6 +898,13 @@ lwan_request_get_post_param(lwan_request_t *request, const char *key)
 {
     return value_array_bsearch(request->post_data.base,
                                             request->post_data.len, key);
+}
+
+const char *
+lwan_request_get_cookie(lwan_request_t *request, const char *key)
+{
+    return value_array_bsearch(request->cookies.base,
+                                            request->cookies.len, key);
 }
 
 ALWAYS_INLINE int

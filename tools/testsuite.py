@@ -302,6 +302,20 @@ class TestMalformedRequests(SocketTest):
 
 
 class TestHelloWorld(LwanTest):
+  def test_cookies(self):
+    c = {
+        'SOMECOOKIE': '1c330301-89e4-408a-bf6c-ce107efe8a27',
+        'OTHERCOOKIE': 'some cookie value',
+        'foo': 'bar'
+    }
+    r = requests.get('http://127.0.0.1:8080/hello?dump_vars=1', cookies=c)
+
+    self.assertResponsePlain(r)
+
+    self.assertTrue('\n\nCookies\n' in r.text)
+    for k, v in c.items():
+      self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
+
   def test_head_request_hello(self):
     r = requests.head('http://127.0.0.1:8080/hello',
           headers={'Accept-Encoding': 'foobar'})
