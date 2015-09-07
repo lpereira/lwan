@@ -157,7 +157,7 @@ parse_key_values(lwan_request_t *request,
         return;
 
     do {
-        char *key, *value, *end_value;
+        char *key, *value;
 
         while (*ptr && (is_space(*ptr) || *ptr == separator))
             ptr++;
@@ -169,15 +169,14 @@ parse_key_values(lwan_request_t *request,
         *value = '\0';
         value++;
 
-        end_value = strchr(value, separator);
-        if (!end_value) {
-            end_value = strchr(value, '\0');
-            if (!end_value)
+        ptr = strchr(value, separator);
+        if (!ptr) {
+            ptr = strchr(value, '\0');
+            if (!ptr)
                 break;
         }
-        *end_value = '\0';
-
-        ptr = end_value + 1;
+        *ptr = '\0';
+        ptr++;
 
         if (!decode_value(key) || !decode_value(value))
             continue;
