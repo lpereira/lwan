@@ -301,6 +301,26 @@ class TestMalformedRequests(SocketTest):
     self.assertResponseHtml(r, 413)
 
 
+class TestLua(LwanTest):
+  def test_hello(self):
+    r = requests.get('http://localhost:8080/lua/hello')
+    self.assertResponseHtml(r)
+    self.assertEqual(r.text, 'Hello, World!')
+
+  def test_hello_param(self):
+    r = requests.get('http://localhost:8080/lua/hello?name=foo')
+    self.assertResponseHtml(r)
+    self.assertEqual(r.text, 'Hello, foo!')
+
+  def test_cookies(self):
+    c = {
+        'FOO': 'BAR'
+    }
+    r = requests.get('http://localhost:8080/lua/cookie', cookies=c)
+    self.assertResponseHtml(r)
+    self.assertEqual(r.text, 'Cookie FOO has value: BAR')
+
+
 class TestHelloWorld(LwanTest):
   def test_cookies(self):
     c = {
