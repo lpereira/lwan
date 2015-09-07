@@ -162,12 +162,12 @@ parse_key_values(lwan_request_t *request,
 
         while (*ptr && (is_space(*ptr) || *ptr == separator))
             ptr++;
-        if (*ptr == '\0')
+        if (UNLIKELY(*ptr == '\0'))
             return;
 
         key = ptr;
         value = strchr(ptr, '=');
-        if (!value)
+        if (UNLIKELY(!value))
             return;
         *value = '\0';
         value++;
@@ -182,7 +182,7 @@ parse_key_values(lwan_request_t *request,
             last = true;
         }
 
-        if (!decode_value(key) || !decode_value(value))
+        if (UNLIKELY(!decode_value(key) || !decode_value(value)))
             return;
 
         kvs[values].key = key;
