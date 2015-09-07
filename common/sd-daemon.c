@@ -50,7 +50,7 @@ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        if (!p || p == e || *p || l <= 0) {
+        if (!p || p == e || *p || l == 0) {
                 r = -EINVAL;
                 goto finish;
         }
