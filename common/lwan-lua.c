@@ -244,7 +244,7 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
 
     if (UNLIKELY((handle_prefix_len + url_len + 1) > sizeof(handler_name)))
         return false;
-    memcpy(method_name - 1, url, sizeof(handler_name) - url_len - 1);
+    memcpy(method_name - 1, url, url_len + 1);
 
     lua_getglobal(L, handler_name);
     return lua_isfunction(L, -1);
