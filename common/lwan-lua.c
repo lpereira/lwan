@@ -116,6 +116,11 @@ static int req_post_param_cb(lua_State *L)
     return request_param_getter(L, lwan_request_get_post_param);
 }
 
+static int req_cookie_cb(lua_State *L)
+{
+    return request_param_getter(L, lwan_request_get_cookie);
+}
+
 static const struct luaL_reg lwan_request_meta_regs[] = {
     { "query_param", req_query_param_cb },
     { "post_param", req_post_param_cb },
@@ -123,6 +128,7 @@ static const struct luaL_reg lwan_request_meta_regs[] = {
     { "set_response", req_set_response_cb },
     { "say", req_say_cb },
     { "send_event", req_send_event_cb },
+    { "cookie", req_cookie_cb },
     { NULL, NULL }
 };
 
@@ -385,6 +391,7 @@ const lwan_module_t *lwan_module_lua(void)
         .handle = lua_handle_cb,
         .flags = HANDLER_PARSE_QUERY_STRING
             | HANDLER_REMOVE_LEADING_SLASH
+            | HANDLER_PARSE_COOKIES
     };
 
     return &lua_module;

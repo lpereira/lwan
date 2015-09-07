@@ -7,6 +7,15 @@ function handle_get_hello(req)
     end
 end
 
+function handle_get_cookie(req)
+    local foo = req:cookie[[FOO]]
+    if foo then
+        req:set_response("Cookie FOO has value: " .. foo)
+    else
+        req:set_response("Cookie FOO not set")
+    end
+end
+
 function handle_get_sse(req)
     for i = 0, 10 do
         req:send_event("counter-changed", "event" .. i)
