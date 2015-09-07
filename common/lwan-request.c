@@ -144,91 +144,16 @@ key_value_compare_qsort_key(const void *a, const void *b)
     return strcmp(((lwan_key_value_t *)a)->key, ((lwan_key_value_t *)b)->key);
 }
 
-#define DECODE_AND_ADD() \
-    do { \
-        if (LIKELY(url_decode(key))) { \
-            kvs[values].key = key; \
-            if (LIKELY(url_decode(value))) \
-                kvs[values].value = value; \
-            else \
-                kvs[values].value = ""; \
-            ++values; \
-            if (UNLIKELY(values >= N_ELEMENTS(kvs))) \
-                goto oom; \
-        } \
-    } while(0)
-
 static void
-parse_urlencoded_keyvalues(lwan_request_t *request,
-    lwan_value_t *helper_value, lwan_key_value_t **base, size_t *len)
+parse_key_values(lwan_request_t *request,
+    lwan_value_t *helper_value, lwan_key_value_t **base, size_t *len,
+    size_t (*decode_value)(char *value), const char separator)
 {
-    if (!helper_value->value)
-        return;
-
-    char *key = helper_value->value;
-    char *value = NULL;
-    size_t values = 0;
-    lwan_key_value_t kvs[256];
-
-    for (char *ch = key; *ch; ch++) {
-        switch (*ch) {
-        case '=':
-            *ch = '\0';
-            value = ch + 1;
-            break;
-        case '&':
-        case ';':
-            *ch = '\0';
-            DECODE_AND_ADD();
-            key = ch + 1;
-            value = NULL;
-        }
-    }
-
-    DECODE_AND_ADD();
-oom:
-    kvs[values].key = kvs[values].value = NULL;
-
-    lwan_key_value_t *kv = coro_malloc(request->conn->coro,
-                                    (1 + values) * sizeof(lwan_key_value_t));
-    if (LIKELY(kv)) {
-        qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
-        *base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
-        *len = values;
-    }
-}
-
-#undef DECODE_AND_ADD
-
-static void
-parse_query_string(lwan_request_t *request, struct request_parser_helper *helper)
-{
-    parse_urlencoded_keyvalues(request, &helper->query_string,
-            &request->query_params.base, &request->query_params.len);
-}
-
-static void
-parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
-{
-    static const char content_type[] = "application/x-www-form-urlencoded";
-
-    if (helper->content_type.len != sizeof(content_type) - 1)
-        return;
-    if (UNLIKELY(strcmp(helper->content_type.value, content_type)))
-        return;
-
-    parse_urlencoded_keyvalues(request, &helper->post_data,
-            &request->post_data.base, &request->post_data.len);
-}
-
-static void
-parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
-{
-    char *ptr = helper->cookie.value;
+    char *ptr = helper_value->value;
     lwan_key_value_t kvs[256];
     size_t values = 0;
 
-    if (!helper->cookie.len)
+    if (!helper_value->len)
         return;
 
     do {
@@ -244,7 +169,7 @@ parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
         *value = '\0';
         value++;
 
-        end_value = strchr(value, ';');
+        end_value = strchr(value, separator);
         if (!end_value) {
             end_value = strchr(value, '\0');
             if (!end_value)
@@ -254,11 +179,14 @@ parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
 
         ptr = end_value + 1;
 
+        if (!decode_value(key) || !decode_value(value))
+            continue;
+
         kvs[values].key = key;
         kvs[values].value = value;
 
         values++;
-    } while (ptr && values < N_ELEMENTS(kvs));
+    } while (*ptr && values < N_ELEMENTS(kvs));
 
     kvs[values].key = kvs[values].value = NULL;
 
@@ -266,9 +194,45 @@ parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
         (1 + values) * sizeof(lwan_key_value_t));
     if (LIKELY(kv)) {
         qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
-        request->cookies.base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
-        request->cookies.len = values;
+        *base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
+        *len = values;
     }
+}
+
+static size_t
+identity_decode(char *input __attribute__((unused)))
+{
+    return 1;
+}
+
+static void
+parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    parse_key_values(request, &helper->cookie, &request->cookies.base,
+        &request->cookies.len, identity_decode, ';');
+}
+
+static void
+parse_query_string(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    parse_key_values(request, &helper->query_string,
+        &request->query_params.base, &request->query_params.len,
+        url_decode, '&');
+}
+
+static void
+parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    static const char content_type[] = "application/x-www-form-urlencoded";
+
+    if (helper->content_type.len != sizeof(content_type) - 1)
+        return;
+    if (UNLIKELY(strcmp(helper->content_type.value, content_type)))
+        return;
+
+    parse_key_values(request, &helper->post_data,
+        &request->post_data.base, &request->post_data.len,
+        url_decode, '&');
 }
 
 static void
