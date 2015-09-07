@@ -339,9 +339,9 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
         HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
         HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
         HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
+        HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k')
         HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
         HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g'),
-        HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k')
     };
 
     for (char *p = buffer; *p; buffer = ++p) {
@@ -385,6 +385,10 @@ retry:
         case HTTP_HDR_CONTENT:
             p += sizeof("Content") - 1;
             goto retry;
+        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
+            helper->cookie.value = value;
+            helper->cookie.len = length;
+            break;
         CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
             helper->if_modified_since.value = value;
             helper->if_modified_since.len = length;
@@ -392,10 +396,6 @@ retry:
         CASE_HEADER(HTTP_HDR_RANGE, "Range")
             helper->range.value = value;
             helper->range.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
-            helper->cookie.value = value;
-            helper->cookie.len = length;
             break;
         }
 did_not_match:
