@@ -152,7 +152,7 @@ parse_key_values(lwan_request_t *request,
     char *ptr = helper_value->value;
     lwan_key_value_t kvs[256];
     size_t values = 0;
-    bool last;
+    bool last = true;
 
     if (!helper_value->len)
         return;
@@ -166,7 +166,7 @@ parse_key_values(lwan_request_t *request,
         key = ptr;
         value = strchr(ptr, '=');
         if (!value)
-            break;
+            return;
         *value = '\0';
         value++;
 
@@ -181,7 +181,7 @@ parse_key_values(lwan_request_t *request,
         }
 
         if (!decode_value(key) || !decode_value(value))
-            continue;
+            return;
 
         kvs[values].key = key;
         kvs[values].value = value;
