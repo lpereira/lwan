@@ -535,7 +535,6 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
         l->thread.count, l->thread.max_fd);
 
     signal(SIGPIPE, SIG_IGN);
-    close(STDIN_FILENO);
 
     lwan_thread_init(l);
     lwan_socket_init(l);
