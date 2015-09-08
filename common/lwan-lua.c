@@ -134,6 +134,11 @@ static int req_set_headers_cb(lua_State *L)
         return 1;
     }
 
+    if (request->flags & RESPONSE_SENT_HEADERS) {
+        lua_pushnil(L);
+        return 1;
+    }
+
     if (!lua_istable(L, table_index)) {
         lua_pushnil(L);
         return 1;
