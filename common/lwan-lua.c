@@ -121,6 +121,62 @@ static int req_cookie_cb(lua_State *L)
     return request_param_getter(L, lwan_request_get_cookie);
 }
 
+static int req_set_headers_cb(lua_State *L)
+{
+    static const size_t max_headers = 16;
+    lwan_request_t *request = userdata_as_request(L, 1);
+    lwan_key_value_t *headers = coro_malloc(request->conn->coro, max_headers * sizeof(*headers));
+    const int table_index = 2;
+    size_t n_headers = 0;
+
+    if (!headers) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (!lua_istable(L, table_index)) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushnil(L);
+    while (n_headers < (max_headers - 1) && lua_next(L, table_index) != 0) {
+        if (lua_isstring(L, table_index + 2)) {
+            headers[n_headers].key = coro_strdup(request->conn->coro,
+                lua_tostring(L, table_index + 1));
+            headers[n_headers].value = coro_strdup(request->conn->coro,
+                lua_tostring(L, table_index + 2));
+
+            n_headers++;
+        } else if (lua_istable(L, table_index + 2)) {
+            char *header_name = coro_strdup(request->conn->coro,
+                lua_tostring(L, table_index + 1));
+
+            lua_pushnil(L);
+            while (n_headers < (max_headers - 1) && lua_next(L, table_index + 2) != 0) {
+                if (lua_isstring(L, table_index + 1 + 2)) {
+                    headers[n_headers].key = header_name;
+                    headers[n_headers].value = coro_strdup(request->conn->coro,
+                        lua_tostring(L, table_index + 2 + 2));
+
+                    n_headers++;
+                }
+
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+    }
+    if (n_headers == (max_headers - 1))
+        lua_pop(L, 1);
+
+    headers[n_headers].key = headers[n_headers].value = NULL;
+    request->response.headers = headers;
+
+    lua_pushinteger(L, (lua_Integer)n_headers);
+    return 1;
+}
+
 static const struct luaL_reg lwan_request_meta_regs[] = {
     { "query_param", req_query_param_cb },
     { "post_param", req_post_param_cb },
@@ -129,6 +185,7 @@ static const struct luaL_reg lwan_request_meta_regs[] = {
     { "say", req_say_cb },
     { "send_event", req_send_event_cb },
     { "cookie", req_cookie_cb },
+    { "set_headers", req_set_headers_cb },
     { NULL, NULL }
 };
 

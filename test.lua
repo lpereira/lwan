@@ -8,6 +8,15 @@ function handle_get_hello(req)
 end
 
 function handle_get_cookie(req)
+    req:set_headers({
+        ["Set-Cookie"] = {
+            "SESSION_ID=1234; HttpOnly",
+            "LANG=pt_BR"
+        },
+        ['Other-Header'] = 'some random value',
+        ['Yet-Another-Header'] = '42'
+    })
+
     local foo = req:cookie[[FOO]]
     if foo then
         req:set_response("Cookie FOO has value: " .. foo)

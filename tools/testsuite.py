@@ -313,12 +313,20 @@ class TestLua(LwanTest):
     self.assertEqual(r.text, 'Hello, foo!')
 
   def test_cookies(self):
-    c = {
+    cookies_to_send = {
         'FOO': 'BAR'
     }
-    r = requests.get('http://localhost:8080/lua/cookie', cookies=c)
+    cookies_to_receive = {
+        'SESSION_ID': '1234',
+        'LANG': 'pt_BR',
+    }
+    r = requests.get('http://localhost:8080/lua/cookie', cookies=cookies_to_send)
     self.assertResponseHtml(r)
     self.assertEqual(r.text, 'Cookie FOO has value: BAR')
+
+    for cookie, value in cookies_to_receive.items():
+      self.assertTrue(cookie in r.cookies)
+      self.assertEqual(r.cookies[cookie], value)
 
 
 class TestHelloWorld(LwanTest):
