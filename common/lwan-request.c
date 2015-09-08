@@ -189,7 +189,7 @@ parse_key_values(lwan_request_t *request,
         kvs[values].value = value;
 
         values++;
-    } while (!last && *ptr && values < N_ELEMENTS(kvs));
+    } while (!last && values < N_ELEMENTS(kvs));
 
     kvs[values].key = kvs[values].value = NULL;
 
