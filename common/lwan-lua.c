@@ -146,6 +146,11 @@ static int req_set_headers_cb(lua_State *L)
 
     lua_pushnil(L);
     while (n_headers < (max_headers - 1) && lua_next(L, table_index) != 0) {
+        if (!lua_isstring(L, table_index + 1)) {
+            lua_pop(L, 1);
+            continue;
+        }
+
         if (lua_isstring(L, table_index + 2)) {
             headers[n_headers].key = coro_strdup(request->conn->coro,
                 lua_tostring(L, table_index + 1));
@@ -170,6 +175,7 @@ static int req_set_headers_cb(lua_State *L)
                 lua_pop(L, 1);
             }
         }
+
         lua_pop(L, 1);
     }
     if (n_headers == (max_headers - 1))
