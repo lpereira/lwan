@@ -124,9 +124,11 @@ static int req_cookie_cb(lua_State *L)
 static int req_set_headers_cb(lua_State *L)
 {
     static const size_t max_headers = 16;
+    static const int key_index = 1;
+    static const int value_index = 2;
+    static const int table_index = 2;
     lwan_request_t *request = userdata_as_request(L, 1);
     lwan_key_value_t *headers = coro_malloc(request->conn->coro, max_headers * sizeof(*headers));
-    const int table_index = 2;
     size_t n_headers = 0;
 
     if (!headers) {
@@ -146,28 +148,28 @@ static int req_set_headers_cb(lua_State *L)
 
     lua_pushnil(L);
     while (n_headers < (max_headers - 1) && lua_next(L, table_index) != 0) {
-        if (!lua_isstring(L, table_index + 1)) {
+        if (!lua_isstring(L, table_index + key_index)) {
             lua_pop(L, 1);
             continue;
         }
 
-        if (lua_isstring(L, table_index + 2)) {
+        if (lua_isstring(L, table_index + value_index)) {
             headers[n_headers].key = coro_strdup(request->conn->coro,
-                lua_tostring(L, table_index + 1));
+                lua_tostring(L, table_index + key_index));
             headers[n_headers].value = coro_strdup(request->conn->coro,
-                lua_tostring(L, table_index + 2));
+                lua_tostring(L, table_index + value_index));
 
             n_headers++;
-        } else if (lua_istable(L, table_index + 2)) {
+        } else if (lua_istable(L, table_index + value_index)) {
             char *header_name = coro_strdup(request->conn->coro,
-                lua_tostring(L, table_index + 1));
+                lua_tostring(L, table_index + key_index));
 
             lua_pushnil(L);
-            while (n_headers < (max_headers - 1) && lua_next(L, table_index + 2) != 0) {
-                if (lua_isstring(L, table_index + 1 + 2)) {
+            while (n_headers < (max_headers - 1) && lua_next(L, table_index + value_index) != 0) {
+                if (lua_isstring(L, table_index + value_index + value_index)) {
                     headers[n_headers].key = header_name;
                     headers[n_headers].value = coro_strdup(request->conn->coro,
-                        lua_tostring(L, table_index + 2 + 2));
+                        lua_tostring(L, table_index + value_index + value_index));
 
                     n_headers++;
                 }
