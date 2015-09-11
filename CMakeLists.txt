@@ -84,7 +84,7 @@ else ()
 	option(ASAN "Build with address sanitizer" OFF)
 
 	if (UBSAN)
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
 	elseif (ASAN)
 		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
 	endif ()
