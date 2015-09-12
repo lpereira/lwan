@@ -87,6 +87,8 @@ static unsigned get_random_unsigned(void)
 __attribute__((constructor))
 static void initialize_odd_constant(void)
 {
+	/* This constant is randomized in order to mitigate the DDoS attack
+	 * described by Crosby and Wallach in UsenixSec2003.  */
 	odd_constant = get_random_unsigned() | 1;
 	murmur3_set_seed(odd_constant);
 }
