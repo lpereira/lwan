@@ -127,6 +127,7 @@ static int req_set_headers_cb(lua_State *L)
     static const int table_index = 2;
     static const int key_index = 1 + table_index;
     static const int value_index = 2 + table_index;
+    static const int nested_value_index = value_index * 2 - table_index;
     lwan_request_t *request = userdata_as_request(L, 1);
     lwan_key_value_t *headers = coro_malloc(request->conn->coro, max_headers * sizeof(*headers));
     size_t n_headers = 0;
@@ -166,10 +167,10 @@ static int req_set_headers_cb(lua_State *L)
 
             lua_pushnil(L);
             while (n_headers < (max_headers - 1) && lua_next(L, value_index) != 0) {
-                if (lua_isstring(L, value_index + value_index)) {
+                if (lua_isstring(L, nested_value_index)) {
                     headers[n_headers].key = header_name;
                     headers[n_headers].value = coro_strdup(request->conn->coro,
-                        lua_tostring(L, value_index + value_index));
+                        lua_tostring(L, nested_value_index));
 
                     n_headers++;
                 }
