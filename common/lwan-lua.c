@@ -123,11 +123,11 @@ static int req_cookie_cb(lua_State *L)
 
 static int req_set_headers_cb(lua_State *L)
 {
-    static const size_t max_headers = 16;
-    static const int table_index = 2;
-    static const int key_index = 1 + table_index;
-    static const int value_index = 2 + table_index;
-    static const int nested_value_index = value_index * 2 - table_index;
+    const size_t max_headers = 16;
+    const int table_index = 2;
+    const int key_index = 1 + table_index;
+    const int value_index = 2 + table_index;
+    const int nested_value_index = value_index * 2 - table_index;
     lwan_request_t *request = userdata_as_request(L, 1);
     lwan_key_value_t *headers = coro_malloc(request->conn->coro, max_headers * sizeof(*headers));
     size_t n_headers = 0;
