@@ -450,12 +450,6 @@ get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
     char index_html_path_buf[PATH_MAX];
     char *index_html_path = index_html_path_buf;
 
-    if (UNLIKELY(!(st->st_mode & (S_IRUSR | S_IRGRP | S_IROTH)))) {
-        lwan_status_debug("File %s is not readable owner, group, and others.",
-            full_path);
-        return NULL;
-    }
-
     if (S_ISDIR(st->st_mode)) {
         /* It is a directory. It might be the root directory (empty key), or
          * something else.  In either case, tack priv->index_html to the
@@ -538,6 +532,9 @@ create_cache_entry(const char *key, void *context)
 
     if (UNLIKELY(!realpathat2(priv->root.fd, priv->root.path,
                 key, full_path, &st)))
+        return NULL;
+
+    if (UNLIKELY(!(st.st_mode & (S_IRUSR | S_IRGRP | S_IROTH))))
         return NULL;
 
     if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
