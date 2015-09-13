@@ -310,8 +310,8 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   </li>
   <li>Mostly <b>wait-free</b> multi-threaded design
     <ul>
-        <li>One thread accepts connections, one I/O thread per logical CPU handles them
-        <li>Hand-crafted <b>coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
+        <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
+        <li>Hand-made <b>coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
         <li><b>Linux only</b>, as it relies on <tt>epoll()</tt></li>
         <li>Purpose-built I/O loop</li>
     </ul>
@@ -321,8 +321,10 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	<li>Directory listing</li>
   	<li>File information (size, last modified date, MIME type, etc)</li>
   	<li>Compressed files</li>
+  	<li>Compiled Lua scripts</li>
   </ul>
   </li>
+  <li>Request rewriting support based on <b>Lua</b> pattern matching syntax</li>
   <li><b>Diminute codebase</b> with roughly 8000 lines of C11 (<tt>gnu11</tt>, in fact)  code</li>
   <li><a href="https://mustache.github.io/">Mustache templating</a> engine
      <ul>
@@ -353,7 +355,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	<li>Code is <b>statically analyzed</b> by Clang Static Analyzer</li>
   	<li>Debug &amp; Release builds</li>
   	<li>Test suite written in Python <b>tests the server</b> as a black box</li>
-  	<li>Test suite is executed with <b>Undefined Behavior</b> sanitizer</li>
+  	<li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers</li>
   </ul>
   </li>
 </ul>
@@ -400,8 +402,10 @@ main(void)
     lwan_t l;
 
     lwan_init(&l);
+
     lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
+
     lwan_shutdown(&l);
 
     return 0;
@@ -410,8 +414,10 @@ main(void)
 
 <p><b>Lua</b> is also available to write handlers, but support is still
 pretty rough and not everything available to <b>C</b> handlers is available
-to <b>Lua</b> scripts.  However, it's enough to run some frameworks, such as
-<a href="http://sailorproject.org/">Sailor</a>.  To whet your appetite, an
+to <b>Lua</b> scripts.</p>
+
+<p>However, it's enough to run some frameworks, such as <a
+href="http://sailorproject.org/">Sailor</a>.  To whet your appetite, an
 improvement of the program above could be easily written in <b>Lua</b> like
 so:</p>
 
@@ -494,7 +500,7 @@ href="https://en.wikipedia.org/wiki/Backronym">bacronym</a>, "Lwan Will
 Annihilate Node.js", which is funny because this is very unlikely to ever
 happen.</p>
 
-<p><h3>Two years is a long time for a project this small!</h3>  This
+<p><h3>Three years is a long time for a project this small!</h3>  This
 isn't a question, but, yes, it is a long time.  Keep in mind that this has
 been written exclusively on the spare time of a single developer, who works
 full-time on a real job.  Also consider that this was exclusively a research
