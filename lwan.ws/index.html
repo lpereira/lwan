@@ -248,12 +248,16 @@ blockquote cite:before {
 <canvas id="rps" height="200" width="300"></canvas>
 <table style="margin-left: auto; margin-right: auto">
 <tr>
-  <td><span style="display:inline-block; width: 12px; height: 8px; background:
-#627d4d; border: 1px solid black"></span></td>
-  <td><b>Hello, World!</b> handler</td>
-  <td><span style="display:inline-block; width: 12px; height: 8px; background:
-#7d624d; border: 1px solid black; margin-left: 10px"></span></td>
-  <td>100-byte file</td>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background: #627d4d; border: 1px solid black"></span></td>
+  <td><b>Hello, World!</b> <small>(C)</small></td>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background: #7d624d; border: 1px solid black; margin-left: 10px"></span></td>
+  <td>100B file</td>
+</tr>
+<tr>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background: #b0ce7a; border: 1px solid black"></span></td>
+  <td><b>Hello, World!</b> <small>(LuaJIT)</small></td>
+  <td><span style="display:inline-block; width: 12px; height: 8px; background: #624d7d; border: 1px solid black; margin-left: 10px"></span></td>
+  <td>32KiB file</td>
 </tr>
 </table>
 </div>
@@ -525,12 +529,21 @@ var rpsData = {
     datasets: [
         {
             strokeColor: "#627d4d",
-            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449]
+            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,151039]
         },
         {
             strokeColor: "#7d624d",
-            data: [263763,176919,131799,153484,149156,150527,142337,140361,135362,127335]
-        }
+            data: [263763,176919,131799,153484,149156,150527,142337,140361,135362,127335,124762]
+        },
+        {
+            strokeColor: "#b0ce7a",
+            data: [205771,146209,136657,131498,127808,123418,120594,113461,110392,109617,100225]
+        },
+        {
+            strokeColor: "#624d7d",
+            data:
+            [121734,83395,76983,77692,75953,53227,51372,68977,33744,71261,40220],
+        },
     ]
 }
 
