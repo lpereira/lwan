@@ -743,9 +743,7 @@ prepare_headers(lwan_request_t *request,
                  size_t header_buf_size)
 {
     lwan_key_value_t headers[3] = {
-        { .key = "Last-Modified", .value = fce->last_modified.string },
-        { },
-        { }
+        [0] = { .key = "Last-Modified", .value = fce->last_modified.string },
     };
 
     request->response.headers = headers;
@@ -953,8 +951,7 @@ redir_serve(lwan_request_t *request, void *data)
     char header_buf[DEFAULT_BUFFER_SIZE];
     size_t header_buf_size;
     lwan_key_value_t headers[2] = {
-        { .key = "Location", .value = rd->redir_to },
-        { }
+        [0] = { .key = "Location", .value = rd->redir_to },
     };
 
     request->response.headers = headers;
