@@ -17,6 +17,7 @@ set(SOURCES
 	lwan-serve-files.c
 	lwan-socket.c
 	lwan-status.c
+	lwan-straitjacket.c
 	lwan-tables.c
 	lwan-template.c
 	lwan-thread.c

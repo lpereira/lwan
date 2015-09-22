@@ -45,6 +45,8 @@ void lwan_tables_shutdown(void);
 char *lwan_process_request(lwan_t *l, lwan_request_t *request,
                            lwan_value_t *buffer, char *next_request);
 
+void lwan_straitjacket_enforce(config_t *c, config_line_t *l);
+
 #undef static_assert
 #if HAVE_STATIC_ASSERT
 #define static_assert(expr, msg)	_Static_assert(expr, msg)

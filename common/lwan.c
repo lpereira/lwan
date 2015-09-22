@@ -412,14 +412,17 @@ static bool setup_from_config(lwan_t *lwan)
                 config_error(&conf, "Unknown config key: %s", line.line.key);
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (!has_listener) {
-                has_listener = true;
-                if (!strcmp(line.section.name, "listener"))
+            if (!strcmp(line.section.name, "listener")) {
+                if (!has_listener) {
                     parse_listener(&conf, &line, lwan);
-                else
-                    config_error(&conf, "Unknown section type: %s", line.section.name);
+                    has_listener = true;
+                } else {
+                    config_error(&conf, "Only one listener supported");
+                }
+            } else if (!strcmp(line.section.name, "straitjacket")) {
+                lwan_straitjacket_enforce(&conf, &line);
             } else {
-                config_error(&conf, "Only one listener supported");
+                config_error(&conf, "Unknown section type: %s", line.section.name);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
