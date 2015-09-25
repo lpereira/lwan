@@ -70,7 +70,7 @@ static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 
 static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
 {
-    lwan_status_debug("Dropping privileges to UID %d, GID %d (%s)",
+    lwan_status_info("Dropping privileges to UID %d, GID %d (%s)",
         uid, gid, username);
 
     if (setgid(gid) < 0)
