@@ -149,12 +149,19 @@ parse_key_values(lwan_request_t *request,
     lwan_value_t *helper_value, lwan_key_value_t **base, size_t *len,
     size_t (*decode_value)(char *value), const char separator)
 {
+    const size_t n_elements = 32;
     char *ptr = helper_value->value;
-    lwan_key_value_t kvs[256];
+    lwan_key_value_t *kvs;
     size_t values = 0;
 
     if (!helper_value->len)
         return;
+
+    kvs = coro_malloc(request->conn->coro, n_elements * sizeof(*kvs));
+    if (UNLIKELY(!kvs)) {
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
 
     do {
         char *key, *value;
@@ -184,17 +191,13 @@ parse_key_values(lwan_request_t *request,
         kvs[values].value = value;
 
         values++;
-    } while (ptr && values < N_ELEMENTS(kvs));
+    } while (ptr && values < n_elements);
 
     kvs[values].key = kvs[values].value = NULL;
 
-    lwan_key_value_t *kv = coro_malloc(request->conn->coro,
-        (1 + values) * sizeof(lwan_key_value_t));
-    if (LIKELY(kv)) {
-        qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
-        *base = memcpy(kv, kvs, (1 + values) * sizeof(lwan_key_value_t));
-        *len = values;
-    }
+    qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
+    *base = kvs;
+    *len = values;
 }
 
 static size_t
