@@ -32,6 +32,8 @@
 #include <valgrind/valgrind.h>
 #endif
 
+#define CORO_RESET_THRESHOLD	16
+
 #define CORO_STACK_MIN		((3 * (PTHREAD_STACK_MIN)) / 2)
 
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
@@ -58,6 +60,7 @@ struct coro_t_ {
     coro_defer_t *defer;
     void *data;
 
+    unsigned char reset_count;
     bool ended;
 };
 
@@ -154,6 +157,7 @@ coro_run_deferred(coro_t *coro)
         free(tmp);
     }
     coro->defer = NULL;
+    coro->reset_count = CORO_RESET_THRESHOLD;
 }
 
 void
@@ -164,7 +168,8 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->ended = false;
     coro->data = data;
 
-    coro_run_deferred(coro);
+    if (!coro->reset_count--)
+        coro_run_deferred(coro);
 
 #if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
@@ -204,6 +209,7 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 
     coro->switcher = switcher;
     coro->defer = NULL;
+    coro->reset_count = CORO_RESET_THRESHOLD;
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
