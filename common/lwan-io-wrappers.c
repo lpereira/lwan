@@ -235,12 +235,6 @@ sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_
 ssize_t
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 {
-    if (count > BUFFER_SIZE * 5) {
-        if (UNLIKELY(posix_fadvise(in_fd, offset, (off_t)count,
-                                            POSIX_FADV_SEQUENTIAL) < 0))
-            lwan_status_perror("posix_fadvise");
-    }
-
     ssize_t written_bytes = sendfile_linux_sendfile(
 			request->conn->coro, in_fd, request->fd, offset, count);
 
