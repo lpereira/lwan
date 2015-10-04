@@ -43,7 +43,6 @@ lwan_openat(lwan_request_t *request,
         switch (errno) {
         case EMFILE:
         case ENFILE:
-            coro_run_deferred(request->conn->coro);
         case EWOULDBLOCK:
         case EINTR:
         case ENOMEM:

@@ -147,7 +147,7 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-void
+static void
 coro_run_deferred(coro_t *coro)
 {
     for (coro_defer_t *defer = coro->defer; defer;) {
@@ -318,13 +318,8 @@ coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 {
     coro_defer_t *defer = malloc(sizeof(*defer) + size);
 
-    if (UNLIKELY(!defer)) {
-        coro_run_deferred(coro);
-
-        defer = malloc(sizeof(*defer) + size);
-        if (UNLIKELY(!defer))
-            return NULL;
-    }
+    if (UNLIKELY(!defer))
+        return NULL;
 
     defer->next = coro->defer;
     defer->func = destroy_func;
