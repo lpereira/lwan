@@ -41,10 +41,11 @@ lwan_openat(lwan_request_t *request,
         }
 
         switch (errno) {
-        case EWOULDBLOCK:
-        case EINTR:
         case EMFILE:
         case ENFILE:
+            coro_run_deferred(request->conn->coro);
+        case EWOULDBLOCK:
+        case EINTR:
         case ENOMEM:
             coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
             break;
