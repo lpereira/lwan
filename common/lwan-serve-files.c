@@ -524,6 +524,7 @@ create_cache_entry_from_funcs(serve_files_priv_t *priv, const char *full_path,
 static struct cache_entry_t *
 create_cache_entry(const char *key, void *context)
 {
+    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
     serve_files_priv_t *priv = context;
     file_cache_entry_t *fce;
     struct stat st;
@@ -534,7 +535,7 @@ create_cache_entry(const char *key, void *context)
                 key, full_path, &st)))
         return NULL;
 
-    if (UNLIKELY(!(st.st_mode & (S_IRUSR | S_IRGRP | S_IROTH))))
+    if (UNLIKELY((st.st_mode & world_readable) != world_readable))
         return NULL;
 
     if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
