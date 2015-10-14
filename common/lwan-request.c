@@ -166,7 +166,7 @@ parse_key_values(lwan_request_t *request,
     do {
         char *key, *value;
 
-        while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == separator))
+        while (*ptr == ' ' || *ptr == separator)
             ptr++;
         if (UNLIKELY(*ptr == '\0'))
             return;
