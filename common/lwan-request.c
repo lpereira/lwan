@@ -60,8 +60,8 @@ struct request_parser_helper {
 
 static char decode_hex_digit(char ch) __attribute__((pure));
 static bool is_hex_digit(char ch) __attribute__((pure));
-static unsigned long has_zero_byte(unsigned long n) __attribute__((pure));
-static unsigned long is_space(char ch) __attribute__((pure));
+static uint32_t has_zero_byte(uint32_t n) __attribute__((pure));
+static uint32_t is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
 
@@ -484,16 +484,16 @@ parse_accept_encoding(lwan_request_t *request, struct request_parser_helper *hel
     }
 }
 
-static ALWAYS_INLINE unsigned long
-has_zero_byte(unsigned long n)
+static ALWAYS_INLINE uint32_t
+has_zero_byte(uint32_t n)
 {
-    return ((n - 0x01010101UL) & ~n) & 0x80808080UL;
+    return ((n - 0x01010101U) & ~n) & 0x80808080U;
 }
 
-static ALWAYS_INLINE unsigned long
+static ALWAYS_INLINE uint32_t
 is_space(char ch)
 {
-    return has_zero_byte((0x1010101UL * (unsigned long)ch) ^ 0x090a0d20UL);
+    return has_zero_byte((0x1010101U * (uint32_t)ch) ^ 0x090a0d20U);
 }
 
 static ALWAYS_INLINE char *
