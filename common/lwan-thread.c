@@ -443,6 +443,7 @@ lwan_thread_shutdown(lwan_t *l)
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
         char less_than_int = 0;
+        ssize_t r;
 
         lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
             t->epoll_fd);
@@ -450,7 +451,19 @@ lwan_thread_shutdown(lwan_t *l)
         /* Close the epoll_fd and write less than an int to signal the
          * thread to gracefully finish.  */
         close(t->epoll_fd);
-        write(t->pipe_fd[1], &less_than_int, sizeof(less_than_int));
+
+        while (true) {
+            r = write(t->pipe_fd[1], &less_than_int, sizeof(less_than_int));
+
+            if (r >= 0)
+                break;
+
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+                continue;
+
+            lwan_status_error("Could not write to I/O thread (%d) pipe to shutdown", i);
+            break;
+        }
     }
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
