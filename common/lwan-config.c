@@ -138,7 +138,7 @@ static char *remove_trailing_spaces(char *line)
 {
     char *end = rawmemchr(line, '\0');
 
-    for (end--; isspace(*end); end--);
+    for (end--; end >= line && isspace(*end); end--);
     *(end + 1) = '\0';
 
     return line;
