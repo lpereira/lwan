@@ -182,7 +182,7 @@ static void *parser_negate_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_meta(struct parser *parser, struct lexeme *lexeme);
 static void *parser_text(struct parser *parser, struct lexeme *lexeme);
 
-static void *error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
+static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
     __attribute__((format(printf, 2, 0)));
 static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
@@ -292,7 +292,7 @@ static void backup(struct lexer *lexer)
     lexer->pos--;
 }
 
-static void *error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
+static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
 {
     int r;
 
@@ -314,14 +314,13 @@ static void *error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
 
 static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
 {
-    void *ret;
     va_list ap;
 
     va_start(ap, msg);
-    ret = error_vlexeme(lexeme, msg, ap);
+    error_vlexeme(lexeme, msg, ap);
     va_end(ap);
 
-    return ret;
+    return NULL;
 }
 
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
