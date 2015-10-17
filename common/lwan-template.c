@@ -599,7 +599,7 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
         if (iter->action != ACTION_START_ITER)
             continue;
         if (iter->data == symbol) {
-            emit_chunk(parser, ACTION_END_ITER, 0, iter);
+            emit_chunk(parser, ACTION_END_ITER, 0, (void *)(ptrdiff_t)idx);
             symtab_pop(parser);
             return parser_text;
         }
@@ -970,9 +970,14 @@ post_process_template(struct parser *parser)
             for (prev_chunk = chunk; ; chunk++) {
                 if (chunk->action == ACTION_LAST)
                     break;
-                if (chunk->action == ACTION_END_ITER && chunk->data == prev_chunk) {
-                    chunk->flags |= flags;
-                    break;
+                if (chunk->action == ACTION_END_ITER) {
+                    struct chunk *end_iter_data = parser->chunks.data + (ptrdiff_t)chunk->data;
+
+                    if (end_iter_data == prev_chunk) {
+                        chunk->data = end_iter_data;
+                        chunk->flags |= flags;
+                        break;
+                    }
                 }
             }
 
