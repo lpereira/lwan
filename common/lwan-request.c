@@ -92,13 +92,19 @@ identify_http_method(lwan_request_t *request, char *buffer)
 {
     lwan_request_flags_t flags = get_http_method(buffer);
     static const char sizes[] = {
-        [0] = 0,
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
         [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
         [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
     };
-    request->flags |= flags;
-    return buffer + sizes[flags];
+
+    if (flags) {
+        buffer += sizes[flags];
+        if (*buffer == ' ') {
+            request->flags |= flags;
+        }
+    }
+
+    return buffer;
 }
 
 static ALWAYS_INLINE char
