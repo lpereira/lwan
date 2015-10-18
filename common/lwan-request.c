@@ -70,9 +70,12 @@ get_http_method(const char *buffer)
 {
     /* Note: keep in sync in identify_http_method() */
     enum {
-        HTTP_STR_GET  = MULTICHAR_CONSTANT('G','E','T',' '),
-        HTTP_STR_HEAD = MULTICHAR_CONSTANT('H','E','A','D'),
-        HTTP_STR_POST = MULTICHAR_CONSTANT('P','O','S','T')
+        HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
+        HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
+        HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
+        HTTP_STR_PROXY1  = MULTICHAR_CONSTANT('P','R','O','X'),
+        HTTP_STR_PROXY21 = MULTICHAR_CONSTANT('\x00','\x0D','\x0A','\x51'),
+        HTTP_STR_PROXY22 = MULTICHAR_CONSTANT('\x55','\x49','\x54','\x0A')
     };
 
     STRING_SWITCH(buffer) {
@@ -82,15 +85,245 @@ get_http_method(const char *buffer)
         return REQUEST_METHOD_HEAD;
     case HTTP_STR_POST:
         return REQUEST_METHOD_POST;
+    case HTTP_STR_PROXY1:
+        if (buffer[4] != 'Y') break;
+        return REQUEST_METHOD_PROXY1;
+    case HTTP_STR_PROXY21:
+        if ((string_as_int32(buffer + 4) == HTTP_STR_PROXY22) &&
+            (*(buffer + 8) >> 4 == 2))
+            return REQUEST_METHOD_PROXY2;
     }
 
     return 0;
 }
 
+static lwan_request_flags_t
+parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
+{
+    union header_t_ {
+        struct {
+            char line[108];
+        } v1;
+        struct {
+            uint8_t sig[8];
+            uint8_t cmd : 4;
+            uint8_t ver : 4;
+            uint8_t fam;
+            uint16_t len;
+            union {
+                struct {
+                        uint32_t src_addr;
+                        uint32_t dst_addr;
+                        uint16_t src_port;
+                        uint16_t dst_port;
+                } ip4;
+                struct {
+                         uint8_t src_addr[16];
+                         uint8_t dst_addr[16];
+                         uint16_t src_port;
+                         uint16_t dst_port;
+                } ip6;
+                struct {
+                         uint8_t src_addr[108];
+                         uint8_t dst_addr[108];
+                } unx;
+            } addr;
+        } v2;
+    };
+
+    unsigned int size;
+    lwan_proxy_t *proxy = &request->conn->thread->lwan->proxies[request->fd];
+    union header_t_ *hdr = (union header_t_ *) *buffer;
+
+    if (version == 1) {
+        char *end, *ptr, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
+
+        end = memchr(hdr->v1.line, '\r', sizeof(*hdr));
+        if (!end || end[1] != '\n') {
+            return 0;
+        }
+
+        *end = '\0';
+        size = (unsigned int) (end + 2 - hdr->v1.line);
+
+        ptr = hdr->v1.line;
+        strsep(&ptr, " ");
+
+        protocol = strsep(&ptr, " ");
+        src_addr = strsep(&ptr, " ");
+        dst_addr = strsep(&ptr, " ");
+        src_port = strsep(&ptr, " ");
+        dst_port = ptr;
+
+        if (protocol != NULL && dst_port != NULL) {
+            enum {
+                TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
+                TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6')
+            };
+
+            STRING_SWITCH(protocol) {
+            case TCP4:
+                do {
+                    long porttmp;
+
+                    struct sockaddr_in *from = &proxy->from.ipv4;
+                    struct sockaddr_in *to = &proxy->to.ipv4;
+
+                    from->sin_family = to->sin_family = AF_INET;
+
+                    if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1) {
+                        return 0;
+                    }
+
+                    if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1) {
+                        return 0;
+                    }
+
+                    porttmp = strtol(src_port, NULL, 10);
+                    if (!(porttmp > 0 && porttmp < 65536)) {
+                        return 0;
+                    }
+                    from->sin_port = htons((uint16_t) porttmp);
+
+                    porttmp = strtol(dst_port, NULL, 10);
+                    if (!(porttmp > 0 && porttmp < 65536)) {
+                        return 0;
+                    }
+
+                    to->sin_port = htons((uint16_t) porttmp);
+                } while (0);
+                break;
+            case TCP6:
+                do {
+                    long porttmp;
+
+                    struct sockaddr_in6 *from = &proxy->from.ipv6;
+                    struct sockaddr_in6 *to = &proxy->to.ipv6;
+
+                    from->sin6_family = to->sin6_family = AF_INET6;
+
+                    if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1) {
+                        return 0;
+                    }
+
+                    if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1) {
+                        return 0;
+                    }
+
+                    porttmp = strtol(src_port, NULL, 10);
+                    if (!(porttmp > 0 && porttmp < 65536)) {
+                        return 0;
+                    }
+
+                    from->sin6_port = htons((uint16_t) porttmp);
+
+                    porttmp = strtol(dst_port, NULL, 10);
+                    if (!(porttmp > 0 && porttmp < 65536)) {
+                        return 0;
+                    }
+
+                    to->sin6_port = htons((uint16_t) porttmp);
+                } while (0);
+                break;
+            default:
+                if (memcmp(protocol, "UNKNOWN", 7) != 0) return 0;
+
+                struct sockaddr_in *from = &proxy->from.ipv4;
+                struct sockaddr_in *to = &proxy->to.ipv4;
+
+                from->sin_family = to->sin_family = AF_UNSPEC;
+            }
+        }
+
+        goto done;
+    }
+
+    if (version == 2) {
+        size = 12 + (unsigned int) ntohs(hdr->v2.len);
+        if (size > sizeof(union header_t_)) return 0;
+
+        enum {
+            LOCAL = 0,
+            PROXY = 1
+        };
+
+        switch (hdr->v2.cmd) {
+        case LOCAL:
+            do {
+                struct sockaddr_in *from = &proxy->from.ipv4;
+                struct sockaddr_in *to = &proxy->to.ipv4;
+
+                from->sin_family = to->sin_family = AF_UNSPEC;
+            } while (0);
+            break;
+        case PROXY:
+            do {
+                enum {
+                    TCP4 = 0x11,
+                    TCP6 = 0x21
+                };
+
+                switch (hdr->v2.fam) {
+                case TCP4:
+                    do {
+                        struct sockaddr_in *from = &proxy->from.ipv4;
+                        struct sockaddr_in *to = &proxy->to.ipv4;
+
+                        to->sin_family = from->sin_family = AF_INET;
+
+                        from->sin_addr.s_addr = hdr->v2.addr.ip4.src_addr;
+                        from->sin_port = hdr->v2.addr.ip4.src_port;
+
+                        to->sin_addr.s_addr = hdr->v2.addr.ip4.dst_addr;
+                        to->sin_port = hdr->v2.addr.ip4.dst_port;
+                    } while (0);
+                    break;
+                case TCP6:
+                    do {
+                        struct sockaddr_in6 *from = &proxy->from.ipv6;
+                        struct sockaddr_in6 *to = &proxy->to.ipv6;
+
+                        from->sin6_family = to->sin6_family = AF_INET6;
+
+                        memcpy(&from->sin6_addr, hdr->v2.addr.ip6.src_addr, 16);
+                        from->sin6_port = hdr->v2.addr.ip6.src_port;
+
+                        memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, 16);
+                        to->sin6_port = hdr->v2.addr.ip6.dst_port;
+                    } while (0);
+                    break;
+                default:
+                    return 0;
+                }
+            } while (0);
+            break;
+        default:
+            return 0;
+        }
+
+        goto done;
+    }
+
+    return 0;
+
+ done:
+    request->conn->flags |= CONN_PROXIED;
+    *buffer += size;
+    return get_http_method(*buffer);
+}
+
 static ALWAYS_INLINE char *
 identify_http_method(lwan_request_t *request, char *buffer)
 {
+    char *path;
     lwan_request_flags_t flags = get_http_method(buffer);
+
+    if (flags == REQUEST_METHOD_PROXY1)
+        flags = parse_proxy_protocol(request, &buffer, 1);
+
+    if (flags == REQUEST_METHOD_PROXY2)
+        flags = parse_proxy_protocol(request, &buffer, 2);
+
     static const char sizes[] = {
         [0] = 0,
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
@@ -666,15 +899,15 @@ read_post_data(lwan_request_t *request __attribute__((unused)),
 static lwan_http_status_t
 parse_http_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
-    char *buffer;
-
-    buffer = ignore_leading_whitespace(helper->buffer->value);
-    if (UNLIKELY(!*buffer))
-        return HTTP_BAD_REQUEST;
+    char *buffer = ignore_leading_whitespace(helper->buffer->value);
 
     char *path = identify_http_method(request, buffer);
-    if (UNLIKELY(buffer == path))
+    if (UNLIKELY(buffer == path)) {
+        if (UNLIKELY(!*buffer))
+            return HTTP_BAD_REQUEST;
+
         return HTTP_NOT_ALLOWED;
+    }
 
     buffer = identify_http_path(request, path, helper);
     if (UNLIKELY(!buffer))
@@ -882,14 +1115,26 @@ const char *
 lwan_request_get_remote_address(lwan_request_t *request,
             char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_storage sock_addr = { 0 };
-    socklen_t sock_len = sizeof(struct sockaddr_storage);
-    if (UNLIKELY(getpeername(request->fd, (struct sockaddr *)&sock_addr, &sock_len) < 0))
-        return NULL;
+    struct sockaddr_storage __sock_addr;
+    struct sockaddr_storage *sock_addr = &__sock_addr;
 
-    if (sock_addr.ss_family == AF_INET)
-        return inet_ntop(AF_INET, &((struct sockaddr_in *)&sock_addr)->sin_addr,
+    if (request->conn->flags & CONN_PROXIED) {
+        sock_addr = (struct sockaddr_storage *)
+            &request->conn->thread->lwan->proxies[request->fd].from;
+    } else {
+        socklen_t sock_len = sizeof(__sock_addr);
+        if (UNLIKELY(getpeername(request->fd,
+                                 (struct sockaddr *) sock_addr,
+                                 &sock_len) < 0))
+            return NULL;
+    }
+
+    if (sock_addr->ss_family == AF_INET)
+        return inet_ntop(AF_INET,
+                         &((struct sockaddr_in *) sock_addr)->sin_addr,
                          buffer, INET6_ADDRSTRLEN);
-    return inet_ntop(AF_INET6, &((struct sockaddr_in6 *)&sock_addr)->sin6_addr,
+
+    return inet_ntop(AF_INET6,
+                     &((struct sockaddr_in6 *) sock_addr)->sin6_addr,
                      buffer, INET6_ADDRSTRLEN);
 }

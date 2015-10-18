@@ -110,6 +110,7 @@ typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
 typedef struct lwan_config_t_		lwan_config_t;
+typedef struct lwan_proxy_t_		lwan_proxy_t;
 typedef struct lwan_connection_t_	lwan_connection_t;
 
 typedef enum {
@@ -150,13 +151,15 @@ typedef enum {
     REQUEST_METHOD_GET         = 1<<0,
     REQUEST_METHOD_HEAD        = 1<<1,
     REQUEST_METHOD_POST        = 1<<2,
-    REQUEST_ACCEPT_DEFLATE     = 1<<3,
-    REQUEST_ACCEPT_GZIP        = 1<<4,
-    REQUEST_IS_HTTP_1_0        = 1<<5,
-    RESPONSE_SENT_HEADERS      = 1<<6,
-    RESPONSE_CHUNKED_ENCODING  = 1<<7,
-    RESPONSE_NO_CONTENT_LENGTH = 1<<8,
-    RESPONSE_URL_REWRITTEN     = 1<<9
+    REQUEST_METHOD_PROXY1      = 1<<3,
+    REQUEST_METHOD_PROXY2      = 1<<4,
+    REQUEST_ACCEPT_DEFLATE     = 1<<5,
+    REQUEST_ACCEPT_GZIP        = 1<<6,
+    REQUEST_IS_HTTP_1_0        = 1<<7,
+    RESPONSE_SENT_HEADERS      = 1<<8,
+    RESPONSE_CHUNKED_ENCODING  = 1<<9,
+    RESPONSE_NO_CONTENT_LENGTH = 1<<10,
+    RESPONSE_URL_REWRITTEN     = 1<<11
 } lwan_request_flags_t;
 
 typedef enum {
@@ -165,7 +168,8 @@ typedef enum {
     CONN_IS_ALIVE           = 1<<1,
     CONN_SHOULD_RESUME_CORO = 1<<2,
     CONN_WRITE_EVENTS       = 1<<3,
-    CONN_MUST_READ          = 1<<4
+    CONN_MUST_READ          = 1<<4,
+    CONN_PROXIED            = 1<<5
 } lwan_connection_flags_t;
 
 typedef enum {
@@ -277,9 +281,18 @@ struct lwan_config_t_ {
     short unsigned int n_threads;
 };
 
+struct lwan_proxy_t_ {
+    union {
+        int64_t __ss_align;
+        struct sockaddr_in ipv4;
+        struct sockaddr_in6 ipv6;
+    } to, from;
+};
+
 struct lwan_t_ {
     lwan_trie_t url_map_trie;
     lwan_connection_t *conns;
+    lwan_proxy_t *proxies;
 
     struct {
         lwan_thread_t *threads;
