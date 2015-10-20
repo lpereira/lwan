@@ -164,7 +164,7 @@ process_request_coro(coro_t *coro)
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         if (!next_request)
-            break;
+            coro_run_deferred(coro);
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
@@ -362,7 +362,6 @@ thread_io_loop(void *data)
                         continue;
                     }
 
-                    spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
                     resume_coro_if_needed(&dq, conn, epoll_fd);
                 }
 
