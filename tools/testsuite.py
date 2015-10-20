@@ -23,9 +23,10 @@ print 'Using', LWAN_PATH, 'for lwan'
 class LwanTest(unittest.TestCase):
   def setUp(self):
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen([LWAN_PATH],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
+      self.lwan=subprocess.Popen(
+        [LWAN_PATH],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+      )
       for request_try in range(20):
         try:
           requests.get('http://127.0.0.1:8080/hello')
