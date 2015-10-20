@@ -27,12 +27,15 @@ class LwanTest(unittest.TestCase):
         [LWAN_PATH],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
       )
+      s = socket.socket()
       for request_try in range(20):
         try:
-          requests.get('http://127.0.0.1:8080/hello')
-          return
-        except requests.ConnectionError:
+          s.connect(('127.0.0.1', 8080))
+        except:
           time.sleep(0.1)
+        else:
+          s.close()
+          return
 
       time.sleep(0.1)
 
