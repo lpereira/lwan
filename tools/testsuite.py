@@ -23,15 +23,19 @@ print 'Using', LWAN_PATH, 'for lwan'
 class LwanTest(unittest.TestCase):
   def setUp(self):
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen([LWAN_PATH],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
+      self.lwan=subprocess.Popen(
+        [LWAN_PATH],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+      )
+      s = socket.socket()
       for request_try in range(20):
         try:
-          requests.get('http://127.0.0.1:8080/hello')
-          return
-        except requests.ConnectionError:
+          s.connect(('127.0.0.1', 8080))
+        except:
           time.sleep(0.1)
+        else:
+          s.close()
+          return
 
       time.sleep(0.1)
 
@@ -478,6 +482,31 @@ class TestCache(LwanTest):
 
     requests.get('http://127.0.0.1:8080/100.html')
     self.assertEqual(self.count_mmaps('/100.html'), 1)
+
+class TestProxyProtocolRequests(SocketTest):
+  def test_proxy_version1(self):
+    req = '''PROXY TCP4 192.168.0.1 192.168.0.11 56324 443\r
+GET / HTTP/1.1\r
+Host: 192.168.0.11\r\n\r\n'''
+
+    sock = self.connect()
+    sock.send(req)
+    response = sock.recv(1024)
+    self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+
+  def test_proxy_version2(self):
+    req = (
+      "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"
+      "\x21\x11\x00\x0B"
+      "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B"
+      "GET / HTTP/1.1\r\n"
+      "Host: 192.168.0.11\r\n\r\n"
+    )
+
+    sock = self.connect()
+    sock.send(req)
+    response = sock.recv(1024)
+    self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
 
 class TestPipelinedRequests(SocketTest):
   def test_pipelined_requests(self):

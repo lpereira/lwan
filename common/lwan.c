@@ -48,6 +48,7 @@ static const lwan_config_t default_config = {
     .keep_alive_timeout = 15,
     .quiet = false,
     .reuse_port = false,
+    .proxy_protocol = false,
     .expires = 1 * ONE_WEEK,
     .n_threads = 0
 };
@@ -399,6 +400,9 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "reuse_port"))
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
+            else if (!strcmp(line.line.key, "proxy_protocol"))
+                lwan->config.proxy_protocol = parse_bool(line.line.value,
+                            default_config.proxy_protocol);
             else if (!strcmp(line.line.key, "expires"))
                 lwan->config.expires = parse_time_period(line.line.value,
                             default_config.expires);
@@ -466,8 +470,14 @@ static void
 allocate_connections(lwan_t *l, size_t max_open_files)
 {
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
-    if (!l->conns)
-        lwan_status_critical_perror("calloc");
+    if (!l->conns) goto err;
+
+    l->proxies = calloc(max_open_files, sizeof(lwan_proxy_t));
+    if (!l->proxies) goto err;
+
+    return;
+ err:
+    lwan_status_critical_perror("calloc");
 }
 
 static unsigned short int
