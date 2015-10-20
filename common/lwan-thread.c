@@ -163,6 +163,9 @@ process_request_coro(coro_t *coro)
         assert(conn->flags & CONN_IS_ALIVE);
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
+        if (!next_request)
+            coro_run_deferred(coro);
+
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
         if (UNLIKELY(!strbuf_reset_length(strbuf)))
