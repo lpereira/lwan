@@ -277,6 +277,7 @@ struct lwan_config_t_ {
     unsigned short keep_alive_timeout;
     bool quiet;
     bool reuse_port;
+    bool proxy_protocol;
     unsigned int expires;
     short unsigned int n_threads;
 };

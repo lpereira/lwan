@@ -100,6 +100,8 @@ get_http_method(const char *buffer)
 static lwan_request_flags_t
 parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
 {
+    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
+
     union header_t_ {
         struct {
             char line[108];

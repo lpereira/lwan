@@ -48,6 +48,7 @@ static const lwan_config_t default_config = {
     .keep_alive_timeout = 15,
     .quiet = false,
     .reuse_port = false,
+    .proxy_protocol = false,
     .expires = 1 * ONE_WEEK,
     .n_threads = 0
 };
@@ -399,6 +400,9 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "reuse_port"))
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
+            else if (!strcmp(line.line.key, "proxy_protocol"))
+                lwan->config.proxy_protocol = parse_bool(line.line.value,
+                            default_config.proxy_protocol);
             else if (!strcmp(line.line.key, "expires"))
                 lwan->config.expires = parse_time_period(line.line.value,
                             default_config.expires);
