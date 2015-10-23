@@ -29,6 +29,8 @@
 
 #include "lwan-private.h"
 
+#define CORO_DEFER_THRESHOLD   16
+
 struct death_queue_t {
     const lwan_t *lwan;
     lwan_connection_t *conns;
@@ -139,11 +141,12 @@ static int
 process_request_coro(coro_t *coro)
 {
     const lwan_request_flags_t flags_filter = REQUEST_PROXIED;
-    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
+    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), true, strbuf_free);
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
+    unsigned char i = 0;
     lwan_value_t buffer = {
         .value = request_buffer,
         .len = 0
@@ -169,8 +172,10 @@ process_request_coro(coro_t *coro)
         assert(conn->flags & CONN_IS_ALIVE);
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
-        if (!next_request)
-            break;
+        if (++i == CORO_DEFER_THRESHOLD) {
+            coro_run_deferred(coro, false);
+            i = 0;
+        }
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
