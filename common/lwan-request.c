@@ -1110,7 +1110,8 @@ const char *
 lwan_request_get_remote_address(lwan_request_t *request,
             char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_storage non_proxied_addr, *sock_addr;
+    struct sockaddr_storage non_proxied_addr = { .ss_family = AF_UNSPEC };
+    struct sockaddr_storage *sock_addr;
 
     if (request->conn->flags & CONN_PROXIED) {
         sock_addr = (struct sockaddr_storage *)&request->proxy_from;
