@@ -216,13 +216,13 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
         break;
     }
     case UNKN:
-        request->conn->flags &= ~CONN_PROXIED;
+        request->flags &= ~REQUEST_PROXIED;
         return buffer + size;
     default:
         return NULL;
     }
 
-    request->conn->flags |= CONN_PROXIED;
+    request->flags |= REQUEST_PROXIED;
     return buffer + size;
 }
 
@@ -282,11 +282,11 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
         goto no_proxy;
     }
 
-    request->conn->flags |= CONN_PROXIED;
+    request->flags |= REQUEST_PROXIED;
     return buffer + size;
 
 no_proxy:
-    request->conn->flags &= ~CONN_PROXIED;
+    request->flags &= ~REQUEST_PROXIED;
     return NULL;
 }
 
@@ -1113,7 +1113,7 @@ lwan_request_get_remote_address(lwan_request_t *request,
     struct sockaddr_storage non_proxied_addr = { .ss_family = AF_UNSPEC };
     struct sockaddr_storage *sock_addr;
 
-    if (request->conn->flags & CONN_PROXIED) {
+    if (request->flags & REQUEST_PROXIED) {
         sock_addr = (struct sockaddr_storage *)&request->proxy_from;
     } else {
         socklen_t sock_len = sizeof(non_proxied_addr);

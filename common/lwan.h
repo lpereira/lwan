@@ -157,6 +157,7 @@ typedef enum {
     RESPONSE_CHUNKED_ENCODING  = 1<<7,
     RESPONSE_NO_CONTENT_LENGTH = 1<<8,
     RESPONSE_URL_REWRITTEN     = 1<<9,
+    REQUEST_PROXIED            = 1<<10
 } lwan_request_flags_t;
 
 typedef enum {
@@ -166,7 +167,6 @@ typedef enum {
     CONN_SHOULD_RESUME_CORO = 1<<2,
     CONN_WRITE_EVENTS       = 1<<3,
     CONN_MUST_READ          = 1<<4,
-    CONN_PROXIED            = 1<<5
 } lwan_connection_flags_t;
 
 typedef enum {
