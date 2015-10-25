@@ -210,6 +210,7 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
         }
     }
 
+    request->conn->flags |= CONN_PROXIED;
     return buffer + size;
 }
 
@@ -218,6 +219,9 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 {
     union proxy_protocol_header *hdr = (union proxy_protocol_header *)buffer;
     unsigned int size;
+
+    if (UNLIKELY(*(buffer + 8) >> 4 != 2))
+        return NULL;
 
     size = 12 + (unsigned int) ntohs(hdr->v2.len);
     if (size > sizeof(union proxy_protocol_header))
@@ -282,6 +286,7 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
         return NULL;
     }
 
+    request->conn->flags |= CONN_PROXIED;
     return buffer + size;
 }
 
@@ -861,24 +866,22 @@ read_post_data(lwan_request_t *request __attribute__((unused)),
     return HTTP_NOT_IMPLEMENTED;
 }
 
-static int
-identify_proxy_version(char *buffer)
+static char *
+parse_proxy_protocol(lwan_request_t *request, char *buffer)
 {
     enum {
-        HTTP_PROXY_VER1  = MULTICHAR_CONSTANT('P','R','O','X'),
+        HTTP_PROXY_VER1 = MULTICHAR_CONSTANT('P','R','O','X'),
         HTTP_PROXY_VER2 = MULTICHAR_CONSTANT('\x00','\x0D','\x0A','\x51'),
-        HTTP_PROXY_VER2_ = MULTICHAR_CONSTANT('\x55','\x49','\x54','\x0A')
     };
 
     STRING_SWITCH(buffer) {
     case HTTP_PROXY_VER1:
-        return 1;
+        return parse_proxy_protocol_v1(request, buffer);
     case HTTP_PROXY_VER2:
-        if (*(buffer + 8) >> 4 == 2)
-            return 2;
+        return parse_proxy_protocol_v2(request, buffer);
     }
 
-    return 0;
+    return buffer;
 }
 
 static lwan_http_status_t
@@ -887,14 +890,7 @@ parse_http_request(lwan_t *l, lwan_request_t *request, struct request_parser_hel
     char *buffer = ignore_leading_whitespace(helper->buffer->value);
 
     if (l->config.proxy_protocol) {
-        int proxy_version;
-
-        proxy_version = identify_proxy_version(buffer);
-
-        if (proxy_version == 1)
-            buffer = parse_proxy_protocol_v1(request, buffer);
-        else if (proxy_version == 2)
-            buffer = parse_proxy_protocol_v2(request, buffer);
+        buffer = parse_proxy_protocol(request, buffer);
 
         if (UNLIKELY(!buffer))
             return HTTP_BAD_REQUEST;
