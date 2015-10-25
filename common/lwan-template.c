@@ -302,14 +302,12 @@ static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
     if (r < 0) {
         lexeme->value.value = strdup(strerror(errno));
         if (!lexeme->value.value)
-            return NULL;
+            return;
 
         lexeme->value.len = strlen(lexeme->value.value);
     } else {
         lexeme->value.len = (size_t)r;
     }
-
-    return NULL;
 }
 
 static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
