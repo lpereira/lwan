@@ -110,7 +110,6 @@ typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
 typedef struct lwan_config_t_		lwan_config_t;
-typedef struct lwan_proxy_t_		lwan_proxy_t;
 typedef struct lwan_connection_t_	lwan_connection_t;
 
 typedef enum {
@@ -219,6 +218,11 @@ struct lwan_request_t_ {
     lwan_connection_t *conn;
 
     struct {
+        struct sockaddr_in ipv4;
+        struct sockaddr_in6 ipv6;
+    } proxy_from, proxy_to;
+
+    struct {
         lwan_key_value_t *base;
         size_t len;
     } query_params, post_data, cookies;
@@ -275,25 +279,16 @@ struct lwan_thread_t_ {
 struct lwan_config_t_ {
     char *listener;
     unsigned short keep_alive_timeout;
+    unsigned int expires;
+    short unsigned int n_threads;
     bool quiet;
     bool reuse_port;
     bool proxy_protocol;
-    unsigned int expires;
-    short unsigned int n_threads;
-};
-
-struct lwan_proxy_t_ {
-    union {
-        int64_t __ss_align;
-        struct sockaddr_in ipv4;
-        struct sockaddr_in6 ipv6;
-    } to, from;
 };
 
 struct lwan_t_ {
     lwan_trie_t url_map_trie;
     lwan_connection_t *conns;
-    lwan_proxy_t *proxies;
 
     struct {
         lwan_thread_t *threads;

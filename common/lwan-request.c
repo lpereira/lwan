@@ -134,7 +134,6 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
     };
 
     unsigned int size;
-    lwan_proxy_t *proxy = &request->conn->thread->lwan->proxies[request->fd];
     union header_t_ *hdr = (union header_t_ *) *buffer;
 
     if (version == 1) {
@@ -168,8 +167,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
                 do {
                     long porttmp;
 
-                    struct sockaddr_in *from = &proxy->from.ipv4;
-                    struct sockaddr_in *to = &proxy->to.ipv4;
+                    struct sockaddr_in *from = &request->proxy_from.ipv4;
+                    struct sockaddr_in *to = &request->proxy_to.ipv4;
 
                     from->sin_family = to->sin_family = AF_INET;
 
@@ -199,8 +198,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
                 do {
                     long porttmp;
 
-                    struct sockaddr_in6 *from = &proxy->from.ipv6;
-                    struct sockaddr_in6 *to = &proxy->to.ipv6;
+                    struct sockaddr_in6 *from = &request->proxy_from.ipv6;
+                    struct sockaddr_in6 *to = &request->proxy_to.ipv6;
 
                     from->sin6_family = to->sin6_family = AF_INET6;
 
@@ -230,8 +229,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
             default:
                 if (memcmp(protocol, "UNKNOWN", 7) != 0) return 0;
 
-                struct sockaddr_in *from = &proxy->from.ipv4;
-                struct sockaddr_in *to = &proxy->to.ipv4;
+                struct sockaddr_in *from = &request->proxy_from.ipv4;
+                struct sockaddr_in *to = &request->proxy_to.ipv4;
 
                 from->sin_family = to->sin_family = AF_UNSPEC;
             }
@@ -252,8 +251,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
         switch (hdr->v2.cmd) {
         case LOCAL:
             do {
-                struct sockaddr_in *from = &proxy->from.ipv4;
-                struct sockaddr_in *to = &proxy->to.ipv4;
+                struct sockaddr_in *from = &request->proxy_from.ipv4;
+                struct sockaddr_in *to = &request->proxy_to.ipv4;
 
                 from->sin_family = to->sin_family = AF_UNSPEC;
             } while (0);
@@ -268,8 +267,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
                 switch (hdr->v2.fam) {
                 case TCP4:
                     do {
-                        struct sockaddr_in *from = &proxy->from.ipv4;
-                        struct sockaddr_in *to = &proxy->to.ipv4;
+                        struct sockaddr_in *from = &request->proxy_from.ipv4;
+                        struct sockaddr_in *to = &request->proxy_to.ipv4;
 
                         to->sin_family = from->sin_family = AF_INET;
 
@@ -282,8 +281,8 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
                     break;
                 case TCP6:
                     do {
-                        struct sockaddr_in6 *from = &proxy->from.ipv6;
-                        struct sockaddr_in6 *to = &proxy->to.ipv6;
+                        struct sockaddr_in6 *from = &request->proxy_from.ipv6;
+                        struct sockaddr_in6 *to = &request->proxy_to.ipv6;
 
                         from->sin6_family = to->sin6_family = AF_INET6;
 
@@ -1117,14 +1116,15 @@ const char *
 lwan_request_get_remote_address(lwan_request_t *request,
             char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_storage __sock_addr;
-    struct sockaddr_storage *sock_addr = &__sock_addr;
+    struct sockaddr_storage non_proxied_addr, *sock_addr;
 
     if (request->conn->flags & CONN_PROXIED) {
-        sock_addr = (struct sockaddr_storage *)
-            &request->conn->thread->lwan->proxies[request->fd].from;
+        sock_addr = (struct sockaddr_storage *)&request->proxy_from;
     } else {
-        socklen_t sock_len = sizeof(__sock_addr);
+        socklen_t sock_len = sizeof(non_proxied_addr);
+
+        sock_addr = &non_proxied_addr;
+
         if (UNLIKELY(getpeername(request->fd,
                                  (struct sockaddr *) sock_addr,
                                  &sock_len) < 0))

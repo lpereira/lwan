@@ -470,14 +470,8 @@ static void
 allocate_connections(lwan_t *l, size_t max_open_files)
 {
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
-    if (!l->conns) goto err;
-
-    l->proxies = calloc(max_open_files, sizeof(lwan_proxy_t));
-    if (!l->proxies) goto err;
-
-    return;
- err:
-    lwan_status_critical_perror("calloc");
+    if (!l->conns)
+        lwan_status_critical_perror("calloc");
 }
 
 static unsigned short int
