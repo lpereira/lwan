@@ -242,20 +242,17 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 
     size = proto_signature_length + (unsigned int) ntohs(hdr->v2.len);
     if (UNLIKELY(size > sizeof(hdr->v2)))
-        return NULL;
+        goto no_proxy;
 
     if (UNLIKELY((hdr->v2.ver) != 2))
-        return NULL;
+        goto no_proxy;
 
-    switch (hdr->v2.cmd) {
-    case LOCAL: {
+    if (hdr->v2.cmd) {
         struct sockaddr_in *from = &request->proxy_from.ipv4;
         struct sockaddr_in *to = &request->proxy_to.ipv4;
 
         from->sin_family = to->sin_family = AF_UNSPEC;
-        break;
-    }
-    case PROXY:
+    } else if (hdr->v2.cmd == PROXY) {
         if (hdr->v2.fam == TCP4) {
             struct sockaddr_in *from = &request->proxy_from.ipv4;
             struct sockaddr_in *to = &request->proxy_to.ipv4;
@@ -279,15 +276,18 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
             memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, sizeof(to->sin6_addr));
             to->sin6_port = hdr->v2.addr.ip6.dst_port;
         } else {
-            return NULL;
+            goto no_proxy;
         }
-        break;
-    default:
-        return NULL;
+    } else {
+        goto no_proxy;
     }
 
     request->conn->flags |= CONN_PROXIED;
     return buffer + size;
+
+no_proxy:
+    request->conn->flags &= ~CONN_PROXIED;
+    return NULL;
 }
 
 static ALWAYS_INLINE char *
