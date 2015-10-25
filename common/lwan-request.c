@@ -129,185 +129,186 @@ get_http_method(const char *buffer)
 }
 
 static lwan_request_flags_t
-parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
+parse_proxy_protocol_v1(lwan_request_t *request, char **buffer)
+{
+    char *end, *ptr, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
+    unsigned int size;
+    union proxy_protocol_header *hdr = (union proxy_protocol_header *) *buffer;
+
+    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
+
+    end = memchr(hdr->v1.line, '\r', sizeof(*hdr));
+    if (!end || end[1] != '\n') {
+        return 0;
+    }
+
+    *end = '\0';
+    size = (unsigned int) (end + 2 - hdr->v1.line);
+
+    ptr = hdr->v1.line;
+    strsep(&ptr, " ");
+
+    protocol = strsep(&ptr, " ");
+    src_addr = strsep(&ptr, " ");
+    dst_addr = strsep(&ptr, " ");
+    src_port = strsep(&ptr, " ");
+    dst_port = ptr;
+
+    if (protocol != NULL && dst_port != NULL) {
+        enum {
+            TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
+            TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6')
+        };
+
+        STRING_SWITCH(protocol) {
+        case TCP4:
+            do {
+                long porttmp;
+
+                struct sockaddr_in *from = &request->proxy_from.ipv4;
+                struct sockaddr_in *to = &request->proxy_to.ipv4;
+
+                from->sin_family = to->sin_family = AF_INET;
+
+                if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1) {
+                    return 0;
+                }
+
+                if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1) {
+                    return 0;
+                }
+
+                porttmp = strtol(src_port, NULL, 10);
+                if (!(porttmp > 0 && porttmp < 65536)) {
+                    return 0;
+                }
+                from->sin_port = htons((uint16_t) porttmp);
+
+                porttmp = strtol(dst_port, NULL, 10);
+                if (!(porttmp > 0 && porttmp < 65536)) {
+                    return 0;
+                }
+
+                to->sin_port = htons((uint16_t) porttmp);
+            } while (0);
+            break;
+        case TCP6:
+            do {
+                long porttmp;
+
+                struct sockaddr_in6 *from = &request->proxy_from.ipv6;
+                struct sockaddr_in6 *to = &request->proxy_to.ipv6;
+
+                from->sin6_family = to->sin6_family = AF_INET6;
+
+                if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1) {
+                    return 0;
+                }
+
+                if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1) {
+                    return 0;
+                }
+
+                porttmp = strtol(src_port, NULL, 10);
+                if (!(porttmp > 0 && porttmp < 65536)) {
+                    return 0;
+                }
+
+                from->sin6_port = htons((uint16_t) porttmp);
+
+                porttmp = strtol(dst_port, NULL, 10);
+                if (!(porttmp > 0 && porttmp < 65536)) {
+                    return 0;
+                }
+
+                to->sin6_port = htons((uint16_t) porttmp);
+            } while (0);
+            break;
+        default:
+            if (memcmp(protocol, "UNKNOWN", 7) != 0) return 0;
+
+            struct sockaddr_in *from = &request->proxy_from.ipv4;
+            struct sockaddr_in *to = &request->proxy_to.ipv4;
+
+            from->sin_family = to->sin_family = AF_UNSPEC;
+        }
+    }
+
+    request->conn->flags |= CONN_PROXIED;
+    *buffer += size;
+    return get_http_method(*buffer);
+}
+
+static lwan_request_flags_t
+parse_proxy_protocol_v2(lwan_request_t *request, char **buffer)
 {
     unsigned int size;
     union proxy_protocol_header *hdr = (union proxy_protocol_header *) *buffer;
 
     if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
 
-    if (version == 1) {
-        char *end, *ptr, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
+    size = 12 + (unsigned int) ntohs(hdr->v2.len);
+    if (size > sizeof(union proxy_protocol_header)) return 0;
 
-        end = memchr(hdr->v1.line, '\r', sizeof(*hdr));
-        if (!end || end[1] != '\n') {
-            return 0;
-        }
+    enum {
+        LOCAL = 0,
+        PROXY = 1
+    };
 
-        *end = '\0';
-        size = (unsigned int) (end + 2 - hdr->v1.line);
+    switch (hdr->v2.cmd) {
+    case LOCAL:
+        do {
+            struct sockaddr_in *from = &request->proxy_from.ipv4;
+            struct sockaddr_in *to = &request->proxy_to.ipv4;
 
-        ptr = hdr->v1.line;
-        strsep(&ptr, " ");
-
-        protocol = strsep(&ptr, " ");
-        src_addr = strsep(&ptr, " ");
-        dst_addr = strsep(&ptr, " ");
-        src_port = strsep(&ptr, " ");
-        dst_port = ptr;
-
-        if (protocol != NULL && dst_port != NULL) {
+            from->sin_family = to->sin_family = AF_UNSPEC;
+        } while (0);
+        break;
+    case PROXY:
+        do {
             enum {
-                TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
-                TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6')
+                TCP4 = 0x11,
+                TCP6 = 0x21
             };
 
-            STRING_SWITCH(protocol) {
+            switch (hdr->v2.fam) {
             case TCP4:
                 do {
-                    long porttmp;
-
                     struct sockaddr_in *from = &request->proxy_from.ipv4;
                     struct sockaddr_in *to = &request->proxy_to.ipv4;
 
-                    from->sin_family = to->sin_family = AF_INET;
+                    to->sin_family = from->sin_family = AF_INET;
 
-                    if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1) {
-                        return 0;
-                    }
+                    from->sin_addr.s_addr = hdr->v2.addr.ip4.src_addr;
+                    from->sin_port = hdr->v2.addr.ip4.src_port;
 
-                    if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1) {
-                        return 0;
-                    }
-
-                    porttmp = strtol(src_port, NULL, 10);
-                    if (!(porttmp > 0 && porttmp < 65536)) {
-                        return 0;
-                    }
-                    from->sin_port = htons((uint16_t) porttmp);
-
-                    porttmp = strtol(dst_port, NULL, 10);
-                    if (!(porttmp > 0 && porttmp < 65536)) {
-                        return 0;
-                    }
-
-                    to->sin_port = htons((uint16_t) porttmp);
+                    to->sin_addr.s_addr = hdr->v2.addr.ip4.dst_addr;
+                    to->sin_port = hdr->v2.addr.ip4.dst_port;
                 } while (0);
                 break;
             case TCP6:
                 do {
-                    long porttmp;
-
                     struct sockaddr_in6 *from = &request->proxy_from.ipv6;
                     struct sockaddr_in6 *to = &request->proxy_to.ipv6;
 
                     from->sin6_family = to->sin6_family = AF_INET6;
 
-                    if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1) {
-                        return 0;
-                    }
+                    memcpy(&from->sin6_addr, hdr->v2.addr.ip6.src_addr, 16);
+                    from->sin6_port = hdr->v2.addr.ip6.src_port;
 
-                    if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1) {
-                        return 0;
-                    }
-
-                    porttmp = strtol(src_port, NULL, 10);
-                    if (!(porttmp > 0 && porttmp < 65536)) {
-                        return 0;
-                    }
-
-                    from->sin6_port = htons((uint16_t) porttmp);
-
-                    porttmp = strtol(dst_port, NULL, 10);
-                    if (!(porttmp > 0 && porttmp < 65536)) {
-                        return 0;
-                    }
-
-                    to->sin6_port = htons((uint16_t) porttmp);
+                    memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, 16);
+                    to->sin6_port = hdr->v2.addr.ip6.dst_port;
                 } while (0);
                 break;
             default:
-                if (memcmp(protocol, "UNKNOWN", 7) != 0) return 0;
-
-                struct sockaddr_in *from = &request->proxy_from.ipv4;
-                struct sockaddr_in *to = &request->proxy_to.ipv4;
-
-                from->sin_family = to->sin_family = AF_UNSPEC;
+                return 0;
             }
-        }
-
-        goto done;
+        } while (0);
+        break;
+    default:
+        return 0;
     }
 
-    if (version == 2) {
-        size = 12 + (unsigned int) ntohs(hdr->v2.len);
-        if (size > sizeof(union proxy_protocol_header)) return 0;
-
-        enum {
-            LOCAL = 0,
-            PROXY = 1
-        };
-
-        switch (hdr->v2.cmd) {
-        case LOCAL:
-            do {
-                struct sockaddr_in *from = &request->proxy_from.ipv4;
-                struct sockaddr_in *to = &request->proxy_to.ipv4;
-
-                from->sin_family = to->sin_family = AF_UNSPEC;
-            } while (0);
-            break;
-        case PROXY:
-            do {
-                enum {
-                    TCP4 = 0x11,
-                    TCP6 = 0x21
-                };
-
-                switch (hdr->v2.fam) {
-                case TCP4:
-                    do {
-                        struct sockaddr_in *from = &request->proxy_from.ipv4;
-                        struct sockaddr_in *to = &request->proxy_to.ipv4;
-
-                        to->sin_family = from->sin_family = AF_INET;
-
-                        from->sin_addr.s_addr = hdr->v2.addr.ip4.src_addr;
-                        from->sin_port = hdr->v2.addr.ip4.src_port;
-
-                        to->sin_addr.s_addr = hdr->v2.addr.ip4.dst_addr;
-                        to->sin_port = hdr->v2.addr.ip4.dst_port;
-                    } while (0);
-                    break;
-                case TCP6:
-                    do {
-                        struct sockaddr_in6 *from = &request->proxy_from.ipv6;
-                        struct sockaddr_in6 *to = &request->proxy_to.ipv6;
-
-                        from->sin6_family = to->sin6_family = AF_INET6;
-
-                        memcpy(&from->sin6_addr, hdr->v2.addr.ip6.src_addr, 16);
-                        from->sin6_port = hdr->v2.addr.ip6.src_port;
-
-                        memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, 16);
-                        to->sin6_port = hdr->v2.addr.ip6.dst_port;
-                    } while (0);
-                    break;
-                default:
-                    return 0;
-                }
-            } while (0);
-            break;
-        default:
-            return 0;
-        }
-
-        goto done;
-    }
-
-    return 0;
-
- done:
     request->conn->flags |= CONN_PROXIED;
     *buffer += size;
     return get_http_method(*buffer);
@@ -319,10 +320,10 @@ identify_http_method(lwan_request_t *request, char *buffer)
     lwan_request_flags_t flags = get_http_method(buffer);
 
     if (flags == REQUEST_METHOD_PROXY1)
-        flags = parse_proxy_protocol(request, &buffer, 1);
+        flags = parse_proxy_protocol_v1(request, &buffer);
 
     if (flags == REQUEST_METHOD_PROXY2)
-        flags = parse_proxy_protocol(request, &buffer, 2);
+        flags = parse_proxy_protocol_v2(request, &buffer);
 
     static const char sizes[] = {
         [0] = 0,
