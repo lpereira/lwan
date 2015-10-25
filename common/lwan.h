@@ -150,15 +150,13 @@ typedef enum {
     REQUEST_METHOD_GET         = 1<<0,
     REQUEST_METHOD_HEAD        = 1<<1,
     REQUEST_METHOD_POST        = 1<<2,
-    REQUEST_METHOD_PROXY1      = 1<<3,
-    REQUEST_METHOD_PROXY2      = 1<<4,
-    REQUEST_ACCEPT_DEFLATE     = 1<<5,
-    REQUEST_ACCEPT_GZIP        = 1<<6,
-    REQUEST_IS_HTTP_1_0        = 1<<7,
-    RESPONSE_SENT_HEADERS      = 1<<8,
-    RESPONSE_CHUNKED_ENCODING  = 1<<9,
-    RESPONSE_NO_CONTENT_LENGTH = 1<<10,
-    RESPONSE_URL_REWRITTEN     = 1<<11
+    REQUEST_ACCEPT_DEFLATE     = 1<<3,
+    REQUEST_ACCEPT_GZIP        = 1<<4,
+    REQUEST_IS_HTTP_1_0        = 1<<5,
+    RESPONSE_SENT_HEADERS      = 1<<6,
+    RESPONSE_CHUNKED_ENCODING  = 1<<7,
+    RESPONSE_NO_CONTENT_LENGTH = 1<<8,
+    RESPONSE_URL_REWRITTEN     = 1<<9,
 } lwan_request_flags_t;
 
 typedef enum {
