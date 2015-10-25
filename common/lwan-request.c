@@ -104,9 +104,6 @@ get_http_method(const char *buffer)
         HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
         HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
-        HTTP_STR_PROXY1  = MULTICHAR_CONSTANT('P','R','O','X'),
-        HTTP_STR_PROXY21 = MULTICHAR_CONSTANT('\x00','\x0D','\x0A','\x51'),
-        HTTP_STR_PROXY22 = MULTICHAR_CONSTANT('\x55','\x49','\x54','\x0A')
     };
 
     STRING_SWITCH(buffer) {
@@ -116,26 +113,17 @@ get_http_method(const char *buffer)
         return REQUEST_METHOD_HEAD;
     case HTTP_STR_POST:
         return REQUEST_METHOD_POST;
-    case HTTP_STR_PROXY1:
-        if (buffer[4] != 'Y') break;
-        return REQUEST_METHOD_PROXY1;
-    case HTTP_STR_PROXY21:
-        if ((string_as_int32(buffer + 4) == HTTP_STR_PROXY22) &&
-            (*(buffer + 8) >> 4 == 2))
-            return REQUEST_METHOD_PROXY2;
     }
 
     return 0;
 }
 
-static lwan_request_flags_t
-parse_proxy_protocol_v1(lwan_request_t *request, char **buffer)
+static char *
+parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 {
+    union proxy_protocol_header *hdr = (union proxy_protocol_header *) buffer;
     char *end, *ptr, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
     unsigned int size;
-    union proxy_protocol_header *hdr = (union proxy_protocol_header *) *buffer;
-
-    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
 
     end = memchr(hdr->v1.line, '\r', sizeof(*hdr));
     if (!end || end[1] != '\n') {
@@ -170,24 +158,19 @@ parse_proxy_protocol_v1(lwan_request_t *request, char **buffer)
 
                 from->sin_family = to->sin_family = AF_INET;
 
-                if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1) {
-                    return 0;
-                }
-
-                if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1) {
-                    return 0;
-                }
+                if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1)
+                    return NULL;
+                if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1)
+                    return NULL;
 
                 porttmp = strtol(src_port, NULL, 10);
-                if (!(porttmp > 0 && porttmp < 65536)) {
-                    return 0;
-                }
+                if (!(porttmp > 0 && porttmp < 65536))
+                    return NULL;
                 from->sin_port = htons((uint16_t) porttmp);
 
                 porttmp = strtol(dst_port, NULL, 10);
-                if (!(porttmp > 0 && porttmp < 65536)) {
-                    return 0;
-                }
+                if (!(porttmp > 0 && porttmp < 65536))
+                    return NULL;
 
                 to->sin_port = htons((uint16_t) porttmp);
             } while (0);
@@ -201,26 +184,19 @@ parse_proxy_protocol_v1(lwan_request_t *request, char **buffer)
 
                 from->sin6_family = to->sin6_family = AF_INET6;
 
-                if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1) {
-                    return 0;
-                }
-
-                if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1) {
-                    return 0;
-                }
+                if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1)
+                    return NULL;
+                if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1)
+                    return NULL;
 
                 porttmp = strtol(src_port, NULL, 10);
-                if (!(porttmp > 0 && porttmp < 65536)) {
-                    return 0;
-                }
-
+                if (!(porttmp > 0 && porttmp < 65536))
+                    return NULL;
                 from->sin6_port = htons((uint16_t) porttmp);
 
                 porttmp = strtol(dst_port, NULL, 10);
-                if (!(porttmp > 0 && porttmp < 65536)) {
-                    return 0;
-                }
-
+                if (!(porttmp > 0 && porttmp < 65536))
+                    return NULL;
                 to->sin6_port = htons((uint16_t) porttmp);
             } while (0);
             break;
@@ -234,21 +210,18 @@ parse_proxy_protocol_v1(lwan_request_t *request, char **buffer)
         }
     }
 
-    request->conn->flags |= CONN_PROXIED;
-    *buffer += size;
-    return get_http_method(*buffer);
+    return buffer + size;
 }
 
-static lwan_request_flags_t
-parse_proxy_protocol_v2(lwan_request_t *request, char **buffer)
+static char *
+parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 {
+    union proxy_protocol_header *hdr = (union proxy_protocol_header *)buffer;
     unsigned int size;
-    union proxy_protocol_header *hdr = (union proxy_protocol_header *) *buffer;
-
-    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
 
     size = 12 + (unsigned int) ntohs(hdr->v2.len);
-    if (size > sizeof(union proxy_protocol_header)) return 0;
+    if (size > sizeof(union proxy_protocol_header))
+        return NULL;
 
     enum {
         LOCAL = 0,
@@ -301,36 +274,27 @@ parse_proxy_protocol_v2(lwan_request_t *request, char **buffer)
                 } while (0);
                 break;
             default:
-                return 0;
+                return NULL;
             }
         } while (0);
         break;
     default:
-        return 0;
+        return NULL;
     }
 
-    request->conn->flags |= CONN_PROXIED;
-    *buffer += size;
-    return get_http_method(*buffer);
+    return buffer + size;
 }
 
 static ALWAYS_INLINE char *
 identify_http_method(lwan_request_t *request, char *buffer)
 {
-    lwan_request_flags_t flags = get_http_method(buffer);
-
-    if (flags == REQUEST_METHOD_PROXY1)
-        flags = parse_proxy_protocol_v1(request, &buffer);
-
-    if (flags == REQUEST_METHOD_PROXY2)
-        flags = parse_proxy_protocol_v2(request, &buffer);
-
     static const char sizes[] = {
         [0] = 0,
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
         [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
         [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
     };
+    lwan_request_flags_t flags = get_http_method(buffer);
     request->flags |= flags;
     return buffer + sizes[flags];
 }
@@ -897,10 +861,44 @@ read_post_data(lwan_request_t *request __attribute__((unused)),
     return HTTP_NOT_IMPLEMENTED;
 }
 
+static int
+identify_proxy_version(char *buffer)
+{
+    enum {
+        HTTP_PROXY_VER1  = MULTICHAR_CONSTANT('P','R','O','X'),
+        HTTP_PROXY_VER2 = MULTICHAR_CONSTANT('\x00','\x0D','\x0A','\x51'),
+        HTTP_PROXY_VER2_ = MULTICHAR_CONSTANT('\x55','\x49','\x54','\x0A')
+    };
+
+    STRING_SWITCH(buffer) {
+    case HTTP_PROXY_VER1:
+        return 1;
+    case HTTP_PROXY_VER2:
+        if (*(buffer + 8) >> 4 == 2)
+            return 2;
+    }
+
+    return 0;
+}
+
 static lwan_http_status_t
-parse_http_request(lwan_request_t *request, struct request_parser_helper *helper)
+parse_http_request(lwan_t *l, lwan_request_t *request, struct request_parser_helper *helper)
 {
     char *buffer = ignore_leading_whitespace(helper->buffer->value);
+
+    if (l->config.proxy_protocol) {
+        int proxy_version;
+
+        proxy_version = identify_proxy_version(buffer);
+
+        if (proxy_version == 1)
+            buffer = parse_proxy_protocol_v1(request, buffer);
+        else if (proxy_version == 2)
+            buffer = parse_proxy_protocol_v2(request, buffer);
+
+        if (UNLIKELY(!buffer))
+            return HTTP_BAD_REQUEST;
+    }
 
     char *path = identify_http_method(request, buffer);
     if (UNLIKELY(buffer == path)) {
@@ -1025,7 +1023,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
         __builtin_unreachable();
     }
 
-    status = parse_http_request(request, &helper);
+    status = parse_http_request(l, request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
         goto out;
