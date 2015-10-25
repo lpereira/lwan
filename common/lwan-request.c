@@ -81,10 +81,6 @@ union proxy_protocol_header {
                 uint16_t src_port;
                 uint16_t dst_port;
             } ip6;
-            struct {
-                uint8_t src_addr[INET6_ADDRSTRLEN];
-                uint8_t dst_addr[INET6_ADDRSTRLEN];
-            } unx;
         } addr;
     } v2;
 };
