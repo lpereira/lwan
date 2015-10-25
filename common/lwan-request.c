@@ -58,6 +58,37 @@ struct request_parser_helper {
     char connection;
 };
 
+union proxy_protocol_header {
+    struct {
+        char line[108];
+    } v1;
+    struct {
+        uint8_t sig[8];
+        uint8_t cmd : 4;
+        uint8_t ver : 4;
+        uint8_t fam;
+        uint16_t len;
+        union {
+            struct {
+                    uint32_t src_addr;
+                    uint32_t dst_addr;
+                    uint16_t src_port;
+                    uint16_t dst_port;
+            } ip4;
+            struct {
+                     uint8_t src_addr[16];
+                     uint8_t dst_addr[16];
+                     uint16_t src_port;
+                     uint16_t dst_port;
+            } ip6;
+            struct {
+                     uint8_t src_addr[108];
+                     uint8_t dst_addr[108];
+            } unx;
+        } addr;
+    } v2;
+};
+
 static char decode_hex_digit(char ch) __attribute__((pure));
 static bool is_hex_digit(char ch) __attribute__((pure));
 static uint32_t has_zero_byte(uint32_t n) __attribute__((pure));
@@ -100,41 +131,10 @@ get_http_method(const char *buffer)
 static lwan_request_flags_t
 parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
 {
-    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
-
-    union header_t_ {
-        struct {
-            char line[108];
-        } v1;
-        struct {
-            uint8_t sig[8];
-            uint8_t cmd : 4;
-            uint8_t ver : 4;
-            uint8_t fam;
-            uint16_t len;
-            union {
-                struct {
-                        uint32_t src_addr;
-                        uint32_t dst_addr;
-                        uint16_t src_port;
-                        uint16_t dst_port;
-                } ip4;
-                struct {
-                         uint8_t src_addr[16];
-                         uint8_t dst_addr[16];
-                         uint16_t src_port;
-                         uint16_t dst_port;
-                } ip6;
-                struct {
-                         uint8_t src_addr[108];
-                         uint8_t dst_addr[108];
-                } unx;
-            } addr;
-        } v2;
-    };
-
     unsigned int size;
-    union header_t_ *hdr = (union header_t_ *) *buffer;
+    union proxy_protocol_header *hdr = (union proxy_protocol_header *) *buffer;
+
+    if (!request->conn->thread->lwan->config.proxy_protocol) return 0;
 
     if (version == 1) {
         char *end, *ptr, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
@@ -241,7 +241,7 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
 
     if (version == 2) {
         size = 12 + (unsigned int) ntohs(hdr->v2.len);
-        if (size > sizeof(union header_t_)) return 0;
+        if (size > sizeof(union proxy_protocol_header)) return 0;
 
         enum {
             LOCAL = 0,
