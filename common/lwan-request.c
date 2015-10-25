@@ -247,7 +247,7 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
     if (UNLIKELY((hdr->v2.ver) != 2))
         goto no_proxy;
 
-    if (hdr->v2.cmd) {
+    if (hdr->v2.cmd == LOCAL) {
         struct sockaddr_in *from = &request->proxy_from.ipv4;
         struct sockaddr_in *to = &request->proxy_to.ipv4;
 
