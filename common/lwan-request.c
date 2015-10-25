@@ -180,7 +180,8 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 
     enum {
         TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
-        TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6')
+        TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6'),
+        UNKN = MULTICHAR_CONSTANT('U', 'N', 'K', 'N')
     };
 
     STRING_SWITCH(protocol) {
@@ -218,14 +219,11 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 
         break;
     }
+    case UNKN:
+        request->conn->flags &= ~CONN_PROXIED;
+        return buffer + size;
     default:
-        if (memcmp(protocol, "UNKNOWN", 7) != 0)
-            return NULL;
-
-        struct sockaddr_in *from = &request->proxy_from.ipv4;
-        struct sockaddr_in *to = &request->proxy_to.ipv4;
-
-        from->sin_family = to->sin_family = AF_UNSPEC;
+        return NULL;
     }
 
     request->conn->flags |= CONN_PROXIED;
