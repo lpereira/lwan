@@ -191,9 +191,9 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 
         from->sin_family = to->sin_family = AF_INET;
 
-        if (inet_pton(AF_INET, src_addr, &from->sin_addr) != 1)
+        if (inet_pton(AF_INET, src_addr, &from->sin_addr) <= 0)
             return NULL;
-        if (inet_pton(AF_INET, dst_addr, &to->sin_addr) != 1)
+        if (inet_pton(AF_INET, dst_addr, &to->sin_addr) <= 0)
             return NULL;
         if (!parse_ascii_port(src_port, &from->sin_port))
             return NULL;
@@ -208,9 +208,9 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 
         from->sin6_family = to->sin6_family = AF_INET6;
 
-        if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) != 1)
+        if (inet_pton(AF_INET6, src_addr, &from->sin6_addr) <= 0)
             return NULL;
-        if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) != 1)
+        if (inet_pton(AF_INET6, dst_addr, &to->sin6_addr) <= 0)
             return NULL;
         if (!parse_ascii_port(src_port, &from->sin6_port))
             return NULL;
