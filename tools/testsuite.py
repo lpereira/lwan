@@ -485,7 +485,7 @@ class TestCache(LwanTest):
 
 class TestProxyProtocolRequests(SocketTest):
   def test_proxy_version1(self):
-    req = '''PROXY TCP4 192.168.0.1 192.168.0.11 56324 443\r
+    req = '''PROXY TCP4 192.168.242.221 192.168.242.242 56324 31337\r
 GET / HTTP/1.1\r
 Host: 192.168.0.11\r\n\r\n'''
 
