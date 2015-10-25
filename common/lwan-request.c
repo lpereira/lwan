@@ -316,7 +316,6 @@ parse_proxy_protocol(lwan_request_t *request, char **buffer, int version)
 static ALWAYS_INLINE char *
 identify_http_method(lwan_request_t *request, char *buffer)
 {
-    char *path;
     lwan_request_flags_t flags = get_http_method(buffer);
 
     if (flags == REQUEST_METHOD_PROXY1)
