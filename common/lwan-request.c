@@ -63,7 +63,7 @@ union proxy_protocol_header {
         char line[108];
     } v1;
     struct {
-        uint8_t sig[8];
+        uint8_t sig[12];
         uint8_t cmd : 4;
         uint8_t ver : 4;
         uint8_t fam;
@@ -230,7 +230,7 @@ static char *
 parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 {
     union proxy_protocol_header *hdr = (union proxy_protocol_header *)buffer;
-    const unsigned int proto_signature_length = 12;
+    const unsigned int proto_signature_length = 16;
     unsigned int size;
 
     enum {
@@ -871,7 +871,7 @@ parse_proxy_protocol(lwan_request_t *request, char *buffer)
 {
     enum {
         HTTP_PROXY_VER1 = MULTICHAR_CONSTANT('P','R','O','X'),
-        HTTP_PROXY_VER2 = MULTICHAR_CONSTANT('\x00','\x0D','\x0A','\x51'),
+        HTTP_PROXY_VER2 = MULTICHAR_CONSTANT('\x0D','\x0A','\x0D','\x0A'),
     };
 
     STRING_SWITCH(buffer) {
