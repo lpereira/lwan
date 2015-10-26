@@ -60,7 +60,7 @@ struct request_parser_helper {
 
 union proxy_protocol_header {
     struct {
-        char line[56];
+        char line[108];
     } v1;
     struct {
         uint8_t sig[8];
