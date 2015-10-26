@@ -887,7 +887,7 @@ parse_proxy_protocol(lwan_request_t *request, char *buffer)
 static lwan_http_status_t
 parse_http_request(lwan_t *l, lwan_request_t *request, struct request_parser_helper *helper)
 {
-    char *buffer = ignore_leading_whitespace(helper->buffer->value);
+    char *buffer = helper->buffer->value;
 
     if (l->config.proxy_protocol) {
         buffer = parse_proxy_protocol(request, buffer);
@@ -895,6 +895,8 @@ parse_http_request(lwan_t *l, lwan_request_t *request, struct request_parser_hel
         if (UNLIKELY(!buffer))
             return HTTP_BAD_REQUEST;
     }
+
+    buffer = ignore_leading_whitespace(buffer);
 
     char *path = identify_http_method(request, buffer);
     if (UNLIKELY(buffer == path)) {
