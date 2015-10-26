@@ -482,28 +482,35 @@ class TestCache(LwanTest):
 
 class TestProxyProtocolRequests(SocketTest):
   def test_proxy_version1(self):
-    req = '''PROXY TCP4 192.168.242.221 192.168.242.242 56324 31337\r
-GET / HTTP/1.1\r
+    proxy = "PROXY TCP4 192.168.242.221 192.168.242.242 56324 31337\r\n"
+    req = '''GET /proxy HTTP/1.1\r
+Connection: keep-alive\r
 Host: 192.168.0.11\r\n\r\n'''
 
     sock = self.connect()
-    sock.send(req)
-    response = sock.recv(1024)
-    self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+
+    for request in range(5):
+      sock.send(proxy + req if request == 0 else req)
+      response = sock.recv(4096)
+      self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+      self.assertTrue('X-Proxy: 192.168.242.221' in response, response)
 
   def test_proxy_version2(self):
-    req = (
+    proxy = (
       "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"
       "\x21\x11\x00\x0B"
       "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B"
-      "GET / HTTP/1.1\r\n"
-      "Host: 192.168.0.11\r\n\r\n"
     )
+    req = '''GET /proxy HTTP/1.1\r
+Connection: keep-alive\r
+Host: 192.168.0.11\r\n\r\n'''
 
     sock = self.connect()
-    sock.send(req)
-    response = sock.recv(1024)
-    self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+    for request in range(5):
+      sock.send(proxy + req if request == 0 else req)
+      response = sock.recv(4096)
+      self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+      self.assertTrue('X-Proxy: 1.2.3.4' in response, response)
 
 class TestPipelinedRequests(SocketTest):
   def test_pipelined_requests(self):

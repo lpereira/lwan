@@ -92,6 +92,27 @@ test_server_sent_event(lwan_request_t *request,
 }
 
 lwan_http_status_t
+test_proxy(lwan_request_t *request,
+           lwan_response_t *response,
+           void *data __attribute__((unused)))
+{
+    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    if (UNLIKELY(!headers))
+       return HTTP_INTERNAL_ERROR;
+
+    char *buffer = coro_malloc(request->conn->coro, INET6_ADDRSTRLEN);
+
+    headers[0].key = "X-Proxy";
+    headers[0].value = (char*) lwan_request_get_remote_address(request, buffer);
+    headers[1].key = NULL;
+    headers[1].value = NULL;
+
+    response->headers = headers;
+
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))
