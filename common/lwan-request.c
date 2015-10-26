@@ -240,8 +240,8 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
         TCP6 = 0x21
     };
 
-    size = proto_signature_length + (unsigned int) ntohs(hdr->v2.len);
-    if (UNLIKELY(size > sizeof(hdr->v2)))
+    size = proto_signature_length + (unsigned int)ntohs(hdr->v2.len);
+    if (UNLIKELY(size > (unsigned int)sizeof(hdr->v2)))
         goto no_proxy;
 
     if (UNLIKELY((hdr->v2.ver) != 2))
