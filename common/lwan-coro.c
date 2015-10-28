@@ -144,40 +144,40 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-static inline coro_defer_t *
-next_defer(const coro_defer_t *defer)
+static inline void *
+get_func_ptr(void (*func)())
 {
-    ptrdiff_t ptr = (ptrdiff_t)defer->next;
+    uintptr_t ptr = (uintptr_t)func;
 
-    if (!ptr)
-        return NULL;
-
-    ptr &= ~(ptrdiff_t)1;
+    ptr &= ~(uintptr_t)1;
     return (coro_defer_t *)ptr;
 }
 
 static inline bool
-is_sticky(const coro_defer_t *defer)
+is_sticky(void (*func)())
 {
-    ptrdiff_t ptr = (ptrdiff_t)defer->next;
+    uintptr_t ptr = (uintptr_t)func;
 
-    return ptr & (ptrdiff_t)1;
+    return ptr & (uintptr_t)1;
 }
 
 static void
 coro_run_deferred(coro_t *coro, bool sticky)
 {
+    coro_defer_t *defer = coro->defer;
     coro_defer_t *sticked = NULL;
 
-    for (coro_defer_t *defer = coro->defer; defer;) {
+    while (defer) {
         coro_defer_t *tmp = defer;
 
-        defer = next_defer(defer);
-        if (!sticky && is_sticky(tmp)) {
+        defer = defer->next;
+        if (!sticky && is_sticky(tmp->func)) {
             tmp->next = sticked;
             sticked = tmp;
         } else {
-            tmp->func(tmp->data1, tmp->data2);
+            void (*defer_func)() = get_func_ptr(tmp->func);
+
+            defer_func(tmp->data1, tmp->data2);
             free(tmp);
         }
     }
@@ -347,16 +347,18 @@ void *
 coro_malloc_full(coro_t *coro, size_t size, bool sticky, void (*destroy_func)())
 {
     coro_defer_t *defer = malloc(sizeof(*defer) + size);
-    ptrdiff_t next = (ptrdiff_t)coro->defer;
+    uintptr_t destroy_func_ptr = (uintptr_t)destroy_func;
 
     if (UNLIKELY(!defer))
         return NULL;
+    if (UNLIKELY(!destroy_func))
+        return NULL;
 
     if (sticky)
-        next |= 1;
+        destroy_func_ptr |= (uintptr_t)1;
 
-    defer->next = (coro_defer_t *)next;
-    defer->func = destroy_func;
+    defer->next = coro->defer;
+    defer->func = (void (*)())destroy_func_ptr;
     defer->data1 = defer + 1;
     defer->data2 = NULL;
 
