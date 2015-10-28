@@ -1112,6 +1112,9 @@ lwan_request_get_remote_address(lwan_request_t *request,
 
     if (request->flags & REQUEST_PROXIED) {
         sock_addr = (struct sockaddr_storage *)&request->proxy->from;
+
+        if (UNLIKELY(sock_addr->ss_family == AF_UNSPEC))
+            return "*unspecified*";
     } else {
         socklen_t sock_len = sizeof(non_proxied_addr);
 
