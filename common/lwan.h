@@ -110,6 +110,7 @@ typedef struct lwan_thread_t_		lwan_thread_t;
 typedef struct lwan_url_map_t_		lwan_url_map_t;
 typedef struct lwan_value_t_		lwan_value_t;
 typedef struct lwan_config_t_		lwan_config_t;
+typedef struct lwan_proxy_t_		lwan_proxy_t;
 typedef struct lwan_connection_t_	lwan_connection_t;
 
 typedef enum {
@@ -209,17 +210,20 @@ struct lwan_connection_t_ {
     int prev, next; /* for death queue */
 };
 
+struct lwan_proxy_t_ {
+    union {
+        struct sockaddr_in ipv4;
+        struct sockaddr_in6 ipv6;
+    } from, to;
+};
+
 struct lwan_request_t_ {
     lwan_request_flags_t flags;
     int fd;
     lwan_value_t url;
     lwan_value_t original_url;
     lwan_connection_t *conn;
-
-    struct {
-        struct sockaddr_in ipv4;
-        struct sockaddr_in6 ipv6;
-    } proxy_from, proxy_to;
+    lwan_proxy_t *proxy;
 
     struct {
         lwan_key_value_t *base;

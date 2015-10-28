@@ -151,6 +151,7 @@ process_request_coro(coro_t *coro)
     char *next_request = NULL;
     lwan_request_flags_t flags =
         lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0;
+    lwan_proxy_t proxy;
 
     strbuf_init(strbuf);
 
@@ -161,7 +162,8 @@ process_request_coro(coro_t *coro)
             .response = {
                 .buffer = strbuf
             },
-            .flags = flags
+            .flags = flags,
+            .proxy = &proxy
         };
 
         assert(conn->flags & CONN_IS_ALIVE);
