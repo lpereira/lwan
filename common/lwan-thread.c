@@ -286,21 +286,17 @@ update_date_cache(lwan_thread_t *thread)
 }
 
 static ALWAYS_INLINE void
-spawn_or_reset_coro_if_needed(lwan_connection_t *conn,
+spawn_coro(lwan_connection_t *conn,
             coro_switcher_t *switcher, struct death_queue_t *dq)
 {
-    if (conn->coro) {
-        if (conn->flags & CONN_SHOULD_RESUME_CORO)
-            return;
+    assert(!conn->coro);
+    assert(!(conn->flags & CONN_IS_ALIVE));
+    assert(!(conn->flags & CONN_SHOULD_RESUME_CORO));
 
-        coro_reset(conn->coro, process_request_coro, conn);
-    } else {
-        conn->coro = coro_new(switcher, process_request_coro, conn);
+    conn->coro = coro_new(switcher, process_request_coro, conn);
 
-        death_queue_insert(dq, conn);
-        conn->flags |= CONN_IS_ALIVE;
-    }
-    conn->flags |= CONN_SHOULD_RESUME_CORO;
+    death_queue_insert(dq, conn);
+    conn->flags |= (CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO);
     conn->flags &= ~CONN_WRITE_EVENTS;
 }
 
@@ -367,7 +363,8 @@ thread_io_loop(void *data)
                     conn = grab_and_watch_client(epoll_fd, read_pipe_fd, conns);
                     if (UNLIKELY(!conn))
                         continue;
-                    spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
+
+                    spawn_coro(conn, &switcher, &dq);
                 } else {
                     conn = ep_event->data.ptr;
                     if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
@@ -375,7 +372,6 @@ thread_io_loop(void *data)
                         continue;
                     }
 
-                    spawn_or_reset_coro_if_needed(conn, &switcher, &dq);
                     resume_coro_if_needed(&dq, conn, epoll_fd);
                 }
 
