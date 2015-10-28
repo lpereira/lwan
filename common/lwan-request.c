@@ -177,7 +177,6 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
     enum {
         TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
         TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6'),
-        UNKN = MULTICHAR_CONSTANT('U', 'N', 'K', 'N')
     };
 
     STRING_SWITCH(protocol) {
@@ -215,9 +214,6 @@ parse_proxy_protocol_v1(lwan_request_t *request, char *buffer)
 
         break;
     }
-    case UNKN:
-        request->flags &= ~REQUEST_PROXIED;
-        return buffer + size;
     default:
         return NULL;
     }
@@ -242,10 +238,10 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 
     size = proto_signature_length + (unsigned int)ntohs(hdr->v2.len);
     if (UNLIKELY(size > (unsigned int)sizeof(hdr->v2)))
-        goto no_proxy;
+        return NULL;
 
     if (UNLIKELY((hdr->v2.ver) != 2))
-        goto no_proxy;
+        return NULL;
 
     if (hdr->v2.cmd == LOCAL) {
         struct sockaddr_in *from = &request->proxy_from.ipv4;
@@ -276,18 +272,14 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
             memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, sizeof(to->sin6_addr));
             to->sin6_port = hdr->v2.addr.ip6.dst_port;
         } else {
-            goto no_proxy;
+            return NULL;
         }
     } else {
-        goto no_proxy;
+        return NULL;
     }
 
     request->flags |= REQUEST_PROXIED;
     return buffer + size;
-
-no_proxy:
-    request->flags &= ~REQUEST_PROXIED;
-    return NULL;
 }
 
 static ALWAYS_INLINE char *
@@ -885,13 +877,14 @@ parse_proxy_protocol(lwan_request_t *request, char *buffer)
 }
 
 static lwan_http_status_t
-parse_http_request(lwan_t *l, lwan_request_t *request, struct request_parser_helper *helper)
+parse_http_request(lwan_request_t *request, struct request_parser_helper *helper)
 {
     char *buffer = helper->buffer->value;
 
-    if (l->config.proxy_protocol) {
-        buffer = parse_proxy_protocol(request, buffer);
+    if (request->flags & REQUEST_ALLOW_PROXY_REQS) {
+        /* REQUEST_ALLOW_PROXY_REQS will be cleared in lwan_process_request() */
 
+        buffer = parse_proxy_protocol(request, buffer);
         if (UNLIKELY(!buffer))
             return HTTP_BAD_REQUEST;
     }
@@ -1021,7 +1014,7 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
         __builtin_unreachable();
     }
 
-    status = parse_http_request(l, request, &helper);
+    status = parse_http_request(request, &helper);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
         goto out;

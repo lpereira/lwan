@@ -157,7 +157,8 @@ typedef enum {
     RESPONSE_CHUNKED_ENCODING  = 1<<7,
     RESPONSE_NO_CONTENT_LENGTH = 1<<8,
     RESPONSE_URL_REWRITTEN     = 1<<9,
-    REQUEST_PROXIED            = 1<<10
+    REQUEST_ALLOW_PROXY_REQS   = 1<<10,
+    REQUEST_PROXIED            = 1<<11
 } lwan_request_flags_t;
 
 typedef enum {
