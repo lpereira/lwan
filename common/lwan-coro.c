@@ -42,9 +42,9 @@ typedef struct coro_defer_t_	coro_defer_t;
 struct coro_defer_t_ {
     coro_defer_t *next;
     void (*func)();
-    bool sticky;
     void *data1;
     void *data2;
+    bool sticky;
 };
 
 struct coro_t_ {
@@ -145,7 +145,7 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-void
+static void
 coro_run_deferred(coro_t *coro, bool sticky)
 {
     coro_defer_t *first = NULL;
@@ -164,6 +164,12 @@ coro_run_deferred(coro_t *coro, bool sticky)
     if (first) {
         first->next = NULL;
     }
+}
+
+void
+coro_collect_garbage(coro_t *coro)
+{
+    coro_run_deferred(coro, false);
 }
 
 void
