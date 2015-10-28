@@ -39,9 +39,11 @@ static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
 
 typedef struct coro_defer_t_	coro_defer_t;
 
+typedef void (*defer_func)();
+
 struct coro_defer_t_ {
     coro_defer_t *next;
-    void (*func)();
+    defer_func func;
     void *data1;
     void *data2;
 };
@@ -144,17 +146,17 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-static inline void *
-get_func_ptr(void (*func)())
+static inline defer_func
+get_func_ptr(defer_func func)
 {
     uintptr_t ptr = (uintptr_t)func;
 
     ptr &= ~(uintptr_t)1;
-    return (coro_defer_t *)ptr;
+    return (defer_func)ptr;
 }
 
 static inline bool
-is_sticky(void (*func)())
+is_sticky(defer_func func)
 {
     uintptr_t ptr = (uintptr_t)func;
 
@@ -191,9 +193,7 @@ coro_run_deferred(coro_t *coro, bool sticky)
             tmp->next = sticked;
             sticked = tmp;
         } else {
-            void (*defer_func)() = get_func_ptr(tmp->func);
-
-            defer_func(tmp->data1, tmp->data2);
+            get_func_ptr(tmp->func)(tmp->data1, tmp->data2);
             free(tmp);
         }
     }
@@ -330,7 +330,7 @@ coro_free(coro_t *coro)
 }
 
 static void
-coro_defer_any(coro_t *coro, void (*func)(), void *data1, void *data2)
+coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
 {
     coro_defer_t *defer = malloc(sizeof(*defer));
     if (UNLIKELY(!defer))
@@ -363,18 +363,15 @@ void *
 coro_malloc_full(coro_t *coro, size_t size, bool sticky, void (*destroy_func)())
 {
     coro_defer_t *defer = malloc(sizeof(*defer) + size);
-    uintptr_t destroy_func_ptr = (uintptr_t)destroy_func;
-
     if (UNLIKELY(!defer))
         return NULL;
-    if (UNLIKELY(!destroy_func))
-        return NULL;
 
+    uintptr_t destroy_func_ptr = (uintptr_t)destroy_func;
     if (sticky)
         destroy_func_ptr |= (uintptr_t)1;
 
     defer->next = coro->defer;
-    defer->func = (void (*)())destroy_func_ptr;
+    defer->func = (defer_func)destroy_func_ptr;
     defer->data1 = defer + 1;
     defer->data2 = NULL;
 
