@@ -161,6 +161,22 @@ is_sticky(void (*func)())
     return ptr & (uintptr_t)1;
 }
 
+static coro_defer_t *
+reverse(coro_defer_t *root)
+{
+    coro_defer_t *new = NULL;
+
+    while (root) {
+        coro_defer_t *next = root->next;
+
+        root->next = new;
+        new = root;
+        root = next;
+    }
+
+    return new;
+}
+
 static void
 coro_run_deferred(coro_t *coro, bool sticky)
 {
@@ -182,7 +198,7 @@ coro_run_deferred(coro_t *coro, bool sticky)
         }
     }
 
-    coro->defer = sticked;
+    coro->defer = reverse(sticked);
 }
 
 void
