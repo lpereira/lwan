@@ -1104,7 +1104,7 @@ lwan_request_get_remote_address(lwan_request_t *request,
         sock_addr = (struct sockaddr_storage *)&request->proxy->from;
 
         if (UNLIKELY(sock_addr->ss_family == AF_UNSPEC))
-            return "*unspecified*";
+            return memcpy(buffer, "*unspecified*", sizeof("*unspecified*"));
     } else {
         socklen_t sock_len = sizeof(non_proxied_addr);
 
