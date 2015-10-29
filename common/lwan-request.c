@@ -369,17 +369,11 @@ parse_key_values(lwan_request_t *request,
             return;
 
         key = ptr;
-        value = strchr(ptr, '=');
+        value = strsep_char(ptr, '=');
         if (UNLIKELY(!value))
             return;
-        *value = '\0';
-        value++;
 
-        ptr = strchr(value, separator);
-        if (ptr) {
-            *ptr = '\0';
-            ptr++;
-        }
+        ptr = strsep_char(value, separator);
 
         if (UNLIKELY(!decode_value(key) || !decode_value(value)))
             return;
