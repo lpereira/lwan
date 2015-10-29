@@ -64,8 +64,7 @@ union proxy_protocol_header {
     } v1;
     struct {
         uint8_t sig[12];
-        uint8_t cmd : 4;
-        uint8_t ver : 4;
+        uint8_t cmd_ver;
         uint8_t fam;
         uint16_t len;
         union {
@@ -232,8 +231,8 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
     lwan_proxy_t *const proxy = request->proxy;
 
     enum {
-        LOCAL = 0,
-        PROXY = 1,
+        LOCAL = 0x20,
+        PROXY = 0x21,
         TCP4 = 0x11,
         TCP6 = 0x21
     };
@@ -242,15 +241,12 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
     if (UNLIKELY(size > (unsigned int)sizeof(hdr->v2)))
         return NULL;
 
-    if (UNLIKELY((hdr->v2.ver) != 2))
-        return NULL;
-
-    if (hdr->v2.cmd == LOCAL) {
+    if (hdr->v2.cmd_ver == LOCAL) {
         struct sockaddr_in *from = &proxy->from.ipv4;
         struct sockaddr_in *to = &proxy->to.ipv4;
 
         from->sin_family = to->sin_family = AF_UNSPEC;
-    } else if (hdr->v2.cmd == PROXY) {
+    } else if (hdr->v2.cmd_ver == PROXY) {
         if (hdr->v2.fam == TCP4) {
             struct sockaddr_in *from = &proxy->from.ipv4;
             struct sockaddr_in *to = &proxy->to.ipv4;
