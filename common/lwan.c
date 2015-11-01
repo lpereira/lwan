@@ -469,9 +469,20 @@ setup_open_file_count_limits(void)
 static void
 allocate_connections(lwan_t *l, size_t max_open_files)
 {
+#if defined(_ISOC11_SOURCE)
+    const size_t sz = max_open_files * sizeof(lwan_connection_t);
+
+    l->conns = aligned_alloc(64, sz);
+    if (!l->conns)
+        lwan_status_critical_perror("aligned_alloc");
+
+    memset(l->conns, 0, sz);
+#else
     l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
+
     if (!l->conns)
         lwan_status_critical_perror("calloc");
+#endif
 }
 
 static unsigned short int
