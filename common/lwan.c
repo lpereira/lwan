@@ -533,7 +533,7 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
         if (!setup_from_config(l))
             lwan_status_warning("Could not read config file, using defaults");
 
-        /* `config` key might have changed value. */
+        /* `quiet` key might have changed value. */
         lwan_status_init(l);
     }
 
