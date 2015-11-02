@@ -91,12 +91,18 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     };
 
     STRING_SWITCH_L(last_dot) {
-    case EXT_CSS: return "text/css";
-    case EXT_HTM: return "text/html";
-    case EXT_JPG: return "image/jpeg";
-    case EXT_JS:  return "application/javascript";
-    case EXT_PNG: return "image/png";
-    case EXT_TXT: return "text/plain";
+    case EXT_CSS:
+        return "text/css";
+    case EXT_HTM:
+        return "text/html";
+    case EXT_JPG:
+        return "image/jpeg";
+    case EXT_JS:
+         return "application/javascript";
+    case EXT_PNG:
+        return "image/png";
+    case EXT_TXT:
+        return "text/plain";
     }
 
     if (LIKELY(*last_dot)) {
@@ -116,22 +122,38 @@ const char *
 lwan_http_status_as_string_with_code(lwan_http_status_t status)
 {
     switch (status) {
-    case HTTP_OK: return "200 OK";
-    case HTTP_PARTIAL_CONTENT: return "206 Partial content";
-    case HTTP_MOVED_PERMANENTLY: return "301 Moved permanently";
-    case HTTP_NOT_MODIFIED: return "304 Not modified";
-    case HTTP_BAD_REQUEST: return "400 Bad request";
-    case HTTP_NOT_AUTHORIZED: return "401 Not authorized";
-    case HTTP_FORBIDDEN: return "403 Forbidden";
-    case HTTP_NOT_FOUND: return "404 Not found";
-    case HTTP_NOT_ALLOWED: return "405 Not allowed";
-    case HTTP_TIMEOUT: return "408 Request timeout";
-    case HTTP_TOO_LARGE: return "413 Request too large";
-    case HTTP_RANGE_UNSATISFIABLE: return "416 Requested range unsatisfiable";
-    case HTTP_I_AM_A_TEAPOT: return "418 I'm a teapot";
-    case HTTP_INTERNAL_ERROR: return "500 Internal server error";
-    case HTTP_NOT_IMPLEMENTED: return "501 Not implemented";
-    case HTTP_UNAVAILABLE: return "503 Service unavailable";
+    case HTTP_OK:
+        return "200 OK";
+    case HTTP_PARTIAL_CONTENT:
+        return "206 Partial content";
+    case HTTP_MOVED_PERMANENTLY:
+        return "301 Moved permanently";
+    case HTTP_NOT_MODIFIED:
+        return "304 Not modified";
+    case HTTP_BAD_REQUEST:
+        return "400 Bad request";
+    case HTTP_NOT_AUTHORIZED:
+        return "401 Not authorized";
+    case HTTP_FORBIDDEN:
+        return "403 Forbidden";
+    case HTTP_NOT_FOUND:
+        return "404 Not found";
+    case HTTP_NOT_ALLOWED:
+        return "405 Not allowed";
+    case HTTP_TIMEOUT:
+        return "408 Request timeout";
+    case HTTP_TOO_LARGE:
+        return "413 Request too large";
+    case HTTP_RANGE_UNSATISFIABLE:
+        return "416 Requested range unsatisfiable";
+    case HTTP_I_AM_A_TEAPOT:
+        return "418 I'm a teapot";
+    case HTTP_INTERNAL_ERROR:
+        return "500 Internal server error";
+    case HTTP_NOT_IMPLEMENTED:
+        return "501 Not implemented";
+    case HTTP_UNAVAILABLE:
+        return "503 Service unavailable";
     }
     return "999 Invalid";
 }
@@ -146,22 +168,38 @@ const char *
 lwan_http_status_as_descriptive_string(lwan_http_status_t status)
 {
     switch (status) {
-    case HTTP_OK: return "Success!";
-    case HTTP_PARTIAL_CONTENT: return "Delivering part of requested resource.";
-    case HTTP_MOVED_PERMANENTLY: return "This content has moved to another place.";
-    case HTTP_NOT_MODIFIED: return "The content has not changed since previous request.";
-    case HTTP_BAD_REQUEST: return "The client has issued a bad request.";
-    case HTTP_NOT_AUTHORIZED: return "Client has no authorization to access this resource.";
-    case HTTP_FORBIDDEN: return "Access to this resource has been denied.";
-    case HTTP_NOT_FOUND: return "The requested resource could not be found on this server.";
-    case HTTP_NOT_ALLOWED: return "The requested method is not allowed by this server.";
-    case HTTP_TIMEOUT: return "Client did not produce a request within expected timeframe.";
-    case HTTP_TOO_LARGE: return "The request entity is too large.";
-    case HTTP_RANGE_UNSATISFIABLE: return "The server can't supply the requested portion of the requested resource.";
-    case HTTP_I_AM_A_TEAPOT: return "Client requested to brew coffee but device is a teapot.";
-    case HTTP_INTERNAL_ERROR: return "The server encountered an internal error that couldn't be recovered from.";
-    case HTTP_NOT_IMPLEMENTED: return "Server lacks the ability to fulfil the request.";
-    case HTTP_UNAVAILABLE: return "The server is either overloaded or down for maintenance.";
+    case HTTP_OK:
+        return "Success!";
+    case HTTP_PARTIAL_CONTENT:
+        return "Delivering part of requested resource.";
+    case HTTP_MOVED_PERMANENTLY:
+        return "This content has moved to another place.";
+    case HTTP_NOT_MODIFIED:
+        return "The content has not changed since previous request.";
+    case HTTP_BAD_REQUEST:
+        return "The client has issued a bad request.";
+    case HTTP_NOT_AUTHORIZED:
+        return "Client has no authorization to access this resource.";
+    case HTTP_FORBIDDEN:
+        return "Access to this resource has been denied.";
+    case HTTP_NOT_FOUND:
+        return "The requested resource could not be found on this server.";
+    case HTTP_NOT_ALLOWED:
+        return "The requested method is not allowed by this server.";
+    case HTTP_TIMEOUT:
+        return "Client did not produce a request within expected timeframe.";
+    case HTTP_TOO_LARGE:
+        return "The request entity is too large.";
+    case HTTP_RANGE_UNSATISFIABLE:
+        return "The server can't supply the requested portion of the requested resource.";
+    case HTTP_I_AM_A_TEAPOT:
+        return "Client requested to brew coffee but device is a teapot.";
+    case HTTP_INTERNAL_ERROR:
+        return "The server encountered an internal error that couldn't be recovered from.";
+    case HTTP_NOT_IMPLEMENTED:
+        return "Server lacks the ability to fulfil the request.";
+    case HTTP_UNAVAILABLE:
+        return "The server is either overloaded or down for maintenance.";
     }
     return "Invalid";
 }
