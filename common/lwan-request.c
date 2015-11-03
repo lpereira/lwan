@@ -303,7 +303,9 @@ decode_hex_digit(char ch)
 static ALWAYS_INLINE bool
 is_hex_digit(char ch)
 {
-    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+    return ((ch - '0') <= ('9' - '0'))
+        || ((ch - 'a') <= ('f' - 'a'))
+        || ((ch - 'A') <= ('F' - 'A'));
 }
 
 static size_t
