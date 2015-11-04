@@ -69,14 +69,14 @@ union proxy_protocol_header {
         uint16_t len;
         union {
             struct {
-                uint32_t src_addr;
-                uint32_t dst_addr;
+                in_addr_t src_addr;
+                in_addr_t dst_addr;
                 uint16_t src_port;
                 uint16_t dst_port;
             } ip4;
             struct {
-                uint8_t src_addr[sizeof(struct in6_addr)];
-                uint8_t dst_addr[sizeof(struct in6_addr)];
+                struct in6_addr src_addr;
+                struct in6_addr dst_addr;
                 uint16_t src_port;
                 uint16_t dst_port;
             } ip6;
@@ -264,10 +264,10 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 
             from->sin6_family = to->sin6_family = AF_INET6;
 
-            memcpy(&from->sin6_addr, hdr->v2.addr.ip6.src_addr, sizeof(from->sin6_addr));
+            from->sin6_addr = hdr->v2.addr.ip6.src_addr;
             from->sin6_port = hdr->v2.addr.ip6.src_port;
 
-            memcpy(&to->sin6_addr, hdr->v2.addr.ip6.dst_addr, sizeof(to->sin6_addr));
+            to->sin6_addr = hdr->v2.addr.ip6.dst_addr;
             to->sin6_port = hdr->v2.addr.ip6.dst_port;
         } else {
             return NULL;
