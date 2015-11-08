@@ -277,6 +277,7 @@ struct lwan_thread_t_ {
     int epoll_fd;
     int pipe_fd[2];
     pthread_t self;
+    coro_switcher_t switcher;
 };
 
 struct lwan_config_t_ {

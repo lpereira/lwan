@@ -327,7 +327,7 @@ thread_io_loop(void *data)
     const lwan_t *lwan = t->lwan;
     lwan_connection_t *conns = lwan->conns;
     struct epoll_event *events;
-    coro_switcher_t switcher;
+    coro_switcher_t *switcher = &t->switcher;
     struct death_queue_t dq;
     int n_fds;
 
@@ -364,7 +364,7 @@ thread_io_loop(void *data)
                     if (UNLIKELY(!conn))
                         continue;
 
-                    spawn_coro(conn, &switcher, &dq);
+                    spawn_coro(conn, switcher, &dq);
                 } else {
                     conn = ep_event->data.ptr;
                     if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
