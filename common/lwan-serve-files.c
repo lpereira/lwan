@@ -85,12 +85,6 @@ struct mmap_cache_data_t_ {
 };
 
 struct sendfile_cache_data_t_ {
-    /*
-     * FIXME Investigate if keeping files open and dup()ing them
-     *       is faster than openat()ing. This won't scale as well,
-     *       but might be a good alternative for popular files.
-     */
-
     struct {
         char *filename;
         size_t size;
