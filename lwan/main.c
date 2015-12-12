@@ -252,9 +252,7 @@ main(int argc, char *argv[])
     lwan_shutdown(&l);
 
 out:
-
     free(root);
-    free(c.listener);
 
     return exit_status;
 }
