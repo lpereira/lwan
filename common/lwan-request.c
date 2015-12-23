@@ -1044,51 +1044,41 @@ out:
     return helper.next_request;
 }
 
-static const char *
-value_array_bsearch(lwan_key_value_t *base, const size_t len, const char *key)
+static int
+compare_key_value(const void *a, const void *b)
 {
-    if (UNLIKELY(!len))
-        return NULL;
+    const lwan_key_value_t *kva = a;
+    const lwan_key_value_t *kvb = b;
 
-    size_t lower_bound = 0;
-    size_t upper_bound = len;
-    size_t key_len = strlen(key);
+    return strcmp(kva->key, kvb->key);
+}
 
-    while (lower_bound < upper_bound) {
-        /* lower_bound + upper_bound will never overflow */
-        size_t idx = (lower_bound + upper_bound) / 2;
-        lwan_key_value_t *ptr = base + idx;
-        int cmp = strncmp(key, ptr->key, key_len);
-        if (LIKELY(!cmp))
-            return ptr->value;
-        if (cmp > 0)
-            lower_bound = idx + 1;
-        else
-            upper_bound = idx;
-    }
+static inline void *
+value_lookup(const void *base, size_t len, const char *key)
+{
+    lwan_key_value_t *entry, k = { .key = (char *)key };
 
-    return NULL;
+    entry = bsearch(&k, base, len, sizeof(k), compare_key_value);
+    return LIKELY(entry) ? entry->value : NULL;
 }
 
 const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
-    return value_array_bsearch(request->query_params.base,
-                                            request->query_params.len, key);
+    return value_lookup(request->query_params.base, request->query_params.len,
+        key);
 }
 
 const char *
 lwan_request_get_post_param(lwan_request_t *request, const char *key)
 {
-    return value_array_bsearch(request->post_data.base,
-                                            request->post_data.len, key);
+    return value_lookup(request->post_data.base, request->post_data.len, key);
 }
 
 const char *
 lwan_request_get_cookie(lwan_request_t *request, const char *key)
 {
-    return value_array_bsearch(request->cookies.base,
-                                            request->cookies.len, key);
+    return value_lookup(request->cookies.base, request->cookies.len, key);
 }
 
 ALWAYS_INLINE int
