@@ -349,6 +349,10 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 
 const char *get_config_path(char * path_buf, char * exec_path)
 {
+    char * env_config = getenv("LWAN_CONF");
+    if( env_config )
+        return env_config;
+
     int ret = snprintf(path_buf, PATH_MAX, "%s.conf", exec_path);
     if (ret < 0 || ret >= PATH_MAX)
         return "lwan.conf";
