@@ -392,11 +392,11 @@ templated_output(lwan_request_t *request,
 }
 
 int
-main(void)
+main( int argc, char ** argv )
 {
     lwan_t l;
 
-    lwan_init(&l);
+    lwan_init(&l, argv[0]);
 
     json_template = lwan_tpl_compile_string(json_template_str, template_descriptor);
     if (!json_template)

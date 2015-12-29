@@ -347,31 +347,16 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
     config_error(c, "Expecting section end while parsing listener");
 }
 
-const char *get_config_path(char *path_buf)
+const char *get_config_path(char * path_buf, char * exec_path)
 {
-    char *path = NULL;
-    ssize_t path_len;
-
-    /* FIXME: This should ideally (and portably) done by using argv[0] */
-
-    path_len = readlink("/proc/self/exe", path_buf, PATH_MAX);
-    if (path_len < 0)
-        goto out;
-    path_buf[path_len] = '\0';
-    path = strrchr(path_buf, '/');
-    if (!path)
-        goto out;
-    int ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
+    int ret = snprintf(path_buf, PATH_MAX, "%s.conf", exec_path);
     if (ret < 0 || ret >= PATH_MAX)
-        goto out;
+        return "lwan.conf";
 
     return path_buf;
-
-out:
-    return "lwan.conf";
 }
 
-static bool setup_from_config(lwan_t *lwan)
+static bool setup_from_config(lwan_t *lwan, char * exec_path)
 {
     config_t conf;
     config_line_t line;
@@ -379,7 +364,7 @@ static bool setup_from_config(lwan_t *lwan)
     char path_buf[PATH_MAX];
     const char *path;
 
-    path = get_config_path(path_buf);
+    path = get_config_path(path_buf, exec_path);
     lwan_status_info("Loading configuration file: %s", path);
 
     if (!lwan_trie_init(&lwan->url_map_trie, destroy_urlmap))
@@ -495,9 +480,9 @@ get_number_of_cpus(void)
 }
 
 void
-lwan_init(lwan_t *l)
+lwan_init(lwan_t *l, char * exec_path)
 {
-    lwan_init_with_config(l, &default_config);
+    lwan_init_with_config(l, &default_config, exec_path);
 }
 
 const lwan_config_t *
@@ -507,7 +492,7 @@ lwan_get_default_config(void)
 }
 
 void
-lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
+lwan_init_with_config(lwan_t *l, const lwan_config_t *config, char * exec_path )
 {
     /* Load defaults */
     memset(l, 0, sizeof(*l));
@@ -528,7 +513,7 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
 
     /* Load the configuration file. */
     if (config == &default_config) {
-        if (!setup_from_config(l))
+        if (!setup_from_config(l, exec_path))
             lwan_status_warning("Could not read config file, using defaults");
 
         /* `quiet` key might have changed value. */

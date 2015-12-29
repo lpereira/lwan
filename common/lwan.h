@@ -101,7 +101,7 @@ static ALWAYS_INLINE int16_t string_as_int16(const char *s)
 #define ENFORCE_STATIC_BUFFER_LENGTH	static
 #endif
 
-typedef struct lwan_t_			lwan_t;
+typedef struct lwan_t_			    lwan_t;
 typedef struct lwan_module_t_		lwan_module_t;
 typedef struct lwan_key_value_t_	lwan_key_value_t;
 typedef struct lwan_request_t_		lwan_request_t;
@@ -334,8 +334,8 @@ const char *lwan_http_status_as_descriptive_string(lwan_http_status_t status)
 const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
-void lwan_init(lwan_t *l);
-void lwan_init_with_config(lwan_t *l, const lwan_config_t *config);
+void lwan_init(lwan_t *l, char * exec_path);
+void lwan_init_with_config(lwan_t *l, const lwan_config_t *config, char * exec_path);
 void lwan_shutdown(lwan_t *l);
 
 const lwan_config_t *lwan_get_default_config(void);
