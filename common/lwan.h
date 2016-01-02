@@ -281,6 +281,7 @@ struct lwan_thread_t_ {
 
 struct lwan_config_t_ {
     char *listener;
+    char *error_template;
     unsigned short keep_alive_timeout;
     unsigned int expires;
     short unsigned int n_threads;

@@ -665,8 +665,13 @@ serve_files_init(void *args)
         goto out_cache_create;
     }
 
-    priv->directory_list_tpl = lwan_tpl_compile_string(
-                directory_list_tpl_str, file_list_desc);
+    if (settings->directory_list_template) {
+        priv->directory_list_tpl = lwan_tpl_compile_file(
+            settings->directory_list_template, file_list_desc);
+    } else {
+        priv->directory_list_tpl = lwan_tpl_compile_string(
+            directory_list_tpl_str, file_list_desc);
+    }
     if (!priv->directory_list_tpl) {
         lwan_status_error("Could not compile directory list template");
         goto out_tpl_compile;
@@ -700,7 +705,8 @@ serve_files_init_from_hash(const struct hash *hash)
         .root_path = hash_find(hash, "path"),
         .index_html = hash_find(hash, "index_path"),
         .serve_precompressed_files =
-            parse_bool(hash_find(hash, "serve_precompressed_files"), true)
+            parse_bool(hash_find(hash, "serve_precompressed_files"), true),
+        .directory_list_template = hash_find(hash, "directory_list_template")
     };
     return serve_files_init(&settings);
 }

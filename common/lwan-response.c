@@ -62,7 +62,7 @@ struct error_template_t {
 };
 
 void
-lwan_response_init(void)
+lwan_response_init(lwan_t *l)
 {
     static lwan_var_descriptor_t error_descriptor[] = {
         TPL_VAR_STR(struct error_template_t, short_message),
@@ -74,13 +74,19 @@ lwan_response_init(void)
 
     lwan_status_debug("Initializing default response");
 
-    error_template = lwan_tpl_compile_string(error_template_str, error_descriptor);
+    if (l->config.error_template) {
+        error_template = lwan_tpl_compile_file(l->config.error_template,
+            error_descriptor);
+    } else {
+        error_template = lwan_tpl_compile_string(error_template_str,
+            error_descriptor);
+    }
     if (UNLIKELY(!error_template))
         lwan_status_critical_perror("lwan_tpl_compile_string");
 }
 
 void
-lwan_response_shutdown(void)
+lwan_response_shutdown(lwan_t *l __attribute__((unused)))
 {
     lwan_status_debug("Shutting down response");
     assert(error_template);

@@ -21,8 +21,8 @@
 
 #include "lwan.h"
 
-void lwan_response_init(void);
-void lwan_response_shutdown(void);
+void lwan_response_init(lwan_t *l);
+void lwan_response_shutdown(lwan_t *l);
 
 void lwan_socket_init(lwan_t *l);
 void lwan_socket_shutdown(lwan_t *l);

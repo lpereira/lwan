@@ -28,6 +28,7 @@ extern "C" {
 struct lwan_serve_files_settings_t {
   const char *root_path;
   const char *index_html;
+  const char *directory_list_template;
   bool serve_precompressed_files;
 };
 
@@ -36,7 +37,8 @@ struct lwan_serve_files_settings_t {
   .args = ((struct lwan_serve_files_settings_t[]) {{ \
     .root_path = root_path_, \
     .index_html = index_html_, \
-    .serve_precompressed_files = serve_precompressed_files_ \
+    .serve_precompressed_files = serve_precompressed_files_, \
+    .directory_list_template = NULL \
   }}), \
   .flags = (lwan_handler_flags_t)0
 

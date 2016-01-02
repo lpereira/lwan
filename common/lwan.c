@@ -406,7 +406,10 @@ static bool setup_from_config(lwan_t *lwan)
             else if (!strcmp(line.line.key, "expires"))
                 lwan->config.expires = parse_time_period(line.line.value,
                             default_config.expires);
-            else if (!strcmp(line.line.key, "threads")) {
+            else if (!strcmp(line.line.key, "error_template")) {
+                free(lwan->config.error_template);
+                lwan->config.error_template = strdup(line.line.value);
+            } else if (!strcmp(line.line.key, "threads")) {
                 long n_threads = parse_long(line.line.value, default_config.n_threads);
                 if (n_threads < 0)
                     config_error(&conf, "Invalid number of threads: %d", n_threads);
@@ -521,7 +524,6 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
      * printed if we're on a debug build, so the quiet setting will be
      * respected. */
     lwan_job_thread_init();
-    lwan_response_init();
     lwan_tables_init();
 
     lwan_module_init(l);
@@ -534,6 +536,8 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
         /* `quiet` key might have changed value. */
         lwan_status_init(l);
     }
+
+    lwan_response_init(l);
 
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
@@ -567,6 +571,7 @@ lwan_shutdown(lwan_t *l)
 
     if (l->config.listener != default_config.listener)
         free(l->config.listener);
+    free(l->config.error_template);
 
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);
@@ -576,7 +581,7 @@ lwan_shutdown(lwan_t *l)
 
     free(l->conns);
 
-    lwan_response_shutdown();
+    lwan_response_shutdown(l);
     lwan_tables_shutdown();
     lwan_status_shutdown(l);
     lwan_http_authorize_shutdown();
