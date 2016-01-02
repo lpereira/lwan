@@ -176,6 +176,11 @@ sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t co
      * inside the coroutine */
     char *buffer = coro_malloc(coro, BUFFER_SIZE);
 
+    if (UNLIKELY(!buffer)) {
+        lwan_status_perror("coro_malloc");
+        return -ENOMEM;
+    }
+
     if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
         lwan_status_perror("lseek");
         return -1;

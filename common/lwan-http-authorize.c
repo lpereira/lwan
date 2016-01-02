@@ -204,6 +204,9 @@ lwan_http_authorize(lwan_request_t *request,
 
 unauthorized:
     headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
+    if (UNLIKELY(!headers))
+        return false;
+
     headers[0].key = "WWW-Authenticate";
     headers[0].value = coro_printf(request->conn->coro,
                 authenticate_tmpl, realm);

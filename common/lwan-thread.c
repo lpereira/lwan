@@ -156,6 +156,9 @@ process_request_coro(coro_t *coro)
     lwan_proxy_t proxy;
     int gc_counter = CORO_GC_THRESHOLD;
 
+    if (UNLIKELY(!strbuf))
+        return CONN_CORO_ABORT;
+
     strbuf_init(strbuf);
 
     while (true) {
