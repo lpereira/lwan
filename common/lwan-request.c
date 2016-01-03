@@ -369,13 +369,15 @@ parse_key_values(lwan_request_t *request,
             return;
 
         key = ptr;
-        value = strsep_char(ptr, '=');
+        ptr = strsep_char(key, separator);
+
+        value = strsep_char(key, '=');
         if (UNLIKELY(!value))
+            value = "";
+        else if (UNLIKELY(!decode_value(value)))
             return;
 
-        ptr = strsep_char(value, separator);
-
-        if (UNLIKELY(!decode_value(key) || !decode_value(value)))
+        if (UNLIKELY(!decode_value(key)))
             return;
 
         kvs[values].key = key;
