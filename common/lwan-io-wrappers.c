@@ -167,63 +167,23 @@ out:
     __builtin_unreachable();
 }
 
-static ALWAYS_INLINE ssize_t
-sendfile_read_write(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
-{
-    /* FIXME: Use lwan_{read,write}() here */
-    ssize_t total_bytes_written = 0;
-    /* This buffer is allocated on the heap in order to minimize stack usage
-     * inside the coroutine */
-    char *buffer = coro_malloc(coro, BUFFER_SIZE);
-
-    if (UNLIKELY(!buffer)) {
-        lwan_status_perror("coro_malloc");
-        return -ENOMEM;
-    }
-
-    if (offset && lseek(in_fd, offset, SEEK_SET) < 0) {
-        lwan_status_perror("lseek");
-        return -1;
-    }
-
-    while (count > 0) {
-        ssize_t read_bytes = read(in_fd, buffer, BUFFER_SIZE);
-        if (read_bytes < 0) {
-            coro_yield(coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
-        }
-
-        ssize_t bytes_written = write(out_fd, buffer, (size_t)read_bytes);
-        if (bytes_written < 0) {
-            coro_yield(coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
-        }
-
-        total_bytes_written += bytes_written;
-        count -= (size_t)bytes_written;
-        coro_yield(coro, CONN_CORO_MAY_RESUME);
-    }
-
-    return total_bytes_written;
-}
-
-static ALWAYS_INLINE ssize_t
-sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_t count)
+ssize_t
+lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 {
     size_t total_written = 0;
     size_t to_be_written = count;
 
     do {
-        ssize_t written = sendfile(out_fd, in_fd, &offset, to_be_written);
+        ssize_t written = sendfile(request->fd, in_fd, &offset, to_be_written);
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                coro_yield(coro, CONN_CORO_MAY_RESUME);
+                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
                 continue;
 
             default:
-                coro_yield(coro, CONN_CORO_ABORT);
+                coro_yield(request->conn->coro, CONN_CORO_ABORT);
                 __builtin_unreachable();
             }
         }
@@ -231,24 +191,8 @@ sendfile_linux_sendfile(coro_t *coro, int in_fd, int out_fd, off_t offset, size_
         total_written += (size_t)written;
         to_be_written -= (size_t)written;
 
-        coro_yield(coro, CONN_CORO_MAY_RESUME);
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
 
     return (ssize_t)total_written;
-}
-
-ssize_t
-lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
-{
-    ssize_t written_bytes = sendfile_linux_sendfile(
-			request->conn->coro, in_fd, request->fd, offset, count);
-
-    if (UNLIKELY(written_bytes < 0)) {
-        switch (errno) {
-        case ENOSYS:
-        case EINVAL:
-            return sendfile_read_write(request->conn->coro, in_fd, request->fd, offset, count);
-        }
-    }
-    return written_bytes;
 }
