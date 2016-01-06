@@ -80,15 +80,15 @@ module_rewrite_as(lwan_request_t *request, const char *url)
 static bool
 append_str(struct str_builder *builder, const char *src, size_t src_len)
 {
-    size_t total_size = builder->len + src_len + 1 /* for the \0 */;
+    size_t total_size = builder->len + src_len;
     char *dest;
 
-    if (total_size > builder->size)
+    if (total_size >= builder->size)
         return false;
 
     dest = mempcpy(builder->buffer + builder->len, src, src_len);
     *dest = '\0';
-    builder->len = total_size - 1;
+    builder->len = total_size;
 
     return true;
 }
