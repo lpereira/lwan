@@ -26,7 +26,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
