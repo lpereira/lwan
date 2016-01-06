@@ -37,6 +37,7 @@ struct strbuf_t_ {
 
 bool		 strbuf_init_with_size(strbuf_t *buf, size_t size);
 bool		 strbuf_init(strbuf_t *buf);
+strbuf_t	*strbuf_new_static(const char *str, size_t size);
 strbuf_t	*strbuf_new_with_size(size_t size);
 strbuf_t	*strbuf_new(void);
 void		 strbuf_free(strbuf_t *s);

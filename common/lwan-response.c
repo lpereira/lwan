@@ -78,8 +78,8 @@ lwan_response_init(lwan_t *l)
         error_template = lwan_tpl_compile_file(l->config.error_template,
             error_descriptor);
     } else {
-        error_template = lwan_tpl_compile_string(error_template_str,
-            error_descriptor);
+        error_template = lwan_tpl_compile_string_full(error_template_str,
+            error_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
     if (UNLIKELY(!error_template))
         lwan_status_critical_perror("lwan_tpl_compile_string");

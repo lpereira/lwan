@@ -145,6 +145,7 @@ struct parser {
         struct chunk *data;
         size_t used, reserved;
     } chunks;
+    lwan_tpl_flag_t template_flags;
 };
 
 struct stacked_lexeme {
@@ -791,10 +792,20 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         if (lexeme->value.len == 1) {
             emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*lexeme->value.value);
         } else {
-            strbuf_t *buf = strbuf_new_with_size(lexeme->value.len);
-            if (!buf)
-                return error_lexeme(lexeme, "Out of memory");
-            strbuf_set(buf, lexeme->value.value, lexeme->value.len);
+            strbuf_t *buf;
+
+            if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE) {
+                buf = strbuf_new_static(lexeme->value.value, lexeme->value.len);
+                if (!buf)
+                    goto no_buf;
+            } else {
+                buf = strbuf_new_with_size(lexeme->value.len);
+                if (!buf)
+                    goto no_buf;
+
+                strbuf_set(buf, lexeme->value.value, lexeme->value.len);
+            }
+
             emit_chunk(parser, ACTION_APPEND, 0, buf);
         }
         parser->tpl->minimum_size += lexeme->value.len;
@@ -806,6 +817,9 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
     }
 
     return unexpected_lexeme(lexeme);
+
+no_buf:
+    return error_lexeme(lexeme, "Out of memory");
 }
 
 void
@@ -1097,13 +1111,15 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     return success;
 }
 
-static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor)
+static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor,
+    lwan_tpl_flag_t flags)
 {
     struct parser parser = {
         .tpl = tpl,
         .symtab = NULL,
         .chunks = { .used = 0, .reserved = array_increment_step },
-        .descriptor = descriptor
+        .descriptor = descriptor,
+        .template_flags = flags
     };
     void *(*state)(struct parser *parser, struct lexeme *lexeme) = parser_text;
     struct lexeme *lexeme = NULL;
@@ -1118,18 +1134,25 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
 }
 
 lwan_tpl_t *
-lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
+lwan_tpl_compile_string_full(const char *string, const lwan_var_descriptor_t *descriptor,
+    lwan_tpl_flag_t flags)
 {
     lwan_tpl_t *tpl;
 
     tpl = calloc(1, sizeof(*tpl));
     if (tpl) {
-        if (parse_string(tpl, string, descriptor))
+        if (parse_string(tpl, string, descriptor, flags))
             return tpl;
     }
 
     lwan_tpl_free(tpl);
     return NULL;
+}
+
+lwan_tpl_t *
+lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
+{
+    return lwan_tpl_compile_string_full(string, descriptor, 0);
 }
 
 lwan_tpl_t *

@@ -27,6 +27,10 @@ typedef struct lwan_var_descriptor_t_ lwan_var_descriptor_t;
 
 typedef int (*lwan_tpl_list_generator_t)(coro_t *coro);
 
+typedef enum {
+    LWAN_TPL_FLAG_CONST_TEMPLATE = 1<<0
+} lwan_tpl_flag_t;
+
 struct lwan_var_descriptor_t_ {
     const char *name;
     const off_t offset;
@@ -82,6 +86,7 @@ bool	 lwan_tpl_str_is_empty(void *ptr);
 void	 lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr);
 bool	 lwan_tpl_double_is_empty(void *ptr);
 
+lwan_tpl_t	*lwan_tpl_compile_string_full(const char *string, const lwan_var_descriptor_t *descriptor, lwan_tpl_flag_t flags);
 lwan_tpl_t	*lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor);
 lwan_tpl_t	*lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor);
 strbuf_t	*lwan_tpl_apply(lwan_tpl_t *tpl, void *variables);

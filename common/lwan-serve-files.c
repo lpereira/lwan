@@ -669,8 +669,9 @@ serve_files_init(void *args)
         priv->directory_list_tpl = lwan_tpl_compile_file(
             settings->directory_list_template, file_list_desc);
     } else {
-        priv->directory_list_tpl = lwan_tpl_compile_string(
-            directory_list_tpl_str, file_list_desc);
+        priv->directory_list_tpl = lwan_tpl_compile_string_full(
+            directory_list_tpl_str, file_list_desc,
+            LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
     if (!priv->directory_list_tpl) {
         lwan_status_error("Could not compile directory list template");

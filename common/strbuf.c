@@ -136,6 +136,21 @@ strbuf_new(void)
     return strbuf_new_with_size(DEFAULT_BUF_SIZE);
 }
 
+ALWAYS_INLINE strbuf_t *
+strbuf_new_static(const char *str, size_t size)
+{
+    strbuf_t *s = malloc(sizeof(*s));
+
+    if (!s)
+        return NULL;
+
+    s->flags = STATIC | DYNAMICALLY_ALLOCATED;
+    s->value.static_buffer = str;
+    s->len.buffer = s->len.allocated = size;
+
+    return s;
+}
+
 void
 strbuf_free(strbuf_t *s)
 {
