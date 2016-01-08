@@ -32,6 +32,7 @@ ssize_t lwan_write(lwan_request_t *request, const void *buffer,
                    size_t count);
 ssize_t lwan_send(lwan_request_t *request, const void *buf, size_t count,
                   int flags);
-ssize_t lwan_sendfile(lwan_request_t *request, int in_fd,
-                      off_t offset, size_t count);
+void lwan_sendfile(lwan_request_t *request, int in_fd,
+                    off_t offset, size_t count,
+                    const char *header, size_t header_len);
 

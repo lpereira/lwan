@@ -166,11 +166,14 @@ out:
     __builtin_unreachable();
 }
 
-ssize_t
-lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
+void
+lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
+    const char *header, size_t header_len)
 {
     size_t total_written = 0;
     size_t to_be_written = count;
+
+    lwan_send(request, header, header_len, MSG_MORE);
 
     do {
         ssize_t written = sendfile(request->fd, in_fd, &offset, to_be_written);
@@ -192,6 +195,4 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count)
 
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
-
-    return (ssize_t)total_written;
 }

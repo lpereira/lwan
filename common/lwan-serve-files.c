@@ -875,8 +875,8 @@ sendfile_serve(lwan_request_t *request, void *data)
             }
         }
 
-        lwan_send(request, headers, header_len, MSG_MORE);
-        lwan_sendfile(request, file_fd, from, (size_t)to);
+        lwan_sendfile(request, file_fd, from, (size_t)to,
+            headers, header_len);
     }
 
     return return_status;
