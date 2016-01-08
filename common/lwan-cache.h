@@ -27,7 +27,7 @@
 struct cache_entry_t {
   struct list_node entries;
   char *key;
-  unsigned refs;
+  int refs;
   unsigned flags;
   time_t time_to_die;
 };

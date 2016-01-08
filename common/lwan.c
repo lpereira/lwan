@@ -199,11 +199,11 @@ error:
 static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan,
     const lwan_module_t *module)
 {
-    lwan_url_map_t url_map = {0};
+    lwan_url_map_t url_map = { };
     struct hash *hash = hash_str_new(free, free);
     void *handler = NULL;
     char *prefix = strdupa(l->line.value);
-    config_t isolated = {0};
+    config_t isolated = { };
 
     if (!config_isolate_section(c, l, &isolated)) {
         config_error(c, "Could not isolate configuration file");

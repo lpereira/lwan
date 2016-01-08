@@ -68,7 +68,7 @@ static const lwan_var_descriptor_t template_descriptor[] = {
     TPL_VAR_SENTINEL
 };
 
-static const char const json_template_str[] = \
+static const char json_template_str[] = \
     "{{callback?}}{{callback}}({{/callback?}}" \
     "{" \
     "\"country_code\":\"{{country.code}}\"," \
@@ -85,7 +85,7 @@ static const char const json_template_str[] = \
     "}"
     "{{callback?}});{{/callback?}}";
 
-static const char const xml_template_str[] = \
+static const char xml_template_str[] = \
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" \
     "<Response>" \
     "<Ip>{{ip}}</Ip>" \
@@ -101,7 +101,7 @@ static const char const xml_template_str[] = \
     "<AreaCode>{{metro.area}}</AreaCode>" \
     "</Response>";
 
-static const char const csv_template_str[] = \
+static const char csv_template_str[] = \
     "\"{{ip}}\"," \
     "\"{{country.code}}\"," \
     "\"{{country.name}}\"," \
@@ -115,7 +115,7 @@ static const char const csv_template_str[] = \
     "\"{{metro.area}}\"";
 
 
-static const char const ip_to_city_query[] = \
+static const char ip_to_city_query[] = \
     "SELECT " \
     "   city_location.country_code, country_blocks.country_name," \
     "   city_location.region_code, region_names.region_name," \

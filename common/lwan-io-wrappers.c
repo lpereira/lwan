@@ -27,7 +27,6 @@
 #include "lwan-io-wrappers.h"
 
 static const int MAX_FAILED_TRIES = 5;
-static const size_t BUFFER_SIZE = 1400;
 
 int
 lwan_openat(lwan_request_t *request,
