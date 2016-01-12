@@ -232,7 +232,7 @@ main(int argc, char *argv[])
     switch (parse_args(argc, argv, &c, &root)) {
     case ARGS_SERVE_FILES:
         lwan_status_info("Serving files from %s", root);
-        lwan_init_with_config(&l, &c);
+        lwan_init_with_config(&l, &c, argv[0]);
 
         const lwan_url_map_t map[] = {
             { .prefix = "/", SERVE_FILES(root) },
@@ -241,7 +241,7 @@ main(int argc, char *argv[])
         lwan_set_url_map(&l, map);
         break;
     case ARGS_USE_CONFIG:
-        lwan_init(&l);
+        lwan_init(&l, argv[0]);
         break;
     case ARGS_FAILED:
         exit_status = EXIT_FAILURE;

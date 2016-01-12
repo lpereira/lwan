@@ -301,7 +301,7 @@ fortunes(lwan_request_t *request __attribute__((unused)),
 }
 
 int
-main(void)
+main(int argc, char ** argv)
 {
     static const lwan_url_map_t url_map[] = {
         { .prefix = "/json", .handler = json },
@@ -313,7 +313,7 @@ main(void)
     };
     lwan_t l;
 
-    lwan_init(&l);
+    lwan_init(&l, argv[0]);
 
     srand((unsigned int)time(NULL));
 
