@@ -29,6 +29,10 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#if defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#endif
+
 #include "lwan.h"
 #include "lwan-private.h"
 
@@ -349,18 +353,34 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 const char *get_config_path(char *path_buf)
 {
     char *path = NULL;
+    int ret;
+
+#if defined(__linux__)
     ssize_t path_len;
 
-    /* FIXME: This should ideally (and portably) done by using argv[0] */
-
     path_len = readlink("/proc/self/exe", path_buf, PATH_MAX);
-    if (path_len < 0)
+    if (path_len < 0) {
+        lwan_status_perror("readlink");
         goto out;
+    }
     path_buf[path_len] = '\0';
+#elif defined(__FreeBSD__)
+    size_t path_len = PATH_MAX;
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+
+    ret = sysctl(mib, N_ELEMENTS(mib), path_buf, &path_len, NULL, 0);
+    if (ret < 0) {
+        lwan_status_perror("sysctl");
+        goto out;
+    }
+#else
+    goto out;
+#endif
+
     path = strrchr(path_buf, '/');
     if (!path)
         goto out;
-    int ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
+    ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
     if (ret < 0 || ret >= PATH_MAX)
         goto out;
 
