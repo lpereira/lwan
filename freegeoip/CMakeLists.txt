@@ -8,7 +8,7 @@ if (SQLITE_FOUND)
 
 	target_link_libraries(freegeoip
 		-Wl,-whole-archive lwan-common -Wl,-no-whole-archive
-		dl
+		${CMAKE_DL_LIBS}
 		${ADDITIONAL_LIBRARIES}
 		${SQLITE_LIBRARIES}
 	)
