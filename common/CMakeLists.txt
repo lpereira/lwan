@@ -26,9 +26,18 @@ set(SOURCES
 	patterns.c
 	reallocarray.c
 	realpathat.c
-	sd-daemon.c
 	strbuf.c
+	sd-daemon.c
 )
+
+
+include(CheckIncludeFiles)
+check_include_files(sys/epoll.h HAVE_EPOLL_H)
+if (NOT HAVE_EPOLL_H)
+	list(APPEND SOURCES epoll-bsd.c)
+else ()
+	list(APPEND SOURCES sd-daemon.c)
+endif ()
 
 
 include(FindPkgConfig)

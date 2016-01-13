@@ -24,8 +24,14 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <unistd.h>
+
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#include "epoll-bsd.h"
+#elif __linux__
+#include <sys/epoll.h>
+#endif
 
 #include "lwan-private.h"
 
