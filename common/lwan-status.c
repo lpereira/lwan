@@ -92,6 +92,18 @@ get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
     return retval;
 }
 
+static inline char *
+strerror_thunk_r(int error_number, char *buffer, size_t len)
+{
+#ifdef __GLIBC__
+    return strerror_r(error_number, buffer, len);
+#else
+    if (!strerror_r(error_number, buffer, len))
+        return buffer;
+    return NULL;
+#endif
+}
+
 static void
 #ifdef NDEBUG
 status_out_msg(lwan_status_type_t type, const char *msg, size_t msg_len)
@@ -120,10 +132,15 @@ status_out_msg(const char *file, const int line, const char *func,
 
     if (type & STATUS_PERROR) {
         char buffer[512];
-        char *error_msg = strerror_r(error_number, buffer, sizeof(buffer) - 1);
+        char *errmsg = strerror_thunk_r(error_number, buffer, sizeof(buffer) - 1);
+
         fputc(':', stdout);
         fputc(' ', stdout);
-        fwrite(error_msg, strlen(error_msg), 1, stdout);
+        if (errmsg) {
+            fprintf(stdout, "%s (error number %d)", errmsg, error_number);
+        } else {
+            fprintf(stdout, "Unknown (error number %d)", error_number);
+        }
     }
 
     fputc('.', stdout);
