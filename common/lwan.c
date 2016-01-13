@@ -28,6 +28,8 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #if defined(__FreeBSD__)
 #include <sys/sysctl.h>
