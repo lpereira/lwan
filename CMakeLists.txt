@@ -60,10 +60,26 @@ set(C_FLAGS_REL "-mtune=native")
 
 include(CheckCCompilerFlag)
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
+	check_c_compiler_flag(-Wl,-z,now HAS_GOT_PROTECTION1)
+	if (HAS_GOT_PROTECTION1)
+		set(C_FLAGS_REL "${CFLAGS_REL} -Wl,-z,now")
+	endif ()
+
+	check_c_compiler_flag(-Wl,-z,relro HAS_GOT_PROTECTION2)
+	if (HAS_GOT_PROTECTION2)
+		set(C_FLAGS_REL "${CFLAGS_REL} -Wl,-z,relro")
+	endif ()
+
+	check_c_compiler_flag(-malign-data=cacheline HAS_MALIGN_DATA_CACHELINE)
+	if (HAS_MALIGN_DATA_CACHELINE)
+		set(C_FLAGS_REL "${CFLAGS_REL} -malign-data=cacheline")
+	endif ()
+
 	check_c_compiler_flag(-fno-asynchronous-unwind-tables HAS_ASYNC_UNWIND_TABLES)
 	if (HAS_ASYNC_UNWIND_TABLES)
 		set(C_FLAGS_REL "${CFLAGS_REL} -fno-asynchronous-unwind-tables")
 	endif ()
+
 	check_c_compiler_flag(-flto HAS_LTO)
 	if (HAS_LTO)
 		set(C_FLAGS_REL "${C_FLAGS_REL} -flto")
