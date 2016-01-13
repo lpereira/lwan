@@ -21,7 +21,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+#if defined(__linux__)
 #include <sys/sendfile.h>
+#elif defined(__FreeBSD__)
+#include <sys/uio.h>
+#endif
 
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
@@ -166,6 +173,7 @@ out:
     __builtin_unreachable();
 }
 
+#if defined(__linux__)
 void
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
@@ -191,8 +199,56 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         }
 
         total_written += (size_t)written;
-        to_be_written -= (size_t)written;
+        to_be_written -= (size_t)count;
 
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
 }
+#elif defined(__FreeBSD__)
+void
+lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
+    const char *header, size_t header_len)
+{
+    struct sf_hdtr headers = {
+        .headers = (struct iovec[]) {
+            {
+                .iov_base = (void *)header,
+                .iov_len = header_len
+            }
+        },
+        .hdr_cnt = 1
+    };
+    size_t total_written = 0;
+
+    do {
+        off_t sbytes;
+        int r;
+
+        r = sendfile(request->fd, in_fd, offset, count, &headers, &sbytes, SF_MNOWAIT);
+
+        if (UNLIKELY(r < 0)) {
+            switch (errno) {
+            case EAGAIN:
+            case EBUSY:
+            case EINTR:
+                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+                continue;
+
+            default:
+                coro_yield(request->conn->coro, CONN_CORO_ABORT);
+                __builtin_unreachable();
+            }
+        }
+
+        total_written += (size_t)sbytes;
+
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    } while (total_written < count);
+}
+#else
+void
+lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
+    const char *header, size_t header_len)
+{
+}
+#endif
