@@ -31,6 +31,10 @@
 #include <sys/syscall.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/thr.h>
+#endif
+
 #include "lwan.h"
 
 typedef enum {
@@ -93,6 +97,7 @@ get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
     return retval;
 }
 
+#ifndef NDEBUG
 static inline char *
 strerror_thunk_r(int error_number, char *buffer, size_t len)
 {
@@ -104,6 +109,23 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
     return NULL;
 #endif
 }
+
+static inline long
+gettid(void)
+{
+    long tid;
+
+#if defined(__linux__)
+    tid = syscall(SYS_gettid);
+#elif (__FreeBSD__)
+    thr_self(&tid);
+#else
+    tid = (long)pthread_self();
+#endif
+
+    return tid;
+}
+#endif
 
 static void
 #ifdef NDEBUG
@@ -122,7 +144,7 @@ status_out_msg(const char *file, const int line, const char *func,
         perror("pthread_mutex_lock");
 
 #ifndef NDEBUG
-    fprintf(stdout, "\033[32;1m%ld\033[0m", syscall(SYS_gettid));
+    fprintf(stdout, "\033[32;1m%ld\033[0m", gettid());
     fprintf(stdout, " \033[3m%s:%d\033[0m", basename(strdupa(file)), line);
     fprintf(stdout, " \033[33m%s()\033[0m", func);
     fprintf(stdout, " ");
