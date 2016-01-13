@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 
 #ifndef NDEBUG
 #include <unistd.h>
@@ -122,7 +123,7 @@ status_out_msg(const char *file, const int line, const char *func,
 
 #ifndef NDEBUG
     fprintf(stdout, "\033[32;1m%ld\033[0m", syscall(SYS_gettid));
-    fprintf(stdout, " \033[3m%s:%d\033[0m", basename(file), line);
+    fprintf(stdout, " \033[3m%s:%d\033[0m", basename(strdupa(file)), line);
     fprintf(stdout, " \033[33m%s()\033[0m", func);
     fprintf(stdout, " ");
 #endif
