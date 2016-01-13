@@ -26,6 +26,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#endif
+
 #include "lwan.h"
 #include "lwan-status.h"
 #include "list.h"
@@ -99,13 +103,27 @@ void lwan_job_thread_shutdown(void)
 
     if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
         struct job_t *node, *next;
+        int r;
+
         list_for_each_safe(&jobs, node, next, jobs) {
             list_del(&node->jobs);
             free(node);
         }
         running = false;
-        if (pthread_tryjoin_np(self, NULL) < 0)
-            lwan_status_critical_perror("pthread_join");
+
+#ifdef __FreeBSD__
+        r = pthread_timedjoin_np(self, NULL, &(const struct timespec) { .tv_sec = 1 });
+        if (r) {
+            errno = r;
+            lwan_status_perror("pthread_timedjoin_np");
+        }
+#else
+        r = pthread_tryjoin_np(self, NULL);
+        if (r) {
+            errno = r;
+            lwan_status_perror("pthread_tryjoin_np");
+        }
+#endif
         pthread_mutex_unlock(&queue_mutex);
     }
 }
