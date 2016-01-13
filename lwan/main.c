@@ -21,6 +21,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "lwan.h"
 #include "lwan-serve-files.h"
@@ -167,7 +168,7 @@ end:
 }
 
 static enum args
-parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
+parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
 {
   static const struct option opts[] = {
     { .name = "root", .has_arg = 1, .val = 'r' },
@@ -187,8 +188,7 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char **root)
       break;
 
     case 'r':
-      free(*root);
-      *root = strdup(optarg);
+      memcpy(root, optarg, strnlen(optarg, PATH_MAX - 1) + 1);
       result = ARGS_SERVE_FILES;
       break;
 
@@ -223,13 +223,15 @@ main(int argc, char *argv[])
 {
     lwan_t l;
     lwan_config_t c;
-    char *root = get_current_dir_name();
-    int exit_status = EXIT_SUCCESS;
+    char root[PATH_MAX];
+
+    if (!getcwd(root, PATH_MAX))
+        return 1;
 
     c = *lwan_get_default_config();
     c.listener = strdup("*:8080");
 
-    switch (parse_args(argc, argv, &c, &root)) {
+    switch (parse_args(argc, argv, &c, root)) {
     case ARGS_SERVE_FILES:
         lwan_status_info("Serving files from %s", root);
         lwan_init_with_config(&l, &c);
@@ -244,15 +246,11 @@ main(int argc, char *argv[])
         lwan_init(&l);
         break;
     case ARGS_FAILED:
-        exit_status = EXIT_FAILURE;
-        goto out;
+        return EXIT_FAILURE;
     }
 
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
-out:
-    free(root);
-
-    return exit_status;
+    return EXIT_SUCCESS;
 }
