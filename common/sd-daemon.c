@@ -25,7 +25,9 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
