@@ -244,10 +244,12 @@ lwan_socket_init(lwan_t *l)
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
         (&(struct linger){ .l_onoff = 1, .l_linger = 1 }), sizeof(struct linger));
 
+#ifdef __linux__
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN,
                                             (int[]){ 5 }, sizeof(int));
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK,
                                             (int[]){ 0 }, sizeof(int));
+#endif
 
     l->main_socket = fd;
 }
