@@ -28,6 +28,7 @@
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
+#include "lwan-private.h"
 
 static lwan_tpl_t *error_template = NULL;
 

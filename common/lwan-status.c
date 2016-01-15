@@ -36,6 +36,7 @@
 #endif
 
 #include "lwan.h"
+#include "lwan-private.h"
 
 typedef enum {
     STATUS_INFO = 1<<0,

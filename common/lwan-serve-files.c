@@ -35,6 +35,7 @@
 #include "lwan-template.h"
 #include "realpathat.h"
 #include "hash.h"
+#include "lwan-private.h"
 
 static const char *compression_none = NULL;
 static const char *compression_gzip = "gzip";

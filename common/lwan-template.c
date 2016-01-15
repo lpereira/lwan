@@ -43,6 +43,7 @@
 #include "lwan-template.h"
 #include "strbuf.h"
 #include "reallocarray.h"
+#include "lwan-private.h"
 
 enum action {
     ACTION_APPEND,

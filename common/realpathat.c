@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-private.h"
 
 char *
 realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,

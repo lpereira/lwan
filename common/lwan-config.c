@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
 #include "lwan-config.h"
 #include "lwan-status.h"
 #include "hash.h"

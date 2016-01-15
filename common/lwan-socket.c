@@ -32,7 +32,7 @@
 #include "lwan.h"
 #include "sd-daemon.h"
 #include "int-to-str.h"
-
+#include "lwan-private.h"
 
 static int
 get_backlog_size(void)

@@ -35,8 +35,19 @@ include(CheckIncludeFiles)
 check_include_files(sys/epoll.h HAVE_EPOLL_H)
 if (NOT HAVE_EPOLL_H)
 	list(APPEND SOURCES epoll-bsd.c)
-else ()
-	list(APPEND SOURCES sd-daemon.c)
+endif ()
+
+
+include(CheckFunctionExists)
+set(CMAKE_EXTRA_INCLUDE_FILES string.h)
+check_function_exists(rawmemchr HAS_RAWMEMCHR)
+if (HAS_RAWMEMCHR)
+	add_definitions(-DHAS_RAWMEMCHR)
+endif ()
+
+check_function_exists(mempcpy HAS_MEMPCPY)
+if (HAS_MEMPCPY)
+	add_definitions(-DHAS_MEMPCPY)
 endif ()
 
 
