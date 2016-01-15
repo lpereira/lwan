@@ -107,7 +107,7 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
 #else
     if (!strerror_r(error_number, buffer, len))
         return buffer;
-    return NULL;
+    return "Unknown";
 #endif
 }
 
@@ -158,13 +158,7 @@ status_out_msg(const char *file, const int line, const char *func,
         char buffer[512];
         char *errmsg = strerror_thunk_r(error_number, buffer, sizeof(buffer) - 1);
 
-        fputc(':', stdout);
-        fputc(' ', stdout);
-        if (errmsg) {
-            fprintf(stdout, "%s (error number %d)", errmsg, error_number);
-        } else {
-            fprintf(stdout, "Unknown (error number %d)", error_number);
-        }
+        fprintf(stdout, ": %s (error number %d)", errmsg, error_number);
     }
 
     fputc('.', stdout);
