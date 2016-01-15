@@ -98,7 +98,6 @@ get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
     return retval;
 }
 
-#ifndef NDEBUG
 static inline char *
 strerror_thunk_r(int error_number, char *buffer, size_t len)
 {
@@ -111,6 +110,7 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
 #endif
 }
 
+#ifndef NDEBUG
 static inline long
 gettid(void)
 {
