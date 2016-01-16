@@ -111,19 +111,12 @@ void lwan_job_thread_shutdown(void)
         }
         running = false;
 
-#ifdef __FreeBSD__
-        r = pthread_timedjoin_np(self, NULL, &(const struct timespec) { .tv_sec = 1 });
+        r = pthread_join(self, NULL);
         if (r) {
             errno = r;
-            lwan_status_perror("pthread_timedjoin_np");
+            lwan_status_perror("pthread_join");
         }
-#else
-        r = pthread_tryjoin_np(self, NULL);
-        if (r) {
-            errno = r;
-            lwan_status_perror("pthread_tryjoin_np");
-        }
-#endif
+
         pthread_mutex_unlock(&queue_mutex);
     }
 }
