@@ -354,23 +354,24 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
 
 const char *get_config_path(char *path_buf)
 {
+    char buffer[PATH_MAX];
     char *path = NULL;
     int ret;
 
 #if defined(__linux__)
     ssize_t path_len;
 
-    path_len = readlink("/proc/self/exe", path_buf, PATH_MAX);
+    path_len = readlink("/proc/self/exe", buffer, PATH_MAX);
     if (path_len < 0) {
         lwan_status_perror("readlink");
         goto out;
     }
-    path_buf[path_len] = '\0';
+    buffer[path_len] = '\0';
 #elif defined(__FreeBSD__)
     size_t path_len = PATH_MAX;
     int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
 
-    ret = sysctl(mib, N_ELEMENTS(mib), path_buf, &path_len, NULL, 0);
+    ret = sysctl(mib, N_ELEMENTS(mib), buffer, &path_len, NULL, 0);
     if (ret < 0) {
         lwan_status_perror("sysctl");
         goto out;
@@ -379,7 +380,7 @@ const char *get_config_path(char *path_buf)
     goto out;
 #endif
 
-    path = strrchr(path_buf, '/');
+    path = strrchr(buffer, '/');
     if (!path)
         goto out;
     ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
