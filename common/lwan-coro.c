@@ -174,7 +174,7 @@ coro_run_deferred(coro_t *coro, bool sticky)
 
         defer = defer->next;
         if (sticky) {
-            defer->func(tmp->data1, tmp->data2);
+            tmp->func(tmp->data1, tmp->data2);
             free(tmp);
         } else if (defer->sticky) {
             tmp->next = sticked;
