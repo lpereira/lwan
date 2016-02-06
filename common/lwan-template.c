@@ -785,42 +785,43 @@ static void *parser_meta(struct parser *parser, struct lexeme *lexeme)
     return unexpected_lexeme(lexeme);
 }
 
+static strbuf_t *strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
+{
+    if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE)
+        return strbuf_new_static(lexeme->value.value, lexeme->value.len);
+
+    strbuf_t *buf = strbuf_new_with_size(lexeme->value.len);
+    if (buf)
+        strbuf_set(buf, lexeme->value.value, lexeme->value.len);
+
+    return buf;
+}
+
 static void *parser_text(struct parser *parser, struct lexeme *lexeme)
 {
     if (lexeme->type == LEXEME_LEFT_META)
         return parser_meta;
+
     if (lexeme->type == LEXEME_TEXT) {
         if (lexeme->value.len == 1) {
             emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*lexeme->value.value);
         } else {
-            strbuf_t *buf;
-
-            if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE) {
-                buf = strbuf_new_static(lexeme->value.value, lexeme->value.len);
-                if (!buf)
-                    goto no_buf;
-            } else {
-                buf = strbuf_new_with_size(lexeme->value.len);
-                if (!buf)
-                    goto no_buf;
-
-                strbuf_set(buf, lexeme->value.value, lexeme->value.len);
-            }
+            strbuf_t *buf = strbuf_from_lexeme(parser, lexeme);
+            if (!buf)
+                return error_lexeme(lexeme, "Out of memory");
 
             emit_chunk(parser, ACTION_APPEND, 0, buf);
         }
         parser->tpl->minimum_size += lexeme->value.len;
         return parser_text;
     }
+
     if (lexeme->type == LEXEME_EOF) {
         emit_chunk(parser, ACTION_LAST, 0, NULL);
         return NULL;
     }
 
     return unexpected_lexeme(lexeme);
-
-no_buf:
-    return error_lexeme(lexeme, "Out of memory");
 }
 
 void
