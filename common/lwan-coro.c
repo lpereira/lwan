@@ -46,6 +46,7 @@ struct coro_defer_t_ {
     defer_func func;
     void *data1;
     void *data2;
+    bool sticky;
 };
 
 struct coro_t_ {
@@ -146,23 +147,6 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-static inline defer_func
-get_func_ptr(defer_func func)
-{
-    uintptr_t ptr = (uintptr_t)func;
-
-    ptr &= ~(uintptr_t)1;
-    return (defer_func)ptr;
-}
-
-static inline bool
-is_sticky(defer_func func)
-{
-    uintptr_t ptr = (uintptr_t)func;
-
-    return ptr & (uintptr_t)1;
-}
-
 static coro_defer_t *
 reverse(coro_defer_t *root)
 {
@@ -189,12 +173,12 @@ coro_run_deferred(coro_t *coro, bool sticky)
         coro_defer_t *tmp = defer;
 
         defer = defer->next;
-        if (!sticky && is_sticky(tmp->func)) {
+        if (sticky) {
+            defer->func(tmp->data1, tmp->data2);
+            free(tmp);
+        } else if (defer->sticky) {
             tmp->next = sticked;
             sticked = tmp;
-        } else {
-            get_func_ptr(tmp->func)(tmp->data1, tmp->data2);
-            free(tmp);
         }
     }
 
@@ -343,6 +327,7 @@ coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
     defer->func = func;
     defer->data1 = data1;
     defer->data2 = data2;
+    defer->sticky = false;
     coro->defer = defer;
 }
 
@@ -366,14 +351,11 @@ coro_malloc_full(coro_t *coro, size_t size, bool sticky, void (*destroy_func)())
     if (UNLIKELY(!defer))
         return NULL;
 
-    uintptr_t destroy_func_ptr = (uintptr_t)destroy_func;
-    if (sticky)
-        destroy_func_ptr |= (uintptr_t)1;
-
     defer->next = coro->defer;
-    defer->func = (defer_func)destroy_func_ptr;
+    defer->func = destroy_func;
     defer->data1 = defer + 1;
     defer->data2 = NULL;
+    defer->sticky = sticky;
 
     coro->defer = defer;
 
