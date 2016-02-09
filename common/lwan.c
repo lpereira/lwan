@@ -362,7 +362,7 @@ const char *get_config_path(char *path_buf)
     ssize_t path_len;
 
     path_len = readlink("/proc/self/exe", buffer, PATH_MAX);
-    if (path_len < 0) {
+    if (path_len < 0 || path_len >= PATH_MAX) {
         lwan_status_perror("readlink");
         goto out;
     }
