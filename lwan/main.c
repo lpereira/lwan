@@ -99,9 +99,11 @@ test_proxy(lwan_request_t *request,
 {
     lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
-       return HTTP_INTERNAL_ERROR;
+        return HTTP_INTERNAL_ERROR;
 
     char *buffer = coro_malloc(request->conn->coro, INET6_ADDRSTRLEN);
+    if (UNLIKELY(!buffer))
+        return HTTP_INTERNAL_ERROR;
 
     headers[0].key = "X-Proxy";
     headers[0].value = (char*) lwan_request_get_remote_address(request, buffer);
