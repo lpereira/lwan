@@ -303,10 +303,9 @@ spawn_coro(lwan_connection_t *conn,
     assert(!(conn->flags & CONN_SHOULD_RESUME_CORO));
 
     conn->coro = coro_new(switcher, process_request_coro, conn);
+    conn->flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO;
 
     death_queue_insert(dq, conn);
-    conn->flags |= (CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO);
-    conn->flags &= ~CONN_WRITE_EVENTS;
 }
 
 static lwan_connection_t *
