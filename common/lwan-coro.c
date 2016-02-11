@@ -173,12 +173,13 @@ coro_run_deferred(coro_t *coro, bool sticky)
         coro_defer_t *tmp = defer;
 
         defer = defer->next;
-        if (sticky) {
-            tmp->func(tmp->data1, tmp->data2);
-            free(tmp);
-        } else if (tmp->sticky) {
+
+        if (!sticky && tmp->sticky) {
             tmp->next = sticked;
             sticked = tmp;
+        } else {
+            tmp->func(tmp->data1, tmp->data2);
+            free(tmp);
         }
     }
 
