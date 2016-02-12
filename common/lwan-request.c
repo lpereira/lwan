@@ -1058,10 +1058,15 @@ compare_key_value(const void *a, const void *b)
 static inline void *
 value_lookup(const void *base, size_t len, const char *key)
 {
-    lwan_key_value_t *entry, k = { .key = (char *)key };
+    if (LIKELY(base)) {
+        lwan_key_value_t k = { .key = (char *)key };
+        lwan_key_value_t *entry = bsearch(&k, base, len, sizeof(k), compare_key_value);
 
-    entry = bsearch(&k, base, len, sizeof(k), compare_key_value);
-    return LIKELY(entry) ? entry->value : NULL;
+        if (LIKELY(entry))
+            return entry->value;
+    }
+
+    return NULL;
 }
 
 const char *
