@@ -59,25 +59,25 @@ endif()
 set(C_FLAGS_REL "-mtune=native")
 
 include(CheckCCompilerFlag)
+check_c_compiler_flag(-Wl,-z,now HAS_IMMEDIATE_BINDING)
+if (HAS_IMMEDIATE_BINDING)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,now")
+endif ()
+
+check_c_compiler_flag(-Wl,-z,relro HAS_READ_ONLY_GOT)
+if (HAS_READ_ONLY_GOT)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro")
+endif ()
+
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
-	check_c_compiler_flag(-Wl,-z,now HAS_GOT_PROTECTION1)
-	if (HAS_GOT_PROTECTION1)
-		set(C_FLAGS_REL "${CFLAGS_REL} -Wl,-z,now")
-	endif ()
-
-	check_c_compiler_flag(-Wl,-z,relro HAS_GOT_PROTECTION2)
-	if (HAS_GOT_PROTECTION2)
-		set(C_FLAGS_REL "${CFLAGS_REL} -Wl,-z,relro")
-	endif ()
-
 	check_c_compiler_flag(-malign-data=cacheline HAS_MALIGN_DATA_CACHELINE)
 	if (HAS_MALIGN_DATA_CACHELINE)
-		set(C_FLAGS_REL "${CFLAGS_REL} -malign-data=cacheline")
+		set(C_FLAGS_REL "${C_FLAGS_REL} -malign-data=cacheline")
 	endif ()
 
 	check_c_compiler_flag(-fno-asynchronous-unwind-tables HAS_ASYNC_UNWIND_TABLES)
 	if (HAS_ASYNC_UNWIND_TABLES)
-		set(C_FLAGS_REL "${CFLAGS_REL} -fno-asynchronous-unwind-tables")
+		set(C_FLAGS_REL "${C_FLAGS_REL} -fno-asynchronous-unwind-tables")
 	endif ()
 
 	check_c_compiler_flag(-flto HAS_LTO)
