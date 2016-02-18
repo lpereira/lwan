@@ -154,6 +154,7 @@ been seen in the wild.  *Help build this list!*
 
 * [An experimental version of Node.js using Lwan](https://github.com/raadad/node-lwan) as its HTTP server is maintained by [@raadad](https://github.com/raadad).
 * The beginnings of a C++11 [web framework](https://github.com/vileda/wfpp) based on Lwan written by [@vileda](https://github.com/vileda).
+* A more complete C++14 [web framework](https://github.com/matt-42/silicon) by [@matt-42](https://github.com/matt-42) offers Lwan as one of its backends.
 * A [word ladder sample program](https://github.com/sjnam/lwan-sgb-ladders) by [@sjnam](https://github.com/sjnam). [Demo](http://tbcoe.ddns.net/sgb/ladders?start=chaos&goal=order).
 * A [Shodan search](https://www.shodan.io/search?query=server%3A+lwan) listing some brave souls that expose Lwan to the public internet.
 
@@ -162,6 +163,7 @@ Some other distribution channels were made available as well:
 * A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://registry.hub.docker.com/u/jaxgeller/lwan/).
 * A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
 * Lwan is also available as a package in [Biicode](http://docs.biicode.com/c++/examples/lwan.html).
+* User packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/) also  [Ubuntu](https://launchpad.net/lwan-unofficial).
 
 Lwan has been also used as a benchmark:
 
@@ -174,6 +176,7 @@ Not really third-party, but alas:
 
 * The [author's blog](http://tia.mat.br).
 * The [project's webpage](http://lwan.ws).
+
 
 Build status
 ------------
