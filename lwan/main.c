@@ -32,143 +32,6 @@ enum args {
   ARGS_SERVE_FILES
 };
 
-lwan_http_status_t
-gif_beacon(lwan_request_t *request __attribute__((unused)),
-           lwan_response_t *response,
-           void *data __attribute__((unused)))
-{
-    /*
-     * 1x1 transparent GIF image generated with tinygif
-     * http://www.perlmonks.org/?node_id=7974
-     */
-    static const unsigned char gif_beacon_data[] = {
-        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x90,
-        0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0xF9, 0x04,
-        0x05, 0x10, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01,
-        0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x04, 0x01
-    };
-
-    response->mime_type = "image/gif";
-    strbuf_set_static(response->buffer, (char*)gif_beacon_data, sizeof(gif_beacon_data));
-
-    return HTTP_OK;
-}
-
-lwan_http_status_t
-test_chunked_encoding(lwan_request_t *request,
-            lwan_response_t *response,
-            void *data __attribute__((unused)))
-{
-    int i;
-
-    response->mime_type = "text/plain";
-
-    strbuf_printf(response->buffer, "Testing chunked encoding! First chunk\n");
-    lwan_response_send_chunk(request);
-
-    for (i = 0; i <= 10; i++) {
-        strbuf_printf(response->buffer, "*This is chunk %d*\n", i);
-        lwan_response_send_chunk(request);
-    }
-
-    strbuf_printf(response->buffer, "Last chunk\n");
-    lwan_response_send_chunk(request);
-
-    return HTTP_OK;
-}
-
-lwan_http_status_t
-test_server_sent_event(lwan_request_t *request,
-            lwan_response_t *response,
-            void *data __attribute__((unused)))
-{
-    int i;
-
-    for (i = 0; i <= 10; i++) {
-        strbuf_printf(response->buffer, "Current value is %d", i);
-        lwan_response_send_event(request, "currval");
-    }
-
-    return HTTP_OK;
-}
-
-lwan_http_status_t
-test_proxy(lwan_request_t *request,
-           lwan_response_t *response,
-           void *data __attribute__((unused)))
-{
-    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
-    if (UNLIKELY(!headers))
-        return HTTP_INTERNAL_ERROR;
-
-    char *buffer = coro_malloc(request->conn->coro, INET6_ADDRSTRLEN);
-    if (UNLIKELY(!buffer))
-        return HTTP_INTERNAL_ERROR;
-
-    headers[0].key = "X-Proxy";
-    headers[0].value = (char*) lwan_request_get_remote_address(request, buffer);
-    headers[1].key = NULL;
-    headers[1].value = NULL;
-
-    response->headers = headers;
-
-    return HTTP_OK;
-}
-
-lwan_http_status_t
-hello_world(lwan_request_t *request,
-            lwan_response_t *response,
-            void *data __attribute__((unused)))
-{
-    static lwan_key_value_t headers[] = {
-        { .key = "X-The-Answer-To-The-Universal-Question", .value = "42" },
-        { NULL, NULL }
-    };
-    response->headers = headers;
-    response->mime_type = "text/plain";
-
-    const char *name = lwan_request_get_query_param(request, "name");
-    if (name)
-        strbuf_printf(response->buffer, "Hello, %s!", name);
-    else
-        strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
-
-    const char *dump_vars = lwan_request_get_query_param(request, "dump_vars");
-    if (!dump_vars)
-        goto end;
-
-    if (request->cookies.base) {
-        strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
-        strbuf_append_str(response->buffer, "-------\n\n", 0);
-
-        lwan_key_value_t *qs = request->cookies.base;
-        for (; qs->key; qs++)
-            strbuf_append_printf(response->buffer,
-                        "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
-    }
-
-    strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
-    strbuf_append_str(response->buffer, "----------------------\n\n", 0);
-
-    lwan_key_value_t *qs = request->query_params.base;
-    for (; qs->key; qs++)
-        strbuf_append_printf(response->buffer,
-                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
-
-    if (!(request->flags & REQUEST_METHOD_POST))
-        goto end;
-
-    strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
-    strbuf_append_str(response->buffer, "---------\n\n", 0);
-
-    for (qs = request->post_data.base; qs->key; qs++)
-        strbuf_append_printf(response->buffer,
-                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
-
-end:
-    return HTTP_OK;
-}
-
 static enum args
 parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
 {
@@ -202,9 +65,9 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
       printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
       printf("\t[--config]\n");
       printf("Serve files through HTTP.\n\n");
-      printf("Defaults to listening on all interfaces, port 8080, serving current directory.\n\n");
+      printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
       printf("Options:\n");
-      printf("\t-r, --root      Path to serve files from (default: current dir).\n");
+      printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
       printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
       printf("\t-h, --help      This.\n");
       printf("\n");

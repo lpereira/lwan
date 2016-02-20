@@ -12,7 +12,7 @@ import sys
 import os
 import re
 
-LWAN_PATH = './build/lwan/lwan'
+LWAN_PATH = './build/testrunner/testrunner'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
     LWAN_PATH = arg

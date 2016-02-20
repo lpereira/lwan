@@ -125,5 +125,6 @@ add_subdirectory(common)
 
 include_directories(common)
 add_subdirectory(lwan)
+add_subdirectory(testrunner)
 add_subdirectory(freegeoip)
 add_subdirectory(techempower)
