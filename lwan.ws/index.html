@@ -455,15 +455,18 @@ release builds disable some things that Memcheck relies on keep sanity when
 coroutines switches stacks.)</li> <li>It is also always built using
 <tt>-Wall -Wextra -Wshadow -Wconversion</tt> (plus
 <tt>-fsanitize=undefined</tt> on debug builds).  <b>No warnings</b> are
-produced while building Lwan.</li> <li>It has been also fuzzed with Sulley
-and no problems were found.  (But this was also the first time we did this
-kind of thing, so don't take our word for it.)</li> </ul> <p>So, to answer
-the question: <b>we have no idea</b>.  We were dead serious when we said
-we're not security experts.  But care is being taken to at least find the
-most mundane sources of vulnerabilities and fix them before they hit the
-source tree.</p> <p>There's nothing stopping you from exploiting Lwan and
-writing a nice, big blog post about it, however.  I'll even pay you a drink
-if we ever meet in person.</p>
+produced while building Lwan.</li> <li>It has been also fuzzed with Sulley,
+libFuzer, and afl.  One bug has been found with libFuzzer and it has been
+fixed.</li><li>All tests are performed automatically, with both <b>Address
+Sanitizer</b> and <b>Undefined Behavior Sanitizer</b>; coverage is still on
+the low side, though.</li></ul>
+
+<p>So, to answer the question: <b>we have no idea</b>.  We were dead
+serious when we said we're not security experts.  But care is being taken to
+at least find the most mundane sources of vulnerabilities and fix them
+before they hit the source tree.</p> <p>There's nothing stopping you from
+exploiting Lwan, however.  We would specially appreciate a public writeup
+about the bug; we'll even pay you a drink if we ever meet in person.</p>
 
 <p><h3>A web server is rarely the bottleneck. Why not just use Nginx or
 Apache?</h3> If you're asking this question, then you probably should.
