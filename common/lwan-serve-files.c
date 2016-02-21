@@ -383,7 +383,7 @@ sendfile_init(file_cache_entry_t *ce,
         goto only_uncompressed;
 
     int ret = fstatat(priv->root.fd, sd->compressed.filename, &compressed_st, 0);
-    if (LIKELY(ret >= 0 && compressed_st.st_mtime >= st->st_mtime &&
+    if (LIKELY(!ret && compressed_st.st_mtime >= st->st_mtime &&
             is_compression_worthy((size_t)compressed_st.st_size, (size_t)st->st_size))) {
         sd->compressed.size = (size_t)compressed_st.st_size;
     } else {
