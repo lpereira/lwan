@@ -62,22 +62,6 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
     return total ? total : default_value;
 }
 
-bool parse_bool(const char *value, bool default_value)
-{
-    if (!value)
-        return default_value;
-
-    if (!strcmp(value, "true") || !strcmp(value, "1")
-            || !strcmp(value, "on") || !strcmp(value, "yes"))
-        return true;
-
-    if (!strcmp(value, "false") || !strcmp(value, "0")
-            || !strcmp(value, "off") || !strcmp(value, "no"))
-        return false;
-
-    return default_value;
-}
-
 long parse_long(const char *value, long default_value)
 {
     char *endptr;
@@ -103,6 +87,28 @@ int parse_int(const char *value, int default_value)
         return default_value;
 
     return (int)long_value;
+}
+
+bool parse_bool(const char *value, bool default_value)
+{
+    int int_value;
+
+    if (!value)
+        return default_value;
+
+    if (!strcmp(value, "true") || !strcmp(value, "on")
+            || !strcmp(value, "yes"))
+        return true;
+
+    if (!strcmp(value, "false") || !strcmp(value, "off")
+            || !strcmp(value, "no"))
+        return false;
+
+    int_value = parse_int(value, -1);
+    if (int_value < 0)
+        return default_value;
+
+    return int_value != 0;
 }
 
 bool config_error(config_t *conf, const char *fmt, ...)
