@@ -671,8 +671,8 @@ lwan_main_loop(lwan_t *l)
             }
 
             lwan_status_perror("accept");
+        } else {
+            schedule_client(l, client_fd);
         }
-
-        schedule_client(l, client_fd);
     }
 }
