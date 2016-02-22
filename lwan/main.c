@@ -27,60 +27,60 @@
 #include "lwan-serve-files.h"
 
 enum args {
-  ARGS_FAILED,
-  ARGS_USE_CONFIG,
-  ARGS_SERVE_FILES
+    ARGS_FAILED,
+    ARGS_USE_CONFIG,
+    ARGS_SERVE_FILES
 };
 
 static enum args
 parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
 {
-  static const struct option opts[] = {
-      { .name = "root", .has_arg = 1, .val = 'r' },
-      { .name = "listen", .has_arg = 1, .val = 'l' },
-      { .name = "help", .val = 'h' },
-      { }
-  };
-  int c, optidx = 0;
-  enum args result = ARGS_USE_CONFIG;
+    static const struct option opts[] = {
+        { .name = "root", .has_arg = 1, .val = 'r' },
+        { .name = "listen", .has_arg = 1, .val = 'l' },
+        { .name = "help", .val = 'h' },
+        { }
+    };
+    int c, optidx = 0;
+    enum args result = ARGS_USE_CONFIG;
 
-  while ((c = getopt_long(argc, argv, "hr:l:", opts, &optidx)) != -1) {
-      switch (c) {
-      case 'l':
-          free(config->listener);
-          config->listener = strdup(optarg);
-          result = ARGS_SERVE_FILES;
-          break;
+    while ((c = getopt_long(argc, argv, "hr:l:", opts, &optidx)) != -1) {
+        switch (c) {
+        case 'l':
+            free(config->listener);
+            config->listener = strdup(optarg);
+            result = ARGS_SERVE_FILES;
+            break;
 
-      case 'r':
-          memcpy(root, optarg, strnlen(optarg, PATH_MAX - 1) + 1);
-          result = ARGS_SERVE_FILES;
-          break;
+        case 'r':
+            memcpy(root, optarg, strnlen(optarg, PATH_MAX - 1) + 1);
+            result = ARGS_SERVE_FILES;
+            break;
 
-      default:
-          printf("Run %s --help for usage information.\n", argv[0]);
-          return ARGS_FAILED;
+        case 'h':
+            printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
+            printf("\t[--config]\n");
+            printf("Serve files through HTTP.\n\n");
+            printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
+            printf("Options:\n");
+            printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
+            printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
+            printf("\t-h, --help      This.\n");
+            printf("\n");
+            printf("Examples:\n");
+            printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv[0]);
+            printf("        Serve on a different port: %s -l '*:1337'\n", argv[0]);
+            printf("\n");
+            printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+            return ARGS_FAILED;
 
-      case 'h':
-          printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
-          printf("\t[--config]\n");
-          printf("Serve files through HTTP.\n\n");
-          printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
-          printf("Options:\n");
-          printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
-          printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
-          printf("\t-h, --help      This.\n");
-          printf("\n");
-          printf("Examples:\n");
-          printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv[0]);
-          printf("        Serve on a different port: %s -l '*:1337'\n", argv[0]);
-          printf("\n");
-          printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
-          return ARGS_FAILED;
-      }
-  }
+        default:
+            printf("Run %s --help for usage information.\n", argv[0]);
+            return ARGS_FAILED;
+        }
+    }
 
-  return result;
+    return result;
 }
 
 int
