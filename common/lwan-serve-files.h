@@ -30,6 +30,7 @@ struct lwan_serve_files_settings_t {
   const char *index_html;
   const char *directory_list_template;
   bool serve_precompressed_files;
+  bool auto_index;
 };
 
 #define SERVE_FILES_SETTINGS(root_path_, index_html_, serve_precompressed_files_) \
@@ -38,7 +39,8 @@ struct lwan_serve_files_settings_t {
     .root_path = root_path_, \
     .index_html = index_html_, \
     .serve_precompressed_files = serve_precompressed_files_, \
-    .directory_list_template = NULL \
+    .directory_list_template = NULL, \
+    .auto_index = true \
   }}), \
   .flags = (lwan_handler_flags_t)0
 

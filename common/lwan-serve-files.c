@@ -64,6 +64,7 @@ struct serve_files_priv_t_ {
     lwan_tpl_t *directory_list_tpl;
 
     bool serve_precompressed_files;
+    bool auto_index;
 };
 
 struct cache_funcs_t_ {
@@ -469,8 +470,13 @@ get_funcs(serve_files_priv_t *priv, const char *key, char *full_path,
             if (UNLIKELY(errno != ENOENT))
                 return NULL;
 
-            /* If it doesn't, we want to generate a directory list. */
-            return &dirlist_funcs;
+            if (LIKELY(priv->auto_index)) {
+                /* If it doesn't, we want to generate a directory list. */
+                return &dirlist_funcs;
+            }
+
+            /* Auto index is disabled. */
+            return NULL;
         }
 
         if (UNLIKELY(S_ISDIR(st->st_mode))) {
@@ -693,6 +699,7 @@ serve_files_init(void *args)
     priv->open_mode = open_mode;
     priv->index_html = settings->index_html ? settings->index_html : "index.html";
     priv->serve_precompressed_files = settings->serve_precompressed_files;
+    priv->auto_index = settings->auto_index;
 
     return priv;
 
@@ -716,6 +723,7 @@ serve_files_init_from_hash(const struct hash *hash)
         .index_html = hash_find(hash, "index_path"),
         .serve_precompressed_files =
             parse_bool(hash_find(hash, "serve_precompressed_files"), true),
+        .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template")
     };
     return serve_files_init(&settings);
