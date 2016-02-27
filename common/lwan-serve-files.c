@@ -88,7 +88,7 @@ struct mmap_cache_data_t_ {
 
 struct sendfile_cache_data_t_ {
     struct {
-        char *filename;
+        int fd;
         size_t size;
     } compressed, uncompressed;
 };
@@ -369,8 +369,10 @@ sendfile_init(file_cache_entry_t *ce,
                const char *full_path,
                struct stat *st)
 {
+    char gzpath[PATH_MAX];
     sendfile_cache_data_t *sd = (sendfile_cache_data_t *)(ce + 1);
     struct stat compressed_st;
+    int ret;
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
                 full_path + priv->root.path_len);
@@ -379,27 +381,47 @@ sendfile_init(file_cache_entry_t *ce,
         goto only_uncompressed;
 
     /* Try to serve a compressed file using sendfile() if $FILENAME.gz exists */
-    int len = asprintf(&sd->compressed.filename, "%s.gz", full_path + priv->root.path_len + 1);
-    if (UNLIKELY(len < 0 || len >= PATH_MAX))
+    ret = snprintf(gzpath, PATH_MAX, "%s.gz", full_path + priv->root.path_len + 1);
+    if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
         goto only_uncompressed;
 
-    int ret = fstatat(priv->root.fd, sd->compressed.filename, &compressed_st, 0);
+    sd->compressed.fd = openat(priv->root.fd, gzpath, priv->open_mode);
+    if (UNLIKELY(sd->compressed.fd < 0))
+        goto only_uncompressed;
+
+    ret = fstat(sd->compressed.fd, &compressed_st);
     if (LIKELY(!ret && compressed_st.st_mtime >= st->st_mtime &&
             is_compression_worthy((size_t)compressed_st.st_size, (size_t)st->st_size))) {
         sd->compressed.size = (size_t)compressed_st.st_size;
     } else {
-        free(sd->compressed.filename);
+        close(sd->compressed.fd);
 
 only_uncompressed:
-        sd->compressed.filename = NULL;
+        sd->compressed.fd = -1;
         sd->compressed.size = 0;
     }
 
-    /* Regardless of the existence of $FILENAME.gz, store the full path */
+    /* Regardless of the existence of $FILENAME.gz, keep the uncompressed file open */
     sd->uncompressed.size = (size_t)st->st_size;
-    sd->uncompressed.filename = strdup(full_path + priv->root.path_len + 1);
-    if (UNLIKELY(!sd->uncompressed.filename)) {
-        free(sd->compressed.filename);
+    sd->uncompressed.fd = openat(priv->root.fd, full_path + priv->root.path_len + 1, priv->open_mode);
+    if (UNLIKELY(sd->uncompressed.fd < 0)) {
+        int openat_errno = errno;
+
+        close(sd->compressed.fd);
+
+        switch (openat_errno) {
+        case ENFILE:
+        case EMFILE:
+        case EACCES:
+            /* These errors should produce responses other than 404, so store errno as the
+             * file descriptor. */
+
+            sd->uncompressed.fd = -openat_errno;
+            sd->compressed.fd = -1;
+            sd->compressed.size = 0;
+            return true;
+        }
+
         return false;
     }
 
@@ -578,8 +600,10 @@ sendfile_free(void *data)
 {
     sendfile_cache_data_t *sd = data;
 
-    free(sd->compressed.filename);
-    free(sd->uncompressed.filename);
+    if (sd->compressed.fd >= 0)
+        close(sd->compressed.fd);
+    if (sd->uncompressed.fd >= 0)
+        close(sd->uncompressed.fd);
 }
 
 static void
@@ -839,15 +863,15 @@ sendfile_serve(lwan_request_t *request, void *data)
     lwan_http_status_t return_status;
     off_t from, to;
     const char *compressed;
-    char *filename;
     size_t size;
+    int fd;
 
     if (sd->compressed.size && (request->flags & REQUEST_ACCEPT_GZIP)) {
         from = 0;
         to = (off_t)sd->compressed.size;
 
         compressed = compression_gzip;
-        filename = sd->compressed.filename;
+        fd = sd->compressed.fd;
         size = sd->compressed.size;
 
         return_status = HTTP_OK;
@@ -857,8 +881,19 @@ sendfile_serve(lwan_request_t *request, void *data)
             return HTTP_RANGE_UNSATISFIABLE;
 
         compressed = compression_none;
-        filename = sd->uncompressed.filename;
+        fd = sd->uncompressed.fd;
         size = sd->uncompressed.size;
+    }
+    if (UNLIKELY(fd < 0)) {
+        switch (-fd) {
+        case EACCES:
+            return HTTP_FORBIDDEN;
+        case EMFILE:
+        case ENFILE:
+            return HTTP_UNAVAILABLE;
+        default:
+            return HTTP_INTERNAL_ERROR;
+        }
     }
 
     if (client_has_fresh_content(request, fce->last_modified.integer))
@@ -872,28 +907,7 @@ sendfile_serve(lwan_request_t *request, void *data)
     if (request->flags & REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
         lwan_write(request, headers, header_len);
     } else {
-        serve_files_priv_t *priv = request->response.stream.priv;
-        /*
-         * lwan_openat() will yield from the coroutine if openat()
-         * can't open the file due to not having free file descriptors
-         * around. This will happen just a handful of times.
-         * The file will be automatically closed whenever this
-         * coroutine is freed.
-         */
-        int file_fd = lwan_openat(request, priv->root.fd, filename, priv->open_mode);
-        if (UNLIKELY(file_fd < 0)) {
-            switch (file_fd) {
-            case -EACCES:
-                return HTTP_FORBIDDEN;
-            case -ENFILE:
-                return HTTP_UNAVAILABLE;
-            default:
-                return HTTP_NOT_FOUND;
-            }
-        }
-
-        lwan_sendfile(request, file_fd, from, (size_t)to,
-            headers, header_len);
+        lwan_sendfile(request, fd, from, (size_t)to, headers, header_len);
     }
 
     return return_status;
