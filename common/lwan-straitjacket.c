@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <grp.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,6 +76,8 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
         uid, gid, username);
 
     if (setgid(gid) < 0)
+        return false;
+    if (initgroups(username, gid) < 0)
         return false;
     if (setuid(uid) < 0)
         return false;
