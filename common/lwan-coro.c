@@ -46,7 +46,6 @@ struct coro_defer_t_ {
     defer_func func;
     void *data1;
     void *data2;
-    bool sticky;
 };
 
 struct coro_t_ {
@@ -147,49 +146,17 @@ coro_entry_point(coro_t *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-static coro_defer_t *
-reverse(coro_defer_t *root)
-{
-    coro_defer_t *new = NULL;
-
-    while (root) {
-        coro_defer_t *next = root->next;
-
-        root->next = new;
-        new = root;
-        root = next;
-    }
-
-    return new;
-}
-
 static void
-coro_run_deferred(coro_t *coro, bool sticky)
+coro_run_deferred(coro_t *coro)
 {
-    coro_defer_t *defer = coro->defer;
-    coro_defer_t *sticked = NULL;
+    while (coro->defer) {
+        coro_defer_t *tmp = coro->defer;
 
-    while (defer) {
-        coro_defer_t *tmp = defer;
+        coro->defer = coro->defer->next;
 
-        defer = defer->next;
-
-        if (!sticky && tmp->sticky) {
-            tmp->next = sticked;
-            sticked = tmp;
-        } else {
-            tmp->func(tmp->data1, tmp->data2);
-            free(tmp);
-        }
+        tmp->func(tmp->data1, tmp->data2);
+        free(tmp);
     }
-
-    coro->defer = reverse(sticked);
-}
-
-void
-coro_collect_garbage(coro_t *coro)
-{
-    coro_run_deferred(coro, false);
 }
 
 void
@@ -200,8 +167,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->ended = false;
     coro->data = data;
 
-    if (coro->defer)
-        coro_run_deferred(coro, true);
+    coro_run_deferred(coro);
 
 #if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
@@ -310,7 +276,7 @@ coro_free(coro_t *coro)
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
-    coro_run_deferred(coro, true);
+    coro_run_deferred(coro);
     free(coro);
 }
 
@@ -328,7 +294,6 @@ coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
     defer->func = func;
     defer->data1 = data1;
     defer->data2 = data2;
-    defer->sticky = false;
     coro->defer = defer;
 }
 
@@ -346,7 +311,7 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
 }
 
 void *
-coro_malloc_full(coro_t *coro, size_t size, bool sticky, void (*destroy_func)())
+coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 {
     coro_defer_t *defer = malloc(sizeof(*defer) + size);
     if (UNLIKELY(!defer))
@@ -356,7 +321,6 @@ coro_malloc_full(coro_t *coro, size_t size, bool sticky, void (*destroy_func)())
     defer->func = destroy_func;
     defer->data1 = defer + 1;
     defer->data2 = NULL;
-    defer->sticky = sticky;
 
     coro->defer = defer;
 
@@ -370,7 +334,7 @@ static void nothing()
 inline void *
 coro_malloc(coro_t *coro, size_t size)
 {
-    return coro_malloc_full(coro, size, false, nothing);
+    return coro_malloc_full(coro, size, nothing);
 }
 
 char *

@@ -147,7 +147,7 @@ static int
 process_request_coro(coro_t *coro)
 {
     const lwan_request_flags_t flags_filter = REQUEST_PROXIED;
-    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), true, strbuf_free);
+    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
@@ -160,7 +160,6 @@ process_request_coro(coro_t *coro)
     lwan_request_flags_t flags =
         lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0;
     lwan_proxy_t proxy;
-    int gc_counter = CORO_GC_THRESHOLD;
 
     if (UNLIKELY(!strbuf))
         return CONN_CORO_ABORT;
@@ -181,11 +180,6 @@ process_request_coro(coro_t *coro)
         assert(conn->flags & CONN_IS_ALIVE);
 
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
-        if (!gc_counter--) {
-            coro_collect_garbage(coro);
-            gc_counter = CORO_GC_THRESHOLD;
-        }
-
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
         if (UNLIKELY(!strbuf_reset_length(strbuf)))
