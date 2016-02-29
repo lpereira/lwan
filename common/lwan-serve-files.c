@@ -416,8 +416,7 @@ only_uncompressed:
             /* These errors should produce responses other than 404, so store errno as the
              * file descriptor. */
 
-            sd->uncompressed.fd = -openat_errno;
-            sd->compressed.fd = -1;
+            sd->uncompressed.fd = sd->compressed.fd = -openat_errno;
             sd->compressed.size = 0;
             return true;
         }
