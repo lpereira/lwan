@@ -35,8 +35,6 @@
 
 #include "lwan-private.h"
 
-#define CORO_GC_THRESHOLD   16
-
 struct death_queue_t {
     const lwan_t *lwan;
     lwan_connection_t *conns;
