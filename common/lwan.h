@@ -142,6 +142,7 @@ typedef enum {
     HANDLER_REMOVE_LEADING_SLASH = 1<<6,
     HANDLER_CAN_REWRITE_URL = 1<<7,
     HANDLER_PARSE_COOKIES = 1<<8,
+    HANDLER_DATA_IS_HASH_TABLE = 1<<9,
 
     HANDLER_PARSE_MASK = 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4 | 1<<8
 } lwan_handler_flags_t;

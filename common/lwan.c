@@ -131,7 +131,7 @@ static void destroy_urlmap(void *data)
         const lwan_module_t *module = url_map->module;
         if (module->shutdown)
             module->shutdown(url_map->data);
-    } else if (url_map->data) {
+    } else if (url_map->data && url_map->flags & HANDLER_DATA_IS_HASH_TABLE) {
         hash_free(url_map->data);
     }
 
@@ -271,7 +271,7 @@ add_map:
 
     if (handler) {
         url_map.handler = handler;
-        url_map.flags |= HANDLER_PARSE_MASK;
+        url_map.flags |= HANDLER_PARSE_MASK | HANDLER_DATA_IS_HASH_TABLE;
         url_map.data = hash;
         url_map.module = NULL;
 
