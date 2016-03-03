@@ -803,7 +803,8 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
         return FINALIZER_DONE;
 
     if (get_http_method(helper->buffer->value) == REQUEST_METHOD_POST) {
-        char *post_data_separator = strrchr(helper->buffer->value, '\n');
+        char *post_data_separator = memrchr(helper->buffer->value, '\n',
+            helper->buffer->len);
         if (post_data_separator) {
             if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
                 return FINALIZER_DONE;
