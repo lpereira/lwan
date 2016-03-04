@@ -88,9 +88,10 @@ The build system will look for these libraries and enable/link if available.
  - [jemalloc](http://www.canonware.com/jemalloc)
  - [Valgrind](http://valgrind.org)
 
-### Common distribution package names
+### Common operating system package names
 
  - ArchLinux: `pacman -S cmake python zlib sqlite luajit libmariadbclient gperftools valgrind`
+ - FreeBSD: `pkg install cmake pkgconf python27 sqlite3 lua51`
  - Ubuntu 14: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
 
 ### Build commands
