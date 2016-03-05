@@ -305,7 +305,7 @@ decode_hex_digit(char ch)
 static ALWAYS_INLINE bool
 is_hex_digit(char ch)
 {
-    return (ch >= '0' && ch <= '0') ||
+    return (ch >= '0' && ch <= '9') ||
         (ch >= 'a' && ch <= 'f') ||
         (ch >= 'A' && ch <= 'F');
 }
