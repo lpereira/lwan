@@ -62,8 +62,7 @@ struct serve_files_priv {
 };
 
 struct cache_funcs {
-    lwan_http_status_t (*serve)(lwan_request_t *request,
-                                void *data);
+    lwan_http_status_t (*serve)(lwan_request_t *request, void *data);
     bool (*init)(struct file_cache_entry *ce, struct serve_files_priv *priv,
         const char *full_path, struct stat *st);
     void (*free)(void *data);
@@ -1018,7 +1017,6 @@ fail:
 const lwan_module_t *lwan_module_serve_files(void)
 {
     static const lwan_module_t serve_files = {
-        .name = "serve_files",
         .init = serve_files_init,
         .init_from_hash = serve_files_init_from_hash,
         .shutdown = serve_files_shutdown,

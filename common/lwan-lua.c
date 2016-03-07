@@ -455,7 +455,6 @@ static void *lua_init_from_hash(const struct hash *hash)
 const lwan_module_t *lwan_module_lua(void)
 {
     static const lwan_module_t lua_module = {
-        .name = "lua",
         .init = lua_init,
         .init_from_hash = lua_init_from_hash,
         .shutdown = lua_shutdown,

@@ -300,7 +300,6 @@ const lwan_module_t *
 lwan_module_rewrite(void)
 {
     static const lwan_module_t rewrite_module = {
-        .name = "rewrite",
         .init = module_init,
         .init_from_hash = module_init_from_hash,
         .parse_conf = module_parse_conf,

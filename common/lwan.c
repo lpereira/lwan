@@ -117,7 +117,7 @@ static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
         }
 
         lwan_status_debug("Module \"%s\" registered", name);
-        hash_add(l->module_registry, module->name, module);
+        hash_add(l->module_registry, name, module);
     }
 
     return module;

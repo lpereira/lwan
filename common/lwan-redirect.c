@@ -62,7 +62,6 @@ static void *redirect_init_from_hash(const struct hash *hash)
 const lwan_module_t *lwan_module_redirect(void)
 {
     static const lwan_module_t redirect_module = {
-        .name = "redirect",
         .init = redirect_init,
         .init_from_hash = redirect_init_from_hash,
         .shutdown = free,
