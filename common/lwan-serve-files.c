@@ -485,11 +485,6 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
             return NULL;
         }
 
-        if (UNLIKELY(S_ISDIR(st->st_mode))) {
-            /* The index file is a directory. Shouldn't happen. */
-            return NULL;
-        }
-
         /* If it does, we want its full path. */
 
         /* FIXME: Use strlcpy() here instead of calling strlen()? */
@@ -500,10 +495,11 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
         full_path[priv->root.path_len] = '/';
         strncpy(full_path + priv->root.path_len + 1, index_html_path,
                     PATH_MAX - priv->root.path_len - 1);
-    } else if (UNLIKELY(!S_ISREG(st->st_mode))) {
-        /* Only serve regular files. */
-        return NULL;
     }
+
+    /* Only serve regular files. */
+    if (UNLIKELY(!S_ISREG(st->st_mode)))
+        return NULL;
 
     /* It's not a directory: choose the fastest way to serve the file
      * judging by its size. */
