@@ -445,6 +445,14 @@ redir_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     return true;
 }
 
+static bool
+is_world_readable(mode_t mode)
+{
+    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
+
+    return (mode & world_readable) == world_readable;
+}
+
 static const struct cache_funcs *
 get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
     struct stat *st)
@@ -501,6 +509,10 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
     if (UNLIKELY(!S_ISREG(st->st_mode)))
         return NULL;
 
+    /* Only serve world readable files. */
+    if (UNLIKELY(!is_world_readable(st->st_mode)))
+        return NULL;
+
     /* It's not a directory: choose the fastest way to serve the file
      * judging by its size. */
     if (st->st_size < 16384)
@@ -535,7 +547,6 @@ create_cache_entry_from_funcs(struct serve_files_priv *priv,
 static struct cache_entry_t *
 create_cache_entry(const char *key, void *context)
 {
-    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
     struct serve_files_priv *priv = context;
     struct file_cache_entry *fce;
     struct stat st;
@@ -546,7 +557,7 @@ create_cache_entry(const char *key, void *context)
                 key, full_path, &st)))
         return NULL;
 
-    if (UNLIKELY((st.st_mode & world_readable) != world_readable))
+    if (UNLIKELY(!is_world_readable(st.st_mode)))
         return NULL;
 
     if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
