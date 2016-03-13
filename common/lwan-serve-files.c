@@ -493,6 +493,10 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
             return NULL;
         }
 
+        /* Only serve world-readable indexes. */
+        if (UNLIKELY(!is_world_readable(st->st_mode)))
+            return NULL;
+
         /* If it does, we want its full path. */
 
         /* FIXME: Use strlcpy() here instead of calling strlen()? */
@@ -507,10 +511,6 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
 
     /* Only serve regular files. */
     if (UNLIKELY(!S_ISREG(st->st_mode)))
-        return NULL;
-
-    /* Only serve world readable files. */
-    if (UNLIKELY(!is_world_readable(st->st_mode)))
         return NULL;
 
     /* It's not a directory: choose the fastest way to serve the file
