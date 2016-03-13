@@ -220,7 +220,9 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 ALWAYS_INLINE void *
 coro_get_data(coro_t *coro)
 {
-    return LIKELY(coro) ? coro->data : NULL;
+    assert(coro);
+
+    return coro->data;
 }
 
 ALWAYS_INLINE int
