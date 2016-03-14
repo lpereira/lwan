@@ -256,6 +256,8 @@ symtab_pop(struct parser *parser)
 
 static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
 {
+    assert(lexer->ring_buffer.population < N_ELEMENTS(lexer->ring_buffer.lexemes));
+
     lexer->ring_buffer.lexemes[lexer->ring_buffer.last] = *lexeme;
     lexer->ring_buffer.last = (lexer->ring_buffer.last + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
     lexer->ring_buffer.population++;
