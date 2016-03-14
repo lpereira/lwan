@@ -207,6 +207,7 @@ static int
 symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
 {
     struct symtab *tab;
+    int r;
 
     if (!descriptor)
         return -ENODEV;
@@ -217,17 +218,28 @@ symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
 
     tab->hash = hash_str_new(NULL, NULL);
     if (!tab->hash) {
-        free(tab);
-        return -ENOMEM;
+        r = -ENOMEM;
+        goto hash_new_err;
     }
 
     tab->next = parser->symtab;
     parser->symtab = tab;
 
-    for (; descriptor->name; descriptor++)
-        hash_add(parser->symtab->hash, descriptor->name, descriptor);
+    for (; descriptor->name; descriptor++) {
+        r = hash_add(parser->symtab->hash, descriptor->name, descriptor);
+
+        if (r < 0)
+            goto hash_add_err;
+    }
 
     return 0;
+
+hash_add_err:
+    hash_free(tab->hash);
+hash_new_err:
+    free(tab);
+
+    return r;
 }
 
 static void
