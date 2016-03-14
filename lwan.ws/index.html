@@ -299,7 +299,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <li><b>Small disk footprint</b>: x86-64 executable has 110KiB (~52KiB if packed with <a href="http://upx.sourceforge.net/">UPX</a>)</li>
   <li><b>Minimal memory allocations</b> &amp; copies</li>
   <li>Minimal system calls</li>
-  <li>Hand-crafted HTTP request parser</li>
+  <li>Hand-written HTTP request parser</li>
   <li>Static file serving uses the most efficient way according to file size
     <ul>
       <li><a href="http://man7.org/linux/man-pages/man2/sendfile.2.html">No copies between kernel and userland</a> for files larger than 16KiB</li>
@@ -311,7 +311,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <li>Mostly <b>wait-free</b> multi-threaded design
     <ul>
         <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
-        <li>Hand-made <b>coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
+        <li><b>Coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
         <li><b>Linux only</b>, as it relies on <tt>epoll()</tt></li>
         <li>Purpose-built I/O loop</li>
     </ul>
@@ -320,15 +320,16 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <ul>
   	<li>Directory listing</li>
   	<li>File information (size, last modified date, MIME type, etc)</li>
-  	<li>Compressed files</li>
+  	<li>Compressed file contents</li>
   	<li>Compiled Lua scripts</li>
   </ul>
   </li>
-  <li>Request rewriting support based on <b>Lua</b> pattern matching syntax</li>
+  <li>Request rewriting support based on <b>Lua</b> <a href="http://www.lua.org/manual/5.2/manual.html#6.4.1">pattern matching</a> syntax</li>
   <li><b>Diminute codebase</b> with roughly 8000 lines of C11 (<tt>gnu11</tt>, in fact)  code</li>
-  <li><a href="https://mustache.github.io/">Mustache templating</a> engine
+  <li>Efficient <a href="https://mustache.github.io/">Mustache templating</a> engine
      <ul>
-        <li>Used internally for directory listing &amp; error messages</li>
+        <li>Used internally for directory listing &amp; error messages (can
+        be loaded from a file)</li>
         <li>Available for user-built handlers</li>
      </ul>
   </li>
@@ -347,9 +348,12 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	<li>Support for <b>keep-alive</b> connections</li>
   	<li>Support for <b>pipelined</b> requests</li>
   </ul>
-  <li><a href="http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt">PROXY protocol</a> support</li>
+  <li><a href="http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt">PROXY protocol</a> support
+  <ul>
+  	<li>Useful for TLS terminators such as <a href="https://hitch-tls.org/">Hitch</a></li>
+  </ul>
   </li>
-  <li>systemd socket activation</li>
+  <li>systemd <a href="http://0pointer.de/blog/projects/socket-activation.html">socket activation</a></li>
   <li>IPv6 ready</li>
   <li><a href="http://buildbot.net/">Buildbots</a> checks every commit
   <ul>
