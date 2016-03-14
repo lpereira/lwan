@@ -98,7 +98,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     case EXT_JPG:
         return "image/jpeg";
     case EXT_JS:
-         return "application/javascript";
+        return "application/javascript";
     case EXT_PNG:
         return "image/png";
     case EXT_TXT:
