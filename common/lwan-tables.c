@@ -121,41 +121,31 @@ fallback:
 const char *
 lwan_http_status_as_string_with_code(lwan_http_status_t status)
 {
-    switch (status) {
-    case HTTP_OK:
-        return "200 OK";
-    case HTTP_PARTIAL_CONTENT:
-        return "206 Partial content";
-    case HTTP_MOVED_PERMANENTLY:
-        return "301 Moved permanently";
-    case HTTP_NOT_MODIFIED:
-        return "304 Not modified";
-    case HTTP_BAD_REQUEST:
-        return "400 Bad request";
-    case HTTP_NOT_AUTHORIZED:
-        return "401 Not authorized";
-    case HTTP_FORBIDDEN:
-        return "403 Forbidden";
-    case HTTP_NOT_FOUND:
-        return "404 Not found";
-    case HTTP_NOT_ALLOWED:
-        return "405 Not allowed";
-    case HTTP_TIMEOUT:
-        return "408 Request timeout";
-    case HTTP_TOO_LARGE:
-        return "413 Request too large";
-    case HTTP_RANGE_UNSATISFIABLE:
-        return "416 Requested range unsatisfiable";
-    case HTTP_I_AM_A_TEAPOT:
-        return "418 I'm a teapot";
-    case HTTP_INTERNAL_ERROR:
-        return "500 Internal server error";
-    case HTTP_NOT_IMPLEMENTED:
-        return "501 Not implemented";
-    case HTTP_UNAVAILABLE:
-        return "503 Service unavailable";
-    }
-    return "999 Invalid";
+    const char *ret;
+
+#define RESP(code,description)		[code] = #code " " description
+    static const char *responses[] = {
+        RESP(200, "OK"),
+        RESP(206, "Partial content"),
+        RESP(301, "Moved permanently"),
+        RESP(304, "Not modified"),
+        RESP(400, "Bad request"),
+        RESP(401, "Not authorized"),
+        RESP(403, "Forbidden"),
+        RESP(404, "Not found"),
+        RESP(405, "Not allowed"),
+        RESP(408, "Request timeout"),
+        RESP(413, "Request too large"),
+        RESP(416, "Requested range unsatisfiable"),
+        RESP(418, "I'm a teapot"),
+        RESP(500, "Internal server error"),
+        RESP(501, "Not implemented"),
+        RESP(503, "Service unavailable")
+    };
+#undef RESP
+
+    ret = LIKELY(status < N_ELEMENTS(responses)) ? responses[status] : NULL;
+    return LIKELY(ret) ? ret : "999 Invalid";
 }
 
 ALWAYS_INLINE const char *
