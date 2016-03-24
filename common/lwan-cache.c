@@ -30,6 +30,11 @@
 #include "lwan-cache.h"
 #include "hash.h"
 
+#if defined(__APPLE__)
+typedef int clockid_t;
+#define CLOCK_MONOTONIC 1
+#endif
+
 #define GET_AND_REF_TRIES 5
 
 enum {

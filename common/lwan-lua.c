@@ -285,6 +285,14 @@ static ALWAYS_INLINE const char *get_handle_prefix(lwan_request_t *request, size
     return NULL;
 }
 
+#if defined(__APPLE__)
+static void *mempcpy(void* dst, const void *src, size_t len)
+{
+    memcpy(dst, src, len);
+    return (void *)(((char *)dst) + len);
+}
+#endif
+
 static bool get_handler_function(lua_State *L, lwan_request_t *request)
 {
     size_t handle_prefix_len;
@@ -293,12 +301,19 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
         return false;
 
     char handler_name[128];
+    /* It's safe here, because hander_name and handle_prefix never overlap */
     char *method_name = mempcpy(handler_name, handle_prefix, handle_prefix_len);
 
     char *url;
     size_t url_len;
     if (request->url.len) {
+#if defined(__APPLE__)
+        size_t size = strlen(request->url.value);
+        url = alloca(size);
+        memcpy(url, request->url.value, size);
+#else
         url = strdupa(request->url.value);
+#endif
         for (char *c = url; *c; c++) {
             if (*c == '/') {
                 *c = '\0';

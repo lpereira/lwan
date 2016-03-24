@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 #if defined(__FreeBSD__)
 #include <sys/sysctl.h>
@@ -479,9 +480,14 @@ setup_open_file_count_limits(void)
 
     if (r.rlim_max != r.rlim_cur) {
         if (r.rlim_max == RLIM_INFINITY)
+#if defined(__APPLE__)
+            r.rlim_cur = OPEN_MAX;
+#else
             r.rlim_cur *= 8;
+#endif
         else if (r.rlim_cur < r.rlim_max)
             r.rlim_cur = r.rlim_max;
+
         if (setrlimit(RLIMIT_NOFILE, &r) < 0)
             lwan_status_critical_perror("setrlimit");
     }
@@ -657,7 +663,12 @@ lwan_main_loop(lwan_t *l)
     lwan_status_info("Ready to serve");
 
     for (;;) {
+#if defined(__APPLE__)
+        int client_fd = accept((int)main_socket, NULL, NULL);
+#else
         int client_fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+#endif
+
         if (UNLIKELY(client_fd < 0)) {
             switch (errno) {
             case EBADF:
@@ -672,6 +683,13 @@ lwan_main_loop(lwan_t *l)
 
             lwan_status_perror("accept");
         } else {
+#if defined(__APPLE__)
+            int flags = O_NONBLOCK | O_CLOEXEC;
+            if (fcntl(client_fd, F_SETFL, flags) < 0) {
+                close(client_fd);
+                continue;
+            }
+#endif
             schedule_client(l, client_fd);
         }
     }

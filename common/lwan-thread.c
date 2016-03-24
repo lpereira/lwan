@@ -29,6 +29,9 @@
 #ifdef __FreeBSD__
 #include <pthread_np.h>
 #include "epoll-bsd.h"
+#elif __APPLE__
+#include <pthread.h>
+#include "epoll-bsd.h"
 #elif __linux__
 #include <sys/epoll.h>
 #endif
@@ -407,8 +410,18 @@ create_thread(lwan_t *l, lwan_thread_t *thread)
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
+#if (defined __linux__)
     if (pipe2(thread->pipe_fd, O_NONBLOCK | O_CLOEXEC) < 0)
         lwan_status_critical_perror("pipe");
+#elif (defined __APPLE__)
+    if (pipe(thread->pipe_fd) < 0)
+        lwan_status_critical_perror("pipe");
+    int flags = O_NONBLOCK | O_CLOEXEC;
+    if (fcntl(thread->pipe_fd[0], F_SETFL, flags) < 0)
+        lwan_status_critical_perror("fcntl");
+    if (fcntl(thread->pipe_fd[1], F_SETFL, flags) < 0)
+        lwan_status_critical_perror("fcntl");
+#endif
 
     struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
     if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->pipe_fd[0], &event) < 0)
