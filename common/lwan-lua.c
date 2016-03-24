@@ -301,7 +301,7 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
         return false;
 
     char handler_name[128];
-    /* It's safe here, because hander_name and handle_prefix never overlap */
+    /* It's safe here, because handler_name and handle_prefix never overlap */
     char *method_name = mempcpy(handler_name, handle_prefix, handle_prefix_len);
 
     char *url;
