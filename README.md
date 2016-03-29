@@ -37,7 +37,7 @@ Features include:
   - systemd socket activation
   - IPv6 ready
 
-The [web site](http://lwan.ws) has more details, including a FAQ about the name of the project and security concerns.
+The [web site](https://lwan.ws/) has more details, including a FAQ about the name of the project and security concerns.
 
 Performance
 -----------
@@ -73,8 +73,8 @@ Before installing Lwan, ensure all dependencies are installed. All of them are c
 
 ### Required dependencies
 
- - [CMake](http://cmake.org), at least version 2.8
- - [Python](http://python.org), at least version 2.6 (3.x is OK)
+ - [CMake](https://cmake.org/), at least version 2.8
+ - [Python](https://www.python.org/), at least version 2.6 (3.x is OK)
  - [ZLib](http://zlib.net)
 
 ### Optional dependencies
@@ -84,8 +84,8 @@ The build system will look for these libraries and enable/link if available.
  - [SQLite 3](http://sqlite.org)
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
  - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
- - [TCMalloc](https://code.google.com/p/gperftools/)
- - [jemalloc](http://www.canonware.com/jemalloc)
+ - [TCMalloc](https://github.com/gperftools/gperftools)
+ - [jemalloc](http://www.canonware.com/jemalloc/)
  - [Valgrind](http://valgrind.org)
 
 ### Common operating system package names
@@ -161,7 +161,7 @@ been seen in the wild.  *Help build this list!*
 
 Some other distribution channels were made available as well:
 
-* A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://registry.hub.docker.com/u/jaxgeller/lwan/).
+* A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://hub.docker.com/r/jaxgeller/lwan/).
 * A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
 * Lwan is also available as a package in [Biicode](http://docs.biicode.com/c++/examples/lwan.html).
 * User packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/) also  [Ubuntu](https://launchpad.net/lwan-unofficial).
@@ -184,6 +184,6 @@ Build status
 
 | Release | Debug | Static Analysis | Unit Tests |
 |---------|-------|-----------------|------------|
-| ![release](http://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release") | ![debug](http://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](http://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Clang") ![coverity](https://scan.coverity.com/projects/375/badge.svg)| ![tests](http://buildbot.lwan.ws/buildstatusimage?builder=unit-tests&number=-1 "Tests")
-| [Waterfall](http://buildbot.lwan.ws/waterfall?show=release) | [Waterfall](http://buildbot.lwan.ws/waterfall?show=debug) | [Waterfall](http://buildbot.lwan.ws/waterfall?show=clang-analyze) - [Reports](http://buildbot.lwan.ws/sa/) | [Waterfall](http://buildbot.lwan.ws/waterfall?show=unit-tests) |
+| ![release](https://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release") | ![debug](https://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](https://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Clang") ![coverity](https://scan.coverity.com/projects/375/badge.svg)| ![tests](https://buildbot.lwan.ws/buildstatusimage?builder=unit-tests&number=-1 "Tests")
+| [Waterfall](https://buildbot.lwan.ws/waterfall?show=release) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=debug) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=clang-analyze) - [Reports](https://buildbot.lwan.ws/sa/) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=unit-tests) |
 
