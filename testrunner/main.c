@@ -108,6 +108,38 @@ test_proxy(lwan_request_t *request,
 }
 
 lwan_http_status_t
+test_post(lwan_request_t *request, lwan_response_t *response,
+    void *data __attribute__((unused)))
+{
+    static const char type[] = "application/json";
+    static const char request_body[] = "{\"will-it-blend\": true}";
+    static const char response_body[] = "{\"did-it-blend\": \"oh-hell-yeah\"}";
+
+    if (!request->header.content_type)
+        return HTTP_BAD_REQUEST;
+    if (!request->header.content_type->value)
+        return HTTP_BAD_REQUEST;
+    if (request->header.content_type->len != sizeof(type) - 1)
+        return HTTP_BAD_REQUEST;
+    if (memcmp(request->header.content_type->value, type, sizeof(type) - 1) != 0)
+        return HTTP_BAD_REQUEST;
+
+    if (!request->header.body)
+        return HTTP_BAD_REQUEST;
+    if (!request->header.body->value)
+        return HTTP_BAD_REQUEST;
+    if (request->header.body->len != sizeof(request_body) - 1)
+        return HTTP_BAD_REQUEST;
+    if (memcmp(request->header.body->value, request_body, sizeof(request_body) - 1) != 0)
+        return HTTP_BAD_REQUEST;
+
+    response->mime_type = type;
+    strbuf_set_static(response->buffer, response_body, sizeof(response_body) -1);
+
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 hello_world(lwan_request_t *request,
             lwan_response_t *response,
             void *data __attribute__((unused)))

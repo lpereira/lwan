@@ -51,10 +51,10 @@ struct request_parser_helper {
     lwan_value_t query_string;
     lwan_value_t fragment;
     lwan_value_t content_length;
-    lwan_value_t post_data;
-
-    lwan_value_t content_type;
     lwan_value_t authorization;
+
+    lwan_value_t post_data;
+    lwan_value_t content_type;
 
     int urls_rewritten;
     char connection;
@@ -418,6 +418,9 @@ static void
 parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
 {
     static const char content_type[] = "application/x-www-form-urlencoded";
+
+    request->header.body = &helper->post_data;
+    request->header.content_type = &helper->content_type;
 
     if (helper->content_type.len != sizeof(content_type) - 1)
         return;

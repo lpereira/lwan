@@ -236,6 +236,8 @@ struct lwan_request_t_ {
           off_t from;
           off_t to;
         } range;
+        lwan_value_t *body;
+        lwan_value_t *content_type;
     } header;
     lwan_response_t response;
 };

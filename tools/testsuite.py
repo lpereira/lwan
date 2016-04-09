@@ -60,6 +60,13 @@ class LwanTest(unittest.TestCase):
     self.assertHttpResponseValid(request, status_code, 'text/plain')
 
 
+class TestPost(LwanTest):
+  def test_bat(self):
+    r = requests.post('http://127.0.0.1:8080/post', json={'will-it-blend': True})
+    self.assertHttpResponseValid(r, 200, 'application/json')
+    self.assertEqual(r.json(), {'did-it-blend': 'oh-hell-yeah'})
+
+
 class TestFileServing(LwanTest):
   def test_mime_type_is_correct(self):
     table = (
