@@ -128,3 +128,23 @@ add_subdirectory(lwan)
 add_subdirectory(testrunner)
 add_subdirectory(freegeoip)
 add_subdirectory(techempower)
+
+set(PKG_CONFIG_REQUIRES ${ADDITIONAL_LIBRARIES})
+set(PKG_CONFIG_LIBDIR "\${prefix}/lib")
+set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include/lwan")
+set(PKG_CONFIG_LIBS "-L\${libdir} -llwan-common")
+set(PKG_CONFIG_CFLAGS "-I\${includedir}")
+
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE PROJECT_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/lwan.pc.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
+)
+
+install(FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc" DESTINATION lib/pkgconfig)
