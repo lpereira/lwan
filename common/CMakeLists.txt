@@ -28,8 +28,8 @@ set(SOURCES
 	realpathat.c
 	strbuf.c
 	sd-daemon.c
+	missing.c
 )
-
 
 include(CheckIncludeFiles)
 check_include_files(sys/epoll.h HAVE_EPOLL_H)
@@ -50,6 +50,28 @@ if (HAS_MEMPCPY)
 	add_definitions(-DHAS_MEMPCPY)
 endif ()
 
+check_function_exists(memrchr HAS_MEMRCHR)
+if (HAS_MEMRCHR)
+	add_definitions(-DHAS_MEMRCHR)
+endif ()
+
+set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+check_function_exists(pthread_timedjoin_np HAS_TIMEDJOIN)
+if (HAS_TIMEDJOIN)
+	add_definitions(-DHAS_TIMEDJOIN)
+endif ()
+
+set(CMAKE_EXTRA_INCLUDE_FILES unistd.h)
+check_function_exists(pipe2 HAS_PIPE2)
+if (HAS_PIPE2)
+	add_definitions(-DHAS_PIPE2)
+endif ()
+
+set(CMAKE_EXTRA_INCLUDE_FILES sys/types.h sys/socket.h)
+check_function_exists(accept4 HAS_ACCEPT4)
+if (HAS_ACCEPT4)
+	add_definitions(-DHAS_ACCEPT4)
+endif ()
 
 include(FindPkgConfig)
 foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
@@ -93,6 +115,6 @@ set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
 INSTALL(TARGETS lwan-common
   DESTINATION "lib"
 )
-INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h lwan-template.h lwan-serve-files.h lwan-config.h
-  DESTINATION "include/lwan"
-)
+INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
+  lwan-template.h lwan-serve-files.h lwan-config.h missing.h
+  DESTINATION "include/lwan" )

@@ -35,10 +35,10 @@ include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES time.h)
 check_function_exists(clock_gettime HAS_CLOCK_GETTIME)
 if (HAS_CLOCK_GETTIME)
-	message(STATUS "libc has clock_gettime(). Good.")
-else ()
+	add_definitions("-DHAS_CLOCK_GETTIME")
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	add_definitions("-DHAS_CLOCK_GETTIME")
 	list(APPEND ADDITIONAL_LIBRARIES rt)
-	message(STATUS "No clock_gettime() in libc. Linking with -lrt.")
 endif ()
 
 

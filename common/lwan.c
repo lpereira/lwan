@@ -479,7 +479,7 @@ setup_open_file_count_limits(void)
 
     if (r.rlim_max != r.rlim_cur) {
         if (r.rlim_max == RLIM_INFINITY)
-            r.rlim_cur *= 8;
+            r.rlim_cur = OPEN_MAX;
         else if (r.rlim_cur < r.rlim_max)
             r.rlim_cur = r.rlim_max;
         if (setrlimit(RLIMIT_NOFILE, &r) < 0)

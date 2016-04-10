@@ -60,9 +60,7 @@ struct cache_t {
 
     struct {
         time_t time_to_live;
-#ifndef __MACH__
         clockid_t clock_id;
-#endif
     } settings;
 
     unsigned flags;
@@ -92,12 +90,8 @@ static clockid_t detect_fastest_monotonic_clock(void)
 static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
     struct timespec *ts)
 {
-#ifdef __MACH__
-    ts->tv_sec = time(NULL);
-#else
     if (UNLIKELY(clock_gettime(cache->settings.clock_id, ts) < 0))
         lwan_status_perror("clock_gettime");
-#endif
 }
 
 struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
