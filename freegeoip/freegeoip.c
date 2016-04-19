@@ -52,6 +52,11 @@ struct ip_info_t {
     const char *callback;
 };
 
+struct template_mime_t {
+    lwan_tpl_t *tpl;
+    const char *mime_type;
+};
+
 static const lwan_var_descriptor_t template_descriptor[] = {
     TPL_VAR_STR(struct ip_info_t, country.code),
     TPL_VAR_STR(struct ip_info_t, country.name),
@@ -179,10 +184,6 @@ struct query_limit_t {
 static struct cache_t *query_limit;
 #endif
 
-
-static lwan_tpl_t *json_template = NULL;
-static lwan_tpl_t *xml_template = NULL;
-static lwan_tpl_t *csv_template = NULL;
 static struct cache_t *cache = NULL;
 static sqlite3 *db = NULL;
 
@@ -356,8 +357,8 @@ templated_output(lwan_request_t *request,
                  lwan_response_t *response,
                  void *data)
 {
+    const struct template_mime_t *tm = data;
     const char *ip_address;
-    lwan_tpl_t *tpl = data;
     struct ip_info_t *info;
     char ip_address_buf[INET6_ADDRSTRLEN];
 
@@ -374,21 +375,28 @@ templated_output(lwan_request_t *request,
     if (UNLIKELY(!info))
         return HTTP_NOT_FOUND;
 
-    if (tpl == json_template)
-        response->mime_type = "application/json; charset=UTF-8";
-    else if (tpl == xml_template)
-        response->mime_type = "application/xml; charset=UTF-8";
-    else
-        response->mime_type = "text/plain; charset=UTF-8";
-
     const char *callback = lwan_request_get_query_param(request, "callback");
     struct ip_info_t info_with_callback = *info;
     info_with_callback.callback = callback;
 
-    lwan_tpl_apply_with_buffer(tpl, response->buffer,
+    lwan_tpl_apply_with_buffer(tm->tpl, response->buffer,
                 &info_with_callback);
+    response->mime_type = tm->mime_type;
 
     return HTTP_OK;
+}
+
+static struct template_mime_t
+compile_template(const char *template, const char *mime_type)
+{
+    lwan_tpl_t *tpl = lwan_tpl_compile_string(template, template_descriptor);
+
+    if (!tpl) {
+        lwan_status_critical("Could not compile template for mime-type %s",
+            mime_type);
+    }
+
+    return (struct template_mime_t) { .tpl = tpl, .mime_type = mime_type };
 }
 
 int
@@ -398,15 +406,12 @@ main(void)
 
     lwan_init(&l);
 
-    json_template = lwan_tpl_compile_string(json_template_str, template_descriptor);
-    if (!json_template)
-        lwan_status_critical("Could not compile JSON template");
-    xml_template = lwan_tpl_compile_string(xml_template_str, template_descriptor);
-    if (!xml_template)
-        lwan_status_critical("Could not compile XML template");
-    csv_template = lwan_tpl_compile_string(csv_template_str, template_descriptor);
-    if (!csv_template)
-        lwan_status_critical("Could not compile CSV template");
+    struct template_mime_t json_tpl = compile_template(json_template_str,
+        "application/json; charset=UTF-8");
+    struct template_mime_t xml_tpl = compile_template(csv_template_str,
+        "application/csv; charset=UTF-8");
+    struct template_mime_t csv_tpl = compile_template(xml_template_str,
+        "text/plain; charset=UTF-8");
 
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
                                  SQLITE_OPEN_READONLY, NULL);
@@ -425,9 +430,9 @@ main(void)
 #endif
 
     const lwan_url_map_t default_map[] = {
-        { .prefix = "/json/", .handler = templated_output, .data = json_template },
-        { .prefix = "/xml/", .handler = templated_output, .data = xml_template },
-        { .prefix = "/csv/", .handler = templated_output, .data = csv_template },
+        { .prefix = "/json/", .handler = templated_output, .data = &json_tpl },
+        { .prefix = "/xml/", .handler = templated_output, .data = &xml_tpl },
+        { .prefix = "/csv/", .handler = templated_output, .data = &csv_tpl },
         { .prefix = "/", SERVE_FILES("./static") },
         { .prefix = NULL }
     };
@@ -436,9 +441,9 @@ main(void)
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
-    lwan_tpl_free(csv_template);
-    lwan_tpl_free(xml_template);
-    lwan_tpl_free(json_template);
+    lwan_tpl_free(json_tpl.tpl);
+    lwan_tpl_free(xml_tpl.tpl);
+    lwan_tpl_free(csv_tpl.tpl);
 #if QUERIES_PER_HOUR != 0
     cache_destroy(query_limit);
 #endif
