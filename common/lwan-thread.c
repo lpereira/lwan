@@ -475,12 +475,8 @@ lwan_thread_shutdown(lwan_t *l)
         lwan_thread_t *t = &l->thread.threads[i];
 
         lwan_status_debug("Waiting for thread %d to finish", i);
-#ifdef __FreeBSD__
         pthread_timedjoin_np(l->thread.threads[i].self, NULL,
             &(const struct timespec) { .tv_sec = 1 });
-#else
-        pthread_join(l->thread.threads[i].self, NULL);
-#endif
 
         lwan_status_debug("Closing pipe (%d, %d)", t->pipe_fd[0],
             t->pipe_fd[1]);
