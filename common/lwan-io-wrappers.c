@@ -178,7 +178,6 @@ void
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
 {
-    size_t total_written = 0;
     size_t to_be_written = count;
 
     lwan_send(request, header, header_len, MSG_MORE);
@@ -198,8 +197,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
             }
         }
 
-        total_written += (size_t)written;
-        to_be_written -= (size_t)count;
+        to_be_written -= (size_t)written;
 
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
