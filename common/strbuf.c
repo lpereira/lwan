@@ -43,17 +43,18 @@ find_next_power_of_two(size_t number)
     } else if (sizeof(size_t) == sizeof(unsigned long long)) {
         return 1ULL << (size_bits - __builtin_clzll((unsigned long long)number));
     } else {
-        __builtin_unreachable();
+        (void)size_bits;
     }
-#else
+#endif
+
     number--;
     number |= number >> 1;
     number |= number >> 2;
     number |= number >> 4;
     number |= number >> 8;
     number |= number >> 16;
+
     return number + 1;
-#endif
 }
 
 static ALWAYS_INLINE size_t
