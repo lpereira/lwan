@@ -46,3 +46,7 @@ char *lwan_process_request(lwan_t *l, lwan_request_t *request,
                            lwan_value_t *buffer, char *next_request);
 
 void lwan_straitjacket_enforce(config_t *c, config_line_t *l);
+
+uint8_t lwan_char_isspace(char ch) __attribute__((pure));
+uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
+

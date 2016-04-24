@@ -32,6 +32,7 @@
 #include "lwan.h"
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
+#include "lwan-private.h"
 
 typedef enum {
     FINALIZER_DONE,
@@ -87,9 +88,6 @@ union proxy_protocol_header {
 };
 
 static char decode_hex_digit(char ch) __attribute__((pure));
-static bool is_hex_digit(char ch) __attribute__((pure));
-static uint32_t has_zero_byte(uint32_t n) __attribute__((pure));
-static uint32_t is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
 
@@ -302,14 +300,6 @@ decode_hex_digit(char ch)
     return (char)((ch <= '9') ? ch - '0' : (ch & 7) + 9);
 }
 
-static ALWAYS_INLINE bool
-is_hex_digit(char ch)
-{
-    return (ch >= '0' && ch <= '9') ||
-        (ch >= 'a' && ch <= 'f') ||
-        (ch >= 'A' && ch <= 'F');
-}
-
 static size_t
 url_decode(char *str)
 {
@@ -318,7 +308,7 @@ url_decode(char *str)
 
     char *ch, *decoded;
     for (decoded = ch = str; *ch; ch++) {
-        if (*ch == '%' && LIKELY(is_hex_digit(ch[1]) && is_hex_digit(ch[2]))) {
+        if (*ch == '%' && LIKELY(lwan_char_isxdigit(ch[1]) && lwan_char_isxdigit(ch[2]))) {
             char tmp = (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
             if (UNLIKELY(!tmp))
                 return 0;
@@ -680,22 +670,10 @@ parse_accept_encoding(lwan_request_t *request, struct request_parser_helper *hel
     }
 }
 
-static ALWAYS_INLINE uint32_t
-has_zero_byte(uint32_t n)
-{
-    return ((n - 0x01010101U) & ~n) & 0x80808080U;
-}
-
-static ALWAYS_INLINE uint32_t
-is_space(char ch)
-{
-    return has_zero_byte((0x1010101U * (uint32_t)ch) ^ 0x090a0d20U);
-}
-
 static ALWAYS_INLINE char *
 ignore_leading_whitespace(char *buffer)
 {
-    while (*buffer && is_space(*buffer))
+    while (*buffer && lwan_char_isspace(*buffer))
         buffer++;
     return buffer;
 }

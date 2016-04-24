@@ -193,3 +193,47 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
     }
     return "Invalid";
 }
+
+enum {
+    CHAR_PROP_SPACE = 1<<0,
+    CHAR_PROP_HEX = 1<<1
+};
+
+static const uint8_t char_prop_tbl[256] = {
+    [' '] = CHAR_PROP_SPACE,
+    ['\t'] = CHAR_PROP_SPACE,
+    ['\n'] = CHAR_PROP_SPACE,
+    ['\r'] = CHAR_PROP_SPACE,
+    ['0'] = CHAR_PROP_HEX,
+    ['1'] = CHAR_PROP_HEX,
+    ['2'] = CHAR_PROP_HEX,
+    ['3'] = CHAR_PROP_HEX,
+    ['4'] = CHAR_PROP_HEX,
+    ['5'] = CHAR_PROP_HEX,
+    ['6'] = CHAR_PROP_HEX,
+    ['7'] = CHAR_PROP_HEX,
+    ['8'] = CHAR_PROP_HEX,
+    ['9'] = CHAR_PROP_HEX,
+    ['a'] = CHAR_PROP_HEX,
+    ['b'] = CHAR_PROP_HEX,
+    ['c'] = CHAR_PROP_HEX,
+    ['d'] = CHAR_PROP_HEX,
+    ['e'] = CHAR_PROP_HEX,
+    ['f'] = CHAR_PROP_HEX,
+    ['A'] = CHAR_PROP_HEX,
+    ['B'] = CHAR_PROP_HEX,
+    ['C'] = CHAR_PROP_HEX,
+    ['D'] = CHAR_PROP_HEX,
+    ['E'] = CHAR_PROP_HEX,
+    ['F'] = CHAR_PROP_HEX,
+};
+
+ALWAYS_INLINE uint8_t lwan_char_isspace(char ch)
+{
+    return char_prop_tbl[(int)ch] & CHAR_PROP_SPACE;
+}
+
+ALWAYS_INLINE uint8_t lwan_char_isxdigit(char ch)
+{
+    return char_prop_tbl[(int)ch] & CHAR_PROP_HEX;
+}

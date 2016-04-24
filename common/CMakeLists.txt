@@ -22,13 +22,13 @@ set(SOURCES
 	lwan-template.c
 	lwan-thread.c
 	lwan-trie.c
+	missing.c
 	murmur3.c
 	patterns.c
 	reallocarray.c
 	realpathat.c
-	strbuf.c
 	sd-daemon.c
-	missing.c
+	strbuf.c
 )
 
 include(CheckIncludeFiles)
