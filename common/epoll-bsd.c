@@ -34,40 +34,6 @@ epoll_create1(int flags __attribute__((unused)))
     return kqueue();
 }
 
-static struct kevent
-add_or_mod(int fd, struct epoll_event *event)
-{
-    struct kevent ev;
-    int events = 0;
-    int flags = EV_ADD;
-
-    if (event->events & EPOLLIN)
-        events = EVFILT_READ;
-    else if (event->events & EPOLLOUT)
-        events = EVFILT_WRITE;
-
-    if (event->events & EPOLLONESHOT)
-        flags |= EV_ONESHOT;
-    if (event->events & EPOLLRDHUP)
-        flags |= EV_EOF;
-    if (event->events & EPOLLERR)
-        flags |= EV_ERROR;
-
-    EV_SET(&ev, fd, events, flags, 0, 0, event->data.ptr);
-
-    return ev;
-}
-
-static struct kevent
-del(int fd, struct epoll_event *event __attribute__((unused)))
-{
-    struct kevent ev;
-
-    EV_SET(&ev, fd, 0, EV_DELETE, 0, 0, 0);
-
-    return ev;
-}
-
 int
 epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
@@ -75,12 +41,30 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
     switch (op) {
     case EPOLL_CTL_ADD:
-    case EPOLL_CTL_MOD:
-        ev = add_or_mod(fd, event);
+    case EPOLL_CTL_MOD: {
+        int events = 0;
+        int flags = EV_ADD;
+
+        if (event->events & EPOLLIN)
+            events = EVFILT_READ;
+        if (event->events & EPOLLOUT)
+            events = EVFILT_WRITE;
+
+        if (event->events & EPOLLONESHOT)
+            flags |= EV_ONESHOT;
+        if (event->events & EPOLLRDHUP)
+            flags |= EV_EOF;
+        if (event->events & EPOLLERR)
+            flags |= EV_ERROR;
+
+        EV_SET(&ev, fd, events, flags, 0, 0, event->data.ptr);
         break;
+    }
+
     case EPOLL_CTL_DEL:
-        ev = del(fd, event);
+        EV_SET(&ev, fd, 0, EV_DELETE, 0, 0, 0);
         break;
+
     default:
         errno = EINVAL;
         return -1;
