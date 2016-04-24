@@ -93,6 +93,10 @@ static uint32_t is_space(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
 
+#if defined(__APPLE__)
+static void *memrchr(const void *s, int c, size_t n);
+#endif
+
 static ALWAYS_INLINE lwan_request_flags_t
 get_http_method(const char *buffer)
 {
@@ -309,6 +313,23 @@ is_hex_digit(char ch)
         (ch >= 'a' && ch <= 'f') ||
         (ch >= 'A' && ch <= 'F');
 }
+
+#if defined(__APPLE__)
+static ALWAYS_INLINE void *
+memrchr(const void *s, int c, size_t n)
+{
+    const unsigned char *cp;
+
+    if (n != 0) {
+        cp = (unsigned char *)s + n;
+        do {
+            if (*(--cp) == (unsigned char)c)
+                return (void *)cp;
+        } while (--n != 0);
+    }
+    return (void *)0;
+}
+#endif
 
 static size_t
 url_decode(char *str)

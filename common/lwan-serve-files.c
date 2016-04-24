@@ -27,6 +27,10 @@
 #include <sys/stat.h>
 #include <zlib.h>
 
+#if defined(__APPLE__)
+#define PATH_MAX 4096
+#endif
+
 #include "lwan.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
