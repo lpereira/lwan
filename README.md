@@ -74,7 +74,6 @@ Before installing Lwan, ensure all dependencies are installed. All of them are c
 ### Required dependencies
 
  - [CMake](https://cmake.org/), at least version 2.8
- - [Python](https://www.python.org/), at least version 2.6 (3.x is OK)
  - [ZLib](http://zlib.net)
 
 ### Optional dependencies
@@ -87,12 +86,13 @@ The build system will look for these libraries and enable/link if available.
  - [TCMalloc](https://github.com/gperftools/gperftools)
  - [jemalloc](http://www.canonware.com/jemalloc/)
  - [Valgrind](http://valgrind.org)
+ - To run test suite, [Python](https://www.python.org/) (2.6+) with Requests module is required
 
 ### Common operating system package names
 
- - ArchLinux: `pacman -S cmake python zlib sqlite luajit libmariadbclient gperftools valgrind`
- - FreeBSD: `pkg install cmake pkgconf python27 sqlite3 lua51`
- - Ubuntu 14: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
+ - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind`
+ - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
+ - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
 
 ### Build commands
 

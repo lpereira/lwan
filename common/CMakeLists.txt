@@ -94,17 +94,24 @@ else ()
 	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
 endif ()
 
-find_package(PythonInterp)
-if (NOT PYTHONINTERP_FOUND)
-	message(FATAL_ERROR "Could not find Python interpreter")
-endif ()
-
 add_library(lwan-common STATIC ${SOURCES})
+
+add_executable(mimegen ../tools/mimegen.c hash.c murmur3.c reallocarray.c)
+
+find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
+if (ZOPFLI_LIBRARY)
+	message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
+	target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
+	add_definitions(-DHAVE_ZOPFLI)
+else ()
+	message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
+	target_link_libraries(mimegen ${ZLIB_LIBRARIES})
+endif ()
 
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
-	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/generate-mime-types-table.py ${CMAKE_SOURCE_DIR}/tools/mime.types > ${CMAKE_BINARY_DIR}/mime-types.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types ${CMAKE_SOURCE_DIR}/tools/generate-mime-types-table.py
+	COMMAND ${CMAKE_BINARY_DIR}/common/mimegen ${CMAKE_SOURCE_DIR}/tools/mime.types > ${CMAKE_BINARY_DIR}/mime-types.h
+	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types mimegen
 )
 add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
 add_dependencies(lwan-common generate_mime_types_table)
