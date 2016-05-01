@@ -24,7 +24,6 @@ check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_
 if (HAVE_BUILTIN_MUL_OVERFLOW)
 	add_definitions("-DHAVE_BUILTIN_MUL_OVERFLOW")
 endif ()
-
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
 if (HAVE_STATIC_ASSERT)
 	add_definitions("-DHAVE_STATIC_ASSERT")
@@ -55,6 +54,7 @@ else ()
 		message(STATUS "jemalloc and tcmalloc were not found, using system malloc")
 	endif()
 endif()
+
 
 set(C_FLAGS_REL "-mtune=native")
 
@@ -115,7 +115,7 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wshadow -Wconversion -std=gnu11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu11")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_REL}")
