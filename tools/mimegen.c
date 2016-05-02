@@ -175,9 +175,14 @@ int main(int argc, char *argv[])
             }
 
             r = hash_add_unique(ext_mime, k, v);
-            if (r < 0 && r != -EEXIST) {
-                fprintf(stderr, "Could not add extension to hash table\n");
-                return 1;
+            if (r < 0) {
+                free(k);
+                free(v);
+
+                if (r != -EEXIST) {
+                    fprintf(stderr, "Could not add extension to hash table\n");
+                    return 1;
+                }
             }
         }
     }
