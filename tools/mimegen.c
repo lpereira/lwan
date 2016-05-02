@@ -86,6 +86,8 @@ static char *compress_output(const struct output *output, size_t *outlen)
 #ifdef HAVE_ZOPFLI
     ZopfliOptions opts;
 
+    *outlen = 0;
+
     ZopfliInitOptions(&opts);
     ZopfliCompress(&opts, ZOPFLI_FORMAT_ZLIB,
         (const unsigned char *)output->ptr, output->used,
