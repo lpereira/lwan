@@ -336,6 +336,9 @@ thread_io_loop(void *data)
 
     death_queue_init(&dq, lwan);
 
+    pthread_barrier_wait(t->barrier);
+    t->barrier = NULL;
+
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
                                    death_queue_epoll_timeout(&dq))) {
@@ -384,12 +387,13 @@ epoll_fd_closed:
 }
 
 static void
-create_thread(lwan_t *l, lwan_thread_t *thread)
+create_thread(lwan_t *l, lwan_thread_t *thread, pthread_barrier_t *barrier)
 {
     pthread_attr_t attr;
 
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
+    thread->barrier = barrier;
 
     if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
         lwan_status_critical_perror("epoll_create");
@@ -430,6 +434,11 @@ lwan_thread_add_client(lwan_thread_t *t, int fd)
 void
 lwan_thread_init(lwan_t *l)
 {
+    pthread_barrier_t barrier;
+
+    if (pthread_barrier_init(&barrier, NULL, (unsigned)l->thread.count + 1))
+        lwan_status_critical("Could not create barrier");
+
     lwan_status_debug("Initializing threads");
 
     l->thread.threads = calloc((size_t)l->thread.count, sizeof(lwan_thread_t));
@@ -437,7 +446,12 @@ lwan_thread_init(lwan_t *l)
         lwan_status_critical("Could not allocate memory for threads");
 
     for (short i = 0; i < l->thread.count; i++)
-        create_thread(l, &l->thread.threads[i]);
+        create_thread(l, &l->thread.threads[i], &barrier);
+
+    pthread_barrier_wait(&barrier);
+    pthread_barrier_destroy(&barrier);
+
+    lwan_status_debug("IO threads created and ready to serve");
 }
 
 void
