@@ -408,9 +408,9 @@ main(void)
 
     struct template_mime_t json_tpl = compile_template(json_template_str,
         "application/json; charset=UTF-8");
-    struct template_mime_t xml_tpl = compile_template(csv_template_str,
+    struct template_mime_t csv_tpl = compile_template(csv_template_str,
         "application/csv; charset=UTF-8");
-    struct template_mime_t csv_tpl = compile_template(xml_template_str,
+    struct template_mime_t xml_tpl = compile_template(xml_template_str,
         "text/plain; charset=UTF-8");
 
     int result = sqlite3_open_v2("./db/ipdb.sqlite", &db,
