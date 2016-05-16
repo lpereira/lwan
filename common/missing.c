@@ -90,11 +90,11 @@ accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
        return fd;
 
    if (flags & SOCK_NONBLOCK) {
-       newflags |= FD_NONBLOCK;
+       newflags |= O_NONBLOCK;
        flags &= ~SOCK_NONBLOCK;
    }
    if (flags & SOCK_CLOEXEC) {
-       newflags |= FD_CLOEXEC;
+       newflags |= O_CLOEXEC;
        flags &= ~SOCK_CLOEXEC;
    }
    if (flags) {
