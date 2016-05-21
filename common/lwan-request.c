@@ -326,7 +326,7 @@ url_decode(char *str)
 }
 
 static int
-key_value_compare_qsort_key(const void *a, const void *b)
+key_value_compare(const void *a, const void *b)
 {
     return strcmp(((lwan_key_value_t *)a)->key, ((lwan_key_value_t *)b)->key);
 }
@@ -378,7 +378,7 @@ parse_key_values(lwan_request_t *request,
 
     kvs[values].key = kvs[values].value = NULL;
 
-    qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare_qsort_key);
+    qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare);
     *base = kvs;
     *len = values;
 }
@@ -1028,22 +1028,14 @@ out:
     return helper.next_request;
 }
 
-static int
-compare_key_value(const void *a, const void *b)
-{
-    const lwan_key_value_t *kva = a;
-    const lwan_key_value_t *kvb = b;
-
-    return strcmp(kva->key, kvb->key);
-}
-
 static inline void *
 value_lookup(const void *base, size_t len, const char *key)
 {
     if (LIKELY(base)) {
         lwan_key_value_t k = { .key = (char *)key };
-        lwan_key_value_t *entry = bsearch(&k, base, len, sizeof(k), compare_key_value);
+        lwan_key_value_t *entry;
 
+        entry = bsearch(&k, base, len, sizeof(k), key_value_compare);
         if (LIKELY(entry))
             return entry->value;
     }
