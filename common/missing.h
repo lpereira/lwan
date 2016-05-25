@@ -46,6 +46,20 @@
 #define rawmemchr(s, c) memchr((s), (c), SIZE_MAX)
 #endif
 
+#ifndef HAS_PTHREADBARRIER
+typedef int pthread_barrierattr_t;
+typedef struct pthread_barrier {
+    unsigned int count;
+    unsigned int in;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} pthread_barrier_t;
+
+int pthread_barrier_init(pthread_barrier_t *restrict barrier, const pthread_barrierattr_t *restrict attr, unsigned int count);
+int pthread_barrier_destroy(pthread_barrier_t *barrier);
+int pthread_barrier_wait(pthread_barrier_t *barrier);
+#endif
+
 #ifndef HAS_MEMPCPY
 void *mempcpy(void *dest, const void *src, size_t len);
 #endif
@@ -104,3 +118,6 @@ int pthread_timedjoin_np(pthread_t thread, void **retval, const struct timespec 
 #define OPEN_MAX 65535
 #endif
 
+#ifndef SOCK_NONBLOCK
+#define SOCK_NONBLOCK 00004000
+#endif

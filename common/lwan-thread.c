@@ -29,6 +29,8 @@
 #ifdef __FreeBSD__
 #include <pthread_np.h>
 #include "epoll-bsd.h"
+#elif __APPLE__
+#include "epoll-bsd.h"
 #elif __linux__
 #include <sys/epoll.h>
 #endif

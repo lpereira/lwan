@@ -76,13 +76,10 @@ static void coro_entry_point(coro_t *data, coro_function_t func);
  *     -- Leandro
  */
 #if defined(__x86_64__)
-void coro_swapcontext(coro_context_t *current, coro_context_t *other)
-                __attribute__((noinline));
-    asm(
-    ".text\n\t"
-    ".p2align 4\n\t"
-    ".globl coro_swapcontext\n\t"
-    "coro_swapcontext:\n\t"
+void __attribute__((noinline))
+coro_swapcontext(coro_context_t *current, coro_context_t *other)
+{
+    asm volatile(
     "mov    %rbx,0(%rdi)\n\t"
     "mov    %rbp,8(%rdi)\n\t"
     "mov    %r12,16(%rdi)\n\t"
@@ -106,14 +103,14 @@ void coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "mov    64(%rsi),%rcx\n\t"
     "mov    56(%rsi),%rsi\n\t"
     "jmp    *%rcx\n\t");
+    (void)current;
+    (void)other;
+}
 #elif defined(__i386__)
-void coro_swapcontext(coro_context_t *current, coro_context_t *other)
-                __attribute__((noinline));
-    asm(
-    ".text\n\t"
-    ".p2align 16\n\t"
-    ".globl coro_swapcontext\n\t"
-    "coro_swapcontext:\n\t"
+void __attribute__((noinline))
+coro_swapcontext(coro_context_t *current, coro_context_t *other)
+{
+    asm volatile(
     "movl   0x4(%esp),%eax\n\t"
     "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
     "movl   %ebx,0x0(%eax)\n\t"  /* EBX */
@@ -134,6 +131,9 @@ void coro_swapcontext(coro_context_t *current, coro_context_t *other)
     "movl   0xc(%eax),%ebp\n\t"  /* EBP */
     "movl   0x1c(%eax),%ecx\n\t" /* ECX */
     "ret\n\t");
+    (void)current;
+    (void)other;
+}
 #else
 #define coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif

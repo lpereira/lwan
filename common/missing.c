@@ -26,12 +26,61 @@
 
 #include "missing.h"
 
+#ifndef HAS_PTHREADBARRIER
+#define PTHREAD_BARRIER_SERIAL_THREAD -1
+int
+pthread_barrier_init(pthread_barrier_t *restrict barrier, const pthread_barrierattr_t *restrict attr, unsigned int count) {
+    if (count == 0) {
+        return -1;
+    }
+
+    barrier->count = count;
+    barrier->in = 0;
+
+    if (pthread_mutex_init(&barrier->mutex, NULL) < 0)
+        return -1;
+
+    if (pthread_cond_init(&barrier->cond, NULL) < 0) {
+        pthread_mutex_destroy(&barrier->mutex);
+        return -1;
+    }
+
+    return 0;
+}
+
+int
+pthread_barrier_destroy(pthread_barrier_t *barrier)
+{
+    pthread_mutex_destroy(&barrier->mutex);
+    pthread_cond_destroy(&barrier->cond);
+    barrier->in = 0;
+    return 0;
+}
+
+int
+pthread_barrier_wait(pthread_barrier_t *barrier)
+{
+    pthread_mutex_lock(&barrier->mutex);
+    __sync_fetch_and_add(&barrier->in, 1);
+    if (barrier->in >= barrier->count) {
+        barrier->in = 0;
+        pthread_cond_broadcast(&barrier->cond);
+        pthread_mutex_unlock(&barrier->mutex);
+        return PTHREAD_BARRIER_SERIAL_THREAD;
+    }
+
+    pthread_cond_wait(&barrier->cond, &barrier->mutex);
+    pthread_mutex_unlock(&barrier->mutex);
+    return 0;
+}
+#endif
+
 #ifndef HAS_MEMPCPY
 void *
 mempcpy(void *dest, const void *src, size_t len)
 {
-   char *p = memcpy(dest, src, len);
-   return p + len;
+    char *p = memcpy(dest, src, len);
+    return p + len;
 }
 #endif
 

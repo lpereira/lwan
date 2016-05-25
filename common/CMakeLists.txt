@@ -37,7 +37,6 @@ if (NOT HAVE_EPOLL_H)
 	list(APPEND SOURCES epoll-bsd.c)
 endif ()
 
-
 include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES string.h)
 check_function_exists(rawmemchr HAS_RAWMEMCHR)
