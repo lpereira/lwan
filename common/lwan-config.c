@@ -243,6 +243,7 @@ bool config_isolate_section(config_t *current_conf,
 {
     long startpos, endpos;
     bool r = false;
+    int origin_line = current_conf->line;
 
     *isolated = *current_conf;
 
@@ -256,6 +257,7 @@ bool config_isolate_section(config_t *current_conf,
         return false;
     if (!find_section_end(current_conf, current_line, 0))
         goto resetpos;
+    current_conf->line = origin_line;
     endpos = ftell(current_conf->file);
     if (endpos < 0)
         goto resetpos;
