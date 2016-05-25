@@ -26,13 +26,23 @@ if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
 			database.c
 		)
 
-		target_link_libraries(techempower
-			-Wl,-whole-archive lwan-common -Wl,-no-whole-archive
-			${CMAKE_DL_LIBS}
-			${ADDITIONAL_LIBRARIES}
-			${SQLITE_LIBRARIES}
-			${MYSQL_LIBRARY}
-		)
+		if (CMAKE_COMPILER_IS_GNUCC)
+			target_link_libraries(techempower
+				-Wl,-whole-archive lwan-common -Wl,-no-whole-archive
+				${CMAKE_DL_LIBS}
+				${ADDITIONAL_LIBRARIES}
+				${SQLITE_LIBRARIES}
+				${MYSQL_LIBRARY}
+			)
+		else ()
+			target_link_libraries(techempower
+				-Wl lwan-common
+				${CMAKE_DL_LIBS}
+				${ADDITIONAL_LIBRARIES}
+				${SQLITE_LIBRARIES}
+				${MYSQL_LIBRARY}
+			)
+		endif ()
 	endif ()
 endif ()
 
