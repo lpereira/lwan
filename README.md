@@ -1,10 +1,10 @@
-lwan Web Server
+Lwan Web Server
 ===============
 
 Lwan is a **high-performance** & **scalable** web server for glibc/Linux
 platforms.
 
-In development for almost 3 years, Lwan was until now a personal research
+In development for almost 4 years, Lwan was until now a personal research
 effort that focused mostly on building a **solid infrastructure** for
 a lightweight and speedy web server:
 
@@ -43,7 +43,7 @@ Performance
 -----------
 
 It can achieve good performance, yielding about **320000 requests/second**
-on a Core i7 laptop for requests without disk access.
+on a Core i7 laptop for requests without disk access, and without pipelining.
 
 When disk I/O is required, for files up to 16KiB, it yields about
 **290000 requests/second**; for larger files, this drops to **185000
@@ -61,10 +61,9 @@ Portability
 Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the
 Linux variant of sendfile(), it is fairly portable to other event-based
 pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).
-An old version of lwan has been [successfully ported to
-FreeBSD](https://github.com/rakuco/lwan/tree/kqueue-port).  Eventually,
-some event library such as [libev](http://libev.schmorp.de) or
-[libevent](http://libevent.org) will be used to aid in portability.
+
+Porting for FreeBSD and OS X is a work in progress. It builds and runs,
+but crashes after a few requests.
 
 Building
 --------
@@ -90,6 +89,12 @@ The build system will look for these libraries and enable/link if available.
 
 ### Common operating system package names
 
+#### Minimum to build
+ - ArchLinux: `pacman -S cmake zlib`
+ - FreeBSD: `pkg install cmake pkgconf`
+ - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config`
+
+#### Build all examples
  - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind`
  - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
  - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
@@ -116,8 +121,7 @@ The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
 a version suitable for debugging purposes. This version can be used under
 Valgrind, is built with Undefined Behavior Sanitizer, and includes debugging
 messages that are stripped in the release version. Debugging messages are
-printed while holding a mutex, and are printed for each and every request;
-so do not use this version for benchmarking purposes.
+printed while holding a mutex, and are printed for each and every request.
 
 Running
 -------
@@ -126,11 +130,8 @@ Set up the server by editing the provided `lwan.conf`; the format is
 very simple and should be self-explanatory.
 
 Configuration files are loaded from the current directory. If no changes
-are made to this file, running lwan will serve static files located in
-the `./wwwroot` directory, and also provide a `Hello, World!` handler (which
-serves as an example of how to use some of its internal APIs).
-
-Lwan will listen on port 8080 on all interfaces.
+are made to this file, running Lwan will serve static files located in
+the `./wwwroot` directory. Lwan will listen on port 8080 on all interfaces.
 
 Lwan will detect the number of CPUs, will increase the maximum number of
 open file descriptors and generally try its best to autodetect reasonable
@@ -164,7 +165,7 @@ Some other distribution channels were made available as well:
 * A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://hub.docker.com/r/jaxgeller/lwan/).
 * A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
 * Lwan is also available as a package in [Biicode](http://docs.biicode.com/c++/examples/lwan.html).
-* User packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/) also  [Ubuntu](https://launchpad.net/lwan-unofficial).
+* User packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/) and [Ubuntu](https://launchpad.net/lwan-unofficial).
 
 Lwan has been also used as a benchmark:
 
