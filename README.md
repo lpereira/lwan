@@ -101,12 +101,44 @@ The build system will look for these libraries and enable/link if available.
 
 ### Build commands
 
+#### Clone the repository
+
     ~$ git clone git://github.com/lpereira/lwan
     ~$ cd lwan
+
+#### Create the build directory
+
     ~/lwan$ mkdir build
     ~/lwan$ cd build
+
+#### Select build type
+
+Selecting a *release* version (no debugging symbols, messages, enable some
+optimizations, etc):
+
     ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=Release
+
+If you'd like to enable optimiations but still use a debugger, use this instead:
+
+    ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+To disable optimizations and build a more debugging-friendly version:
+
+    ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=Debug
+
+#### Build Lwan
+
     ~/lwan/build$ make
+
+This will generate a few binaries:
+
+ - `lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
+ - `testrunner/testrunner`: Contains code to execute the test suite.
+ - `freegeoip/freegeoip`: FreeGeoIP sample implementation. Requires SQLite.
+ - `techempower/techempower`: Code for the Techempower Web Framework benchmark. Requires SQLite and MySQL libraries.
+ - `common/mimegen`: Builds the extension-MIME type table. Used during build process.
+
+#### Remarks
 
 It is important to build outside of the tree; in-tree builds *are not supported*.
 
@@ -121,7 +153,7 @@ The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
 a version suitable for debugging purposes. This version can be used under
 Valgrind, is built with Undefined Behavior Sanitizer, and includes debugging
 messages that are stripped in the release version. Debugging messages are
-printed while holding a mutex, and are printed for each and every request.
+printed for each and every request.
 
 Running
 -------
