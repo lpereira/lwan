@@ -84,14 +84,14 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts);
 #  define CLOCK_MONOTONIC_COARSE 0
 # endif
 
-#ifndef HAS_TIMEDJOIN
-#include <pthread.h>
-int pthread_timedjoin_np(pthread_t thread, void **retval, const struct timespec *abstime);
-#endif
-
 # ifndef CLOCK_MONOTONIC
 #  define CLOCK_MONOTONIC 1
 # endif
+#endif
+
+#ifndef HAS_TIMEDJOIN
+#include <pthread.h>
+int pthread_timedjoin_np(pthread_t thread, void **retval, const struct timespec *abstime);
 #endif
 
 #ifndef MSG_MORE
