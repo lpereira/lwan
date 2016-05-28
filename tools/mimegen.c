@@ -110,6 +110,27 @@ static char *compress_output(const struct output *output, size_t *outlen)
     return compressed;
 }
 
+static bool is_builtin_mime_type(const char *mime)
+{
+    /* These are the mime types supported by Lwan without having to perform
+     * a bsearch().  application/octet-stream is the fallback. */
+    if (!strcmp(mime, "application/octet-stream"))
+        return true;
+    if (!strcmp(mime, "application/javascript"))
+        return true;
+    if (!strcmp(mime, "image/jpeg"))
+        return true;
+    if (!strcmp(mime, "image/png"))
+        return true;
+    if (!strcmp(mime, "text/html"))
+        return true;
+    if (!strcmp(mime, "text/css"))
+        return true;
+    if (!strcmp(mime, "text/plain"))
+        return true;
+    return false;
+}
+
 int main(int argc, char *argv[])
 {
     FILE *fp;
@@ -165,6 +186,9 @@ int main(int argc, char *argv[])
             if (!end)
                 end = strchr(ext, '\0'); /* If not found, find last extension. */
             *end = '\0';
+
+            if (is_builtin_mime_type(mime_type))
+                continue;
 
             k = strdup(ext);
             v = strdup(mime_type);
