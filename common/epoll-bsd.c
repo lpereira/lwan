@@ -43,7 +43,7 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
     case EPOLL_CTL_ADD:
     case EPOLL_CTL_MOD: {
         int events = 0;
-        int flags = EV_ADD;
+        int flags = EV_ADD | EV_CLEAR;
 
         if (event->events & EPOLLIN)
             events = EVFILT_READ;
