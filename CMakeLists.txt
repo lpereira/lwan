@@ -112,9 +112,43 @@ else ()
 	option(ASAN "Build with address sanitizer" OFF)
 
 	if (UBSAN)
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
+		# Set -Werror to catch "argument unused during compilation" warnings
+		set(CMAKE_REQUIRED_FLAGS "-Werror -fsanitize=undefined") # Also needs to be a link flag for test to pass
+		check_c_compiler_flag("-fsanitize=undefined" HAVE_FLAG_SANITIZE_UNDEFINED)
+
+		set(CMAKE_REQUIRED_FLAGS "-Werror -fcatch-undefined-behavior") # Also needs to be a link flag for test to pass
+		check_c_compiler_flag("-fcatch-undefined-behavior" HAVE_FLAG_CATCH_UNDEFINED_BEHAVIOR)
+
+		unset(CMAKE_REQUIRED_FLAGS)
+
+		if(HAVE_FLAG_SANITIZE_UNDEFINED)
+			message(STATUS "Build with newer undefined behavior sanitizer")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
+		elseif(HAVE_FLAG_CATCH_UNDEFINED_BEHAVIOR)
+			message(STATUS "Build with older undefined behavior sanitizer")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fcatch-undefined-behavior")
+		else()
+			message(STATUS "Build without undefined behavior sanitizer")
+		endif()
 	elseif (ASAN)
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+		# Set -Werror to catch "argument unused during compilation" warnings
+		set(CMAKE_REQUIRED_FLAGS "-Werror -faddress-sanitizer") # Also needs to be a link flag for test to pass
+		check_c_compiler_flag("-faddress-sanitizer" HAVE_FLAG_ADDRESS_SANITIZER)
+
+		set(CMAKE_REQUIRED_FLAGS "-Werror -fsanitize=address") # Also needs to be a link flag for test to pass
+		check_c_compiler_flag("-fsanitize=address" HAVE_FLAG_SANITIZE_ADDRESS)
+
+		unset(CMAKE_REQUIRED_FLAGS)
+
+		if(HAVE_FLAG_SANITIZE_ADDRESS)
+			message(STATUS "Build with newer address sanitizer")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
+		elseif(HAVE_FLAG_ADDRESS_SANITIZER)
+			message(STATUS "Build with older address sanitizer")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -faddress-sanitizer")
+		else()
+			message(STATUS "Build without address sanitizer")
+		endif()
 	endif ()
 endif ()
 
