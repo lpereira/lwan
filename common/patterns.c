@@ -38,6 +38,7 @@
 #include <string.h>
 
 #include "patterns.h"
+#include "lwan.h"
 
 #define uchar(c)	((unsigned char)(c)) /* macro to 'unsign' a char */
 #define CAP_UNFINISHED	(-1)
