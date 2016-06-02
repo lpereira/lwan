@@ -93,7 +93,8 @@ else ()
 	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
 endif ()
 
-add_library(lwan-common STATIC ${SOURCES})
+add_library(lwan-common        SHARED ${SOURCES})
+add_library(lwan-common_static STATIC ${SOURCES})
 
 add_executable(mimegen ../tools/mimegen.c hash.c murmur3.c reallocarray.c)
 
