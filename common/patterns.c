@@ -322,7 +322,7 @@ match(struct match_state *ms, const char *s, const char *p)
 	const char *ep, *res;
 	char previous;
 
-	if (ms->matchdepth-- == 0) {
+	if (UNLIKELY(ms->matchdepth-- == 0)) {
 		match_error(ms, "pattern too complex");
 		return (NULL);
 	}
