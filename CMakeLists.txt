@@ -171,7 +171,7 @@ add_subdirectory(common)
 
 include_directories(common)
 
-set(LWAN_COMMON_LIBS lwan-common)
+set(LWAN_COMMON_LIBS lwan-static)
 if (CMAKE_COMPILER_IS_GNUCC)
 	set(LWAN_COMMON_LIBS -Wl,-whole-archive ${LWAN_COMMON_LIBS} -Wl,-no-whole-archive)
 endif ()

@@ -93,8 +93,16 @@ else ()
 	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
 endif ()
 
-add_library(lwan-common        SHARED ${SOURCES})
-add_library(lwan-common_static STATIC ${SOURCES})
+add_library(lwan-static STATIC ${SOURCES})
+set_target_properties(lwan-static PROPERTIES
+   OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
+
+# Can't call add_library() without source files. Create an empty .c file,
+# then link with the static library just recently built.
+file(WRITE "${CMAKE_BINARY_DIR}/empty.c" "")
+add_library(lwan-shared SHARED "${CMAKE_BINARY_DIR}/empty.c")
+set_target_properties(lwan-shared PROPERTIES
+   OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 
 add_executable(mimegen ../tools/mimegen.c hash.c murmur3.c reallocarray.c)
 
@@ -114,12 +122,12 @@ add_custom_command(
 	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types mimegen
 )
 add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
-add_dependencies(lwan-common generate_mime_types_table)
+add_dependencies(lwan-static generate_mime_types_table)
 include_directories(${CMAKE_BINARY_DIR})
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
 
-INSTALL(TARGETS lwan-common
+INSTALL(TARGETS lwan-static lwan-shared
   DESTINATION "lib"
 )
 INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
