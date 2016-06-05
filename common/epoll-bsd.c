@@ -87,24 +87,18 @@ to_timespec(struct timespec *t, int ms)
     return t;
 }
 
-static int
-kevent_compare(const void *a, const void *b)
-{
-    const struct kevent *ka = a;
-    const struct kevent *kb = b;
-
-    if (ka->flags & (EV_ERROR | EV_EOF) || kb->flags & (EV_ERROR | EV_EOF))
-        return 1;
-    return (ka > kb) - (ka < kb);
-}
-
 int
 epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
     struct epoll_event *ev = events;
     struct kevent evs[maxevents];
     struct timespec tmspec;
+    struct hash *coalesce;
     int i, r;
+
+    coalesce = hash_int_new(NULL, NULL);
+    if (!coalesce)
+        return -errno;
 
     r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
     if (UNLIKELY(r < 0)) {
@@ -113,25 +107,39 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         goto out;
     }
 
-    qsort(evs, (size_t)r, sizeof(struct kevent), kevent_compare);
-
-    for (i = 0; i < r; i++, ev++) {
+    for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
-
-        ev->events = 0;
-        ev->data.ptr = kev->udata;
+        uint32_t mask = (uint32_t)(uintptr_t)hash_find(coalesce,
+            (void*)(intptr_t)evs[i].ident);
 
         if (kev->flags & EV_ERROR)
-            ev->events |= EPOLLERR;
+            mask |= EPOLLERR;
         if (kev->flags & EV_EOF)
-            ev->events |= EPOLLRDHUP;
+            mask |= EPOLLRDHUP;
 
         if (kev->filter == EVFILT_READ)
-            ev->events |= EPOLLIN;
+            mask |= EPOLLIN;
         else if (kev->filter == EVFILT_WRITE)
-            ev->events |= EPOLLOUT;
+            mask |= EPOLLOUT;
+
+        hash_add(coalesce, (void*)(intptr_t)evs[i].ident, (void *)(uintptr_t)mask);
+    }
+
+    for (i = 0; i < r; i++) {
+        void *maskptr = hash_find(coalesce, (void*)(intptr_t)evs[i].ident);
+
+        if (maskptr) {
+            struct kevent *kev = &evs[i];
+
+            hash_del(coalesce, (void*)(intptr_t)evs[i].ident);
+
+            ev->data.ptr = kev->udata;
+            ev->events = (uint32_t)(uintptr_t)maskptr;
+            ev++;
+        }
     }
 
 out:
-    return r;
+    hash_free(coalesce);
+    return (int)(intptr_t)(ev - events);
 }
