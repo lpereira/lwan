@@ -96,16 +96,13 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     struct hash *coalesce;
     int i, r;
 
+    r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
+    if (UNLIKELY(r < 0))
+        return -1;
+
     coalesce = hash_int_new(NULL, NULL);
     if (!coalesce)
-        return -errno;
-
-    r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
-    if (UNLIKELY(r < 0)) {
-        if (errno != EINTR)
-            lwan_status_perror("kevent");
-        goto out;
-    }
+        return -1;
 
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
@@ -139,7 +136,6 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         }
     }
 
-out:
     hash_free(coalesce);
     return (int)(intptr_t)(ev - events);
 }
