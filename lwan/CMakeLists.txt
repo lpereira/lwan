@@ -5,3 +5,5 @@ target_link_libraries(lwan
 	${CMAKE_DL_LIBS}
 	${ADDITIONAL_LIBRARIES}
 )
+
+INSTALL(TARGETS lwan DESTINATION "bin")
