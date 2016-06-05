@@ -167,14 +167,13 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_REL}")
 add_definitions("-D_FILE_OFFSET_BITS=64")
 
-add_subdirectory(common)
-
-include_directories(common)
-
 set(LWAN_COMMON_LIBS lwan-static)
 if (CMAKE_COMPILER_IS_GNUCC)
 	set(LWAN_COMMON_LIBS -Wl,-whole-archive ${LWAN_COMMON_LIBS} -Wl,-no-whole-archive)
 endif ()
+
+add_subdirectory(common)
+include_directories(common)
 
 add_subdirectory(lwan)
 add_subdirectory(testrunner)
