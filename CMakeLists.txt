@@ -181,10 +181,14 @@ add_subdirectory(testrunner)
 add_subdirectory(freegeoip)
 add_subdirectory(techempower)
 
-set(PKG_CONFIG_REQUIRES ${ADDITIONAL_LIBRARIES})
+set(PKG_CONFIG_REQUIRES "")
 set(PKG_CONFIG_LIBDIR "\${prefix}/lib")
 set(PKG_CONFIG_INCLUDEDIR "\${prefix}/include/lwan")
-set(PKG_CONFIG_LIBS "-L\${libdir} -llwan-common")
+
+string (REPLACE ";" " " ADDITIONAL_LIBRARIES_STR "${ADDITIONAL_LIBRARIES}")
+set(PKG_CONFIG_LIBS "-L\${libdir} -llwan ${ADDITIONAL_LIBRARIES_STR}")
+unset(ADDITIONAL_LIBRARIES_STR)
+
 set(PKG_CONFIG_CFLAGS "-I\${includedir}")
 
 execute_process(
