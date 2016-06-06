@@ -175,6 +175,9 @@ int main(int argc, char *argv[])
             continue;
 
         mime_type = start;
+        if (is_builtin_mime_type(mime_type))
+            continue;
+
         while (*tab && *tab == '\t') /* Find first extension. */
             tab++;
 
@@ -186,9 +189,6 @@ int main(int argc, char *argv[])
             if (!end)
                 end = strchr(ext, '\0'); /* If not found, find last extension. */
             *end = '\0';
-
-            if (is_builtin_mime_type(mime_type))
-                continue;
 
             k = strdup(ext);
             v = strdup(mime_type);
