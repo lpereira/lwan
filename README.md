@@ -62,8 +62,10 @@ Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the
 Linux variant of sendfile(), it is fairly portable to other event-based
 pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).
 
-Porting for FreeBSD and OS X is a work in progress. It builds and runs,
-but crashes after a few requests.
+Porting for FreeBSD and OS X is a work in progress.   It works on
+FreeBSD, but the module registry can't find any module and/or handlers
+(so it's essentially only serves 404 pages at the moment).  Help to fix
+this is appreciated.
 
 Building
 --------
