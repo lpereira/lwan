@@ -57,22 +57,22 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
             result = ARGS_SERVE_FILES;
             break;
 
-        case 'h':
-            printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
-            printf("\t[--config]\n");
-            printf("Serve files through HTTP.\n\n");
-            printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
-            printf("Options:\n");
-            printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
-            printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
-            printf("\t-h, --help      This.\n");
-            printf("\n");
-            printf("Examples:\n");
-            printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv[0]);
-            printf("        Serve on a different port: %s -l '*:1337'\n", argv[0]);
-            printf("\n");
-            printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+        case 'h': {
+            const char * helpstr =
+                "Usage: %s [options]\n"
+                "Serve files through HTTP.\n\n"
+                "Defaults to listening on %s, serving from ./wwwroot.\n\n"
+                "Options:\n"
+                "\t-r, --root      Path to serve files from (default: ./wwwroot).\n"
+                "\t-l, --listener  Listener (default: %s).\n"
+                "\t-h, --help      This.\n\n"
+                "Examples:\n"
+                "  Serve system-wide documentation: %s -r /usr/share/doc\n"
+                "        Serve on a different port: %s -l '*:1337'\n\n"
+                "Report bugs at <https://github.com/lpereira/lwan>.\n";
+            printf(helpstr, argv[0], config->listener, config->listener, argv[0], argv[0]);
             return ARGS_FAILED;
+        }
 
         default:
             printf("Run %s --help for usage information.\n", argv[0]);
