@@ -154,15 +154,17 @@ queries(lwan_request_t *request,
         void *data __attribute__((unused)))
 {
     const char *queries_str = lwan_request_get_query_param(request, "queries");
+    long queries;
 
-    if (UNLIKELY(!queries_str))
-        return HTTP_BAD_REQUEST;
-
-    long queries = parse_long(queries_str, -1);
-    if (UNLIKELY(queries <= 0))
+    if (LIKELY(queries_str)) {
+        queries = parse_long(queries_str, -1);
+        if (UNLIKELY(queries <= 0))
+            queries = 1;
+        else if (UNLIKELY(queries > 500))
+            queries = 500;
+    } else {
         queries = 1;
-    else if (UNLIKELY(queries > 500))
-        queries = 500;
+    }
 
     struct db_stmt *stmt = db_prepare_stmt(database, random_number_query,
             sizeof(random_number_query) - 1);
