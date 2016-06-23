@@ -76,6 +76,11 @@ if (HAS_MTUNE_NATIVE)
 	set(C_FLAGS_REL "-mtune=native")
 endif()
 
+check_c_compiler_flag(-rdynamic HAS_RDYNAMIC)
+if (HAS_MTUNE_NATIVE)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+endif()
+
 if (APPLE)
 	check_c_compiler_flag(-Wl,-bind_at_load HAS_IMMEDIATE_BINDING)
 	if (HAS_IMMEDIATE_BINDING)
