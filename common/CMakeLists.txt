@@ -108,17 +108,17 @@ target_link_libraries(lwan-shared ${LWAN_COMMON_LIBS})
 set_target_properties(lwan-shared PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 
-add_executable(mimegen ../tools/mimegen.c hash.c murmur3.c reallocarray.c)
+include(ExternalProject)
+ExternalProject_Add(
+	mimegen
+	SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/tools
+	PREFIX ${CMAKE_CURRENT_BINARY_DIR}/tools
+	CONFIGURE_COMMAND cmake ${CMAKE_SOURCE_DIR}/tools
+	BUILD_COMMAND make
+	INSTALL_COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/tools/src/mimegen-build/mimegen ${CMAKE_CURRENT_BINARY_DIR}/mimegen
+)
 
-find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
-if (ZOPFLI_LIBRARY)
-	message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
-	target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
-	add_definitions(-DHAVE_ZOPFLI)
-else ()
-	message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
-	target_link_libraries(mimegen ${ZLIB_LIBRARIES})
-endif ()
+add_dependencies(lwan-static mimegen)
 
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h

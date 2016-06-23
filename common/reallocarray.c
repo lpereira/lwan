@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-#include "lwan.h"
-
 #if !defined(HAVE_BUILTIN_MUL_OVERFLOW)
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
@@ -40,6 +38,8 @@ static inline bool umull_overflow(size_t a, size_t b, size_t *out)
 #else
 #define umull_overflow __builtin_mul_overflow
 #endif
+
+#define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
 
 void *
 reallocarray(void *optr, size_t nmemb, size_t size)

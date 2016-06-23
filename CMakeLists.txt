@@ -3,19 +3,26 @@ cmake_minimum_required(VERSION 2.8)
 
 set(PROJECT_DESCRIPTION "Scalable, high performance, experimental web server")
 
+
+include(CheckCCompilerFlag)
+include(CheckCSourceCompiles)
+include(CheckFunctionExists)
+
+
 message(STATUS "Running CMake for ${PROJECT_NAME} (${PROJECT_DESCRIPTION})")
+
 
 if (NOT CMAKE_BUILD_TYPE)
 	message(STATUS "No build type selected, defaulting to Debug")
 	set(CMAKE_BUILD_TYPE "Debug")
 endif ()
 
+
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 
-include(CheckCSourceCompiles)
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)
 if (HAVE_BUILTIN_CPU_INIT)
 	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
@@ -33,7 +40,6 @@ if (HAVE_STATIC_ASSERT)
 	add_definitions("-DHAVE_STATIC_ASSERT")
 endif ()
 
-include(CheckFunctionExists)
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 check_function_exists(pthread_barrier_init HAS_PTHREADBARRIER)
 if (HAS_PTHREADBARRIER)
@@ -65,9 +71,11 @@ else ()
 endif()
 
 
-set(C_FLAGS_REL "-mtune=native")
+check_c_compiler_flag(-mtune=native HAS_MTUNE_NATIVE)
+if (HAS_MTUNE_NATIVE)
+	set(C_FLAGS_REL "-mtune=native")
+endif()
 
-include(CheckCCompilerFlag)
 if (APPLE)
 	check_c_compiler_flag(-Wl,-bind_at_load HAS_IMMEDIATE_BINDING)
 	if (HAS_IMMEDIATE_BINDING)
