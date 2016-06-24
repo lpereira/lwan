@@ -13,6 +13,7 @@ if (SQLITE_FOUND)
 		${SQLITE_LIBRARIES}
 		${SQLITE_LDFLAGS}
 	)
+	include_directories(${SQLITE_INCLUDE_DIRS})
 else ()
 	message(STATUS "Freegeoip sample application not being built: SQLite not found")
 endif ()

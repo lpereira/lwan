@@ -34,6 +34,7 @@ if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
 			${SQLITE_LDFLAGS}
 			${MYSQL_LIBRARY}
 		)
+		include_directories(${SQLITE_INCLUDE_DIRS})
 	endif ()
 endif ()
 
