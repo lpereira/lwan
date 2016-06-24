@@ -11,6 +11,7 @@ if (SQLITE_FOUND)
 		${CMAKE_DL_LIBS}
 		${ADDITIONAL_LIBRARIES}
 		${SQLITE_LIBRARIES}
+		${SQLITE_LDFLAGS}
 	)
 else ()
 	message(STATUS "Freegeoip sample application not being built: SQLite not found")
