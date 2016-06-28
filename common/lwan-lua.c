@@ -30,6 +30,7 @@
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-lua.h"
+#include "lwan-private.h"
 
 static const char *request_metatable_name = "Lwan.Request";
 

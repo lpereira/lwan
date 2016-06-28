@@ -35,7 +35,6 @@ extern "C" {
 #include "lwan-status.h"
 #include "lwan-trie.h"
 #include "strbuf.h"
-#include "missing.h"
 
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
