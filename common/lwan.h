@@ -243,8 +243,8 @@ struct lwan_request_t_ {
 };
 
 struct lwan_module_t_ {
-    void *(*init)(void *args);
-    void *(*init_from_hash)(const struct hash *hash);
+    void *(*init)(const char *prefix, void *args);
+    void *(*init_from_hash)(const char *prefix, const struct hash *hash);
     void (*shutdown)(void *data);
     bool (*parse_conf)(void *data, config_t *config);
     lwan_http_status_t (*handle)(lwan_request_t *request, lwan_response_t *response, void *data);

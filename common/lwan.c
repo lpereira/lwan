@@ -277,7 +277,7 @@ add_map:
 
         hash = NULL;
     } else if (module && module->init_from_hash && module->handle) {
-        url_map.data = module->init_from_hash(hash);
+        url_map.data = module->init_from_hash(prefix, hash);
         if (isolated.file && module->parse_conf) {
             if (!module->parse_conf(url_map.data, &isolated)) {
                 config_error(c, "Error from module: %s",
@@ -313,7 +313,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
             continue;
 
         if (copy->module && copy->module->init) {
-            copy->data = copy->module->init(copy->args);
+            copy->data = copy->module->init(map->prefix, copy->args);
             copy->flags = copy->module->flags;
             copy->handler = copy->module->handle;
         } else {

@@ -54,6 +54,7 @@ struct serve_files_priv {
 
     int open_mode;
     const char *index_html;
+    char *prefix;
 
     lwan_tpl_t *directory_list_tpl;
 
@@ -416,6 +417,13 @@ only_uncompressed:
     return true;
 }
 
+static const char *
+get_rel_path(const char *full_path, struct serve_files_priv *priv)
+{
+    const char *root_path = full_path + priv->root.path_len;
+    return !strcmp(root_path, ".") ? root_path : priv->prefix;
+}
+
 static bool
 dirlist_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     const char *full_path, struct stat *st __attribute__((unused)))
@@ -423,7 +431,7 @@ dirlist_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     struct dir_list_cache_data *dd = (struct dir_list_cache_data *)(ce + 1);
     struct file_list vars = {
         .full_path = full_path,
-        .rel_path = full_path + priv->root.path_len
+        .rel_path = get_rel_path(full_path, priv)
     };
 
     dd->rendered = lwan_tpl_apply(priv->directory_list_tpl, &vars);
@@ -655,7 +663,7 @@ try_open_directory(const char *path, int *open_mode)
 }
 
 static void *
-serve_files_init(void *args)
+serve_files_init(const char *prefix, void *args)
 {
     struct lwan_serve_files_settings_t *settings = args;
     char *canonical_root;
@@ -708,6 +716,12 @@ serve_files_init(void *args)
         goto out_tpl_compile;
     }
 
+    priv->prefix = strdup(prefix);
+    if (!priv->prefix) {
+        lwan_status_error("Could not copy prefix");
+        goto out_tpl_prefix_copy;
+    }
+
     priv->root.path = canonical_root;
     priv->root.path_len = strlen(canonical_root);
     priv->root.fd = root_fd;
@@ -718,6 +732,7 @@ serve_files_init(void *args)
 
     return priv;
 
+out_tpl_prefix_copy:
 out_tpl_compile:
     cache_destroy(priv->cache);
 out_cache_create:
@@ -731,7 +746,7 @@ out_realpath:
 }
 
 static void *
-serve_files_init_from_hash(const struct hash *hash)
+serve_files_init_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_serve_files_settings_t settings = {
         .root_path = hash_find(hash, "path"),
@@ -741,7 +756,7 @@ serve_files_init_from_hash(const struct hash *hash)
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template")
     };
-    return serve_files_init(&settings);
+    return serve_files_init(prefix, &settings);
 }
 
 static void
@@ -758,6 +773,7 @@ serve_files_shutdown(void *data)
     cache_destroy(priv->cache);
     close(priv->root.fd);
     free(priv->root.path);
+    free(priv->prefix);
     free(priv);
 }
 

@@ -386,7 +386,7 @@ lua_handle_cb(lwan_request_t *request,
     }
 }
 
-static void *lua_init(void *data)
+static void *lua_init(const char *prefix __attribute__((unused)), void *data)
 {
     struct lwan_lua_settings_t *settings = data;
     struct lwan_lua_priv_t *priv;
@@ -443,14 +443,14 @@ static void lua_shutdown(void *data)
     }
 }
 
-static void *lua_init_from_hash(const struct hash *hash)
+static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_lua_settings_t settings = {
         .default_type = hash_find(hash, "default_type"),
         .script_file = hash_find(hash, "script_file"),
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15)
     };
-    return lua_init(&settings);
+    return lua_init(prefix, &settings);
 }
 
 const lwan_module_t *lwan_module_lua(void)

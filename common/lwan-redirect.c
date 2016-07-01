@@ -45,18 +45,18 @@ redirect_handle_cb(lwan_request_t *request,
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static void *redirect_init(void *data)
+static void *redirect_init(const char *prefix __attribute__((unused)), void *data)
 {
     struct lwan_redirect_settings_t *settings = data;
     return (settings->to) ? strdup(settings->to) : NULL;
 }
 
-static void *redirect_init_from_hash(const struct hash *hash)
+static void *redirect_init_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_redirect_settings_t settings = {
         .to = hash_find(hash, "to")
     };
-    return redirect_init(&settings);
+    return redirect_init(prefix, &settings);
 }
 
 const lwan_module_t *lwan_module_redirect(void)

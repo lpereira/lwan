@@ -176,7 +176,8 @@ module_handle_cb(lwan_request_t *request,
 }
 
 static void *
-module_init(void *data __attribute__((unused)))
+module_init(const char *prefix __attribute__((unused)),
+    void *data __attribute__((unused)))
 {
     struct private_data *pd = malloc(sizeof(*pd));
 
@@ -202,9 +203,10 @@ module_shutdown(void *data)
 }
 
 static void *
-module_init_from_hash(const struct hash *hash __attribute__((unused)))
+module_init_from_hash(const char *prefix,
+    const struct hash *hash __attribute__((unused)))
 {
-    return module_init(NULL);
+    return module_init(prefix, NULL);
 }
 
 static bool
