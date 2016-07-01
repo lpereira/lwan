@@ -393,15 +393,15 @@ out:
     return "lwan.conf";
 }
 
-static bool setup_from_config(lwan_t *lwan)
+static bool setup_from_config(lwan_t *lwan, const char *path)
 {
     config_t conf;
     config_line_t line;
     bool has_listener = false;
     char path_buf[PATH_MAX];
-    const char *path;
 
-    path = get_config_path(path_buf);
+    if (!path)
+        path = get_config_path(path_buf);
     lwan_status_info("Loading configuration file: %s", path);
 
     if (!lwan_trie_init(&lwan->url_map_trie, destroy_urlmap))
@@ -561,8 +561,8 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
     lwan_module_init(l);
 
     /* Load the configuration file. */
-    if (config == &default_config) {
-        if (!setup_from_config(l))
+    if (config == &default_config || config->config_file_path) {
+        if (!setup_from_config(l, config->config_file_path))
             lwan_status_warning("Could not read config file, using defaults");
 
         /* `quiet` key might have changed value. */
@@ -604,6 +604,7 @@ lwan_shutdown(lwan_t *l)
     if (l->config.listener != default_config.listener)
         free(l->config.listener);
     free(l->config.error_template);
+    free(l->config.config_file_path);
 
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);

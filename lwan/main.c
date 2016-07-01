@@ -39,13 +39,20 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
         { .name = "root", .has_arg = 1, .val = 'r' },
         { .name = "listen", .has_arg = 1, .val = 'l' },
         { .name = "help", .val = 'h' },
+        { .name = "config", .has_arg = 1, .val = 'c' },
         { }
     };
     int c, optidx = 0;
     enum args result = ARGS_USE_CONFIG;
 
-    while ((c = getopt_long(argc, argv, "hr:l:", opts, &optidx)) != -1) {
+    while ((c = getopt_long(argc, argv, "hr:l:c:", opts, &optidx)) != -1) {
         switch (c) {
+        case 'c':
+            free(config->config_file_path);
+            config->config_file_path = strdup(optarg);
+            result = ARGS_USE_CONFIG;
+            break;
+
         case 'l':
             free(config->listener);
             config->listener = strdup(optarg);
@@ -65,6 +72,7 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
             printf("Options:\n");
             printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
             printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
+            printf("\t-c, --config    Path to config file path.\n");
             printf("\t-h, --help      This.\n");
             printf("\n");
             printf("Examples:\n");
@@ -108,7 +116,10 @@ main(int argc, char *argv[])
         lwan_set_url_map(&l, map);
         break;
     case ARGS_USE_CONFIG:
-        lwan_init(&l);
+        if (c.config_file_path)
+            lwan_init_with_config(&l, &c);
+        else
+            lwan_init(&l);
         break;
     case ARGS_FAILED:
         return EXIT_FAILURE;
