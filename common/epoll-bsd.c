@@ -17,21 +17,36 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include "epoll-bsd.h"
 #include "lwan-status.h"
 #include "lwan.h"
 
 int
-epoll_create1(int flags __attribute__((unused)))
+epoll_create1(int flags)
 {
-    return kqueue();
+    int fd = kqueue();
+
+    if (fd < 0)
+        return -1;
+
+    if (flags & EPOLL_CLOEXEC && fcntl(fd, F_SETFL, O_CLOEXEC) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+
+        errno = saved_errno;
+        return -1;
+    }
+
+    return fd;
 }
 
 int
