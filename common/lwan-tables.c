@@ -87,7 +87,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         EXT_HTM = MULTICHAR_CONSTANT_L('.','h','t','m'),
         EXT_CSS = MULTICHAR_CONSTANT_L('.','c','s','s'),
         EXT_TXT = MULTICHAR_CONSTANT_L('.','t','x','t'),
-        EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0),
+        EXT_JS  = MULTICHAR_CONSTANT_L('.','j','s',0x20),
     };
 
     STRING_SWITCH_L(last_dot) {
