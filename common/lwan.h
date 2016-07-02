@@ -170,6 +170,7 @@ typedef enum {
     CONN_SHOULD_RESUME_CORO = 1<<2,
     CONN_WRITE_EVENTS       = 1<<3,
     CONN_MUST_READ          = 1<<4,
+    CONN_FLIP_FLAGS         = 1<<5,
 } lwan_connection_flags_t;
 
 typedef enum {
