@@ -421,7 +421,7 @@ static const char *
 get_rel_path(const char *full_path, struct serve_files_priv *priv)
 {
     const char *root_path = full_path + priv->root.path_len;
-    return !strcmp(root_path, ".") ? root_path : priv->prefix;
+    return *root_path ? root_path : priv->prefix;
 }
 
 static bool
