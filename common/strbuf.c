@@ -57,6 +57,17 @@ find_next_power_of_two(size_t number)
     return number + 1;
 }
 
+static inline size_t align_size(size_t unaligned_size)
+{
+    const size_t aligned_size = find_next_power_of_two(unaligned_size);
+
+    if (UNLIKELY(unaligned_size >= aligned_size))
+        return 0;
+
+    return aligned_size;
+}
+
+
 static ALWAYS_INLINE size_t
 max(size_t one, size_t another)
 {
@@ -67,28 +78,33 @@ static bool
 grow_buffer_if_needed(strbuf_t *s, size_t size)
 {
     if (s->flags & STATIC) {
-        const size_t next_power = find_next_power_of_two(max(size + 1,
-                    s->len.buffer));
-        char *buffer = malloc(next_power);
-        if (!buffer)
+        const size_t aligned_size = align_size(max(size + 1, s->len.buffer));
+        if (UNLIKELY(!aligned_size))
+            return false;
+
+        char *buffer = malloc(aligned_size);
+        if (UNLIKELY(!buffer))
             return false;
 
         memcpy(buffer, s->value.static_buffer, s->len.buffer);
         buffer[s->len.buffer + 1] = '\0';
 
         s->flags &= ~STATIC;
-        s->len.allocated = next_power;
+        s->len.allocated = aligned_size;
         s->value.buffer = buffer;
 
         return true;
     }
 
     if (UNLIKELY(s->len.allocated < size)) {
-        const size_t next_power = find_next_power_of_two(size);
-        char *buffer = realloc(s->value.buffer, next_power + 1);
+        const size_t aligned_size = align_size(size + 1);
+        if (UNLIKELY(!aligned_size))
+            return false;
+
+        char *buffer = realloc(s->value.buffer, aligned_size);
         if (UNLIKELY(!buffer))
             return false;
-        s->len.allocated = next_power;
+        s->len.allocated = aligned_size;
         s->value.buffer = buffer;
     }
 
@@ -283,15 +299,18 @@ strbuf_shrink_to(strbuf_t *s, size_t new_size)
     if (s->flags & STATIC)
         return true;
 
-    size_t next_power_of_two = find_next_power_of_two(new_size);
-    char *buffer = realloc(s->value.buffer, next_power_of_two + 1);
+    size_t aligned_size = align_size(new_size + 1);
+    if (UNLIKELY(!aligned_size))
+        return false;
+
+    char *buffer = realloc(s->value.buffer, aligned_size);
     if (UNLIKELY(!buffer))
         return false;
 
     s->value.buffer = buffer;
-    s->len.allocated = next_power_of_two;
-    if (s->len.buffer > next_power_of_two) {
-        s->len.buffer = next_power_of_two - 1;
+    s->len.allocated = aligned_size;
+    if (s->len.buffer > aligned_size) {
+        s->len.buffer = aligned_size - 1;
         s->value.buffer[s->len.buffer + 1] = '\0';
     }
 
