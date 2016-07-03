@@ -111,12 +111,12 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     struct hash *coalesce;
     int i, r;
 
-    r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
-    if (UNLIKELY(r < 0))
-        return -1;
-
     coalesce = hash_int_new(NULL, NULL);
     if (!coalesce)
+        return -1;
+
+    r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
+    if (UNLIKELY(r < 0))
         return -1;
 
     for (i = 0; i < r; i++) {
