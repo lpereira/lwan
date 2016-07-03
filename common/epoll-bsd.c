@@ -19,18 +19,19 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
-#include <sys/types.h>
 
 #include "epoll-bsd.h"
 #include "lwan-status.h"
 #include "lwan.h"
 
 int
-epoll_create1(int flags)
+epoll_create1(int flags __attribute__((unused)))
 {
     return kqueue();
 }
