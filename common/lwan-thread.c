@@ -207,7 +207,7 @@ resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
         return;
     }
 
-    if (conn->flags & CONN_FLIP_FLAGS) {
+    if (UNLIKELY(conn->flags & CONN_FLIP_FLAGS)) {
         conn->flags &= ~CONN_FLIP_FLAGS;
     } else {
         return;
