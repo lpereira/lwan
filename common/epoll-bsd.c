@@ -32,21 +32,7 @@
 int
 epoll_create1(int flags)
 {
-    int fd = kqueue();
-
-    if (fd < 0)
-        return -1;
-
-    if (flags & EPOLL_CLOEXEC && fcntl(fd, F_SETFL, O_CLOEXEC) < 0) {
-        int saved_errno = errno;
-
-        close(fd);
-
-        errno = saved_errno;
-        return -1;
-    }
-
-    return fd;
+    return kqueue();
 }
 
 int
