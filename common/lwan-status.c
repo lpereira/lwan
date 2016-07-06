@@ -202,7 +202,7 @@ status_out(const char *file, const int line, const char *func,
          status_out(type_, fmt, values);             \
          va_end(values);                             \
       }                                              \
-      if ((type_) & STATUS_CRITICAL) abort();        \
+      if ((type_) & STATUS_CRITICAL) exit(1);        \
     }
 #else
 #define IMPLEMENT_FUNCTION(fn_name_, type_)                 \
