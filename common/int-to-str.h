@@ -18,7 +18,8 @@
  */
 #pragma once
 
-#include "lwan.h"
+#include <stddef.h>
+#include <sys/types.h>
 
 #define INT_TO_STR_BUFFER_SIZE (3 * sizeof(size_t) + 1)
 
