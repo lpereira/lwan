@@ -129,8 +129,15 @@ parse_listener_ipv6(char *listener, char **node, char **port)
 static sa_family_t
 parse_listener(char *listener, char **node, char **port)
 {
+    if (!strcmp(listener, "systemd")) {
+        lwan_status_critical("Listener configured to use systemd socket activation, "
+            "but started outside systemd.");
+        return AF_UNSPEC;
+    }
+
     if (*listener == '[')
         return parse_listener_ipv6(listener, node, port);
+
     return parse_listener_ipv4(listener, node, port);
 }
 
