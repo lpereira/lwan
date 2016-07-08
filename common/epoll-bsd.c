@@ -26,9 +26,10 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
-#include "epoll-bsd.h"
+#include "lwan-private.h"
+
 #include "lwan-status.h"
-#include "lwan.h"
+#include "epoll-bsd.h"
 
 int
 epoll_create1(int flags __attribute__((unused)))

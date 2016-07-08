@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 
 bool
 lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data))

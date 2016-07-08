@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lwan-private.h"
+
 #include "base64.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"

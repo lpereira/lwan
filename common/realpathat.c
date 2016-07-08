@@ -32,7 +32,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "lwan.h"
 #include "lwan-private.h"
 
 char *

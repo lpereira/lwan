@@ -25,7 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
+
 #include "lwan-coro.h"
 
 #ifdef USE_VALGRIND

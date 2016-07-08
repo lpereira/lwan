@@ -30,7 +30,8 @@
 #include <pthread_np.h>
 #endif
 
-#include "lwan.h"
+#include "lwan-private.h"
+
 #include "lwan-status.h"
 #include "list.h"
 

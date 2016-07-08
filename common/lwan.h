@@ -280,7 +280,7 @@ struct lwan_thread_t_ {
     int epoll_fd;
     int pipe_fd[2];
     pthread_t self;
-    pthread_barrier_t *barrier;
+    void *barrier;
 };
 
 struct lwan_config_t_ {
