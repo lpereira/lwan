@@ -29,10 +29,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "lwan-private.h"
-
+#include "lwan.h"
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
+#include "lwan-private.h"
 
 typedef enum {
     FINALIZER_DONE,

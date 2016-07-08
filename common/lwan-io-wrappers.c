@@ -30,8 +30,7 @@
 #include <sys/uio.h>
 #endif
 
-#include "lwan-private.h"
-
+#include "lwan.h"
 #include "lwan-io-wrappers.h"
 
 static const int MAX_FAILED_TRIES = 5;

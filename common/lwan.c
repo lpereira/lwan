@@ -35,6 +35,7 @@
 #include <sys/sysctl.h>
 #endif
 
+#include "lwan.h"
 #include "lwan-private.h"
 
 #include "lwan-config.h"

@@ -27,8 +27,7 @@
 #include <sys/stat.h>
 #include <zlib.h>
 
-#include "lwan-private.h"
-
+#include "lwan.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-io-wrappers.h"
@@ -36,6 +35,7 @@
 #include "lwan-template.h"
 #include "realpathat.h"
 #include "hash.h"
+#include "lwan-private.h"
 
 static const char *compression_none = NULL;
 static const char *compression_gzip = "gzip";

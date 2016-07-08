@@ -24,9 +24,8 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-#include "lwan-private.h"
-
 #include "int-to-str.h"
+#include "lwan.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
 #include "lwan-private.h"

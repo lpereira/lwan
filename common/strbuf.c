@@ -23,8 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan-private.h"
-
+#include "lwan.h"
 #include "strbuf.h"
 
 static const unsigned int STATIC = 1<<0;

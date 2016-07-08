@@ -47,8 +47,6 @@
 #endif
 
 #ifndef HAS_PTHREADBARRIER
-#include <pthread.h>
-
 typedef int pthread_barrierattr_t;
 typedef struct pthread_barrier {
     unsigned int count;

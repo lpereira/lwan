@@ -35,6 +35,7 @@
 #include <sys/thr.h>
 #endif
 
+#include "lwan.h"
 #include "lwan-private.h"
 
 typedef enum {

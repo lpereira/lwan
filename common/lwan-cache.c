@@ -25,8 +25,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "lwan.h"
 #include "lwan-private.h"
-
 #include "lwan-cache.h"
 #include "hash.h"
 

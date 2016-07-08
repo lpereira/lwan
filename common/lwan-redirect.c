@@ -20,8 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "lwan-private.h"
-
+#include "lwan.h"
 #include "lwan-redirect.h"
 
 static lwan_http_status_t
