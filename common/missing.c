@@ -29,7 +29,9 @@
 #ifndef HAS_PTHREADBARRIER
 #define PTHREAD_BARRIER_SERIAL_THREAD -1
 int
-pthread_barrier_init(pthread_barrier_t *restrict barrier, const pthread_barrierattr_t *restrict attr, unsigned int count) {
+pthread_barrier_init(pthread_barrier_t *restrict barrier,
+        const pthread_barrierattr_t *restrict attr __attribute__((unused)),
+        unsigned int count) {
     if (count == 0) {
         return -1;
     }
@@ -90,13 +92,13 @@ memrchr(const void *s, int c, size_t n)
 {
     const unsigned char *cp;
     unsigned char *p = (unsigned char *)s;
-    unsigned char chr = c;
+    unsigned char chr = (unsigned char)c;
 
     if (n != 0) {
         cp = p + n;
         do {
             if (*(--cp) == chr)
-                return cp;
+                return (void *)cp;
         } while (--n != 0);
     }
 

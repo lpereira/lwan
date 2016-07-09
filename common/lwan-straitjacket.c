@@ -77,8 +77,13 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
 
     if (setgid(gid) < 0)
         return false;
+#if defined(__APPLE__)
+    if (initgroups(username, (int)gid) < 0)
+        return false;
+#else
     if (initgroups(username, gid) < 0)
         return false;
+#endif
     if (setuid(uid) < 0)
         return false;
 

@@ -212,7 +212,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
 }
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__APPLE__)
 void
 lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
@@ -227,12 +227,16 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         .hdr_cnt = 1
     };
     size_t total_written = 0;
+    off_t sbytes = (off_t)count;
 
     do {
-        off_t sbytes;
         int r;
 
+#ifdef __APPLE__
+        r = sendfile(request->fd, in_fd, offset, &sbytes, &headers, 0);
+#else
         r = sendfile(request->fd, in_fd, offset, count, &headers, &sbytes, SF_MNOWAIT);
+#endif
 
         if (UNLIKELY(r < 0)) {
             switch (errno) {
@@ -256,9 +260,5 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
     } while (total_written < count);
 }
 #else
-void
-lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
-    const char *header, size_t header_len)
-{
-}
+#error No sendfile() implementation for this platform
 #endif
