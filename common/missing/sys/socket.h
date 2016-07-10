@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,25 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <sys/socket.h>
 
+#ifndef MISSING_SYS_SOCKET_H
+#define MISSING_SYS_SOCKET_H
+
+#ifndef MSG_MORE
+# define MSG_MORE 0
+#endif
+
+#ifndef SOCK_CLOEXEC
+# define SOCK_CLOEXEC 0
+#endif
+
+#ifndef SOCK_NONBLOCK
+# define SOCK_NONBLOCK 00004000
+#endif
+
+#ifndef HAS_ACCEPT4
+int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags);
+#endif
+
+#endif /* MISSING_SYS_SOCKET_H */

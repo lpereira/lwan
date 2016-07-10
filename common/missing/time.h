@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <time.h>
 
+#ifndef MISSING_TIME_H
+#define MISSING_TIME_H
+
+#ifndef HAS_CLOCK_GETTIME
+typedef int clockid_t;
+int clock_gettime(clockid_t clk_id, struct timespec *ts);
+
+# ifndef __APPLE__
+#  ifndef CLOCK_MONOTONIC_COARSE
+#   define CLOCK_MONOTONIC_COARSE 0
+#  endif
+# endif
+
+# ifndef CLOCK_MONOTONIC
+#  define CLOCK_MONOTONIC 1
+# endif
+#endif
+
+#endif /* MISSING_TIME_H */

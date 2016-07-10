@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <unistd.h>
 
+#ifndef MISSING_UNISTD_H
+#define MISSING_UNISTD_H
+
+#ifndef HAS_PIPE2
+int pipe2(int pipefd[2], int flags);
+#endif
+
+#endif /* MISSING_UNISTD_H */

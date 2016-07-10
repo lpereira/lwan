@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <fcntl.h>
 
+#ifndef MISSING_FCNTL_H
+#define MISSING_FCNTL_H
+
+#ifndef O_NOATIME
+# define O_NOATIME 0
+#endif
+
+#ifndef O_PATH
+# define O_PATH 0
+#endif
+
+#endif /* MISSING_FCNTL_H */

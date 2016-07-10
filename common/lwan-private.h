@@ -20,7 +20,6 @@
 #pragma once
 
 #include "lwan.h"
-#include "missing.h"
 
 void lwan_response_init(lwan_t *l);
 void lwan_response_shutdown(lwan_t *l);

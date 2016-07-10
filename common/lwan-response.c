@@ -19,10 +19,11 @@
 
 #define _GNU_SOURCE
 #include <assert.h>
+#include <netinet/in.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <netinet/in.h>
 
 #include "int-to-str.h"
 #include "lwan.h"

@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,35 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <string.h>
 
+#ifndef MISSING_STRING_H
+#define MISSING_STRING_H
+
+#define strndupa_impl(s, l) ({ \
+   char *strndupa_tmp_s = alloca(l + 1); \
+   strndupa_tmp_s[l] = '\0'; \
+   memcpy(strndupa_tmp_s, s, l); \
+})
+
+#ifndef strndupa
+#define strndupa(s, l) strndupa_impl((s), strnlen((s), (l)))
+#endif
+
+#ifndef strdupa
+#define strdupa(s) strndupa((s), strlen(s))
+#endif
+
+#ifndef HAS_RAWMEMCHR
+#define rawmemchr(s, c) memchr((s), (c), SIZE_MAX)
+#endif
+
+#ifndef HAS_MEMPCPY
+void *mempcpy(void *dest, const void *src, size_t len);
+#endif
+
+#ifndef HAS_MEMRCHR
+void *memrchr(const void *s, int c, size_t n);
+#endif
+
+#endif /* MISSING_STRING_H */

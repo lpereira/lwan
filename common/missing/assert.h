@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,16 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <assert.h>
 
+#ifndef MISSING_ASSERT_H
+#define MISSING_ASSERT_H
+
+#undef static_assert
+#if HAVE_STATIC_ASSERT
+# define static_assert(expr, msg)	_Static_assert(expr, msg)
+#else
+# define static_assert(expr, msg)
+#endif
+
+#endif /* MISSING_ASSERT_H */

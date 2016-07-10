@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,5 +17,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#pragma once
+#include_next <limits.h>
 
+#ifndef MISSING_LIMITS_H
+#define MISSING_LIMITS_H
+
+#ifndef PATH_MAX
+# define PATH_MAX 4096
+#endif
+
+#ifndef OPEN_MAX
+# define OPEN_MAX 65535
+#endif
+
+#endif /* MISSING_LIMITS_H */

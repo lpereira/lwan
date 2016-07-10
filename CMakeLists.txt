@@ -194,6 +194,8 @@ if (CMAKE_COMPILER_IS_GNUCC)
 	set(LWAN_COMMON_LIBS -Wl,-whole-archive ${LWAN_COMMON_LIBS} -Wl,-no-whole-archive)
 endif ()
 
+include_directories(BEFORE common/missing)
+
 add_subdirectory(common)
 include_directories(common)
 
