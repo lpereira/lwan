@@ -25,11 +25,11 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
+
 #include "int-to-str.h"
-#include "lwan.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
-#include "lwan-private.h"
 
 static lwan_tpl_t *error_template = NULL;
 

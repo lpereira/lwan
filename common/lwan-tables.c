@@ -23,9 +23,9 @@
 #include <stdlib.h>
 #include <zlib.h>
 
-#include "lwan.h"
-#include "mime-types.h"
 #include "lwan-private.h"
+
+#include "mime-types.h"
 
 static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static struct mime_entry mime_entries[MIME_ENTRIES];

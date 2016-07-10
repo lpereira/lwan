@@ -19,8 +19,9 @@
 
 #include <assert.h>
 
-#include "int-to-str.h"
 #include "lwan-private.h"
+
+#include "int-to-str.h"
 
 ALWAYS_INLINE char *
 uint_to_string(size_t value,

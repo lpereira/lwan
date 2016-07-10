@@ -26,9 +26,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
+
 #include "lwan-config.h"
 #include "lwan-status.h"
-#include "lwan-private.h"
 
 static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 {

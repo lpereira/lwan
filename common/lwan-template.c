@@ -37,13 +37,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
+
 #include "hash.h"
 #include "int-to-str.h"
 #include "list.h"
 #include "lwan-template.h"
 #include "strbuf.h"
 #include "reallocarray.h"
-#include "lwan-private.h"
 
 enum action {
     ACTION_APPEND,

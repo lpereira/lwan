@@ -26,10 +26,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifdef __FreeBSD__
-#include <pthread_np.h>
-#endif
-
 #include "lwan.h"
 #include "lwan-status.h"
 #include "list.h"

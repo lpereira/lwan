@@ -19,10 +19,6 @@
  */
 
 #define _GNU_SOURCE
-#include "hash.h"
-#include "murmur3.h"
-#include "reallocarray.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -33,6 +29,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "hash.h"
+#include "murmur3.h"
+#include "reallocarray.h"
 
 enum {
 	n_buckets = 512,

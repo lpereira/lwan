@@ -29,10 +29,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
+
 #include "sd-daemon.h"
 #include "int-to-str.h"
-#include "lwan-private.h"
 
 static int
 get_backlog_size(void)

@@ -23,11 +23,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
+
 #include "lwan-rewrite.h"
 #include "list.h"
 #include "patterns.h"
-#include "lwan-private.h"
 
 struct private_data {
     struct list_head patterns;

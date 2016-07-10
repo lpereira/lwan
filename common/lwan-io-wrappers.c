@@ -23,12 +23,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
-#if defined(__linux__)
 #include <sys/sendfile.h>
-#elif defined(__FreeBSD__) || defined(__APPLE__)
-#include <sys/uio.h>
-#endif
 
 #include "lwan.h"
 #include "lwan-io-wrappers.h"
