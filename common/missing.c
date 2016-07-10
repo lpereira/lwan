@@ -65,8 +65,7 @@ int
 pthread_barrier_wait(pthread_barrier_t *barrier)
 {
     pthread_mutex_lock(&barrier->mutex);
-    __sync_fetch_and_add(&barrier->in, 1);
-    if (barrier->in >= barrier->count) {
+    if (__sync_add_and_fetch(&barrier->in, 1) >= barrier->count) {
         barrier->in = 0;
         pthread_cond_broadcast(&barrier->cond);
         pthread_mutex_unlock(&barrier->mutex);
