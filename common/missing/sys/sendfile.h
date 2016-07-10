@@ -17,13 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include_next <sys/sendfile.h>
-
-#ifndef MISSING_SENDFILE_H
-#define MISSING_SENDFILE_H
-
 #if defined(__FreeBSD__) || defined(__APPLE__)
 # include <sys/uio.h>
+#else
+# include_next <sys/sendfile.h>
 #endif
-
-#endif /* MISSING_SENDFILE_H */
