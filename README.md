@@ -217,8 +217,8 @@ Not really third-party, but alas:
 Build status
 ------------
 
-| Release | Debug | Static Analysis | Unit Tests |
-|---------|-------|-----------------|------------|
-| ![release](https://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release") | ![debug](https://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug") | ![clang](https://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Clang") ![coverity](https://scan.coverity.com/projects/375/badge.svg)| ![tests](https://buildbot.lwan.ws/buildstatusimage?builder=unit-tests&number=-1 "Tests")
-| [Waterfall](https://buildbot.lwan.ws/waterfall?show=release) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=debug) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=clang-analyze) - [Reports](https://buildbot.lwan.ws/sa/) | [Waterfall](https://buildbot.lwan.ws/waterfall?show=unit-tests) |
-
+| Platform | Release | Debug | Static Analysis | Tests |
+|----------|---------|-------|-----------------|------------|
+| Linux    | ![release](https://buildbot.lwan.ws/buildstatusimage?builder=release&number=-1 "Release")  | ![debug](https://buildbot.lwan.ws/buildstatusimage?builder=debug&number=-1 "Debug")     | ![static-analysis](https://buildbot.lwan.ws/buildstatusimage?builder=clang-analyze&number=-1 "Static Analysis") ![coverity](https://scan.coverity.com/projects/375/badge.svg) [Report history](https://buildbot.lwan.ws/sa/) | ![tests](https://buildbot.lwan.ws/buildstatusimage?builder=unit-tests&number=-1 "Test")          |
+| FreeBSD  | ![freebsd-release](https://buildbot.lwan.ws/buildstatusimage?builder=release-freebsd&number=-1 "Release FreeBSD") | ![freebsd-debug](https://buildbot.lwan.ws/buildstatusimage?builder=debug-freebsd&number=-1 "Debug FreeBSD")     |                |           |
+| OS X     | ![osx-release](https://buildbot.lwan.ws/buildstatusimage?builder=release-yosemite&number=-1 "Release OS X")       | ![osx-debug](https://buildbot.lwan.ws/buildstatusimage?builder=debug-yosemite&number=-1 "Debug OS X")     |               |          |
