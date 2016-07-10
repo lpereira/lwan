@@ -26,7 +26,7 @@
 
 #if defined(__linux__)
 #include <sys/sendfile.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__APPLE__)
 #include <sys/uio.h>
 #endif
 
@@ -233,9 +233,9 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         int r;
 
 #ifdef __APPLE__
-        r = sendfile(request->fd, in_fd, offset, &sbytes, &headers, 0);
+        r = sendfile(in_fd, request->fd, offset, &sbytes, &headers, 0);
 #else
-        r = sendfile(request->fd, in_fd, offset, count, &headers, &sbytes, SF_MNOWAIT);
+        r = sendfile(in_fd, request->fd, offset, count, &headers, &sbytes, SF_MNOWAIT);
 #endif
 
         if (UNLIKELY(r < 0)) {
