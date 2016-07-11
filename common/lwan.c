@@ -488,7 +488,6 @@ setup_open_file_count_limits(void)
     return r.rlim_cur;
 }
 
-#if defined(_ISOC11_SOURCE)
 static inline size_t
 align_to_size(size_t value, size_t alignment)
 {
@@ -500,22 +499,11 @@ allocate_connections(lwan_t *l, size_t max_open_files)
 {
     const size_t sz = max_open_files * sizeof(lwan_connection_t);
 
-    l->conns = aligned_alloc(64, align_to_size(sz, 64));
-    if (!l->conns)
+    if (posix_memalign((void **)&l->conns, 64, align_to_size(sz, 64)))
         lwan_status_critical_perror("aligned_alloc");
 
     memset(l->conns, 0, sz);
 }
-#else
-static void
-allocate_connections(lwan_t *l, size_t max_open_files)
-{
-    l->conns = calloc(max_open_files, sizeof(lwan_connection_t));
-
-    if (!l->conns)
-        lwan_status_critical_perror("calloc");
-}
-#endif
 
 static unsigned short int
 get_number_of_cpus(void)
