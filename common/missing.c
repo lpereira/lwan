@@ -173,9 +173,7 @@ clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
    switch (clk_id) {
    case CLOCK_MONOTONIC:
-#ifndef __APPLE__
    case CLOCK_MONOTONIC_COARSE:
-#endif
        /* FIXME: time() isn't monotonic */
        ts->tv_sec = time(NULL);
        ts->tv_nsec = 0;

@@ -26,10 +26,8 @@
 typedef int clockid_t;
 int clock_gettime(clockid_t clk_id, struct timespec *ts);
 
-# ifndef __APPLE__
-#  ifndef CLOCK_MONOTONIC_COARSE
-#   define CLOCK_MONOTONIC_COARSE 0
-#  endif
+# ifndef CLOCK_MONOTONIC_COARSE
+#  define CLOCK_MONOTONIC_COARSE 0
 # endif
 
 # ifndef CLOCK_MONOTONIC
