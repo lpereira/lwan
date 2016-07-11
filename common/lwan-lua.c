@@ -288,18 +288,19 @@ static ALWAYS_INLINE const char *get_handle_prefix(lwan_request_t *request, size
 
 static bool get_handler_function(lua_State *L, lwan_request_t *request)
 {
+    char handler_name[128];
     size_t handle_prefix_len;
     const char *handle_prefix = get_handle_prefix(request, &handle_prefix_len);
+
     if (UNLIKELY(!handle_prefix))
         return false;
-
-    char handler_name[128];
-    char *method_name = mempcpy(handler_name, handle_prefix, handle_prefix_len);
+    if (UNLIKELY(request->url.len >= sizeof(handler_name) - handle_prefix_len))
+        return false;
 
     char *url;
     size_t url_len;
     if (request->url.len) {
-        url = strdupa(request->url.value);
+        url = strndupa(request->url.value, request->url.len);
         for (char *c = url; *c; c++) {
             if (*c == '/') {
                 *c = '\0';
@@ -316,6 +317,8 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
 
     if (UNLIKELY((handle_prefix_len + url_len + 1) > sizeof(handler_name)))
         return false;
+
+    char *method_name = mempcpy(handler_name, handle_prefix, handle_prefix_len);
     memcpy(method_name - 1, url, url_len + 1);
 
     lua_getglobal(L, handler_name);
