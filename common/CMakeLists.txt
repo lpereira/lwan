@@ -48,11 +48,6 @@ if (HAS_MEMRCHR)
 	add_definitions(-DHAS_MEMRCHR)
 endif ()
 
-check_function_exists(posix_memalign HAS_POSIX_MEMALIGN)
-if (HAS_POSIX_MEMALIGN)
-	add_definitions(-DHAS_POSIX_MEMALIGN)
-endif ()
-
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 check_function_exists(pthread_timedjoin_np HAS_TIMEDJOIN)
 if (HAS_TIMEDJOIN)
