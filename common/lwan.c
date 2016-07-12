@@ -58,7 +58,7 @@ static void lwan_module_init(lwan_t *l)
 {
     if (!l->module_registry) {
         lwan_status_debug("Initializing module registry");
-        l->module_registry = hash_str_new(NULL, NULL);
+        l->module_registry = hash_str_new(free, NULL);
     }
 }
 
@@ -113,7 +113,7 @@ static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
         }
 
         lwan_status_debug("Module \"%s\" registered", name);
-        hash_add(l->module_registry, name, module);
+        hash_add(l->module_registry, strdup(name), module);
     }
 
     return module;
