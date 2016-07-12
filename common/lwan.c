@@ -22,20 +22,15 @@
 #include <ctype.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <libproc.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-
-#if defined(__FreeBSD__)
-#include <sys/sysctl.h>
-#elif defined(__APPLE__)
-#include <libproc.h>
-#endif
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "lwan-private.h"
 
@@ -357,29 +352,8 @@ const char *get_config_path(char *path_buf)
 {
     char buffer[PATH_MAX];
 
-#if defined(__linux__)
-    ssize_t path_len;
-
-    path_len = readlink("/proc/self/exe", buffer, PATH_MAX);
-    if (path_len < 0 || path_len >= PATH_MAX) {
-        lwan_status_perror("readlink");
-        goto out;
-    }
-    buffer[path_len] = '\0';
-#elif defined(__FreeBSD__)
-    size_t path_len = PATH_MAX;
-    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
-
-    if (sysctl(mib, N_ELEMENTS(mib), buffer, &path_len, NULL, 0) < 0) {
-        lwan_status_perror("sysctl");
-        goto out;
-    }
-#elif defined(__APPLE__)
     if (proc_pidpath(getpid(), buffer, sizeof(buffer)) < 0)
         goto out;
-#else
-    goto out;
-#endif
 
     char *path = strrchr(buffer, '/');
     if (!path)

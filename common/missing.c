@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <libproc.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -312,5 +313,42 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
     hash_free(coalesce);
     return (int)(intptr_t)(ev - events);
+}
+#endif
+
+#ifndef __APPLE__
+
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif
+
+int
+proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+{
+    if (getpid() != pid) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#ifdef __linux__
+    ssize_t path_len;
+
+    path_len = readlink("/proc/self/exe", buffer, buffersize);
+    if (path_len < 0 || path_len >= (ssize_t)buffersize) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    ((char *)buffer)[path_len] = '\0';
+#elif __FreeBSD__
+    size_t path_len = buffersize;
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+
+    if (sysctl(mib, N_ELEMENTS(mib), buffer, &path_len, NULL, 0) < 0)
+        return -1;
+#else
+    errno = ENOSYS;
+    return -1;
+#endif
+    return 0;
 }
 #endif
