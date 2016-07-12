@@ -211,15 +211,14 @@ void hash_free(struct hash *hash)
 	bucket = hash->buckets;
 	bucket_end = bucket + n_buckets;
 	for (; bucket < bucket_end; bucket++) {
-		if (hash->free_value) {
-			struct hash_entry *entry, *entry_end;
-			entry = bucket->entries;
-			entry_end = entry + bucket->used;
-			for (; entry < entry_end; entry++) {
+		struct hash_entry *entry, *entry_end;
+		entry = bucket->entries;
+		entry_end = entry + bucket->used;
+		for (; entry < entry_end; entry++) {
+			if (hash->free_value)
 				hash->free_value((void *)entry->value);
-				if (hash->free_key)
-					hash->free_key((void *)entry->key);
-			}
+			if (hash->free_key)
+				hash->free_key((void *)entry->key);
 		}
 		free(bucket->entries);
 	}
