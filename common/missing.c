@@ -326,7 +326,7 @@ int
 proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
     if (getpid() != pid) {
-        errno = EINVAL;
+        errno = EACCES;
         return -1;
     }
 
@@ -334,7 +334,9 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
     ssize_t path_len;
 
     path_len = readlink("/proc/self/exe", buffer, buffersize);
-    if (path_len < 0 || path_len >= (ssize_t)buffersize) {
+    if (path_len < 0)
+        return -1;
+    if (path_len >= (ssize_t)buffersize) {
         errno = EOVERFLOW;
         return -1;
     }
