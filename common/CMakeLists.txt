@@ -48,12 +48,6 @@ if (HAS_MEMRCHR)
 	add_definitions(-DHAS_MEMRCHR)
 endif ()
 
-set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
-check_function_exists(pthread_timedjoin_np HAS_TIMEDJOIN)
-if (HAS_TIMEDJOIN)
-	add_definitions(-DHAS_TIMEDJOIN)
-endif ()
-
 set(CMAKE_EXTRA_INCLUDE_FILES unistd.h)
 check_function_exists(pipe2 HAS_PIPE2)
 if (HAS_PIPE2)

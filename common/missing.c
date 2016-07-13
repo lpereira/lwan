@@ -187,15 +187,6 @@ clock_gettime(clockid_t clk_id, struct timespec *ts)
 }
 #endif
 
-#ifndef HAS_TIMEDJOIN
-int
-pthread_timedjoin_np(pthread_t thread, void **retval,
-   const struct timespec *abstime __attribute__((unused)))
-{
-   return pthread_join(thread, retval);
-}
-#endif
-
 #if defined(__FreeBSD__) || defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/event.h>

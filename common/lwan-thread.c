@@ -300,13 +300,22 @@ spawn_coro(lwan_connection_t *conn,
     death_queue_insert(dq, conn);
 }
 
-static lwan_connection_t *
-grab_and_watch_client(int epoll_fd, int pipe_fd, lwan_connection_t *conns)
+static int
+grab_command(int pipe_fd)
 {
-    int fd;
-    if (UNLIKELY(read(pipe_fd, &fd, sizeof(int)) != sizeof(int)))
-        return NULL;
+    int cmd;
+    ssize_t sz = read(pipe_fd, &cmd, sizeof(cmd));
 
+    if (UNLIKELY(sz < 0))
+        return -1;
+    if (UNLIKELY((size_t)sz < sizeof(cmd)))
+        return -2;
+    return cmd;
+}
+
+static lwan_connection_t *
+watch_client(int epoll_fd, int fd, lwan_connection_t *conns)
+{
     struct epoll_event event = {
         .events = events_by_write_flag[1],
         .data.ptr = &conns[fd]
@@ -363,11 +372,18 @@ thread_io_loop(void *data)
                 lwan_connection_t *conn;
 
                 if (!ep_event->data.ptr) {
-                    conn = grab_and_watch_client(epoll_fd, read_pipe_fd, conns);
-                    if (UNLIKELY(!conn))
+                    int cmd = grab_command(read_pipe_fd);
+                    if (LIKELY(cmd >= 0)) {
+                        conn = watch_client(epoll_fd, cmd, conns);
+                        spawn_coro(conn, &switcher, &dq);
+                    } else if (UNLIKELY(cmd == -1)) {
                         continue;
-
-                    spawn_coro(conn, &switcher, &dq);
+                    } else if (UNLIKELY(cmd == -2)) {
+                        goto epoll_fd_closed;
+                    } else {
+                        lwan_status_debug("Unknown command received, ignored");
+                        continue;
+                    }
                 } else {
                     conn = ep_event->data.ptr;
                     if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
@@ -384,6 +400,9 @@ thread_io_loop(void *data)
     }
 
 epoll_fd_closed:
+    assert(t->barrier);
+    pthread_barrier_wait(t->barrier);
+
     death_queue_kill_all(&dq);
     free(events);
 
@@ -461,12 +480,19 @@ lwan_thread_init(lwan_t *l)
 void
 lwan_thread_shutdown(lwan_t *l)
 {
+    pthread_barrier_t barrier;
+
     lwan_status_debug("Shutting down threads");
+
+    if (pthread_barrier_init(&barrier, NULL, (unsigned)l->thread.count + 1))
+        lwan_status_critical("Could not create barrier");
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
         char less_than_int = 0;
         ssize_t r;
+
+        t->barrier = &barrier;
 
         lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
             t->epoll_fd);
@@ -489,17 +515,19 @@ lwan_thread_shutdown(lwan_t *l)
         }
     }
 
+    pthread_barrier_wait(&barrier);
+    pthread_barrier_destroy(&barrier);
+
     for (int i = l->thread.count - 1; i >= 0; i--) {
         lwan_thread_t *t = &l->thread.threads[i];
-
-        lwan_status_debug("Waiting for thread %d to finish", i);
-        pthread_timedjoin_np(l->thread.threads[i].self, NULL,
-            &(const struct timespec) { .tv_sec = 1 });
 
         lwan_status_debug("Closing pipe (%d, %d)", t->pipe_fd[0],
             t->pipe_fd[1]);
         close(t->pipe_fd[0]);
         close(t->pipe_fd[1]);
+
+        lwan_status_debug("Waiting for thread %d to finish", i);
+        pthread_join(l->thread.threads[i].self, NULL);
     }
 
     free(l->thread.threads);

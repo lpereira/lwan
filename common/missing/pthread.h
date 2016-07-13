@@ -36,12 +36,4 @@ int pthread_barrier_destroy(pthread_barrier_t *barrier);
 int pthread_barrier_wait(pthread_barrier_t *barrier);
 #endif
 
-#ifndef HAS_TIMEDJOIN
-int pthread_timedjoin_np(pthread_t thread, void **retval, const struct timespec *abstime);
-#endif
-
-#ifdef __FreeBSD__
-# include <pthread_np.h>
-#endif
-
 #endif /* MISSING_PTHREAD_H */
