@@ -152,6 +152,10 @@ static inline int hash_int_key_cmp(const void *k1, const void *k2)
 	return (a > b) - (a < b);
 }
 
+static void no_op(void *arg __attribute__((unused)))
+{
+}
+
 static struct hash *hash_internal_new(
 			unsigned (*hash_value)(const void *key),
 			int (*key_compare)(const void *k1, const void *k2),
@@ -164,8 +168,8 @@ static struct hash *hash_internal_new(
 		return NULL;
 	hash->hash_value = hash_value;
 	hash->key_compare = key_compare;
-	hash->free_value = free_value;
-	hash->free_key = free_key;
+	hash->free_value = free_value ? free_value : no_op;
+	hash->free_key = free_key ? free_key : no_op;
 	return hash;
 }
 
@@ -174,8 +178,8 @@ struct hash *hash_int_new(void (*free_key)(void *value),
 {
 	return hash_internal_new(hash_int,
 			hash_int_key_cmp,
-			free_key,
-			free_value);
+			free_key ? free_key : no_op,
+			free_value ? free_value : no_op);
 }
 
 struct hash *hash_str_new(void (*free_key)(void *value),
@@ -197,8 +201,8 @@ struct hash *hash_str_new(void (*free_key)(void *value),
 	return hash_internal_new(
 			hash_func,
 			(int (*)(const void *, const void *))strcmp,
-			free_key,
-			free_value);
+			free_key ? free_key : no_op,
+			free_value ? free_value : no_op);
 }
 
 void hash_free(struct hash *hash)
@@ -215,10 +219,8 @@ void hash_free(struct hash *hash)
 		entry = bucket->entries;
 		entry_end = entry + bucket->used;
 		for (; entry < entry_end; entry++) {
-			if (hash->free_value)
-				hash->free_value((void *)entry->value);
-			if (hash->free_key)
-				hash->free_key((void *)entry->key);
+			hash->free_value((void *)entry->value);
+			hash->free_key((void *)entry->key);
 		}
 		free(bucket->entries);
 	}
@@ -254,10 +256,8 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 			continue;
 		if (hash->key_compare(key, entry->key) != 0)
 			continue;
-		if (hash->free_value)
-			hash->free_value((void *)entry->value);
-		if (hash->free_key)
-			hash->free_key((void *)entry->key);
+		hash->free_value((void *)entry->value);
+		hash->free_key((void *)entry->key);
 
 		entry->key = key;
 		entry->value = value;
@@ -348,10 +348,8 @@ int hash_del(struct hash *hash, const void *key)
 	if (entry == NULL)
 		return -ENOENT;
 
-	if (hash->free_value)
-		hash->free_value((void *)entry->value);
-	if (hash->free_key)
-		hash->free_key((void *)entry->key);
+	hash->free_value((void *)entry->value);
+	hash->free_key((void *)entry->key);
 
 	entry_end = bucket->entries + bucket->used;
 	memmove(entry, entry + 1,
