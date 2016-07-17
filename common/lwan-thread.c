@@ -39,7 +39,7 @@ struct death_queue_t {
 
 static const uint32_t events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
-    EPOLLIN | EPOLLRDHUP | EPOLLERR
+    EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
 static inline int death_queue_node_to_idx(struct death_queue_t *dq,
@@ -196,12 +196,6 @@ resume_coro_if_needed(struct death_queue_t *dq, lwan_connection_t *conn,
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
     if (yield_result < CONN_CORO_MAY_RESUME) {
         destroy_coro(dq, conn);
-        return;
-    }
-
-    if (UNLIKELY(conn->flags & CONN_FLIP_FLAGS)) {
-        conn->flags &= ~CONN_FLIP_FLAGS;
-    } else {
         return;
     }
 

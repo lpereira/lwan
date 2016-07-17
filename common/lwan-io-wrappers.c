@@ -43,8 +43,6 @@ lwan_openat(lwan_request_t *request,
 
         switch (errno) {
         case EWOULDBLOCK:
-            request->conn->flags |= CONN_FLIP_FLAGS;
-            /* Fallthrough */
         case EMFILE:
         case ENFILE:
         case EINTR:
@@ -73,8 +71,6 @@ lwan_writev(lwan_request_t *request, struct iovec *iov, int iov_count)
 
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                /* Fallthrough */
             case EINTR:
                 goto try_again;
             default:
@@ -116,8 +112,6 @@ lwan_write(lwan_request_t *request, const void *buf, size_t count)
 
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                /* Fallthrough */
             case EINTR:
                 goto try_again;
             default:
@@ -152,8 +146,6 @@ lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
 
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                /* Fallthrough */
             case EINTR:
                 goto try_again;
             default:
@@ -190,8 +182,6 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                /* Fallthrough */
             case EINTR:
                 coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
                 continue;
@@ -236,8 +226,6 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
         if (UNLIKELY(r < 0)) {
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                /* Fallthrough */
             case EBUSY:
             case EINTR:
                 coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);

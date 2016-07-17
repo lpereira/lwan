@@ -209,7 +209,9 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
     case EPOLL_CTL_ADD:
     case EPOLL_CTL_MOD: {
         int events = 0;
-        int flags = EV_ADD;
+        /* EV_CLEAR should be set only if EPOLLET is there, but Lwan doesn't
+         * always set EPOLLET.  In the meantime, force EV_CLEAR every time.  */
+        int flags = EV_ADD | EV_CLEAR;
 
         if (event->events & EPOLLIN)
             events = EVFILT_READ;
@@ -222,8 +224,6 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
             flags |= EV_EOF;
         if (event->events & EPOLLERR)
             flags |= EV_ERROR;
-        if (event->events & EPOLLET)
-            flags |= EV_CLEAR;
 
         EV_SET(&ev, fd, events, flags, 0, 0, event->data.ptr);
         break;
