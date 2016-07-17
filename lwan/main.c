@@ -59,10 +59,18 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
             result = ARGS_SERVE_FILES;
             break;
 
-        case 'r':
-            memcpy(root, optarg, strnlen(optarg, PATH_MAX - 1) + 1);
+        case 'r': {
+            size_t len = strlen(optarg);
+
+            if (len >= PATH_MAX) {
+                fprintf(stderr, "Root path length exeeds %d characters\n", PATH_MAX);
+                return ARGS_FAILED;
+            }
+
+            memcpy(root, optarg, len + 1);
             result = ARGS_SERVE_FILES;
             break;
+        }
 
         case 'h':
             printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
