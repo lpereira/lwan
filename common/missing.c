@@ -90,39 +90,19 @@ mempcpy(void *dest, const void *src, size_t len)
 #endif
 
 #ifndef HAS_MEMRCHR
-/*
- * Function based from memrchr.c
- * Copyright (c) 2007 Todd C. Miller <Todd.Miller@courtesan.com>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 void *
 memrchr(const void *s, int c, size_t n)
 {
-    const unsigned char *cp;
-    unsigned char *p = (unsigned char *)s;
-    unsigned char chr = (unsigned char)c;
+    const char *end = (const char *)s + n + 1;
+    const char *prev = NULL;
 
-    if (n != 0) {
-        cp = p + n;
-        do {
-            if (*(--cp) == chr)
-                return (void *)cp;
-        } while (--n != 0);
+    for (const char *cur = s; cur <= end; prev = cur++) {
+        cur = (const char *)memchr(cur, c, end - cur);
+        if (!cur)
+            break;
     }
 
-    return NULL;
+    return (void *)prev;
 }
 #endif
 
