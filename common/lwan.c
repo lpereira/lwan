@@ -348,7 +348,7 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
     config_error(c, "Expecting section end while parsing listener");
 }
 
-const char *get_config_path(char *path_buf)
+static const char *get_config_path(char *path_buf)
 {
     char buffer[PATH_MAX];
 
