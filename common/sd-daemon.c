@@ -21,16 +21,33 @@
 ***/
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
+
+static rlim_t
+get_max_fd(void)
+{
+        struct rlimit r;
+
+        if (getrlimit(RLIMIT_NOFILE, &r) < 0)
+                return INT_MAX;
+
+        if (r.rlim_max == RLIM_INFINITY)
+                return INT_MAX;
+
+        return r.rlim_max;
+}
 
 int sd_listen_fds(int unset_environment) {
         int r, fd;
@@ -78,6 +95,11 @@ int sd_listen_fds(int unset_environment) {
         }
 
         if (!p || p == e || *p) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        if (l > get_max_fd() - SD_LISTEN_FDS_START) {
                 r = -EINVAL;
                 goto finish;
         }
