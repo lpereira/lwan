@@ -394,8 +394,8 @@ thread_io_loop(void *data)
     }
 
 epoll_fd_closed:
-    assert(t->barrier);
-    pthread_barrier_wait(t->barrier);
+    if (t->barrier)
+        pthread_barrier_wait(t->barrier);
 
     death_queue_kill_all(&dq);
     free(events);
