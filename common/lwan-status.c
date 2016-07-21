@@ -25,14 +25,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <sys/types.h>
 
 #ifndef NDEBUG
 #include <unistd.h>
-#include <sys/syscall.h>
-#endif
-
-#ifdef __FreeBSD__
-#include <sys/thr.h>
 #endif
 
 #include "lwan-private.h"
@@ -108,24 +104,6 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
     return "Unknown";
 #endif
 }
-
-#ifndef NDEBUG
-static inline long
-gettid(void)
-{
-    long tid;
-
-#if defined(__linux__)
-    tid = syscall(SYS_gettid);
-#elif (__FreeBSD__)
-    thr_self(&tid);
-#else
-    tid = (long)pthread_self();
-#endif
-
-    return tid;
-}
-#endif
 
 static void
 #ifdef NDEBUG

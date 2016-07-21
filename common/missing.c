@@ -342,3 +342,39 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
     return 0;
 }
 #endif
+
+#if defined(__linux__)
+#include <sys/syscall.h>
+
+long
+gettid(void)
+{
+    return syscall(SYS_gettid);
+}
+#elif defined(__FreeBSD__)
+#include <sys/thr.h>
+
+long
+gettid(void)
+{
+    long ret;
+
+    thr_self(&ret);
+
+    return ret;
+}
+#elif defined(__APPLE__)
+#include <sys/syscall.h>
+
+long
+gettid(void)
+{
+    return syscall(SYS_thread_selfid);
+}
+#else
+long
+gettid(void)
+{
+    return (long)pthread_self();
+}
+#endif
