@@ -398,7 +398,8 @@ only_uncompressed:
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
         int openat_errno = errno;
 
-        close(sd->compressed.fd);
+        if (sd->compressed.fd >= 0)
+            close(sd->compressed.fd);
 
         switch (openat_errno) {
         case ENFILE:
