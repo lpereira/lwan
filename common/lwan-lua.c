@@ -37,6 +37,7 @@ static const char *request_metatable_name = "Lwan.Request";
 struct lwan_lua_priv_t {
     char *default_type;
     char *script_file;
+    char *script;
     pthread_key_t cache_key;
     unsigned cache_period;
 };
@@ -223,8 +224,13 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
     luaL_register(state->L, NULL, lwan_request_meta_regs);
     lua_setfield(state->L, -1, "__index");
 
-    if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
-        lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
+    if (priv->script_file) {
+        if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
+            lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
+            goto close_lua_state;
+        }
+    } else if (UNLIKELY(luaL_dostring(state->L, priv->script) != 0)) {
+        lwan_status_error("Error evaluating Lua script %s", lua_tostring(state->L, -1));
         goto close_lua_state;
     }
 
@@ -394,7 +400,7 @@ static void *lua_init(const char *prefix __attribute__((unused)), void *data)
     struct lwan_lua_settings_t *settings = data;
     struct lwan_lua_priv_t *priv;
 
-    priv = malloc(sizeof(*priv));
+    priv = calloc(1, sizeof(*priv));
     if (!priv) {
         lwan_status_error("Could not allocate memory for private Lua struct");
         return NULL;
@@ -404,33 +410,39 @@ static void *lua_init(const char *prefix __attribute__((unused)), void *data)
         settings->default_type ? settings->default_type : "text/plain");
     if (!priv->default_type) {
         lwan_status_perror("strdup");
-        goto out_no_default_type;
+        goto error;
     }
 
-    if (!settings->script_file) {
-        lwan_status_error("No Lua script file provided");
-        goto out_no_script_file;
-    }
-    priv->script_file = strdup(settings->script_file);
-    if (!priv->script_file) {
-        lwan_status_perror("strdup");
-        goto out_no_script_file;
+    if (settings->script) {
+        priv->script = strdup(settings->script);
+        if (!priv->script) {
+            lwan_status_perror("strdup");
+            goto error;
+        }
+    } else if (settings->script_file) {
+        priv->script_file = strdup(settings->script_file);
+        if (!priv->script_file) {
+            lwan_status_perror("strdup");
+            goto error;
+        }
+    } else {
+        lwan_status_error("No Lua script_file or script provided");
+        goto error;
     }
 
     if (pthread_key_create(&priv->cache_key, NULL)) {
         lwan_status_perror("pthread_key_create");
-        goto out_key_create;
+        goto error;
     }
 
     priv->cache_period = settings->cache_period;
 
     return priv;
 
-out_key_create:
+error:
     free(priv->script_file);
-out_no_script_file:
     free(priv->default_type);
-out_no_default_type:
+    free(priv->script);
     free(priv);
     return NULL;
 }
@@ -442,6 +454,7 @@ static void lua_shutdown(void *data)
         pthread_key_delete(priv->cache_key);
         free(priv->default_type);
         free(priv->script_file);
+        free(priv->script);
         free(priv);
     }
 }
@@ -451,7 +464,8 @@ static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
     struct lwan_lua_settings_t settings = {
         .default_type = hash_find(hash, "default_type"),
         .script_file = hash_find(hash, "script_file"),
-        .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15)
+        .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
+        .script = hash_find(hash, "script")
     };
     return lua_init(prefix, &settings);
 }
