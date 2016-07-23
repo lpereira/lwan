@@ -326,8 +326,10 @@ strbuf_shrink_to_default(strbuf_t *s)
 ALWAYS_INLINE bool
 strbuf_reset(strbuf_t *s)
 {
-    strbuf_shrink_to_default(s);
-    s->len.buffer = 0;
+    if (LIKELY(strbuf_shrink_to_default(s))) {
+        s->len.buffer = 0;
+        return true;
+    }
     return false;
 }
 
