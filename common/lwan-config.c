@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -194,7 +195,53 @@ static char *replace_space_with_underscore(char *line)
     return line;
 }
 
-static bool parse_line(char *line, config_line_t *l, char *equal)
+static bool config_fgets(config_t *conf, char *buffer, size_t buffer_len)
+{
+    assert(buffer_len <= INT_MAX);
+    if (!fgets(buffer, (int)buffer_len, conf->file))
+        return false;
+
+    if (conf->isolated.end > 0) {
+        long curpos = ftell(conf->file);
+        if (curpos < 0) {
+            config_error(conf, "Could not obtain file position");
+            return false;
+        }
+        if (curpos >= conf->isolated.end)
+            return false;
+    }
+    conf->line++;
+
+    return true;
+}
+
+static bool parse_multiline(config_t *c, config_line_t *l)
+{
+    char buffer[1024];
+
+    if (!strbuf_reset_length(c->strbuf)) {
+        config_error(c, "Could not allocate multiline string");
+        return false;
+    }
+
+    while (config_fgets(c, buffer, sizeof(buffer))) {
+        char *tmp = remove_trailing_spaces(remove_leading_spaces(buffer));
+        if (!strcmp(tmp, "'''")) {
+            l->line.value = strbuf_get_buffer(c->strbuf);
+            return true;
+        }
+
+        if (!strbuf_append_str(c->strbuf, buffer, 0)) {
+            config_error(c, "Could not append to multiline string");
+            return false;
+        }
+    }
+
+    config_error(c, "EOF while scanning for end of multiline string");
+    return false;
+}
+
+static bool parse_line(config_t *c, char *line, config_line_t *l, char *equal)
 {
     *equal = '\0';
     line = remove_leading_spaces(line);
@@ -204,7 +251,10 @@ static bool parse_line(char *line, config_line_t *l, char *equal)
     l->line.value = remove_leading_spaces(equal + 1);
     l->type = CONFIG_LINE_TYPE_LINE;
 
-    return true;
+    if (strcmp(l->line.value, "'''"))
+        return true;
+
+    return parse_multiline(c, l);
 }
 
 static bool find_section_end(config_t *config, config_line_t *line, int recursion_level)
@@ -288,24 +338,15 @@ bool config_read_line(config_t *conf, config_line_t *l)
     if (conf->error_message)
         return false;
 
-retry:
-    if (!fgets(l->buffer, sizeof(l->buffer), conf->file))
-        return false;
-
-    if (conf->isolated.end > 0) {
-        long curpos = ftell(conf->file);
-        if (curpos < 0) {
-            config_error(conf, "Could not obtain file position");
+    do {
+        if (!config_fgets(conf, l->buffer, sizeof(l->buffer)))
             return false;
-        }
-        if (curpos >= conf->isolated.end)
-            return false;
-    }
-    conf->line++;
 
-    line = remove_comments(l->buffer);
-    line = remove_leading_spaces(line);
-    line = remove_trailing_spaces(line);
+        line = remove_comments(l->buffer);
+        line = remove_leading_spaces(line);
+        line = remove_trailing_spaces(line);
+    } while (*line == '\0');
+
     line_end = find_line_end(line);
 
     if (*line_end == '{') {
@@ -313,14 +354,12 @@ retry:
             config_error(conf, "Malformed section opening");
             return false;
         }
-    } else if (*line == '\0') {
-        goto retry;
     } else if (*line == '}' && line == line_end) {
         l->type = CONFIG_LINE_TYPE_SECTION_END;
     } else {
         char *equal = strchr(line, '=');
         if (equal) {
-            if (!parse_line(line, l, equal)) {
+            if (!parse_line(conf, line, l, equal)) {
                 config_error(conf, "Malformed key=value line");
                 return false;
             }
@@ -335,27 +374,34 @@ retry:
 
 bool config_open(config_t *conf, const char *path)
 {
-    if (!conf)
-        return false;
-    if (!path)
-        return false;
+    if (!conf || !path)
+        goto error_no_strbuf;
+
+    conf->strbuf = strbuf_new();
+    if (!conf->strbuf)
+        goto error_no_strbuf;
 
     conf->file = fopen(path, "re");
     if (!conf->file)
-        return false;
+        goto error_no_file;
 
     conf->path = strdup(path);
-    if (!conf->path) {
-        fclose(conf->file);
-        conf->file = NULL;
-        return false;
-    }
+    if (!conf->path)
+        goto error_no_path;
 
     conf->isolated.end = -1;
     conf->line = 0;
     conf->error_message = NULL;
 
     return true;
+
+error_no_path:
+    fclose(conf->file);
+error_no_file:
+    strbuf_free(conf->strbuf);
+error_no_strbuf:
+    conf->file = NULL;
+    return false;
 }
 
 void config_close(config_t *conf)
@@ -367,5 +413,5 @@ void config_close(config_t *conf)
     fclose(conf->file);
     free(conf->path);
     free(conf->error_message);
+    strbuf_free(conf->strbuf);
 }
-

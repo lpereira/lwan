@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "strbuf.h"
+
 typedef struct config_t_ config_t;
 typedef struct config_line_t_ config_line_t;
 
@@ -41,6 +43,7 @@ typedef enum {
 struct config_t_ {
     FILE *file;
     char *path, *error_message;
+    strbuf_t *strbuf;
     struct {
         long end;
     } isolated;
