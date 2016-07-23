@@ -235,6 +235,10 @@ static bool parse_multiline(config_t *c, config_line_t *l)
             config_error(c, "Could not append to multiline string");
             return false;
         }
+        if (!strbuf_append_char(c->strbuf, '\n')) {
+            config_error(c, "Could not append to multiline string");
+            return false;
+        }
     }
 
     config_error(c, "EOF while scanning for end of multiline string");
