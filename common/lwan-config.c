@@ -374,7 +374,9 @@ bool config_read_line(config_t *conf, config_line_t *l)
 
 bool config_open(config_t *conf, const char *path)
 {
-    if (!conf || !path)
+    if (!conf)
+        return false;
+    if (!path)
         goto error_no_strbuf;
 
     conf->strbuf = strbuf_new();
