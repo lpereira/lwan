@@ -123,5 +123,5 @@ INSTALL(TARGETS lwan-static lwan-shared
   DESTINATION "lib"
 )
 INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
-  lwan-template.h lwan-serve-files.h lwan-config.h missing.h
+  lwan-template.h lwan-serve-files.h lwan-config.h
   DESTINATION "include/lwan" )
