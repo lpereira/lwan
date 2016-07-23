@@ -310,6 +310,11 @@ class TestMalformedRequests(SocketTest):
 
 
 class TestLua(LwanTest):
+  def test_inline(self):
+    r = requests.get('http://localhost:8080/inline')
+    self.assertResponseHtml(r)
+    self.assertEqual(r.text, 'Hello')
+
   def test_hello(self):
     r = requests.get('http://localhost:8080/lua/hello')
     self.assertResponseHtml(r)
