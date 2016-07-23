@@ -460,7 +460,7 @@ href="http://buildbot.lwan.ws/builders/clang-analyze">Clang Static
 Analyzer</a>.  Every commit is automatically checked with this tool.</li>
 <li>It produces no warnings when executed on <a
 href="http://valgrind.org/">Valgrind Memcheck</a> (with debug builds:
-release builds disable some things that Memcheck relies on keep sanity when
+release builds disable some things that Memcheck relies on to keep sanity when
 coroutines switches stacks.)</li> <li>It is also always built using
 <tt>-Wall -Wextra -Wshadow -Wconversion</tt> (plus
 <tt>-fsanitize=undefined</tt> on debug builds).  <b>No warnings</b> are
