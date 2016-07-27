@@ -89,9 +89,9 @@ union proxy_protocol_header {
 
 static char decode_hex_digit(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
-static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
+static lwan_request_method_t get_http_method(const char *buffer) __attribute__((pure));
 
-static ALWAYS_INLINE lwan_request_flags_t
+static ALWAYS_INLINE lwan_request_method_t
 get_http_method(const char *buffer)
 {
     /* Note: keep in sync in identify_http_method() */
@@ -99,10 +99,10 @@ get_http_method(const char *buffer)
         HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
         HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
-        HTTP_STR_PUT     = MULTICHAR_CONSTANT_SMALL('P','U'),// PUT
-        HTTP_STR_DELETE  = MULTICHAR_CONSTANT('D','E','L','E'), // DELETE
-        HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'), // OPTION
-        HTTP_STR_PATCH   = MULTICHAR_CONSTANT('P','A','T','C') // PATCH
+        HTTP_STR_PUT     = MULTICHAR_CONSTANT('P','U','T',' '),
+        HTTP_STR_DELETE  = MULTICHAR_CONSTANT('D','E','L','E'),
+        HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'),
+        HTTP_STR_PATCH   = MULTICHAR_CONSTANT('P','A','T','C')
     };
 
     STRING_SWITCH(buffer) {
@@ -305,8 +305,8 @@ identify_http_method(lwan_request_t *request, char *buffer)
         [REQUEST_METHOD_OPTIONS] = sizeof("OPTIONS ") - 1,
         [REQUEST_METHOD_PATCH] = sizeof("PATCH ") - 1,
     };
-    lwan_request_flags_t flags = get_http_method(buffer);
-    request->flags |= flags;
+    lwan_request_method_t flags = get_http_method(buffer);
+    request->method |= flags;
     return buffer + sizes[flags];
 }
 
@@ -901,7 +901,7 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
 
     compute_keep_alive_flag(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST) {
+    if (request->method & REQUEST_METHOD_POST) {
         lwan_http_status_t status = read_post_data(request, helper, buffer);
         if (UNLIKELY(status != HTTP_OK))
             return status;
@@ -933,11 +933,9 @@ prepare_for_response(lwan_url_map_t *url_map,
     if (url_map->flags & HANDLER_PARSE_COOKIES)
         parse_cookies(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST) {
+    if (request->method & REQUEST_METHOD_POST) {
         if (url_map->flags & HANDLER_PARSE_POST_DATA)
             parse_post_data(request, helper);
-        else
-            return HTTP_NOT_ALLOWED;
     }
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
