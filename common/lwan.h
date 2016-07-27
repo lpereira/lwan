@@ -160,7 +160,11 @@ typedef enum {
     RESPONSE_NO_CONTENT_LENGTH = 1<<8,
     RESPONSE_URL_REWRITTEN     = 1<<9,
     REQUEST_ALLOW_PROXY_REQS   = 1<<10,
-    REQUEST_PROXIED            = 1<<11
+    REQUEST_PROXIED            = 1<<11,
+    REQUEST_METHOD_PUT         = 1<<12,
+    REQUEST_METHOD_DELETE      = 1<<13,
+    REQUEST_METHOD_OPTIONS     = 1<<14,
+    REQUEST_METHOD_PATCH       = 1<<15
 } lwan_request_flags_t;
 
 typedef enum {
