@@ -816,7 +816,7 @@ read_post_data(lwan_request_t *request __attribute__((unused)),
         return HTTP_BAD_REQUEST;
 
     parsed_length = parse_long(helper->content_length.value, DEFAULT_BUFFER_SIZE);
-    if (UNLIKELY(parsed_length > DEFAULT_BUFFER_SIZE))
+    if (UNLIKELY(parsed_length >= DEFAULT_BUFFER_SIZE))
         return HTTP_TOO_LARGE;
     if (UNLIKELY(parsed_length < 0))
         return HTTP_BAD_REQUEST;
