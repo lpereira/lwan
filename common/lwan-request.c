@@ -89,9 +89,9 @@ union proxy_protocol_header {
 
 static char decode_hex_digit(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
-static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
+static lwan_request_method_t get_http_method(const char *buffer) __attribute__((pure));
 
-static ALWAYS_INLINE lwan_request_flags_t
+static ALWAYS_INLINE lwan_request_method_t
 get_http_method(const char *buffer)
 {
     /* Note: keep in sync in identify_http_method() */
@@ -99,6 +99,10 @@ get_http_method(const char *buffer)
         HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
         HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
+        HTTP_STR_PUT     = MULTICHAR_CONSTANT('P','U','T',' '),
+        HTTP_STR_DELETE  = MULTICHAR_CONSTANT('D','E','L','E'),
+        HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'),
+        HTTP_STR_PATCH   = MULTICHAR_CONSTANT('P','A','T','C')
     };
 
     STRING_SWITCH(buffer) {
@@ -108,6 +112,14 @@ get_http_method(const char *buffer)
         return REQUEST_METHOD_HEAD;
     case HTTP_STR_POST:
         return REQUEST_METHOD_POST;
+    case HTTP_STR_PUT:
+        return REQUEST_METHOD_PUT;
+    case HTTP_STR_DELETE:
+        return REQUEST_METHOD_DELETE;
+    case HTTP_STR_OPTIONS:
+        return REQUEST_METHOD_OPTIONS;
+    case HTTP_STR_PATCH:
+        return REQUEST_METHOD_PATCH;
     }
 
     return 0;
@@ -288,9 +300,13 @@ identify_http_method(lwan_request_t *request, char *buffer)
         [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
         [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
         [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
+        [REQUEST_METHOD_PUT] = sizeof("PUT ") - 1,
+        [REQUEST_METHOD_DELETE] = sizeof("DELETE ") - 1,
+        [REQUEST_METHOD_OPTIONS] = sizeof("OPTIONS ") - 1,
+        [REQUEST_METHOD_PATCH] = sizeof("PATCH ") - 1,
     };
-    lwan_request_flags_t flags = get_http_method(buffer);
-    request->flags |= flags;
+    lwan_request_method_t flags = get_http_method(buffer);
+    request->method |= flags;
     return buffer + sizes[flags];
 }
 
@@ -780,17 +796,8 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
         return FINALIZER_DONE;
     }
 
-    if (LIKELY(!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4)))
+    if (LIKELY(!memcmp(helper->buffer->value + total_read - 2, "\r\n", 2)))
         return FINALIZER_DONE;
-
-    if (get_http_method(helper->buffer->value) == REQUEST_METHOD_POST) {
-        char *post_data_separator = memrchr(helper->buffer->value, '\n',
-            helper->buffer->len);
-        if (post_data_separator) {
-            if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
-                return FINALIZER_DONE;
-        }
-    }
 
     return FINALIZER_TRY_AGAIN;
 }
@@ -894,7 +901,7 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
 
     compute_keep_alive_flag(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST) {
+    if (request->method & REQUEST_METHOD_POST) {
         lwan_http_status_t status = read_post_data(request, helper, buffer);
         if (UNLIKELY(status != HTTP_OK))
             return status;
@@ -926,11 +933,9 @@ prepare_for_response(lwan_url_map_t *url_map,
     if (url_map->flags & HANDLER_PARSE_COOKIES)
         parse_cookies(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST) {
+    if (request->method & REQUEST_METHOD_POST) {
         if (url_map->flags & HANDLER_PARSE_POST_DATA)
             parse_post_data(request, helper);
-        else
-            return HTTP_NOT_ALLOWED;
     }
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {

@@ -149,9 +149,6 @@ typedef enum {
 
 typedef enum {
     REQUEST_ALL_FLAGS          = -1,
-    REQUEST_METHOD_GET         = 1<<0,
-    REQUEST_METHOD_HEAD        = 1<<1,
-    REQUEST_METHOD_POST        = 1<<2,
     REQUEST_ACCEPT_DEFLATE     = 1<<3,
     REQUEST_ACCEPT_GZIP        = 1<<4,
     REQUEST_IS_HTTP_1_0        = 1<<5,
@@ -160,8 +157,19 @@ typedef enum {
     RESPONSE_NO_CONTENT_LENGTH = 1<<8,
     RESPONSE_URL_REWRITTEN     = 1<<9,
     REQUEST_ALLOW_PROXY_REQS   = 1<<10,
-    REQUEST_PROXIED            = 1<<11
+    REQUEST_PROXIED            = 1<<11,
 } lwan_request_flags_t;
+
+typedef enum {
+    REQUEST_METHOD_ALL_FLAGS          = -1,
+    REQUEST_METHOD_GET         = 1<<1,
+    REQUEST_METHOD_HEAD        = 1<<2,
+    REQUEST_METHOD_POST        = 1<<3,
+    REQUEST_METHOD_PUT         = 1<<4,
+    REQUEST_METHOD_DELETE      = 1<<5,
+    REQUEST_METHOD_OPTIONS     = 1<<6,
+    REQUEST_METHOD_PATCH       = 1<<7
+} lwan_request_method_t;
 
 typedef enum {
     CONN_MASK               = -1,
@@ -220,6 +228,7 @@ struct lwan_proxy_t_ {
 
 struct lwan_request_t_ {
     lwan_request_flags_t flags;
+    lwan_request_method_t method;
     int fd;
     lwan_value_t url;
     lwan_value_t original_url;
