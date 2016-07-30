@@ -87,7 +87,12 @@ The build system will look for these libraries and enable/link if available.
  - [TCMalloc](https://github.com/gperftools/gperftools)
  - [jemalloc](http://www.canonware.com/jemalloc/)
  - [Valgrind](http://valgrind.org)
- - To run test suite, [Python](https://www.python.org/) (2.6+) with Requests module is required
+ - To run test suite:
+    - [Python](https://www.python.org/) (2.6+) with Requests
+    - [Lua 5.1](http://www.lua.org)
+ - To run benchmark :
+    - Special version of [Weighttp](https://github.com/lpereira/weighttp)
+    - [Matplotlib](https://github.com/matplotlib/matplotlib)
 
 ### Common operating system package names
 
@@ -156,6 +161,18 @@ a version suitable for debugging purposes. This version can be used under
 Valgrind, is built with Undefined Behavior Sanitizer, and includes debugging
 messages that are stripped in the release version. Debugging messages are
 printed for each and every request.
+
+### Tests
+
+    ~/lwan/build$ make teststuite
+
+This will compile `testrunner/testrunner` and execute regression test suite in `tool/testsuite.py`.
+
+### Benchmark
+
+    ~/lwan/build$ make benchmark
+
+This will compile `testrunner/testrunner` and execute benchmark script `tools/benchmark.py`.
 
 Running
 -------
