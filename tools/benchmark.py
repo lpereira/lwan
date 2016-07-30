@@ -4,6 +4,21 @@ import sys
 import json
 import commands
 import time
+import subprocess
+import os
+
+LWAN_PATH = './build/testrunner/testrunner'
+for arg in sys.argv[1:]:
+  if not arg.startswith('-') and os.path.exists(arg):
+    LWAN_PATH = arg
+    sys.argv.remove(arg)
+
+print 'Using', LWAN_PATH, 'for lwan'
+
+lwan=subprocess.Popen(
+  [LWAN_PATH],
+  stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+)
 
 try:
   import matplotlib.pyplot as plt
@@ -171,3 +186,4 @@ if __name__ == '__main__':
       sleepwithstatus('Waiting for keepalive connection timeout', keep_alive_timeout * 1.1)
 
   output.footer()
+  lwan.kill()
