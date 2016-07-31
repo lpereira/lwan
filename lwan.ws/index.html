@@ -309,7 +309,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
     <ul>
         <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
         <li><b>Coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
-        <li><b>Linux only</b>, as it relies on <tt>epoll()</tt></li>
+        <li>Supports <b>Linux</b>, <b>FreeBSD</b> and <b>OS X</b></li>
         <li>Purpose-built I/O loop</li>
     </ul>
   </li>
@@ -321,8 +321,12 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	<li>Compiled Lua scripts</li>
   </ul>
   </li>
-  <li>Request rewriting support based on <b>Lua</b> <a href="http://www.lua.org/manual/5.2/manual.html#6.4.1">pattern matching</a> syntax</li>
-  <li><b>Diminute codebase</b> with roughly 8000 lines of C11 (<tt>gnu11</tt>, in fact)  code</li>
+  <li>Request rewriting support based on <b>Lua</b> <a href="http://www.lua.org/manual/5.2/manual.html#6.4.1">pattern matching</a> syntax
+     <ul>
+        <li>Lua scripts can be executed to control the rewriting behavior as well</li>
+     </ul>
+  </li>
+  <li><b>Diminute codebase</b> with roughly 10000 lines of C99 (<tt>gnu99</tt>, in fact) code</li>
   <li>Efficient <a href="https://mustache.github.io/">Mustache templating</a> engine
      <ul>
         <li>Used internally for directory listing &amp; error messages (can
@@ -356,6 +360,13 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <ul>
   	<li>Code is <b>statically analyzed</b> by Clang Static Analyzer</li>
   	<li>Debug &amp; Release builds</li>
+  	<li>Various platforms:
+  	    <ul>
+  	        <li><b>Arch Linux</b>, always up-to-date</li>
+  	        <li><b>FreeBSD</b> 10 and 11, courtesy of <a href="https://twitter.com/koobs">@koobs</a></li>
+  	        <li><b>Mac OS X</b> Yosemite</li>
+  	    </ul>
+  	</li>
   	<li>Test suite written in Python <b>tests the server</b> as a black box</li>
   	<li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers</li>
   </ul>
@@ -423,7 +434,8 @@ main(void)
 pretty rough and not everything available to <b>C</b> handlers is available
 to <b>Lua</b> scripts.</p>
 
-<p>However, it's enough to run some frameworks, such as <a
+<p>However, it's enough to <a
+href="https://github.com/lpereira/sailor-hello-lwan">run some frameworks</a>, such as <a
 href="http://sailorproject.org/">Sailor</a>.  To whet your appetite, an
 improvement of the program above could be easily written in <b>Lua</b> like
 so:</p>
