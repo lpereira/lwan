@@ -59,6 +59,7 @@ void    coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
 void   *coro_malloc(coro_t *coro, size_t sz);
 void   *coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)());
 char   *coro_strdup(coro_t *coro, const char *str);
+char   *coro_strndup(coro_t *coro, const char *str, size_t len);
 char   *coro_printf(coro_t *coro, const char *fmt, ...);
 
 #define CORO_DEFER(fn)		((void (*)(void *))(fn))
