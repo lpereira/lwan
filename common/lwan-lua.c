@@ -205,6 +205,43 @@ static const struct luaL_reg lwan_request_meta_regs[] = {
     { NULL, NULL }
 };
 
+const char *lwan_lua_state_last_error(lua_State *L)
+{
+    return lua_tostring(L, -1);
+}
+
+lua_State *lwan_lua_create_state(const char *script_file, const char *script)
+{
+    lua_State *L;
+
+    L = luaL_newstate();
+    if (UNLIKELY(!L))
+        return NULL;
+
+    luaL_openlibs(L);
+
+    luaL_newmetatable(L, request_metatable_name);
+    luaL_register(L, NULL, lwan_request_meta_regs);
+    lua_setfield(L, -1, "__index");
+
+    if (script_file) {
+        if (UNLIKELY(luaL_dofile(L, script_file) != 0)) {
+            lwan_status_error("Error opening Lua script %s: %s",
+                script_file, lua_tostring(L, -1));
+            goto close_lua_state;
+        }
+    } else if (UNLIKELY(luaL_dostring(L, script) != 0)) {
+        lwan_status_error("Error evaluating Lua script %s", lua_tostring(L, -1));
+        goto close_lua_state;
+    }
+
+    return L;
+
+close_lua_state:
+    lua_close(L);
+    return NULL;
+}
+
 static struct cache_entry_t *state_create(const char *key __attribute__((unused)),
         void *context)
 {
@@ -214,31 +251,10 @@ static struct cache_entry_t *state_create(const char *key __attribute__((unused)
     if (UNLIKELY(!state))
         return NULL;
 
-    state->L = luaL_newstate();
-    if (UNLIKELY(!state->L))
-        goto free_state;
+    state->L = lwan_lua_create_state(priv->script_file, priv->script);
+    if (LIKELY(state->L))
+        return (struct cache_entry_t *)state;
 
-    luaL_openlibs(state->L);
-
-    luaL_newmetatable(state->L, request_metatable_name);
-    luaL_register(state->L, NULL, lwan_request_meta_regs);
-    lua_setfield(state->L, -1, "__index");
-
-    if (priv->script_file) {
-        if (UNLIKELY(luaL_dofile(state->L, priv->script_file) != 0)) {
-            lwan_status_error("Error opening Lua script %s", lua_tostring(state->L, -1));
-            goto close_lua_state;
-        }
-    } else if (UNLIKELY(luaL_dostring(state->L, priv->script) != 0)) {
-        lwan_status_error("Error evaluating Lua script %s", lua_tostring(state->L, -1));
-        goto close_lua_state;
-    }
-
-    return (struct cache_entry_t *)state;
-
-close_lua_state:
-    lua_close(state->L);
-free_state:
     free(state);
     return NULL;
 }
@@ -331,7 +347,7 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
     return lua_isfunction(L, -1);
 }
 
-static void push_request(lua_State *L, lwan_request_t *request)
+void lwan_lua_state_push_request(lua_State *L, lwan_request_t *request)
 {
     lwan_request_t **userdata = lua_newuserdata(L, sizeof(lwan_request_t *));
     *userdata = request;
@@ -378,7 +394,7 @@ lua_handle_cb(lwan_request_t *request,
         return HTTP_NOT_FOUND;
 
     int n_arguments = 1;
-    push_request(L, request);
+    lwan_lua_state_push_request(L, request);
     response->mime_type = priv->default_type;
     while (true) {
         switch (lua_resume(L, n_arguments)) {

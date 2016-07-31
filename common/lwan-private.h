@@ -50,3 +50,7 @@ void lwan_straitjacket_enforce(config_t *c, config_line_t *l);
 uint8_t lwan_char_isspace(char ch) __attribute__((pure));
 uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
 
+typedef struct lua_State lua_State;
+lua_State *lwan_lua_create_state(const char *script_file, const char *script);
+void lwan_lua_state_push_request(lua_State *L, lwan_request_t *request);
+const char *lwan_lua_state_last_error(lua_State *L);
