@@ -173,16 +173,12 @@ static void *lex_left_meta(struct lexer *lexer);
 static void *lex_right_meta(struct lexer *lexer);
 static void *lex_text(struct lexer *lexer);
 
-static void *parser_meta(struct parser *parser, struct lexeme *lexeme);
-static void *parser_text(struct parser *parser, struct lexeme *lexeme);
-static void *parser_iter(struct parser *parser, struct lexeme *lexeme);
-static void *parser_slash(struct parser *parser, struct lexeme *lexeme);
 static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexeme);
-static void *parser_slash(struct parser *parser, struct lexeme *lexeme);
 static void *parser_iter(struct parser *parser, struct lexeme *lexeme);
-static void *parser_negate_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_meta(struct parser *parser, struct lexeme *lexeme);
+static void *parser_negate_iter(struct parser *parser, struct lexeme *lexeme);
+static void *parser_slash(struct parser *parser, struct lexeme *lexeme);
 static void *parser_text(struct parser *parser, struct lexeme *lexeme);
 
 static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
