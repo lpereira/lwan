@@ -29,6 +29,14 @@
 #include "list.h"
 #include "patterns.h"
 
+#ifdef HAVE_LUA
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+
+#include "lwan-lua.h"
+#endif
+
 struct private_data {
     struct list_head patterns;
 };
@@ -36,8 +44,12 @@ struct private_data {
 struct pattern {
     struct list_node list;
     char *pattern;
-    char *expand;
+    char *expand_pattern;
+
     lwan_http_status_t (*handle)(lwan_request_t *request, const char *url);
+    const char *(*expand)(lwan_request_t *request, struct pattern *pattern,
+        const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
+        int captures);
 };
 
 struct str_builder {
@@ -95,24 +107,26 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
 }
 
 static const char *
-expand(const char *pattern, const char *orig, char buffer[static PATH_MAX],
-    struct str_find *sf, int captures)
+expand(lwan_request_t *request __attribute__((unused)), struct pattern *pattern,
+    const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
+    int captures)
 {
+    const char *expand_pattern = pattern->expand_pattern;
     struct str_builder builder = { .buffer = buffer, .size = PATH_MAX };
     char *ptr;
 
-    ptr = strchr(pattern, '%');
+    ptr = strchr(expand_pattern, '%');
     if (!ptr)
-        return pattern;
+        return expand_pattern;
 
     do {
         size_t index_len = strspn(ptr + 1, "0123456789");
 
-        if (ptr > pattern) {
-            if (UNLIKELY(!append_str(&builder, pattern, (size_t)(ptr - pattern))))
+        if (ptr > expand_pattern) {
+            if (UNLIKELY(!append_str(&builder, expand_pattern, (size_t)(ptr - expand_pattern))))
                 return NULL;
 
-            pattern += ptr - pattern;
+            expand_pattern += ptr - expand_pattern;
         }
 
         if (LIKELY(index_len > 0)) {
@@ -126,15 +140,15 @@ expand(const char *pattern, const char *orig, char buffer[static PATH_MAX],
                 return NULL;
 
             ptr += index_len;
-            pattern += index_len;
+            expand_pattern += index_len;
         } else if (UNLIKELY(!append_str(&builder, "%", 1))) {
             return NULL;
         }
 
-        pattern++;
+        expand_pattern++;
     } while ((ptr = strchr(ptr + 1, '%')));
 
-    if (*pattern && !append_str(&builder, pattern, strlen(pattern)))
+    if (*expand_pattern && !append_str(&builder, expand_pattern, strlen(expand_pattern)))
         return NULL;
 
     if (UNLIKELY(!builder.len))
@@ -143,10 +157,69 @@ expand(const char *pattern, const char *orig, char buffer[static PATH_MAX],
     return builder.buffer;
 }
 
+#ifdef HAVE_LUA
+static const char *
+expand_lua(lwan_request_t *request, struct pattern *pattern, const char *orig,
+    char buffer[static PATH_MAX], struct str_find *sf, int captures)
+{
+    const char *output, *ret;
+    size_t output_len;
+    int i;
+    lua_State *L;
+
+    L = lwan_lua_create_state(NULL, pattern->expand_pattern);
+    if (UNLIKELY(!L))
+        return NULL;
+    coro_defer(request->conn->coro, CORO_DEFER(lua_close), L);
+
+    lua_getglobal(L, "handle_rewrite");
+    if (!lua_isfunction(L, -1)) {
+        lwan_status_error("Could not obtain reference to `handle_rewrite()` function: %s",
+            lwan_lua_state_last_error(L));
+        return NULL;
+    }
+
+    lwan_lua_state_push_request(L, request);
+
+    lua_createtable(L, captures, 0);
+    for (i = 0; i < captures; i++) {
+        char *tmp = coro_strndup(request->conn->coro, orig + sf[i].sm_so,
+            (size_t)(sf[i].sm_eo - sf[i].sm_so));
+
+        lua_pushinteger(L, i);
+        if (tmp)
+            lua_pushstring(L, tmp);
+        else
+            lua_pushnil(L);
+        lua_settable(L, -3);
+    }
+
+    if (lua_pcall(L, 2, 1, 0) != 0) {
+        lwan_status_error("Could not execute `handle_rewrite()` function: %s",
+            lwan_lua_state_last_error(L));
+
+        lua_pop(L, 2); /* 2: request + capture table */
+        return NULL;
+    }
+
+    output = lua_tolstring(L, -1, &output_len);
+    if (output_len >= PATH_MAX) {
+        lwan_status_error("Rewritten URL exceeds %d bytes (got %ld bytes)",
+            PATH_MAX, output_len);
+
+        lua_pop(L, 1); /* 1: return value */
+        return NULL;
+    }
+
+    ret = memcpy(buffer, output, output_len);
+    lua_pop(L, 1); /* 1: return value */
+    return ret;
+}
+#endif
+
 static lwan_http_status_t
 module_handle_cb(lwan_request_t *request,
-    lwan_response_t *response __attribute__((unused)),
-    void *data)
+    lwan_response_t *response __attribute__((unused)), void *data)
 {
     const char *url = request->url.value;
     char final_url[PATH_MAX];
@@ -165,7 +238,7 @@ module_handle_cb(lwan_request_t *request,
         if (captures <= 0)
             continue;
 
-        expanded = expand(p->expand, url, final_url, sf, captures);
+        expanded = p->expand(request, p, url, final_url, sf, captures);
         if (LIKELY(expanded))
             return p->handle(request, expanded);
 
@@ -196,9 +269,10 @@ module_shutdown(void *data)
 
     list_for_each_safe(&pd->patterns, iter, next, list) {
         free(iter->pattern);
-        free(iter->expand);
+        free(iter->expand_pattern);
         free(iter);
     }
+
     free(pd);
 }
 
@@ -214,6 +288,7 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
 {
     struct pattern *pattern;
     char *redirect_to = NULL, *rewrite_as = NULL;
+    bool expand_with_lua = false;
 
     pattern = calloc(1, sizeof(*pattern));
     if (!pattern)
@@ -234,6 +309,8 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
                 rewrite_as = strdup(line->line.value);
                 if (!rewrite_as)
                     goto out;
+            } else if (!strcmp(line->line.key, "expand_with_lua")) {
+                expand_with_lua = parse_bool(line->line.value, false);
             } else {
                 config_error(config, "Unexpected key: %s", line->line.key);
                 goto out;
@@ -248,14 +325,24 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
                 goto out;
             }
             if (redirect_to) {
-                pattern->expand = redirect_to;
+                pattern->expand_pattern = redirect_to;
                 pattern->handle = module_redirect_to;
             } else if (rewrite_as) {
-                pattern->expand = rewrite_as;
+                pattern->expand_pattern = rewrite_as;
                 pattern->handle = module_rewrite_as;
             } else {
                 config_error(config, "either `redirect to` or `rewrite as` are required");
                 goto out;
+            }
+            if (expand_with_lua) {
+#ifdef HAVE_LUA
+                pattern->expand = expand_lua;
+#else
+                config_error(config, "Lwan has been built without Lua. `expand_with_lua` is not available");
+                goto out;
+#endif
+            } else {
+                pattern->expand = expand;
             }
             list_add_tail(&pd->patterns, &pattern->list);
             return true;
