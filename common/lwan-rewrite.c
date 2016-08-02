@@ -211,7 +211,7 @@ expand_lua(lwan_request_t *request, struct pattern *pattern, const char *orig,
         return NULL;
     }
 
-    ret = memcpy(buffer, output, output_len);
+    ret = memcpy(buffer, output, output_len + 1);
     lua_pop(L, 1); /* 1: return value */
     return ret;
 }
