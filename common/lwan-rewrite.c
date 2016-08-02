@@ -183,14 +183,8 @@ expand_lua(lwan_request_t *request, struct pattern *pattern, const char *orig,
 
     lua_createtable(L, captures, 0);
     for (i = 0; i < captures; i++) {
-        char *tmp = coro_strndup(request->conn->coro, orig + sf[i].sm_so,
-            (size_t)(sf[i].sm_eo - sf[i].sm_so));
-
         lua_pushinteger(L, i);
-        if (tmp)
-            lua_pushstring(L, tmp);
-        else
-            lua_pushnil(L);
+        lua_pushlstring(L, orig + sf[i].sm_so, (size_t)(sf[i].sm_eo - sf[i].sm_so));
         lua_settable(L, -3);
     }
 
