@@ -130,6 +130,8 @@ void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
                     lwan_status_critical_perror("Could not chroot() to %s",
                         chroot_path);
                 }
+                if (chdir("/") < 0)
+                    lwan_status_critical_perror("Could not chdir() to /");
                 lwan_status_debug("Jailed to %s", chroot_path);
             }
 
