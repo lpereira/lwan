@@ -479,12 +479,12 @@ class TestCache(LwanTest):
 
 
   def test_cache_munmaps_conn_keep_alive(self):
-    s = requests.Session()
-    r = s.get('http://127.0.0.1:8080/100.html')
+    with requests.Session() as s:
+      r = s.get('http://127.0.0.1:8080/100.html')
 
-    self.assertTrue(self.is_mmapped('/100.html'))
-    self.wait_munmap('/100.html')
-    self.assertFalse(self.is_mmapped('/100.html'))
+      self.assertTrue(self.is_mmapped('/100.html'))
+      self.wait_munmap('/100.html')
+      self.assertFalse(self.is_mmapped('/100.html'))
 
 
   def test_cache_does_not_mmap_large_files(self):
@@ -493,11 +493,10 @@ class TestCache(LwanTest):
 
 
   def test_cache_mmaps_once_conn_keep_alive(self):
-    s = requests.Session()
-
-    for request in range(5):
-      r = s.get('http://127.0.0.1:8080/100.html')
-      self.assertEqual(self.count_mmaps('/100.html'), 1)
+    with requests.Session() as s:
+      for request in range(5):
+        r = s.get('http://127.0.0.1:8080/100.html')
+        self.assertEqual(self.count_mmaps('/100.html'), 1)
 
 
   def test_cache_mmaps_once_conn_close(self):
