@@ -25,6 +25,15 @@
 #include "lwan-serve-files.h"
 
 lwan_http_status_t
+quit_lwan(lwan_request_t *request __attribute__((unused)),
+           lwan_response_t *response __attribute__((unused)),
+           void *data __attribute__((unused)))
+{
+    exit(0);
+    return HTTP_OK;
+}
+
+lwan_http_status_t
 gif_beacon(lwan_request_t *request __attribute__((unused)),
            lwan_response_t *response,
            void *data __attribute__((unused)))
