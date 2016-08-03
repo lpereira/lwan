@@ -228,21 +228,22 @@ configure_file(
 
 install(FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc" DESTINATION lib/pkgconfig)
 
-if (LUA_FOUND)
+find_package(PythonInterp 3)
+if (LUA_FOUND AND PYTHONINTERP_FOUND)
 	function(add_python_test NAME FILE WORKING_DIRECTORY DEPEND)
 		add_custom_target(${NAME}
-				COMMAND  python ${FILE}
+				COMMAND ${PYTHON_EXECUTABLE} ${FILE}
 				DEPENDS ${DEPEND}
 				WORKING_DIRECTORY ${WORKING_DIRECTORY}
 				COMMENT "Running Python tests: ${FILE}.")
 	endfunction()
 
-	add_python_test( testsuite
+	add_python_test(testsuite
 			${PROJECT_SOURCE_DIR}/tools/testsuite.py
 			${PROJECT_SOURCE_DIR}
 			testrunner)
 
-	add_python_test( benchmark
+	add_python_test(benchmark
 			${PROJECT_SOURCE_DIR}/tools/benchmark.py
 			${PROJECT_SOURCE_DIR}
 			testrunner)

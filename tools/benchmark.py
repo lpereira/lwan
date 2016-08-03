@@ -1,11 +1,13 @@
 #!/usr/bin/python
 
-import sys
-import json
+from __future__ import print_function
+
 import commands
-import time
-import subprocess
+import json
 import os
+import subprocess
+import sys
+import time
 
 LWAN_PATH = './build/testrunner/testrunner'
 for arg in sys.argv[1:]:
@@ -13,7 +15,7 @@ for arg in sys.argv[1:]:
     LWAN_PATH = arg
     sys.argv.remove(arg)
 
-print 'Using', LWAN_PATH, 'for lwan'
+print('Using', LWAN_PATH, 'for lwan')
 
 lwan=subprocess.Popen(
   [LWAN_PATH],
@@ -92,7 +94,7 @@ def cmdlineintarg(arg, default=0):
     try:
       value = int(sys.argv[index])
     except ValueError:
-      print 'Argument is of invalid type for argument %s, assuming default (%d)' % (arg, default)
+      print('Argument is of invalid type for argument %s, assuming default (%d)' % (arg, default))
     finally:
       del sys.argv[index]
   return value
@@ -100,15 +102,15 @@ def cmdlineintarg(arg, default=0):
 
 class CSVOutput:
   def header(self):
-    print 'keep_alive,n_connections,rps,kbps,2xx,3xx,4xx,5xx'
+    print('keep_alive,n_connections,rps,kbps,2xx,3xx,4xx,5xx')
 
   def footer(self):
     clearstderrline()
 
   def log(self, keep_alive, n_connections, rps, kbps, _2xx, _3xx, _4xx, _5xx):
     clearstderrline()
-    print ','.join(str(token) for token in
-      (int(keep_alive), n_connections, rps, kbps, _2xx, _3xx, _4xx, _5xx))
+    print(','.join(str(token) for token in
+      (int(keep_alive), n_connections, rps, kbps, _2xx, _3xx, _4xx, _5xx)))
 
 
 class MatplotlibOutput:
@@ -150,8 +152,8 @@ class MatplotlibOutput:
 
 if __name__ == '__main__':
   if not weighttp_has_json_output():
-    print 'This script requires a special version of weighttp which supports JSON'
-    print 'output. Get it at http://github.com/lpereira/weighttp'
+    print('This script requires a special version of weighttp which supports JSON')
+    print('output. Get it at http://github.com/lpereira/weighttp')
     sys.exit(1)
 
   plot = cmdlineboolarg('--plot')
@@ -166,7 +168,7 @@ if __name__ == '__main__':
 
   if plt is None:
     if plot:
-      print 'Matplotlib not installed!'
+      print('Matplotlib not installed!')
       sys.exit(1)
     output = CSVOutput()
   elif plot:

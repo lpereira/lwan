@@ -3,14 +3,15 @@
 #       performs certain system calls. This should speed up the mmap tests
 #       considerably and make it possible to perform more low-level tests.
 
-import subprocess
-import time
-import unittest
-import requests
-import socket
-import sys
 import os
 import re
+import requests
+import signal
+import socket
+import subprocess
+import sys
+import time
+import unittest
 
 LWAN_PATH = './build/testrunner/testrunner'
 for arg in sys.argv[1:]:
@@ -18,7 +19,7 @@ for arg in sys.argv[1:]:
     LWAN_PATH = arg
     sys.argv.remove(arg)
 
-print 'Using', LWAN_PATH, 'for lwan'
+print('Using', LWAN_PATH, 'for lwan')
 
 class LwanTest(unittest.TestCase):
   def setUp(self):
@@ -39,11 +40,8 @@ class LwanTest(unittest.TestCase):
     raise Exception('Timeout waiting for lwan')
 
   def tearDown(self):
-    self.lwan.poll()
-    if self.lwan.returncode is not None:
-      self.assertEqual(self.lwan.returncode, 0)
-    else:
-      self.lwan.kill()
+    self.lwan.send_signal(signal.SIGINT)
+    self.lwan.communicate()
 
   def assertHttpResponseValid(self, request, status_code, content_type):
     self.assertEqual(request.status_code, status_code)
@@ -248,72 +246,85 @@ class TestRewrite(LwanTest):
     self.assertEqual(r.text, 'Hello, rewritten42!')
 
 class SocketTest(LwanTest):
+  class WrappedSock:
+    def __init__(self, sock):
+      self._wrapped_sock = sock
+
+    def send(self, stuff):
+      return self._wrapped_sock.send(bytes(stuff, 'UTF-8'))
+
+    def recv(self, n_bytes):
+      return str(self._wrapped_sock.recv(n_bytes), 'UTF-8')
+
+    def __enter__(self):
+      return self
+
+    def __exit__(self, *args):
+      return self._wrapped_sock.close()
+
+    def __getattr__(self, attr):
+      if attr in self.__dict__:
+        return getattr(self, attr)
+      return getattr(self._wrapped_sock, attr)
+
   def connect(self, host='127.0.0.1', port=8080):
     def _connect(host, port):
       try:
-          sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-          sock.connect((host, port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
       except socket.error:
-          return None
-      return sock
+        if sock:
+          sock.close()
+          del sock
+
+        return None
+      finally:
+        return sock
 
     sock = _connect(host, port)
     self.assertNotEqual(sock, None)
-    return sock
+    return SocketTest.WrappedSock(sock)
 
 class TestMalformedRequests(SocketTest):
   def assertHttpCode(self, sock, code):
     contents = sock.recv(128)
 
-    self.assertRegexpMatches(contents, r'^HTTP/1\.[01] ' + str(code) + r' ')
-
-
-  def test_random_flood(self):
-    with open('/dev/urandom', 'rb') as urandom:
-      for step in range(10):
-
-        buffer = b''
-        while len(buffer) < 8192:
-          buffer += urandom.read(8192 - len(buffer))
-
-        sock = self.connect()
-        sock.send(buffer)
-        self.assertHttpCode(sock, 413)
+    self.assertRegex(contents, r'^HTTP/1\.[01] ' + str(code) + r' ')
 
 
   def test_cat_sleeping_on_keyboard(self):
-    sock = self.connect()
-    sock.send('asldkfjg238045tgqwdcjv1li	2u4ftw dfjkb12345t\r\n\r\n')
+    with self.connect() as sock:
+      sock.send('asldkfjg238045tgqwdcjv1li	2u4ftw dfjkb12345t\r\n\r\n')
 
-    self.assertHttpCode(sock, 405)
+      self.assertHttpCode(sock, 405)
 
 
   def test_no_http_version_fails(self):
-    sock = self.connect()
-    sock.send('GET /\r\n\r\n')
+    with self.connect() as sock:
+      sock.send('GET /\r\n\r\n')
 
-    self.assertHttpCode(sock, 400)
+      self.assertHttpCode(sock, 400)
 
 
   def test_proxy_get_fails(self):
-    sock = self.connect()
-    sock.send('GET http://example.com HTTP/1.0\r\n\r\n')
+    with self.connect() as sock:
+      sock.send('GET http://example.com HTTP/1.0\r\n\r\n')
 
-    self.assertHttpCode(sock, 400)
+      self.assertHttpCode(sock, 400)
 
 
   def test_get_not_http(self):
-    sock = self.connect()
-    sock.send('GET / FROG/1.0\r\n\r\n')
+    with self.connect() as sock:
+      sock.send('GET / FROG/1.0\r\n\r\n')
 
-    self.assertHttpCode(sock, 400)
+      self.assertHttpCode(sock, 400)
 
 
   def test_get_http_not_1_x(self):
-    sock = self.connect()
-    sock.send('GET / HTTP/2.0\r\n\r\n')
+    with self.connect() as sock:
+      sock.send('GET / HTTP/2.0\r\n\r\n')
 
-    self.assertHttpCode(sock, 400)
+      self.assertHttpCode(sock, 400)
 
 
   def test_request_too_large(self):
@@ -350,7 +361,7 @@ class TestLua(LwanTest):
     self.assertResponseHtml(r)
     self.assertEqual(r.text, 'Cookie FOO has value: BAR')
 
-    for cookie, value in cookies_to_receive.items():
+    for cookie, value in list(cookies_to_receive.items()):
       self.assertTrue(cookie in r.cookies)
       self.assertEqual(r.cookies[cookie], value)
 
@@ -367,7 +378,7 @@ class TestHelloWorld(LwanTest):
     self.assertResponsePlain(r)
 
     self.assertTrue('\n\nCookies\n' in r.text)
-    for k, v in c.items():
+    for k, v in list(c.items()):
       self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
 
   def test_head_request_hello(self):
@@ -434,15 +445,15 @@ class TestHelloWorld(LwanTest):
     self.assertResponsePlain(r)
 
     self.assertTrue('POST data' in r.text)
-    for k, v in data.items():
+    for k, v in list(data.items()):
       self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
 
 
 class TestCache(LwanTest):
   def mmaps(self, f):
-    f = f + '\n'
-    return (l.endswith(f) for l in
-                file('/proc/%d/maps' % self.lwan.pid))
+    with open('/proc/%d/maps' % self.lwan.pid) as map_file:
+      f = f + '\n'
+      return [l.endswith(f) for l in map_file]
 
 
   def count_mmaps(self, f):
@@ -512,13 +523,12 @@ class TestProxyProtocolRequests(SocketTest):
 Connection: keep-alive\r
 Host: 192.168.0.11\r\n\r\n'''
 
-    sock = self.connect()
-
-    for request in range(5):
-      sock.send(proxy + req if request == 0 else req)
-      response = sock.recv(4096)
-      self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
-      self.assertTrue('X-Proxy: 192.168.242.221' in response, response)
+    with self.connect() as sock:
+      for request in range(5):
+        sock.send(proxy + req if request == 0 else req)
+        response = sock.recv(4096)
+        self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+        self.assertTrue('X-Proxy: 192.168.242.221' in response, response)
 
   def test_proxy_version2(self):
     proxy = (
@@ -530,12 +540,12 @@ Host: 192.168.0.11\r\n\r\n'''
 Connection: keep-alive\r
 Host: 192.168.0.11\r\n\r\n'''
 
-    sock = self.connect()
-    for request in range(5):
-      sock.send(proxy + req if request == 0 else req)
-      response = sock.recv(4096)
-      self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
-      self.assertTrue('X-Proxy: 1.2.3.4' in response, response)
+    with self.connect() as sock:
+      for request in range(5):
+        sock.send(proxy + req if request == 0 else req)
+        response = sock.recv(4096)
+        self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
+        self.assertTrue('X-Proxy: 1.2.3.4' in response, response)
 
 class TestPipelinedRequests(SocketTest):
   def test_pipelined_requests(self):
@@ -547,16 +557,16 @@ Connection: keep-alive\r
 Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.7''' % name for name in names)
     reqs += '\r\n\r\n'
 
-    sock = self.connect()
-    sock.send(reqs)
+    with self.connect() as sock:
+      sock.send(reqs)
 
-    responses = ''
-    while len(response_separator.findall(responses)) != 16:
-      response = sock.recv(32)
-      if response:
-        responses += response
-      else:
-        break
+      responses = ''
+      while len(response_separator.findall(responses)) != 16:
+        response = sock.recv(32)
+        if response:
+          responses += response
+        else:
+          break
 
     for name in names:
       s = 'Hello, %s!' % name
