@@ -13,7 +13,7 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 		include(CodeCoverage.cmake)
 
 		setup_target_for_coverage(generate-coverage
-			"${PYTHON_EXECUTABLE} ${CMAKE_HOME_DIRECTORY}/tools/testsuite.py $<TARGET_FILE:testrunner>"
+			"${PYTHON_EXECUTABLE} ${CMAKE_HOME_DIRECTORY}/tools/testsuite.py $<TARGET_FILE:testrunner> -v"
 			coverage
 		)
 		message(STATUS "Python found; generate-coverage target enabled")
