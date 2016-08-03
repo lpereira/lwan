@@ -40,8 +40,17 @@ class LwanTest(unittest.TestCase):
     raise Exception('Timeout waiting for lwan')
 
   def tearDown(self):
-    self.lwan.send_signal(signal.SIGINT)
-    self.lwan.communicate()
+    try:
+      requests.get('http://127.0.0.1:8080/quit-lwan')
+    except requests.exceptions.ConnectionError:
+      # Requesting /quit-lwan will make testrunner exit(0), closing the
+      # connection without sending a response, raising this exception.
+      # That's expected here.
+      return
+    finally:
+      with self.lwan as l:
+        l.communicate(timeout=1.0)
+        l.kill()
 
   def assertHttpResponseValid(self, request, status_code, content_type):
     self.assertEqual(request.status_code, status_code)
