@@ -227,7 +227,7 @@ static int
 directory_list_generator(coro_t *coro)
 {
     DIR *dir;
-    struct dirent entry, *buffer;
+    struct dirent *entry;
     struct file_list *fl = coro_get_data(coro);
     int fd;
 
@@ -239,16 +239,13 @@ directory_list_generator(coro_t *coro)
     if (fd < 0)
         goto out;
 
-    while (!readdir_r(dir, &entry, &buffer)) {
+    while ((entry = readdir(dir))) {
         struct stat st;
 
-        if (!buffer)
-            break;
-
-        if (entry.d_name[0] == '.')
+        if (entry->d_name[0] == '.')
             continue;
 
-        if (fstatat(fd, entry.d_name, &st, 0) < 0)
+        if (fstatat(fd, entry->d_name, &st, 0) < 0)
             continue;
 
         if (S_ISDIR(st.st_mode)) {
@@ -258,7 +255,7 @@ directory_list_generator(coro_t *coro)
         } else if (S_ISREG(st.st_mode)) {
             fl->file_list.icon = "file";
             fl->file_list.icon_alt = "FILE";
-            fl->file_list.type = lwan_determine_mime_type_for_file_name(entry.d_name);
+            fl->file_list.type = lwan_determine_mime_type_for_file_name(entry->d_name);
         } else {
             continue;
         }
@@ -277,7 +274,7 @@ directory_list_generator(coro_t *coro)
             fl->file_list.unit = "GiB";
         }
 
-        fl->file_list.name = entry.d_name;
+        fl->file_list.name = entry->d_name;
 
         if (coro_yield(coro, 1))
             break;
