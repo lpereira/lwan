@@ -35,7 +35,7 @@
 
 #include "sd-daemon.h"
 
-static rlim_t
+static unsigned int
 get_max_fd(void)
 {
         struct rlimit r;
@@ -46,7 +46,7 @@ get_max_fd(void)
         if (r.rlim_max == RLIM_INFINITY)
                 return INT_MAX;
 
-        return r.rlim_max;
+        return (unsigned int)r.rlim_max;
 }
 
 int sd_listen_fds(int unset_environment) {
