@@ -77,11 +77,6 @@ static int req_send_event_cb(lua_State *L)
     return 0;
 }
 
-static int req_yield_cb(lua_State *L)
-{
-    return lua_yield(L, 0);
-}
-
 static int req_set_response_cb(lua_State *L)
 {
     lwan_request_t *request = userdata_as_request(L, 1);
@@ -196,7 +191,6 @@ static int req_set_headers_cb(lua_State *L)
 static const struct luaL_reg lwan_request_meta_regs[] = {
     { "query_param", req_query_param_cb },
     { "post_param", req_post_param_cb },
-    { "yield", req_yield_cb },
     { "set_response", req_set_response_cb },
     { "say", req_say_cb },
     { "send_event", req_send_event_cb },
