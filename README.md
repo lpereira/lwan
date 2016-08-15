@@ -225,6 +225,13 @@ Lwan has been also used as a benchmark:
 * [Kong](https://getkong.org/about/benchmark/) uses Lwan as the [backend API](https://gist.github.com/montanaflynn/01376991f0a3ad07059c) in its benchmark.
 * [TechEmpower Framework benchmarks](https://www.techempower.com/benchmarks/#section=data-r10&hw=peak&test=json) feature Lwan since round 10.
 
+Some talks mentioning Lwan:
+
+* [Talk about Lwan](https://www.youtube.com/watch?v=cttY9FdCzUE) at Polyconf16, given by @lpereira.
+* This [talk about Iron](https://michaelsproul.github.io/iron-talk/), a framework for Rust, mentions Lwan as an *insane C thing*.
+* [https://github.com/cu-data-engineering-s15/syllabus/blob/master/student_lectures/LWAN.pdf](University seminar presentation) about Lwan.
+* This [http://www.slideshare.net/EtieneDalcol/web-development-with-lua-bulgaria-web-summit](presentation about Sailor web framework) mentions Lwan.
+
 Not really third-party, but alas:
 
 * The [author's blog](http://tia.mat.br).
