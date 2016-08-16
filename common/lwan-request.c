@@ -535,14 +535,6 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
 retry:
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
-
-        STRING_SWITCH_SMALL(p) {
-        case HTTP_HDR_REQUEST_END:
-            *p = '\0';
-            helper->next_request = p + sizeof("\r\n") - 1;
-            return p;
-        }
-
         STRING_SWITCH_L(p) {
         CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
             helper->accept_encoding.value = value;
@@ -581,6 +573,13 @@ retry:
             helper->range.value = value;
             helper->range.len = length;
             break;
+        default:
+            STRING_SWITCH_SMALL(p) {
+            case HTTP_HDR_REQUEST_END:
+                *p = '\0';
+                helper->next_request = p + sizeof("\r\n") - 1;
+                return p;
+            }
         }
 did_not_match:
         p = memchr(p, '\n', (size_t)(buffer_end - p));
