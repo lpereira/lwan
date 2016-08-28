@@ -532,25 +532,20 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
         char *value;
         size_t length;
 
-retry:
         if ((p + sizeof(int32_t)) >= buffer_end)
             break;
+
         STRING_SWITCH_L(p) {
-        CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
-            helper->accept_encoding.value = value;
-            helper->accept_encoding.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_TYPE, "-Type")
-            helper->content_type.value = value;
-            helper->content_type.len = length;
-            break;
-        CASE_HEADER(HTTP_HDR_LENGTH, "-Length")
-            helper->content_length.value = value;
-            helper->content_length.len = length;
-            break;
         case HTTP_HDR_ACCEPT:
             p += sizeof("Accept") - 1;
-            goto retry;
+
+            STRING_SWITCH_L(p) {
+            CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
+                helper->accept_encoding.value = value;
+                helper->accept_encoding.len = length;
+                break;
+            }
+            break;
         CASE_HEADER(HTTP_HDR_AUTHORIZATION, "Authorization")
             helper->authorization.value = value;
             helper->authorization.len = length;
@@ -560,7 +555,18 @@ retry:
             break;
         case HTTP_HDR_CONTENT:
             p += sizeof("Content") - 1;
-            goto retry;
+
+            STRING_SWITCH_L(p) {
+            CASE_HEADER(HTTP_HDR_TYPE, "-Type")
+                helper->content_type.value = value;
+                helper->content_type.len = length;
+                break;
+            CASE_HEADER(HTTP_HDR_LENGTH, "-Length")
+                helper->content_length.value = value;
+                helper->content_length.len = length;
+                break;
+            }
+            break;
         CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
             helper->cookie.value = value;
             helper->cookie.len = length;
