@@ -92,8 +92,9 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
      * If it's not a keep alive connection, or the coroutine shouldn't be
      * resumed -- then just mark it to be reaped right away.
      */
-    conn->time_to_die = dq->time + dq->keep_alive_timeout *
-            (unsigned)!!(conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO));
+    conn->time_to_die = dq->time;
+    if (conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO))
+        conn->time_to_die += dq->keep_alive_timeout;
 
     death_queue_remove(dq, conn);
     death_queue_insert(dq, conn);
