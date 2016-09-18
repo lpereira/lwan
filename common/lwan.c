@@ -51,7 +51,8 @@ static const lwan_config_t default_config = {
     .reuse_port = false,
     .proxy_protocol = false,
     .expires = 1 * ONE_WEEK,
-    .n_threads = 0
+    .n_threads = 0,
+    .max_post_data_size = 10 * DEFAULT_BUFFER_SIZE
 };
 
 static void lwan_module_init(lwan_t *l)
@@ -388,22 +389,22 @@ static bool setup_from_config(lwan_t *lwan, const char *path)
     while (config_read_line(&conf, &line)) {
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (!strcmp(line.line.key, "keep_alive_timeout"))
+            if (!strcmp(line.line.key, "keep_alive_timeout")) {
                 lwan->config.keep_alive_timeout = (unsigned short)parse_long(line.line.value,
                             default_config.keep_alive_timeout);
-            else if (!strcmp(line.line.key, "quiet"))
+            } else if (!strcmp(line.line.key, "quiet")) {
                 lwan->config.quiet = parse_bool(line.line.value,
                             default_config.quiet);
-            else if (!strcmp(line.line.key, "reuse_port"))
+            } else if (!strcmp(line.line.key, "reuse_port")) {
                 lwan->config.reuse_port = parse_bool(line.line.value,
                             default_config.reuse_port);
-            else if (!strcmp(line.line.key, "proxy_protocol"))
+            } else if (!strcmp(line.line.key, "proxy_protocol")) {
                 lwan->config.proxy_protocol = parse_bool(line.line.value,
                             default_config.proxy_protocol);
-            else if (!strcmp(line.line.key, "expires"))
+            } else if (!strcmp(line.line.key, "expires")) {
                 lwan->config.expires = parse_time_period(line.line.value,
                             default_config.expires);
-            else if (!strcmp(line.line.key, "error_template")) {
+            } else if (!strcmp(line.line.key, "error_template")) {
                 free(lwan->config.error_template);
                 lwan->config.error_template = strdup(line.line.value);
             } else if (!strcmp(line.line.key, "threads")) {
@@ -411,9 +412,16 @@ static bool setup_from_config(lwan_t *lwan, const char *path)
                 if (n_threads < 0)
                     config_error(&conf, "Invalid number of threads: %d", n_threads);
                 lwan->config.n_threads = (unsigned short int)n_threads;
-            }
-            else
+            } else if (!strcmp(line.line.key, "max_post_data_size")) {
+                long max_post_data_size = parse_long(line.line.value, (long)default_config.max_post_data_size);
+                if (max_post_data_size < 0)
+                    config_error(&conf, "Negative maximum post data size");
+                else if (max_post_data_size > 1<<20)
+                    config_error(&conf, "Maximum post data can't be over 1MiB");
+                lwan->config.max_post_data_size = (size_t)max_post_data_size;
+            } else {
                 config_error(&conf, "Unknown config key: %s", line.line.key);
+            }
             break;
         case CONFIG_LINE_TYPE_SECTION:
             if (!strcmp(line.section.name, "listener")) {

@@ -117,7 +117,7 @@ test_proxy(lwan_request_t *request,
 }
 
 lwan_http_status_t
-test_post(lwan_request_t *request, lwan_response_t *response,
+test_post_will_it_blend(lwan_request_t *request, lwan_response_t *response,
     void *data __attribute__((unused)))
 {
     static const char type[] = "application/json";
@@ -144,6 +144,32 @@ test_post(lwan_request_t *request, lwan_response_t *response,
 
     response->mime_type = type;
     strbuf_set_static(response->buffer, response_body, sizeof(response_body) -1);
+
+    return HTTP_OK;
+}
+
+lwan_http_status_t
+test_post_big(lwan_request_t *request, lwan_response_t *response,
+    void *data __attribute__((unused)))
+{
+    static const char type[] = "x-test/trololo";
+    size_t i, sum = 0;
+
+    if (!request->header.content_type)
+        return HTTP_BAD_REQUEST;
+    if (!request->header.content_type->value)
+        return HTTP_BAD_REQUEST;
+    if (request->header.content_type->len != sizeof(type) - 1)
+        return HTTP_BAD_REQUEST;
+    if (memcmp(request->header.content_type->value, type, sizeof(type) - 1) != 0)
+        return HTTP_BAD_REQUEST;
+
+    for (i = 0; i < request->header.body->len; i++)
+        sum += (size_t)request->header.body->value[i];
+
+    response->mime_type = "application/json";
+    strbuf_printf(response->buffer, "{\"received\": %zu, \"sum\": %zu}",
+        request->header.body->len, sum);
 
     return HTTP_OK;
 }

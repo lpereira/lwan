@@ -68,10 +68,23 @@ class LwanTest(unittest.TestCase):
 
 
 class TestPost(LwanTest):
-  def test_bat(self):
-    r = requests.post('http://127.0.0.1:8080/post', json={'will-it-blend': True})
+  def test_will_it_blend(self):
+    r = requests.post('http://127.0.0.1:8080/post/blend', json={'will-it-blend': True})
     self.assertHttpResponseValid(r, 200, 'application/json')
     self.assertEqual(r.json(), {'did-it-blend': 'oh-hell-yeah'})
+
+  def test_big_request(self):
+    for size in (10, 100, 1000, 10000, 100000):
+      data = "tro" + "lo" * size
+
+      r = requests.post('http://127.0.0.1:8080/post/big', data=data,
+        headers={'Content-Type': 'x-test/trololo'})
+
+      self.assertHttpResponseValid(r, 200, 'application/json')
+      self.assertEqual(r.json(), {
+        'received': len(data),
+        'sum': sum(ord(b) for b in data)
+      })
 
 
 class TestFileServing(LwanTest):

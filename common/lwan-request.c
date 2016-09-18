@@ -807,40 +807,57 @@ read_request(lwan_request_t *request, struct request_parser_helper *helper)
                         DEFAULT_BUFFER_SIZE, read_request_finalizer);
 }
 
-static lwan_http_status_t
-read_post_data(lwan_request_t *request __attribute__((unused)),
-        struct request_parser_helper *helper,
-        char *buffer __attribute__((unused)))
+static lwan_read_finalizer_t post_data_finalizer(size_t total_read,
+    size_t buffer_size, struct request_parser_helper *helper __attribute__((unused)))
 {
-    long parsed_length;
+    return buffer_size == total_read ? FINALIZER_DONE : FINALIZER_TRY_AGAIN;
+}
 
-    if (UNLIKELY(!helper->next_request))
-        return HTTP_BAD_REQUEST;
+static lwan_http_status_t
+read_post_data(lwan_request_t *request, struct request_parser_helper *helper)
+{
+    /* Holy indirection, Batman! */
+    const size_t max_post_data_size = request->conn->thread->lwan->config.max_post_data_size;
+    char *new_buffer;
+    long parsed_size;
 
     if (UNLIKELY(!helper->content_length.value))
         return HTTP_BAD_REQUEST;
-
-    parsed_length = parse_long(helper->content_length.value, DEFAULT_BUFFER_SIZE);
-    if (UNLIKELY(parsed_length >= DEFAULT_BUFFER_SIZE))
-        return HTTP_TOO_LARGE;
-    if (UNLIKELY(parsed_length < 0))
+    parsed_size = parse_long(helper->content_length.value, -1);
+    if (UNLIKELY(parsed_size < 0))
         return HTTP_BAD_REQUEST;
+    if (UNLIKELY(parsed_size >= (long)max_post_data_size))
+        return HTTP_TOO_LARGE;
 
-    size_t post_data_size = (size_t)parsed_length;
-    char *buffer_end = helper->buffer->value + helper->buffer->len;
-    size_t have = (size_t)(ptrdiff_t)(buffer_end - helper->next_request);
+    size_t post_data_size = (size_t)parsed_size;
+    size_t have;
+    if (!helper->next_request) {
+        have = 0;
+    } else {
+        char *buffer_end = helper->buffer->value + helper->buffer->len;
+        have = (size_t)(ptrdiff_t)(buffer_end - helper->next_request);
 
-    if (have == post_data_size) {
-        helper->post_data.value = helper->next_request;
-        helper->post_data.len = post_data_size;
-        helper->next_request += post_data_size;
-        return HTTP_OK;
+        if (have >= post_data_size) {
+            helper->post_data.value = helper->next_request;
+            helper->post_data.len = post_data_size;
+            helper->next_request += post_data_size;
+            return HTTP_OK;
+        }
     }
 
-    if (post_data_size > have)
-        return HTTP_TOO_LARGE;
+    new_buffer = coro_malloc(request->conn->coro, post_data_size + 1);
+    if (UNLIKELY(!new_buffer))
+        return HTTP_INTERNAL_ERROR;
 
-    return HTTP_NOT_IMPLEMENTED;
+    helper->post_data.value = new_buffer;
+    helper->post_data.len = post_data_size;
+    if (have)
+        new_buffer = mempcpy(new_buffer, helper->next_request, have);
+    helper->next_request = NULL;
+
+    lwan_value_t buffer = { .value = new_buffer, .len = post_data_size - have };
+    return read_from_request_socket(request, &buffer, helper, buffer.len,
+        post_data_finalizer);
 }
 
 static char *
@@ -900,7 +917,7 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
     compute_keep_alive_flag(request, helper);
 
     if (request->flags & REQUEST_METHOD_POST) {
-        lwan_http_status_t status = read_post_data(request, helper, buffer);
+        lwan_http_status_t status = read_post_data(request, helper);
         if (UNLIKELY(status != HTTP_OK))
             return status;
     }
