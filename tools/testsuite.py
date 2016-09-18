@@ -160,7 +160,6 @@ class TestFileServing(LwanTest):
   def test_compressed_small_file(self):
     encodings = (
       'deflate',
-      ' deflate',
       'foo,bar,deflate',
       'foo, bar, deflate',
       'deflote' # This should fail, but won't in our current implementation
