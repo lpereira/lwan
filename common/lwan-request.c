@@ -916,11 +916,8 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
 
     compute_keep_alive_flag(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST) {
-        lwan_http_status_t status = read_post_data(request, helper);
-        if (UNLIKELY(status != HTTP_OK))
-            return status;
-    }
+    if (request->flags & REQUEST_METHOD_POST)
+        return read_post_data(request, helper);
 
     return HTTP_OK;
 }
