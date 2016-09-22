@@ -788,15 +788,6 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     if (LIKELY(!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4)))
         return FINALIZER_DONE;
 
-    if (get_http_method(helper->buffer->value) == REQUEST_METHOD_POST) {
-        char *post_data_separator = memrchr(helper->buffer->value, '\n',
-            helper->buffer->len);
-        if (post_data_separator) {
-            if (LIKELY(!memcmp(post_data_separator - 3, "\r\n\r", 3)))
-                return FINALIZER_DONE;
-        }
-    }
-
     return FINALIZER_TRY_AGAIN;
 }
 
