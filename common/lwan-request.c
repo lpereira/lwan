@@ -89,29 +89,7 @@ union proxy_protocol_header {
 
 static char decode_hex_digit(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
-static lwan_request_flags_t get_http_method(const char *buffer) __attribute__((pure));
 
-static ALWAYS_INLINE lwan_request_flags_t
-get_http_method(const char *buffer)
-{
-    /* Note: keep in sync in identify_http_method() */
-    enum {
-        HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
-        HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
-        HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
-    };
-
-    STRING_SWITCH(buffer) {
-    case HTTP_STR_GET:
-        return REQUEST_METHOD_GET;
-    case HTTP_STR_HEAD:
-        return REQUEST_METHOD_HEAD;
-    case HTTP_STR_POST:
-        return REQUEST_METHOD_POST;
-    }
-
-    return 0;
-}
 
 static bool
 parse_ascii_port(char *port, unsigned short *out)
@@ -283,15 +261,25 @@ parse_proxy_protocol_v2(lwan_request_t *request, char *buffer)
 static ALWAYS_INLINE char *
 identify_http_method(lwan_request_t *request, char *buffer)
 {
-    static const char sizes[] = {
-        [0] = 0,
-        [REQUEST_METHOD_GET] = sizeof("GET ") - 1,
-        [REQUEST_METHOD_HEAD] = sizeof("HEAD ") - 1,
-        [REQUEST_METHOD_POST] = sizeof("POST ") - 1,
+    enum {
+        HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
+        HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
+        HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
     };
-    lwan_request_flags_t flags = get_http_method(buffer);
-    request->flags |= flags;
-    return buffer + sizes[flags];
+
+    STRING_SWITCH(buffer) {
+    case HTTP_STR_GET:
+        request->flags |= REQUEST_METHOD_GET;
+        return buffer + sizeof("GET ") - 1;
+    case HTTP_STR_HEAD:
+        request->flags |= REQUEST_METHOD_HEAD;
+        return buffer + sizeof("HEAD ") - 1;
+    case HTTP_STR_POST:
+        request->flags |= REQUEST_METHOD_POST;
+        return buffer + sizeof("POST ") - 1;
+    }
+
+    return NULL;
 }
 
 static ALWAYS_INLINE char
@@ -885,12 +873,8 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
     buffer = ignore_leading_whitespace(buffer);
 
     char *path = identify_http_method(request, buffer);
-    if (UNLIKELY(buffer == path)) {
-        if (UNLIKELY(!*buffer))
-            return HTTP_BAD_REQUEST;
-
+    if (UNLIKELY(!path))
         return HTTP_NOT_ALLOWED;
-    }
 
     buffer = identify_http_path(request, path, helper);
     if (UNLIKELY(!buffer))
