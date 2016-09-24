@@ -891,9 +891,6 @@ parse_http_request(lwan_request_t *request, struct request_parser_helper *helper
 
     compute_keep_alive_flag(request, helper);
 
-    if (request->flags & REQUEST_METHOD_POST)
-        return read_post_data(request, helper);
-
     return HTTP_OK;
 }
 
@@ -921,10 +918,22 @@ prepare_for_response(lwan_url_map_t *url_map,
         parse_cookies(request, helper);
 
     if (request->flags & REQUEST_METHOD_POST) {
-        if (url_map->flags & HANDLER_PARSE_POST_DATA)
-            parse_post_data(request, helper);
-        else
+        lwan_http_status_t status;
+
+        if (!(url_map->flags & HANDLER_PARSE_POST_DATA)) {
+            /* FIXME: Discard POST data here? If a POST request is sent
+             * to a handler that is not supposed to handle a POST request,
+             * the next request in the pipeline will fail because the
+             * body of the previous request will be used as the next
+             * request itself. */
             return HTTP_NOT_ALLOWED;
+        }
+
+        status = read_post_data(request, helper);
+        if (UNLIKELY(status != HTTP_OK))
+            return status;
+
+        parse_post_data(request, helper);
     }
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
