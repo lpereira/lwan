@@ -902,6 +902,14 @@ prepare_for_response(lwan_url_map_t *url_map,
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
+    if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
+        if (!lwan_http_authorize(request,
+                        &helper->authorization,
+                        url_map->authorization.realm,
+                        url_map->authorization.password_file))
+            return HTTP_NOT_AUTHORIZED;
+    }
+
     if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
         parse_query_string(request, helper);
 
@@ -936,13 +944,6 @@ prepare_for_response(lwan_url_map_t *url_map,
         parse_post_data(request, helper);
     }
 
-    if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
-        if (!lwan_http_authorize(request,
-                        &helper->authorization,
-                        url_map->authorization.realm,
-                        url_map->authorization.password_file))
-            return HTTP_NOT_AUTHORIZED;
-    }
 
     if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
         while (*request->url.value == '/' && request->url.len > 0) {
