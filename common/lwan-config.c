@@ -93,8 +93,6 @@ int parse_int(const char *value, int default_value)
 
 bool parse_bool(const char *value, bool default_value)
 {
-    int int_value;
-
     if (!value)
         return default_value;
 
@@ -106,11 +104,7 @@ bool parse_bool(const char *value, bool default_value)
             || !strcmp(value, "no"))
         return false;
 
-    int_value = parse_int(value, -1);
-    if (int_value < 0)
-        return default_value;
-
-    return int_value != 0;
+    return parse_int(value, default_value);
 }
 
 bool config_error(config_t *conf, const char *fmt, ...)
