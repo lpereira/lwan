@@ -925,6 +925,13 @@ prepare_for_response(lwan_url_map_t *url_map,
     if (url_map->flags & HANDLER_PARSE_COOKIES)
         parse_cookies(request, helper);
 
+    if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
+        while (*request->url.value == '/' && request->url.len > 0) {
+            ++request->url.value;
+            --request->url.len;
+        }
+    }
+
     if (request->flags & REQUEST_METHOD_POST) {
         lwan_http_status_t status;
 
@@ -942,14 +949,6 @@ prepare_for_response(lwan_url_map_t *url_map,
             return status;
 
         parse_post_data(request, helper);
-    }
-
-
-    if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
-        while (*request->url.value == '/' && request->url.len > 0) {
-            ++request->url.value;
-            --request->url.len;
-        }
     }
 
     return HTTP_OK;
