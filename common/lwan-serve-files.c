@@ -884,7 +884,7 @@ sendfile_serve(lwan_request_t *request, void *data)
 
         compressed = compression_none;
         fd = sd->uncompressed.fd;
-        size = sd->uncompressed.size;
+        size = (size_t)(to - from);
     }
     if (UNLIKELY(fd < 0)) {
         switch (-fd) {
