@@ -765,7 +765,7 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
     /* 16 packets should be enough to read a request (without the body, as
      * is the case for POST requests).  This yields a timeout error to avoid
      * clients being intentionally slow and hogging the server.  */
-    if (UNLIKELY(n_packets > 16))
+    if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
 
     if (UNLIKELY(total_read < 4))
@@ -817,6 +817,13 @@ static ALWAYS_INLINE int max(int a, int b)
     return (a > b) ? a : b;
 }
 
+static ALWAYS_INLINE int calculate_n_packets(size_t total)
+{
+    /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
+     * after ~2x number of expected packets to fully read the request body.*/
+    return max(1, (int)(total / 740));
+}
+
 static lwan_http_status_t
 read_post_data(lwan_request_t *request, struct request_parser_helper *helper)
 {
@@ -860,9 +867,7 @@ read_post_data(lwan_request_t *request, struct request_parser_helper *helper)
     helper->next_request = NULL;
 
     helper->error_when_time = time(NULL) + request->conn->thread->lwan->config.keep_alive_timeout;
-    /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
-     * after ~2x number of expected packets to fully read the request body.*/
-    helper->error_when_n_packets = max(1, (int)(post_data_size / 740));
+    helper->error_when_n_packets = max(1, calculate_n_packets(post_data_size));
 
     lwan_value_t buffer = { .value = new_buffer, .len = post_data_size - have };
     return read_from_request_socket(request, &buffer, helper, buffer.len,
@@ -1000,6 +1005,7 @@ handle_rewrite(lwan_request_t *request, struct request_parser_helper *helper)
 
     return true;
 }
+
 char *
 lwan_process_request(lwan_t *l, lwan_request_t *request,
     lwan_value_t *buffer, char *next_request)
@@ -1009,7 +1015,8 @@ lwan_process_request(lwan_t *l, lwan_request_t *request,
 
     struct request_parser_helper helper = {
         .buffer = buffer,
-        .next_request = next_request
+        .next_request = next_request,
+        .error_when_n_packets = calculate_n_packets(DEFAULT_BUFFER_SIZE)
     };
 
     status = read_request(request, &helper);
