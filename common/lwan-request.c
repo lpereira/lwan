@@ -38,7 +38,8 @@ typedef enum {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
     FINALIZER_YIELD_TRY_AGAIN,
-    FINALIZER_ERROR_TOO_LARGE
+    FINALIZER_ERROR_TOO_LARGE,
+    FINALIZER_ERROR_TIMEOUT
 } lwan_read_finalizer_t;
 
 struct request_parser_helper {
@@ -57,6 +58,8 @@ struct request_parser_helper {
     lwan_value_t post_data;
     lwan_value_t content_type;
 
+    time_t error_when_time;
+    int error_when_n_packets;
     int urls_rewritten;
     char connection;
 };
@@ -687,11 +690,11 @@ compute_keep_alive_flag(lwan_request_t *request, struct request_parser_helper *h
 
 static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
     lwan_value_t *buffer, struct request_parser_helper *helper, const size_t buffer_size,
-    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, struct request_parser_helper *helper))
+    lwan_read_finalizer_t (*finalizer)(size_t total_read, size_t buffer_size, struct request_parser_helper *helper, int n_packets))
 {
     ssize_t n;
     size_t total_read = 0;
-    int packets_remaining = 16;
+    int n_packets = 0;
 
     if (helper->next_request) {
         buffer->len -= (size_t)(helper->next_request - buffer->value);
@@ -702,7 +705,7 @@ static lwan_http_status_t read_from_request_socket(lwan_request_t *request,
         goto try_to_finalize;
     }
 
-    for (; packets_remaining > 0; packets_remaining--) {
+    for (; ; n_packets++) {
         n = read(request->fd, buffer->value + total_read,
                     (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
@@ -734,7 +737,7 @@ yield_and_read_again:
         buffer->len = (size_t)total_read;
 
 try_to_finalize:
-        switch (finalizer(total_read, buffer_size, helper)) {
+        switch (finalizer(total_read, buffer_size, helper, n_packets)) {
         case FINALIZER_DONE:
             request->conn->flags &= ~CONN_MUST_READ;
             buffer->value[buffer->len] = '\0';
@@ -745,23 +748,26 @@ try_to_finalize:
             goto yield_and_read_again;
         case FINALIZER_ERROR_TOO_LARGE:
             return HTTP_TOO_LARGE;
+        case FINALIZER_ERROR_TIMEOUT:
+            return HTTP_TIMEOUT;
         }
     }
 
-    /*
-     * packets_remaining reached zero: return a timeout error to avoid clients
-     * being intentionally slow and hogging the server.
-     *
-     * FIXME: What should be the best approach? Error with 408, or give some more
-     * time by fiddling with the connection's time to die?
-     */
-
-    return HTTP_TIMEOUT;
+    /* Shouldn't reach here. */
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
+    return HTTP_INTERNAL_ERROR;
 }
 
 static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
-    size_t buffer_size, struct request_parser_helper *helper)
+    size_t buffer_size, struct request_parser_helper *helper, int n_packets)
 {
+    /* 16 packets should be enough to read a request (without the body, as
+     * is the case for POST requests).  This yields a timeout error to avoid
+     * clients being intentionally slow and hogging the server.  */
+    if (UNLIKELY(n_packets > 16))
+        return FINALIZER_ERROR_TIMEOUT;
+
     if (UNLIKELY(total_read < 4))
         return FINALIZER_YIELD_TRY_AGAIN;
 
@@ -787,9 +793,28 @@ read_request(lwan_request_t *request, struct request_parser_helper *helper)
 }
 
 static lwan_read_finalizer_t post_data_finalizer(size_t total_read,
-    size_t buffer_size, struct request_parser_helper *helper __attribute__((unused)))
+    size_t buffer_size, struct request_parser_helper *helper, int n_packets)
 {
-    return buffer_size == total_read ? FINALIZER_DONE : FINALIZER_TRY_AGAIN;
+    if (buffer_size == total_read)
+        return FINALIZER_DONE;
+
+    /* For POST requests, the body can be larger, and due to small MTUs on
+     * most ethernet connections, responding with a timeout solely based on
+     * number of packets doesn't work.  Use keepalive timeout instead.  */
+    if (UNLIKELY(time(NULL) > helper->error_when_time))
+        return FINALIZER_ERROR_TIMEOUT;
+
+    /* In addition to time, also estimate the number of packets based on an
+     * usual MTU value and the request body size.  */
+    if (UNLIKELY(n_packets > helper->error_when_n_packets))
+        return FINALIZER_ERROR_TIMEOUT;
+
+    return FINALIZER_TRY_AGAIN;
+}
+
+static ALWAYS_INLINE int max(int a, int b)
+{
+    return (a > b) ? a : b;
 }
 
 static lwan_http_status_t
@@ -833,6 +858,11 @@ read_post_data(lwan_request_t *request, struct request_parser_helper *helper)
     if (have)
         new_buffer = mempcpy(new_buffer, helper->next_request, have);
     helper->next_request = NULL;
+
+    helper->error_when_time = time(NULL) + request->conn->thread->lwan->config.keep_alive_timeout;
+    /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
+     * after ~2x number of expected packets to fully read the request body.*/
+    helper->error_when_n_packets = max(1, (int)(post_data_size / 740));
 
     lwan_value_t buffer = { .value = new_buffer, .len = post_data_size - have };
     return read_from_request_socket(request, &buffer, helper, buffer.len,
