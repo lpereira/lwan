@@ -35,16 +35,15 @@ find_next_power_of_two(size_t number)
 {
 #if HAVE_BUILTIN_CLZLL
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
+    static const size_t one = 1;
+    int clz;
 
-    if (sizeof(size_t) == sizeof(unsigned int)) {
-        return 1U << (size_bits - __builtin_clz((unsigned int)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long)) {
-        return 1UL << (size_bits - __builtin_clzl((unsigned long)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long long)) {
-        return 1ULL << (size_bits - __builtin_clzll((unsigned long long)number));
-    } else {
-        (void)size_bits;
-    }
+    clz = _Generic(number,
+        unsigned int: __builtin_clz(number),
+        unsigned long: __builtin_clzl(number),
+        default: __builtin_clzll(number));
+
+    return one << (size_bits - clz);
 #endif
 
     number--;
