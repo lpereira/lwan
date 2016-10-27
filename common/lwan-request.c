@@ -403,9 +403,9 @@ parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
     request->header.body = &helper->post_data;
     request->header.content_type = &helper->content_type;
 
-    if (helper->content_type.len != sizeof(content_type) - 1)
+    if (helper->content_type.len < sizeof(content_type) - 1)
         return;
-    if (UNLIKELY(strcmp(helper->content_type.value, content_type)))
+    if (UNLIKELY(strncmp(helper->content_type.value, content_type, sizeof(content_type) - 1)))
         return;
 
     parse_key_values(request, &helper->post_data,
