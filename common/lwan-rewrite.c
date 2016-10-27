@@ -106,6 +106,12 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
     return true;
 }
 
+static int
+parse_int_len(const char *s, size_t len, int default_value)
+{
+    return parse_int(strndupa(s, len), default_value);
+}
+
 static const char *
 expand(lwan_request_t *request __attribute__((unused)), struct pattern *pattern,
     const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
@@ -130,7 +136,7 @@ expand(lwan_request_t *request __attribute__((unused)), struct pattern *pattern,
         }
 
         if (LIKELY(index_len > 0)) {
-            int index = parse_int(strndupa(ptr + 1, index_len), -1);
+            int index = parse_int_len(ptr + 1, index_len, -1);
 
             if (UNLIKELY(index < 0 || index > captures))
                 return NULL;
