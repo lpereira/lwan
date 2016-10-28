@@ -867,7 +867,7 @@ read_post_data(lwan_request_t *request, struct request_parser_helper *helper)
     helper->next_request = NULL;
 
     helper->error_when_time = time(NULL) + request->conn->thread->lwan->config.keep_alive_timeout;
-    helper->error_when_n_packets = max(1, calculate_n_packets(post_data_size));
+    helper->error_when_n_packets = calculate_n_packets(post_data_size);
 
     lwan_value_t buffer = { .value = new_buffer, .len = post_data_size - have };
     return read_from_request_socket(request, &buffer, helper, buffer.len,
