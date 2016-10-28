@@ -73,18 +73,23 @@ class TestPost(LwanTest):
     self.assertHttpResponseValid(r, 200, 'application/json')
     self.assertEqual(r.json(), {'did-it-blend': 'oh-hell-yeah'})
 
-  def test_big_request(self):
-    for size in (10, 100, 1000, 10000, 100000):
-      data = "tro" + "lo" * size
+  def make_request_with_size(self, size):
+    data = "tro" + "lo" * size
 
-      r = requests.post('http://127.0.0.1:8080/post/big', data=data,
-        headers={'Content-Type': 'x-test/trololo'})
+    r = requests.post('http://127.0.0.1:8080/post/big', data=data,
+      headers={'Content-Type': 'x-test/trololo'})
 
-      self.assertHttpResponseValid(r, 200, 'application/json')
-      self.assertEqual(r.json(), {
-        'received': len(data),
-        'sum': sum(ord(b) for b in data)
-      })
+    self.assertHttpResponseValid(r, 200, 'application/json')
+    self.assertEqual(r.json(), {
+      'received': len(data),
+      'sum': sum(ord(b) for b in data)
+    })
+
+  def test_small_request(self): self.make_request_with_size(10)
+  def test_medium_request(self): self.make_request_with_size(100)
+  def test_large_request(self): self.make_request_with_size(1000)
+  def test_huge_request(self): self.make_request_with_size(10000)
+  def test_gigantic_request(self): self.make_request_with_size(100000)
 
 
 class TestFileServing(LwanTest):
