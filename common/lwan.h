@@ -294,6 +294,7 @@ struct lwan_config_t_ {
     bool quiet;
     bool reuse_port;
     bool proxy_protocol;
+    bool allow_cors;
 };
 
 struct lwan_t_ {
