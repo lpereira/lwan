@@ -268,6 +268,7 @@ identify_http_method(lwan_request_t *request, char *buffer)
         HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
         HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
         HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
+        HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'),
     };
 
     STRING_SWITCH(buffer) {
@@ -280,6 +281,9 @@ identify_http_method(lwan_request_t *request, char *buffer)
     case HTTP_STR_POST:
         request->flags |= REQUEST_METHOD_POST;
         return buffer + sizeof("POST ") - 1;
+    case HTTP_STR_OPTIONS:
+        request->flags |= REQUEST_METHOD_OPTIONS;
+        return buffer + sizeof("OPTIONS ") - 1;
     }
 
     return NULL;

@@ -105,6 +105,8 @@ get_request_method(lwan_request_t *request)
         return "HEAD";
     if (request->flags & REQUEST_METHOD_POST)
         return "POST";
+    if (request->flags & REQUEST_METHOD_OPTIONS)
+        return "OPTIONS";
     return "UNKNOWN";
 }
 
@@ -173,7 +175,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
         return;
     }
 
-    if (request->flags & REQUEST_METHOD_HEAD) {
+    if (request->flags & (REQUEST_METHOD_HEAD | REQUEST_METHOD_OPTIONS)) {
         lwan_write(request, headers, header_len);
         return;
     }
@@ -260,6 +262,8 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_CONSTANT("\r\nContent-Length: ");
         if (request->response.stream.callback)
             APPEND_UINT(request->response.content_length);
+        else if (request->flags & REQUEST_METHOD_OPTIONS)
+            APPEND_UINT(0);
         else
             APPEND_UINT(strbuf_get_length(request->response.buffer));
     }
