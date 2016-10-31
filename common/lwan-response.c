@@ -317,6 +317,13 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
     }
 
+    if (request->flags & REQUEST_ALLOW_CORS) {
+        APPEND_CONSTANT("\r\nAccess-Control-Allow-Origin: *"
+            "\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS"
+            "\r\nAccess-Control-Allow-Credentials: true"
+            "\r\nAccess-Control-Allow-Headers: Origin, Accept, Content-Type");
+    }
+
     APPEND_CONSTANT("\r\nServer: lwan\r\n\r\n\0");
 
     return (size_t)(p_headers - headers - 1);

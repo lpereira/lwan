@@ -187,7 +187,8 @@ typedef enum {
     RESPONSE_NO_CONTENT_LENGTH = 1<<9,
     RESPONSE_URL_REWRITTEN     = 1<<10,
     REQUEST_ALLOW_PROXY_REQS   = 1<<11,
-    REQUEST_PROXIED            = 1<<12
+    REQUEST_PROXIED            = 1<<12,
+    REQUEST_ALLOW_CORS         = 1<<13,
 } lwan_request_flags_t;
 
 typedef enum {
@@ -320,6 +321,7 @@ struct lwan_config_t_ {
     bool quiet;
     bool reuse_port;
     bool proxy_protocol;
+    bool allow_cors;
 };
 
 struct lwan_t_ {

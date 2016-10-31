@@ -50,6 +50,7 @@ static const lwan_config_t default_config = {
     .quiet = false,
     .reuse_port = false,
     .proxy_protocol = false,
+    .allow_cors = false,
     .expires = 1 * ONE_WEEK,
     .n_threads = 0,
     .max_post_data_size = 10 * DEFAULT_BUFFER_SIZE
@@ -401,6 +402,9 @@ static bool setup_from_config(lwan_t *lwan, const char *path)
             } else if (streq(line.line.key, "proxy_protocol")) {
                 lwan->config.proxy_protocol = parse_bool(line.line.value,
                             default_config.proxy_protocol);
+            } else if (streq(line.line.key, "allow_cors")) {
+                lwan->config.allow_cors = parse_bool(line.line.value,
+                            default_config.allow_cors);
             } else if (streq(line.line.key, "expires")) {
                 lwan->config.expires = parse_time_period(line.line.value,
                             default_config.expires);

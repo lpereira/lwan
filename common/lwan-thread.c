@@ -142,7 +142,7 @@ process_request_coro(coro_t *coro)
     /* NOTE: This function should not return; coro_yield should be used
      * instead.  This ensures the storage for `strbuf` is alive when the
      * coroutine ends and strbuf_free() is called. */
-    const lwan_request_flags_t flags_filter = REQUEST_PROXIED;
+    const lwan_request_flags_t flags_filter = (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
     strbuf_t strbuf;
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
@@ -153,8 +153,7 @@ process_request_coro(coro_t *coro)
         .len = 0
     };
     char *next_request = NULL;
-    lwan_request_flags_t flags =
-        lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0;
+    lwan_request_flags_t flags = 0;
     lwan_proxy_t proxy;
 
     if (UNLIKELY(!strbuf_init(&strbuf))) {
@@ -162,6 +161,11 @@ process_request_coro(coro_t *coro)
         __builtin_unreachable();
     }
     coro_defer(coro, CORO_DEFER(strbuf_free), &strbuf);
+
+    if (lwan->config.proxy_protocol)
+        flags |= REQUEST_ALLOW_PROXY_REQS;
+    if (lwan->config.allow_cors)
+        flags |= REQUEST_ALLOW_CORS;
 
     while (true) {
         lwan_request_t request = {
