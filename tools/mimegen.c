@@ -117,19 +117,19 @@ static bool is_builtin_mime_type(const char *mime)
 {
     /* These are the mime types supported by Lwan without having to perform
      * a bsearch().  application/octet-stream is the fallback. */
-    if (!strcmp(mime, "application/octet-stream"))
+    if (streq(mime, "application/octet-stream"))
         return true;
-    if (!strcmp(mime, "application/javascript"))
+    if (streq(mime, "application/javascript"))
         return true;
-    if (!strcmp(mime, "image/jpeg"))
+    if (streq(mime, "image/jpeg"))
         return true;
-    if (!strcmp(mime, "image/png"))
+    if (streq(mime, "image/png"))
         return true;
-    if (!strcmp(mime, "text/html"))
+    if (streq(mime, "text/html"))
         return true;
-    if (!strcmp(mime, "text/css"))
+    if (streq(mime, "text/css"))
         return true;
-    if (!strcmp(mime, "text/plain"))
+    if (streq(mime, "text/plain"))
         return true;
     return false;
 }

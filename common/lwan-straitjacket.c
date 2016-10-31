@@ -107,9 +107,9 @@ void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             /* TODO: limit_syscalls */
-            if (!strcmp(l->line.key, "user")) {
+            if (streq(l->line.key, "user")) {
                 user_name = strdupa(l->line.value);
-            } else if (!strcmp(l->line.key, "chroot")) {
+            } else if (streq(l->line.key, "chroot")) {
                 chroot_path = strdupa(l->line.value);
             } else {
                 config_error(c, "Invalid key: %s", l->line.key);

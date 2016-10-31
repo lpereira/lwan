@@ -276,11 +276,11 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {
-            if (UNLIKELY(!strcmp(header->key, "Server")))
+            if (UNLIKELY(streq(header->key, "Server")))
                 continue;
-            if (UNLIKELY(!strcmp(header->key, "Date")))
+            if (UNLIKELY(streq(header->key, "Date")))
                 date_overridden = true;
-            if (UNLIKELY(!strcmp(header->key, "Expires")))
+            if (UNLIKELY(streq(header->key, "Expires")))
                 expires_overridden = true;
 
             RETURN_0_ON_OVERFLOW(4);
@@ -295,7 +295,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         lwan_key_value_t *header;
 
         for (header = request->response.headers; header->key; header++) {
-            if (!strcmp(header->key, "WWW-Authenticate")) {
+            if (streq(header->key, "WWW-Authenticate")) {
                 APPEND_CONSTANT("\r\nWWW-Authenticate: ");
                 APPEND_STRING(header->value);
                 break;

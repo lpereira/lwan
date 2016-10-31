@@ -95,7 +95,7 @@ parse_listener_ipv4(char *listener, char **node, char **port)
         *node = listener;
         *port = colon + 1;
 
-        if (!strcmp(*node, "*")) {
+        if (streq(*node, "*")) {
             /* *:8080 */
             *node = "0.0.0.0";
         }
@@ -129,7 +129,7 @@ parse_listener_ipv6(char *listener, char **node, char **port)
 static sa_family_t
 parse_listener(char *listener, char **node, char **port)
 {
-    if (!strcmp(listener, "systemd")) {
+    if (streq(listener, "systemd")) {
         lwan_status_critical("Listener configured to use systemd socket activation, "
             "but started outside systemd.");
         return AF_UNSPEC;

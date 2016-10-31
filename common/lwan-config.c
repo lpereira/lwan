@@ -96,12 +96,10 @@ bool parse_bool(const char *value, bool default_value)
     if (!value)
         return default_value;
 
-    if (!strcmp(value, "true") || !strcmp(value, "on")
-            || !strcmp(value, "yes"))
+    if (streq(value, "true") || streq(value, "on") || streq(value, "yes"))
         return true;
 
-    if (!strcmp(value, "false") || !strcmp(value, "off")
-            || !strcmp(value, "no"))
+    if (streq(value, "false") || streq(value, "off") || streq(value, "no"))
         return false;
 
     return parse_int(value, default_value);
@@ -220,7 +218,7 @@ static bool parse_multiline(config_t *c, config_line_t *l)
 
     while (config_fgets(c, buffer, sizeof(buffer))) {
         char *tmp = remove_trailing_spaces(remove_leading_spaces(buffer));
-        if (!strcmp(tmp, "'''")) {
+        if (streq(tmp, "'''")) {
             l->line.value = strbuf_get_buffer(c->strbuf);
             return true;
         }
@@ -249,7 +247,7 @@ static bool parse_line(config_t *c, char *line, config_line_t *l, char *equal)
     l->line.value = remove_leading_spaces(equal + 1);
     l->type = CONFIG_LINE_TYPE_LINE;
 
-    if (strcmp(l->line.value, "'''"))
+    if (!streq(l->line.value, "'''"))
         return true;
 
     return parse_multiline(c, l);

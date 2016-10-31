@@ -48,4 +48,10 @@ void *mempcpy(void *dest, const void *src, size_t len);
 void *memrchr(const void *s, int c, size_t n);
 #endif
 
+static inline int
+streq(const char *a, const char *b)
+{
+   return strcmp(a, b) == 0;
+}
+
 #endif /* MISSING_STRING_H */

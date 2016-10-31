@@ -301,15 +301,15 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
     while (config_read_line(config, line)) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (!strcmp(line->line.key, "redirect_to")) {
+            if (streq(line->line.key, "redirect_to")) {
                 redirect_to = strdup(line->line.value);
                 if (!redirect_to)
                     goto out;
-            } else if (!strcmp(line->line.key, "rewrite_as")) {
+            } else if (streq(line->line.key, "rewrite_as")) {
                 rewrite_as = strdup(line->line.value);
                 if (!rewrite_as)
                     goto out;
-            } else if (!strcmp(line->line.key, "expand_with_lua")) {
+            } else if (streq(line->line.key, "expand_with_lua")) {
                 expand_with_lua = parse_bool(line->line.value, false);
             } else {
                 config_error(config, "Unexpected key: %s", line->line.key);
@@ -371,7 +371,7 @@ module_parse_conf(void *data, config_t *config)
             config_error(config, "Unknown option: %s", line.line.key);
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (!strcmp(line.section.name, "pattern")) {
+            if (streq(line.section.name, "pattern")) {
                 module_parse_conf_pattern(pd, config, &line);
             } else {
                 config_error(config, "Unknown section: %s", line.section.name);

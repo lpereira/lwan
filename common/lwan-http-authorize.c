@@ -173,7 +173,7 @@ authorize(coro_t *coro,
 
     looked_password = hash_find(rpf->entries, decoded);
     if (looked_password)
-        password_ok = !strcmp(password, looked_password);
+        password_ok = streq(password, looked_password);
 
 out:
     free(decoded);
