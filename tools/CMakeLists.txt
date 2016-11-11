@@ -6,6 +6,8 @@ project(mimegen)
 find_package(ZLIB REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES})
 
+include_directories(BEFORE ../common/missing)
+
 add_executable(mimegen
 	mimegen.c
 	../common/hash.c
