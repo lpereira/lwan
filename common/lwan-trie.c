@@ -83,6 +83,8 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
         leaf = malloc(sizeof(*leaf));
         if (!leaf)
             lwan_status_critical_perror("malloc");
+    } else if (trie->free_node) {
+        trie->free_node(leaf->data);
     }
 
     leaf->data = data;
