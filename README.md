@@ -227,7 +227,7 @@ Lwan has been also used as a benchmark:
 
 Some talks mentioning Lwan:
 
-* [Talk about Lwan](https://www.youtube.com/watch?v=cttY9FdCzUE) at Polyconf16, given by [@lpereira].
+* [Talk about Lwan](https://www.youtube.com/watch?v=cttY9FdCzUE) at Polyconf16, given by [@lpereira](https://github.com/lpereira).
 * This [talk about Iron](https://michaelsproul.github.io/iron-talk/), a framework for Rust, mentions Lwan as an *insane C thing*.
 * [University seminar presentation](https://github.com/cu-data-engineering-s15/syllabus/blob/master/student_lectures/LWAN.pdf) about Lwan.
 * This [presentation about Sailor web framework](http://www.slideshare.net/EtieneDalcol/web-development-with-lua-bulgaria-web-summit) mentions Lwan.
@@ -236,7 +236,6 @@ Not really third-party, but alas:
 
 * The [author's blog](http://tia.mat.br).
 * The [project's webpage](http://lwan.ws).
-
 
 Build status
 ------------
