@@ -33,7 +33,7 @@ static const size_t DEFAULT_BUF_SIZE = 64;
 static size_t
 find_next_power_of_two(size_t number)
 {
-#if HAVE_BUILTIN_CLZLL
+#if defined(HAVE_BUILTIN_CLZLL)
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
 
     if (sizeof(size_t) == sizeof(unsigned int)) {

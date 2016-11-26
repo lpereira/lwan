@@ -7,6 +7,7 @@ find_package(ZLIB REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES})
 
 include_directories(BEFORE ../common/missing)
+include_directories(${CMAKE_BINARY_DIR})
 
 add_executable(mimegen
 	mimegen.c
@@ -19,8 +20,11 @@ find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
 if (ZOPFLI_LIBRARY)
 	message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
 	target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
-	add_definitions(-DHAVE_ZOPFLI)
+	set (HAVE_ZOPFLI 1)
 else ()
 	message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
 	target_link_libraries(mimegen ${ZLIB_LIBRARIES})
 endif ()
+
+configure_file(${CMAKE_SOURCE_DIR}/../lwan-build-config.h.cmake
+	${CMAKE_BINARY_DIR}/lwan-build-config.h)

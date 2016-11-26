@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,24 +17,30 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include_next <time.h>
+#pragma once
 
-#ifndef MISSING_TIME_H
-#define MISSING_TIME_H
+/* API available in Glibc/Linux, but possibly not elsewhere */
+#cmakedefine HAS_ACCEPT4
+#cmakedefine HAS_CLOCK_GETTIME
+#cmakedefine HAS_MEMPCPY
+#cmakedefine HAS_MEMRCHR
+#cmakedefine HAS_PIPE2
+#cmakedefine HAS_PTHREADBARRIER
+#cmakedefine HAS_RAWMEMCHR
 
-#include "lwan-build-config.h"
+/* Compiler builtins for specific CPU instruction support */
+#cmakedefine HAVE_BUILTIN_CLZLL
+#cmakedefine HAVE_BUILTIN_CPU_INIT
+#cmakedefine HAVE_BUILTIN_IA32_CRC32
+#cmakedefine HAVE_BUILTIN_MUL_OVERFLOW
 
-#ifndef HAS_CLOCK_GETTIME
-typedef int clockid_t;
-int clock_gettime(clockid_t clk_id, struct timespec *ts);
+/* C11 _Static_assert() */
+#cmakedefine HAVE_STATIC_ASSERT
 
-# ifndef CLOCK_MONOTONIC_COARSE
-#  define CLOCK_MONOTONIC_COARSE 0
-# endif
+/* Libraries */
+#cmakedefine HAVE_LUA
+#cmakedefine HAVE_ZOPFLI
 
-# ifndef CLOCK_MONOTONIC
-#  define CLOCK_MONOTONIC 1
-# endif
-#endif
+/* Valgrind support for coroutines */
+#cmakedefine USE_VALGRIND
 
-#endif /* MISSING_TIME_H */

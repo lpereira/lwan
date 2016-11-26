@@ -34,31 +34,21 @@ set(SOURCES
 include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES string.h)
 check_function_exists(rawmemchr HAS_RAWMEMCHR)
-if (HAS_RAWMEMCHR)
-	add_definitions(-DHAS_RAWMEMCHR)
-endif ()
+set(HAS_RAWMEMCHR ${HAS_RAWMEMCHR} PARENT_SCOPE)
 
 check_function_exists(mempcpy HAS_MEMPCPY)
-if (HAS_MEMPCPY)
-	add_definitions(-DHAS_MEMPCPY)
-endif ()
+set(HAS_MEMPCPY ${HAS_MEMPCPY} PARENT_SCOPE)
 
 check_function_exists(memrchr HAS_MEMRCHR)
-if (HAS_MEMRCHR)
-	add_definitions(-DHAS_MEMRCHR)
-endif ()
+set(HAS_MEMRCHR ${HAS_MEMRCHR} PARENT_SCOPE)
 
 set(CMAKE_EXTRA_INCLUDE_FILES unistd.h)
 check_function_exists(pipe2 HAS_PIPE2)
-if (HAS_PIPE2)
-	add_definitions(-DHAS_PIPE2)
-endif ()
+set(HAS_PIPE2 ${HAS_PIPE2} PARENT_SCOPE)
 
 set(CMAKE_EXTRA_INCLUDE_FILES sys/types.h sys/socket.h)
 check_function_exists(accept4 HAS_ACCEPT4)
-if (HAS_ACCEPT4)
-	add_definitions(-DHAS_ACCEPT4)
-endif ()
+set(HAS_ACCEPT4 ${HAS_ACCEPT4} PARENT_SCOPE)
 
 include(FindPkgConfig)
 foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
@@ -71,7 +61,6 @@ foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 		list(APPEND ADDITIONAL_LIBRARIES "-l${LUA_LIBRARIES} ${LUA_LDFLAGS}")
 		list(APPEND SOURCES lwan-lua.c)
 		include_directories(${LUA_INCLUDE_DIRS})
-		add_definitions(-DHAVE_LUA)
 		break()
         endif()
 endforeach ()
@@ -79,6 +68,7 @@ if (NOT LUA_FOUND)
 	message(STATUS "Disabling Lua support")
 else ()
 	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
+       set(HAVE_LUA 1 PARENT_SCOPE)
 endif ()
 
 add_library(lwan-static STATIC ${SOURCES})
@@ -119,9 +109,9 @@ include_directories(${CMAKE_BINARY_DIR})
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
 
-INSTALL(TARGETS lwan-static lwan-shared
+install(TARGETS lwan-static lwan-shared
   DESTINATION "lib"
 )
-INSTALL(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
+install(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
   lwan-template.h lwan-serve-files.h lwan-config.h
   DESTINATION "include/lwan" )

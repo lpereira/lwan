@@ -29,6 +29,8 @@ extern "C" {
 #include <string.h>
 #include <netinet/in.h>
 
+#include "lwan-build-config.h"
+
 #include "hash.h"
 #include "lwan-config.h"
 #include "lwan-coro.h"

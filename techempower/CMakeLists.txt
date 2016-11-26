@@ -35,6 +35,7 @@ if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
 			${MYSQL_LIBRARY}
 		)
 		include_directories(${SQLITE_INCLUDE_DIRS})
+		include_directories(BEFORE ${CMAKE_BINARY_DIR})
 	endif ()
 endif ()
 

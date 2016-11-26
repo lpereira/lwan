@@ -22,8 +22,10 @@
 #ifndef MISSING_ASSERT_H
 #define MISSING_ASSERT_H
 
+#include "lwan-build-config.h"
+
 #undef static_assert
-#if HAVE_STATIC_ASSERT
+#if defined(HAVE_STATIC_ASSERT)
 # define static_assert(expr, msg)	_Static_assert(expr, msg)
 #else
 # define static_assert(expr, msg)

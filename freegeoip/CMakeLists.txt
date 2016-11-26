@@ -2,6 +2,8 @@ include(FindPkgConfig)
 pkg_check_modules(SQLITE sqlite3>=3.6.20)
 
 if (SQLITE_FOUND)
+	include_directories(BEFORE ${CMAKE_BINARY_DIR})
+
 	add_executable(freegeoip
 		freegeoip.c
 	)

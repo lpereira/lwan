@@ -1,3 +1,5 @@
+include_directories(BEFORE ${CMAKE_BINARY_DIR})
+
 add_executable(lwan main.c)
 
 target_link_libraries(lwan

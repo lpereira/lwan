@@ -24,34 +24,16 @@ set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)
-if (HAVE_BUILTIN_CPU_INIT)
-	add_definitions("-DHAVE_BUILTIN_CPU_INIT")
-endif ()
 check_c_source_compiles("int main(void) { __builtin_clzll(0); }" HAVE_BUILTIN_CLZLL)
-if (HAVE_BUILTIN_CLZLL)
-	add_definitions("-DHAVE_BUILTIN_CLZLL")
-endif ()
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_mul_overflow(0, 0, &p); }" HAVE_BUILTIN_MUL_OVERFLOW)
-if (HAVE_BUILTIN_MUL_OVERFLOW)
-	add_definitions("-DHAVE_BUILTIN_MUL_OVERFLOW")
-endif ()
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
-if (HAVE_STATIC_ASSERT)
-	add_definitions("-DHAVE_STATIC_ASSERT")
-endif ()
 
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 check_function_exists(pthread_barrier_init HAS_PTHREADBARRIER)
-if (HAS_PTHREADBARRIER)
-	add_definitions(-DHAS_PTHREADBARRIER)
-endif ()
 
 set(CMAKE_EXTRA_INCLUDE_FILES time.h)
 check_function_exists(clock_gettime HAS_CLOCK_GETTIME)
-if (HAS_CLOCK_GETTIME)
-	add_definitions("-DHAS_CLOCK_GETTIME")
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	add_definitions("-DHAS_CLOCK_GETTIME")
+if (NOT HAS_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	list(APPEND ADDITIONAL_LIBRARIES rt)
 endif ()
 
@@ -126,7 +108,6 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 
 	check_c_compiler_flag(-mcrc32 HAVE_BUILTIN_IA32_CRC32)
 	if (HAVE_BUILTIN_IA32_CRC32)
-		add_definitions("-DHAVE_BUILTIN_IA32_CRC32=1")
 		set(C_FLAGS_REL "${C_FLAGS_REL} -mcrc32")
 	endif ()
 else ()
@@ -178,7 +159,7 @@ endif ()
 find_path(VALGRIND_INCLUDE_DIR valgrind.h /usr/include /usr/include/valgrind /usr/local/include /usr/local/include/valgrind)
 if (VALGRIND_INCLUDE_DIR)
 	message(STATUS "Building with Valgrind support")
-	add_definitions("-DUSE_VALGRIND=1")
+	set(USE_VALGRIND 1)
 else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
@@ -224,10 +205,16 @@ execute_process(
 )
 
 configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/lwan-build-config.h.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/lwan-build-config.h"
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lwan-build-config.h
+  DESTINATION "include/lwan")
+
+configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/lwan.pc.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
 )
-
 install(FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc" DESTINATION lib/pkgconfig)
 
 find_package(PythonInterp 3)
