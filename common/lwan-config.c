@@ -293,6 +293,7 @@ bool config_isolate_section(config_t *current_conf,
     int origin_line = current_conf->line;
 
     *isolated = *current_conf;
+    isolated->file = NULL;
 
     if (current_conf->error_message)
         return false;
@@ -320,10 +321,14 @@ bool config_isolate_section(config_t *current_conf,
 resetpos:
     if (fseek(current_conf->file, startpos, SEEK_SET) < 0) {
         config_error(current_conf, "Could not reset file position");
-        return false;
+        r = false;
+    }
+    if (!r || current_conf->error_message) {
+        config_error(current_conf, "Unknown error while isolating section");
+        r = false;
     }
     if (!r)
-        config_error(current_conf, "Unknown error while isolating section");
+        config_close(isolated);
     return r;
 }
 
