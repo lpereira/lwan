@@ -130,7 +130,7 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                 dest = rpath + dest_offset;
             }
 
-            dest = mempcpy(dest, start, (size_t)(end - start));
+            dest = mempmove(dest, start, (size_t)(end - start));
             *dest = '\0';
 
             if (LIKELY(!strncmp(rpath, dirfdpath, (size_t)dirfdlen))) {

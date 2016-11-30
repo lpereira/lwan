@@ -54,4 +54,11 @@ streq(const char *a, const char *b)
    return strcmp(a, b) == 0;
 }
 
+static inline void *
+mempmove(void *dest, const void *src, size_t len)
+{
+   unsigned char *d = memmove(dest, src, len);
+   return d + len;
+}
+
 #endif /* MISSING_STRING_H */
