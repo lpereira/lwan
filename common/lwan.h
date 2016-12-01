@@ -129,9 +129,11 @@ typedef enum {
     HTTP_TOO_LARGE = 413,
     HTTP_RANGE_UNSATISFIABLE = 416,
     HTTP_I_AM_A_TEAPOT = 418,
+    HTTP_CLIENT_TOO_HIGH = 420,
     HTTP_INTERNAL_ERROR = 500,
     HTTP_NOT_IMPLEMENTED = 501,
     HTTP_UNAVAILABLE = 503,
+    HTTP_SERVER_TOO_HIGH = 520,
 } lwan_http_status_t;
 
 typedef enum {

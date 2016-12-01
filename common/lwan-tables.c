@@ -138,9 +138,11 @@ lwan_http_status_as_string_with_code(lwan_http_status_t status)
         RESP(413, "Request too large"),
         RESP(416, "Requested range unsatisfiable"),
         RESP(418, "I'm a teapot"),
+        RESP(420, "Client too high"),
         RESP(500, "Internal server error"),
         RESP(501, "Not implemented"),
-        RESP(503, "Service unavailable")
+        RESP(503, "Service unavailable"),
+        RESP(520, "Server too high"),
     };
 #undef RESP
 
@@ -184,12 +186,16 @@ lwan_http_status_as_descriptive_string(lwan_http_status_t status)
         return "The server can't supply the requested portion of the requested resource.";
     case HTTP_I_AM_A_TEAPOT:
         return "Client requested to brew coffee but device is a teapot.";
+    case HTTP_CLIENT_TOO_HIGH:
+        return "Client is too high to make a request.";
     case HTTP_INTERNAL_ERROR:
         return "The server encountered an internal error that couldn't be recovered from.";
     case HTTP_NOT_IMPLEMENTED:
         return "Server lacks the ability to fulfil the request.";
     case HTTP_UNAVAILABLE:
         return "The server is either overloaded or down for maintenance.";
+    case HTTP_SERVER_TOO_HIGH:
+        return "The server is too high to answer the request.";
     }
     return "Invalid";
 }
