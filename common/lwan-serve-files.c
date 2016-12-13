@@ -396,6 +396,8 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(ce + 1);
     const char *relpath = full_path + priv->root.path_len;
 
+    ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
+
     sd->uncompressed.fd = openat(priv->root.fd, relpath + 1, priv->open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
         switch (-errno) {
@@ -422,7 +424,6 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
         sd->compressed.size = compressed_sz;
     }
 
-    ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
     sd->uncompressed.size = (size_t)st->st_size;
 
     return true;
