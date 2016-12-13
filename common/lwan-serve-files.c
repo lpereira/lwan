@@ -353,65 +353,77 @@ close_file:
     return success;
 }
 
+static int
+try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
+    const struct stat *uncompressed, size_t *compressed_sz)
+{
+    char gzpath[PATH_MAX];
+    struct stat st;
+    int ret, fd;
+
+    /* Try to serve a compressed file using sendfile() if $FILENAME.gz exists */
+    ret = snprintf(gzpath, PATH_MAX, "%s.gz", relpath + 1);
+    if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
+        goto out;
+
+    fd = openat(priv->root.fd, gzpath, priv->open_mode);
+    if (UNLIKELY(fd < 0))
+        goto out;
+
+    ret = fstat(fd, &st);
+    if (UNLIKELY(ret < 0))
+        goto close_and_out;
+
+    if (UNLIKELY(st.st_mtime < uncompressed->st_mtime))
+        goto close_and_out;
+
+    if (LIKELY(is_compression_worthy((size_t)st.st_size, (size_t)uncompressed->st_size))) {
+        *compressed_sz = (size_t)st.st_size;
+        return fd;
+    }
+
+close_and_out:
+    close(fd);
+out:
+    *compressed_sz = 0;
+    return -ENOENT;
+}
+
 static bool
 sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     const char *full_path, struct stat *st)
 {
-    char gzpath[PATH_MAX];
     struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(ce + 1);
-    struct stat compressed_st;
-    int ret;
+    const char *relpath = full_path + priv->root.path_len;
 
-    ce->mime_type = lwan_determine_mime_type_for_file_name(
-                full_path + priv->root.path_len);
-
-    if (UNLIKELY(!priv->serve_precompressed_files))
-        goto only_uncompressed;
-
-    /* Try to serve a compressed file using sendfile() if $FILENAME.gz exists */
-    ret = snprintf(gzpath, PATH_MAX, "%s.gz", full_path + priv->root.path_len + 1);
-    if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
-        goto only_uncompressed;
-
-    sd->compressed.fd = openat(priv->root.fd, gzpath, priv->open_mode);
-    if (UNLIKELY(sd->compressed.fd < 0))
-        goto only_uncompressed;
-
-    ret = fstat(sd->compressed.fd, &compressed_st);
-    if (LIKELY(!ret && compressed_st.st_mtime >= st->st_mtime &&
-            is_compression_worthy((size_t)compressed_st.st_size, (size_t)st->st_size))) {
-        sd->compressed.size = (size_t)compressed_st.st_size;
-    } else {
-        close(sd->compressed.fd);
-
-only_uncompressed:
-        sd->compressed.fd = -1;
-        sd->compressed.size = 0;
-    }
-
-    /* Regardless of the existence of $FILENAME.gz, keep the uncompressed file open */
-    sd->uncompressed.size = (size_t)st->st_size;
-    sd->uncompressed.fd = openat(priv->root.fd, full_path + priv->root.path_len + 1, priv->open_mode);
+    sd->uncompressed.fd = openat(priv->root.fd, relpath + 1, priv->open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
-        int openat_errno = errno;
-
-        if (sd->compressed.fd >= 0)
-            close(sd->compressed.fd);
-
-        switch (openat_errno) {
+        switch (-errno) {
         case ENFILE:
         case EMFILE:
         case EACCES:
-            /* These errors should produce responses other than 404, so store errno as the
-             * file descriptor. */
+            /* These errors should produce responses other than 404, so
+             * store errno as the file descriptor.  */
+            sd->uncompressed.fd = sd->compressed.fd = -errno;
+            sd->compressed.size = sd->uncompressed.size = 0;
 
-            sd->uncompressed.fd = sd->compressed.fd = -openat_errno;
-            sd->compressed.size = 0;
             return true;
         }
 
         return false;
     }
+
+    /* If precompressed files can be served, try opening it */
+    if (LIKELY(priv->serve_precompressed_files)) {
+        size_t compressed_sz;
+        int fd = try_open_compressed(relpath, priv, st, &compressed_sz);
+
+        sd->compressed.fd = fd;
+        sd->compressed.size = compressed_sz;
+    }
+
+    ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
+    sd->uncompressed.size = (size_t)st->st_size;
 
     return true;
 }
