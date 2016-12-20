@@ -400,7 +400,7 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
 
     sd->uncompressed.fd = openat(priv->root.fd, relpath + 1, priv->open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
-        switch (-errno) {
+        switch (errno) {
         case ENFILE:
         case EMFILE:
         case EACCES:
