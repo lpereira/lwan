@@ -23,6 +23,7 @@
 #define DECLARE_STATUS_PROTO(type_, ...)                             \
   void lwan_status_##type_(const char *fmt, ...)                     \
                               __attribute__((format(printf, 1, 2)))  \
+                              __attribute__((noinline,cold))         \
                               __VA_ARGS__;
 
 #define lwan_status_debug(fmt, ...)
@@ -31,6 +32,7 @@
   void lwan_status_##type_##_debug(const char *file, const int line, \
             const char *func, const char *fmt, ...)                  \
                               __attribute__((format(printf, 4, 5)))  \
+                              __attribute__((noinline,cold))         \
                               __VA_ARGS__;
 
 #define lwan_status_info(fmt, ...) \
