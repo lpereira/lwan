@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -861,7 +862,7 @@ lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr)
 bool
 lwan_tpl_double_is_empty(void *ptr)
 {
-    return (*(double *)ptr) == 0.0f;
+    return fpclassify(*(double *)ptr) == FP_ZERO;
 }
 
 void
