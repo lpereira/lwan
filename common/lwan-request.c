@@ -621,13 +621,13 @@ parse_range(lwan_request_t *request, struct request_parser_helper *helper)
     range += sizeof("bytes=") - 1;
     off_t from, to;
 
-    if (sscanf(range, "%"PRIu64"-%"PRIu64, &from, &to) == 2) {
+    if (sscanf(range, "%"SCNu64"-%"PRIu64, &from, &to) == 2) {
         request->header.range.from = from;
         request->header.range.to = to;
-    } else if (sscanf(range, "-%"PRIu64, &to) == 1) {
+    } else if (sscanf(range, "-%"SCNu64, &to) == 1) {
         request->header.range.from = 0;
         request->header.range.to = to;
-    } else if (sscanf(range, "%"PRIu64"-", &from) == 1) {
+    } else if (sscanf(range, "%"SCNu64"-", &from) == 1) {
         request->header.range.from = from;
         request->header.range.to = -1;
     } else {
