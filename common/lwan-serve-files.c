@@ -353,6 +353,14 @@ close_file:
     return success;
 }
 
+static bool
+is_world_readable(mode_t mode)
+{
+    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
+
+    return (mode & world_readable) == world_readable;
+}
+
 static int
 try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
     const struct stat *uncompressed, size_t *compressed_sz)
@@ -375,6 +383,9 @@ try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
         goto close_and_out;
 
     if (UNLIKELY(st.st_mtime < uncompressed->st_mtime))
+        goto close_and_out;
+
+    if (UNLIKELY(!is_world_readable(st.st_mode)))
         goto close_and_out;
 
     if (LIKELY(is_compression_worthy((size_t)st.st_size, (size_t)uncompressed->st_size))) {
@@ -463,14 +474,6 @@ redir_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
 
     ce->mime_type = "text/plain";
     return true;
-}
-
-static bool
-is_world_readable(mode_t mode)
-{
-    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
-
-    return (mode & world_readable) == world_readable;
 }
 
 static const struct cache_funcs *
