@@ -1286,7 +1286,7 @@ action_start_iter:
     coro = coro_new(&switcher, cd->descriptor->generator, variables);
 
     bool resumed = coro_resume_value(coro, 0);
-    enum flags negate = chunk->flags & FLAGS_NEGATE;
+    bool negate = (chunk->flags & FLAGS_NEGATE) == FLAGS_NEGATE;
     if (negate)
         resumed = !resumed;
     if (!resumed) {
