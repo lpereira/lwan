@@ -44,12 +44,6 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
     ptrdiff_t dirfdlen;
     char *pathat;
 
-    /* If any of the additional parameters are null, or if the name to
-       resolve the real path is an absolute path, use the standard
-       realpath() routine. */
-    if (UNLIKELY(dirfd < 0 || dirfdpath == NULL || name[0] == '/'))
-        return realpath(name, resolved);
-
     if (UNLIKELY(name == NULL)) {
         /* As per Single Unix Specification V2 we must return an error if
            either parameter is a null pointer.  We extend this to allow
@@ -58,6 +52,12 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
         errno = EINVAL;
         return NULL;
     }
+
+    /* If any of the additional parameters are null, or if the name to
+       resolve the real path is an absolute path, use the standard
+       realpath() routine. */
+    if (UNLIKELY(dirfd < 0 || dirfdpath == NULL || name[0] == '/'))
+        return realpath(name, resolved);
 
     if (name[0] == '\0') {
         if (UNLIKELY(fstat(dirfd, st) < 0))
