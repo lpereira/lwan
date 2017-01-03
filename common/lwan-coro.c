@@ -47,7 +47,6 @@ typedef struct coro_defer_t_	coro_defer_t;
 typedef void (*defer_func)();
 
 struct coro_defer_t_ {
-    coro_defer_t *next;
     defer_func func;
     void *data1;
     void *data2;
@@ -62,8 +61,8 @@ struct coro_t_ {
     unsigned int vg_stack_id;
 #endif
 
-    coro_defer_t *defer;
     void *data;
+    coro_defer_t defer[16];
 
     bool ended;
 };
@@ -162,16 +161,26 @@ coro_entry_point(coro_t *coro, coro_function_t func)
 }
 
 static void
+run_or_recurse(coro_defer_t *defer, coro_defer_t *last)
+{
+    if (defer == last || !defer->func)
+        return;
+
+    run_or_recurse(defer + 1, last);
+    defer->func(defer->data1, defer->data2);
+    defer->func = NULL;
+}
+
+static coro_defer_t *last_defer(const coro_t *coro)
+{
+    return (coro_defer_t *)(&coro->defer + 1);
+}
+
+static void
 coro_run_deferred(coro_t *coro)
 {
-    while (coro->defer) {
-        coro_defer_t *tmp = coro->defer;
-
-        coro->defer = coro->defer->next;
-
-        tmp->func(tmp->data1, tmp->data2);
-        free(tmp);
-    }
+    /* Some uses require deferred statements are arranged in a stack. */
+    run_or_recurse(coro->defer, last_defer(coro));
 }
 
 void
@@ -221,7 +230,7 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
         return NULL;
 
     coro->switcher = switcher;
-    coro->defer = NULL;
+    memset(coro->defer, 0, sizeof(coro->defer));
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
@@ -300,18 +309,20 @@ coro_free(coro_t *coro)
 static void
 coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
 {
-    coro_defer_t *defer = malloc(sizeof(*defer));
-    if (UNLIKELY(!defer))
-        return;
+    coro_defer_t *defer;
+    coro_defer_t *last = last_defer(coro);
 
     assert(func);
 
-    /* Some uses require deferred statements are arranged in a stack. */
-    defer->next = coro->defer;
+    for (defer = coro->defer; defer <= last && defer->func; defer++);
+    if (UNLIKELY(defer == last)) {
+        lwan_status_error("Coro %p exhausted space for deferred callback", coro);
+        return;
+    }
+
     defer->func = func;
     defer->data1 = data1;
     defer->data2 = data2;
-    coro->defer = defer;
 }
 
 ALWAYS_INLINE void
@@ -330,18 +341,12 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
 void *
 coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 {
-    coro_defer_t *defer = malloc(sizeof(*defer) + size);
-    if (UNLIKELY(!defer))
+    void *mem = malloc(size);
+    if (UNLIKELY(!mem))
         return NULL;
 
-    defer->next = coro->defer;
-    defer->func = destroy_func;
-    defer->data1 = defer + 1;
-    defer->data2 = NULL;
-
-    coro->defer = defer;
-
-    return defer + 1;
+    coro_defer(coro, CORO_DEFER(destroy_func), mem);
+    return mem;
 }
 
 static void nothing()
