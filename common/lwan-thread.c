@@ -139,8 +139,11 @@ min(const int a, const int b)
 static int
 process_request_coro(coro_t *coro)
 {
+    /* NOTE: This function should not return; coro_yield should be used
+     * instead.  This ensures the storage for `strbuf` is alive when the
+     * coroutine ends and strbuf_free() is called. */
     const lwan_request_flags_t flags_filter = REQUEST_PROXIED;
-    strbuf_t *strbuf = coro_malloc_full(coro, sizeof(*strbuf), strbuf_free);
+    strbuf_t strbuf;
     lwan_connection_t *conn = coro_get_data(coro);
     lwan_t *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
@@ -154,17 +157,18 @@ process_request_coro(coro_t *coro)
         lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0;
     lwan_proxy_t proxy;
 
-    if (UNLIKELY(!strbuf))
-        return CONN_CORO_ABORT;
-
-    strbuf_init(strbuf);
+    if (UNLIKELY(!strbuf_init(&strbuf))) {
+        coro_yield(coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+    coro_defer(coro, CORO_DEFER(strbuf_free), &strbuf);
 
     while (true) {
         lwan_request_t request = {
             .conn = conn,
             .fd = fd,
             .response = {
-                .buffer = strbuf
+                .buffer = &strbuf
             },
             .flags = flags,
             .proxy = &proxy
@@ -175,13 +179,16 @@ process_request_coro(coro_t *coro)
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
-        if (UNLIKELY(!strbuf_reset_length(strbuf)))
-            return CONN_CORO_ABORT;
+        if (UNLIKELY(!strbuf_reset_length(&strbuf))) {
+            coro_yield(coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
 
         flags = request.flags & flags_filter;
     }
 
-    return CONN_CORO_FINISHED;
+    coro_yield(coro, CONN_CORO_FINISHED);
+    __builtin_unreachable();
 }
 
 static ALWAYS_INLINE void
