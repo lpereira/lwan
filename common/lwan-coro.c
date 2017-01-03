@@ -174,7 +174,7 @@ run_or_recurse(coro_defer_t *defer, coro_defer_t *last)
 
 static coro_defer_t *last_defer(coro_t *coro)
 {
-    return *(&coro->defer + 1);
+    return coro->defer + sizeof(coro->defer);
 }
 
 static void
