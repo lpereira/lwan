@@ -233,7 +233,7 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, coro->stack + CORO_STACK);
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(coro->stack, coro->stack + CORO_STACK);
 #endif
 
     return coro;
