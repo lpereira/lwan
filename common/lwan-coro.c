@@ -213,7 +213,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
 #else
     getcontext(&coro->context);
 
-    coro->context.uc_stack.ss_sp = stack;
+    coro->context.uc_stack.ss_sp = coro->stack;
     coro->context.uc_stack.ss_size = CORO_STACK;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
