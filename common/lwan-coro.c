@@ -171,9 +171,9 @@ run_or_recurse(coro_defer_t *defer, coro_defer_t *last)
     defer->func = NULL;
 }
 
-static coro_defer_t *last_defer(const coro_t *coro)
+static coro_defer_t *last_defer(coro_t *coro)
 {
-    return (coro_defer_t *)(&coro->defer + 1);
+    return *(&coro->defer + 1);
 }
 
 static void
