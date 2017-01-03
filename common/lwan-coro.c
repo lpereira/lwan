@@ -196,7 +196,8 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
-    coro->context[9 /* RSP */] = (uintptr_t) coro->stack + CORO_STACK;
+    uintptr_t stack = (uintptr_t) coro->stack + CORO_STACK;
+    coro->context[9 /* RSP */] = stack - (stack & 7);
 #elif defined(__i386__)
     /* Align stack and make room for two arguments */
     stack = (unsigned char *)((uintptr_t)(coro->stack + CORO_STACK -
