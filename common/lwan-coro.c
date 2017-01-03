@@ -34,12 +34,12 @@
 #endif
 
 #ifdef __GLIBC__
-#define CORO_STACK_MIN         ((3 * (PTHREAD_STACK_MIN)) / 2)
+#define CORO_STACK         ((3 * (PTHREAD_STACK_MIN)) / 2)
 #else
-#define CORO_STACK_MIN         (5 * (PTHREAD_STACK_MIN))
+#define CORO_STACK         (5 * (PTHREAD_STACK_MIN))
 #endif
 
-static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
+static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK + PTHREAD_STACK_MIN),
     "Request buffer fits inside coroutine stack");
 
 typedef struct coro_defer_t_	coro_defer_t;
@@ -57,14 +57,15 @@ struct coro_t_ {
     coro_context_t context;
     int yield_value;
 
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
-    unsigned int vg_stack_id;
-#endif
-
     void *data;
     coro_defer_t defer[16];
 
+#if !defined(NDEBUG) && defined(USE_VALGRIND)
+    unsigned int vg_stack_id;
+#endif
     bool ended;
+
+    unsigned char stack[CORO_STACK];
 };
 
 static void coro_entry_point(coro_t *data, coro_function_t func);
@@ -186,8 +187,6 @@ coro_run_deferred(coro_t *coro)
 void
 coro_reset(coro_t *coro, coro_function_t func, void *data)
 {
-    unsigned char *stack = (unsigned char *)(coro + 1);
-
     coro->ended = false;
     coro->data = data;
 
@@ -197,10 +196,10 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
-    coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
+    coro->context[9 /* RSP */] = (uintptr_t) coro->stack + CORO_STACK;
 #elif defined(__i386__)
     /* Align stack and make room for two arguments */
-    stack = (unsigned char *)((uintptr_t)(stack + CORO_STACK_MIN -
+    stack = (unsigned char *)((uintptr_t)(coro->stack + CORO_STACK -
         sizeof(uintptr_t) * 2) & 0xfffffff0);
 
     uintptr_t *argp = (uintptr_t *)stack;
@@ -214,7 +213,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     getcontext(&coro->context);
 
     coro->context.uc_stack.ss_sp = stack;
-    coro->context.uc_stack.ss_size = CORO_STACK_MIN;
+    coro->context.uc_stack.ss_size = CORO_STACK;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
@@ -225,7 +224,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
 ALWAYS_INLINE coro_t *
 coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 {
-    coro_t *coro = malloc(sizeof(*coro) + CORO_STACK_MIN);
+    coro_t *coro = malloc(sizeof(*coro));
     if (!coro)
         return NULL;
 
@@ -234,8 +233,7 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
-    char *stack = (char *)(coro + 1);
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, coro->stack + CORO_STACK);
 #endif
 
     return coro;
