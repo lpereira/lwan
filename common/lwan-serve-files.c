@@ -47,11 +47,9 @@ struct file_cache_entry;
 struct serve_files_priv {
     struct cache_t *cache;
 
-    struct {
-        char *path;
-        size_t path_len;
-        int fd;
-    } root;
+    char *root_path;
+    size_t root_path_len;
+    int root_fd;
 
     int open_mode;
     const char *index_html;
@@ -323,7 +321,7 @@ mmap_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     int file_fd;
     bool success;
 
-    file_fd = openat(priv->root.fd, full_path + priv->root.path_len + 1,
+    file_fd = openat(priv->root_fd, full_path + priv->root_path_len + 1,
                 priv->open_mode);
     if (UNLIKELY(file_fd < 0))
         return false;
@@ -343,7 +341,7 @@ mmap_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     compress_cached_entry(md);
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(
-                full_path + priv->root.path_len);
+                full_path + priv->root_path_len);
 
     success = true;
 
@@ -374,7 +372,7 @@ try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
     if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
         goto out;
 
-    fd = openat(priv->root.fd, gzpath, priv->open_mode);
+    fd = openat(priv->root_fd, gzpath, priv->open_mode);
     if (UNLIKELY(fd < 0))
         goto out;
 
@@ -405,11 +403,11 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     const char *full_path, struct stat *st)
 {
     struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(ce + 1);
-    const char *relpath = full_path + priv->root.path_len;
+    const char *relpath = full_path + priv->root_path_len;
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
 
-    sd->uncompressed.fd = openat(priv->root.fd, relpath + 1, priv->open_mode);
+    sd->uncompressed.fd = openat(priv->root_fd, relpath + 1, priv->open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
         switch (errno) {
         case ENFILE:
@@ -443,7 +441,7 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
 static const char *
 get_rel_path(const char *full_path, struct serve_files_priv *priv)
 {
-    const char *root_path = full_path + priv->root.path_len;
+    const char *root_path = full_path + priv->root_path_len;
     return *root_path ? root_path : priv->prefix;
 }
 
@@ -469,7 +467,7 @@ redir_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
 {
     struct redir_cache_data *rd = (struct redir_cache_data *)(ce + 1);
 
-    if (asprintf(&rd->redir_to, "%s/", full_path + priv->root.path_len) < 0)
+    if (asprintf(&rd->redir_to, "%s/", full_path + priv->root_path_len) < 0)
         return false;
 
     ce->mime_type = "text/plain";
@@ -503,7 +501,7 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
         }
 
         /* See if it exists. */
-        if (fstatat(priv->root.fd, index_html_path, st, 0) < 0) {
+        if (fstatat(priv->root_fd, index_html_path, st, 0) < 0) {
             if (UNLIKELY(errno != ENOENT))
                 return NULL;
 
@@ -523,13 +521,13 @@ get_funcs(struct serve_files_priv *priv, const char *key, char *full_path,
         /* If it does, we want its full path. */
 
         /* FIXME: Use strlcpy() here instead of calling strlen()? */
-        if (UNLIKELY(priv->root.path_len + 1 /* slash */ +
+        if (UNLIKELY(priv->root_path_len + 1 /* slash */ +
                             strlen(index_html_path) + 1 >= PATH_MAX))
             return NULL;
 
-        full_path[priv->root.path_len] = '/';
-        strncpy(full_path + priv->root.path_len + 1, index_html_path,
-                    PATH_MAX - priv->root.path_len - 1);
+        full_path[priv->root_path_len] = '/';
+        strncpy(full_path + priv->root_path_len + 1, index_html_path,
+                    PATH_MAX - priv->root_path_len - 1);
     }
 
     /* Only serve regular files. */
@@ -576,14 +574,14 @@ create_cache_entry(const char *key, void *context)
     const struct cache_funcs *funcs;
     char full_path[PATH_MAX];
 
-    if (UNLIKELY(!realpathat2(priv->root.fd, priv->root.path,
+    if (UNLIKELY(!realpathat2(priv->root_fd, priv->root_path,
                 key, full_path, &st)))
         return NULL;
 
     if (UNLIKELY(!is_world_readable(st.st_mode)))
         return NULL;
 
-    if (UNLIKELY(strncmp(full_path, priv->root.path, priv->root.path_len)))
+    if (UNLIKELY(strncmp(full_path, priv->root_path, priv->root_path_len)))
         return NULL;
 
     funcs = get_funcs(priv, key, full_path, &st);
@@ -737,9 +735,9 @@ serve_files_init(const char *prefix, void *args)
         goto out_tpl_prefix_copy;
     }
 
-    priv->root.path = canonical_root;
-    priv->root.path_len = strlen(canonical_root);
-    priv->root.fd = root_fd;
+    priv->root_path = canonical_root;
+    priv->root_path_len = strlen(canonical_root);
+    priv->root_fd = root_fd;
     priv->open_mode = open_mode;
     priv->index_html = settings->index_html ? settings->index_html : "index.html";
     priv->serve_precompressed_files = settings->serve_precompressed_files;
@@ -786,8 +784,8 @@ serve_files_shutdown(void *data)
 
     lwan_tpl_free(priv->directory_list_tpl);
     cache_destroy(priv->cache);
-    close(priv->root.fd);
-    free(priv->root.path);
+    close(priv->root_fd);
+    free(priv->root_path);
     free(priv->prefix);
     free(priv);
 }
