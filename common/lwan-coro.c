@@ -200,7 +200,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->context[9 /* RSP */] = stack - (stack & 7);
 #elif defined(__i386__)
     /* Align stack and make room for two arguments */
-    stack = (unsigned char *)((uintptr_t)(coro->stack + CORO_STACK -
+    uintptr_t stack = ((uintptr_t)(coro->stack + CORO_STACK -
         sizeof(uintptr_t) * 2) & 0xfffffff0);
 
     uintptr_t *argp = (uintptr_t *)stack;
