@@ -348,14 +348,10 @@ coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
     return mem;
 }
 
-static void nothing()
-{
-}
-
 inline void *
 coro_malloc(coro_t *coro, size_t size)
 {
-    return coro_malloc_full(coro, size, nothing);
+    return coro_malloc_full(coro, size, free);
 }
 
 char *
