@@ -442,35 +442,44 @@ identify_http_path(lwan_request_t *request, char *buffer,
             struct request_parser_helper *helper)
 {
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
+    char *space, *end_of_line;
+    enum {
+        HTTP_PROTO_NAME = MULTICHAR_CONSTANT('H', 'T', 'T', 'P'),
+        HTTP_PROTO_VER_1_0 = MULTICHAR_CONSTANT('/', '1', '.', '0'),
+        HTTP_PROTO_VER_1_1 = MULTICHAR_CONSTANT('/', '1', '.', '1')
+    };
 
-    char *end_of_line = memchr(buffer, '\r',
-                            (helper->buffer->len - (size_t)(buffer - helper->buffer->value)));
+    if (UNLIKELY(*buffer != '/'))
+        return NULL;
+
+    end_of_line = memchr(buffer, '\r',
+        (helper->buffer->len - (size_t)(buffer - helper->buffer->value)));
     if (UNLIKELY(!end_of_line))
         return NULL;
     if (UNLIKELY((size_t)(end_of_line - buffer) < minimal_request_line_len))
         return NULL;
     *end_of_line = '\0';
 
-    char *space = end_of_line - sizeof("HTTP/X.X");
-    if (UNLIKELY(*(space + 1) != 'H')) /* assume HTTP/X.Y */
-        return NULL;
-    *space = '\0';
-
-    if (UNLIKELY(*(space + 6) != '1'))
-        return NULL;
-
-    if (*(space + 8) == '0')
-        request->flags |= REQUEST_IS_HTTP_1_0;
-
-    if (UNLIKELY(*buffer != '/'))
-        return NULL;
+    space = end_of_line - sizeof("HTTP/X.X");
 
     request->url.value = buffer;
     request->url.len = (size_t)(space - buffer);
-
     parse_fragment_and_query(request, helper, space);
-
     request->original_url = request->url;
+
+    *space++ = '\0';
+
+    if (UNLIKELY(string_as_int32(space) != HTTP_PROTO_NAME))
+        return NULL;
+    STRING_SWITCH(space + sizeof("HTTP") - 1) {
+    case HTTP_PROTO_VER_1_0:
+        request->flags |= REQUEST_IS_HTTP_1_0;
+        /* fallthrough */
+    case HTTP_PROTO_VER_1_1:
+        break;
+    default:
+        return NULL;
+    }
 
     return end_of_line + 1;
 }
