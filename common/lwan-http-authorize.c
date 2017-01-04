@@ -28,7 +28,6 @@
 #include "lwan-http-authorize.h"
 
 struct realm_password_file_t {
-    struct cache_entry_t base;
     struct hash *entries;
 };
 
