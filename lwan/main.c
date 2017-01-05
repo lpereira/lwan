@@ -105,6 +105,7 @@ main(int argc, char *argv[])
     lwan_t l;
     lwan_config_t c;
     char root[PATH_MAX];
+    int ret = EXIT_SUCCESS;
 
     if (!getcwd(root, PATH_MAX))
         return 1;
@@ -130,11 +131,16 @@ main(int argc, char *argv[])
             lwan_init(&l);
         break;
     case ARGS_FAILED:
-        return EXIT_FAILURE;
+        ret = EXIT_FAILURE;
+        goto out;
     }
 
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 
-    return EXIT_SUCCESS;
+out:
+    free(c.listener);
+    free(c.config_file_path);
+
+    return ret;
 }
