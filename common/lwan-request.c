@@ -444,9 +444,8 @@ identify_http_path(lwan_request_t *request, char *buffer,
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
     char *space, *end_of_line;
     enum {
-        HTTP_PROTO_NAME = MULTICHAR_CONSTANT('H', 'T', 'T', 'P'),
-        HTTP_PROTO_VER_1_0 = MULTICHAR_CONSTANT('/', '1', '.', '0'),
-        HTTP_PROTO_VER_1_1 = MULTICHAR_CONSTANT('/', '1', '.', '1')
+        HTTP_VERSION_1_0 = MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','0'),
+        HTTP_VERSION_1_1 = MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','1'),
     };
 
     if (UNLIKELY(*buffer != '/'))
@@ -469,13 +468,11 @@ identify_http_path(lwan_request_t *request, char *buffer,
 
     *space++ = '\0';
 
-    if (UNLIKELY(string_as_int32(space) != HTTP_PROTO_NAME))
-        return NULL;
-    STRING_SWITCH(space + sizeof("HTTP") - 1) {
-    case HTTP_PROTO_VER_1_0:
+    STRING_SWITCH_LARGE(space) {
+    case HTTP_VERSION_1_0:
         request->flags |= REQUEST_IS_HTTP_1_0;
         /* fallthrough */
-    case HTTP_PROTO_VER_1_1:
+    case HTTP_VERSION_1_1:
         break;
     default:
         return NULL;
