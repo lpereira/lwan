@@ -42,12 +42,13 @@
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
     "Request buffer fits inside coroutine stack");
 
+#define DEFER_MAX		16
+
 typedef struct coro_defer_t_	coro_defer_t;
 
 typedef void (*defer_func)();
 
 struct coro_defer_t_ {
-    coro_defer_t *next;
     defer_func func;
     void *data1;
     void *data2;
@@ -162,16 +163,21 @@ coro_entry_point(coro_t *coro, coro_function_t func)
 }
 
 static void
+run_deferred(coro_defer_t *defer, coro_defer_t *last)
+{
+    if (!defer->func || defer == last)
+        return;
+
+    run_deferred(defer + 1, last);
+
+    defer->func(defer->data1, defer->data2);
+    defer->func = NULL;
+}
+
+static void
 coro_run_deferred(coro_t *coro)
 {
-    while (coro->defer) {
-        coro_defer_t *tmp = coro->defer;
-
-        coro->defer = coro->defer->next;
-
-        tmp->func(tmp->data1, tmp->data2);
-        free(tmp);
-    }
+    run_deferred(coro->defer, coro->defer + DEFER_MAX);
 }
 
 void
@@ -220,8 +226,13 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
     if (!coro)
         return NULL;
 
+    coro->defer = calloc(DEFER_MAX, sizeof(coro_defer_t));
+    if (UNLIKELY(!coro->defer)) {
+        free(coro);
+        return NULL;
+    }
+
     coro->switcher = switcher;
-    coro->defer = NULL;
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
@@ -294,24 +305,29 @@ coro_free(coro_t *coro)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_run_deferred(coro);
+    free(coro->defer);
     free(coro);
 }
 
 static void
 coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
 {
-    coro_defer_t *defer = malloc(sizeof(*defer));
-    if (UNLIKELY(!defer))
-        return;
+    const coro_defer_t *last = coro->defer + DEFER_MAX;
 
     assert(func);
 
     /* Some uses require deferred statements are arranged in a stack. */
-    defer->next = coro->defer;
-    defer->func = func;
-    defer->data1 = data1;
-    defer->data2 = data2;
-    coro->defer = defer;
+
+    for (coro_defer_t *defer = coro->defer; defer < last; defer++) {
+        if (!defer->func) {
+            defer->func = func;
+            defer->data1 = data1;
+            defer->data2 = data2;
+            return;
+        }
+    }
+
+    lwan_status_error("Coroutine %p ran out of deferred callback slots", coro);
 }
 
 ALWAYS_INLINE void
@@ -330,28 +346,18 @@ coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
 void *
 coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)())
 {
-    coro_defer_t *defer = malloc(sizeof(*defer) + size);
-    if (UNLIKELY(!defer))
-        return NULL;
+    void *ptr = malloc(size);
 
-    defer->next = coro->defer;
-    defer->func = destroy_func;
-    defer->data1 = defer + 1;
-    defer->data2 = NULL;
+    if (LIKELY(ptr))
+        coro_defer(coro, destroy_func, ptr);
 
-    coro->defer = defer;
-
-    return defer + 1;
-}
-
-static void nothing()
-{
+    return ptr;
 }
 
 inline void *
 coro_malloc(coro_t *coro, size_t size)
 {
-    return coro_malloc_full(coro, size, nothing);
+    return coro_malloc_full(coro, size, free);
 }
 
 char *
