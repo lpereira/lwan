@@ -240,8 +240,9 @@ Not really third-party, but alas:
 Build status
 ------------
 
-| Platform | Release | Debug | Static Analysis | Tests |
-|----------|---------|-------|-----------------|------------|
-| Linux    | ![release](https://shield.lwan.ws/img/gycKbr/release "Release")  | ![debug](https://shield.lwan.ws/img/gycKbr/debug "Debug")     | ![static-analysis](https://shield.lwan.ws/img/gycKbr/clang-analyze "Static Analysis") ![coverity](https://scan.coverity.com/projects/375/badge.svg) [Report history](https://buildbot.lwan.ws/sa/) | ![tests](https://shield.lwan.ws/img/gycKbr/unit-tests "Test")          |
-| FreeBSD  | ![freebsd-release](https://shield.lwan.ws/img/gycKbr/release-freebsd "Release FreeBSD") | ![freebsd-debug](https://shield.lwan.ws/img/gycKbr/debug-freebsd "Debug FreeBSD")     |                |           |
-| OS X     | ![osx-release](https://shield.lwan.ws/img/gycKbr/release-yosemite "Release OS X")       | ![osx-debug](https://shield.lwan.ws/img/gycKbr/debug-yosemite "Debug OS X")     |               |          |
+| OS      | Arch   | Release | Debug | Static Analysis | Tests |
+|---------|--------|---------|-------|-----------------|------------|
+| Linux   | x86_64 | ![release](https://shield.lwan.ws/img/gycKbr/release "Release")  | ![debug](https://shield.lwan.ws/img/gycKbr/debug "Debug")     | ![static-analysis](https://shield.lwan.ws/img/gycKbr/clang-analyze "Static Analysis") ![coverity](https://scan.coverity.com/projects/375/badge.svg) [Report history](https://buildbot.lwan.ws/sa/) | ![tests](https://shield.lwan.ws/img/gycKbr/unit-tests "Test")          |
+| Linux   | armv7  | ![release-arm](https://shield.lwan.ws/img/gycKbr/release-arm "Release")  | ![debug-arm](https://shield.lwan.ws/img/gycKbr/debug-arm "Debug")     |        |           |
+| FreeBSD | x86_64 | ![freebsd-release](https://shield.lwan.ws/img/gycKbr/release-freebsd "Release FreeBSD") | ![freebsd-debug](https://shield.lwan.ws/img/gycKbr/debug-freebsd "Debug FreeBSD")     |                |           |
+| OS X    | x86_64 | ![osx-release](https://shield.lwan.ws/img/gycKbr/release-yosemite "Release OS X")       | ![osx-debug](https://shield.lwan.ws/img/gycKbr/debug-yosemite "Debug OS X")     |               |          |
