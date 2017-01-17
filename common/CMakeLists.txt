@@ -74,9 +74,7 @@ endif ()
 add_library(lwan-static STATIC ${SOURCES})
 set_target_properties(lwan-static PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-	set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
-endif()
+set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
 
 # Can't call add_library() without source files. Create an empty .c file,
 # then link with the static library just recently built.
