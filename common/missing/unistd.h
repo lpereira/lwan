@@ -26,4 +26,15 @@
 int pipe2(int pipefd[2], int flags);
 #endif
 
+#if defined(__APPLE__)
+int setresuid(uid_t ruid, uid_t euid, uid_t suid)
+    __attribute__((warn_unused_result));
+int setresgid(gid_t rgid, gid_t egid, gid_t sgid)
+    __attribute__((warn_unused_result));
+int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
+    __attribute__((warn_unused_result));
+int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
+    __attribute__((warn_unused_result));
+#endif
+
 #endif /* MISSING_UNISTD_H */

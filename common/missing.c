@@ -380,3 +380,58 @@ gettid(void)
     return (long)pthread_self();
 }
 #endif
+
+#if defined(__APPLE__)
+/* NOTE: Although saved UID/GID cannot be set using sysctl(), for the use
+ * case in Lwan, it's possible to obtain the value and check if they're the
+ * ones expected -- and abort if it's not.  Should be good enough for a
+ * wrapper like this.  */
+
+#include <sys/sysctl.h>
+
+int
+getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
+{
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    struct kinfo_proc kp;
+    size_t len = sizeof(kp);
+
+    *ruid = getuid();
+    *euid = geteuid();
+
+    if (sysctl(mib, N_ELEMENTS(mib), &kp, &len, NULL, 0) < 0)
+        return -1;
+    *suid = kp.kp_eproc.e_pcred.p_svuid;
+
+    return 0;
+}
+
+int
+setresuid(uid_t ruid, uid_t euid, uid_t suid __attribute__((unused)))
+{
+    return setreuid(ruid, euid);
+}
+
+int
+setresgid(gid_t rgid, gid_t egid, gid_t sgid __attribute__((unused)))
+{
+    return setregid(rgid, egid);
+}
+
+int
+getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
+{
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    struct kinfo_proc kp;
+    size_t len = sizeof(kp);
+
+    *rgid = getgid();
+    *egid = getegid();
+
+    if (sysctl(mib, N_ELEMENTS(mib), &kp, &len, NULL, 0) < 0)
+        return -1;
+    *sgid = kp.kp_eproc.e_pcred.p_svgid;
+
+    return 0;
+}
+#endif

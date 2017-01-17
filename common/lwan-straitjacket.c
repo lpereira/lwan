@@ -73,10 +73,13 @@ static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 
 static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
 {
+    uid_t ruid, euid, suid;
+    gid_t rgid, egid, sgid;
+
     lwan_status_info("Dropping privileges to UID %d, GID %d (%s)",
         uid, gid, username);
 
-    if (setgid(gid) < 0)
+    if (setresgid(gid, gid, gid) < 0)
         return false;
 #if defined(__APPLE__)
     if (initgroups(username, (int)gid) < 0)
@@ -85,10 +88,20 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
     if (initgroups(username, gid) < 0)
         return false;
 #endif
-    if (setuid(uid) < 0)
+    if (setresuid(uid, uid, uid) < 0)
         return false;
 
-    return getegid() == gid && geteuid() == uid;
+    if (getresuid(&ruid, &euid, &suid) < 0)
+        return false;
+    if (ruid != euid || euid != suid || suid != uid)
+        return false;
+
+    if (getresgid(&rgid, &egid, &sgid) < 0)
+        return false;
+    if (rgid != egid || egid != sgid || sgid != gid)
+        return false;
+
+    return true;
 }
 
 void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
