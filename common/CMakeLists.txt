@@ -105,7 +105,7 @@ add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-typ
 add_dependencies(lwan-static generate_mime_types_table)
 include_directories(${CMAKE_BINARY_DIR})
 
-set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} m PARENT_SCOPE)
+set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 
 install(TARGETS lwan-static lwan-shared
   DESTINATION "lib"
