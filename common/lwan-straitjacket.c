@@ -18,12 +18,14 @@
  */
 
 #define _GNU_SOURCE
+#include <dirent.h>
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
@@ -104,6 +106,74 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
     return true;
 }
 
+#ifdef __linux__
+static void abort_on_open_directories(void)
+{
+    /* This is racy, of course, but right now I see no other way of ensuring
+     * that there are no file descriptors to directories open. */
+    DIR *dir = opendir("/proc/self/fd");
+    struct dirent *ent;
+    char own_fd[3 * sizeof(int)];
+    int ret;
+
+    if (!dir) {
+        lwan_status_critical_perror(
+            "Could not determine if there are open directory fds");
+    }
+
+    ret = snprintf(own_fd, sizeof(own_fd), "%d", dirfd(dir));
+    if (ret < 0 || ret >= (int)sizeof(own_fd)) {
+        lwan_status_critical("Could not get descriptor of /proc/self/fd");
+    }    
+
+    while ((ent = readdir(dir))) {
+        char path[PATH_MAX];
+        struct stat st;
+        ssize_t len;
+
+        if (!strcmp(ent->d_name, own_fd))
+            continue;
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+            continue;
+
+        len = readlinkat(dirfd(dir), ent->d_name, path, sizeof(path));
+        if (len < 0) {
+            lwan_status_critical_perror(
+                "Could not get information about fd %s", ent->d_name);
+        }
+        path[len] = '\0';
+
+        if (path[0] != '/') {
+            /* readlink() there will point to the realpath() of a file, so
+             * if it's on a filesystem, it starts with '/'.  Sockets, for
+             * instance, begin with "socket:" instead...  so no need for
+             * stat().  */
+            continue;
+        }
+
+        if (stat(path, &st) < 0) {
+            lwan_status_critical_perror(
+                "Could not get information about open file: %s", path);
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            closedir(dir);
+
+            lwan_status_critical(
+                "The directory '%s' is open (fd %s), can't chroot",
+                path, ent->d_name);
+            return;
+        }
+    }
+
+    closedir(dir);
+}
+#else
+static bool abort_on_open_directories(void)
+{
+}
+#endif
+
 void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
 {
     char *user_name = NULL;
@@ -139,6 +209,7 @@ void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
             }
 
             if (chroot_path) {
+                abort_on_open_directories();
                 if (chroot(chroot_path) < 0) {
                     lwan_status_critical_perror("Could not chroot() to %s",
                         chroot_path);
