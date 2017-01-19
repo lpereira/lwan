@@ -393,7 +393,7 @@ static int
 get_current_proc_info(struct kinfo_proc *kp)
 {
     int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
-    size_t len = sizeof(kp);
+    size_t len = sizeof(*kp);
 
     return sysctl(mib, N_ELEMENTS(mib), kp, &len, NULL, 0);
 }
