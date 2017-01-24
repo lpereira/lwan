@@ -66,11 +66,11 @@ static struct cache_entry_t *create_realm_file(
         /* FIXME: Storing plain-text passwords in memory isn't a good idea. */
         switch (l.type) {
         case CONFIG_LINE_TYPE_LINE: {
-            char *username = strdup(l.line.key);
+            char *username = strdup(l.key);
             if (!username)
                 goto error;
 
-            char *password = strdup(l.line.value);
+            char *password = strdup(l.value);
             if (!password) {
                 free(username);
                 goto error;
@@ -86,7 +86,7 @@ static struct cache_entry_t *create_realm_file(
             if (err == -EEXIST) {
                 lwan_status_warning(
                     "Username entry already exists, ignoring: \"%s\"",
-                    l.line.key);
+                    l.key);
                 continue;
             }
 

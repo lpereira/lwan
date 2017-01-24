@@ -54,10 +54,10 @@ struct config_line_t_ {
     union {
         struct {
             char *name, *param;
-        } section;
+        };
         struct {
             char *key, *value;
-        } line;
+        };
     };
     config_line_type_t type;
     char buffer[1024];

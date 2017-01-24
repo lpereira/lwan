@@ -294,30 +294,30 @@ module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line
     if (!pattern)
         goto out_no_free;
     
-    pattern->pattern = strdup(line->section.param);
+    pattern->pattern = strdup(line->param);
     if (!pattern->pattern)
         goto out;
 
     while (config_read_line(config, line)) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (streq(line->line.key, "redirect_to")) {
-                redirect_to = strdup(line->line.value);
+            if (streq(line->key, "redirect_to")) {
+                redirect_to = strdup(line->value);
                 if (!redirect_to)
                     goto out;
-            } else if (streq(line->line.key, "rewrite_as")) {
-                rewrite_as = strdup(line->line.value);
+            } else if (streq(line->key, "rewrite_as")) {
+                rewrite_as = strdup(line->value);
                 if (!rewrite_as)
                     goto out;
-            } else if (streq(line->line.key, "expand_with_lua")) {
-                expand_with_lua = parse_bool(line->line.value, false);
+            } else if (streq(line->key, "expand_with_lua")) {
+                expand_with_lua = parse_bool(line->value, false);
             } else {
-                config_error(config, "Unexpected key: %s", line->line.key);
+                config_error(config, "Unexpected key: %s", line->key);
                 goto out;
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            config_error(config, "Unexpected section: %s", line->section.name);
+            config_error(config, "Unexpected section: %s", line->name);
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
             if (redirect_to && rewrite_as) {
@@ -368,13 +368,13 @@ module_parse_conf(void *data, config_t *config)
     while (config_read_line(config, &line)) {
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
-            config_error(config, "Unknown option: %s", line.line.key);
+            config_error(config, "Unknown option: %s", line.key);
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line.section.name, "pattern")) {
+            if (streq(line.name, "pattern")) {
                 module_parse_conf_pattern(pd, config, &line);
             } else {
-                config_error(config, "Unknown section: %s", line.section.name);
+                config_error(config, "Unknown section: %s", line.name);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:

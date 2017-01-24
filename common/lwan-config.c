@@ -171,8 +171,8 @@ static bool parse_section(char *line, config_line_t *l, char *bracket)
     name = remove_trailing_spaces(remove_leading_spaces(line));
     param = remove_trailing_spaces(remove_leading_spaces(space + 1));
 
-    l->section.name = name;
-    l->section.param = param;
+    l->name = name;
+    l->param = param;
     l->type = CONFIG_LINE_TYPE_SECTION;
 
     return true;
@@ -219,7 +219,7 @@ static bool parse_multiline(config_t *c, config_line_t *l)
     while (config_fgets(c, buffer, sizeof(buffer))) {
         char *tmp = remove_trailing_spaces(remove_leading_spaces(buffer));
         if (streq(tmp, "'''")) {
-            l->line.value = strbuf_get_buffer(c->strbuf);
+            l->value = strbuf_get_buffer(c->strbuf);
             return true;
         }
 
@@ -243,11 +243,11 @@ static bool parse_line(config_t *c, char *line, config_line_t *l, char *equal)
     line = remove_leading_spaces(line);
     line = remove_trailing_spaces(line);
 
-    l->line.key = replace_space_with_underscore(line);
-    l->line.value = remove_leading_spaces(equal + 1);
+    l->key = replace_space_with_underscore(line);
+    l->value = remove_leading_spaces(equal + 1);
     l->type = CONFIG_LINE_TYPE_LINE;
 
-    if (!streq(l->line.value, "'''"))
+    if (!streq(l->value, "'''"))
         return true;
 
     return parse_multiline(c, l);
