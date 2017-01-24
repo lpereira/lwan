@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2016 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2017 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,29 +19,18 @@
 
 #pragma once
 
-/* API available in Glibc/Linux, but possibly not elsewhere */
-#cmakedefine HAS_ACCEPT4
-#cmakedefine HAS_CLOCK_GETTIME
-#cmakedefine HAS_MEMPCPY
-#cmakedefine HAS_MEMRCHR
-#cmakedefine HAS_PIPE2
-#cmakedefine HAS_PTHREADBARRIER
-#cmakedefine HAS_RAWMEMCHR
+#include <stdint.h>
 
-/* Compiler builtins for specific CPU instruction support */
-#cmakedefine HAVE_BUILTIN_CLZLL
-#cmakedefine HAVE_BUILTIN_CPU_INIT
-#cmakedefine HAVE_BUILTIN_IA32_CRC32
-#cmakedefine HAVE_BUILTIN_MUL_OVERFLOW
-#cmakedefine HAVE_BUILTIN_ADD_OVERFLOW
+struct lwan_array {
+    void *base;
+    size_t element_size;
+    size_t elements;
+};
 
-/* C11 _Static_assert() */
-#cmakedefine HAVE_STATIC_ASSERT
+#define ARRAY_INITIALIZER(element_size_) \
+    { .base = NULL, .element_size = (element_size_), .elements = 0 }
 
-/* Libraries */
-#cmakedefine HAVE_LUA
-#cmakedefine HAVE_ZOPFLI
-
-/* Valgrind support for coroutines */
-#cmakedefine USE_VALGRIND
+int lwan_array_init(struct lwan_array *a, size_t element_size);
+int lwan_array_reset(struct lwan_array *a);
+void *lwan_array_append(struct lwan_array *a);
 

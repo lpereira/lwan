@@ -27,6 +27,7 @@
 
 #include "lwan-private.h"
 
+#include "lwan-array.h"
 #include "lwan-coro.h"
 
 #ifdef USE_VALGRIND
@@ -41,8 +42,6 @@
 
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
     "Request buffer fits inside coroutine stack");
-
-#define DEFER_MAX		16
 
 typedef struct coro_defer_t_	coro_defer_t;
 
@@ -63,7 +62,7 @@ struct coro_t_ {
     unsigned int vg_stack_id;
 #endif
 
-    coro_defer_t *defer;
+    struct lwan_array defer;
     void *data;
 
     bool ended;
@@ -163,21 +162,15 @@ coro_entry_point(coro_t *coro, coro_function_t func)
 }
 
 static void
-run_deferred(coro_defer_t *defer, coro_defer_t *last)
-{
-    if (!defer->func || defer == last)
-        return;
-
-    run_deferred(defer + 1, last);
-
-    defer->func(defer->data1, defer->data2);
-    defer->func = NULL;
-}
-
-static void
 coro_run_deferred(coro_t *coro)
 {
-    run_deferred(coro->defer, coro->defer + DEFER_MAX);
+    coro_defer_t *defers = coro->defer.base;
+
+    for (size_t i = coro->defer.elements; i != 0; i--) {
+        coro_defer_t *defer = &defers[i - 1];
+
+        defer->func(defer->data1, defer->data2);
+    }
 }
 
 void
@@ -189,6 +182,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->data = data;
 
     coro_run_deferred(coro);
+    lwan_array_reset(&coro->defer);
 
 #if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
@@ -226,8 +220,7 @@ coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
     if (!coro)
         return NULL;
 
-    coro->defer = calloc(DEFER_MAX, sizeof(coro_defer_t));
-    if (UNLIKELY(!coro->defer)) {
+    if (lwan_array_init(&coro->defer, sizeof(coro_defer_t)) < 0) {
         free(coro);
         return NULL;
     }
@@ -305,29 +298,26 @@ coro_free(coro_t *coro)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_run_deferred(coro);
-    free(coro->defer);
+    lwan_array_reset(&coro->defer);
     free(coro);
 }
 
 static void
 coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
 {
-    const coro_defer_t *last = coro->defer + DEFER_MAX;
+    coro_defer_t *defer;
 
     assert(func);
 
-    /* Some uses require deferred statements are arranged in a stack. */
-
-    for (coro_defer_t *defer = coro->defer; defer < last; defer++) {
-        if (!defer->func) {
-            defer->func = func;
-            defer->data1 = data1;
-            defer->data2 = data2;
-            return;
-        }
+    defer = lwan_array_append(&coro->defer);
+    if (!defer) {
+        lwan_status_error("Could not add new deferred function for coro %p", coro);
+        return;
     }
 
-    lwan_status_error("Coroutine %p ran out of deferred callback slots", coro);
+    defer->func = func;
+    defer->data1 = data1;
+    defer->data2 = data2;
 }
 
 ALWAYS_INLINE void

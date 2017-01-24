@@ -3,6 +3,7 @@ set(SOURCES
 	hash.c
 	int-to-str.c
 	list.c
+	lwan-array.c
 	lwan.c
 	lwan-cache.c
 	lwan-config.c
