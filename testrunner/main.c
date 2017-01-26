@@ -196,21 +196,18 @@ hello_world(lwan_request_t *request,
     if (!dump_vars)
         goto end;
 
-    if (request->cookies.base) {
-        strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
-        strbuf_append_str(response->buffer, "-------\n\n", 0);
+    strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
+    strbuf_append_str(response->buffer, "-------\n\n", 0);
 
-        lwan_key_value_t *qs = request->cookies.base;
-        for (; qs->key; qs++)
-            strbuf_append_printf(response->buffer,
-                        "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
-    }
+    lwan_key_value_t *qs = request->cookies.base.base;
+    for (; qs->key; qs++)
+        strbuf_append_printf(response->buffer,
+                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
     strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
     strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
-    lwan_key_value_t *qs = request->query_params.base;
-    for (; qs->key; qs++)
+    for (qs = request->query_params.base.base; qs->key; qs++)
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
@@ -220,7 +217,7 @@ hello_world(lwan_request_t *request,
     strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
     strbuf_append_str(response->buffer, "---------\n\n", 0);
 
-    for (qs = request->post_data.base; qs->key; qs++)
+    for (qs = request->post_data.base.base; qs->key; qs++)
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 

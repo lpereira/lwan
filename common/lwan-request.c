@@ -328,22 +328,19 @@ key_value_compare(const void *a, const void *b)
 
 static void
 parse_key_values(lwan_request_t *request,
-    lwan_value_t *helper_value, lwan_key_value_t **base, size_t *len,
+    lwan_value_t *helper_value, struct lwan_key_value_array *array,
     size_t (*decode_value)(char *value), const char separator)
 {
-    const size_t n_elements = 32;
+    lwan_key_value_t *kv;
     char *ptr = helper_value->value;
-    lwan_key_value_t *kvs;
-    size_t values = 0;
 
     if (!helper_value->len)
         return;
 
-    kvs = coro_malloc(request->conn->coro, n_elements * sizeof(*kvs));
-    if (UNLIKELY(!kvs)) {
-        coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-    }
+    lwan_key_value_array_init(array);
+    /* Calling lwan_key_value_array_reset() twice is fine, so even if 'goto
+     * error' is executed in this function, nothing bad should happen.  */
+    coro_defer(request->conn->coro, CORO_DEFER(lwan_key_value_array_reset), array);
 
     do {
         char *key, *value;
@@ -351,7 +348,7 @@ parse_key_values(lwan_request_t *request,
         while (*ptr == ' ' || *ptr == separator)
             ptr++;
         if (UNLIKELY(*ptr == '\0'))
-            return;
+            goto error;
 
         key = ptr;
         ptr = strsep_char(key, separator);
@@ -360,22 +357,30 @@ parse_key_values(lwan_request_t *request,
         if (UNLIKELY(!value))
             value = "";
         else if (UNLIKELY(!decode_value(value)))
-            return;
+            goto error;
 
         if (UNLIKELY(!decode_value(key)))
-            return;
+            goto error;
 
-        kvs[values].key = key;
-        kvs[values].value = value;
+        kv = lwan_key_value_array_append(array);
+        if (UNLIKELY(!kv))
+            goto error;
 
-        values++;
-    } while (ptr && values < (n_elements - 1));
+        kv->key = key;
+        kv->value = value;
+    } while (ptr);
 
-    kvs[values].key = kvs[values].value = NULL;
+    kv = lwan_key_value_array_append(array);
+    if (UNLIKELY(!kv))
+        goto error;
+    kv->key = kv->value = NULL;
 
-    qsort(kvs, values, sizeof(lwan_key_value_t), key_value_compare);
-    *base = kvs;
-    *len = values;
+    lwan_key_value_array_sort(array, key_value_compare);
+
+    return;
+
+error:
+    lwan_key_value_array_reset(array);
 }
 
 static size_t
@@ -387,15 +392,14 @@ identity_decode(char *input __attribute__((unused)))
 static void
 parse_cookies(lwan_request_t *request, struct request_parser_helper *helper)
 {
-    parse_key_values(request, &helper->cookie, &request->cookies.base,
-        &request->cookies.len, identity_decode, ';');
+    parse_key_values(request, &helper->cookie, &request->cookies,
+        identity_decode, ';');
 }
 
 static void
 parse_query_string(lwan_request_t *request, struct request_parser_helper *helper)
 {
-    parse_key_values(request, &helper->query_string,
-        &request->query_params.base, &request->query_params.len,
+    parse_key_values(request, &helper->query_string, &request->query_params,
         url_decode, '&');
 }
 
@@ -412,8 +416,7 @@ parse_post_data(lwan_request_t *request, struct request_parser_helper *helper)
     if (UNLIKELY(strncmp(helper->content_type.value, content_type, sizeof(content_type) - 1)))
         return;
 
-    parse_key_values(request, &helper->post_data,
-        &request->post_data.base, &request->post_data.len,
+    parse_key_values(request, &helper->post_data, &request->post_data,
         url_decode, '&');
 }
 
@@ -1079,13 +1082,15 @@ out:
 }
 
 static inline void *
-value_lookup(const void *base, size_t len, const char *key)
+value_lookup(const struct lwan_key_value_array *array, const char *key)
 {
-    if (LIKELY(base)) {
+    const struct lwan_array *la = (const struct lwan_array *)array;
+
+    if (LIKELY(la->base)) {
         lwan_key_value_t k = { .key = (char *)key };
         lwan_key_value_t *entry;
 
-        entry = bsearch(&k, base, len, sizeof(k), key_value_compare);
+        entry = bsearch(&k, la->base, la->elements, sizeof(k), key_value_compare);
         if (LIKELY(entry))
             return entry->value;
     }
@@ -1096,20 +1101,19 @@ value_lookup(const void *base, size_t len, const char *key)
 const char *
 lwan_request_get_query_param(lwan_request_t *request, const char *key)
 {
-    return value_lookup(request->query_params.base, request->query_params.len,
-        key);
+    return value_lookup(&request->query_params, key);
 }
 
 const char *
 lwan_request_get_post_param(lwan_request_t *request, const char *key)
 {
-    return value_lookup(request->post_data.base, request->post_data.len, key);
+    return value_lookup(&request->post_data, key);
 }
 
 const char *
 lwan_request_get_cookie(lwan_request_t *request, const char *key)
 {
-    return value_lookup(request->cookies.base, request->cookies.len, key);
+    return value_lookup(&request->cookies, key);
 }
 
 ALWAYS_INLINE int

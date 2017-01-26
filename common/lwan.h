@@ -32,6 +32,7 @@ extern "C" {
 #include "lwan-build-config.h"
 
 #include "hash.h"
+#include "lwan-array.h"
 #include "lwan-config.h"
 #include "lwan-coro.h"
 #include "lwan-status.h"
@@ -246,6 +247,8 @@ struct lwan_proxy_t_ {
     } from, to;
 };
 
+DEFINE_ARRAY_TYPE(lwan_key_value_array, lwan_key_value_t)
+
 struct lwan_request_t_ {
     lwan_request_flags_t flags;
     int fd;
@@ -254,10 +257,8 @@ struct lwan_request_t_ {
     lwan_connection_t *conn;
     lwan_proxy_t *proxy;
 
-    struct {
-        lwan_key_value_t *base;
-        size_t len;
-    } query_params, post_data, cookies;
+    struct lwan_key_value_array query_params, post_data, cookies;
+
     struct {
         time_t if_modified_since;
         struct {
