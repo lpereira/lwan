@@ -24,7 +24,6 @@
 #include "lwan-config.h"
 #include "lwan-template.h"
 
-#include "array.h"
 #include "database.h"
 #include "json.h"
 
@@ -39,6 +38,8 @@ struct Fortune {
         char *message;
     } item;
 };
+
+DEFINE_ARRAY_TYPE(fortune_array, struct Fortune)
 
 static const char fortunes_template_str[] = "<!DOCTYPE html>" \
 "<html>" \
@@ -209,8 +210,8 @@ plaintext(lwan_request_t *request __attribute__((unused)),
 
 static int fortune_compare(const void *a, const void *b)
 {
-    const struct Fortune *fortune_a = *(const struct Fortune **)a;
-    const struct Fortune *fortune_b = *(const struct Fortune **)b;
+    const struct Fortune *fortune_a = (const struct Fortune *)a;
+    const struct Fortune *fortune_b = (const struct Fortune *)b;
     size_t a_len = strlen(fortune_a->item.message);
     size_t b_len = strlen(fortune_b->item.message);
 
@@ -225,21 +226,24 @@ static int fortune_compare(const void *a, const void *b)
     return cmp > 0;
 }
 
-static bool append_fortune(coro_t *coro, struct array *fortunes,
+static bool append_fortune(coro_t *coro, struct fortune_array *fortunes,
                            int id, const char *message)
 {
     struct Fortune *fortune;
+    char *message_copy;
 
-    fortune = coro_malloc(coro, sizeof(*fortune));
+    message_copy = coro_strdup(coro, message);
+    if (UNLIKELY(!message_copy))
+        return false;
+
+    fortune = fortune_array_append(fortunes);
     if (UNLIKELY(!fortune))
         return false;
 
     fortune->item.id = id;
-    fortune->item.message = coro_strdup(coro, message);
-    if (UNLIKELY(!fortune->item.message))
-        return false;
+    fortune->item.message = message_copy;
 
-    return array_append(fortunes, fortune) >= 0;
+    return true;
 }
 
 static int fortune_list_generator(coro_t *coro)
@@ -247,7 +251,7 @@ static int fortune_list_generator(coro_t *coro)
     static const char fortune_query[] = "SELECT * FROM Fortune";
     char fortune_buffer[256];
     struct Fortune *fortune;
-    struct array fortunes;
+    struct fortune_array fortunes;
     struct db_stmt *stmt;
     size_t i;
 
@@ -255,7 +259,7 @@ static int fortune_list_generator(coro_t *coro)
     if (UNLIKELY(!stmt))
         return 0;
 
-    array_init(&fortunes, 16);
+    fortune_array_init(&fortunes);
 
     struct db_row results[] = {
         { .kind = 'i' },
@@ -271,18 +275,18 @@ static int fortune_list_generator(coro_t *coro)
                             "Additional fortune added at request time."))
         goto out;
 
-    array_sort(&fortunes, fortune_compare);
+    fortune_array_sort(&fortunes, fortune_compare);
 
     fortune = coro_get_data(coro);
-    for (i = 0; i < fortunes.count; i++) {
-        struct Fortune *f = fortunes.array[i];
+    for (i = 0; i < fortunes.base.elements; i++) {
+        struct Fortune *f = &((struct Fortune *)fortunes.base.base)[i];
         fortune->item.id = f->item.id;
         fortune->item.message = f->item.message;
         coro_yield(coro, 1);
     }
 
 out:
-    array_free_array(&fortunes);
+    fortune_array_reset(&fortunes);
     db_stmt_finalize(stmt);
     return 0;
 }
