@@ -1086,11 +1086,11 @@ value_lookup(const struct lwan_key_value_array *array, const char *key)
 {
     const struct lwan_array *la = (const struct lwan_array *)array;
 
-    if (LIKELY(la->base)) {
+    if (LIKELY(la->elements)) {
         lwan_key_value_t k = { .key = (char *)key };
         lwan_key_value_t *entry;
 
-        entry = bsearch(&k, la->base, la->elements, sizeof(k), key_value_compare);
+        entry = bsearch(&k, la->base, la->elements - 1, sizeof(k), key_value_compare);
         if (LIKELY(entry))
             return entry->value;
     }
