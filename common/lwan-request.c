@@ -792,7 +792,10 @@ static lwan_read_finalizer_t read_request_finalizer(size_t total_read,
         return FINALIZER_DONE;
     }
 
-    if (LIKELY(!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4)))
+    /* FIXME: Would saving the location of CRLFCRLF be useful? Maybe
+     * parse_headers() could benefit from this information?  How would it
+     * compare to helper->next_request?  */
+    if (LIKELY(memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4)))
         return FINALIZER_DONE;
 
     return FINALIZER_TRY_AGAIN;
