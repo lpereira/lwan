@@ -21,6 +21,8 @@
 
 #include <stdint.h>
 
+#include "lwan-coro.h"
+
 struct lwan_array {
     void *base;
     size_t elements;
@@ -50,4 +52,13 @@ void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const
     static inline void array_type_ ## _sort(struct array_type_ *array, int (*cmp)(const void *a, const void *b)) \
     { \
         lwan_array_sort((struct lwan_array *)array, sizeof(element_type_), cmp); \
+    } \
+    static inline struct array_type_ *coro_ ## array_type_ ## _new(coro_t *coro) \
+    { \
+        struct array_type_ *array = coro_malloc(coro, sizeof(struct array_type_)); \
+        if (array) { \
+            array_type_ ## _init(array); \
+            coro_defer(coro, CORO_DEFER(array_type_ ## _reset), array); \
+        } \
+        return array; \
     }
