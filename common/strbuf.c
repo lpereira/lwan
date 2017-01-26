@@ -75,7 +75,7 @@ max(size_t one, size_t another)
 }
 
 static bool
-grow_buffer_if_needed(strbuf_t *s, size_t size)
+grow_buffer_if_needed(struct strbuf *s, size_t size)
 {
     if (s->flags & STATIC) {
         const size_t aligned_size = align_size(max(size + 1, s->len.buffer));
@@ -112,7 +112,7 @@ grow_buffer_if_needed(strbuf_t *s, size_t size)
 }
 
 bool
-strbuf_init_with_size(strbuf_t *s, size_t size)
+strbuf_init_with_size(struct strbuf *s, size_t size)
 {
     if (UNLIKELY(!s))
         return false;
@@ -129,15 +129,15 @@ strbuf_init_with_size(strbuf_t *s, size_t size)
 }
 
 ALWAYS_INLINE bool
-strbuf_init(strbuf_t *s)
+strbuf_init(struct strbuf *s)
 {
     return strbuf_init_with_size(s, DEFAULT_BUF_SIZE);
 }
 
-strbuf_t *
+struct strbuf *
 strbuf_new_with_size(size_t size)
 {
-    strbuf_t *s = malloc(sizeof(*s));
+    struct strbuf *s = malloc(sizeof(*s));
     if (UNLIKELY(!strbuf_init_with_size(s, size))) {
         free(s);
         s = NULL;
@@ -147,16 +147,16 @@ strbuf_new_with_size(size_t size)
     return s;
 }
 
-ALWAYS_INLINE strbuf_t *
+ALWAYS_INLINE struct strbuf *
 strbuf_new(void)
 {
     return strbuf_new_with_size(DEFAULT_BUF_SIZE);
 }
 
-ALWAYS_INLINE strbuf_t *
+ALWAYS_INLINE struct strbuf *
 strbuf_new_static(const char *str, size_t size)
 {
-    strbuf_t *s = malloc(sizeof(*s));
+    struct strbuf *s = malloc(sizeof(*s));
 
     if (!s)
         return NULL;
@@ -169,7 +169,7 @@ strbuf_new_static(const char *str, size_t size)
 }
 
 void
-strbuf_free(strbuf_t *s)
+strbuf_free(struct strbuf *s)
 {
     if (UNLIKELY(!s))
         return;
@@ -180,7 +180,7 @@ strbuf_free(strbuf_t *s)
 }
 
 bool
-strbuf_append_char(strbuf_t *s, const char c)
+strbuf_append_char(struct strbuf *s, const char c)
 {
     if (UNLIKELY(!grow_buffer_if_needed(s, s->len.buffer + 2)))
         return false;
@@ -192,7 +192,7 @@ strbuf_append_char(strbuf_t *s, const char c)
 }
 
 bool
-strbuf_append_str(strbuf_t *s1, const char *s2, size_t sz)
+strbuf_append_str(struct strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -208,7 +208,7 @@ strbuf_append_str(strbuf_t *s1, const char *s2, size_t sz)
 }
 
 bool
-strbuf_set_static(strbuf_t *s1, const char *s2, size_t sz)
+strbuf_set_static(struct strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -223,7 +223,7 @@ strbuf_set_static(strbuf_t *s1, const char *s2, size_t sz)
 }
 
 bool
-strbuf_set(strbuf_t *s1, const char *s2, size_t sz)
+strbuf_set(struct strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -239,7 +239,7 @@ strbuf_set(strbuf_t *s1, const char *s2, size_t sz)
 }
 
 ALWAYS_INLINE int
-strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
+strbuf_cmp(struct strbuf *s1, struct strbuf *s2)
 {
     if (s1 == s2)
         return 0;
@@ -250,7 +250,7 @@ strbuf_cmp(strbuf_t *s1, strbuf_t *s2)
 }
 
 static ALWAYS_INLINE bool
-internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, const char *, size_t), const char *fmt, va_list values)
+internal_printf(struct strbuf *s1, bool (*save_str)(struct strbuf *, const char *, size_t), const char *fmt, va_list values)
 {
     char *s2;
     int len;
@@ -265,7 +265,7 @@ internal_printf(strbuf_t *s1, bool (*save_str)(strbuf_t *, const char *, size_t)
 }
 
 bool
-strbuf_printf(strbuf_t *s, const char *fmt, ...)
+strbuf_printf(struct strbuf *s, const char *fmt, ...)
 {
     bool could_printf;
     va_list values;
@@ -278,7 +278,7 @@ strbuf_printf(strbuf_t *s, const char *fmt, ...)
 }
 
 bool
-strbuf_append_printf(strbuf_t *s, const char *fmt, ...)
+strbuf_append_printf(struct strbuf *s, const char *fmt, ...)
 {
     bool could_printf;
     va_list values;
@@ -291,7 +291,7 @@ strbuf_append_printf(strbuf_t *s, const char *fmt, ...)
 }
 
 bool
-strbuf_shrink_to(strbuf_t *s, size_t new_size)
+strbuf_shrink_to(struct strbuf *s, size_t new_size)
 {
     if (s->len.allocated <= new_size)
         return true;
@@ -318,13 +318,13 @@ strbuf_shrink_to(strbuf_t *s, size_t new_size)
 }
 
 ALWAYS_INLINE bool
-strbuf_shrink_to_default(strbuf_t *s)
+strbuf_shrink_to_default(struct strbuf *s)
 {
     return strbuf_shrink_to(s, DEFAULT_BUF_SIZE);
 }
 
 ALWAYS_INLINE bool
-strbuf_reset(strbuf_t *s)
+strbuf_reset(struct strbuf *s)
 {
     if (LIKELY(strbuf_shrink_to_default(s))) {
         s->len.buffer = 0;
@@ -334,13 +334,13 @@ strbuf_reset(strbuf_t *s)
 }
 
 bool
-strbuf_grow_to(strbuf_t *s, size_t new_size)
+strbuf_grow_to(struct strbuf *s, size_t new_size)
 {
     return grow_buffer_if_needed(s, new_size + 1);
 }
 
 bool
-strbuf_reset_length(strbuf_t *s)
+strbuf_reset_length(struct strbuf *s)
 {
     if (s->flags & STATIC) {
         s->flags &= ~STATIC;

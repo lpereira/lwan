@@ -22,45 +22,44 @@
 #include <stddef.h>
 #if defined(__x86_64__)
 #include <stdint.h>
-typedef uintptr_t coro_context_t[10];
+typedef uintptr_t coro_context[10];
 #elif defined(__i386__)
 #include <stdint.h>
-typedef uintptr_t coro_context_t[7];
+typedef uintptr_t coro_context[7];
 #else
 #include <ucontext.h>
-typedef ucontext_t coro_context_t;
+typedef ucontext_t coro_context;
 #endif
 
-typedef struct coro_t_			coro_t;
-typedef struct coro_switcher_t_		coro_switcher_t;
+struct coro;
 
-typedef int    (*coro_function_t)	(coro_t *coro);
+typedef int    (*coro_function_t)	(struct coro *coro);
 
-struct coro_switcher_t_ {
-    coro_context_t caller;
-    coro_context_t callee;
+struct coro_switcher {
+    coro_context caller;
+    coro_context callee;
 };
 
-coro_t *coro_new(coro_switcher_t *switcher, coro_function_t function, void *data);
-void	coro_free(coro_t *coro);
+struct coro *coro_new(struct coro_switcher *switcher, coro_function_t function, void *data);
+void	coro_free(struct coro *coro);
 
-void    coro_reset(coro_t *coro, coro_function_t func, void *data);
+void    coro_reset(struct coro *coro, coro_function_t func, void *data);
 
-int	coro_resume(coro_t *coro);
-int	coro_resume_value(coro_t *coro, int value);
-int	coro_yield(coro_t *coro, int value);
+int	coro_resume(struct coro *coro);
+int	coro_resume_value(struct coro *coro, int value);
+int	coro_yield(struct coro *coro, int value);
 
-void   *coro_get_data(coro_t *coro);
+void   *coro_get_data(struct coro *coro);
 
-void    coro_defer(coro_t *coro, void (*func)(void *data), void *data);
-void    coro_defer2(coro_t *coro, void (*func)(void *data1, void *data2),
+void    coro_defer(struct coro *coro, void (*func)(void *data), void *data);
+void    coro_defer2(struct coro *coro, void (*func)(void *data1, void *data2),
             void *data1, void *data2);
 
-void   *coro_malloc(coro_t *coro, size_t sz);
-void   *coro_malloc_full(coro_t *coro, size_t size, void (*destroy_func)());
-char   *coro_strdup(coro_t *coro, const char *str);
-char   *coro_strndup(coro_t *coro, const char *str, size_t len);
-char   *coro_printf(coro_t *coro, const char *fmt, ...);
+void   *coro_malloc(struct coro *coro, size_t sz);
+void   *coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)());
+char   *coro_strdup(struct coro *coro, const char *str);
+char   *coro_strndup(struct coro *coro, const char *str, size_t len);
+char   *coro_printf(struct coro *coro, const char *fmt, ...);
 
 #define CORO_DEFER(fn)		((void (*)(void *))(fn))
 #define CORO_DEFER2(fn)		((void (*)(void *, void *))(fn))

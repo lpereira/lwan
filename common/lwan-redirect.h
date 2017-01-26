@@ -21,16 +21,16 @@
 
 #include "lwan.h"
 
-struct lwan_redirect_settings_t {
+struct lwan_redirect_settings {
   char *to;
 };
 
 #define REDIRECT(to_) \
   .module = lwan_module_redirect(), \
-  .args = ((struct lwan_redirect_settings_t[]) {{ \
+  .args = ((struct lwan_redirect_settings[]) {{ \
     .to = to_ \
   }}), \
   .flags = 0
 
-const lwan_module_t *lwan_module_redirect(void);
+const struct lwan_module *lwan_module_redirect(void);
 

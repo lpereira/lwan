@@ -23,7 +23,7 @@
 #include "lwan.h"
 
 bool
-lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data))
+lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
 {
     if (!trie)
         return false;
@@ -32,10 +32,10 @@ lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data))
     return true;
 }
 
-static ALWAYS_INLINE lwan_trie_leaf_t *
-find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
+static ALWAYS_INLINE struct lwan_trie_leaf *
+find_leaf_with_key(struct lwan_trie_node *node, const char *key, size_t len)
 {
-    lwan_trie_leaf_t *leaf = node->leaf;
+    struct lwan_trie_leaf *leaf = node->leaf;
 
     if (!leaf)
         return NULL;
@@ -62,12 +62,12 @@ find_leaf_with_key(lwan_trie_node_t *node, const char *key, size_t len)
     } while(0)
 
 void
-lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
+lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
 {
     if (UNLIKELY(!trie || !key || !data))
         return;
 
-    lwan_trie_node_t **knode, *node;
+    struct lwan_trie_node **knode, *node;
     const char *orig_key = key;
 
     /* Traverse the trie, allocating nodes if necessary */
@@ -77,7 +77,7 @@ lwan_trie_add(lwan_trie_t *trie, const char *key, void *data)
     /* Get the leaf node (allocate it if necessary) */
     GET_NODE();
 
-    lwan_trie_leaf_t *leaf = find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
+    struct lwan_trie_leaf *leaf = find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf) {
         leaf = malloc(sizeof(*leaf));
@@ -101,10 +101,10 @@ oom:
 
 #undef GET_NODE
 
-static ALWAYS_INLINE lwan_trie_node_t *
-lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix_len)
+static ALWAYS_INLINE struct lwan_trie_node *
+lookup_node(struct lwan_trie_node *root, const char *key, bool prefix, size_t *prefix_len)
 {
-    lwan_trie_node_t *node, *previous_node = NULL;
+    struct lwan_trie_node *node, *previous_node = NULL;
     const char *orig_key = key;
 
     for (node = root; node && *key; node = node->next[(int)(*key++ & 7)]) {
@@ -122,47 +122,47 @@ lookup_node(lwan_trie_node_t *root, const char *key, bool prefix, size_t *prefix
 
 
 ALWAYS_INLINE void *
-lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix)
+lwan_trie_lookup_full(struct lwan_trie *trie, const char *key, bool prefix)
 {
     if (UNLIKELY(!trie))
         return NULL;
 
     size_t prefix_len;
-    lwan_trie_node_t *node = lookup_node(trie->root, key, prefix, &prefix_len);
+    struct lwan_trie_node *node = lookup_node(trie->root, key, prefix, &prefix_len);
     if (!node)
         return NULL;
-    lwan_trie_leaf_t *leaf = find_leaf_with_key(node, key, prefix_len);
+    struct lwan_trie_leaf *leaf = find_leaf_with_key(node, key, prefix_len);
     return leaf ? leaf->data : NULL;
 }
 
 ALWAYS_INLINE void *
-lwan_trie_lookup_prefix(lwan_trie_t *trie, const char *key)
+lwan_trie_lookup_prefix(struct lwan_trie *trie, const char *key)
 {
     return lwan_trie_lookup_full(trie, key, true);
 }
 
 ALWAYS_INLINE void *
-lwan_trie_lookup_exact(lwan_trie_t *trie, const char *key)
+lwan_trie_lookup_exact(struct lwan_trie *trie, const char *key)
 {
     return lwan_trie_lookup_full(trie, key, false);
 }
 
 ALWAYS_INLINE int32_t
-lwan_trie_entry_count(lwan_trie_t *trie)
+lwan_trie_entry_count(struct lwan_trie *trie)
 {
     return (trie && trie->root) ? trie->root->ref_count : 0;
 }
 
 static void
-lwan_trie_node_destroy(lwan_trie_t *trie, lwan_trie_node_t *node)
+lwan_trie_node_destroy(struct lwan_trie *trie, struct lwan_trie_node *node)
 {
     if (!node)
         return;
 
     int32_t nodes_destroyed = node->ref_count;
 
-    for (lwan_trie_leaf_t *leaf = node->leaf; leaf;) {
-        lwan_trie_leaf_t *tmp = leaf->next;
+    for (struct lwan_trie_leaf *leaf = node->leaf; leaf;) {
+        struct lwan_trie_leaf *tmp = leaf->next;
 
         if (trie->free_node)
             trie->free_node(leaf->data);
@@ -183,7 +183,7 @@ lwan_trie_node_destroy(lwan_trie_t *trie, lwan_trie_node_t *node)
 }
 
 void
-lwan_trie_destroy(lwan_trie_t *trie)
+lwan_trie_destroy(struct lwan_trie *trie)
 {
     if (!trie || !trie->root)
         return;

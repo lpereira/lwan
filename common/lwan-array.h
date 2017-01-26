@@ -53,7 +53,7 @@ void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const
     { \
         lwan_array_sort((struct lwan_array *)array, sizeof(element_type_), cmp); \
     } \
-    static inline struct array_type_ *coro_ ## array_type_ ## _new(coro_t *coro) \
+    static inline struct array_type_ *coro_ ## array_type_ ## _new(struct coro *coro) \
     { \
         struct array_type_ *array = coro_malloc(coro, sizeof(struct array_type_)); \
         if (array) { \

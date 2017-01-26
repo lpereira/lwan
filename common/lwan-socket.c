@@ -204,7 +204,7 @@ bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
 }
 
 static int
-setup_socket_normally(lwan_t *l)
+setup_socket_normally(struct lwan *l)
 {
     char *node, *port;
     char *listener = strdupa(l->config.listener);
@@ -233,7 +233,7 @@ setup_socket_normally(lwan_t *l)
 #endif
 
 void
-lwan_socket_init(lwan_t *l)
+lwan_socket_init(struct lwan *l)
 {
     int fd, n;
 

@@ -41,7 +41,7 @@ enum {
     SHUTTING_DOWN = 1 << 0
 };
 
-struct cache_t {
+struct cache {
     struct {
         struct hash *table;
         pthread_rwlock_t lock;
@@ -53,8 +53,8 @@ struct cache_t {
     } queue;
 
     struct {
-        CreateEntryCallback create_entry;
-        DestroyEntryCallback destroy_entry;
+        cache_create_entry_cb create_entry;
+        cache_destroy_entry_cb destroy_entry;
         void *context;
     } cb;
 
@@ -87,19 +87,19 @@ static clockid_t detect_fastest_monotonic_clock(void)
     return CLOCK_MONOTONIC;
 }
 
-static ALWAYS_INLINE void clock_monotonic_gettime(struct cache_t *cache,
+static ALWAYS_INLINE void clock_monotonic_gettime(struct cache *cache,
     struct timespec *ts)
 {
     if (UNLIKELY(clock_gettime(cache->settings.clock_id, ts) < 0))
         lwan_status_perror("clock_gettime");
 }
 
-struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
-                             DestroyEntryCallback destroy_entry_cb,
+struct cache *cache_create(cache_create_entry_cb create_entry_cb,
+                             cache_destroy_entry_cb destroy_entry_cb,
                              void *cb_context,
                              time_t time_to_live)
 {
-    struct cache_t *cache;
+    struct cache *cache;
 
     assert(create_entry_cb);
     assert(destroy_entry_cb);
@@ -141,7 +141,7 @@ error_no_hash:
     return NULL;
 }
 
-void cache_destroy(struct cache_t *cache)
+void cache_destroy(struct cache *cache)
 {
     assert(cache);
 
@@ -160,15 +160,15 @@ void cache_destroy(struct cache_t *cache)
     free(cache);
 }
 
-static ALWAYS_INLINE void convert_to_temporary(struct cache_entry_t *entry)
+static ALWAYS_INLINE void convert_to_temporary(struct cache_entry *entry)
 {
     entry->flags = TEMPORARY;
 }
 
-struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
+struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
                                               const char *key, int *error)
 {
-    struct cache_entry_t *entry;
+    struct cache_entry *entry;
     char *key_copy;
 
     assert(cache);
@@ -254,7 +254,7 @@ struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
     return entry;
 }
 
-void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry)
+void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
@@ -279,8 +279,8 @@ destroy_entry:
 
 static bool cache_pruner_job(void *data)
 {
-    struct cache_t *cache = data;
-    struct cache_entry_t *node, *next;
+    struct cache *cache = data;
+    struct cache_entry *node, *next;
     struct timespec now;
     bool shutting_down = cache->flags & SHUTTING_DOWN;
     unsigned evicted = 0;
@@ -361,13 +361,13 @@ end:
     return evicted;
 }
 
-struct cache_entry_t*
-cache_coro_get_and_ref_entry(struct cache_t *cache, coro_t *coro,
+struct cache_entry*
+cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro,
                              const char *key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
-        struct cache_entry_t *ce = cache_get_and_ref_entry(cache, key, &error);
+        struct cache_entry *ce = cache_get_and_ref_entry(cache, key, &error);
 
         if (LIKELY(ce)) {
             /*

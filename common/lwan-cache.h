@@ -24,7 +24,7 @@
 #include "list.h"
 #include "lwan-coro.h"
 
-struct cache_entry_t {
+struct cache_entry {
   struct list_node entries;
   char *key;
   int refs;
@@ -32,21 +32,21 @@ struct cache_entry_t {
   time_t time_to_die;
 };
 
-typedef struct cache_entry_t *(*CreateEntryCallback)(
+typedef struct cache_entry *(*cache_create_entry_cb)(
       const char *key, void *context);
-typedef void (*DestroyEntryCallback)(
-      struct cache_entry_t *entry, void *context);
+typedef void (*cache_destroy_entry_cb)(
+      struct cache_entry *entry, void *context);
 
-struct cache_t;
+struct cache;
 
-struct cache_t *cache_create(CreateEntryCallback create_entry_cb,
-      DestroyEntryCallback destroy_entry_cb,
+struct cache *cache_create(cache_create_entry_cb create_entry_cb,
+      cache_destroy_entry_cb destroy_entry_cb,
       void *cb_context,
       time_t time_to_live);
-void cache_destroy(struct cache_t *cache);
+void cache_destroy(struct cache *cache);
 
-struct cache_entry_t *cache_get_and_ref_entry(struct cache_t *cache,
+struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
       const char *key, int *error);
-void cache_entry_unref(struct cache_t *cache, struct cache_entry_t *entry);
-struct cache_entry_t *cache_coro_get_and_ref_entry(struct cache_t *cache,
-      coro_t *coro, const char *key);
+void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
+struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
+      struct coro *coro, const char *key);

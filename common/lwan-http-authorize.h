@@ -25,7 +25,7 @@ bool lwan_http_authorize_init(void);
 void lwan_http_authorize_shutdown(void);
 
 bool
-lwan_http_authorize(lwan_request_t *request,
-                    lwan_value_t *authorization,
+lwan_http_authorize(struct lwan_request *request,
+                    struct lwan_value *authorization,
                     const char *realm,
                     const char *password_file);

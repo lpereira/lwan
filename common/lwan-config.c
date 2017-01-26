@@ -105,7 +105,7 @@ bool parse_bool(const char *value, bool default_value)
     return parse_int(value, default_value);
 }
 
-bool config_error(config_t *conf, const char *fmt, ...)
+bool config_error(struct config *conf, const char *fmt, ...)
 {
     va_list values;
     int len;
@@ -159,7 +159,7 @@ static char *find_line_end(char *line)
     return (char *)rawmemchr(line, '\0') - 1;
 }
 
-static bool parse_section(char *line, config_line_t *l, char *bracket)
+static bool parse_section(char *line, struct config_line *l, char *bracket)
 {
     char *name, *param;
     char *space = strchr(line, ' ');
@@ -187,7 +187,7 @@ static char *replace_space_with_underscore(char *line)
     return line;
 }
 
-static bool config_fgets(config_t *conf, char *buffer, size_t buffer_len)
+static bool config_fgets(struct config *conf, char *buffer, size_t buffer_len)
 {
     assert(buffer_len <= INT_MAX);
     if (!fgets(buffer, (int)buffer_len, conf->file))
@@ -207,7 +207,7 @@ static bool config_fgets(config_t *conf, char *buffer, size_t buffer_len)
     return true;
 }
 
-static bool parse_multiline(config_t *c, config_line_t *l)
+static bool parse_multiline(struct config *c, struct config_line *l)
 {
     char buffer[1024];
 
@@ -237,7 +237,7 @@ static bool parse_multiline(config_t *c, config_line_t *l)
     return false;
 }
 
-static bool parse_line(config_t *c, char *line, config_line_t *l, char *equal)
+static bool parse_line(struct config *c, char *line, struct config_line *l, char *equal)
 {
     *equal = '\0';
     line = remove_leading_spaces(line);
@@ -253,7 +253,7 @@ static bool parse_line(config_t *c, char *line, config_line_t *l, char *equal)
     return parse_multiline(c, l);
 }
 
-static bool find_section_end(config_t *config, config_line_t *line, int recursion_level)
+static bool find_section_end(struct config *config, struct config_line *line, int recursion_level)
 {
     if (recursion_level > 10) {
         config_error(config, "Recursion level too deep");
@@ -276,7 +276,7 @@ static bool find_section_end(config_t *config, config_line_t *line, int recursio
     return false;
 }
 
-bool config_skip_section(config_t *conf, config_line_t *line)
+bool config_skip_section(struct config *conf, struct config_line *line)
 {
     if (conf->error_message)
         return false;
@@ -285,8 +285,8 @@ bool config_skip_section(config_t *conf, config_line_t *line)
     return find_section_end(conf, line, 0);
 }
 
-bool config_isolate_section(config_t *current_conf,
-    config_line_t *current_line, config_t *isolated)
+bool config_isolate_section(struct config *current_conf,
+    struct config_line *current_line, struct config *isolated)
 {
     long startpos, endpos;
     bool r = false;
@@ -332,7 +332,7 @@ resetpos:
     return r;
 }
 
-bool config_read_line(config_t *conf, config_line_t *l)
+bool config_read_line(struct config *conf, struct config_line *l)
 {
     char *line, *line_end;
 
@@ -373,7 +373,7 @@ bool config_read_line(config_t *conf, config_line_t *l)
     return true;
 }
 
-bool config_open(config_t *conf, const char *path)
+bool config_open(struct config *conf, const char *path)
 {
     if (!conf)
         return false;
@@ -407,7 +407,7 @@ error_no_strbuf:
     return false;
 }
 
-void config_close(config_t *conf)
+void config_close(struct config *conf)
 {
     if (!conf)
         return;

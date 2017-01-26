@@ -107,7 +107,7 @@ struct chunk {
     enum flags flags;
 };
 
-struct lwan_tpl_t_ {
+struct lwan_tpl {
     struct chunk *chunks;
     size_t minimum_size;
 };
@@ -138,8 +138,8 @@ struct lexer {
 };
 
 struct parser {
-    lwan_tpl_t *tpl;
-    const lwan_var_descriptor_t *descriptor;
+    struct lwan_tpl *tpl;
+    const struct lwan_var_descriptor *descriptor;
     struct symtab *symtab;
     struct lexer lexer;
     enum flags flags;
@@ -148,7 +148,7 @@ struct parser {
         struct chunk *data;
         size_t used, reserved;
     } chunks;
-    lwan_tpl_flag_t template_flags;
+    enum lwan_tpl_flag template_flags;
 };
 
 struct stacked_lexeme {
@@ -158,7 +158,7 @@ struct stacked_lexeme {
 
 struct chunk_descriptor {
     struct chunk *chunk;
-    lwan_var_descriptor_t *descriptor;
+    struct lwan_var_descriptor *descriptor;
 };
 
 static const size_t array_increment_step = 16;
@@ -189,11 +189,11 @@ static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
 
-static lwan_var_descriptor_t *
+static struct lwan_var_descriptor *
 symtab_lookup(struct parser *parser, const char *var_name)
 {
     for (struct symtab *tab = parser->symtab; tab; tab = tab->next) {
-        lwan_var_descriptor_t *var = hash_find(tab->hash, var_name);
+        struct lwan_var_descriptor *var = hash_find(tab->hash, var_name);
         if (var)
             return var;
     }
@@ -202,7 +202,7 @@ symtab_lookup(struct parser *parser, const char *var_name)
 }
 
 static int
-symtab_push(struct parser *parser, const lwan_var_descriptor_t *descriptor)
+symtab_push(struct parser *parser, const struct lwan_var_descriptor *descriptor)
 {
     struct symtab *tab;
     int r;
@@ -591,7 +591,7 @@ static void *parser_right_meta(struct parser *parser __attribute__((unused)),
 static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
 {
     struct chunk *iter;
-    lwan_var_descriptor_t *symbol;
+    struct lwan_var_descriptor *symbol;
     ssize_t idx;
 
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
@@ -623,7 +623,7 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
 static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexeme)
 {
     struct chunk *iter;
-    lwan_var_descriptor_t *symbol;
+    struct lwan_var_descriptor *symbol;
     ssize_t idx;
 
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
@@ -673,7 +673,7 @@ static void *parser_iter(struct parser *parser, struct lexeme *lexeme)
     if (lexeme->type == LEXEME_IDENTIFIER) {
         enum flags negate = parser->flags & FLAGS_NEGATE;
         const char *symname = strndupa(lexeme->value.value, lexeme->value.len);
-        lwan_var_descriptor_t *symbol = symtab_lookup(parser, symname);
+        struct lwan_var_descriptor *symbol = symtab_lookup(parser, symname);
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);
@@ -723,7 +723,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_RIGHT_META) {
-        lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+        struct lwan_var_descriptor *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);
@@ -737,7 +737,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_QUESTION_MARK) {
-        lwan_var_descriptor_t *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+        struct lwan_var_descriptor *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);
@@ -754,7 +754,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
 
 static void *parser_partial(struct parser *parser, struct lexeme *lexeme)
 {
-    lwan_tpl_t *tpl;
+    struct lwan_tpl *tpl;
     char *filename = strndupa(lexeme->value.value, lexeme->value.len);
 
     if (lexeme->type != LEXEME_IDENTIFIER)
@@ -797,12 +797,12 @@ static void *parser_meta(struct parser *parser, struct lexeme *lexeme)
     return unexpected_lexeme(lexeme);
 }
 
-static strbuf_t *strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
+static struct strbuf *strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
 {
     if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE)
         return strbuf_new_static(lexeme->value.value, lexeme->value.len);
 
-    strbuf_t *buf = strbuf_new_with_size(lexeme->value.len);
+    struct strbuf *buf = strbuf_new_with_size(lexeme->value.len);
     if (buf)
         strbuf_set(buf, lexeme->value.value, lexeme->value.len);
 
@@ -818,7 +818,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         if (lexeme->value.len == 1) {
             emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*lexeme->value.value);
         } else {
-            strbuf_t *buf = strbuf_from_lexeme(parser, lexeme);
+            struct strbuf *buf = strbuf_from_lexeme(parser, lexeme);
             if (!buf)
                 return error_lexeme(lexeme, "Out of memory");
 
@@ -837,7 +837,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
 }
 
 void
-lwan_append_int_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_int_to_strbuf(struct strbuf *buf, void *ptr)
 {
     char convertbuf[INT_TO_STR_BUFFER_SIZE];
     size_t len;
@@ -854,7 +854,7 @@ lwan_tpl_int_is_empty(void *ptr)
 }
 
 void
-lwan_append_double_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_double_to_strbuf(struct strbuf *buf, void *ptr)
 {
     strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
@@ -866,7 +866,7 @@ lwan_tpl_double_is_empty(void *ptr)
 }
 
 void
-lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_str_to_strbuf(struct strbuf *buf, void *ptr)
 {
     const char *str = *(char **)ptr;
 
@@ -875,7 +875,7 @@ lwan_append_str_to_strbuf(strbuf_t *buf, void *ptr)
 }
 
 void
-lwan_append_str_escaped_to_strbuf(strbuf_t *buf, void *ptr)
+lwan_append_str_escaped_to_strbuf(struct strbuf *buf, void *ptr)
 {
     if (UNLIKELY(!ptr))
         return;
@@ -944,7 +944,7 @@ free_chunk(struct chunk *chunk)
 }
 
 void
-lwan_tpl_free(lwan_tpl_t *tpl)
+lwan_tpl_free(struct lwan_tpl *tpl)
 {
     struct chunk *iter;
 
@@ -1022,7 +1022,7 @@ post_process_template(struct parser *parser)
 
             idx = CHUNK_IDX(prev_chunk) + 1;
         } else if (chunk->action == ACTION_VARIABLE) {
-            lwan_var_descriptor_t *descriptor = chunk->data;
+            struct lwan_var_descriptor *descriptor = chunk->data;
             bool escape = chunk->flags & FLAGS_QUOTE;
 
             if (descriptor->append_to_strbuf == lwan_append_str_to_strbuf) {
@@ -1050,7 +1050,7 @@ post_process_template(struct parser *parser)
 #undef CHUNK_IDX
 }
 
-static bool parser_init(struct parser *parser, const lwan_var_descriptor_t *descriptor,
+static bool parser_init(struct parser *parser, const struct lwan_var_descriptor *descriptor,
     const char *string)
 {
     struct chunk *chunks;
@@ -1125,8 +1125,8 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     return success;
 }
 
-static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_descriptor_t *descriptor,
-    lwan_tpl_flag_t flags)
+static bool parse_string(struct lwan_tpl *tpl, const char *string, const struct lwan_var_descriptor *descriptor,
+    enum lwan_tpl_flag flags)
 {
     struct parser parser = {
         .tpl = tpl,
@@ -1147,11 +1147,11 @@ static bool parse_string(lwan_tpl_t *tpl, const char *string, const lwan_var_des
     return parser_shutdown(&parser, lexeme);
 }
 
-lwan_tpl_t *
-lwan_tpl_compile_string_full(const char *string, const lwan_var_descriptor_t *descriptor,
-    lwan_tpl_flag_t flags)
+struct lwan_tpl *
+lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descriptor *descriptor,
+    enum lwan_tpl_flag flags)
 {
-    lwan_tpl_t *tpl;
+    struct lwan_tpl *tpl;
 
     tpl = calloc(1, sizeof(*tpl));
     if (tpl) {
@@ -1163,19 +1163,19 @@ lwan_tpl_compile_string_full(const char *string, const lwan_var_descriptor_t *de
     return NULL;
 }
 
-lwan_tpl_t *
-lwan_tpl_compile_string(const char *string, const lwan_var_descriptor_t *descriptor)
+struct lwan_tpl *
+lwan_tpl_compile_string(const char *string, const struct lwan_var_descriptor *descriptor)
 {
     return lwan_tpl_compile_string_full(string, descriptor, 0);
 }
 
-lwan_tpl_t *
-lwan_tpl_compile_file(const char *filename, const lwan_var_descriptor_t *descriptor)
+struct lwan_tpl *
+lwan_tpl_compile_file(const char *filename, const struct lwan_var_descriptor *descriptor)
 {
     int fd;
     struct stat st;
     char *mapped;
-    lwan_tpl_t *tpl = NULL;
+    struct lwan_tpl *tpl = NULL;
 
     fd = open(filename, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
@@ -1200,7 +1200,7 @@ end:
 }
 
 static struct chunk *
-apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variables,
+apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct strbuf *buf, void *variables,
             void *until_data)
 {
     static const void *const dispatch_table[] = {
@@ -1216,8 +1216,8 @@ apply_until(lwan_tpl_t *tpl, struct chunk *chunks, strbuf_t *buf, void *variable
         [ACTION_END_ITER] = &&action_end_iter,
         [ACTION_LAST] = &&finalize
     };
-    coro_switcher_t switcher;
-    coro_t *coro = NULL;
+    struct coro_switcher switcher;
+    struct coro *coro = NULL;
     struct chunk *chunk = chunks;
 
     if (UNLIKELY(!chunk))
@@ -1238,7 +1238,7 @@ action_append_char:
     NEXT_ACTION();
 
 action_variable: {
-        lwan_var_descriptor_t *descriptor = chunk->data;
+        struct lwan_var_descriptor *descriptor = chunk->data;
         descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
         NEXT_ACTION();
     }
@@ -1270,7 +1270,7 @@ action_end_if_variable_not_empty:
     NEXT_ACTION();
 
 action_apply_tpl: {
-        strbuf_t *tmp = lwan_tpl_apply(chunk->data, variables);
+        struct strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
         strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
         strbuf_free(tmp);
         NEXT_ACTION();
@@ -1331,8 +1331,8 @@ finalize:
 #undef NEXT_ACTION
 }
 
-strbuf_t *
-lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
+struct strbuf *
+lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *variables)
 {
     if (UNLIKELY(!strbuf_reset_length(buf)))
         return NULL;
@@ -1345,10 +1345,10 @@ lwan_tpl_apply_with_buffer(lwan_tpl_t *tpl, strbuf_t *buf, void *variables)
     return buf;
 }
 
-strbuf_t *
-lwan_tpl_apply(lwan_tpl_t *tpl, void *variables)
+struct strbuf *
+lwan_tpl_apply(struct lwan_tpl *tpl, void *variables)
 {
-    strbuf_t *buf = strbuf_new_with_size(tpl->minimum_size);
+    struct strbuf *buf = strbuf_new_with_size(tpl->minimum_size);
     return lwan_tpl_apply_with_buffer(tpl, buf, variables);
 }
 
@@ -1367,18 +1367,18 @@ int main(int argc, char *argv[])
     }
 
     printf("*** Compiling template...\n");
-    lwan_var_descriptor_t desc[] = {
+    struct lwan_var_descriptor desc[] = {
         TPL_VAR_INT(struct test_struct, some_int),
         TPL_VAR_STR(struct test_struct, a_string),
         TPL_VAR_SENTINEL
     };
-    lwan_tpl_t *tpl = lwan_tpl_compile_file(argv[1], desc);
+    struct lwan_tpl *tpl = lwan_tpl_compile_file(argv[1], desc);
     if (!tpl)
         return 1;
 
     printf("*** Applying template 100000 times...\n");
     for (size_t i = 0; i < 100000; i++) {
-        strbuf_t *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
+        struct strbuf *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
             .some_int = 42,
             .a_string = "some string"
         });

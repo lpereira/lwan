@@ -21,18 +21,18 @@
 
 #include "lwan.h"
 
-void lwan_response_init(lwan_t *l);
-void lwan_response_shutdown(lwan_t *l);
+void lwan_response_init(struct lwan *l);
+void lwan_response_shutdown(struct lwan *l);
 
-void lwan_socket_init(lwan_t *l);
-void lwan_socket_shutdown(lwan_t *l);
+void lwan_socket_init(struct lwan *l);
+void lwan_socket_shutdown(struct lwan *l);
 
-void lwan_thread_init(lwan_t *l);
-void lwan_thread_shutdown(lwan_t *l);
-void lwan_thread_add_client(lwan_thread_t *t, int fd);
+void lwan_thread_init(struct lwan *l);
+void lwan_thread_shutdown(struct lwan *l);
+void lwan_thread_add_client(struct lwan_thread *t, int fd);
 
-void lwan_status_init(lwan_t *l);
-void lwan_status_shutdown(lwan_t *l);
+void lwan_status_init(struct lwan *l);
+void lwan_status_shutdown(struct lwan *l);
 
 void lwan_job_thread_init(void);
 void lwan_job_thread_shutdown(void);
@@ -42,10 +42,10 @@ void lwan_job_del(bool (*cb)(void *data), void *data);
 void lwan_tables_init(void);
 void lwan_tables_shutdown(void);
 
-char *lwan_process_request(lwan_t *l, lwan_request_t *request,
-                           lwan_value_t *buffer, char *next_request);
+char *lwan_process_request(struct lwan *l, struct lwan_request *request,
+                           struct lwan_value *buffer, char *next_request);
 
-void lwan_straitjacket_enforce(config_t *c, config_line_t *l);
+void lwan_straitjacket_enforce(struct config *c, struct config_line *l);
 
 uint8_t lwan_char_isspace(char ch) __attribute__((pure));
 uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
@@ -54,6 +54,6 @@ uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
 #include <lua.h>
 
 lua_State *lwan_lua_create_state(const char *script_file, const char *script);
-void lwan_lua_state_push_request(lua_State *L, lwan_request_t *request);
+void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request);
 const char *lwan_lua_state_last_error(lua_State *L);
 #endif

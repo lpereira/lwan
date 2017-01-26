@@ -119,7 +119,7 @@ fallback:
 }
 
 const char *
-lwan_http_status_as_string_with_code(lwan_http_status_t status)
+lwan_http_status_as_string_with_code(enum lwan_http_status status)
 {
     const char *ret;
 
@@ -151,13 +151,13 @@ lwan_http_status_as_string_with_code(lwan_http_status_t status)
 }
 
 ALWAYS_INLINE const char *
-lwan_http_status_as_string(lwan_http_status_t status)
+lwan_http_status_as_string(enum lwan_http_status status)
 {
     return lwan_http_status_as_string_with_code(status) + 4;
 }
 
 const char *
-lwan_http_status_as_descriptive_string(lwan_http_status_t status)
+lwan_http_status_as_descriptive_string(enum lwan_http_status status)
 {
     switch (status) {
     case HTTP_OK:

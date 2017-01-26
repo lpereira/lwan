@@ -46,8 +46,8 @@ struct pattern {
     char *pattern;
     char *expand_pattern;
 
-    lwan_http_status_t (*handle)(lwan_request_t *request, const char *url);
-    const char *(*expand)(lwan_request_t *request, struct pattern *pattern,
+    enum lwan_http_status (*handle)(struct lwan_request *request, const char *url);
+    const char *(*expand)(struct lwan_request *request, struct pattern *pattern,
         const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
         int captures);
 };
@@ -57,10 +57,10 @@ struct str_builder {
     size_t size, len;
 };
 
-static lwan_http_status_t
-module_redirect_to(lwan_request_t *request, const char *url)
+static enum lwan_http_status
+module_redirect_to(struct lwan_request *request, const char *url)
 {
-    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
         return HTTP_INTERNAL_ERROR;
 
@@ -76,8 +76,8 @@ module_redirect_to(lwan_request_t *request, const char *url)
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static lwan_http_status_t
-module_rewrite_as(lwan_request_t *request, const char *url)
+static enum lwan_http_status
+module_rewrite_as(struct lwan_request *request, const char *url)
 {
     request->url.value = coro_strdup(request->conn->coro, url);
     if (UNLIKELY(!request->url.value))
@@ -113,7 +113,7 @@ parse_int_len(const char *s, size_t len, int default_value)
 }
 
 static const char *
-expand(lwan_request_t *request __attribute__((unused)), struct pattern *pattern,
+expand(struct lwan_request *request __attribute__((unused)), struct pattern *pattern,
     const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
     int captures)
 {
@@ -165,7 +165,7 @@ expand(lwan_request_t *request __attribute__((unused)), struct pattern *pattern,
 
 #ifdef HAVE_LUA
 static const char *
-expand_lua(lwan_request_t *request, struct pattern *pattern, const char *orig,
+expand_lua(struct lwan_request *request, struct pattern *pattern, const char *orig,
     char buffer[static PATH_MAX], struct str_find *sf, int captures)
 {
     const char *output, *ret;
@@ -217,9 +217,9 @@ expand_lua(lwan_request_t *request, struct pattern *pattern, const char *orig,
 }
 #endif
 
-static lwan_http_status_t
-module_handle_cb(lwan_request_t *request,
-    lwan_response_t *response __attribute__((unused)), void *data)
+static enum lwan_http_status
+module_handle_cb(struct lwan_request *request,
+    struct lwan_response *response __attribute__((unused)), void *data)
 {
     const char *url = request->url.value;
     char final_url[PATH_MAX];
@@ -284,7 +284,7 @@ module_init_from_hash(const char *prefix,
 }
 
 static bool
-module_parse_conf_pattern(struct private_data *pd, config_t *config, config_line_t *line)
+module_parse_conf_pattern(struct private_data *pd, struct config *config, struct config_line *line)
 {
     struct pattern *pattern;
     char *redirect_to = NULL, *rewrite_as = NULL;
@@ -360,10 +360,10 @@ out_no_free:
 }
 
 static bool
-module_parse_conf(void *data, config_t *config)
+module_parse_conf(void *data, struct config *config)
 {
     struct private_data *pd = data;
-    config_line_t line;
+    struct config_line line;
 
     while (config_read_line(config, &line)) {
         switch (line.type) {
@@ -385,10 +385,10 @@ module_parse_conf(void *data, config_t *config)
     return !config->error_message;
 }
 
-const lwan_module_t *
+const struct lwan_module *
 lwan_module_rewrite(void)
 {
-    static const lwan_module_t rewrite_module = {
+    static const struct lwan_module rewrite_module = {
         .init = module_init,
         .init_from_hash = module_init_from_hash,
         .parse_conf = module_parse_conf,

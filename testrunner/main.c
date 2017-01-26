@@ -24,18 +24,18 @@
 #include "lwan.h"
 #include "lwan-serve-files.h"
 
-lwan_http_status_t
-quit_lwan(lwan_request_t *request __attribute__((unused)),
-           lwan_response_t *response __attribute__((unused)),
+enum lwan_http_status
+quit_lwan(struct lwan_request *request __attribute__((unused)),
+           struct lwan_response *response __attribute__((unused)),
            void *data __attribute__((unused)))
 {
     exit(0);
     return HTTP_OK;
 }
 
-lwan_http_status_t
-gif_beacon(lwan_request_t *request __attribute__((unused)),
-           lwan_response_t *response,
+enum lwan_http_status
+gif_beacon(struct lwan_request *request __attribute__((unused)),
+           struct lwan_response *response,
            void *data __attribute__((unused)))
 {
     /*
@@ -55,9 +55,9 @@ gif_beacon(lwan_request_t *request __attribute__((unused)),
     return HTTP_OK;
 }
 
-lwan_http_status_t
-test_chunked_encoding(lwan_request_t *request,
-            lwan_response_t *response,
+enum lwan_http_status
+test_chunked_encoding(struct lwan_request *request,
+            struct lwan_response *response,
             void *data __attribute__((unused)))
 {
     int i;
@@ -78,9 +78,9 @@ test_chunked_encoding(lwan_request_t *request,
     return HTTP_OK;
 }
 
-lwan_http_status_t
-test_server_sent_event(lwan_request_t *request,
-            lwan_response_t *response,
+enum lwan_http_status
+test_server_sent_event(struct lwan_request *request,
+            struct lwan_response *response,
             void *data __attribute__((unused)))
 {
     int i;
@@ -93,12 +93,12 @@ test_server_sent_event(lwan_request_t *request,
     return HTTP_OK;
 }
 
-lwan_http_status_t
-test_proxy(lwan_request_t *request,
-           lwan_response_t *response,
+enum lwan_http_status
+test_proxy(struct lwan_request *request,
+           struct lwan_response *response,
            void *data __attribute__((unused)))
 {
-    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
         return HTTP_INTERNAL_ERROR;
 
@@ -116,8 +116,8 @@ test_proxy(lwan_request_t *request,
     return HTTP_OK;
 }
 
-lwan_http_status_t
-test_post_will_it_blend(lwan_request_t *request, lwan_response_t *response,
+enum lwan_http_status
+test_post_will_it_blend(struct lwan_request *request, struct lwan_response *response,
     void *data __attribute__((unused)))
 {
     static const char type[] = "application/json";
@@ -148,8 +148,8 @@ test_post_will_it_blend(lwan_request_t *request, lwan_response_t *response,
     return HTTP_OK;
 }
 
-lwan_http_status_t
-test_post_big(lwan_request_t *request, lwan_response_t *response,
+enum lwan_http_status
+test_post_big(struct lwan_request *request, struct lwan_response *response,
     void *data __attribute__((unused)))
 {
     static const char type[] = "x-test/trololo";
@@ -174,12 +174,12 @@ test_post_big(lwan_request_t *request, lwan_response_t *response,
     return HTTP_OK;
 }
 
-lwan_http_status_t
-hello_world(lwan_request_t *request,
-            lwan_response_t *response,
+enum lwan_http_status
+hello_world(struct lwan_request *request,
+            struct lwan_response *response,
             void *data __attribute__((unused)))
 {
-    static lwan_key_value_t headers[] = {
+    static struct lwan_key_value headers[] = {
         { .key = "X-The-Answer-To-The-Universal-Question", .value = "42" },
         { NULL, NULL }
     };
@@ -199,7 +199,7 @@ hello_world(lwan_request_t *request,
     strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
     strbuf_append_str(response->buffer, "-------\n\n", 0);
 
-    lwan_key_value_t *qs = request->cookies.base.base;
+    struct lwan_key_value *qs = request->cookies.base.base;
     for (; qs && qs->key; qs++)
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
@@ -228,7 +228,7 @@ end:
 int
 main()
 {
-    lwan_t l;
+    struct lwan l;
 
     lwan_init(&l);
     lwan_main_loop(&l);

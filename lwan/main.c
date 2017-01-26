@@ -33,7 +33,7 @@ enum args {
 };
 
 static enum args
-parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
+parse_args(int argc, char *argv[], struct lwan_config *config, char *root)
 {
     static const struct option opts[] = {
         { .name = "root", .has_arg = 1, .val = 'r' },
@@ -102,8 +102,8 @@ parse_args(int argc, char *argv[], lwan_config_t *config, char *root)
 int
 main(int argc, char *argv[])
 {
-    lwan_t l;
-    lwan_config_t c;
+    struct lwan l;
+    struct lwan_config c;
     char root[PATH_MAX];
     int ret = EXIT_SUCCESS;
 
@@ -118,7 +118,7 @@ main(int argc, char *argv[])
         lwan_status_info("Serving files from %s", root);
         lwan_init_with_config(&l, &c);
 
-        const lwan_url_map_t map[] = {
+        const struct lwan_url_map map[] = {
             { .prefix = "/", SERVE_FILES(root) },
             { }
         };

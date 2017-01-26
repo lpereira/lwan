@@ -28,11 +28,11 @@
 #include "lwan-http-authorize.h"
 
 struct realm_password_file_t {
-    struct cache_entry_t base;
+    struct cache_entry base;
     struct hash *entries;
 };
 
-static struct cache_t *realm_password_cache = NULL;
+static struct cache *realm_password_cache = NULL;
 
 static void fourty_two_and_free(void *str)
 {
@@ -44,13 +44,13 @@ static void fourty_two_and_free(void *str)
     }
 }
 
-static struct cache_entry_t *create_realm_file(
+static struct cache_entry *create_realm_file(
           const char *key,
           void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
-    config_t f;
-    config_line_t l;
+    struct config f;
+    struct config_line l;
 
     if (UNLIKELY(!rpf))
         return NULL;
@@ -105,7 +105,7 @@ static struct cache_entry_t *create_realm_file(
     }
 
     config_close(&f);
-    return (struct cache_entry_t *)rpf;
+    return (struct cache_entry *)rpf;
 
 error:
     config_close(&f);
@@ -115,7 +115,7 @@ error_no_close:
     return NULL;
 }
 
-static void destroy_realm_file(struct cache_entry_t *entry,
+static void destroy_realm_file(struct cache_entry *entry,
                                 void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = (struct realm_password_file_t *)entry;
@@ -139,9 +139,9 @@ lwan_http_authorize_shutdown(void)
 }
 
 static bool
-authorize(coro_t *coro,
-           lwan_value_t *authorization,
-           const char *password_file)
+authorize(struct coro *coro,
+    struct lwan_value *authorization,
+    const char *password_file)
 {
     struct realm_password_file_t *rpf;
     unsigned char *decoded;
@@ -161,7 +161,7 @@ authorize(coro_t *coro,
     if (UNLIKELY(!decoded))
         return false;
 
-    if (UNLIKELY(decoded_len >= sizeof(((config_line_t *)0)->buffer)))
+    if (UNLIKELY(decoded_len >= sizeof(((struct config_line *)0)->buffer)))
         goto out;
 
     colon = memchr(decoded, ':', decoded_len);
@@ -181,14 +181,14 @@ out:
 }
 
 bool
-lwan_http_authorize(lwan_request_t *request,
-                    lwan_value_t *authorization,
+lwan_http_authorize(struct lwan_request *request,
+                    struct lwan_value *authorization,
                     const char *realm,
                     const char *password_file)
 {
     static const char authenticate_tmpl[] = "Basic realm=\"%s\"";
     static const size_t basic_len = sizeof("Basic ") - 1;
-    lwan_key_value_t *headers;
+    struct lwan_key_value *headers;
 
     if (!authorization->value)
         goto unauthorized;

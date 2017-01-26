@@ -23,15 +23,15 @@
 #include "lwan.h"
 #include "lwan-redirect.h"
 
-static lwan_http_status_t
-redirect_handle_cb(lwan_request_t *request,
-                   lwan_response_t *response,
+static enum lwan_http_status
+redirect_handle_cb(struct lwan_request *request,
+                   struct lwan_response *response,
                    void *data)
 {
     if (UNLIKELY(!data))
         return HTTP_INTERNAL_ERROR;
 
-    lwan_key_value_t *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
         return HTTP_INTERNAL_ERROR;
 
@@ -47,21 +47,21 @@ redirect_handle_cb(lwan_request_t *request,
 
 static void *redirect_init(const char *prefix __attribute__((unused)), void *data)
 {
-    struct lwan_redirect_settings_t *settings = data;
+    struct lwan_redirect_settings *settings = data;
     return (settings->to) ? strdup(settings->to) : NULL;
 }
 
 static void *redirect_init_from_hash(const char *prefix, const struct hash *hash)
 {
-    struct lwan_redirect_settings_t settings = {
+    struct lwan_redirect_settings settings = {
         .to = hash_find(hash, "to")
     };
     return redirect_init(prefix, &settings);
 }
 
-const lwan_module_t *lwan_module_redirect(void)
+const struct lwan_module *lwan_module_redirect(void)
 {
-    static const lwan_module_t redirect_module = {
+    static const struct lwan_module redirect_module = {
         .init = redirect_init,
         .init_from_hash = redirect_init_from_hash,
         .shutdown = free,

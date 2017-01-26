@@ -31,7 +31,7 @@
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
 
-static lwan_tpl_t *error_template = NULL;
+static struct lwan_tpl *error_template = NULL;
 
 static const char *error_template_str = "<html><head><style>" \
     "body{" \
@@ -64,9 +64,9 @@ struct error_template_t {
 };
 
 void
-lwan_response_init(lwan_t *l)
+lwan_response_init(struct lwan *l)
 {
-    static lwan_var_descriptor_t error_descriptor[] = {
+    static struct lwan_var_descriptor error_descriptor[] = {
         TPL_VAR_STR(struct error_template_t, short_message),
         TPL_VAR_STR(struct error_template_t, long_message),
         TPL_VAR_SENTINEL
@@ -88,7 +88,7 @@ lwan_response_init(lwan_t *l)
 }
 
 void
-lwan_response_shutdown(lwan_t *l __attribute__((unused)))
+lwan_response_shutdown(struct lwan *l __attribute__((unused)))
 {
     lwan_status_debug("Shutting down response");
     assert(error_template);
@@ -97,7 +97,7 @@ lwan_response_shutdown(lwan_t *l __attribute__((unused)))
 
 #ifndef NDEBUG
 static const char *
-get_request_method(lwan_request_t *request)
+get_request_method(struct lwan_request *request)
 {
     if (request->flags & REQUEST_METHOD_GET)
         return "GET";
@@ -111,7 +111,7 @@ get_request_method(lwan_request_t *request)
 }
 
 static void
-log_request(lwan_request_t *request, lwan_http_status_t status)
+log_request(struct lwan_request *request, enum lwan_http_status status)
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
@@ -129,7 +129,7 @@ log_request(lwan_request_t *request, lwan_http_status_t status)
 #endif
 
 void
-lwan_response(lwan_request_t *request, lwan_http_status_t status)
+lwan_response(struct lwan_request *request, enum lwan_http_status status)
 {
     char headers[DEFAULT_HEADERS_SIZE];
 
@@ -157,7 +157,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
     log_request(request, status);
 
     if (request->response.stream.callback) {
-        lwan_http_status_t callback_status;
+        enum lwan_http_status callback_status;
 
         callback_status = request->response.stream.callback(request,
                     request->response.stream.data);
@@ -189,7 +189,7 @@ lwan_response(lwan_request_t *request, lwan_http_status_t status)
 }
 
 void
-lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
+lwan_default_response(struct lwan_request *request, enum lwan_http_status status)
 {
     request->response.mime_type = "text/html";
 
@@ -238,7 +238,7 @@ lwan_default_response(lwan_request_t *request, lwan_http_status_t status)
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 ALWAYS_INLINE size_t
-lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status, char headers[], size_t headers_buf_size)
+lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status status, char headers[], size_t headers_buf_size)
 {
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
@@ -277,7 +277,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
         APPEND_CONSTANT("\r\nConnection: close");
 
     if ((status < HTTP_BAD_REQUEST && request->response.headers)) {
-        lwan_key_value_t *header;
+        struct lwan_key_value *header;
 
         for (header = request->response.headers; header->key; header++) {
             if (UNLIKELY(streq(header->key, "Server")))
@@ -296,7 +296,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
             APPEND_STRING(header->value);
         }
     } else if (status == HTTP_NOT_AUTHORIZED) {
-        lwan_key_value_t *header;
+        struct lwan_key_value *header;
 
         for (header = request->response.headers; header->key; header++) {
             if (streq(header->key, "WWW-Authenticate")) {
@@ -338,7 +338,7 @@ lwan_prepare_response_header(lwan_request_t *request, lwan_http_status_t status,
 #undef RETURN_0_ON_OVERFLOW
 
 bool
-lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
+lwan_response_set_chunked(struct lwan_request *request, enum lwan_http_status status)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
     size_t buffer_len;
@@ -359,7 +359,7 @@ lwan_response_set_chunked(lwan_request_t *request, lwan_http_status_t status)
 }
 
 void
-lwan_response_send_chunk(lwan_request_t *request)
+lwan_response_send_chunk(struct lwan_request *request)
 {
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
         if (UNLIKELY(!lwan_response_set_chunked(request, HTTP_OK)))
@@ -398,8 +398,8 @@ abort_coro:
 }
 
 bool
-lwan_response_set_event_stream(lwan_request_t *request,
-                               lwan_http_status_t status)
+lwan_response_set_event_stream(struct lwan_request *request,
+                               enum lwan_http_status status)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
     size_t buffer_len;
@@ -421,7 +421,7 @@ lwan_response_set_event_stream(lwan_request_t *request,
 }
 
 void
-lwan_response_send_event(lwan_request_t *request, const char *event)
+lwan_response_send_event(struct lwan_request *request, const char *event)
 {
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
         if (UNLIKELY(!lwan_response_set_event_stream(request, HTTP_OK)))

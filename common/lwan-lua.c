@@ -35,7 +35,7 @@
 
 static const char *request_metatable_name = "Lwan.Request";
 
-struct lwan_lua_priv_t {
+struct lwan_lua_priv {
     char *default_type;
     char *script_file;
     char *script;
@@ -43,19 +43,19 @@ struct lwan_lua_priv_t {
     unsigned cache_period;
 };
 
-struct lwan_lua_state_t {
-    struct cache_entry_t base;
+struct lwan_lua_state {
+    struct cache_entry base;
     lua_State *L;
 };
 
-static ALWAYS_INLINE lwan_request_t *userdata_as_request(lua_State *L, int n)
+static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L, int n)
 {
-    return *((lwan_request_t **)luaL_checkudata(L, n, request_metatable_name));
+    return *((struct lwan_request **)luaL_checkudata(L, n, request_metatable_name));
 }
 
 static int req_say_cb(lua_State *L)
 {
-    lwan_request_t *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L, 1);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -67,7 +67,7 @@ static int req_say_cb(lua_State *L)
 
 static int req_send_event_cb(lua_State *L)
 {
-    lwan_request_t *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L, 1);
     size_t event_str_len;
     const char *event_str = lua_tolstring(L, -1, &event_str_len);
     const char *event_name = lua_tostring(L, -2);
@@ -80,7 +80,7 @@ static int req_send_event_cb(lua_State *L)
 
 static int req_set_response_cb(lua_State *L)
 {
-    lwan_request_t *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L, 1);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -90,9 +90,9 @@ static int req_set_response_cb(lua_State *L)
 }
 
 static int request_param_getter(lua_State *L,
-        const char *(*getter)(lwan_request_t *req, const char *key))
+        const char *(*getter)(struct lwan_request *req, const char *key))
 {
-    lwan_request_t *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L, 1);
     const char *key_str = lua_tostring(L, -1);
 
     const char *value = getter(request, key_str);
@@ -119,10 +119,10 @@ static int req_cookie_cb(lua_State *L)
     return request_param_getter(L, lwan_request_get_cookie);
 }
 
-static bool append_key_value(lua_State *L, coro_t *coro,
+static bool append_key_value(lua_State *L, struct coro *coro,
     struct lwan_key_value_array *arr, char *key, int value_index)
 {
-    lwan_key_value_t *kv;
+    struct lwan_key_value *kv;
 
     kv = lwan_key_value_array_append(arr);
     if (!kv)
@@ -141,9 +141,9 @@ static int req_set_headers_cb(lua_State *L)
     const int value_index = 2 + table_index;
     const int nested_value_index = value_index * 2 - table_index;
     struct lwan_key_value_array *headers;
-    lwan_request_t *request = userdata_as_request(L, 1);
-    coro_t *coro = request->conn->coro;
-    lwan_key_value_t *kv;
+    struct lwan_request *request = userdata_as_request(L, 1);
+    struct coro *coro = request->conn->coro;
+    struct lwan_key_value *kv;
 
     if (request->flags & RESPONSE_SENT_HEADERS)
         goto out;
@@ -247,35 +247,35 @@ close_lua_state:
     return NULL;
 }
 
-static struct cache_entry_t *state_create(const char *key __attribute__((unused)),
+static struct cache_entry *state_create(const char *key __attribute__((unused)),
         void *context)
 {
-    struct lwan_lua_priv_t *priv = context;
-    struct lwan_lua_state_t *state = malloc(sizeof(*state));
+    struct lwan_lua_priv *priv = context;
+    struct lwan_lua_state *state = malloc(sizeof(*state));
 
     if (UNLIKELY(!state))
         return NULL;
 
     state->L = lwan_lua_create_state(priv->script_file, priv->script);
     if (LIKELY(state->L))
-        return (struct cache_entry_t *)state;
+        return (struct cache_entry *)state;
 
     free(state);
     return NULL;
 }
 
-static void state_destroy(struct cache_entry_t *entry,
+static void state_destroy(struct cache_entry *entry,
         void *context __attribute__((unused)))
 {
-    struct lwan_lua_state_t *state = (struct lwan_lua_state_t *)entry;
+    struct lwan_lua_state *state = (struct lwan_lua_state *)entry;
 
     lua_close(state->L);
     free(state);
 }
 
-static struct cache_t *get_or_create_cache(struct lwan_lua_priv_t *priv)
+static struct cache *get_or_create_cache(struct lwan_lua_priv *priv)
 {
-    struct cache_t *cache = pthread_getspecific(priv->cache_key);
+    struct cache *cache = pthread_getspecific(priv->cache_key);
     if (UNLIKELY(!cache)) {
         lwan_status_debug("Creating cache for this thread");
         cache = cache_create(state_create, state_destroy, priv, priv->cache_period);
@@ -295,7 +295,7 @@ static void unref_thread(void *data1, void *data2)
     luaL_unref(L, LUA_REGISTRYINDEX, thread_ref);
 }
 
-static ALWAYS_INLINE const char *get_handle_prefix(lwan_request_t *request, size_t *len)
+static ALWAYS_INLINE const char *get_handle_prefix(struct lwan_request *request, size_t *len)
 {
     if (request->flags & REQUEST_METHOD_GET) {
         *len = sizeof("handle_get_");
@@ -313,7 +313,7 @@ static ALWAYS_INLINE const char *get_handle_prefix(lwan_request_t *request, size
     return NULL;
 }
 
-static bool get_handler_function(lua_State *L, lwan_request_t *request)
+static bool get_handler_function(lua_State *L, struct lwan_request *request)
 {
     char handler_name[128];
     size_t handle_prefix_len;
@@ -352,15 +352,15 @@ static bool get_handler_function(lua_State *L, lwan_request_t *request)
     return lua_isfunction(L, -1);
 }
 
-void lwan_lua_state_push_request(lua_State *L, lwan_request_t *request)
+void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request)
 {
-    lwan_request_t **userdata = lua_newuserdata(L, sizeof(lwan_request_t *));
+    struct lwan_request **userdata = lua_newuserdata(L, sizeof(struct lwan_request *));
     *userdata = request;
     luaL_getmetatable(L, request_metatable_name);
     lua_setmetatable(L, -2);
 }
 
-static lua_State *push_newthread(lua_State *L, coro_t *coro)
+static lua_State *push_newthread(lua_State *L, struct coro *coro)
 {
     lua_State *L1 = lua_newthread(L);
     if (UNLIKELY(!L1))
@@ -372,21 +372,21 @@ static lua_State *push_newthread(lua_State *L, coro_t *coro)
     return L1;
 }
 
-static lwan_http_status_t
-lua_handle_cb(lwan_request_t *request,
-              lwan_response_t *response,
+static enum lwan_http_status
+lua_handle_cb(struct lwan_request *request,
+              struct lwan_response *response,
               void *data)
 {
-    struct lwan_lua_priv_t *priv = data;
+    struct lwan_lua_priv *priv = data;
 
     if (UNLIKELY(!priv))
         return HTTP_INTERNAL_ERROR;
 
-    struct cache_t *cache = get_or_create_cache(priv);
+    struct cache *cache = get_or_create_cache(priv);
     if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;
 
-    struct lwan_lua_state_t *state = (struct lwan_lua_state_t *)cache_coro_get_and_ref_entry(
+    struct lwan_lua_state *state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
             cache, request->conn->coro, "");
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
@@ -418,8 +418,8 @@ lua_handle_cb(lwan_request_t *request,
 
 static void *lua_init(const char *prefix __attribute__((unused)), void *data)
 {
-    struct lwan_lua_settings_t *settings = data;
-    struct lwan_lua_priv_t *priv;
+    struct lwan_lua_settings *settings = data;
+    struct lwan_lua_priv *priv;
 
     priv = calloc(1, sizeof(*priv));
     if (!priv) {
@@ -470,7 +470,7 @@ error:
 
 static void lua_shutdown(void *data)
 {
-    struct lwan_lua_priv_t *priv = data;
+    struct lwan_lua_priv *priv = data;
     if (priv) {
         pthread_key_delete(priv->cache_key);
         free(priv->default_type);
@@ -482,7 +482,7 @@ static void lua_shutdown(void *data)
 
 static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
 {
-    struct lwan_lua_settings_t settings = {
+    struct lwan_lua_settings settings = {
         .default_type = hash_find(hash, "default_type"),
         .script_file = hash_find(hash, "script_file"),
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
@@ -491,9 +491,9 @@ static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
     return lua_init(prefix, &settings);
 }
 
-const lwan_module_t *lwan_module_lua(void)
+const struct lwan_module *lwan_module_lua(void)
 {
-    static const lwan_module_t lua_module = {
+    static const struct lwan_module lua_module = {
         .init = lua_init,
         .init_from_hash = lua_init_from_hash,
         .shutdown = lua_shutdown,

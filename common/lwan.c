@@ -44,7 +44,7 @@
 #include "lwan-lua.h"
 #endif
 
-static const lwan_config_t default_config = {
+static const struct lwan_config default_config = {
     .listener = "localhost:8080",
     .keep_alive_timeout = 15,
     .quiet = false,
@@ -56,7 +56,7 @@ static const lwan_config_t default_config = {
     .max_post_data_size = 10 * DEFAULT_BUFFER_SIZE
 };
 
-static void lwan_module_init(lwan_t *l)
+static void lwan_module_init(struct lwan *l)
 {
     if (!l->module_registry) {
         lwan_status_debug("Initializing module registry");
@@ -64,7 +64,7 @@ static void lwan_module_init(lwan_t *l)
     }
 }
 
-static void lwan_module_shutdown(lwan_t *l)
+static void lwan_module_shutdown(struct lwan *l)
 {
     hash_free(l->module_registry);
 }
@@ -77,11 +77,11 @@ static void *find_handler_symbol(const char *name)
     return symbol;
 }
 
-static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
+static const struct lwan_module *lwan_module_find(struct lwan *l, const char *name)
 {
-    lwan_module_t *module = hash_find(l->module_registry, name);
+    struct lwan_module *module = hash_find(l->module_registry, name);
     if (!module) {
-        lwan_module_t *(*module_fn)(void);
+        struct lwan_module *(*module_fn)(void);
         char module_symbol[128];
         int r;
 
@@ -123,10 +123,10 @@ static const lwan_module_t *lwan_module_find(lwan_t *l, const char *name)
 
 static void destroy_urlmap(void *data)
 {
-    lwan_url_map_t *url_map = data;
+    struct lwan_url_map *url_map = data;
 
     if (url_map->module) {
-        const lwan_module_t *module = url_map->module;
+        const struct lwan_module *module = url_map->module;
         if (module->shutdown)
             module->shutdown(url_map->data);
     } else if (url_map->data && url_map->flags & HANDLER_DATA_IS_HASH_TABLE) {
@@ -139,9 +139,9 @@ static void destroy_urlmap(void *data)
     free(url_map);
 }
 
-static lwan_url_map_t *add_url_map(lwan_trie_t *t, const char *prefix, const lwan_url_map_t *map)
+static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix, const struct lwan_url_map *map)
 {
-    lwan_url_map_t *copy = malloc(sizeof(*copy));
+    struct lwan_url_map *copy = malloc(sizeof(*copy));
 
     if (!copy)
         lwan_status_critical_perror("Could not copy URL map");
@@ -155,8 +155,8 @@ static lwan_url_map_t *add_url_map(lwan_trie_t *t, const char *prefix, const lwa
     return copy;
 }
 
-static void parse_listener_prefix_authorization(config_t *c,
-                    config_line_t *l, lwan_url_map_t *url_map)
+static void parse_listener_prefix_authorization(struct config *c,
+                    struct config_line *l, struct lwan_url_map *url_map)
 {
     if (!streq(l->param, "basic")) {
         config_error(c, "Only basic authorization supported");
@@ -200,14 +200,14 @@ error:
     free(url_map->authorization.password_file);
 }
 
-static void parse_listener_prefix(config_t *c, config_line_t *l, lwan_t *lwan,
-    const lwan_module_t *module)
+static void parse_listener_prefix(struct config *c, struct config_line *l, struct lwan *lwan,
+    const struct lwan_module *module)
 {
-    lwan_url_map_t url_map = { };
+    struct lwan_url_map url_map = { };
     struct hash *hash = hash_str_new(free, free);
     void *handler = NULL;
     char *prefix = strdupa(l->value);
-    config_t isolated = { };
+    struct config isolated = { };
 
     if (!config_isolate_section(c, l, &isolated)) {
         config_error(c, "Could not isolate configuration file");
@@ -298,14 +298,14 @@ out:
     config_close(&isolated);
 }
 
-void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
+void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
 {
     lwan_trie_destroy(&l->url_map_trie);
     if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
         lwan_status_critical_perror("Could not initialize trie");
 
     for (; map->prefix; map++) {
-        lwan_url_map_t *copy = add_url_map(&l->url_map_trie, NULL, map);
+        struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
 
         if (UNLIKELY(!copy))
             continue;
@@ -320,7 +320,7 @@ void lwan_set_url_map(lwan_t *l, const lwan_url_map_t *map)
     }
 }
 
-static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
+static void parse_listener(struct config *c, struct config_line *l, struct lwan *lwan)
 {
     lwan->config.listener = strdup(l->param);
 
@@ -333,7 +333,7 @@ static void parse_listener(config_t *c, config_line_t *l, lwan_t *lwan)
             if (streq(l->name, "prefix")) {
                 parse_listener_prefix(c, l, lwan, NULL);
             } else {
-                const lwan_module_t *module = lwan_module_find(lwan, l->name);
+                const struct lwan_module *module = lwan_module_find(lwan, l->name);
                 if (!module) {
                     config_error(c, "Invalid section name or module not found: %s",
                         l->name);
@@ -370,10 +370,10 @@ out:
     return "lwan.conf";
 }
 
-static bool setup_from_config(lwan_t *lwan, const char *path)
+static bool setup_from_config(struct lwan *lwan, const char *path)
 {
-    config_t conf;
-    config_line_t line;
+    struct config conf;
+    struct config_line line;
     bool has_listener = false;
     char path_buf[PATH_MAX];
 
@@ -483,9 +483,9 @@ align_to_size(size_t value, size_t alignment)
 }
 
 static void
-allocate_connections(lwan_t *l, size_t max_open_files)
+allocate_connections(struct lwan *l, size_t max_open_files)
 {
-    const size_t sz = max_open_files * sizeof(lwan_connection_t);
+    const size_t sz = max_open_files * sizeof(struct lwan_connection);
 
     if (posix_memalign((void **)&l->conns, 64, align_to_size(sz, 64)))
         lwan_status_critical_perror("aligned_alloc");
@@ -505,19 +505,19 @@ get_number_of_cpus(void)
 }
 
 void
-lwan_init(lwan_t *l)
+lwan_init(struct lwan *l)
 {
     lwan_init_with_config(l, &default_config);
 }
 
-const lwan_config_t *
+const struct lwan_config *
 lwan_get_default_config(void)
 {
     return &default_config;
 }
 
 void
-lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
+lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
     memset(l, 0, sizeof(*l));
@@ -572,7 +572,7 @@ lwan_init_with_config(lwan_t *l, const lwan_config_t *config)
 }
 
 void
-lwan_shutdown(lwan_t *l)
+lwan_shutdown(struct lwan *l)
 {
     lwan_status_info("Shutting down");
 
@@ -597,13 +597,13 @@ lwan_shutdown(lwan_t *l)
 }
 
 static ALWAYS_INLINE void
-schedule_client(lwan_t *l, int fd)
+schedule_client(struct lwan *l, int fd)
 {
     int thread;
 #ifdef __x86_64__
-    static_assert(sizeof(lwan_connection_t) == 32,
+    static_assert(sizeof(struct lwan_connection) == 32,
                                         "Two connections per cache line");
-    /* Since lwan_connection_t is guaranteed to be 32-byte long, two of them
+    /* Since struct lwan_connection is guaranteed to be 32-byte long, two of them
      * can fill up a cache line.  This formula will group two connections
      * per thread in a way that false-sharing is avoided.  This gives wrong
      * results when fd=0, but this shouldn't happen (as 0 is either the
@@ -614,7 +614,7 @@ schedule_client(lwan_t *l, int fd)
     static int counter = 0;
     thread = counter++ % l->thread.count;
 #endif
-    lwan_thread_t *t = &l->thread.threads[thread];
+    struct lwan_thread *t = &l->thread.threads[thread];
     lwan_thread_add_client(t, fd);
 }
 
@@ -633,7 +633,7 @@ sigint_handler(int signal_number __attribute__((unused)))
 }
 
 void
-lwan_main_loop(lwan_t *l)
+lwan_main_loop(struct lwan *l)
 {
     assert(main_socket == -1);
     main_socket = l->main_socket;

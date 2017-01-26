@@ -31,7 +31,7 @@
 static const int MAX_FAILED_TRIES = 5;
 
 int
-lwan_openat(lwan_request_t *request,
+lwan_openat(struct lwan_request *request,
             int dirfd, const char *pathname, int flags)
 {
     for (int tries = MAX_FAILED_TRIES; tries; tries--) {
@@ -58,7 +58,7 @@ lwan_openat(lwan_request_t *request,
 }
 
 ssize_t
-lwan_writev(lwan_request_t *request, struct iovec *iov, int iov_count)
+lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 {
     ssize_t total_written = 0;
     int curr_iov = 0;
@@ -101,7 +101,7 @@ out:
 }
 
 ssize_t
-lwan_write(lwan_request_t *request, const void *buf, size_t count)
+lwan_write(struct lwan_request *request, const void *buf, size_t count)
 {
     ssize_t total_written = 0;
 
@@ -135,7 +135,7 @@ out:
 }
 
 ssize_t
-lwan_send(lwan_request_t *request, const void *buf, size_t count, int flags)
+lwan_send(struct lwan_request *request, const void *buf, size_t count, int flags)
 {
     ssize_t total_sent = 0;
 
@@ -170,7 +170,7 @@ out:
 
 #if defined(__linux__)
 void
-lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
+lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
 {
     size_t to_be_written = count;
@@ -199,7 +199,7 @@ lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
 }
 #elif defined(__FreeBSD__) || defined(__APPLE__)
 void
-lwan_sendfile(lwan_request_t *request, int in_fd, off_t offset, size_t count,
+lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
 {
     struct sf_hdtr headers = {

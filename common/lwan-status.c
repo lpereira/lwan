@@ -33,20 +33,20 @@
 
 #include "lwan-private.h"
 
-typedef enum {
+enum lwan_status_type {
     STATUS_INFO = 1<<0,
     STATUS_WARNING = 1<<1,
     STATUS_ERROR = 1<<2,
     STATUS_PERROR = 1<<3,
     STATUS_CRITICAL = 1<<4,
     STATUS_DEBUG = 1<<5,
-} lwan_status_type_t;
+};
 
 static volatile bool quiet = false;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void
-lwan_status_init(lwan_t *l)
+lwan_status_init(struct lwan *l)
 {
 #ifdef NDEBUG
     quiet = l->config.quiet;
@@ -57,12 +57,12 @@ lwan_status_init(lwan_t *l)
 }
 
 void
-lwan_status_shutdown(lwan_t *l __attribute__((unused)))
+lwan_status_shutdown(struct lwan *l __attribute__((unused)))
 {
 }
 
 static const char *
-get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
+get_color_start_for_type(enum lwan_status_type type, size_t *len_out)
 {
     const char *retval;
 
@@ -85,7 +85,7 @@ get_color_start_for_type(lwan_status_type_t type, size_t *len_out)
 }
 
 static const char *
-get_color_end_for_type(lwan_status_type_t type __attribute__((unused)),
+get_color_end_for_type(enum lwan_status_type type __attribute__((unused)),
                         size_t *len_out)
 {
     static const char *retval = "\033[0m";
@@ -107,10 +107,10 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
 
 static void
 #ifdef NDEBUG
-status_out_msg(lwan_status_type_t type, const char *msg, size_t msg_len)
+status_out_msg(struct enum lwan_status_type type, const char *msg, size_t msg_len)
 #else
 status_out_msg(const char *file, const int line, const char *func,
-                lwan_status_type_t type, const char *msg, size_t msg_len)
+               enum lwan_status_type type, const char *msg, size_t msg_len)
 #endif
 {
     int error_number = errno; /* Make sure no library call below modifies errno */
@@ -148,10 +148,10 @@ status_out_msg(const char *file, const int line, const char *func,
 
 static void
 #ifdef NDEBUG
-status_out(lwan_status_type_t type, const char *fmt, va_list values)
+status_out(struct enum lwan_status_type type, const char *fmt, va_list values)
 #else
 status_out(const char *file, const int line, const char *func,
-            lwan_status_type_t type, const char *fmt, va_list values)
+           enum lwan_status_type type, const char *fmt, va_list values)
 #endif
 {
     char *output;

@@ -25,7 +25,7 @@ extern "C" {
 
 #include "lwan.h"
 
-struct lwan_serve_files_settings_t {
+struct lwan_serve_files_settings {
   const char *root_path;
   const char *index_html;
   const char *directory_list_template;
@@ -35,19 +35,19 @@ struct lwan_serve_files_settings_t {
 
 #define SERVE_FILES_SETTINGS(root_path_, index_html_, serve_precompressed_files_) \
   .module = lwan_module_serve_files(), \
-  .args = ((struct lwan_serve_files_settings_t[]) {{ \
+  .args = ((struct lwan_serve_files_settings[]) {{ \
     .root_path = root_path_, \
     .index_html = index_html_, \
     .serve_precompressed_files = serve_precompressed_files_, \
     .directory_list_template = NULL, \
     .auto_index = true \
   }}), \
-  .flags = (lwan_handler_flags_t)0
+  .flags = (enum lwan_handler_flags)0
 
 #define SERVE_FILES(root_path) \
   SERVE_FILES_SETTINGS(root_path, NULL, true)
 
-const lwan_module_t *lwan_module_serve_files(void);
+const struct lwan_module *lwan_module_serve_files(void);
 
 #if defined (__cplusplus)
 }

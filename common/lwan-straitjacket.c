@@ -174,7 +174,7 @@ static void abort_on_open_directories(void)
 }
 #endif
 
-void lwan_straitjacket_enforce(config_t *c, config_line_t *l)
+void lwan_straitjacket_enforce(struct config *c, struct config_line *l)
 {
     char *user_name = NULL;
     char *chroot_path = NULL;

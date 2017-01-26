@@ -22,32 +22,28 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct lwan_trie_t_		lwan_trie_t;
-typedef struct lwan_trie_node_t_	lwan_trie_node_t;
-typedef struct lwan_trie_leaf_t_	lwan_trie_leaf_t;
-
-struct lwan_trie_node_t_ {
-    lwan_trie_node_t *next[8];
-    lwan_trie_leaf_t *leaf;
+struct lwan_trie_node {
+    struct lwan_trie_node *next[8];
+    struct lwan_trie_leaf *leaf;
     int ref_count;
 };
 
-struct lwan_trie_leaf_t_ {
+struct lwan_trie_leaf {
     char *key;
     void *data;
-    lwan_trie_leaf_t *next;
+    struct lwan_trie_leaf *next;
 };
 
-struct lwan_trie_t_ {
-    lwan_trie_node_t *root;
+struct lwan_trie {
+    struct lwan_trie_node *root;
     void (*free_node)(void *data);
 };
 
-bool		 lwan_trie_init(lwan_trie_t *trie, void (*free_node)(void *data));
-void		 lwan_trie_destroy(lwan_trie_t *trie);
-void		 lwan_trie_add(lwan_trie_t *trie, const char *key, void *data);
-void 		*lwan_trie_lookup_full(lwan_trie_t *trie, const char *key, bool prefix);
-void 		*lwan_trie_lookup_prefix(lwan_trie_t *trie, const char *key);
-void		*lwan_trie_lookup_exact(lwan_trie_t *trie, const char *key);
-int32_t		 lwan_trie_entry_count(lwan_trie_t *trie);
+bool		 lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data));
+void		 lwan_trie_destroy(struct lwan_trie *trie);
+void		 lwan_trie_add(struct lwan_trie *trie, const char *key, void *data);
+void 		*lwan_trie_lookup_full(struct lwan_trie *trie, const char *key, bool prefix);
+void 		*lwan_trie_lookup_prefix(struct lwan_trie *trie, const char *key);
+void		*lwan_trie_lookup_exact(struct lwan_trie *trie, const char *key);
+int32_t		 lwan_trie_entry_count(struct lwan_trie *trie);
 

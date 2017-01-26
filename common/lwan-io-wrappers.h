@@ -24,15 +24,15 @@
 
 #include "lwan.h"
 
-int lwan_openat(lwan_request_t *request, int dirfd, const char *pathname,
+int lwan_openat(struct lwan_request *request, int dirfd, const char *pathname,
                 int flags);
-ssize_t lwan_writev(lwan_request_t *request, struct iovec *iov,
+ssize_t lwan_writev(struct lwan_request *request, struct iovec *iov,
                     int iovcnt);
-ssize_t lwan_write(lwan_request_t *request, const void *buffer,
+ssize_t lwan_write(struct lwan_request *request, const void *buffer,
                    size_t count);
-ssize_t lwan_send(lwan_request_t *request, const void *buf, size_t count,
+ssize_t lwan_send(struct lwan_request *request, const void *buf, size_t count,
                   int flags);
-void lwan_sendfile(lwan_request_t *request, int in_fd,
+void lwan_sendfile(struct lwan_request *request, int in_fd,
                     off_t offset, size_t count,
                     const char *header, size_t header_len);
 
