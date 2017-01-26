@@ -28,6 +28,7 @@
 
 #include "lwan-private.h"
 
+#include "lwan-array.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-lua.h"
@@ -118,58 +119,62 @@ static int req_cookie_cb(lua_State *L)
     return request_param_getter(L, lwan_request_get_cookie);
 }
 
+static bool append_key_value(lua_State *L, coro_t *coro,
+    struct lwan_key_value_array *arr, char *key, int value_index)
+{
+    lwan_key_value_t *kv;
+
+    kv = lwan_key_value_array_append(arr);
+    if (!kv)
+        return false;
+
+    kv->key = key;
+    kv->value = coro_strdup(coro, lua_tostring(L, value_index));
+
+    return kv->value != NULL;
+}
+
 static int req_set_headers_cb(lua_State *L)
 {
-    const size_t max_headers = 16;
     const int table_index = 2;
     const int key_index = 1 + table_index;
     const int value_index = 2 + table_index;
     const int nested_value_index = value_index * 2 - table_index;
+    struct lwan_key_value_array *headers;
     lwan_request_t *request = userdata_as_request(L, 1);
-    lwan_key_value_t *headers = coro_malloc(request->conn->coro, max_headers * sizeof(*headers));
-    size_t n_headers = 0;
+    lwan_key_value_t *kv;
 
-    if (!headers) {
-        lua_pushnil(L);
-        return 1;
-    }
+    if (request->flags & RESPONSE_SENT_HEADERS)
+        goto out;
 
-    if (request->flags & RESPONSE_SENT_HEADERS) {
-        lua_pushnil(L);
-        return 1;
-    }
+    if (!lua_istable(L, table_index))
+        goto out;
 
-    if (!lua_istable(L, table_index)) {
-        lua_pushnil(L);
-        return 1;
-    }
+    headers = coro_lwan_key_value_array_new(request->conn->coro);
+    if (!headers)
+        goto out;
 
     lua_pushnil(L);
-    while (n_headers < (max_headers - 1) && lua_next(L, table_index) != 0) {
+    while (lua_next(L, table_index) != 0) {
+        char *key;
+
         if (!lua_isstring(L, key_index)) {
             lua_pop(L, 1);
             continue;
         }
 
+        key = coro_strdup(request->conn->coro, lua_tostring(L, key_index));
+
         if (lua_isstring(L, value_index)) {
-            headers[n_headers].key = coro_strdup(request->conn->coro,
-                lua_tostring(L, key_index));
-            headers[n_headers].value = coro_strdup(request->conn->coro,
-                lua_tostring(L, value_index));
-
-            n_headers++;
+            if (!append_key_value(L, request->conn->coro, headers, key, value_index))
+                goto out;
         } else if (lua_istable(L, value_index)) {
-            char *header_name = coro_strdup(request->conn->coro,
-                lua_tostring(L, key_index));
-
             lua_pushnil(L);
-            while (n_headers < (max_headers - 1) && lua_next(L, value_index) != 0) {
-                if (lua_isstring(L, nested_value_index)) {
-                    headers[n_headers].key = header_name;
-                    headers[n_headers].value = coro_strdup(request->conn->coro,
-                        lua_tostring(L, nested_value_index));
 
-                    n_headers++;
+            while (lua_next(L, value_index) != 0) {
+                if (lua_isstring(L, nested_value_index)) {
+                    if (!append_key_value(L, request->conn->coro, headers, key, nested_value_index))
+                        goto out;
                 }
 
                 lua_pop(L, 1);
@@ -178,13 +183,18 @@ static int req_set_headers_cb(lua_State *L)
 
         lua_pop(L, 1);
     }
-    if (n_headers == (max_headers - 1))
-        lua_pop(L, 1);
 
-    headers[n_headers].key = headers[n_headers].value = NULL;
-    request->response.headers = headers;
+    kv = lwan_key_value_array_append(headers);
+    if (!kv)
+        goto out;
+    kv->key = kv->value = NULL;
 
-    lua_pushinteger(L, (lua_Integer)n_headers);
+    request->response.headers = headers->base.base;
+    lua_pushinteger(L, (lua_Integer)((struct lwan_array *)headers->base.elements));
+    return 1;
+
+out:
+    lua_pushnil(L);
     return 1;
 }
 
