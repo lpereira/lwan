@@ -86,3 +86,9 @@ lwan_array_append(struct lwan_array *a, size_t element_size)
 
     return ((unsigned char *)a->base) + a->elements++ * element_size;
 }
+
+void
+lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void *a, const void *b))
+{
+    qsort(a->base, a->elements, element_size, cmp);
+}

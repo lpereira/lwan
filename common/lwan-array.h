@@ -29,6 +29,7 @@ struct lwan_array {
 int lwan_array_init(struct lwan_array *a);
 int lwan_array_reset(struct lwan_array *a);
 void *lwan_array_append(struct lwan_array *a, size_t element_size);
+void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void *a, const void *b));
 
 #define DEFINE_ARRAY_TYPE(array_type_, element_type_) \
     struct array_type_ { \
@@ -45,4 +46,8 @@ void *lwan_array_append(struct lwan_array *a, size_t element_size);
     static inline element_type_ * array_type_ ## _append(struct array_type_ *array) \
     { \
         return lwan_array_append((struct lwan_array *)array, sizeof(element_type_)); \
+    } \
+    static inline void array_type_ ## _sort(struct array_type_ *array, int (*cmp)(const void *a, const void *b)) \
+    { \
+        lwan_array_sort((struct lwan_array *)array, sizeof(element_type_), cmp); \
     }
