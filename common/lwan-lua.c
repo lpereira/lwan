@@ -142,6 +142,7 @@ static int req_set_headers_cb(lua_State *L)
     const int nested_value_index = value_index * 2 - table_index;
     struct lwan_key_value_array *headers;
     lwan_request_t *request = userdata_as_request(L, 1);
+    coro_t *coro = request->conn->coro;
     lwan_key_value_t *kv;
 
     if (request->flags & RESPONSE_SENT_HEADERS)
@@ -164,20 +165,20 @@ static int req_set_headers_cb(lua_State *L)
         }
 
         key = coro_strdup(request->conn->coro, lua_tostring(L, key_index));
+        if (!key)
+            goto out;
 
         if (lua_isstring(L, value_index)) {
-            if (!append_key_value(L, request->conn->coro, headers, key, value_index))
+            if (!append_key_value(L, coro, headers, key, value_index))
                 goto out;
         } else if (lua_istable(L, value_index)) {
             lua_pushnil(L);
 
-            while (lua_next(L, value_index) != 0) {
-                if (lua_isstring(L, nested_value_index)) {
-                    if (!append_key_value(L, request->conn->coro, headers, key, nested_value_index))
-                        goto out;
-                }
-
-                lua_pop(L, 1);
+            for (; lua_next(L, value_index) != 0; lua_pop(L, 1)) {
+                if (lua_isstring(L, nested_value_index))
+                    continue;
+                if (!append_key_value(L, coro, headers, key, nested_value_index))
+                    goto out;
             }
         }
 
