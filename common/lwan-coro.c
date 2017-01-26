@@ -43,15 +43,15 @@
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
     "Request buffer fits inside coroutine stack");
 
-typedef struct coro_defer_t_	coro_defer_t;
-
 typedef void (*defer_func)();
 
-struct coro_defer_t_ {
+struct coro_defer_t {
     defer_func func;
     void *data1;
     void *data2;
 };
+
+DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer_t)
 
 struct coro_t_ {
     coro_switcher_t *switcher;
@@ -62,7 +62,7 @@ struct coro_t_ {
     unsigned int vg_stack_id;
 #endif
 
-    struct lwan_array defer;
+    struct coro_defer_array defer;
     void *data;
 
     bool ended;
@@ -164,10 +164,11 @@ coro_entry_point(coro_t *coro, coro_function_t func)
 static void
 coro_run_deferred(coro_t *coro)
 {
-    coro_defer_t *defers = coro->defer.base;
+    struct lwan_array *array = (struct lwan_array *)&coro->defer;
+    struct coro_defer_t *defers = array->base;
 
-    for (size_t i = coro->defer.elements; i != 0; i--) {
-        coro_defer_t *defer = &defers[i - 1];
+    for (size_t i = array->elements; i != 0; i--) {
+        struct coro_defer_t *defer = &defers[i - 1];
 
         defer->func(defer->data1, defer->data2);
     }
@@ -182,7 +183,7 @@ coro_reset(coro_t *coro, coro_function_t func, void *data)
     coro->data = data;
 
     coro_run_deferred(coro);
-    lwan_array_reset(&coro->defer);
+    coro_defer_array_reset(&coro->defer);
 
 #if defined(__x86_64__)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
@@ -217,10 +218,10 @@ ALWAYS_INLINE coro_t *
 coro_new(coro_switcher_t *switcher, coro_function_t function, void *data)
 {
     coro_t *coro = malloc(sizeof(*coro) + CORO_STACK_MIN);
-    if (!coro)
+    if (UNLIKELY(!coro))
         return NULL;
 
-    if (lwan_array_init(&coro->defer, sizeof(coro_defer_t)) < 0) {
+    if (UNLIKELY(coro_defer_array_init(&coro->defer) < 0)) {
         free(coro);
         return NULL;
     }
@@ -298,19 +299,19 @@ coro_free(coro_t *coro)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_run_deferred(coro);
-    lwan_array_reset(&coro->defer);
+    coro_defer_array_reset(&coro->defer);
     free(coro);
 }
 
 static void
 coro_defer_any(coro_t *coro, defer_func func, void *data1, void *data2)
 {
-    coro_defer_t *defer;
+    struct coro_defer_t *defer;
 
     assert(func);
 
-    defer = lwan_array_append(&coro->defer);
-    if (!defer) {
+    defer = coro_defer_array_append(&coro->defer);
+    if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p", coro);
         return;
     }

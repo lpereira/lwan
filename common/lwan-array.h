@@ -23,14 +23,26 @@
 
 struct lwan_array {
     void *base;
-    size_t element_size;
     size_t elements;
 };
 
-#define ARRAY_INITIALIZER(element_size_) \
-    { .base = NULL, .element_size = (element_size_), .elements = 0 }
-
-int lwan_array_init(struct lwan_array *a, size_t element_size);
+int lwan_array_init(struct lwan_array *a);
 int lwan_array_reset(struct lwan_array *a);
-void *lwan_array_append(struct lwan_array *a);
+void *lwan_array_append(struct lwan_array *a, size_t element_size);
 
+#define DEFINE_ARRAY_TYPE(array_type_, element_type_) \
+    struct array_type_ { \
+        struct lwan_array base; \
+    }; \
+    static inline int array_type_ ## _init(struct array_type_ *array) \
+    { \
+        return lwan_array_init((struct lwan_array *)array); \
+    } \
+    static inline int array_type_ ## _reset(struct array_type_ *array) \
+    { \
+        return lwan_array_reset((struct lwan_array *)array); \
+    } \
+    static inline element_type_ * array_type_ ## _append(struct array_type_ *array) \
+    { \
+        return lwan_array_append((struct lwan_array *)array, sizeof(element_type_)); \
+    }

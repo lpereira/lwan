@@ -28,13 +28,12 @@
 #define INCREMENT 16
 
 int
-lwan_array_init(struct lwan_array *a, size_t element_size)
+lwan_array_init(struct lwan_array *a)
 {
     if (UNLIKELY(!a))
         return -EINVAL;
 
     a->base = NULL;
-    a->element_size = element_size;
     a->elements = 0;
 
     return 0;
@@ -67,7 +66,7 @@ static inline bool add_overflow(size_t a, size_t b, size_t *out)
 #endif
 
 void *
-lwan_array_append(struct lwan_array *a)
+lwan_array_append(struct lwan_array *a, size_t element_size)
 {
     if (!(a->elements % INCREMENT)) {
         void *new_base;
@@ -78,12 +77,12 @@ lwan_array_append(struct lwan_array *a)
             return NULL;
         }
 
-        new_base = reallocarray(a->base, new_cap, a->element_size);
+        new_base = reallocarray(a->base, new_cap, element_size);
         if (UNLIKELY(!new_base))
             return NULL;
 
         a->base = new_base;
     }
 
-    return ((unsigned char *)a->base) + (a->elements++) * a->element_size;
+    return ((unsigned char *)a->base) + a->elements++ * element_size;
 }
