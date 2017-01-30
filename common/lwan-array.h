@@ -32,6 +32,7 @@ int lwan_array_init(struct lwan_array *a);
 int lwan_array_reset(struct lwan_array *a);
 void *lwan_array_append(struct lwan_array *a, size_t element_size);
 void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void *a, const void *b));
+struct lwan_array *coro_lwan_array_new(struct coro *coro);
 
 #define DEFINE_ARRAY_TYPE(array_type_, element_type_) \
     struct array_type_ { \
@@ -55,10 +56,5 @@ void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const
     } \
     static inline struct array_type_ *coro_ ## array_type_ ## _new(struct coro *coro) \
     { \
-        struct array_type_ *array = coro_malloc(coro, sizeof(struct array_type_)); \
-        if (array) { \
-            array_type_ ## _init(array); \
-            coro_defer(coro, CORO_DEFER(array_type_ ## _reset), array); \
-        } \
-        return array; \
+        return (struct array_type_ *)coro_lwan_array_new(coro); \
     }

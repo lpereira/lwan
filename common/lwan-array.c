@@ -93,3 +93,17 @@ lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void
     if (LIKELY(a->elements))
         qsort(a->base, a->elements - 1, element_size, cmp);
 }
+
+struct lwan_array *
+coro_lwan_array_new(struct coro *coro)
+{
+    struct lwan_array *array;
+
+    array = coro_malloc(coro, sizeof(*array));
+    if (array) {
+        lwan_array_init(array);
+        coro_defer(coro, CORO_DEFER(lwan_array_reset), array);
+    }
+
+    return array;
+}
