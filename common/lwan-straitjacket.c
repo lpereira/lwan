@@ -169,7 +169,7 @@ static void abort_on_open_directories(void)
     closedir(dir);
 }
 #else
-static bool abort_on_open_directories(void)
+static void abort_on_open_directories(void)
 {
 }
 #endif
