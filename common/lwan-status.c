@@ -107,7 +107,7 @@ strerror_thunk_r(int error_number, char *buffer, size_t len)
 
 static void
 #ifdef NDEBUG
-status_out_msg(struct enum lwan_status_type type, const char *msg, size_t msg_len)
+status_out_msg(enum lwan_status_type type, const char *msg, size_t msg_len)
 #else
 status_out_msg(const char *file, const int line, const char *func,
                enum lwan_status_type type, const char *msg, size_t msg_len)
@@ -148,7 +148,7 @@ status_out_msg(const char *file, const int line, const char *func,
 
 static void
 #ifdef NDEBUG
-status_out(struct enum lwan_status_type type, const char *fmt, va_list values)
+status_out(enum lwan_status_type type, const char *fmt, va_list values)
 #else
 status_out(const char *file, const int line, const char *func,
            enum lwan_status_type type, const char *fmt, va_list values)
