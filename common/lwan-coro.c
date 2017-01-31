@@ -45,13 +45,13 @@ static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
 
 typedef void (*defer_func)();
 
-struct coro_defer_t {
+struct coro_defer {
     defer_func func;
     void *data1;
     void *data2;
 };
 
-DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer_t)
+DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer)
 
 struct coro {
     struct coro_switcher *switcher;
@@ -165,10 +165,10 @@ static void
 coro_run_deferred(struct coro *coro)
 {
     struct lwan_array *array = (struct lwan_array *)&coro->defer;
-    struct coro_defer_t *defers = array->base;
+    struct coro_defer *defers = array->base;
 
     for (size_t i = array->elements; i != 0; i--) {
-        struct coro_defer_t *defer = &defers[i - 1];
+        struct coro_defer *defer = &defers[i - 1];
 
         defer->func(defer->data1, defer->data2);
     }
@@ -306,7 +306,7 @@ coro_free(struct coro *coro)
 static void
 coro_defer_any(struct coro *coro, defer_func func, void *data1, void *data2)
 {
-    struct coro_defer_t *defer;
+    struct coro_defer *defer;
 
     assert(func);
 

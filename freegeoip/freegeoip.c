@@ -144,7 +144,7 @@ union ip_to_octet {
     in_addr_t ip;
 };
 
-struct ip_net_t {
+struct ip_net {
     union ip_to_octet ip;
     union ip_to_octet mask;
 };
@@ -153,7 +153,7 @@ struct ip_net_t {
 #define ADDRESS(o1, o2, o3, o4) \
     { .octet[0] = o1, .octet[1] = o2, .octet[2] = o3, .octet[3] = o4 }
 
-static const struct ip_net_t reserved_ips[] = {
+static const struct ip_net reserved_ips[] = {
     {ADDRESS(0, 0, 0, 0), ADDRESS(255, 0, 0, 0)},
     {ADDRESS(10, 0, 0, 0), ADDRESS(255, 0, 0, 0)},
     {ADDRESS(100, 64, 0, 0), ADDRESS(255, 192, 0, 0)},
@@ -176,7 +176,7 @@ static const struct ip_net_t reserved_ips[] = {
 
 
 #if QUERIES_PER_HOUR != 0
-struct query_limit_t {
+struct query_limit {
     struct cache_entry base;
     unsigned queries;
 };
@@ -188,7 +188,7 @@ static struct cache *cache = NULL;
 static sqlite3 *db = NULL;
 
 static bool
-net_contains_ip(const struct ip_net_t *net, in_addr_t ip)
+net_contains_ip(const struct ip_net *net, in_addr_t ip)
 {
     union ip_to_octet _ip = { .ip = ip };
     return (net->ip.octet[0] & net->mask.octet[0]) == (_ip.octet[0] & net->mask.octet[0]) && \
@@ -301,7 +301,7 @@ static struct cache_entry *
 create_query_limit(const char *key __attribute__((unused)),
             void *context __attribute__((unused)))
 {
-    struct query_limit_t *entry = malloc(sizeof(*entry));
+    struct query_limit *entry = malloc(sizeof(*entry));
     if (LIKELY(entry))
         entry->queries = 0;
     return (struct cache_entry *)entry;
@@ -338,9 +338,9 @@ static bool is_rate_limited(const char *ip_address)
 {
     bool limited;
     int error;
-    struct query_limit_t *limit;
+    struct query_limit *limit;
 
-    limit = (struct query_limit_t *)
+    limit = (struct query_limit *)
                 cache_get_and_ref_entry(query_limit, ip_address, &error);
     if (!limit)
         return true;

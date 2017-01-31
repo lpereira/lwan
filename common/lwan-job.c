@@ -30,7 +30,7 @@
 #include "lwan-status.h"
 #include "list.h"
 
-struct job_t {
+struct job {
     struct list_node jobs;
     bool (*cb)(void *data);
     void *data;
@@ -50,7 +50,7 @@ job_thread(void *data __attribute__((unused)))
         bool had_job = false;
 
         if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
-            struct job_t *job;
+            struct job *job;
 
             list_for_each(&jobs, job, jobs)
                 had_job |= job->cb(job->data);
@@ -98,7 +98,7 @@ void lwan_job_thread_shutdown(void)
     lwan_status_debug("Shutting down job thread");
 
     if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
-        struct job_t *node, *next;
+        struct job *node, *next;
         int r;
 
         list_for_each_safe(&jobs, node, next, jobs) {
@@ -121,7 +121,7 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
 {
     assert(cb);
 
-    struct job_t *job = calloc(1, sizeof(*job));
+    struct job *job = calloc(1, sizeof(*job));
     if (!job)
         lwan_status_critical_perror("calloc");
 
@@ -139,7 +139,7 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
 
 void lwan_job_del(bool (*cb)(void *data), void *data)
 {
-    struct job_t *node, *next;
+    struct job *node, *next;
 
     assert(cb);
 
