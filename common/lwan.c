@@ -201,11 +201,10 @@ error:
 }
 
 static void parse_listener_prefix(struct config *c, struct config_line *l, struct lwan *lwan,
-    const struct lwan_module *module)
+    const struct lwan_module *module, void *handler)
 {
     struct lwan_url_map url_map = { };
     struct hash *hash = hash_str_new(free, free);
-    void *handler = NULL;
     char *prefix = strdupa(l->value);
     struct config isolated = { };
 
@@ -228,6 +227,10 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
                   goto out;
               }
           } else if (streq(l->key, "handler")) {
+              if (handler) {
+                  config_error(c, "Handler already specified");
+                  goto out;
+              }
               handler = find_handler_symbol(l->value);
               if (!handler) {
                   config_error(c, "Could not find handler \"%s\"", l->value);
@@ -331,17 +334,31 @@ static void parse_listener(struct config *c, struct config_line *l, struct lwan 
             return;
         case CONFIG_LINE_TYPE_SECTION:
             if (streq(l->name, "prefix")) {
-                parse_listener_prefix(c, l, lwan, NULL);
-            } else {
-                const struct lwan_module *module = lwan_module_find(lwan, l->name);
-                if (!module) {
-                    config_error(c, "Invalid section name or module not found: %s",
-                        l->name);
-                } else {
-                    parse_listener_prefix(c, l, lwan, module);
-                }
+                parse_listener_prefix(c, l, lwan, NULL, NULL);
+                continue;
             }
-            break;
+
+            if (l->name[0] == '&') {
+                l->name++;
+
+                void *handler = find_handler_symbol(l->name);
+                if (handler) {
+                    parse_listener_prefix(c, l, lwan, NULL, handler);
+                    continue;
+                }
+
+                config_error(c, "Could not find handler name: %s", l->name);
+                return;
+            }
+
+            const struct lwan_module *module = lwan_module_find(lwan, l->name);
+            if (module) {
+                parse_listener_prefix(c, l, lwan, module, NULL);
+                continue;
+            }
+
+            config_error(c, "Invalid section or module not found: %s", l->name);
+            return;
         case CONFIG_LINE_TYPE_SECTION_END:
             return;
         }
