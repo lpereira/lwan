@@ -19,17 +19,14 @@
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <libgen.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libgen.h>
 #include <sys/types.h>
-
-#ifndef NDEBUG
 #include <unistd.h>
-#endif
 
 #include "lwan-private.h"
 
@@ -43,6 +40,7 @@ enum lwan_status_type {
 };
 
 static volatile bool quiet = false;
+static bool use_colors;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void
@@ -54,6 +52,7 @@ lwan_status_init(struct lwan *l)
     quiet = false;
     (void) l;
 #endif
+    use_colors = isatty(fileno(stdout));
 }
 
 void
@@ -66,7 +65,9 @@ get_color_start_for_type(enum lwan_status_type type, size_t *len_out)
 {
     const char *retval;
 
-    if (type & STATUS_INFO)
+    if (!use_colors)
+        retval = "";
+    else if (type & STATUS_INFO)
         retval = "\033[36m";
     else if (type & STATUS_WARNING)
         retval = "\033[33m";
@@ -89,6 +90,12 @@ get_color_end_for_type(enum lwan_status_type type __attribute__((unused)),
                         size_t *len_out)
 {
     static const char *retval = "\033[0m";
+
+    if (!use_colors) {
+        *len_out = 0;
+        return "";
+    }
+
     *len_out = strlen(retval);
     return retval;
 }
@@ -122,10 +129,15 @@ status_out_msg(const char *file, const int line, const char *func,
         perror("pthread_mutex_lock");
 
 #ifndef NDEBUG
-    fprintf(stdout, "\033[32;1m%ld\033[0m", gettid());
-    fprintf(stdout, " \033[3m%s:%d\033[0m", basename(strdupa(file)), line);
-    fprintf(stdout, " \033[33m%s()\033[0m", func);
-    fprintf(stdout, " ");
+    if (use_colors) {
+        fprintf(stdout, "\033[32;1m%ld\033[0m", gettid());
+        fprintf(stdout, " \033[3m%s:%d\033[0m", basename(strdupa(file)), line);
+        fprintf(stdout, " \033[33m%s()\033[0m ", func);
+    } else {
+        fprintf(stdout, "%ld: ", gettid());
+        fprintf(stdout, "%s:%d ", basename(strdupa(file)), line);
+        fprintf(stdout, "%s() ", func);
+    }
 #endif
 
     fwrite(start_color, start_len, 1, stdout);
