@@ -43,6 +43,7 @@ enum lexeme_type {
     LEXEME_OPEN_BRACKET,
     LEXEME_CLOSE_BRACKET,
     LEXEME_LINEFEED,
+    LEXEME_VARIABLE,
     LEXEME_EOF,
     TOTAL_LEXEMES
 };
@@ -54,7 +55,8 @@ static const char *lexeme_type_str[TOTAL_LEXEMES] = {
     [LEXEME_OPEN_BRACKET] = "OPEN_BRACKET",
     [LEXEME_CLOSE_BRACKET] = "CLOSE_BRACKET",
     [LEXEME_LINEFEED] = "LINEFEED",
-    [LEXEME_EOF] = "EOF"
+    [LEXEME_EOF] = "EOF",
+    [LEXEME_VARIABLE] = "VARIABLE",
 };
 
 struct lexeme {
@@ -308,6 +310,21 @@ static void *lex_string(struct lexer *lexer)
     return lex_config;
 }
 
+static bool isvariable(int chr)
+{
+    return isalpha(chr) || chr == '_';
+}
+
+static void *lex_variable(struct lexer *lexer)
+{
+    ignore(lexer);
+    while (isvariable(next(lexer)))
+        ;
+    backup(lexer);
+    emit(lexer, LEXEME_VARIABLE);
+    return lex_config;
+}
+
 static void *lex_error(struct lexer *lexer, const char *msg)
 {
     struct lexeme lexeme = {
@@ -418,6 +435,9 @@ static void *lex_config(struct lexer *lexer)
         if (chr == '\'')
             return lex_multiline_string;
 
+        if (chr == '$')
+            return lex_variable;
+
         if (isstring(chr))
             return lex_string;
 
@@ -461,6 +481,20 @@ static void *parse_key_value(struct parser *parser)
 
     while (lex_next(&parser->lexer, &lexeme)) {
         switch (lexeme->type) {
+        case LEXEME_VARIABLE: {
+            const char *value;
+
+            value = secure_getenv(strndupa(lexeme->value.value, lexeme->value.len));
+            if (!value) {
+                lwan_status_error("Variable '$%.*s' not defined in environment",
+                    (int)lexeme->value.len, lexeme->value.value);
+                return NULL;
+            }
+
+            strbuf_append_str(&parser->strbuf, value, 0);
+            break;
+        }
+
         case LEXEME_EQUAL:
             strbuf_append_char(&parser->strbuf, '=');
             break;
