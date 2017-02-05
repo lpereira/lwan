@@ -37,36 +37,26 @@ enum config_line_type {
     CONFIG_LINE_TYPE_SECTION_END
 };
 
-struct config {
-    FILE *file;
-    char *path, *error_message;
-    struct strbuf *strbuf;
-    struct {
-        long end;
-    } isolated;
-    int line;
-};
-
 struct config_line {
     union {
-        struct {
-            char *name, *param;
-        };
-        struct {
-            char *key, *value;
-        };
+        struct { char *name, *param; };
+        struct { char *key, *value; };
     };
     enum config_line_type type;
-    char buffer[1024];
 };
 
-bool config_open(struct config *conf, const char *path);
+struct config;
+
+struct config *config_open(const char *path);
 void config_close(struct config *conf);
 bool config_error(struct config *conf, const char *fmt, ...);
 bool config_read_line(struct config *conf, struct config_line *l);
 
-bool config_isolate_section(struct config *current_conf,
-    struct config_line *current_line, struct config *isolated);
+const char *config_last_error(struct config *conf);
+int config_cur_line(struct config *conf);
+
+struct config *config_isolate_section(struct config *current_conf,
+    struct config_line *current_line);
 bool config_skip_section(struct config *conf, struct config_line *line);
 
 bool parse_bool(const char *value, bool default_value);

@@ -49,7 +49,7 @@ static struct cache_entry *create_realm_file(
           void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
-    struct config f;
+    struct config *f;
     struct config_line l;
 
     if (UNLIKELY(!rpf))
@@ -59,10 +59,11 @@ static struct cache_entry *create_realm_file(
     if (UNLIKELY(!rpf->entries))
         goto error_no_close;
 
-    if (!config_open(&f, key))
+    f = config_open(key);
+    if (!f)
         goto error_no_close;
 
-    while (config_read_line(&f, &l)) {
+    while (config_read_line(f, &l)) {
         /* FIXME: Storing plain-text passwords in memory isn't a good idea. */
         switch (l.type) {
         case CONFIG_LINE_TYPE_LINE: {
@@ -93,22 +94,22 @@ static struct cache_entry *create_realm_file(
             goto error;
         }
         default:
-            config_error(&f, "Expected username = password");
+            config_error(f, "Expected username = password");
             break;
         }
     }
 
-    if (f.error_message) {
+    if (config_last_error(f)) {
         lwan_status_error("Error on password file \"%s\", line %d: %s",
-              key, f.line, f.error_message);
+              key, config_cur_line(f), config_last_error(f));
         goto error;
     }
 
-    config_close(&f);
+    config_close(f);
     return (struct cache_entry *)rpf;
 
 error:
-    config_close(&f);
+    config_close(f);
 error_no_close:
     hash_free(rpf->entries);
     free(rpf);
@@ -160,9 +161,6 @@ authorize(struct coro *coro,
                             authorization->len, &decoded_len);
     if (UNLIKELY(!decoded))
         return false;
-
-    if (UNLIKELY(decoded_len >= sizeof(((struct config_line *)0)->buffer)))
-        goto out;
 
     colon = memchr(decoded, ':', decoded_len);
     if (UNLIKELY(!colon))

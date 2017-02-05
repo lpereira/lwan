@@ -382,7 +382,7 @@ module_parse_conf(void *data, struct config *config)
         }
     }
 
-    return !config->error_message;
+    return !config_last_error(config);
 }
 
 const struct lwan_module *

@@ -206,9 +206,10 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
     struct lwan_url_map url_map = { };
     struct hash *hash = hash_str_new(free, free);
     char *prefix = strdupa(l->value);
-    struct config isolated = { };
+    struct config *isolated;
 
-    if (!config_isolate_section(c, l, &isolated)) {
+    isolated = config_isolate_section(c, l);
+    if (!isolated) {
         config_error(c, "Could not isolate configuration file");
         goto out;
     }
@@ -279,12 +280,11 @@ add_map:
         hash = NULL;
     } else if (module && module->init_from_hash && module->handle) {
         url_map.data = module->init_from_hash(prefix, hash);
-        if (isolated.file && module->parse_conf) {
-            if (!module->parse_conf(url_map.data, &isolated)) {
-                config_error(c, "Error from module: %s",
-                    isolated.error_message ? isolated.error_message : "Unknown");
-                goto out;
-            }
+        if (module->parse_conf && !module->parse_conf(url_map.data, isolated)) {
+            const char *msg = config_last_error(isolated);
+
+            config_error(c, "Error from module: %s", msg ? msg : "Unknown");
+            goto out;
         }
         url_map.handler = module->handle;
         url_map.flags |= module->flags;
@@ -298,7 +298,7 @@ add_map:
 
 out:
     hash_free(hash);
-    config_close(&isolated);
+    config_close(isolated);
 }
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
@@ -389,7 +389,7 @@ out:
 
 static bool setup_from_config(struct lwan *lwan, const char *path)
 {
-    struct config conf;
+    struct config *conf;
     struct config_line line;
     bool has_listener = false;
     char path_buf[PATH_MAX];
@@ -398,13 +398,14 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
         path = get_config_path(path_buf);
     lwan_status_info("Loading configuration file: %s", path);
 
+    conf = config_open(path);
+    if (!conf)
+        return false;
+
     if (!lwan_trie_init(&lwan->url_map_trie, destroy_urlmap))
         return false;
 
-    if (!config_open(&conf, path))
-        return false;
-
-    while (config_read_line(&conf, &line)) {
+    while (config_read_line(conf, &line)) {
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(line.key, "keep_alive_timeout")) {
@@ -431,44 +432,44 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             } else if (streq(line.key, "threads")) {
                 long n_threads = parse_long(line.value, default_config.n_threads);
                 if (n_threads < 0)
-                    config_error(&conf, "Invalid number of threads: %d", n_threads);
+                    config_error(conf, "Invalid number of threads: %d", n_threads);
                 lwan->config.n_threads = (unsigned short int)n_threads;
             } else if (streq(line.key, "max_post_data_size")) {
                 long max_post_data_size = parse_long(line.value, (long)default_config.max_post_data_size);
                 if (max_post_data_size < 0)
-                    config_error(&conf, "Negative maximum post data size");
+                    config_error(conf, "Negative maximum post data size");
                 else if (max_post_data_size > 1<<20)
-                    config_error(&conf, "Maximum post data can't be over 1MiB");
+                    config_error(conf, "Maximum post data can't be over 1MiB");
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
             } else {
-                config_error(&conf, "Unknown config key: %s", line.key);
+                config_error(conf, "Unknown config key: %s", line.key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
             if (streq(line.name, "listener")) {
                 if (!has_listener) {
-                    parse_listener(&conf, &line, lwan);
+                    parse_listener(conf, &line, lwan);
                     has_listener = true;
                 } else {
-                    config_error(&conf, "Only one listener supported");
+                    config_error(conf, "Only one listener supported");
                 }
             } else if (streq(line.name, "straitjacket")) {
-                lwan_straitjacket_enforce(&conf, &line);
+                lwan_straitjacket_enforce(conf, &line);
             } else {
-                config_error(&conf, "Unknown section type: %s", line.name);
+                config_error(conf, "Unknown section type: %s", line.name);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
-            config_error(&conf, "Unexpected section end");
+            config_error(conf, "Unexpected section end");
         }
     }
 
-    if (conf.error_message) {
+    if (config_last_error(conf)) {
         lwan_status_critical("Error on config file \"%s\", line %d: %s",
-              path, conf.line, conf.error_message);
+              path, config_cur_line(conf), config_last_error(conf));
     }
 
-    config_close(&conf);
+    config_close(conf);
 
     return true;
 }
