@@ -376,11 +376,7 @@ static void *lex_variable(struct lexer *lexer)
 
 static bool iscomment(int chr)
 {
-    if (chr == '\0')
-        return false;
-    if (chr == '\n')
-        return false;
-    return true;
+    return chr != '\0' && chr != '\n';
 }
 
 static void *lex_comment(struct lexer *lexer)
