@@ -383,19 +383,6 @@ static void *lex_comment(struct lexer *lexer)
     return lex_config;
 }
 
-static bool isvalue(int chr)
-{
-    return chr != '\n' && !iscomment(chr);
-}
-
-static void *lex_equal(struct lexer *lexer)
-{
-    while (isvalue(next(lexer)))
-        ;
-    backup(lexer);
-    return lex_config;
-}
-
 static void *lex_config(struct lexer *lexer)
 {
     while (true) {
@@ -426,7 +413,7 @@ static void *lex_config(struct lexer *lexer)
 
         if (chr == '=') {
             emit(lexer, LEXEME_EQUAL);
-            return lex_equal;
+            return lex_config;
         }
 
         if (chr == '#')
