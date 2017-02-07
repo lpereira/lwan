@@ -43,9 +43,6 @@ set(HAS_MEMPCPY ${HAS_MEMPCPY} PARENT_SCOPE)
 check_function_exists(memrchr HAS_MEMRCHR)
 set(HAS_MEMRCHR ${HAS_MEMRCHR} PARENT_SCOPE)
 
-check_function_exists(memrchr HAS_SECURE_GETENV)
-set(HAS_SECURE_GETENV ${HAS_SECURE_GETENV} PARENT_SCOPE)
-
 set(CMAKE_EXTRA_INCLUDE_FILES unistd.h)
 check_function_exists(pipe2 HAS_PIPE2)
 set(HAS_PIPE2 ${HAS_PIPE2} PARENT_SCOPE)

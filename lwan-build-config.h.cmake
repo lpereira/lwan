@@ -27,7 +27,6 @@
 #cmakedefine HAS_PIPE2
 #cmakedefine HAS_PTHREADBARRIER
 #cmakedefine HAS_RAWMEMCHR
-#cmakedefine HAS_SECURE_GETENV
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

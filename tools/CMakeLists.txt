@@ -6,8 +6,7 @@ project(mimegen)
 find_package(ZLIB REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES})
 
-include_directories(BEFORE ../common/missing)
-include_directories(${CMAKE_BINARY_DIR})
+include_directories(BEFORE ${CMAKE_BINARY_DIR} ../common/missing)
 
 add_executable(mimegen
 	mimegen.c

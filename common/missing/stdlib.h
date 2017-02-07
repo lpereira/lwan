@@ -22,9 +22,9 @@
 #ifndef MISSING_STDLIB_H
 #define MISSING_STDLIB_H
 
-#include "lwan-build-config.h"
+#include <features.h>
 
-#ifndef HAS_SECURE_GETENV
+#if !defined(__GLIBC__) || (defined(__GLIBC_PREREQ) && !__GLIBC_PREREQ(2, 17))
 static inline char *secure_getenv(const char *name)
 {
     return getenv(name);
