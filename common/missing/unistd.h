@@ -22,6 +22,8 @@
 #ifndef MISSING_UNISTD_H
 #define MISSING_UNISTD_H
 
+#include "lwan-build-config.h"
+
 #ifndef HAS_PIPE2
 int pipe2(int pipefd[2], int flags);
 #endif

@@ -22,6 +22,8 @@
 #ifndef MISSING_STDLIB_H
 #define MISSING_STDLIB_H
 
+#include "lwan-build-config.h"
+
 #ifndef HAS_SECURE_GETENV
 static inline char *secure_getenv(const char *name)
 {
