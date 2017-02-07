@@ -348,23 +348,20 @@ static void *lex_error(struct lexer *lexer, const char *msg)
 
 static void *lex_multiline_string(struct lexer *lexer)
 {
-    ignore(lexer);
+    advance_n(lexer, strlen("'''") - 1);
 
-    if (next(lexer) != '\'')
-        return lex_error(lexer, "Expecting '");
-    if (next(lexer) != '\'')
-        return lex_error(lexer, "Expecting '");
-
-    ignore(lexer);
-    ignore(lexer);
-
-    while (true) {
+    do {
         if (!strncmp(lexer->pos, "'''", 3)) {
             emit(lexer, LEXEME_STRING);
             lexer->pos += 3;
 
             return lex_config;
         }
+    } while (next(lexer) != '\0');
+
+    return lex_error(lexer, "EOF while scanning multiline string");
+}
+
 
         int chr = next(lexer);
         if (chr == '\0')
@@ -425,7 +422,7 @@ static void *lex_config(struct lexer *lexer)
         if (chr == '#')
             return lex_comment;
 
-        if (chr == '\'')
+        if (chr == '\'' && !strncmp(lexer->pos, "''", 2))
             return lex_multiline_string;
 
         if (chr == '$')
