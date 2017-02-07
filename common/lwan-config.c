@@ -705,27 +705,22 @@ bool config_read_line(struct config *conf, struct config_line *cl)
     return ret;
 }
 
-static bool find_section_end(struct config *config, struct config_line *line,
-    int recursion_level)
+static bool find_section_end(struct config *config)
 {
-    if (recursion_level > 10) {
-        config_error(config, "Recursion level too deep");
+    struct config_line *line;
+    int cur_level = 1;
+
+    if (config->error_message)
         return false;
-    }
 
-    while (config_read_line(config, line)) {
-        switch (line->type) {
-        case CONFIG_LINE_TYPE_LINE:
-            continue;
+    while (parser_next(&config->parser, &line)) {
+        if (line->type == CONFIG_LINE_TYPE_SECTION) {
+            cur_level++;
+        } else if (line->type == CONFIG_LINE_TYPE_SECTION_END) {
+            cur_level--;
 
-        case CONFIG_LINE_TYPE_SECTION:
-            if (!find_section_end(config, line, recursion_level + 1))
-                return false;
-            break;
-
-        case CONFIG_LINE_TYPE_SECTION_END:
-            ignore(&config->parser.lexer);
-            return true;
+            if (!cur_level)
+                return true;
         }
     }
 
@@ -755,7 +750,7 @@ struct config *config_isolate_section(struct config *current_conf,
     lexer->start = lexer->pos;
 
     pos = isolated->parser.lexer.pos;
-    if (!find_section_end(isolated, current_line, 0)) {
+    if (!find_section_end(isolated)) {
         free(isolated);
         return NULL;
     }
@@ -770,26 +765,10 @@ struct config *config_isolate_section(struct config *current_conf,
 
 bool config_skip_section(struct config *conf, struct config_line *line)
 {
-    struct config_line *cl;
-    int cur_level = 1;
-
-    if (conf->error_message)
-        return false;
     if (line->type != CONFIG_LINE_TYPE_SECTION)
         return false;
 
-    while (parser_next(&conf->parser, &cl)) {
-        if (cl->type == CONFIG_LINE_TYPE_SECTION) {
-            cur_level++;
-        } else if (cl->type == CONFIG_LINE_TYPE_SECTION_END) {
-            cur_level--;
-
-            if (!cur_level)
-                return true;
-        }
-    }
-
-    return false;
+    return find_section_end(conf);
 }
 
 const char *config_last_error(struct config *conf)
