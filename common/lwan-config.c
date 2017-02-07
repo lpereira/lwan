@@ -286,6 +286,12 @@ static void ignore(struct lexer *lexer)
     lexer->start = lexer->pos;
 }
 
+static void advance_n(struct lexer *lexer, size_t n)
+{
+    lexer->pos += n;
+    ignore(lexer);
+}
+
 static void backup(struct lexer *lexer)
 {
     lexer->pos--;
