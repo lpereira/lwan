@@ -300,7 +300,17 @@ static void backup(struct lexer *lexer)
         lexer->cur_line--;
 }
 
+static int peek(struct lexer *lexer)
+{
+    int chr = next(lexer);
+
+    backup(lexer);
+
+    return chr;
+}
+
 static void *lex_config(struct lexer *lexer);
+static void *lex_variable(struct lexer *lexer);
 
 static bool isstring(int chr)
 {
@@ -309,10 +319,24 @@ static bool isstring(int chr)
 
 static void *lex_string(struct lexer *lexer)
 {
-    while (isstring(next(lexer)))
-        ;
+    int chr;
+
+    do {
+        chr = next(lexer);
+
+        if (chr == '$' && peek(lexer) == '{') {
+            backup(lexer);
+            emit(lexer, LEXEME_STRING);
+
+            advance_n(lexer, strlen("{"));
+
+            return lex_variable;
+        }
+    } while (isstring(chr));
+
     backup(lexer);
     emit(lexer, LEXEME_STRING);
+
     return lex_config;
 }
 
@@ -354,13 +378,12 @@ static bool isvariable(int chr)
 
 static void *lex_variable(struct lexer *lexer)
 {
+    int chr;
+
     advance_n(lexer, strlen("${") - 1);
 
-    while (true) {
-        int chr = next(lexer);
-
-        if (isvariable(chr))
-            continue;
+    do {
+        chr = next(lexer);
 
         if (chr == '}') {
             backup(lexer);
@@ -369,9 +392,9 @@ static void *lex_variable(struct lexer *lexer)
 
             return lex_config;
         }
+    } while (isvariable(chr));
 
-        return lex_error(lexer, "EOF while scanning for end of variable");
-    }
+    return lex_error(lexer, "EOF while scanning for end of variable");
 }
 
 static bool iscomment(int chr)
@@ -426,7 +449,7 @@ static void *lex_config(struct lexer *lexer)
         if (chr == '\'' && !strncmp(lexer->pos, "''", 2))
             return lex_multiline_string;
 
-        if (chr == '$' && *lexer->pos == '{')
+        if (chr == '$' && peek(lexer) == '{')
             return lex_variable;
 
         if (isstring(chr))
