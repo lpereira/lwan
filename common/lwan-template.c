@@ -45,7 +45,7 @@
 #include "list.h"
 #include "lwan-template.h"
 #include "strbuf.h"
-#include "reallocarray.h"
+#include "lwan-array.h"
 
 enum action {
     ACTION_APPEND,
@@ -107,8 +107,10 @@ struct chunk {
     enum flags flags;
 };
 
+DEFINE_ARRAY_TYPE(chunk_array, struct chunk)
+
 struct lwan_tpl {
-    struct chunk *chunks;
+    struct chunk_array chunks;
     size_t minimum_size;
 };
 
@@ -144,10 +146,7 @@ struct parser {
     struct lexer lexer;
     enum flags flags;
     struct list_head stack;
-    struct {
-        struct chunk *data;
-        size_t used, reserved;
-    } chunks;
+    struct chunk_array chunks;
     enum lwan_tpl_flag template_flags;
 };
 
@@ -160,8 +159,6 @@ struct chunk_descriptor {
     struct chunk *chunk;
     struct lwan_var_descriptor *descriptor;
 };
-
-static const size_t array_increment_step = 16;
 
 static const char left_meta[] = "{{";
 static const char right_meta[] = "}}";
@@ -539,18 +536,10 @@ static void emit_chunk(struct parser *parser, enum action action,
 {
     struct chunk *chunk;
 
-    if (parser->chunks.used >= parser->chunks.reserved) {
-        parser->chunks.reserved += array_increment_step;
+    chunk = chunk_array_append(&parser->chunks);
+    if (!chunk)
+        lwan_status_critical_perror("Could not emit template chunk");
 
-        chunk = reallocarray(parser->chunks.data,
-            parser->chunks.reserved, sizeof(struct chunk));
-        if (!chunk)
-            lwan_status_critical_perror("Could not emit template chunk");
-
-        parser->tpl->chunks = parser->chunks.data = chunk;
-    }
-
-    chunk = &parser->chunks.data[parser->chunks.used++];
     chunk->action = action;
     chunk->flags = flags;
     chunk->data = data;
@@ -603,10 +592,10 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
             lexeme->value.value);
     }
 
-    if (!parser->chunks.used)
+    if (!parser->chunks.base.elements)
         return error_lexeme(lexeme, "No chunks were emitted but parsing end iter");
-    for (idx = (ssize_t)parser->chunks.used - 1; idx >= 0; idx--) {
-        iter = &parser->chunks.data[idx];
+    for (idx = (ssize_t)parser->chunks.base.elements - 1; idx >= 0; idx--) {
+        iter = (struct chunk *)parser->chunks.base.base + idx;
 
         if (iter->action != ACTION_START_ITER)
             continue;
@@ -635,8 +624,9 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
             lexeme->value.value);
     }
 
-    for (idx = (ssize_t)parser->chunks.used - 1; idx >= 0; idx--) {
-        iter = &parser->chunks.data[idx];
+    for (idx = (ssize_t)parser->chunks.base.elements - 1; idx >= 0; idx--) {
+        iter = (struct chunk *)parser->chunks.base.base + idx;
+
         if (iter->action != ACTION_IF_VARIABLE_NOT_EMPTY)
             continue;
         if (iter->data == symbol) {
@@ -951,10 +941,10 @@ lwan_tpl_free(struct lwan_tpl *tpl)
     if (!tpl)
         return;
 
-    if (tpl->chunks) {
-        for (iter = tpl->chunks; iter->action != ACTION_LAST; iter++)
+    if (tpl->chunks.base.elements) {
+        for (iter = tpl->chunks.base.base; iter->action != ACTION_LAST; iter++)
             free_chunk(iter);
-        free(tpl->chunks);
+        chunk_array_reset(&tpl->chunks);
     }
 
     free(tpl);
@@ -966,10 +956,10 @@ post_process_template(struct parser *parser)
     size_t idx;
     struct chunk *prev_chunk;
 
-#define CHUNK_IDX(c) (size_t)(ptrdiff_t)((c) - parser->chunks.data)
+#define CHUNK_IDX(c) (size_t)(ptrdiff_t)((c) - (struct chunk *)parser->chunks.base.base)
 
-    for (idx = 0; idx < parser->chunks.used; idx++) {
-        struct chunk *chunk = &parser->chunks.data[idx];
+    for (idx = 0; idx < parser->chunks.base.elements; idx++) {
+        struct chunk *chunk = (struct chunk *)parser->chunks.base.base + idx;
 
         if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
             for (prev_chunk = chunk; ; chunk++) {
@@ -997,7 +987,7 @@ post_process_template(struct parser *parser)
                 if (chunk->action == ACTION_LAST)
                     break;
                 if (chunk->action == ACTION_END_ITER) {
-                    struct chunk *end_iter_data = parser->chunks.data + (ptrdiff_t)chunk->data;
+                    struct chunk *end_iter_data = (struct chunk *)parser->chunks.base.base + (ptrdiff_t)chunk->data;
 
                     if (end_iter_data == prev_chunk) {
                         chunk->data = end_iter_data;
@@ -1043,7 +1033,7 @@ post_process_template(struct parser *parser)
         }
     }
 
-    parser->tpl->chunks = parser->chunks.data;
+    parser->tpl->chunks = parser->chunks;
 
     return true;
 
@@ -1053,17 +1043,11 @@ post_process_template(struct parser *parser)
 static bool parser_init(struct parser *parser, const struct lwan_var_descriptor *descriptor,
     const char *string)
 {
-    struct chunk *chunks;
-
     if (symtab_push(parser, descriptor) < 0)
         return false;
 
-    chunks = reallocarray(NULL, parser->chunks.reserved, sizeof(struct chunk));
-    parser->tpl->chunks = parser->chunks.data = chunks;
-    if (!chunks) {
-        symtab_pop(parser);
-        return false;
-    }
+    chunk_array_init(&parser->chunks);
+    parser->tpl->chunks = parser->chunks;
 
     lex_init(&parser->lexer, string);
     list_head_init(&parser->stack);
@@ -1131,7 +1115,6 @@ static bool parse_string(struct lwan_tpl *tpl, const char *string, const struct 
     struct parser parser = {
         .tpl = tpl,
         .symtab = NULL,
-        .chunks = { .used = 0, .reserved = array_increment_step },
         .descriptor = descriptor,
         .template_flags = flags
     };
@@ -1340,7 +1323,7 @@ lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *varia
     if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
         return NULL;
 
-    apply_until(tpl, tpl->chunks, buf, variables, NULL);
+    apply_until(tpl, tpl->chunks.base.base, buf, variables, NULL);
 
     return buf;
 }
