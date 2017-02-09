@@ -22,9 +22,14 @@
 #ifndef MISSING_STDLIB_H
 #define MISSING_STDLIB_H
 
-#include <features.h>
+#if defined(__GLIBC__)
+# include <features.h>
+# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
+#  define HAS_SECURE_GETENV
+# endif
+#endif
 
-#if !defined(__GLIBC__) || (defined(__GLIBC_PREREQ) && !__GLIBC_PREREQ(2, 17))
+#if !defined(HAS_SECURE_GETENV)
 static inline char *secure_getenv(const char *name)
 {
     return getenv(name);
