@@ -106,7 +106,7 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
     return true;
 }
 
-static int
+static __attribute__((noinline)) int
 parse_int_len(const char *s, size_t len, int default_value)
 {
     return parse_int(strndupa(s, len), default_value);

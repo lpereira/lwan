@@ -478,6 +478,11 @@ static bool lex_next(struct lexer *lexer, struct lexeme **lexeme)
 
 static void *parse_config(struct parser *parser);
 
+static __attribute__((noinline)) const char *secure_getenv_len(const char *key, size_t len)
+{
+    return secure_getenv(strndupa(key, len));
+}
+
 static void *parse_key_value(struct parser *parser)
 {
     struct config_line line = { .type = CONFIG_LINE_TYPE_LINE };
@@ -498,7 +503,7 @@ static void *parse_key_value(struct parser *parser)
         case LEXEME_VARIABLE: {
             const char *value;
 
-            value = secure_getenv(strndupa(lexeme->value.value, lexeme->value.len));
+            value = secure_getenv_len(lexeme->value.value, lexeme->value.len);
             if (!value) {
                 lwan_status_error("Variable '$%.*s' not defined in environment",
                     (int)lexeme->value.len, lexeme->value.value);
