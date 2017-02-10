@@ -756,6 +756,8 @@ struct config *config_isolate_section(struct config *current_conf,
         return NULL;
 
     memcpy(isolated, current_conf, sizeof(*isolated));
+    strbuf_init(&isolated->parser.strbuf);
+
     isolated->mapped.addr = NULL;
     isolated->mapped.sz = 0;
 
@@ -765,14 +767,17 @@ struct config *config_isolate_section(struct config *current_conf,
 
     pos = isolated->parser.lexer.pos;
     if (!find_section_end(isolated)) {
+        strbuf_free(&isolated->parser.strbuf);
         free(isolated);
+
+        config_error(current_conf,
+            "Could not find section end while trying to isolate");
+
         return NULL;
     }
 
     lexer->end = lexer->pos;
     lexer->start = lexer->pos = pos;
-
-    strbuf_init(&isolated->parser.strbuf);
 
     return isolated;
 }
