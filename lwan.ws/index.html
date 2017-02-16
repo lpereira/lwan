@@ -406,9 +406,10 @@ internals, as they're very tightly-coupled.</p>
 
 <pre><code class="language-clike">#include "lwan.h"
 
-static lwan_http_status_t
-hello_world(lwan_request_t *request,
-            lwan_response_t *response, void *data)
+static enum lwan_http_status
+hello_world(struct lwan_request *request,
+            struct lwan_response *response,
+            void *data)
 {
     static const char message[] = "Hello, World!";
 
@@ -421,7 +422,7 @@ hello_world(lwan_request_t *request,
 int
 main(void)
 {
-    const lwan_url_map_t default_map[] = {
+    const struct lwan_url_map default_map[] = {
         { .prefix = "/", .handler = hello_world },
         { .prefix = NULL }
     };
