@@ -567,10 +567,16 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
+    unsigned short n_cpus = get_number_of_cpus();
     if (!l->config.n_threads) {
-        l->thread.count = get_number_of_cpus();
+        l->thread.count = n_cpus;
         if (l->thread.count == 1)
             l->thread.count = 2;
+    } else if (l->config.n_threads > 3 * n_cpus) {
+        l->thread.count = (short unsigned int)(n_cpus * 3);
+
+        lwan_status_warning("%d threads requested, but only %d online CPUs; capping to %d threads",
+            l->config.n_threads, n_cpus, 3 * n_cpus);
     } else {
         l->thread.count = l->config.n_threads;
     }

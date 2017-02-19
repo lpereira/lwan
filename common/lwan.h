@@ -307,7 +307,7 @@ struct lwan_config {
     size_t max_post_data_size;
     unsigned short keep_alive_timeout;
     unsigned int expires;
-    short unsigned int n_threads;
+    unsigned short n_threads;
     bool quiet;
     bool reuse_port;
     bool proxy_protocol;
