@@ -297,20 +297,25 @@ static void unref_thread(void *data1, void *data2)
 
 static ALWAYS_INLINE const char *get_handle_prefix(struct lwan_request *request, size_t *len)
 {
-    if (request->flags & REQUEST_METHOD_GET) {
+    switch (lwan_request_get_method(request)) {
+    case REQUEST_METHOD_GET:
         *len = sizeof("handle_get_");
         return "handle_get_";
-    }
-    if (request->flags & REQUEST_METHOD_POST) {
+    case REQUEST_METHOD_POST:
         *len = sizeof("handle_post_");
         return "handle_post_";
-    }
-    if (request->flags & REQUEST_METHOD_HEAD) {
+    case REQUEST_METHOD_HEAD:
         *len = sizeof("handle_head_");
         return "handle_head_";
+    case REQUEST_METHOD_OPTIONS:
+        *len = sizeof("handle_options_");
+        return "handle_options_";
+    case REQUEST_METHOD_DELETE:
+        *len = sizeof("handle_delete_");
+        return "handle_delete_";
+    default:
+        return NULL;
     }
-
-    return NULL;
 }
 
 static bool get_handler_function(lua_State *L, struct lwan_request *request)

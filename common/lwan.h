@@ -164,10 +164,15 @@ enum lwan_handler_flags {
 
 enum lwan_request_flags {
     REQUEST_ALL_FLAGS          = -1,
-    REQUEST_METHOD_GET         = 1<<0,
-    REQUEST_METHOD_HEAD        = 1<<1,
-    REQUEST_METHOD_POST        = 1<<2,
-    REQUEST_METHOD_OPTIONS     = 1<<3,
+    REQUEST_METHOD_BITS0       = 1<<0,
+    REQUEST_METHOD_BITS1       = 1<<1,
+    REQUEST_METHOD_BITS2       = 1<<2,
+    REQUEST_METHOD_MASK        = 1<<0 | 1<<1 | 1<<2,
+    REQUEST_METHOD_GET         = REQUEST_METHOD_BITS0,
+    REQUEST_METHOD_POST        = REQUEST_METHOD_BITS1,
+    REQUEST_METHOD_HEAD        = REQUEST_METHOD_BITS0 | REQUEST_METHOD_BITS1,
+    REQUEST_METHOD_OPTIONS     = REQUEST_METHOD_BITS2,
+    REQUEST_METHOD_DELETE      = REQUEST_METHOD_BITS2 | REQUEST_METHOD_BITS0,
     REQUEST_ACCEPT_DEFLATE     = 1<<4,
     REQUEST_ACCEPT_GZIP        = 1<<5,
     REQUEST_IS_HTTP_1_0        = 1<<6,
@@ -368,12 +373,17 @@ const struct lwan_config *lwan_get_default_config(void);
 int lwan_connection_get_fd(const struct lwan *lwan, const struct lwan_connection *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
-
 const char *lwan_request_get_remote_address(struct lwan_request *request,
             char buffer[ENFORCE_STATIC_BUFFER_LENGTH INET6_ADDRSTRLEN])
     __attribute__((warn_unused_result));
 
 void lwan_format_rfc_time(time_t t, char buffer[ENFORCE_STATIC_BUFFER_LENGTH 30]);
+
+static inline enum lwan_request_flags
+lwan_request_get_method(const struct lwan_request *request)
+{
+    return request->flags & REQUEST_METHOD_MASK;
+}
 
 #if defined (__cplusplus)
 }

@@ -99,14 +99,18 @@ lwan_response_shutdown(struct lwan *l __attribute__((unused)))
 static const char *
 get_request_method(struct lwan_request *request)
 {
-    if (request->flags & REQUEST_METHOD_GET)
+    switch (lwan_request_get_method(request)) {
+    case REQUEST_METHOD_GET:
         return "GET";
-    if (request->flags & REQUEST_METHOD_HEAD)
+    case REQUEST_METHOD_HEAD:
         return "HEAD";
-    if (request->flags & REQUEST_METHOD_POST)
+    case REQUEST_METHOD_POST:
         return "POST";
-    if (request->flags & REQUEST_METHOD_OPTIONS)
+    case REQUEST_METHOD_OPTIONS:
         return "OPTIONS";
+    case REQUEST_METHOD_DELETE:
+        return "DELETE";
+    }
     return "UNKNOWN";
 }
 
@@ -127,6 +131,11 @@ log_request(struct lwan_request *request, enum lwan_http_status status)
 #else
 #define log_request(...)
 #endif
+
+static const bool has_response_body[REQUEST_METHOD_MASK] = {
+    [REQUEST_METHOD_GET] = true,
+    [REQUEST_METHOD_POST] = true,
+};
 
 void
 lwan_response(struct lwan_request *request, enum lwan_http_status status)
@@ -175,17 +184,22 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
         return;
     }
 
-    if (request->flags & (REQUEST_METHOD_HEAD | REQUEST_METHOD_OPTIONS)) {
-        lwan_write(request, headers, header_len);
-        return;
+    if (has_response_body[lwan_request_get_method(request)]) {
+        struct iovec response_vec[] = {
+            {
+                .iov_base = headers,
+                .iov_len = header_len
+            },
+            {
+                .iov_base = strbuf_get_buffer(request->response.buffer),
+                .iov_len = strbuf_get_length(request->response.buffer)
+            }
+        };
+
+        lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
     }
 
-    struct iovec response_vec[] = {
-        { .iov_base = headers, .iov_len = header_len },
-        { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = strbuf_get_length(request->response.buffer) }
-    };
-
-    lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
+    lwan_write(request, headers, header_len);
 }
 
 void
@@ -262,10 +276,10 @@ lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status
         APPEND_CONSTANT("\r\nContent-Length: ");
         if (request->response.stream.callback)
             APPEND_UINT(request->response.content_length);
-        else if (request->flags & REQUEST_METHOD_OPTIONS)
-            APPEND_UINT(0);
-        else
+        else if (has_response_body[lwan_request_get_method(request)])
             APPEND_UINT(strbuf_get_length(request->response.buffer));
+        else
+            APPEND_UINT(0);
     }
 
     APPEND_CONSTANT("\r\nContent-Type: ");

@@ -211,7 +211,7 @@ hello_world(struct lwan_request *request,
         strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
-    if (!(request->flags & REQUEST_METHOD_POST))
+    if (lwan_request_get_method(request) != REQUEST_METHOD_POST)
         goto end;
 
     strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);

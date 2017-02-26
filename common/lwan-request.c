@@ -269,6 +269,7 @@ identify_http_method(struct lwan_request *request, char *buffer)
         HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
         HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
         HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'),
+        HTTP_STR_DELETE  = MULTICHAR_CONSTANT('D','E','L','E'),
     };
 
     STRING_SWITCH(buffer) {
@@ -284,6 +285,9 @@ identify_http_method(struct lwan_request *request, char *buffer)
     case HTTP_STR_OPTIONS:
         request->flags |= REQUEST_METHOD_OPTIONS;
         return buffer + sizeof("OPTIONS ") - 1;
+    case HTTP_STR_DELETE:
+        request->flags |= REQUEST_METHOD_DELETE;
+        return buffer + sizeof("DELETE ") - 1;
     }
 
     return NULL;
@@ -983,7 +987,7 @@ prepare_for_response(struct lwan_url_map *url_map,
         }
     }
 
-    if (request->flags & REQUEST_METHOD_POST) {
+    if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
         enum lwan_http_status status;
 
         if (!(url_map->flags & HANDLER_PARSE_POST_DATA)) {
