@@ -85,15 +85,6 @@ static unsigned get_random_unsigned(void)
 	return value;
 }
 
-__attribute__((constructor))
-static void initialize_odd_constant(void)
-{
-	/* This constant is randomized in order to mitigate the DDoS attack
-	 * described by Crosby and Wallach in UsenixSec2003.  */
-	odd_constant = get_random_unsigned() | 1;
-	murmur3_set_seed(odd_constant);
-}
-
 static inline unsigned hash_int(const void *keyptr)
 {
 	/* http://www.concentric.net/~Ttwang/tech/inthash.htm */
@@ -145,6 +136,24 @@ static inline unsigned hash_crc32(const void *keyptr)
 }
 #endif
 
+static unsigned (*hash_str)(const void *key) = murmur3_simple;
+
+__attribute__((constructor))
+static void initialize_odd_constant(void)
+{
+	/* This constant is randomized in order to mitigate the DDoS attack
+	 * described by Crosby and Wallach in UsenixSec2003.  */
+	odd_constant = get_random_unsigned() | 1;
+	murmur3_set_seed(odd_constant);
+
+#if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
+	__builtin_cpu_init();
+	if (__builtin_cpu_supports("sse4.2")) {
+		hash_str = hash_crc32;
+	}
+#endif
+}
+
 static inline int hash_int_key_cmp(const void *k1, const void *k2)
 {
 	int a = (int)(intptr_t)k1;
@@ -183,24 +192,12 @@ struct hash *hash_int_new(void (*free_key)(void *value),
 			free_value ? free_value : no_op);
 }
 
+
 struct hash *hash_str_new(void (*free_key)(void *value),
 			void (*free_value)(void *value))
 {
-	unsigned (*hash_func)(const void *key);
-
-#if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
-	__builtin_cpu_init();
-	if (__builtin_cpu_supports("sse4.2")) {
-		hash_func = hash_crc32;
-	} else {
-		hash_func = murmur3_simple;
-	}
-#else
-	hash_func = murmur3_simple;
-#endif
-
 	return hash_internal_new(
-			hash_func,
+			hash_str,
 			(int (*)(const void *, const void *))strcmp,
 			free_key ? free_key : no_op,
 			free_value ? free_value : no_op);
