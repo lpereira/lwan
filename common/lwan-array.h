@@ -48,7 +48,7 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
     } \
     static inline element_type_ * array_type_ ## _append(struct array_type_ *array) \
     { \
-        return lwan_array_append((struct lwan_array *)array, sizeof(element_type_)); \
+        return (element_type_ *)lwan_array_append((struct lwan_array *)array, sizeof(element_type_)); \
     } \
     static inline void array_type_ ## _sort(struct array_type_ *array, int (*cmp)(const void *a, const void *b)) \
     { \
