@@ -357,10 +357,12 @@ static void *lex_error(struct lexer *lexer, const char *msg)
 
 static void *lex_multiline_string(struct lexer *lexer)
 {
+    char *end = (peek(lexer) == '"') ? "\"\"\"" : "'''";
+
     advance_n(lexer, strlen("'''") - 1);
 
     do {
-        if (!strncmp(lexer->pos, "'''", 3)) {
+        if (!strncmp(lexer->pos, end, 3)) {
             emit(lexer, LEXEME_STRING);
             lexer->pos += 3;
 
@@ -447,6 +449,8 @@ static void *lex_config(struct lexer *lexer)
             return lex_comment;
 
         if (chr == '\'' && !strncmp(lexer->pos, "''", 2))
+            return lex_multiline_string;
+        if (chr == '"' && !strncmp(lexer->pos, "\"\"", 2))
             return lex_multiline_string;
 
         if (chr == '$' && peek(lexer) == '{')
