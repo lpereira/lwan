@@ -110,8 +110,9 @@ get_request_method(struct lwan_request *request)
         return "OPTIONS";
     case REQUEST_METHOD_DELETE:
         return "DELETE";
+    default:
+        return "UNKNOWN";
     }
-    return "UNKNOWN";
 }
 
 static void
