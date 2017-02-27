@@ -382,7 +382,7 @@ void lwan_format_rfc_time(time_t t, char buffer[ENFORCE_STATIC_BUFFER_LENGTH 30]
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)
 {
-    return request->flags & REQUEST_METHOD_MASK;
+    return (enum lwan_request_flags)(request->flags & REQUEST_METHOD_MASK);
 }
 
 #if defined (__cplusplus)
