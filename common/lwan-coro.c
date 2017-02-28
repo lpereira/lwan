@@ -189,11 +189,17 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
+
     coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
+    /* Ensure 16-byte alignment */
+    coro->context[9 /* RSP */] &= (uintptr_t)~0xf;
 #elif defined(__i386__)
-    /* Align stack and make room for two arguments */
-    stack = (unsigned char *)((uintptr_t)(stack + CORO_STACK_MIN -
-        sizeof(uintptr_t) * 2) & 0xfffffff0);
+    stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_MIN);
+
+    /* Make room for 2 args */
+    stack -= sizeof(uintptr_t) * 2;
+    /* Ensure 4-byte alignment */
+    stack = (unsigned char*)((uintptr_t)stack & (uintptr_t)~0x3);
 
     uintptr_t *argp = (uintptr_t *)stack;
     *argp++ = 0;
