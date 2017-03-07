@@ -885,7 +885,7 @@ create_temp_file(void)
     if (UNLIKELY(!tmpdir))
         return -ENOENT;
 
-#if defined(O_TMPFILE) && defined(__linux__)
+#if defined(O_TMPFILE)
     int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC,
         S_IRUSR | S_IWUSR);
     if (fd >= 0)
