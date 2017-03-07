@@ -930,6 +930,11 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     if (UNLIKELY(fd < 0))
         return NULL;
 
+    if (ftruncate(fd, (off_t)size) < 0) {
+        close(fd);
+        return NULL;
+    }
+
     ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     close(fd);
     if (UNLIKELY(ptr == MAP_FAILED))
