@@ -18,16 +18,19 @@
  */
 
 #define _GNU_SOURCE
+#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "lwan-private.h"
 
@@ -844,11 +847,111 @@ static ALWAYS_INLINE int calculate_n_packets(size_t total)
     return max(1, (int)(total / 740));
 }
 
+static const char *
+get_temp_dir(void)
+{
+    struct stat st;
+    char *tmpdir;
+
+    tmpdir = getenv("TMPDIR");
+    if (tmpdir)
+        return tmpdir;
+
+    tmpdir = getenv("TMP");
+    if (tmpdir)
+        return tmpdir;
+
+    tmpdir = getenv("TEMP");
+    if (tmpdir)
+        return tmpdir;
+
+    if (!stat("/tmp", &st) && S_ISDIR(st.st_mode))
+        return "/tmp";
+
+    if (!stat("/var/tmp", &st) && S_ISDIR(st.st_mode))
+        return "/var/tmp";
+
+    return NULL;
+}
+
+static int
+create_temp_file(void)
+{
+    char template[PATH_MAX];
+    const char *tmpdir;
+    int ret;
+
+    tmpdir = get_temp_dir();
+    if (UNLIKELY(!tmpdir))
+        return -ENOENT;
+
+#if defined(O_TMPFILE) && defined(__linux__)
+    int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC,
+        S_IRUSR | S_IWUSR);
+    if (fd >= 0)
+        return fd;
+#endif
+
+    ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", tmpdir);
+    if (ret < 0 || ret >= (int)sizeof(template))
+        return -EOVERFLOW;
+
+    return mkostemps(template, 0, O_CLOEXEC);
+}
+
+struct file_backed_buffer {
+    void *ptr;
+    size_t size;
+};
+
+static void
+free_post_buffer(void *data)
+{
+    struct file_backed_buffer *buf = data;
+
+    munmap(buf->ptr, buf->size);
+    free(buf);
+}
+
+static void*
+alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
+{
+    struct file_backed_buffer *buf;
+    void *ptr;
+    int fd;
+
+    if (size < 1<<20)
+        return coro_malloc(coro, size);
+
+    if (!allow_file)
+        return NULL;
+
+    fd = create_temp_file();
+    if (UNLIKELY(fd < 0))
+        return NULL;
+
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (UNLIKELY(ptr == MAP_FAILED))
+        return NULL;
+
+    buf = coro_malloc_full(coro, sizeof(*buf), free_post_buffer);
+    if (UNLIKELY(!buf)) {
+        munmap(ptr, size);
+        return NULL;
+    }
+
+    buf->ptr = ptr;
+    buf->size = size;
+    return ptr;
+}
+
 static enum lwan_http_status
 read_post_data(struct lwan_request *request, struct request_parser_helper *helper)
 {
     /* Holy indirection, Batman! */
-    const size_t max_post_data_size = request->conn->thread->lwan->config.max_post_data_size;
+    struct lwan_config *config = &request->conn->thread->lwan->config;
+    const size_t max_post_data_size = config->max_post_data_size;
     char *new_buffer;
     long parsed_size;
 
@@ -876,7 +979,8 @@ read_post_data(struct lwan_request *request, struct request_parser_helper *helpe
         }
     }
 
-    new_buffer = coro_malloc(request->conn->coro, post_data_size + 1);
+    new_buffer = alloc_post_buffer(request->conn->coro, post_data_size + 1,
+        config->allow_post_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
 

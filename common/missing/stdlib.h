@@ -27,6 +27,9 @@
 # if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
 #  define HAS_SECURE_GETENV
 # endif
+# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 19)
+#  define HAS_MKOSTEMPS
+# endif
 #endif
 
 #if !defined(HAS_SECURE_GETENV)
@@ -34,6 +37,10 @@ static inline char *secure_getenv(const char *name)
 {
     return getenv(name);
 }
+#endif
+
+#if !defined(HAS_MKOSTEMPS)
+int mkostemps(char *tmpl, int suffixlen, int flags);
 #endif
 
 #endif /* MISSING_STDLIB_H */

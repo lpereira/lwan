@@ -317,6 +317,7 @@ struct lwan_config {
     bool reuse_port;
     bool proxy_protocol;
     bool allow_cors;
+    bool allow_post_temp_file;
 };
 
 struct lwan {

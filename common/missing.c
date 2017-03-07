@@ -442,3 +442,32 @@ getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
     return -1;
 }
 #endif
+
+#if !defined(HAS_MKOSTEMPS)
+int mkostemps(char *tmpl, int suffixlen, int flags)
+{
+    int fd, fl;
+
+    if (suffixlen != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    fd = mkstemp(tmpl);
+    if (fd < 0)
+        return -1;
+
+    fl = fcntl(fd, F_GETFD);
+    if (fl < 0)
+        goto out;
+
+    if (fcntl(fd, F_SETFD, fl | O_RDWR | O_EXCL | flags) < 0)
+        goto out;
+
+    return fd;
+
+out:
+    close(fd);
+    return -1;
+}
+#endif
