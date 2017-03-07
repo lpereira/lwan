@@ -853,15 +853,15 @@ get_temp_dir(void)
     struct stat st;
     char *tmpdir;
 
-    tmpdir = getenv("TMPDIR");
+    tmpdir = secure_getenv("TMPDIR");
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = getenv("TMP");
+    tmpdir = secure_getenv("TMP");
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = getenv("TEMP");
+    tmpdir = secure_getenv("TEMP");
     if (tmpdir)
         return tmpdir;
 
