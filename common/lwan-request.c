@@ -896,12 +896,12 @@ create_temp_file(void)
 #if defined(O_TMPFILE)
     int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC,
         S_IRUSR | S_IWUSR);
-    if (fd >= 0)
+    if (LIKELY(fd >= 0))
         return fd;
 #endif
 
     ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", tmpdir);
-    if (ret < 0 || ret >= (int)sizeof(template))
+    if (UNLIKELY(ret < 0 || ret >= (int)sizeof(template)))
         return -EOVERFLOW;
 
     prev_mask = umask_for_tmpfile(S_IRUSR | S_IWUSR);
@@ -932,17 +932,17 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     void *ptr;
     int fd;
 
-    if (size < 1<<20)
+    if (LIKELY(size < 1<<20))
         return coro_malloc(coro, size);
 
-    if (!allow_file)
+    if (UNLIKELY(!allow_file))
         return NULL;
 
     fd = create_temp_file();
     if (UNLIKELY(fd < 0))
         return NULL;
 
-    if (ftruncate(fd, (off_t)size) < 0) {
+    if (UNLIKELY(ftruncate(fd, (off_t)size) < 0)) {
         close(fd);
         return NULL;
     }
