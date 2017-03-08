@@ -30,6 +30,9 @@
 # if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 19)
 #  define HAS_MKOSTEMPS
 # endif
+# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 7)
+#  define HAS_CORRECT_UMASK_TMPFILE
+# endif
 #endif
 
 #if !defined(HAS_SECURE_GETENV)
@@ -42,5 +45,16 @@ static inline char *secure_getenv(const char *name)
 #if !defined(HAS_MKOSTEMP)
 int mkostemp(char *tmpl, int flags);
 #endif
+
+static inline mode_t
+umask_for_tmpfile(mode_t new_mask)
+{
+#if defined(HAS_CORRECT_UMASK_TMPFILE)
+    (void)new_mask;
+    return 0;
+#else
+    return umask(new_mask);
+#endif
+}
 
 #endif /* MISSING_STDLIB_H */

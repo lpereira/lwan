@@ -886,6 +886,7 @@ create_temp_file(void)
 {
     char template[PATH_MAX];
     const char *tmpdir;
+    mode_t prev_mask;
     int ret;
 
     tmpdir = get_temp_dir();
@@ -903,7 +904,11 @@ create_temp_file(void)
     if (ret < 0 || ret >= (int)sizeof(template))
         return -EOVERFLOW;
 
-    return mkostemp(template, O_CLOEXEC);
+    prev_mask = umask_for_tmpfile(S_IRUSR | S_IWUSR);
+    ret = mkostemp(template, O_CLOEXEC);
+    umask_for_tmpfile(prev_mask);
+
+    return ret;
 }
 
 struct file_backed_buffer {
