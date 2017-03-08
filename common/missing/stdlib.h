@@ -46,15 +46,10 @@ static inline char *secure_getenv(const char *name)
 int mkostemp(char *tmpl, int flags);
 #endif
 
-static inline mode_t
-umask_for_tmpfile(mode_t new_mask)
-{
 #if defined(HAS_CORRECT_UMASK_TMPFILE)
-    (void)new_mask;
-    return 0;
+static inline mode_t umask_for_tmpfile() { return 0; }
 #else
-    return umask(new_mask);
+# define umask_for_tmpfile(mask_) umask(mask_)
 #endif
-}
 
 #endif /* MISSING_STDLIB_H */
