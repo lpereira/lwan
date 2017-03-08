@@ -861,15 +861,15 @@ get_temp_dir(void)
     const char *tmpdir;
 
     tmpdir = get_abs_path_env("TMPDIR");
-    if (!tmpdir)
+    if (tmpdir)
         return tmpdir;
 
     tmpdir = get_abs_path_env("TMP");
-    if (!tmpdir)
+    if (tmpdir)
         return tmpdir;
 
     tmpdir = get_abs_path_env("TEMP");
-    if (!tmpdir)
+    if (tmpdir)
         return tmpdir;
 
     if (!stat("/tmp", &st) && S_ISDIR(st.st_mode))
