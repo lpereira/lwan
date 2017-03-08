@@ -935,8 +935,12 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     void *ptr;
     int fd;
 
-    if (LIKELY(size < 1<<20))
-        return coro_malloc(coro, size);
+    if (LIKELY(size < 1<<20)) {
+        ptr = coro_malloc(coro, size);
+
+        if (LIKELY(ptr))
+            return NULL;
+    }
 
     if (UNLIKELY(!allow_file))
         return NULL;
