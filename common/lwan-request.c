@@ -939,7 +939,7 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
         ptr = coro_malloc(coro, size);
 
         if (LIKELY(ptr))
-            return NULL;
+            return ptr;
     }
 
     if (UNLIKELY(!allow_file))
