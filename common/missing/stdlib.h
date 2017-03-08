@@ -39,8 +39,8 @@ static inline char *secure_getenv(const char *name)
 }
 #endif
 
-#if !defined(HAS_MKOSTEMPS)
-int mkostemps(char *tmpl, int suffixlen, int flags);
+#if !defined(HAS_MKOSTEMP)
+int mkostemp(char *tmpl, int flags);
 #endif
 
 #endif /* MISSING_STDLIB_H */

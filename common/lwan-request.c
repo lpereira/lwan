@@ -903,7 +903,7 @@ create_temp_file(void)
     if (ret < 0 || ret >= (int)sizeof(template))
         return -EOVERFLOW;
 
-    return mkostemps(template, 0, O_CLOEXEC);
+    return mkostemp(template, O_CLOEXEC);
 }
 
 struct file_backed_buffer {

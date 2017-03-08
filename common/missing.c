@@ -443,15 +443,10 @@ getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
 }
 #endif
 
-#if !defined(HAS_MKOSTEMPS)
-int mkostemps(char *tmpl, int suffixlen, int flags)
+#if !defined(HAS_MKOSTEMP)
+int mkostemp(char *tmpl, int flags)
 {
     int fd, fl;
-
-    if (suffixlen != 0) {
-        errno = EINVAL;
-        return -1;
-    }
 
     fd = mkstemp(tmpl);
     if (fd < 0)
