@@ -908,6 +908,9 @@ create_temp_file(void)
     ret = mkostemp(template, O_CLOEXEC);
     umask_for_tmpfile(prev_mask);
 
+    if (LIKELY(ret >= 0))
+        unlink(template);
+
     return ret;
 }
 
