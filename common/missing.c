@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <libproc.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -467,5 +468,12 @@ int mkostemp(char *tmpl, int flags)
 out:
     close(fd);
     return -1;
+}
+#endif
+
+#if !defined(HAS_RAWMEMCHR)
+void *rawmemchr(const void *ptr, char c)
+{
+    return memchr(ptr, c, SIZE_MAX);
 }
 #endif

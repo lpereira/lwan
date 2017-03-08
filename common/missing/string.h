@@ -37,7 +37,7 @@
 #endif
 
 #ifndef HAS_RAWMEMCHR
-#define rawmemchr(s, c) memchr((s), (c), SIZE_MAX)
+void *rawmemchr(const void *ptr, char c);
 #endif
 
 #ifndef HAS_MEMPCPY
