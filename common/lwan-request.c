@@ -848,21 +848,28 @@ static ALWAYS_INLINE int calculate_n_packets(size_t total)
 }
 
 static const char *
+get_abs_path_env(const char *var)
+{
+    const char *ret = secure_getenv(var);
+    return (ret && *ret == '/') ? ret : NULL;
+}
+
+static const char *
 get_temp_dir(void)
 {
     struct stat st;
-    char *tmpdir;
+    const char *tmpdir;
 
-    tmpdir = secure_getenv("TMPDIR");
-    if (tmpdir)
+    tmpdir = get_abs_path_env("TMPDIR");
+    if (!tmpdir)
         return tmpdir;
 
-    tmpdir = secure_getenv("TMP");
-    if (tmpdir)
+    tmpdir = get_abs_path_env("TMP");
+    if (!tmpdir)
         return tmpdir;
 
-    tmpdir = secure_getenv("TEMP");
-    if (tmpdir)
+    tmpdir = get_abs_path_env("TEMP");
+    if (!tmpdir)
         return tmpdir;
 
     if (!stat("/tmp", &st) && S_ISDIR(st.st_mode))
