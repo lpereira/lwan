@@ -456,7 +456,10 @@ int mkostemp(char *tmpl, int flags)
     if (fl < 0)
         goto out;
 
-    if (fcntl(fd, F_SETFD, fl | O_RDWR | O_EXCL | flags) < 0)
+    if (flags & O_CLOEXEC)
+        fl |= FD_CLOEXEC;
+
+    if (fcntl(fd, F_SETFD, fl) < 0)
         goto out;
 
     return fd;
