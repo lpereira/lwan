@@ -8,6 +8,7 @@ set(SOURCES
 	lwan-cache.c
 	lwan-config.c
 	lwan-coro.c
+	lwan-mod-response.c
 	lwan-http-authorize.c
 	lwan-io-wrappers.c
 	lwan-job.c

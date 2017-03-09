@@ -598,5 +598,11 @@ Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q
       self.assertTrue(s in responses)
       responses = responses.replace(s, '')
 
+class TestArtificialResponse(LwanTest):
+  def test_brew_coffee(self):
+    r = requests.get('http://127.0.0.1:8080/brew-coffee')
+
+    self.assertEqual(request.status_code, 418)
+
 if __name__ == '__main__':
   unittest.main()
