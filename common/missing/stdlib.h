@@ -47,7 +47,7 @@ int mkostemp(char *tmpl, int flags);
 #endif
 
 #if defined(HAS_CORRECT_UMASK_TMPFILE)
-static inline mode_t umask_for_tmpfile() { return 0; }
+# define umask_for_tmpfile(mask_) ({ (void)(mask_); 0U; })
 #else
 # define umask_for_tmpfile(mask_) umask(mask_)
 #endif
