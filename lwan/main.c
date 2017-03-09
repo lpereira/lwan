@@ -24,7 +24,7 @@
 #include <limits.h>
 
 #include "lwan.h"
-#include "lwan-serve-files.h"
+#include "lwan-mod-serve-files.h"
 
 enum args {
     ARGS_FAILED,

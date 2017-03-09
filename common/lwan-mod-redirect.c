@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #include "lwan.h"
-#include "lwan-redirect.h"
+#include "lwan-mod-redirect.h"
 
 static enum lwan_http_status
 redirect_handle_cb(struct lwan_request *request,

@@ -22,7 +22,6 @@
 #include <unistd.h>
 
 #include "lwan.h"
-#include "lwan-serve-files.h"
 
 enum lwan_http_status
 quit_lwan(struct lwan_request *request __attribute__((unused)),

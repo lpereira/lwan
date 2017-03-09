@@ -36,9 +36,6 @@
 
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
-#include "lwan-redirect.h"
-#include "lwan-rewrite.h"
-#include "lwan-serve-files.h"
 
 #if defined(HAVE_LUA)
 #include "lwan-lua.h"

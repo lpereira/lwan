@@ -28,7 +28,7 @@
 
 #include "lwan.h"
 #include "lwan-cache.h"
-#include "lwan-serve-files.h"
+#include "lwan-mod-serve-files.h"
 #include "lwan-template.h"
 
 /* Set to 0 to disable */

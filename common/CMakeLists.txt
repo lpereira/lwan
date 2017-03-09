@@ -8,15 +8,15 @@ set(SOURCES
 	lwan-cache.c
 	lwan-config.c
 	lwan-coro.c
-	lwan-mod-response.c
 	lwan-http-authorize.c
 	lwan-io-wrappers.c
 	lwan-job.c
-	lwan-redirect.c
+	lwan-mod-redirect.c
+	lwan-mod-response.c
+	lwan-mod-rewrite.c
+	lwan-mod-serve-files.c
 	lwan-request.c
 	lwan-response.c
-	lwan-rewrite.c
-	lwan-serve-files.c
 	lwan-socket.c
 	lwan-status.c
 	lwan-straitjacket.c

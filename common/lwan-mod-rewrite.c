@@ -25,7 +25,7 @@
 
 #include "lwan-private.h"
 
-#include "lwan-rewrite.h"
+#include "lwan-mod-rewrite.h"
 #include "list.h"
 #include "patterns.h"
 

@@ -33,7 +33,7 @@
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-io-wrappers.h"
-#include "lwan-serve-files.h"
+#include "lwan-mod-serve-files.h"
 #include "lwan-template.h"
 #include "realpathat.h"
 #include "hash.h"
