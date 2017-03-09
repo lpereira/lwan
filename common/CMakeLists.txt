@@ -1,4 +1,3 @@
-
 set(SOURCES
 	base64.c
 	hash.c
@@ -60,24 +59,26 @@ foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 	else ()
 		pkg_check_modules(LUA ${pc_file}>=5.1.0 ${pc_file}<=5.1.999)
 	endif ()
-        if (LUA_FOUND)
+	if (LUA_FOUND)
 		list(APPEND ADDITIONAL_LIBRARIES "-l${LUA_LIBRARIES} ${LUA_LDFLAGS}")
 		list(APPEND SOURCES lwan-lua.c)
 		include_directories(${LUA_INCLUDE_DIRS})
 		break()
-        endif()
+	endif()
 endforeach ()
 if (NOT LUA_FOUND)
 	message(STATUS "Disabling Lua support")
 else ()
 	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
-       set(HAVE_LUA 1 PARENT_SCOPE)
+	set(HAVE_LUA 1 PARENT_SCOPE)
 endif ()
+
 
 add_library(lwan-static STATIC ${SOURCES})
 set_target_properties(lwan-static PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
+
 
 # Can't call add_library() without source files. Create an empty .c file,
 # then link with the static library just recently built.
@@ -86,6 +87,7 @@ add_library(lwan-shared SHARED "${CMAKE_BINARY_DIR}/empty.c")
 target_link_libraries(lwan-shared ${LWAN_COMMON_LIBS})
 set_target_properties(lwan-shared PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
+
 
 # Build mimegen
 if (CMAKE_CROSSCOMPILING)
@@ -120,7 +122,9 @@ if (NOT CMAKE_CROSSCOMPILING)
 	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 endif ()
 
+
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
+
 
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 if ("${LIB64}" STREQUAL "TRUE")
@@ -128,9 +132,9 @@ if ("${LIB64}" STREQUAL "TRUE")
 else ()
        get_property(LIB32 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB32_PATHS)
        if ("${LIB32}" STREQUAL "TRUE")
-               set(LIBSUFFIX 32)
+	       set(LIBSUFFIX 32)
        else ()
-               set(LIBSUFFIX "")
+	       set(LIBSUFFIX "")
        endif ()
 endif ()
 set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
