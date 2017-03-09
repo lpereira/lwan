@@ -87,17 +87,25 @@ target_link_libraries(lwan-shared ${LWAN_COMMON_LIBS})
 set_target_properties(lwan-shared PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 
-include(ExternalProject)
-ExternalProject_Add(
-	mimegen
-	SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/tools
-	PREFIX ${CMAKE_CURRENT_BINARY_DIR}/tools
-	CONFIGURE_COMMAND cmake ${CMAKE_SOURCE_DIR}/tools -DBUILD_DEFS_DIR=${CMAKE_BINARY_DIR} -DZOPFLI_LIBRARY=${ZOPFLI_LIBRARY}
-	BUILD_COMMAND make
-	INSTALL_COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/tools/src/mimegen-build/mimegen ${CMAKE_CURRENT_BINARY_DIR}/mimegen
-)
-
-add_dependencies(lwan-static mimegen)
+# Build mimegen
+if (CMAKE_CROSSCOMPILING)
+	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH)
+	include(${IMPORT_EXECUTABLES})
+else ()
+	add_executable(mimegen
+		../tools/mimegen.c
+		hash.c
+		murmur3.c
+		reallocarray.c
+	)
+	if (ZOPFLI_LIBRARY)
+		message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
+		target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
+	else ()
+		message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
+		target_link_libraries(mimegen ${ZLIB_LIBRARIES})
+	endif ()
+endif ()
 
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
@@ -107,6 +115,10 @@ add_custom_command(
 add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
 add_dependencies(lwan-static generate_mime_types_table)
 include_directories(${CMAKE_BINARY_DIR})
+
+if (NOT CMAKE_CROSSCOMPILING)
+	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+endif ()
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 
