@@ -27,6 +27,8 @@ if (ZOPFLI_LIBRARY)
 	set (HAVE_ZOPFLI 1)
 endif ()
 
+add_definitions(-include ${CMAKE_BINARY_DIR}/lwan-build-config.h)
+
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)
 check_c_source_compiles("int main(void) { __builtin_clzll(0); }" HAVE_BUILTIN_CLZLL)
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_mul_overflow(0, 0, &p); }" HAVE_BUILTIN_MUL_OVERFLOW)

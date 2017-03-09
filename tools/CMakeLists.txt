@@ -6,7 +6,8 @@ project(mimegen)
 find_package(ZLIB REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES})
 
-include_directories(BEFORE ${BUILD_DEFS_DIR} ../common/missing)
+include_directories(BEFORE ../common/missing)
+add_definitions(-include ${BUILD_DEFS_DIR}/lwan-build-config.h)
 
 add_executable(mimegen
 	mimegen.c

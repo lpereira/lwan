@@ -22,8 +22,6 @@
 #ifndef MISSING_TIME_H
 #define MISSING_TIME_H
 
-#include "lwan-build-config.h"
-
 #ifndef HAS_CLOCK_GETTIME
 typedef int clockid_t;
 int clock_gettime(clockid_t clk_id, struct timespec *ts);

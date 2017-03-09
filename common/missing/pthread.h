@@ -22,8 +22,6 @@
 #ifndef MISSING_PTHREAD_H
 #define MISSING_PTHREAD_H
 
-#include "lwan-build-config.h"
-
 #ifndef HAS_PTHREADBARRIER
 typedef int pthread_barrierattr_t;
 typedef struct pthread_barrier {
