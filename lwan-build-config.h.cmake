@@ -40,7 +40,6 @@
 
 /* Libraries */
 #cmakedefine HAVE_LUA
-#cmakedefine HAVE_ZOPFLI
 
 /* Valgrind support for coroutines */
 #cmakedefine USE_VALGRIND

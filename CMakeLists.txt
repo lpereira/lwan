@@ -22,11 +22,6 @@ find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
-find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
-if (ZOPFLI_LIBRARY)
-	set (HAVE_ZOPFLI 1)
-endif ()
-
 add_definitions(-include ${CMAKE_BINARY_DIR}/lwan-build-config.h)
 
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" HAVE_BUILTIN_CPU_INIT)

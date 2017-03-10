@@ -100,9 +100,11 @@ else ()
 		murmur3.c
 		reallocarray.c
 	)
+	find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
 	if (ZOPFLI_LIBRARY)
 		message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
 		target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
+		target_compile_definitions(mimegen PUBLIC -DHAVE_ZOPFLI=1)
 	else ()
 		message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
 		target_link_libraries(mimegen ${ZLIB_LIBRARIES})
