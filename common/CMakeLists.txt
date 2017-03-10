@@ -145,6 +145,18 @@ message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB
 install(TARGETS lwan-static lwan-shared
   DESTINATION ${INSTALL_LIB_DIR}
 )
-install(FILES lwan.h lwan-coro.h lwan-trie.h lwan-status.h strbuf.h hash.h
-  lwan-template.h lwan-serve-files.h lwan-config.h lwan-array.h
-  DESTINATION "include/lwan" )
+install(FILES
+	hash.h
+	lwan-array.h
+	lwan-config.h
+	lwan-coro.h
+	lwan.h
+	lwan-mod-serve-files.h
+	lwan-mod-rewrite.h
+	lwan-mod-response.h
+	lwan-mod-redirect.h
+	lwan-status.h
+	lwan-template.h
+	lwan-trie.h
+	strbuf.h
+  DESTINATION "include/lwan")
