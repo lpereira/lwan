@@ -42,6 +42,8 @@ static const char *compression_none = NULL;
 static const char *compression_gzip = "gzip";
 static const char *compression_deflate = "deflate";
 
+static const int open_mode = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
+
 struct file_cache_entry;
 
 struct serve_files_priv {
@@ -51,7 +53,6 @@ struct serve_files_priv {
     size_t root_path_len;
     int root_fd;
 
-    int open_mode;
     const char *index_html;
     char *prefix;
 
@@ -322,7 +323,7 @@ mmap_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     bool success;
 
     file_fd = openat(priv->root_fd, full_path + priv->root_path_len + 1,
-                priv->open_mode);
+                open_mode);
     if (UNLIKELY(file_fd < 0))
         return false;
 
@@ -372,7 +373,7 @@ try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
     if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
         goto out;
 
-    fd = openat(priv->root_fd, gzpath, priv->open_mode);
+    fd = openat(priv->root_fd, gzpath, open_mode);
     if (UNLIKELY(fd < 0))
         goto out;
 
@@ -407,7 +408,7 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
 
-    sd->uncompressed.fd = openat(priv->root_fd, relpath + 1, priv->open_mode);
+    sd->uncompressed.fd = openat(priv->root_fd, relpath + 1, open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
         switch (errno) {
         case ENFILE:
@@ -643,38 +644,6 @@ destroy_cache_entry(struct cache_entry *entry, void *context __attribute__((unus
     free(fce);
 }
 
-static int
-try_open_directory(const char *path, int *open_mode)
-{
-    int fd;
-
-    *open_mode = O_RDONLY | O_NOATIME | O_NONBLOCK | O_CLOEXEC;
-
-    fd = open(path, *open_mode | O_DIRECTORY);
-    if (fd < 0) {
-        /* O_NOATIME only works for directories owned by the process owner */
-        *open_mode &= ~O_NOATIME;
-
-        fd = open(path, *open_mode | O_DIRECTORY);
-        if (fd < 0) {
-            /* Although unlikely, this might fail */
-            *open_mode &= ~O_NONBLOCK;
-
-            fd = open(path, *open_mode | O_DIRECTORY);
-        }
-    }
-
-    if (fd < 0)
-        return -1;
-
-    /* Passing O_PATH masks all modes except O_CLOEXEC | O_DIRECTORY |
-     * O_NOFOLLOW.  The open(2) calls above detects if O_NOATIME and
-     * O_NONBLOCK can be used.  Close and open the directory again when
-     * modes have been properly detected with O_PATH.  */
-    close(fd);
-    return open(path, *open_mode | O_DIRECTORY | O_PATH);
-}
-
 static void *
 serve_files_init(const char *prefix, void *args)
 {
@@ -682,7 +651,6 @@ serve_files_init(const char *prefix, void *args)
     char *canonical_root;
     int root_fd;
     struct serve_files_priv *priv;
-    int open_mode;
 
     if (!settings->root_path) {
         lwan_status_error("root_path not specified");
@@ -696,7 +664,7 @@ serve_files_init(const char *prefix, void *args)
         goto out_realpath;
     }
 
-    root_fd = try_open_directory(canonical_root, &open_mode);
+    root_fd = open(canonical_root, open_mode | O_DIRECTORY | O_PATH);
     if (root_fd < 0) {
         lwan_status_perror("Could not open directory \"%s\"",
                             canonical_root);
@@ -738,7 +706,6 @@ serve_files_init(const char *prefix, void *args)
     priv->root_path = canonical_root;
     priv->root_path_len = strlen(canonical_root);
     priv->root_fd = root_fd;
-    priv->open_mode = open_mode;
     priv->index_html = settings->index_html ? settings->index_html : "index.html";
     priv->serve_precompressed_files = settings->serve_precompressed_files;
     priv->auto_index = settings->auto_index;
