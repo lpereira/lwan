@@ -93,9 +93,9 @@ else ()
 endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
-	check_c_compiler_flag(-malign-data=cacheline HAS_MALIGN_DATA_CACHELINE)
-	if (HAS_MALIGN_DATA_CACHELINE)
-		set(C_FLAGS_REL "${C_FLAGS_REL} -malign-data=cacheline")
+	check_c_compiler_flag(-malign-data=abi HAS_MALIGN_DATA_ABI)
+	if (HAS_MALIGN_DATA_ABI)
+		set(C_FLAGS_REL "${C_FLAGS_REL} -malign-data=abi")
 	endif ()
 
 	check_c_compiler_flag(-fno-asynchronous-unwind-tables HAS_ASYNC_UNWIND_TABLES)
