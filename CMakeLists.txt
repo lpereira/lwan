@@ -85,6 +85,11 @@ else ()
 	if (HAS_READ_ONLY_GOT)
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro")
 	endif ()
+
+	check_c_compiler_flag(-fno-plt HAS_NO_PLT)
+	if (HAS_NO_PLT)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-plt")
+	endif ()
 endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
