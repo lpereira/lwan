@@ -570,8 +570,8 @@ static void *parse_section(struct parser *parser)
 
     struct config_line line = {
         .type = CONFIG_LINE_TYPE_SECTION,
-        .name = strbuf_get_buffer(&parser->strbuf),
-        .param = line.name + name_len + 1
+        .key = strbuf_get_buffer(&parser->strbuf),
+        .value = strbuf_get_buffer(&parser->strbuf) + name_len + 1
     };
     if (!config_buffer_emit(&parser->items, &line))
         return NULL;

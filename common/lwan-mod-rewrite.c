@@ -294,7 +294,7 @@ module_parse_conf_pattern(struct private_data *pd, struct config *config, struct
     if (!pattern)
         goto out_no_free;
     
-    pattern->pattern = strdup(line->param);
+    pattern->pattern = strdup(line->value);
     if (!pattern->pattern)
         goto out;
 
@@ -317,7 +317,7 @@ module_parse_conf_pattern(struct private_data *pd, struct config *config, struct
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            config_error(config, "Unexpected section: %s", line->name);
+            config_error(config, "Unexpected section: %s", line->key);
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
             if (redirect_to && rewrite_as) {
@@ -371,10 +371,10 @@ module_parse_conf(void *data, struct config *config)
             config_error(config, "Unknown option: %s", line.key);
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line.name, "pattern")) {
+            if (streq(line.key, "pattern")) {
                 module_parse_conf_pattern(pd, config, &line);
             } else {
-                config_error(config, "Unknown section: %s", line.name);
+                config_error(config, "Unknown section: %s", line.key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:

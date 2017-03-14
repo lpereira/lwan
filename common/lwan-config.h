@@ -38,10 +38,9 @@ enum config_line_type {
 };
 
 struct config_line {
-    union {
-        struct { char *name, *param; };
-        struct { char *key, *value; };
-    };
+    char *key;
+    char *value;
+
     enum config_line_type type;
 };
 

@@ -156,7 +156,7 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
 static void parse_listener_prefix_authorization(struct config *c,
                     struct config_line *l, struct lwan_url_map *url_map)
 {
-    if (!streq(l->param, "basic")) {
+    if (!streq(l->value, "basic")) {
         config_error(c, "Only basic authorization supported");
         return;
     }
@@ -176,7 +176,7 @@ static void parse_listener_prefix_authorization(struct config *c,
             break;
 
         case CONFIG_LINE_TYPE_SECTION:
-            config_error(c, "Unexpected section: %s", l->name);
+            config_error(c, "Unexpected section: %s", l->key);
             goto error;
 
         case CONFIG_LINE_TYPE_SECTION_END:
@@ -241,7 +241,7 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
 
           break;
       case CONFIG_LINE_TYPE_SECTION:
-          if (streq(l->name, "authorization")) {
+          if (streq(l->key, "authorization")) {
               parse_listener_prefix_authorization(c, l, &url_map);
           } else {
               if (!config_skip_section(c, l)) {
@@ -323,7 +323,7 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
 
 static void parse_listener(struct config *c, struct config_line *l, struct lwan *lwan)
 {
-    lwan->config.listener = strdup(l->param);
+    lwan->config.listener = strdup(l->value);
 
     while (config_read_line(c, l)) {
         switch (l->type) {
@@ -331,31 +331,31 @@ static void parse_listener(struct config *c, struct config_line *l, struct lwan 
             config_error(c, "Expecting prefix section");
             return;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(l->name, "prefix")) {
+            if (streq(l->key, "prefix")) {
                 parse_listener_prefix(c, l, lwan, NULL, NULL);
                 continue;
             }
 
-            if (l->name[0] == '&') {
-                l->name++;
+            if (l->key[0] == '&') {
+                l->key++;
 
-                void *handler = find_handler_symbol(l->name);
+                void *handler = find_handler_symbol(l->key);
                 if (handler) {
                     parse_listener_prefix(c, l, lwan, NULL, handler);
                     continue;
                 }
 
-                config_error(c, "Could not find handler name: %s", l->name);
+                config_error(c, "Could not find handler name: %s", l->key);
                 return;
             }
 
-            const struct lwan_module *module = lwan_module_find(lwan, l->name);
+            const struct lwan_module *module = lwan_module_find(lwan, l->key);
             if (module) {
                 parse_listener_prefix(c, l, lwan, module, NULL);
                 continue;
             }
 
-            config_error(c, "Invalid section or module not found: %s", l->name);
+            config_error(c, "Invalid section or module not found: %s", l->key);
             return;
         case CONFIG_LINE_TYPE_SECTION_END:
             return;
@@ -446,17 +446,17 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line.name, "listener")) {
+            if (streq(line.key, "listener")) {
                 if (!has_listener) {
                     parse_listener(conf, &line, lwan);
                     has_listener = true;
                 } else {
                     config_error(conf, "Only one listener supported");
                 }
-            } else if (streq(line.name, "straitjacket")) {
+            } else if (streq(line.key, "straitjacket")) {
                 lwan_straitjacket_enforce(conf, &line);
             } else {
-                config_error(conf, "Unknown section type: %s", line.name);
+                config_error(conf, "Unknown section type: %s", line.key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
