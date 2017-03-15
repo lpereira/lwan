@@ -168,7 +168,7 @@ static const char *
 expand_lua(struct lwan_request *request, struct pattern *pattern, const char *orig,
     char buffer[static PATH_MAX], struct str_find *sf, int captures)
 {
-    const char *output, *ret;
+    const char *output;
     size_t output_len;
     int i;
     lua_State *L;
@@ -197,8 +197,6 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
     if (lua_pcall(L, 2, 1, 0) != 0) {
         lwan_status_error("Could not execute `handle_rewrite()` function: %s",
             lwan_lua_state_last_error(L));
-
-        lua_pop(L, 2); /* 2: request + capture table */
         return NULL;
     }
 
@@ -206,14 +204,10 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
     if (output_len >= PATH_MAX) {
         lwan_status_error("Rewritten URL exceeds %d bytes (got %ld bytes)",
             PATH_MAX, output_len);
-
-        lua_pop(L, 1); /* 1: return value */
         return NULL;
     }
 
-    ret = memcpy(buffer, output, output_len + 1);
-    lua_pop(L, 1); /* 1: return value */
-    return ret;
+    return memcpy(buffer, output, output_len + 1);
 }
 #endif
 
