@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2014 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2017 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,10 +19,20 @@
 
 #pragma once
 
-#include <lua.h>
+#include "lwan.h"
 
-extern const char *lwan_request_metatable_name;
+struct lwan_lua_settings {
+    const char *default_type;
+    const char *script_file;
+    const char *script;
+    unsigned int cache_period;
+};
 
-const char *lwan_lua_state_last_error(lua_State *L);
-lua_State *lwan_lua_create_state(const char *script_file, const char *script);
+#define LUA(default_type_) \
+    .module = lwan_module_lua(), \
+    .args = ((struct lwan_lua[]) {{ \
+        .default_type = default_type_ \
+    }}), \
+    .flags = 0
 
+const struct lwan_module *lwan_module_lua(void);
