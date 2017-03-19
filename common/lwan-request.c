@@ -68,30 +68,25 @@ struct request_parser_helper {
     char connection;
 };
 
-union proxy_protocol_header {
-    struct {
-        char line[108];
-    } v1;
-    struct {
-        uint8_t sig[12];
-        uint8_t cmd_ver;
-        uint8_t fam;
-        uint16_t len;
-        union {
-            struct {
-                in_addr_t src_addr;
-                in_addr_t dst_addr;
-                uint16_t src_port;
-                uint16_t dst_port;
-            } ip4;
-            struct {
-                struct in6_addr src_addr;
-                struct in6_addr dst_addr;
-                uint16_t src_port;
-                uint16_t dst_port;
-            } ip6;
-        } addr;
-    } v2;
+struct proxy_header_v2 {
+    uint8_t sig[12];
+    uint8_t cmd_ver;
+    uint8_t fam;
+    uint16_t len;
+    union {
+        struct {
+            in_addr_t src_addr;
+            in_addr_t dst_addr;
+            uint16_t src_port;
+            uint16_t dst_port;
+        } ip4;
+        struct {
+            struct in6_addr src_addr;
+            struct in6_addr dst_addr;
+            uint16_t src_port;
+            uint16_t dst_port;
+        } ip6;
+    } addr;
 };
 
 static char decode_hex_digit(char ch) __attribute__((pure));
@@ -139,18 +134,18 @@ strsep_char(char *strp, char delim)
 static char *
 parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 {
-    union proxy_protocol_header *hdr = (union proxy_protocol_header *) buffer;
+    static const size_t line_size = 108;
     char *end, *protocol, *src_addr, *dst_addr, *src_port, *dst_port;
     unsigned int size;
     struct lwan_proxy *const proxy = request->proxy;
 
-    end = memchr(hdr->v1.line, '\r', sizeof(hdr->v1.line));
+    end = memchr(buffer, '\r', line_size);
     if (UNLIKELY(!end || end[1] != '\n'))
         return NULL;
     *end = '\0';
-    size = (unsigned int) (end + 2 - hdr->v1.line);
+    size = (unsigned int) (end + 2 - buffer);
 
-    protocol = hdr->v1.line + sizeof("PROXY ") - 1;
+    protocol = buffer + sizeof("PROXY ") - 1;
     src_addr = strsep_char(protocol, ' ');
     dst_addr = strsep_char(src_addr, ' ');
     src_port = strsep_char(dst_addr, ' ');
@@ -210,7 +205,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 static char *
 parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 {
-    union proxy_protocol_header *hdr = (union proxy_protocol_header *)buffer;
+    struct proxy_header_v2 *hdr = (struct proxy_header_v2*)buffer;
     const unsigned int proto_signature_length = 16;
     unsigned int size;
     struct lwan_proxy *const proxy = request->proxy;
@@ -222,38 +217,38 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
         TCP6 = 0x21
     };
 
-    size = proto_signature_length + (unsigned int)ntohs(hdr->v2.len);
-    if (UNLIKELY(size > (unsigned int)sizeof(hdr->v2)))
+    size = proto_signature_length + (unsigned int)ntohs(hdr->len);
+    if (UNLIKELY(size > (unsigned int)sizeof(*hdr)))
         return NULL;
 
-    if (hdr->v2.cmd_ver == LOCAL) {
+    if (hdr->cmd_ver == LOCAL) {
         struct sockaddr_in *from = &proxy->from.ipv4;
         struct sockaddr_in *to = &proxy->to.ipv4;
 
         from->sin_family = to->sin_family = AF_UNSPEC;
-    } else if (hdr->v2.cmd_ver == PROXY) {
-        if (hdr->v2.fam == TCP4) {
+    } else if (hdr->cmd_ver == PROXY) {
+        if (hdr->fam == TCP4) {
             struct sockaddr_in *from = &proxy->from.ipv4;
             struct sockaddr_in *to = &proxy->to.ipv4;
 
             to->sin_family = from->sin_family = AF_INET;
 
-            from->sin_addr.s_addr = hdr->v2.addr.ip4.src_addr;
-            from->sin_port = hdr->v2.addr.ip4.src_port;
+            from->sin_addr.s_addr = hdr->addr.ip4.src_addr;
+            from->sin_port = hdr->addr.ip4.src_port;
 
-            to->sin_addr.s_addr = hdr->v2.addr.ip4.dst_addr;
-            to->sin_port = hdr->v2.addr.ip4.dst_port;
-        } else if (hdr->v2.fam == TCP6) {
+            to->sin_addr.s_addr = hdr->addr.ip4.dst_addr;
+            to->sin_port = hdr->addr.ip4.dst_port;
+        } else if (hdr->fam == TCP6) {
             struct sockaddr_in6 *from = &proxy->from.ipv6;
             struct sockaddr_in6 *to = &proxy->to.ipv6;
 
             from->sin6_family = to->sin6_family = AF_INET6;
 
-            from->sin6_addr = hdr->v2.addr.ip6.src_addr;
-            from->sin6_port = hdr->v2.addr.ip6.src_port;
+            from->sin6_addr = hdr->addr.ip6.src_addr;
+            from->sin6_port = hdr->addr.ip6.src_port;
 
-            to->sin6_addr = hdr->v2.addr.ip6.dst_addr;
-            to->sin6_port = hdr->v2.addr.ip6.dst_port;
+            to->sin6_addr = hdr->addr.ip6.dst_addr;
+            to->sin6_port = hdr->addr.ip6.dst_port;
         } else {
             return NULL;
         }
