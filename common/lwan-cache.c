@@ -239,6 +239,11 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
             pthread_rwlock_unlock(&cache->queue.lock);
         } else {
             convert_to_temporary(entry);
+
+            /* Ensure item is removed from the hash table; otherwise,
+             * another thread could potentially get another reference
+             * to this entry and cause an invalid memory access. */
+            hash_del(cache->hash.table, entry->key);
         }
     } else {
         /* Either there's another item with the same key (-EEXIST), or
