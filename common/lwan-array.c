@@ -108,11 +108,9 @@ coro_lwan_array_new(struct coro *coro)
 {
     struct lwan_array *array;
 
-    array = coro_malloc(coro, sizeof(*array));
-    if (array) {
+    array = coro_malloc_full(coro, sizeof(*array), coro_lwan_array_free);
+    if (LIKELY(array))
         lwan_array_init(array);
-        coro_defer(coro, CORO_DEFER(coro_lwan_array_free), array);
-    }
 
     return array;
 }
