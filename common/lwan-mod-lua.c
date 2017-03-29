@@ -156,14 +156,6 @@ static bool get_handler_function(lua_State *L, struct lwan_request *request)
     return lua_isfunction(L, -1);
 }
 
-void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request)
-{
-    struct lwan_request **userdata = lua_newuserdata(L, sizeof(struct lwan_request *));
-    *userdata = request;
-    luaL_getmetatable(L, lwan_request_metatable_name);
-    lua_setmetatable(L, -2);
-}
-
 static lua_State *push_newthread(lua_State *L, struct coro *coro)
 {
     lua_State *L1 = lua_newthread(L);

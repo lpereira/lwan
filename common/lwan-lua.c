@@ -29,11 +29,11 @@
 
 #include "lwan-lua.h"
 
-const char *lwan_request_metatable_name = "Lwan.Request";
+static const char *request_metatable_name = "Lwan.Request";
 
 static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L, int n)
 {
-    return *((struct lwan_request **)luaL_checkudata(L, n, lwan_request_metatable_name));
+    return *((struct lwan_request **)luaL_checkudata(L, n, request_metatable_name));
 }
 
 static int req_say_cb(lua_State *L)
@@ -208,7 +208,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 
     luaL_openlibs(L);
 
-    luaL_newmetatable(L, lwan_request_metatable_name);
+    luaL_newmetatable(L, request_metatable_name);
     luaL_register(L, NULL, lwan_request_meta_regs);
     lua_setfield(L, -1, "__index");
 
@@ -229,3 +229,12 @@ close_lua_state:
     lua_close(L);
     return NULL;
 }
+
+void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request)
+{
+    struct lwan_request **userdata = lua_newuserdata(L, sizeof(struct lwan_request *));
+    *userdata = request;
+    luaL_getmetatable(L, request_metatable_name);
+    lua_setmetatable(L, -2);
+}
+
