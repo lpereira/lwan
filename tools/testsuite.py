@@ -88,8 +88,18 @@ class TestPost(LwanTest):
   def test_small_request(self): self.make_request_with_size(10)
   def test_medium_request(self): self.make_request_with_size(100)
   def test_large_request(self): self.make_request_with_size(1000)
-  def test_huge_request(self): self.make_request_with_size(10000)
-  def test_gigantic_request(self): self.make_request_with_size(100000)
+
+  # These two tests are supposed to fail, with Lwan aborting the connection.
+  def test_huge_request(self):
+    try:
+      self.make_request_with_size(10000)
+    except requests.exceptions.ChunkedEncodingError:
+      pass
+  def test_gigantic_request(self):
+    try:
+      self.make_request_with_size(100000)
+    except requests.exceptions.ChunkedEncodingError:
+      pass
 
 
 class TestFileServing(LwanTest):
