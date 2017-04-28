@@ -556,7 +556,8 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Load the configuration file. */
     if (config == &default_config || config->config_file_path) {
         if (!setup_from_config(l, config->config_file_path))
-            lwan_status_warning("Could not read config file, using defaults");
+            lwan_status_critical("Could not read config file: %s",
+                config->config_file_path);
 
         /* `quiet` key might have changed value. */
         lwan_status_init(l);
