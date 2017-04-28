@@ -95,10 +95,14 @@ class TestPost(LwanTest):
       self.make_request_with_size(10000)
     except requests.exceptions.ChunkedEncodingError:
       pass
+    except requests.exceptions.ConnectionError:
+      pass
   def test_gigantic_request(self):
     try:
       self.make_request_with_size(100000)
     except requests.exceptions.ChunkedEncodingError:
+      pass
+    except requests.exceptions.ConnectionError:
       pass
 
 
@@ -369,6 +373,8 @@ class TestMalformedRequests(SocketTest):
 
       self.assertResponseHtml(r, 413)
     except requests.exceptions.ChunkedEncodingError:
+      pass
+    except requests.exceptions.ConnectionError:
       pass
 
 
