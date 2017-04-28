@@ -158,7 +158,7 @@ static int req_set_headers_cb(lua_State *L)
             lua_pushnil(L);
 
             for (; lua_next(L, value_index) != 0; lua_pop(L, 1)) {
-                if (lua_isstring(L, nested_value_index))
+                if (!lua_isstring(L, nested_value_index))
                     continue;
                 if (!append_key_value(L, coro, headers, key, nested_value_index))
                     goto out;
@@ -174,7 +174,7 @@ static int req_set_headers_cb(lua_State *L)
     kv->key = kv->value = NULL;
 
     request->response.headers = headers->base.base;
-    lua_pushinteger(L, (lua_Integer)((struct lwan_array *)headers->base.elements));
+    lua_pushinteger(L, (lua_Integer)headers->base.elements);
     return 1;
 
 out:
