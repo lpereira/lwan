@@ -602,7 +602,7 @@ class TestArtificialResponse(LwanTest):
   def test_brew_coffee(self):
     r = requests.get('http://127.0.0.1:8080/brew-coffee')
 
-    self.assertEqual(request.status_code, 418)
+    self.assertEqual(r.status_code, 418)
 
 if __name__ == '__main__':
   unittest.main()
