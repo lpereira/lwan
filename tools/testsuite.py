@@ -364,9 +364,12 @@ class TestMalformedRequests(SocketTest):
 
 
   def test_request_too_large(self):
-    r = requests.get('http://127.0.0.1:8080/' + 'X' * 100000)
+    try:
+      r = requests.get('http://127.0.0.1:8080/' + 'X' * 100000)
 
-    self.assertResponseHtml(r, 413)
+      self.assertResponseHtml(r, 413)
+    except requests.exceptions.ChunkedEncodingError:
+      pass
 
 
 class TestLua(LwanTest):
