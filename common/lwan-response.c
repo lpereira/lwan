@@ -277,10 +277,8 @@ lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status
         APPEND_CONSTANT("\r\nContent-Length: ");
         if (request->response.stream.callback)
             APPEND_UINT(request->response.content_length);
-        else if (has_response_body[lwan_request_get_method(request)])
-            APPEND_UINT(strbuf_get_length(request->response.buffer));
         else
-            APPEND_UINT(0);
+            APPEND_UINT(strbuf_get_length(request->response.buffer));
     }
 
     APPEND_CONSTANT("\r\nContent-Type: ");
