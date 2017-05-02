@@ -42,7 +42,6 @@ static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool running = false;
 static struct list_head jobs;
 
-// 修改原来lwan调用sleep的方法，sleep的方式不能响应信号，退出时间比较长
 static pthread_mutex_t job_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  job_wait_cond = PTHREAD_COND_INITIALIZER;
 
@@ -75,10 +74,6 @@ job_thread(void *data __attribute__((unused)))
         struct timespec rgtp = { now.tv_sec + job_wait_sec, now.tv_usec * 1000 };
 
         pthread_cond_timedwait(&job_wait_cond, &job_wait_mutex, &rgtp);
-        //if (UNLIKELY(nanosleep(&rgtp, NULL) < 0)) {
-        //    if (errno == EINTR)
-        //        sleep(1);
-        //}
     }
      pthread_mutex_unlock(&job_wait_mutex);
 
