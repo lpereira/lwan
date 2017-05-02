@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "lwan.h"
 #include "lwan-status.h"
@@ -41,11 +42,16 @@ static pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool running = false;
 static struct list_head jobs;
 
+// 修改原来lwan调用sleep的方法，sleep的方式不能响应信号，退出时间比较长
+static pthread_mutex_t job_wait_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  job_wait_cond = PTHREAD_COND_INITIALIZER;
+
 static void*
 job_thread(void *data __attribute__((unused)))
 {
-    struct timespec rgtp = { 1, 0 };
-
+    pthread_mutex_lock(&job_wait_mutex);
+    int job_wait_sec = 1;
+    
     while (running) {
         bool had_job = false;
 
@@ -58,16 +64,23 @@ job_thread(void *data __attribute__((unused)))
             pthread_mutex_unlock(&queue_mutex);
         }
 
-        if (had_job)
-            rgtp.tv_sec = 1;
-        else if (rgtp.tv_sec <= 15)
-            rgtp.tv_sec++;
 
-        if (UNLIKELY(nanosleep(&rgtp, NULL) < 0)) {
-            if (errno == EINTR)
-                sleep(1);
-        }
+        if (had_job)
+            job_wait_sec = 1;
+        else if (job_wait_sec <= 15)
+            job_wait_sec++;
+        
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        struct timespec rgtp = { now.tv_sec + job_wait_sec, now.tv_usec * 1000 };
+
+        pthread_cond_timedwait(&job_wait_cond, &job_wait_mutex, &rgtp);
+        //if (UNLIKELY(nanosleep(&rgtp, NULL) < 0)) {
+        //    if (errno == EINTR)
+        //        sleep(1);
+        //}
     }
+     pthread_mutex_unlock(&job_wait_mutex);
 
     return NULL;
 }
@@ -106,6 +119,8 @@ void lwan_job_thread_shutdown(void)
             free(node);
         }
         running = false;
+
+        pthread_cond_signal(&job_wait_cond);
 
         r = pthread_join(self, NULL);
         if (r) {
