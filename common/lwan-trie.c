@@ -86,6 +86,11 @@ lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
     } else if (trie->free_node) {
         trie->free_node(leaf->data);
     }
+    else
+    {
+        if (trie->free_node)
+            trie->free_node(leaf->data);
+    }
 
     leaf->data = data;
     if (!had_key) {
