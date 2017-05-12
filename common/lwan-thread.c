@@ -85,7 +85,7 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
     struct lwan_connection *conn)
 {
     /*
-     * If the connection isn't keep alive, it might have a coroutine that
+     * If the connection is keep alive, it might have a coroutine that
      * should be resumed.  If that's the case, schedule for this request to
      * die according to the keep alive timeout.
      *
