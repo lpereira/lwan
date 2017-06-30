@@ -966,9 +966,14 @@ redir_serve(struct lwan_request *request, void *data)
     struct redir_cache_data *rd = (struct redir_cache_data *)(fce + 1);
     char header_buf[DEFAULT_BUFFER_SIZE];
     size_t header_buf_size;
-    struct lwan_key_value headers[2] = {
-        [0] = { .key = "Location", .value = rd->redir_to },
-    };
+    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    if (UNLIKELY(!headers))
+        return HTTP_INTERNAL_ERROR;
+
+    headers[0].key = "Location";
+    headers[0].value = rd->redir_to;
+    headers[1].key = NULL;
+    headers[1].value = NULL;
 
     request->response.headers = headers;
     request->response.content_length = strlen(rd->redir_to);
