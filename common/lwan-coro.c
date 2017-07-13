@@ -190,9 +190,11 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
 
-    coro->context[9 /* RSP */] = (uintptr_t) stack + CORO_STACK_MIN;
-    /* Ensure 16-byte alignment */
-    coro->context[9 /* RSP */] &= (uintptr_t)~0xf;
+    /* Ensure stack is properly aligned: it should be aligned to a
+     * 16-bytes boundary so SSE will work properly, but should be
+     * aligned on an 8-byte boundary right after calling a function. */
+    uintptr_t rsp = (uintptr_t) stack + CORO_STACK_MIN;
+    coro->context[9 /* RSP */] = (rsp & ~0xful) - 0x8ul;
 #elif defined(__i386__)
     stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_MIN);
 
