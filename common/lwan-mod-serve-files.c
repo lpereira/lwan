@@ -966,15 +966,15 @@ redir_serve(struct lwan_request *request, void *data)
     struct redir_cache_data *rd = (struct redir_cache_data *)(fce + 1);
     char header_buf[DEFAULT_BUFFER_SIZE];
     size_t header_buf_size;
-    struct lwan_key_value headers[2] = {
+    struct lwan_key_value additional_headers[2] = {
         [0] = { .key = "Location", .value = rd->redir_to },
     };
 
-    request->response.headers = headers;
     request->response.content_length = strlen(rd->redir_to);
 
-    header_buf_size = lwan_prepare_response_header(request,
-                HTTP_MOVED_PERMANENTLY, header_buf, DEFAULT_BUFFER_SIZE);
+    header_buf_size = lwan_prepare_response_header_full(request,
+                HTTP_MOVED_PERMANENTLY, header_buf, DEFAULT_BUFFER_SIZE,
+                additional_headers);
     if (UNLIKELY(!header_buf_size))
         return HTTP_INTERNAL_ERROR;
 

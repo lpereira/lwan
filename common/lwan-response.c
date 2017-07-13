@@ -252,8 +252,12 @@ lwan_default_response(struct lwan_request *request, enum lwan_http_status status
 #define APPEND_CONSTANT(const_str_) \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
-ALWAYS_INLINE size_t
-lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status status, char headers[], size_t headers_buf_size)
+size_t
+lwan_prepare_response_header_full(struct lwan_request *request,
+    enum lwan_http_status status,
+    char headers[],
+    size_t headers_buf_size,
+    const struct lwan_key_value *additional_headers)
 {
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
@@ -289,10 +293,10 @@ lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status
     else
         APPEND_CONSTANT("\r\nConnection: close");
 
-    if ((status < HTTP_BAD_REQUEST && request->response.headers)) {
-        struct lwan_key_value *header;
+    if ((status < HTTP_BAD_REQUEST && additional_headers)) {
+        const struct lwan_key_value *header;
 
-        for (header = request->response.headers; header->key; header++) {
+        for (header = additional_headers; header->key; header++) {
             if (UNLIKELY(streq(header->key, "Server")))
                 continue;
             if (UNLIKELY(streq(header->key, "Date")))
@@ -309,9 +313,9 @@ lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status
             APPEND_STRING(header->value);
         }
     } else if (status == HTTP_NOT_AUTHORIZED) {
-        struct lwan_key_value *header;
+        const struct lwan_key_value *header;
 
-        for (header = request->response.headers; header->key; header++) {
+        for (header = additional_headers; header->key; header++) {
             if (streq(header->key, "WWW-Authenticate")) {
                 APPEND_CONSTANT("\r\nWWW-Authenticate: ");
                 APPEND_STRING(header->value);
@@ -349,6 +353,16 @@ lwan_prepare_response_header(struct lwan_request *request, enum lwan_http_status
 #undef APPEND_STRING_LEN
 #undef APPEND_UINT
 #undef RETURN_0_ON_OVERFLOW
+
+ALWAYS_INLINE size_t
+lwan_prepare_response_header(struct lwan_request *request,
+    enum lwan_http_status status,
+    char headers[],
+    size_t headers_buf_size)
+{
+    return lwan_prepare_response_header_full(request,
+        status, headers, headers_buf_size, request->response.headers);
+}
 
 bool
 lwan_response_set_chunked(struct lwan_request *request, enum lwan_http_status status)

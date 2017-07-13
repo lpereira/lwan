@@ -44,6 +44,9 @@ void lwan_tables_shutdown(void);
 
 char *lwan_process_request(struct lwan *l, struct lwan_request *request,
                            struct lwan_value *buffer, char *next_request);
+size_t lwan_prepare_response_header_full(struct lwan_request *request,
+     enum lwan_http_status status, char headers[],
+     size_t headers_buf_size, const struct lwan_key_value *additional_headers);
 
 void lwan_straitjacket_enforce(struct config *c, struct config_line *l);
 
