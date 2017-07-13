@@ -271,14 +271,14 @@ class TestRewrite(LwanTest):
     self.assertFalse('location' in r.headers)
     self.assertEqual(r.text, 'Hello, rewritten42!')
 
-  def disabled_test_lua_redirect_to(self):
+  def test_lua_redirect_to(self):
     r = requests.get('http://127.0.0.1:8080/pattern/lua/redir/6x7', allow_redirects=False)
 
     self.assertResponseHtml(r, 301)
     self.assertTrue('location' in r.headers)
     self.assertEqual(r.headers['location'], '/hello?name=redirected42')
 
-  def disabled_test_lua_rewrite_as(self):
+  def test_lua_rewrite_as(self):
     r = requests.get('http://127.0.0.1:8080/pattern/lua/rewrite/7x6', allow_redirects=False)
 
     self.assertResponsePlain(r, 200)
