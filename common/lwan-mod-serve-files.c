@@ -443,7 +443,14 @@ static const char *
 get_rel_path(const char *full_path, struct serve_files_priv *priv)
 {
     const char *root_path = full_path + priv->root_path_len;
-    return *root_path ? root_path : priv->prefix;
+
+    if (*root_path)
+        return root_path;
+
+    if (!strcmp(priv->prefix, "/"))
+        return "";
+
+    return priv->prefix;
 }
 
 static bool
