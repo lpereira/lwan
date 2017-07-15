@@ -73,13 +73,13 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root)
         }
 
         case 'h':
-            printf("Usage: %s [--root /path/to/root/dir] [--listener addr:port]\n", argv[0]);
+            printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv[0]);
             printf("\t[--config]\n");
             printf("Serve files through HTTP.\n\n");
             printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
             printf("Options:\n");
             printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
-            printf("\t-l, --listener  Listener (default: %s).\n", config->listener);
+            printf("\t-l, --listen  Listener (default: %s).\n", config->listener);
             printf("\t-c, --config    Path to config file path.\n");
             printf("\t-h, --help      This.\n");
             printf("\n");
