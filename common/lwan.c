@@ -540,6 +540,7 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Load defaults */
     memset(l, 0, sizeof(*l));
     memcpy(&l->config, config, sizeof(*config));
+    l->config.listener = strdup(l->config.listener);
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
@@ -601,8 +602,7 @@ lwan_shutdown(struct lwan *l)
 {
     lwan_status_info("Shutting down");
 
-    if (l->config.listener != default_config.listener)
-        free(l->config.listener);
+    free(l->config.listener);
     free(l->config.error_template);
     free(l->config.config_file_path);
 
