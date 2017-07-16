@@ -300,7 +300,6 @@ struct lwan_thread {
     int epoll_fd;
     int pipe_fd[2];
     pthread_t self;
-    void *barrier;
 };
 
 struct lwan_config {
@@ -323,6 +322,7 @@ struct lwan {
     struct lwan_connection *conns;
 
     struct {
+        pthread_barrier_t barrier;
         struct lwan_thread *threads;
         unsigned int max_fd;
         unsigned short count;

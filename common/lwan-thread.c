@@ -339,7 +339,7 @@ thread_io_loop(void *data)
     const int epoll_fd = t->epoll_fd;
     const int read_pipe_fd = t->pipe_fd[0];
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
-    const struct lwan *lwan = t->lwan;
+    struct lwan *lwan = t->lwan;
     struct lwan_connection *conns = lwan->conns;
     struct epoll_event *events;
     struct coro_switcher switcher;
@@ -355,8 +355,7 @@ thread_io_loop(void *data)
 
     death_queue_init(&dq, lwan);
 
-    pthread_barrier_wait(t->barrier);
-    t->barrier = NULL;
+    pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
@@ -406,8 +405,7 @@ thread_io_loop(void *data)
     }
 
 epoll_fd_closed:
-    if (t->barrier)
-        pthread_barrier_wait(t->barrier);
+    pthread_barrier_wait(&lwan->thread.barrier);
 
     death_queue_kill_all(&dq);
     free(events);
@@ -416,13 +414,12 @@ epoll_fd_closed:
 }
 
 static void
-create_thread(struct lwan *l, struct lwan_thread *thread, pthread_barrier_t *barrier)
+create_thread(struct lwan *l, struct lwan_thread *thread)
 {
     pthread_attr_t attr;
 
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
-    thread->barrier = barrier;
 
     if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
         lwan_status_critical_perror("epoll_create");
@@ -463,9 +460,7 @@ lwan_thread_add_client(struct lwan_thread *t, int fd)
 void
 lwan_thread_init(struct lwan *l)
 {
-    pthread_barrier_t barrier;
-
-    if (pthread_barrier_init(&barrier, NULL, (unsigned)l->thread.count + 1))
+    if (pthread_barrier_init(&l->thread.barrier, NULL, (unsigned)l->thread.count + 1))
         lwan_status_critical("Could not create barrier");
 
     lwan_status_debug("Initializing threads");
@@ -475,10 +470,9 @@ lwan_thread_init(struct lwan *l)
         lwan_status_critical("Could not allocate memory for threads");
 
     for (short i = 0; i < l->thread.count; i++)
-        create_thread(l, &l->thread.threads[i], &barrier);
+        create_thread(l, &l->thread.threads[i]);
 
-    pthread_barrier_wait(&barrier);
-    pthread_barrier_destroy(&barrier);
+    pthread_barrier_wait(&l->thread.barrier);
 
     lwan_status_debug("IO threads created and ready to serve");
 }
@@ -486,19 +480,12 @@ lwan_thread_init(struct lwan *l)
 void
 lwan_thread_shutdown(struct lwan *l)
 {
-    pthread_barrier_t barrier;
-
     lwan_status_debug("Shutting down threads");
-
-    if (pthread_barrier_init(&barrier, NULL, (unsigned)l->thread.count + 1))
-        lwan_status_critical("Could not create barrier");
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
         struct lwan_thread *t = &l->thread.threads[i];
         char less_than_int = 0;
         ssize_t r;
-
-        t->barrier = &barrier;
 
         lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
             t->epoll_fd);
@@ -521,8 +508,8 @@ lwan_thread_shutdown(struct lwan *l)
         }
     }
 
-    pthread_barrier_wait(&barrier);
-    pthread_barrier_destroy(&barrier);
+    pthread_barrier_wait(&l->thread.barrier);
+    pthread_barrier_destroy(&l->thread.barrier);
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
         struct lwan_thread *t = &l->thread.threads[i];
