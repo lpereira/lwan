@@ -47,6 +47,10 @@
 #include "strbuf.h"
 #include "lwan-array.h"
 
+/* Define this and build a debug version to have the template
+ * chunks printed out after compilation. */
+#undef TEMPLATE_DEBUG
+
 enum action {
     ACTION_APPEND,
     ACTION_APPEND_CHAR,
@@ -1141,6 +1145,109 @@ static bool parse_string(struct lwan_tpl *tpl, const char *string, const struct 
     return parser_shutdown(&parser, lexeme);
 }
 
+#if !defined(NDEBUG) && defined(TEMPLATE_DEBUG)
+static const char *instr(const char *name, char buf[static 32])
+{
+    int ret = snprintf(buf, 32, "\033[33m%s\033[0m", name);
+
+    if (ret < 0 || ret >= 32)
+        return "?";
+
+    return buf;
+}
+
+static void dump_program(const struct lwan_tpl *tpl)
+{
+    struct chunk *iter;
+    int indent = 0;
+
+    if (!tpl->chunks.base.elements)
+        return;
+
+    for (iter = tpl->chunks.base.base; iter->action != ACTION_LAST; iter++) {
+        char instr_buf[32];
+
+        switch (iter->action) {
+        default:
+            for (int i = 0; i < indent; i++) {
+                printf("  ");
+            }
+            break;
+        case ACTION_END_ITER:
+        case ACTION_END_IF_VARIABLE_NOT_EMPTY:
+            break;
+        }
+
+        switch (iter->action) {
+        case ACTION_APPEND:
+            printf("%s [%.*s]", instr("APPEND", instr_buf),
+                (int)strbuf_get_length(iter->data),
+                strbuf_get_buffer(iter->data));
+            break;
+        case ACTION_APPEND_CHAR:
+            printf("%s [%d]", instr("APPEND_CHAR", instr_buf),
+                (char)(uintptr_t)iter->data);
+            break;
+        case ACTION_VARIABLE: {
+            struct lwan_var_descriptor *descriptor = iter->data;
+
+            printf("%s [%s]", instr("APPEND_VAR", instr_buf),
+                descriptor->name);
+            break;
+        }
+        case ACTION_VARIABLE_STR:
+            printf("%s", instr("APPEND_VAR_STR", instr_buf));
+            break;
+        case ACTION_VARIABLE_STR_ESCAPE:
+            printf("%s", instr("APPEND_VAR_STR_ESCAPE", instr_buf));
+            break;
+        case ACTION_START_ITER: {
+            struct chunk_descriptor *descriptor = iter->data;
+
+            printf("%s [%s]", instr("START_ITER", instr_buf),
+                descriptor->descriptor->name);
+            indent++;
+            break;
+        }
+        case ACTION_END_ITER: {
+            struct chunk_descriptor *descriptor = iter->data;
+
+            printf("%s [%s]", instr("END_ITER", instr_buf),
+                descriptor->descriptor->name);
+            indent--;
+            break;
+        }
+        case ACTION_IF_VARIABLE_NOT_EMPTY: {
+            struct chunk_descriptor *cd = iter->data;
+
+            printf("%s [%s]", instr("IF_VAR_NOT_EMPTY", instr_buf),
+                cd->descriptor->name);
+            indent++;
+            break;
+        }
+        case ACTION_END_IF_VARIABLE_NOT_EMPTY:
+            printf("%s", instr("END_VAR_NOT_EMPTY", instr_buf));
+            indent--;
+            break;
+        case ACTION_APPLY_TPL:
+            printf("%s", instr("APPLY_TEMPLATE", instr_buf));
+            break;
+        case ACTION_LAST:
+            printf("%s", instr("LAST", instr_buf));
+        }
+
+        printf("\033[34m");
+        if (iter->flags & FLAGS_NEGATE)
+            printf(" NEG");
+        if (iter->flags & FLAGS_QUOTE)
+            printf(" QUOTE");
+        if (iter->flags & FLAGS_NO_FREE)
+            printf(" NO_FREE");
+        printf("\033[0m\n");
+    }
+}
+#endif
+
 struct lwan_tpl *
 lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descriptor *descriptor,
     enum lwan_tpl_flag flags)
@@ -1149,8 +1256,13 @@ lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descripto
 
     tpl = calloc(1, sizeof(*tpl));
     if (tpl) {
-        if (parse_string(tpl, string, descriptor, flags))
+        if (parse_string(tpl, string, descriptor, flags)) {
+#if !defined(NDEBUG) && defined(TEMPLATE_DEBUG)
+            dump_program(tpl);
+#endif
+
             return tpl;
+        }
     }
 
     lwan_tpl_free(tpl);
