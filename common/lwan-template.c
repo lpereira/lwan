@@ -175,7 +175,8 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexeme);
 static void *parser_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_meta(struct parser *parser, struct lexeme *lexeme);
-static void *parser_negate_iter(struct parser *parser, struct lexeme *lexeme);
+static void *parser_negate(struct parser *parser, struct lexeme *lexeme);
+static void *parser_identifier(struct parser *parser, struct lexeme *lexeme);
 static void *parser_slash(struct parser *parser, struct lexeme *lexeme);
 static void *parser_text(struct parser *parser, struct lexeme *lexeme);
 
@@ -686,13 +687,20 @@ static void *parser_iter(struct parser *parser, struct lexeme *lexeme)
     return unexpected_lexeme(lexeme);
 }
 
-static void *parser_negate_iter(struct parser *parser, struct lexeme *lexeme)
+static void *parser_negate(struct parser *parser, struct lexeme *lexeme)
 {
-    if (lexeme->type != LEXEME_HASH)
+    switch (lexeme->type) {
+    default:
         return unexpected_lexeme(lexeme);
 
-    parser->flags ^= FLAGS_NEGATE;
-    return parser_iter;
+    case LEXEME_HASH:
+        parser->flags ^= FLAGS_NEGATE;
+        return parser_iter;
+
+    case LEXEME_IDENTIFIER:
+        parser->flags ^= FLAGS_NEGATE;
+        return parser_identifier(parser, lexeme);
+    }
 }
 
 static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
@@ -733,8 +741,11 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
                 lexeme->value.value);
         }
 
-        emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, FLAGS_NO_FREE, symbol);
+        enum flags flags = FLAGS_NO_FREE | (parser->flags & FLAGS_NEGATE);
+        emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, flags, symbol);
         parser_push_lexeme(parser, lexeme);
+
+        parser->flags &= ~FLAGS_NEGATE;
 
         return parser_right_meta;
     }
@@ -779,7 +790,7 @@ static void *parser_meta(struct parser *parser, struct lexeme *lexeme)
         return parser_iter;
 
     if (lexeme->type == LEXEME_HAT)
-        return parser_negate_iter;
+        return parser_negate;
 
     if (lexeme->type == LEXEME_SLASH)
         return parser_slash;
