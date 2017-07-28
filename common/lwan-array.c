@@ -23,7 +23,6 @@
 
 #include "lwan.h"
 #include "lwan-array.h"
-#include "reallocarray.h"
 
 #define INCREMENT 16
 

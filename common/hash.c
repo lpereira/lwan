@@ -32,7 +32,6 @@
 
 #include "hash.h"
 #include "murmur3.h"
-#include "reallocarray.h"
 
 enum {
 	n_buckets = 512,
