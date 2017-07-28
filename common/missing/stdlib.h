@@ -52,4 +52,8 @@ int mkostemp(char *tmpl, int flags);
 # define umask_for_tmpfile(mask_) umask(mask_)
 #endif
 
+#if !defined(HAS_REALLOCARRAY)
+void *reallocarray(void *optr, size_t nmemb, size_t size);
+#endif
+
 #endif /* MISSING_STDLIB_H */

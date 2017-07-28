@@ -27,7 +27,6 @@ set(SOURCES
 	missing.c
 	murmur3.c
 	patterns.c
-	reallocarray.c
 	realpathat.c
 	sd-daemon.c
 	strbuf.c
@@ -37,6 +36,9 @@ include(CheckFunctionExists)
 set(CMAKE_EXTRA_INCLUDE_FILES string.h)
 check_function_exists(rawmemchr HAS_RAWMEMCHR)
 set(HAS_RAWMEMCHR ${HAS_RAWMEMCHR} PARENT_SCOPE)
+
+check_function_exists(reallocarray HAS_REALLOCARRAY)
+set(HAS_REALLOCARRAY ${HAS_REALLOCARRAY} PARENT_SCOPE)
 
 check_function_exists(mempcpy HAS_MEMPCPY)
 set(HAS_MEMPCPY ${HAS_MEMPCPY} PARENT_SCOPE)
@@ -98,7 +100,7 @@ else ()
 		../tools/mimegen.c
 		hash.c
 		murmur3.c
-		reallocarray.c
+		missing.c
 	)
 	find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
 	if (ZOPFLI_LIBRARY)
