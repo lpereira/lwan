@@ -118,47 +118,36 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 		set(C_FLAGS_REL "${C_FLAGS_REL} -mcrc32")
 	endif ()
 else ()
-	option(UBSAN "Build with undefined behavior sanitizer" ON)
-	option(ASAN "Build with address sanitizer" OFF)
+	macro(try_sanitizer _type)
+		set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
 
-	if (UBSAN)
-		# Set -Werror to catch "argument unused during compilation" warnings
-		set(CMAKE_REQUIRED_FLAGS "-Werror -fsanitize=undefined") # Also needs to be a link flag for test to pass
-		check_c_compiler_flag("-fsanitize=undefined" HAVE_FLAG_SANITIZE_UNDEFINED)
+		set(SANITIZER_FLAG "-fsanitize=${_type}")
+		set(CMAKE_REQUIRED_FLAGS "-Werror ${SANITIZER_FLAG}")
 
-		set(CMAKE_REQUIRED_FLAGS "-Werror -fcatch-undefined-behavior") # Also needs to be a link flag for test to pass
-		check_c_compiler_flag("-fcatch-undefined-behavior" HAVE_FLAG_CATCH_UNDEFINED_BEHAVIOR)
+		check_c_compiler_flag(${SANITIZER_FLAG} HAVE_SANITIZER)
 
-		unset(CMAKE_REQUIRED_FLAGS)
+		set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+		unset(OLD_CMAKE_REQUIRED_FLAGS)
 
-		if(HAVE_FLAG_SANITIZE_UNDEFINED)
-			message(STATUS "Build with newer undefined behavior sanitizer")
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined")
-		elseif(HAVE_FLAG_CATCH_UNDEFINED_BEHAVIOR)
-			message(STATUS "Build with older undefined behavior sanitizer")
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fcatch-undefined-behavior")
-		else()
-			message(STATUS "Build without undefined behavior sanitizer")
-		endif()
-	elseif (ASAN)
-		# Set -Werror to catch "argument unused during compilation" warnings
-		set(CMAKE_REQUIRED_FLAGS "-Werror -faddress-sanitizer") # Also needs to be a link flag for test to pass
-		check_c_compiler_flag("-faddress-sanitizer" HAVE_FLAG_ADDRESS_SANITIZER)
+		if (HAVE_SANITIZER)
+			message(STATUS "Building with ${_type} sanitizer")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${_type}")
+		endif ()
 
-		set(CMAKE_REQUIRED_FLAGS "-Werror -fsanitize=address") # Also needs to be a link flag for test to pass
-		check_c_compiler_flag("-fsanitize=address" HAVE_FLAG_SANITIZE_ADDRESS)
+		unset(HAVE_SANITIZER)
+		unset(SANITIZER_FLAG)
+	endmacro ()
 
-		unset(CMAKE_REQUIRED_FLAGS)
+	option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")
 
-		if(HAVE_FLAG_SANITIZE_ADDRESS)
-			message(STATUS "Build with newer address sanitizer")
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address")
-		elseif(HAVE_FLAG_ADDRESS_SANITIZER)
-			message(STATUS "Build with older address sanitizer")
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -faddress-sanitizer")
-		else()
-			message(STATUS "Build without address sanitizer")
-		endif()
+	if (${SANITIZER} MATCHES "(undefined|ub|ubsan)")
+		try_sanitizer("undefined")
+	elseif (${SANITIZER} MATCHES "(address|memory)")
+		try_sanitizer("address")
+	elseif (${SANITIZER} MATCHES "(thread|race)")
+		try_sanitizer("thread")
+	else ()
+		message(STATUS "Building without a sanitizer")
 	endif ()
 endif ()
 
