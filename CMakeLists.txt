@@ -102,7 +102,7 @@ else ()
 
 		if (HAVE_SANITIZER)
 			message(STATUS "Building with ${_type} sanitizer")
-			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${_type}")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${SANITIZER_FLAG}")
 		endif ()
 
 		unset(HAVE_SANITIZER)
