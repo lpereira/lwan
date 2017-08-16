@@ -180,7 +180,10 @@ process_request_coro(struct coro *coro)
 
         assert(conn->flags & CONN_IS_ALIVE);
 
+        size_t generation = coro_deferred_get_generation(coro);
         next_request = lwan_process_request(lwan, &request, &buffer, next_request);
+        coro_deferred_run(coro, generation);
+
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
         if (UNLIKELY(!strbuf_reset_length(&strbuf))) {
@@ -190,9 +193,6 @@ process_request_coro(struct coro *coro)
 
         flags = request.flags & flags_filter;
     }
-
-    coro_yield(coro, CONN_CORO_FINISHED);
-    __builtin_unreachable();
 }
 
 static ALWAYS_INLINE void

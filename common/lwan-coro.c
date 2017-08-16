@@ -157,17 +157,27 @@ coro_entry_point(struct coro *coro, coro_function_t func)
     coro_yield(coro, return_value);
 }
 
-static void
-coro_run_deferred(struct coro *coro)
+void
+coro_deferred_run(struct coro *coro, size_t generation)
 {
     struct lwan_array *array = (struct lwan_array *)&coro->defer;
     struct coro_defer *defers = array->base;
 
-    for (size_t i = array->elements; i != 0; i--) {
+    for (size_t i = array->elements; i != generation; i--) {
         struct coro_defer *defer = &defers[i - 1];
 
         defer->func(defer->data1, defer->data2);
     }
+
+    array->elements = generation;
+}
+
+size_t
+coro_deferred_get_generation(const struct coro *coro)
+{
+    const struct lwan_array *array = (struct lwan_array *)&coro->defer;
+
+    return array->elements;
 }
 
 void
@@ -178,7 +188,7 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->ended = false;
     coro->data = data;
 
-    coro_run_deferred(coro);
+    coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
 
 #if defined(__x86_64__)
@@ -302,7 +312,7 @@ coro_free(struct coro *coro)
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
-    coro_run_deferred(coro);
+    coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
     free(coro);
 }
