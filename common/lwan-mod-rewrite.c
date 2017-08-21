@@ -296,10 +296,14 @@ module_parse_conf_pattern(struct private_data *pd, struct config *config, struct
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(line->key, "redirect_to")) {
+                free(redirect_to);
+
                 redirect_to = strdup(line->value);
                 if (!redirect_to)
                     goto out;
             } else if (streq(line->key, "rewrite_as")) {
+                free(rewrite_as);
+
                 rewrite_as = strdup(line->value);
                 if (!rewrite_as)
                     goto out;
