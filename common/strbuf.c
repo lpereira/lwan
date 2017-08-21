@@ -291,56 +291,13 @@ strbuf_append_printf(struct strbuf *s, const char *fmt, ...)
 }
 
 bool
-strbuf_shrink_to(struct strbuf *s, size_t new_size)
-{
-    if (s->len.allocated <= new_size)
-        return true;
-
-    if (s->flags & STATIC)
-        return true;
-
-    size_t aligned_size = align_size(new_size + 1);
-    if (UNLIKELY(!aligned_size))
-        return false;
-
-    char *buffer = realloc(s->value.buffer, aligned_size);
-    if (UNLIKELY(!buffer))
-        return false;
-
-    s->value.buffer = buffer;
-    s->len.allocated = aligned_size;
-    if (s->len.buffer > aligned_size) {
-        s->len.buffer = aligned_size - 1;
-        s->value.buffer[s->len.buffer + 1] = '\0';
-    }
-
-    return true;
-}
-
-ALWAYS_INLINE bool
-strbuf_shrink_to_default(struct strbuf *s)
-{
-    return strbuf_shrink_to(s, DEFAULT_BUF_SIZE);
-}
-
-ALWAYS_INLINE bool
-strbuf_reset(struct strbuf *s)
-{
-    if (LIKELY(strbuf_shrink_to_default(s))) {
-        s->len.buffer = 0;
-        return true;
-    }
-    return false;
-}
-
-bool
 strbuf_grow_to(struct strbuf *s, size_t new_size)
 {
     return grow_buffer_if_needed(s, new_size + 1);
 }
 
 bool
-strbuf_reset_length(struct strbuf *s)
+strbuf_reset(struct strbuf *s)
 {
     if (s->flags & STATIC) {
         s->flags &= ~STATIC;

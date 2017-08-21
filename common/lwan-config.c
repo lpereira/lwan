@@ -644,7 +644,7 @@ static bool parser_next(struct parser *parser, struct config_line **line)
         if (config_buffer_consume(&parser->items, line))
             return true;
 
-        strbuf_reset_length(&parser->strbuf);
+        strbuf_reset(&parser->strbuf);
 
         parser->state = parser->state(parser);
     }

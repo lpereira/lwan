@@ -1440,7 +1440,7 @@ finalize:
 struct strbuf *
 lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *variables)
 {
-    if (UNLIKELY(!strbuf_reset_length(buf)))
+    if (UNLIKELY(!strbuf_reset(buf)))
         return NULL;
 
     if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))

@@ -145,7 +145,7 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        if (UNLIKELY(!strbuf_reset_length(request->response.buffer)))
+        if (UNLIKELY(!strbuf_reset(request->response.buffer)))
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
         lwan_response_send_chunk(request);
         log_request(request, status);
@@ -414,7 +414,7 @@ lwan_response_send_chunk(struct lwan_request *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (LIKELY(strbuf_reset_length(request->response.buffer))) {
+    if (LIKELY(strbuf_reset(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
         return;
     }
@@ -490,7 +490,7 @@ lwan_response_send_event(struct lwan_request *request, const char *event)
 
     lwan_writev(request, vec, last);
 
-    if (UNLIKELY(!strbuf_reset_length(request->response.buffer))) {
+    if (UNLIKELY(!strbuf_reset(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }

@@ -186,7 +186,7 @@ process_request_coro(struct coro *coro)
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
-        if (UNLIKELY(!strbuf_reset_length(&strbuf))) {
+        if (UNLIKELY(!strbuf_reset(&strbuf))) {
             coro_yield(coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
