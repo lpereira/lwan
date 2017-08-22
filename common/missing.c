@@ -530,3 +530,12 @@ void *reallocarray(void *optr, size_t nmemb, size_t size)
     return realloc(optr, total_size);
 }
 #endif /* HAS_REALLOCARRAY */
+
+#if !defined(HAS_READAHEAD)
+ssize_t readahead(int fd __attribute__((unused)),
+                  off_t offset __attribute__((unused)),
+                  size_t count __attribute__((unused)))
+{
+    return 0;
+}
+#endif

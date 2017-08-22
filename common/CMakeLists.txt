@@ -54,6 +54,10 @@ set(CMAKE_EXTRA_INCLUDE_FILES sys/types.h sys/socket.h)
 check_function_exists(accept4 HAS_ACCEPT4)
 set(HAS_ACCEPT4 ${HAS_ACCEPT4} PARENT_SCOPE)
 
+set(CMAKE_EXTRA_INCLUDE_FILES fcntl.h)
+check_function_exists(readahead HAS_READAHEAD)
+set(HAS_READAHEAD ${HAS_READAHEAD} PARENT_SCOPE)
+
 include(FindPkgConfig)
 foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 	if (${pc_file} STREQUAL "luajit")

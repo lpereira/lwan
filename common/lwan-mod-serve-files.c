@@ -391,6 +391,9 @@ try_open_compressed(const char *relpath, const struct serve_files_priv *priv,
 
     if (LIKELY(is_compression_worthy((size_t)st.st_size, (size_t)uncompressed->st_size))) {
         *compressed_sz = (size_t)st.st_size;
+
+        readahead(fd, 0, *compressed_sz);
+
         return fd;
     }
 
@@ -437,6 +440,7 @@ sendfile_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     }
 
     sd->uncompressed.size = (size_t)st->st_size;
+    readahead(sd->uncompressed.fd, 0, sd->uncompressed.size);
 
     return true;
 }

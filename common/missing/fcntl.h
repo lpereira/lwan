@@ -52,4 +52,10 @@
 
 #endif /* __linux__ */
 
+#ifndef HAS_READAHEAD
+#include <sys/types.h>
+
+ssize_t readahead(int fd, off_t offset, size_t count);
+#endif
+
 #endif /* MISSING_FCNTL_H */
