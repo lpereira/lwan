@@ -169,16 +169,22 @@ out:
 }
 
 #if defined(__linux__)
+static inline size_t min_size(size_t a, size_t b)
+{
+    return (a > b) ? b : a;
+}
+
 void
 lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t count,
     const char *header, size_t header_len)
 {
+    size_t chunk_size = min_size(count, 1<<17);
     size_t to_be_written = count;
 
     lwan_send(request, header, header_len, MSG_MORE);
 
     do {
-        ssize_t written = sendfile(request->fd, in_fd, &offset, to_be_written);
+        ssize_t written = sendfile(request->fd, in_fd, &offset, chunk_size);
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
@@ -193,6 +199,7 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         }
 
         to_be_written -= (size_t)written;
+        chunk_size = min_size(to_be_written, 1<<19);
 
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
