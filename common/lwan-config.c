@@ -771,7 +771,6 @@ struct config *config_isolate_section(struct config *current_conf,
     isolated->mapped.sz = 0;
 
     lexer = &isolated->parser.lexer;
-    pos = lexer->pos;
     lexer->start = lexer->pos;
 
     pos = isolated->parser.lexer.pos;
