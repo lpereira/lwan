@@ -238,17 +238,6 @@ strbuf_set(struct strbuf *s1, const char *s2, size_t sz)
     return true;
 }
 
-ALWAYS_INLINE int
-strbuf_cmp(struct strbuf *s1, struct strbuf *s2)
-{
-    if (s1 == s2)
-        return 0;
-    int result = memcmp(s1->value.buffer, s2->value.buffer, s1->len.buffer < s2->len.buffer ? s1->len.buffer : s2->len.buffer);
-    if (!result)
-        return (int)(s1->len.buffer - s2->len.buffer);
-    return result;
-}
-
 static ALWAYS_INLINE bool
 internal_printf(struct strbuf *s1, bool (*save_str)(struct strbuf *, const char *, size_t), const char *fmt, va_list values)
 {

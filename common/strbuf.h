@@ -50,8 +50,6 @@ bool		 strbuf_set_static(struct strbuf *s1, const char *s2, size_t sz);
 bool		 strbuf_set(struct strbuf *s1, const char *s2, size_t sz);
 bool		 strbuf_printf(struct strbuf *s1, const char *fmt, ...);
 
-int		 strbuf_cmp(struct strbuf *s1, struct strbuf *s2);
-
 bool		 strbuf_grow_to(struct strbuf *s, size_t new_size);
 
 #define strbuf_get_length(s)	(((struct strbuf *)(s))->len.buffer)
