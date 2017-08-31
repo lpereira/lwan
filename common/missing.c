@@ -366,7 +366,7 @@ gettid(void)
 
     return ret;
 }
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
 #include <sys/syscall.h>
 
 long
