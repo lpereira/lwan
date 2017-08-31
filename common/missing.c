@@ -98,7 +98,7 @@ memrchr(const void *s, int c, size_t n)
     const char *prev = NULL;
 
     for (const char *cur = s; cur <= end; prev = cur++) {
-        cur = (const char *)memchr(cur, c, end - cur);
+        cur = (const char *)memchr(cur, c, (size_t)(ptrdiff_t)(end - cur));
         if (!cur)
             break;
     }
