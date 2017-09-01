@@ -1010,7 +1010,7 @@ read_post_data(struct lwan_request *request, struct request_parser_helper *helpe
         new_buffer = mempcpy(new_buffer, helper->next_request, have);
     helper->next_request = NULL;
 
-    helper->error_when_time = time(NULL) + request->conn->thread->lwan->config.keep_alive_timeout;
+    helper->error_when_time = time(NULL) + config->keep_alive_timeout;
     helper->error_when_n_packets = calculate_n_packets(post_data_size);
 
     struct lwan_value buffer = { .value = new_buffer, .len = post_data_size - have };
