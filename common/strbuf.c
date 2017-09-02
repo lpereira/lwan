@@ -289,14 +289,13 @@ bool
 strbuf_reset(struct strbuf *s)
 {
     if (s->flags & STATIC) {
-        s->flags &= ~STATIC;
-        s->value.buffer = malloc(s->len.allocated);
-        if (UNLIKELY(!s->value.buffer))
-            return false;
+        s->value.buffer = "";
+        s->len.allocated = 0;
+    } else {
+        s->value.buffer[0] = '\0';
     }
 
     s->len.buffer = 0;
-    s->value.buffer[0] = '\0';
 
     return true;
 }
