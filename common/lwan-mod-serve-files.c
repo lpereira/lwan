@@ -781,22 +781,21 @@ prepare_headers(struct lwan_request *request, enum lwan_http_status return_statu
     struct file_cache_entry *fce, size_t size, const char *compression_type,
     char *header_buf, size_t header_buf_size)
 {
-    struct lwan_key_value headers[3] = {
+    struct lwan_key_value additional_headers[3] = {
         [0] = { .key = "Last-Modified", .value = fce->last_modified.string },
     };
 
-    request->response.headers = headers;
     request->response.content_length = size;
 
     if (compression_type) {
-        headers[1] = (struct lwan_key_value) {
+        additional_headers[1] = (struct lwan_key_value) {
             .key = "Content-Encoding",
             .value = (char *)compression_type
         };
     }
 
-    return lwan_prepare_response_header(request, return_status,
-                                    header_buf, header_buf_size);
+    return lwan_prepare_response_header_full(request, return_status,
+        header_buf, header_buf_size, additional_headers);
 }
 
 static ALWAYS_INLINE enum lwan_http_status
