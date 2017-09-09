@@ -116,6 +116,10 @@ else ()
 		message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
 		target_link_libraries(mimegen ${ZLIB_LIBRARIES})
 	endif ()
+
+	add_executable(bin2hex
+		../tools/bin2hex.c
+	)
 endif ()
 
 add_custom_command(
@@ -125,10 +129,28 @@ add_custom_command(
 )
 add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
 add_dependencies(lwan-static generate_mime_types_table)
+
+add_custom_command(
+	OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
+	COMMAND ${CMAKE_BINARY_DIR}/common/bin2hex
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/back.png back_png
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.png file_png
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.png folder_png >
+		${CMAKE_BINARY_DIR}/auto-index-icons.h
+	DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.png
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.png
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.png
+		bin2hex
+)
+add_custom_target(generate_auto_index_icons DEPENDS
+	${CMAKE_BINARY_DIR}/auto-index-icons.h)
+add_dependencies(lwan-static generate_auto_index_icons)
+
 include_directories(${CMAKE_BINARY_DIR})
 
 if (NOT CMAKE_CROSSCOMPILING)
 	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+	export(TARGETS bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 endif ()
 
 

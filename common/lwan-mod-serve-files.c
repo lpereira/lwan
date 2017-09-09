@@ -38,6 +38,8 @@
 #include "realpathat.h"
 #include "hash.h"
 
+#include "auto-index-icons.h"
+
 static const char *compression_none = NULL;
 static const char *compression_gzip = "gzip";
 static const char *compression_deflate = "deflate";
@@ -204,12 +206,12 @@ static const char *directory_list_tpl_str = "<html>\n"
     "      <td>Size</td>\n"
     "    </tr>\n"
     "    <tr>\n"
-    "      <td><img src=\"/icons/back.png\"></td>\n"
+    "      <td><img src=\"?icon=back\"></td>\n"
     "      <td colspan=\"3\"><a href=\"..\">Parent directory</a></td>\n"
     "    </tr>\n"
     "{{#file_list}}"
     "    <tr>\n"
-    "      <td><img src=\"/icons/{{file_list.icon}}.png\" alt=\"{{file_list.icon_alt}}\"></td>\n"
+    "      <td><img src=\"?icon={{file_list.icon}}\" alt=\"{{file_list.icon_alt}}\"></td>\n"
     "      <td><a href=\"{{rel_path}}/{{{file_list.name}}}\">{{{file_list.name}}}</a></td>\n"
     "      <td>{{file_list.type}}</td>\n"
     "      <td>{{file_list.size}}{{file_list.unit}}</td>\n"
@@ -913,7 +915,7 @@ sendfile_serve(struct lwan_request *request, void *data)
 
 static enum lwan_http_status
 serve_contents_and_size(struct lwan_request *request, struct file_cache_entry *fce,
-    const char *compression_type, void *contents, size_t size)
+    const char *compression_type, const void *contents, size_t size)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
@@ -933,7 +935,7 @@ serve_contents_and_size(struct lwan_request *request, struct file_cache_entry *f
     } else {
         struct iovec response_vec[] = {
             { .iov_base = headers, .iov_len = header_len },
-            { .iov_base = contents, .iov_len = size }
+            { .iov_base = (void *)contents, .iov_len = size }
         };
 
         lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
@@ -969,9 +971,31 @@ dirlist_serve(struct lwan_request *request, void *data)
 {
     struct file_cache_entry *fce = data;
     struct dir_list_cache_data *dd = (struct dir_list_cache_data *)(fce + 1);
+    const char *icon;
+    const void *contents;
+    size_t size;
 
-    return serve_contents_and_size(request, fce, compression_none,
-            strbuf_get_buffer(dd->rendered), strbuf_get_length(dd->rendered));
+    icon = lwan_request_get_query_param(request, "icon");
+    if (!icon) {
+        contents = strbuf_get_buffer(dd->rendered);
+        size = strbuf_get_length(dd->rendered);
+    } else if (!strcmp(icon, "back")) {
+        contents = back_png;
+        size = sizeof(back_png);
+        request->response.mime_type = "image/png";
+    } else if (!strcmp(icon, "file")) {
+        contents = file_png;
+        size = sizeof(file_png);
+        request->response.mime_type = "image/png";
+    } else if (!strcmp(icon, "folder")) {
+        contents = folder_png;
+        size = sizeof(folder_png);
+        request->response.mime_type = "image/png";
+    } else {
+        return HTTP_NOT_FOUND;
+    }
+
+    return serve_contents_and_size(request, fce, compression_none, contents, size);
 }
 
 static enum lwan_http_status
@@ -1043,6 +1067,7 @@ const struct lwan_module *lwan_module_serve_files(void)
             | HANDLER_PARSE_IF_MODIFIED_SINCE
             | HANDLER_PARSE_RANGE
             | HANDLER_PARSE_ACCEPT_ENCODING
+            | HANDLER_PARSE_QUERY_STRING
     };
 
     return &serve_files;
