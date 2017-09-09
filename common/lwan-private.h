@@ -52,6 +52,7 @@ void lwan_straitjacket_enforce(struct config *c, struct config_line *l);
 
 uint8_t lwan_char_isspace(char ch) __attribute__((pure));
 uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
+uint8_t lwan_char_isdigit(char ch) __attribute__((pure));
 
 #ifdef HAVE_LUA
 #include <lua.h>
