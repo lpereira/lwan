@@ -266,26 +266,13 @@ death_queue_kill_all(struct death_queue_t *dq)
     }
 }
 
-void
-lwan_format_rfc_time(time_t t, char buffer[30])
-{
-    struct tm tm;
-
-    if (UNLIKELY(!gmtime_r(&t, &tm))) {
-        lwan_status_perror("gmtime_r");
-        return;
-    }
-
-    if (UNLIKELY(!strftime(buffer, 30, "%a, %d %b %Y %H:%M:%S GMT", &tm)))
-        lwan_status_perror("strftime");
-}
-
 static void
 update_date_cache(struct lwan_thread *thread)
 {
     time_t now = time(NULL);
     if (now != thread->date.last) {
         thread->date.last = now;
+
         lwan_format_rfc_time(now, thread->date.date);
         lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
                     thread->date.expires);

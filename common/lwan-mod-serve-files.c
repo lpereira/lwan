@@ -579,6 +579,15 @@ create_cache_entry_from_funcs(struct serve_files_priv *priv,
     return create_cache_entry_from_funcs(priv, full_path, st, &sendfile_funcs);
 }
 
+static void
+destroy_cache_entry(struct cache_entry *entry, void *context __attribute__((unused)))
+{
+    struct file_cache_entry *fce = (struct file_cache_entry *)entry;
+
+    fce->funcs->free(fce + 1);
+    free(fce);
+}
+
 static struct cache_entry *
 create_cache_entry(const char *key, void *context)
 {
@@ -606,7 +615,10 @@ create_cache_entry(const char *key, void *context)
     if (UNLIKELY(!fce))
         return NULL;
 
-    lwan_format_rfc_time(st.st_mtime, fce->last_modified.string);
+    if (UNLIKELY(lwan_format_rfc_time(st.st_mtime, fce->last_modified.string) < 0)) {
+        destroy_cache_entry((struct cache_entry *)fce, NULL);
+        return NULL;
+    }
     fce->last_modified.integer = st.st_mtime;
 
     return (struct cache_entry *)fce;
@@ -646,15 +658,6 @@ redir_free(void *data)
     struct redir_cache_data *rd = data;
 
     free(rd->redir_to);
-}
-
-static void
-destroy_cache_entry(struct cache_entry *entry, void *context __attribute__((unused)))
-{
-    struct file_cache_entry *fce = (struct file_cache_entry *)entry;
-
-    fce->funcs->free(fce + 1);
-    free(fce);
 }
 
 static void *

@@ -24,6 +24,7 @@ set(SOURCES
 	lwan-template.c
 	lwan-thread.c
 	lwan-trie.c
+	lwan-time.c
 	missing.c
 	murmur3.c
 	patterns.c

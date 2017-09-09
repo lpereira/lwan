@@ -609,19 +609,15 @@ did_not_match:
 static void
 parse_if_modified_since(struct lwan_request *request, struct request_parser_helper *helper)
 {
+    time_t parsed;
+
     if (UNLIKELY(!helper->if_modified_since.len))
         return;
 
-    struct tm t;
-    char *processed = strptime(helper->if_modified_since.value,
-                "%a, %d %b %Y %H:%M:%S GMT", &t);
-
-    if (UNLIKELY(!processed))
-        return;
-    if (UNLIKELY(*processed))
+    if (UNLIKELY(lwan_parse_rfc_time(helper->if_modified_since.value, &parsed) < 0))
         return;
 
-    request->header.if_modified_since = timegm(&t);
+    request->header.if_modified_since = parsed;
 }
 
 static void

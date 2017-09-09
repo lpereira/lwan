@@ -376,7 +376,8 @@ const char *lwan_request_get_remote_address(struct lwan_request *request,
             char buffer[ENFORCE_STATIC_BUFFER_LENGTH INET6_ADDRSTRLEN])
     __attribute__((warn_unused_result));
 
-void lwan_format_rfc_time(time_t t, char buffer[ENFORCE_STATIC_BUFFER_LENGTH 30]);
+int lwan_format_rfc_time(const time_t in, char out[ENFORCE_STATIC_BUFFER_LENGTH 30]);
+int lwan_parse_rfc_time(const char in[ENFORCE_STATIC_BUFFER_LENGTH 30], time_t *out);
 
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)
