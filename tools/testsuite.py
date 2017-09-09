@@ -110,7 +110,7 @@ class TestFileServing(LwanTest):
   def test_mime_type_is_correct(self):
     table = (
       ('/', 'text/html'),
-      ('/icons/back.png', 'image/png'),
+      ('/icons/back.gif', 'image/gif'),
       ('/icons', 'text/plain'),
       ('/icons/', 'text/html'),
       ('/zero', 'application/octet-stream')
@@ -134,9 +134,10 @@ class TestFileServing(LwanTest):
 
 
   def test_slash_slash_slash_does_not_matter_200(self):
-    r = requests.get('http://127.0.0.1:8080//////////icons/file.png')
+    r = requests.get('http://127.0.0.1:8080//////////100.html')
 
-    self.assertHttpResponseValid(r, 200, 'image/png')
+    self.assertHttpResponseValid(r, 200, 'text/html')
+    self.assertEqual(r.text, 'X' * 100)
 
 
   def test_slash_slash_slash_does_not_matter_404(self):
@@ -233,7 +234,7 @@ class TestFileServing(LwanTest):
     self.assertTrue('<h1>Index of &#x2f;icons</h1>' in r.text)
 
     def assertHasImage(name):
-      imgtag = "<a href=\"&#x2f;icons/%s.png\">%s.png</a>" % (name, name)
+      imgtag = "<a href=\"&#x2f;icons/%s.gif\">%s.gif</a>" % (name, name)
       self.assertTrue(imgtag in r.text)
 
     assertHasImage('back')

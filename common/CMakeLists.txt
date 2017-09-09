@@ -133,13 +133,13 @@ add_dependencies(lwan-static generate_mime_types_table)
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
 	COMMAND ${CMAKE_BINARY_DIR}/common/bin2hex
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/back.png back_png
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.png file_png
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.png folder_png >
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif folder_gif >
 		${CMAKE_BINARY_DIR}/auto-index-icons.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.png
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.png
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.png
+	DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif
+		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
 		bin2hex
 )
 add_custom_target(generate_auto_index_icons DEPENDS

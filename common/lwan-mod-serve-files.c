@@ -980,17 +980,17 @@ dirlist_serve(struct lwan_request *request, void *data)
         contents = strbuf_get_buffer(dd->rendered);
         size = strbuf_get_length(dd->rendered);
     } else if (!strcmp(icon, "back")) {
-        contents = back_png;
-        size = sizeof(back_png);
-        request->response.mime_type = "image/png";
+        contents = back_gif;
+        size = sizeof(back_gif);
+        request->response.mime_type = "image/gif";
     } else if (!strcmp(icon, "file")) {
-        contents = file_png;
-        size = sizeof(file_png);
-        request->response.mime_type = "image/png";
+        contents = file_gif;
+        size = sizeof(file_gif);
+        request->response.mime_type = "image/gif";
     } else if (!strcmp(icon, "folder")) {
-        contents = folder_png;
-        size = sizeof(folder_png);
-        request->response.mime_type = "image/png";
+        contents = folder_gif;
+        size = sizeof(folder_gif);
+        request->response.mime_type = "image/gif";
     } else {
         return HTTP_NOT_FOUND;
     }
