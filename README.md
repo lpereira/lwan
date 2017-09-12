@@ -85,7 +85,7 @@ The build system will look for these libraries and enable/link if available.
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
  - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
  - [TCMalloc](https://github.com/gperftools/gperftools)
- - [jemalloc](http://www.canonware.com/jemalloc/)
+ - [jemalloc](http://jemalloc.net/)
  - [Valgrind](http://valgrind.org)
  - To run test suite:
     - [Python](https://www.python.org/) (2.6+) with Requests
