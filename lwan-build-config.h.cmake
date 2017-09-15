@@ -28,6 +28,7 @@
 #cmakedefine HAS_PTHREADBARRIER
 #cmakedefine HAS_RAWMEMCHR
 #cmakedefine HAS_READAHEAD
+#cmakedefine HAS_REALLOCARRAY
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

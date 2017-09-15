@@ -38,6 +38,7 @@ set(CMAKE_EXTRA_INCLUDE_FILES string.h)
 check_function_exists(rawmemchr HAS_RAWMEMCHR)
 set(HAS_RAWMEMCHR ${HAS_RAWMEMCHR} PARENT_SCOPE)
 
+set(CMAKE_EXTRA_INCLUDE_FILES stdlib.h)
 check_function_exists(reallocarray HAS_REALLOCARRAY)
 set(HAS_REALLOCARRAY ${HAS_REALLOCARRAY} PARENT_SCOPE)
 
