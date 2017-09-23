@@ -59,7 +59,6 @@ struct coro {
 #endif
 
     struct coro_defer_array defer;
-    void *data;
 
     bool ended;
 };
@@ -141,13 +140,32 @@ coro_swapcontext(coro_context *current, coro_context *other);
 #define coro_swapcontext(cur,oth) swapcontext(cur, oth)
 #endif
 
+#ifndef __x86_64__
 static void
-coro_entry_point(struct coro *coro, coro_function_t func)
+coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 {
-    int return_value = func(coro);
+    int return_value = func(coro, data);
     coro->ended = true;
     coro_yield(coro, return_value);
 }
+#else
+void coro_entry_point(struct coro *coro, coro_function_t func, void *data);
+    asm(
+    ".text\n\t"
+    ".p2align 4\n\t"
+    ASM_ROUTINE(coro_entry_point)
+    "pushq %rdx\n\t"
+    "movq  %rdi, %rbx\n\t"		/* coro = rdi */
+    "movq  %rsi, %rdx\n\t"		/* func = rsi */
+    "movq  %r15, %rsi\n\t"		/* data = r15 */
+    "call  *%rdx\n\t"			/* eax = func(coro, data) */
+    "movq  (%rbx), %rsi\n\t"
+    "movb  $1, 0x70(%rbx)\n\t"		/* coro->ended = true */
+    "movl  %eax, 0x50(%rbx)\n\t"	/* coro->yield_value = eax */
+    "popq  %rbx\n\t"
+    "leaq  0x50(%rsi), %rdi\n\t"	/* get coro context from coro */
+    "jmp   coro_swapcontext\n\t");
+#endif
 
 void
 coro_deferred_run(struct coro *coro, size_t generation)
@@ -178,12 +196,16 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     unsigned char *stack = (unsigned char *)(coro + 1);
 
     coro->ended = false;
-    coro->data = data;
 
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
 
 #if defined(__x86_64__)
+    /* coro_entry_point() for x86-64 has 3 arguments, but RDX isn't
+     * stored.  Use R15 instead, and implement the trampoline
+     * function in assembly in order to use this register when
+     * calling the user function. */
+    coro->context[5 /* R15 */] = (uintptr_t) data;
     coro->context[6 /* RDI */] = (uintptr_t) coro;
     coro->context[7 /* RSI */] = (uintptr_t) func;
     coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
@@ -205,6 +227,7 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     *argp++ = 0;
     *argp++ = (uintptr_t)coro;
     *argp++ = (uintptr_t)func;
+    *argp++ = (uintptr_t)data;
 
     coro->context[5 /* EIP */] = (uintptr_t) coro_entry_point;
     coro->context[6 /* ESP */] = (uintptr_t) stack;
@@ -216,7 +239,8 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-    makecontext(&coro->context, (void (*)())coro_entry_point, 2, coro, func);
+    makecontext(&coro->context, (void (*)())coro_entry_point, 3,
+        coro, func, data);
 #endif
 }
 
@@ -241,14 +265,6 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 #endif
 
     return coro;
-}
-
-ALWAYS_INLINE void *
-coro_get_data(struct coro *coro)
-{
-    assert(coro);
-
-    return coro->data;
 }
 
 ALWAYS_INLINE int

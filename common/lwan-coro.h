@@ -33,7 +33,7 @@ typedef ucontext_t coro_context;
 
 struct coro;
 
-typedef int    (*coro_function_t)	(struct coro *coro);
+typedef int    (*coro_function_t)	(struct coro *coro, void *data);
 
 struct coro_switcher {
     coro_context caller;
@@ -48,8 +48,6 @@ void    coro_reset(struct coro *coro, coro_function_t func, void *data);
 int	coro_resume(struct coro *coro);
 int	coro_resume_value(struct coro *coro, int value);
 int	coro_yield(struct coro *coro, int value);
-
-void   *coro_get_data(struct coro *coro);
 
 void    coro_defer(struct coro *coro, void (*func)(void *data), void *data);
 void    coro_defer2(struct coro *coro, void (*func)(void *data1, void *data2),

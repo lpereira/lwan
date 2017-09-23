@@ -123,7 +123,7 @@ struct file_list {
     } file_list;
 };
 
-static int directory_list_generator(struct coro *coro);
+static int directory_list_generator(struct coro *coro, void *data);
 
 static bool mmap_init(struct file_cache_entry *ce,
     struct serve_files_priv *priv, const char *full_path, struct stat *st);
@@ -227,11 +227,11 @@ static const char *directory_list_tpl_str = "<html>\n"
     "</html>\n";
 
 static int
-directory_list_generator(struct coro *coro)
+directory_list_generator(struct coro *coro, void *data)
 {
-    DIR *dir;
+    struct file_list *fl = data;
     struct dirent *entry;
-    struct file_list *fl = coro_get_data(coro);
+    DIR *dir;
     int fd;
 
     dir = opendir(fl->full_path);

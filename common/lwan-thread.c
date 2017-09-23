@@ -137,14 +137,14 @@ min(const int a, const int b)
 }
 
 static int
-process_request_coro(struct coro *coro)
+process_request_coro(struct coro *coro, void *data)
 {
     /* NOTE: This function should not return; coro_yield should be used
      * instead.  This ensures the storage for `strbuf` is alive when the
      * coroutine ends and strbuf_free() is called. */
+    struct lwan_connection *conn = data;
     const enum lwan_request_flags flags_filter = (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
     struct strbuf strbuf;
-    struct lwan_connection *conn = coro_get_data(coro);
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
