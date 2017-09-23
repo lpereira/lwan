@@ -160,8 +160,8 @@ void coro_entry_point(struct coro *coro, coro_function_t func, void *data);
     "movq  %r15, %rsi\n\t"		/* data = r15 */
     "call  *%rdx\n\t"			/* eax = func(coro, data) */
     "movq  (%rbx), %rsi\n\t"
-    "movb  $1, 0x70(%rbx)\n\t"		/* coro->ended = true */
-    "movl  %eax, 0x50(%rbx)\n\t"	/* coro->yield_value = eax */
+    "movb  $1, 0x6c(%rbx)\n\t"		/* coro->ended = true */
+    "movl  %eax, 0x68(%rbx)\n\t"	/* coro->yield_value = eax */
     "popq  %rbx\n\t"
     "leaq  0x50(%rsi), %rdi\n\t"	/* get coro context from coro */
     "jmp   coro_swapcontext\n\t");
