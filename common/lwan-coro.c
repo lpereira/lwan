@@ -64,7 +64,11 @@ struct coro {
     bool ended;
 };
 
-static void coro_entry_point(struct coro *data, coro_function_t func);
+#if defined(__APPLE__)
+#define ASM_ROUTINE(name_) ".globl _" #name_ "\n\t" "_" #name_ ":\n\t"
+#else
+#define ASM_ROUTINE(name_) ".globl " #name_ "\n\t" #name_ ":\n\t"
+#endif
 
 /*
  * This swapcontext() implementation was obtained from glibc and modified
@@ -82,13 +86,7 @@ coro_swapcontext(coro_context *current, coro_context *other);
     asm(
     ".text\n\t"
     ".p2align 4\n\t"
-#if defined(__APPLE__)
-    ".globl _coro_swapcontext\n\t"
-    "_coro_swapcontext:\n\t"
-#else
-    ".globl coro_swapcontext\n\t"
-    "coro_swapcontext:\n\t"
-#endif
+    ASM_ROUTINE(coro_swapcontext)
     "mov    %rbx,0(%rdi)\n\t"
     "mov    %rbp,8(%rdi)\n\t"
     "mov    %r12,16(%rdi)\n\t"
@@ -118,13 +116,7 @@ coro_swapcontext(coro_context *current, coro_context *other);
     asm(
     ".text\n\t"
     ".p2align 16\n\t"
-#if defined(__APPLE__)
-    ".globl _coro_swapcontext\n\t"
-    "_coro_swapcontext:\n\t"
-#else
-    ".globl coro_swapcontext\n\t"
-    "coro_swapcontext:\n\t"
-#endif
+    ASM_ROUTINE(coro_swapcontext)
     "movl   0x4(%esp),%eax\n\t"
     "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
     "movl   %ebx,0x0(%eax)\n\t"  /* EBX */
