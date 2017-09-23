@@ -111,7 +111,7 @@ struct file_list {
     const char *full_path;
     const char *rel_path;
     struct {
-        lwan_tpl_list_generator generator;
+        coro_function_t generator;
 
         const char *icon;
         const char *icon_alt;

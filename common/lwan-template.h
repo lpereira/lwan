@@ -22,8 +22,6 @@
 #include "strbuf.h"
 #include "lwan-coro.h"
 
-typedef int (*lwan_tpl_list_generator)(struct coro *coro);
-
 enum lwan_tpl_flag {
     LWAN_TPL_FLAG_CONST_TEMPLATE = 1<<0
 };
@@ -35,7 +33,7 @@ struct lwan_var_descriptor {
     void (*append_to_strbuf)(struct strbuf *buf, void *ptr);
     bool (*get_is_empty)(void *ptr);
 
-    lwan_tpl_list_generator generator;
+    coro_function_t generator;
     const struct lwan_var_descriptor *list_desc;
 };
 
