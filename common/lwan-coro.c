@@ -218,8 +218,8 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
 #elif defined(__i386__)
     stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_MIN);
 
-    /* Make room for 2 args */
-    stack -= sizeof(uintptr_t) * 2;
+    /* Make room for 3 args */
+    stack -= sizeof(uintptr_t) * 3;
     /* Ensure 4-byte alignment */
     stack = (unsigned char*)((uintptr_t)stack & (uintptr_t)~0x3);
 
