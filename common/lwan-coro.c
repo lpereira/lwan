@@ -154,7 +154,7 @@ void coro_entry_point(struct coro *coro, coro_function_t func, void *data);
     ".text\n\t"
     ".p2align 4\n\t"
     ASM_ROUTINE(coro_entry_point)
-    "pushq %rdx\n\t"
+    "pushq %rbx\n\t"
     "movq  %rdi, %rbx\n\t"		/* coro = rdi */
     "movq  %rsi, %rdx\n\t"		/* func = rsi */
     "movq  %r15, %rsi\n\t"		/* data = r15 */
