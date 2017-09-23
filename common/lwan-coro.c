@@ -52,13 +52,13 @@ DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer)
 struct coro {
     struct coro_switcher *switcher;
     coro_context context;
+    struct coro_defer_array defer;
+
     int yield_value;
 
 #if !defined(NDEBUG) && defined(USE_VALGRIND)
     unsigned int vg_stack_id;
 #endif
-
-    struct coro_defer_array defer;
 
     bool ended;
 };
