@@ -32,7 +32,7 @@ static const char random_number_query[] = "SELECT randomNumber FROM World WHERE 
 
 struct Fortune {
     struct {
-        lwan_tpl_list_generator generator;
+        coro_function_t generator;
 
         int id;
         char *message;
@@ -54,7 +54,7 @@ static const char fortunes_template_str[] = "<!DOCTYPE html>" \
 "</body>" \
 "</html>";
 
-static int fortune_list_generator(struct coro *coro);
+static int fortune_list_generator(struct coro *coro, void *data);
 
 static const struct lwan_var_descriptor fortune_item_desc[] = {
     TPL_VAR_INT(struct Fortune, item.id),
@@ -246,11 +246,11 @@ static bool append_fortune(struct coro *coro, struct fortune_array *fortunes,
     return true;
 }
 
-static int fortune_list_generator(struct coro *coro)
+static int fortune_list_generator(struct coro *coro, void *data)
 {
     static const char fortune_query[] = "SELECT * FROM Fortune";
     char fortune_buffer[256];
-    struct Fortune *fortune;
+    struct Fortune *fortune = data;
     struct fortune_array fortunes;
     struct db_stmt *stmt;
     size_t i;
@@ -277,7 +277,6 @@ static int fortune_list_generator(struct coro *coro)
 
     fortune_array_sort(&fortunes, fortune_compare);
 
-    fortune = coro_get_data(coro);
     for (i = 0; i < fortunes.base.elements; i++) {
         struct Fortune *f = &((struct Fortune *)fortunes.base.base)[i];
         fortune->item.id = f->item.id;
