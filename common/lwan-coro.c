@@ -64,10 +64,12 @@ struct coro {
 };
 
 #if defined(__APPLE__)
-#define ASM_ROUTINE(name_) ".globl _" #name_ "\n\t" "_" #name_ ":\n\t"
+#define ASM_SYMBOL(name_) "_" #name_
 #else
-#define ASM_ROUTINE(name_) ".globl " #name_ "\n\t" #name_ ":\n\t"
+#define ASM_SYMBOL(name_) #name_
 #endif
+
+#define ASM_ROUTINE(name_) ".globl " ASM_SYMBOL(name_) "\n\t" ASM_SYMBOL(name_) ":\n\t"
 
 /*
  * This swapcontext() implementation was obtained from glibc and modified
@@ -164,7 +166,7 @@ void coro_entry_point(struct coro *coro, coro_function_t func, void *data);
     "movl  %eax, 0x68(%rbx)\n\t"	/* coro->yield_value = eax */
     "popq  %rbx\n\t"
     "leaq  0x50(%rsi), %rdi\n\t"	/* get coro context from coro */
-    "jmp   coro_swapcontext\n\t");
+    "jmp   " ASM_SYMBOL(coro_swapcontext) "\n\t");
 #endif
 
 void
