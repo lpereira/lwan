@@ -33,54 +33,9 @@ set(SOURCES
 	strbuf.c
 )
 
-include(CheckFunctionExists)
-set(CMAKE_EXTRA_INCLUDE_FILES string.h)
-check_function_exists(rawmemchr HAS_RAWMEMCHR)
-set(HAS_RAWMEMCHR ${HAS_RAWMEMCHR} PARENT_SCOPE)
-
-set(CMAKE_EXTRA_INCLUDE_FILES stdlib.h)
-check_function_exists(reallocarray HAS_REALLOCARRAY)
-set(HAS_REALLOCARRAY ${HAS_REALLOCARRAY} PARENT_SCOPE)
-
-check_function_exists(mempcpy HAS_MEMPCPY)
-set(HAS_MEMPCPY ${HAS_MEMPCPY} PARENT_SCOPE)
-
-check_function_exists(memrchr HAS_MEMRCHR)
-set(HAS_MEMRCHR ${HAS_MEMRCHR} PARENT_SCOPE)
-
-set(CMAKE_EXTRA_INCLUDE_FILES unistd.h)
-check_function_exists(pipe2 HAS_PIPE2)
-set(HAS_PIPE2 ${HAS_PIPE2} PARENT_SCOPE)
-
-set(CMAKE_EXTRA_INCLUDE_FILES sys/types.h sys/socket.h)
-check_function_exists(accept4 HAS_ACCEPT4)
-set(HAS_ACCEPT4 ${HAS_ACCEPT4} PARENT_SCOPE)
-
-set(CMAKE_EXTRA_INCLUDE_FILES fcntl.h)
-check_function_exists(readahead HAS_READAHEAD)
-set(HAS_READAHEAD ${HAS_READAHEAD} PARENT_SCOPE)
-
-include(FindPkgConfig)
-foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
-	if (${pc_file} STREQUAL "luajit")
-		pkg_check_modules(LUA luajit>=2.0 luajit<=2.0.999)
-	else ()
-		pkg_check_modules(LUA ${pc_file}>=5.1.0 ${pc_file}<=5.1.999)
-	endif ()
-	if (LUA_FOUND)
-		list(APPEND ADDITIONAL_LIBRARIES "-l${LUA_LIBRARIES} ${LUA_LDFLAGS}")
-		list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c)
-		include_directories(${LUA_INCLUDE_DIRS})
-		break()
-	endif()
-endforeach ()
-if (NOT LUA_FOUND)
-	message(STATUS "Disabling Lua support")
-else ()
-	message(STATUS "Building with Lua support using ${LUA_LIBRARIES}")
-	set(HAVE_LUA 1 PARENT_SCOPE)
+if (HAVE_LUA)
+	list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c)
 endif ()
-
 
 add_library(lwan-static STATIC ${SOURCES})
 set_target_properties(lwan-static PROPERTIES
@@ -98,42 +53,19 @@ set_target_properties(lwan-shared PROPERTIES
 
 
 # Build mimegen
-if (CMAKE_CROSSCOMPILING)
-	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH)
-	include(${IMPORT_EXECUTABLES})
-else ()
-	add_executable(mimegen
-		../tools/mimegen.c
-		hash.c
-		murmur3.c
-		missing.c
-	)
-	find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
-	if (ZOPFLI_LIBRARY)
-		message(STATUS "Using Zopfli (${ZOPFLI_LIBRARY}) for mimegen")
-		target_link_libraries(mimegen ${ZOPFLI_LIBRARY})
-		target_compile_definitions(mimegen PUBLIC -DHAVE_ZOPFLI=1)
-	else ()
-		message(STATUS "Using zlib (${ZLIB_LIBRARIES}) for mimegen")
-		target_link_libraries(mimegen ${ZLIB_LIBRARIES})
-	endif ()
-
-	add_executable(bin2hex
-		../tools/bin2hex.c
-	)
-endif ()
-
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
-	COMMAND ${CMAKE_BINARY_DIR}/common/mimegen ${CMAKE_SOURCE_DIR}/tools/mime.types > ${CMAKE_BINARY_DIR}/mime-types.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/tools/mime.types mimegen
+	COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/mimegen
+		${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types >
+		${CMAKE_BINARY_DIR}/mime-types.h
+	DEPENDS ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types mimegen
 )
 add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
 add_dependencies(lwan-static generate_mime_types_table)
 
 add_custom_command(
 	OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
-	COMMAND ${CMAKE_BINARY_DIR}/common/bin2hex
+	COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/bin2hex
 		${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
 		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
 		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif folder_gif >
@@ -148,12 +80,6 @@ add_custom_target(generate_auto_index_icons DEPENDS
 add_dependencies(lwan-static generate_auto_index_icons)
 
 include_directories(${CMAKE_BINARY_DIR})
-
-if (NOT CMAKE_CROSSCOMPILING)
-	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
-	export(TARGETS bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
-endif ()
-
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 
@@ -174,8 +100,9 @@ mark_as_advanced(INSTALL_LIB_DIR)
 message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB_DIR}")
 
 
-install(TARGETS lwan-static lwan-shared
-  DESTINATION ${INSTALL_LIB_DIR}
+install(
+	TARGETS lwan-static lwan-shared
+	DESTINATION ${INSTALL_LIB_DIR}
 )
 install(FILES
 	hash.h

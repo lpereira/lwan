@@ -31,7 +31,7 @@
 #include <zlib.h>
 #endif
 
-#include "../common/hash.h"
+#include "../../lib/hash.h"
 
 struct output {
     char *ptr;
