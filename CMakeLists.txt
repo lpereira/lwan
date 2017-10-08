@@ -169,6 +169,16 @@ else ()
 	endif ()
 endif ()
 
+#
+# These warnings are only supported by GCC, and some only in newer versions.
+#
+enable_warning_if_supported(-Wduplicated-cond)
+enable_warning_if_supported(-Wduplicated-branches)
+enable_warning_if_supported(-Wlogical-op)
+enable_warning_if_supported(-Wrestrict)
+enable_warning_if_supported(-Wnull-dereference)
+enable_warning_if_supported(-Wdouble-promotion)
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}")
