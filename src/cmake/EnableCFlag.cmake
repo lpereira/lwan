@@ -8,5 +8,4 @@ endmacro ()
 
 macro (enable_warning_if_supported _flag)
 	enable_c_flag_if_avail(${_flag} CMAKE_C_FLAGS "supports ${_flag}")
-	unset("supports ${_flag}" CACHE)
 endmacro ()
