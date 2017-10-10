@@ -17,7 +17,7 @@ a lightweight and speedy web server:
     - Smaller files are sent using vectored I/O of memory-mapped buffers
     - Header overhead is considered before compressing small files
   - Mostly wait-free multi-threaded design
-  - Diminute code base with roughly 7200 lines of C code
+  - Diminute code base with roughly 14000 lines of C code
 
 It is now transitioning into a fully working, capable HTTP server. It is
 not, however, as feature-packed as other popular web servers. But it is
@@ -37,7 +37,8 @@ Features include:
   - systemd socket activation
   - IPv6 ready
 
-The [web site](https://lwan.ws/) has more details, including a FAQ about the name of the project and security concerns.
+The [web site](https://lwan.ws/) has more details, including a FAQ about the
+name of the project and security concerns.
 
 Performance
 -----------
@@ -70,7 +71,10 @@ this is appreciated.
 Building
 --------
 
-Before installing Lwan, ensure all dependencies are installed. All of them are common dependencies found in any GNU/Linux distribution; package names will be different, but it shouldn't be difficult to search using whatever package management tool that's used by your distribution.
+Before installing Lwan, ensure all dependencies are installed. All of them
+are common dependencies found in any GNU/Linux distribution; package names
+will be different, but it shouldn't be difficult to search using whatever
+package management tool that's used by your distribution.
 
 ### Required dependencies
 
@@ -81,18 +85,20 @@ Before installing Lwan, ensure all dependencies are installed. All of them are c
 
 The build system will look for these libraries and enable/link if available.
 
- - [SQLite 3](http://sqlite.org)
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
- - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
  - [TCMalloc](https://github.com/gperftools/gperftools)
  - [jemalloc](http://jemalloc.net/)
  - [Valgrind](http://valgrind.org)
  - To run test suite:
     - [Python](https://www.python.org/) (2.6+) with Requests
     - [Lua 5.1](http://www.lua.org)
- - To run benchmark :
+ - To run benchmark:
     - Special version of [Weighttp](https://github.com/lpereira/weighttp)
     - [Matplotlib](https://github.com/matplotlib/matplotlib)
+ - To build TechEmpower benchmark suite:
+    - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
+    - [SQLite 3](http://sqlite.org)
+
 
 ### Common operating system package names
 
@@ -139,15 +145,14 @@ To disable optimizations and build a more debugging-friendly version:
 
 This will generate a few binaries:
 
- - `lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
- - `testrunner/testrunner`: Contains code to execute the test suite.
- - `freegeoip/freegeoip`: FreeGeoIP sample implementation. Requires SQLite.
- - `techempower/techempower`: Code for the Techempower Web Framework benchmark. Requires SQLite and MySQL libraries.
- - `common/mimegen`: Builds the extension-MIME type table. Used during build process.
+ - `src/bin/lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
+ - `src/bin/testrunner/testrunner`: Contains code to execute the test suite.
+ - `src/samples/freegeoip/freegeoip`: FreeGeoIP sample implementation. Requires SQLite.
+ - `src/samples/techempower/techempower`: Code for the Techempower Web Framework benchmark. Requires SQLite and MySQL libraries.
+ - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
+ - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
 
 #### Remarks
-
-It is important to build outside of the tree; in-tree builds *are not supported*.
 
 Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations (such as [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization))
@@ -166,13 +171,25 @@ printed for each and every request.
 
     ~/lwan/build$ make teststuite
 
-This will compile `testrunner/testrunner` and execute regression test suite in `tool/testsuite.py`.
+This will compile the `testrunner` program and execute regression test suite
+in `src/scripts/testsuite.py`.
 
 ### Benchmark
 
     ~/lwan/build$ make benchmark
 
-This will compile `testrunner/testrunner` and execute benchmark script `tools/benchmark.py`.
+This will compile `testrunner` and execute benchmark script
+`src/scripts/benchmark.py`.
+
+### Coverage
+
+Lwan can also be built with the Coverage build type by specifying
+`-DCMAKE_BUILD_TYPE=Coverage`.  This enables the `coverage` make target,
+which will run `testrunner` to prepare a test coverage report with
+[lcov](http://ltp.sourceforge.net/coverage/lcov.php).
+
+Every commit in this repository triggers the generation of this report,
+and results are [publicly available](https://buildbot.lwan.ws/lcov/).
 
 Running
 -------
