@@ -177,7 +177,6 @@ enable_warning_if_supported(-Wduplicated-cond)
 enable_warning_if_supported(-Wduplicated-branches)
 enable_warning_if_supported(-Wlogical-op)
 enable_warning_if_supported(-Wrestrict)
-enable_warning_if_supported(-Wnull-dereference)
 enable_warning_if_supported(-Wdouble-promotion)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
