@@ -4,9 +4,9 @@ if (CMAKE_CROSSCOMPILING)
 else ()
 	add_executable(mimegen
 		mimegen.c
-		../../lib/hash.c
-		../../lib/murmur3.c
-		../../lib/missing.c
+		${CMAKE_SOURCE_DIR}/src/lib/hash.c
+		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c
+		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 	find_library(ZOPFLI_LIBRARY NAMES zopfli PATHS /usr/lib /usr/local/lib)
 	if (ZOPFLI_LIBRARY)
@@ -21,9 +21,7 @@ else ()
 	add_executable(bin2hex
 		bin2hex.c
 	)
-endif ()
 
-if (NOT CMAKE_CROSSCOMPILING)
 	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 	export(TARGETS bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 endif ()

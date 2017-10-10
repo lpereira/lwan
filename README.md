@@ -184,8 +184,8 @@ This will compile `testrunner` and execute benchmark script
 ### Coverage
 
 Lwan can also be built with the Coverage build type by specifying
-`-DCMAKE_BUILD_TYPE=Coverage`.  This enables the `coverage` make target,
-which will run `testrunner` to prepare a test coverage report with
+`-DCMAKE_BUILD_TYPE=Coverage`.  This enables the `generate-coverage` make
+target, which will run `testrunner` to prepare a test coverage report with
 [lcov](http://ltp.sourceforge.net/coverage/lcov.php).
 
 Every commit in this repository triggers the generation of this report,

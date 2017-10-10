@@ -54,30 +54,37 @@ set_target_properties(lwan-shared PROPERTIES
 
 # Build mimegen
 add_custom_command(
-	OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
-	COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/mimegen
-		${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types >
-		${CMAKE_BINARY_DIR}/mime-types.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types mimegen
+        OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
+        COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/mimegen
+                ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types >
+                ${CMAKE_BINARY_DIR}/mime-types.h
+        DEPENDS ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types mimegen
+	COMMENT "Building MIME type table"
 )
-add_custom_target(generate_mime_types_table DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h)
+add_custom_target(generate_mime_types_table
+        DEPENDS ${CMAKE_BINARY_DIR}/mime-types.h
+)
 add_dependencies(lwan-static generate_mime_types_table)
 
 add_custom_command(
-	OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
-	COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/bin2hex
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif folder_gif >
-		${CMAKE_BINARY_DIR}/auto-index-icons.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif
-		${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
-		bin2hex
+        OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
+        COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/bin2hex
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
+                folder_gif >
+                ${CMAKE_BINARY_DIR}/auto-index-icons.h
+        DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
+                bin2hex
+	COMMENT "Bundling auto-index icons"
 )
-add_custom_target(generate_auto_index_icons DEPENDS
-	${CMAKE_BINARY_DIR}/auto-index-icons.h)
+add_custom_target(generate_auto_index_icons
+        DEPENDS ${CMAKE_BINARY_DIR}/auto-index-icons.h
+)
 add_dependencies(lwan-static generate_auto_index_icons)
+
 
 include_directories(${CMAKE_BINARY_DIR})
 

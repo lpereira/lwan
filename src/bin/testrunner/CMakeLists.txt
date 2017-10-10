@@ -12,10 +12,8 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 	find_package(PythonInterp 3)
 
 	if (PYTHONINTERP_FOUND)
-		include(CodeCoverage.cmake)
-
 		setup_target_for_coverage(generate-coverage
-			"${PYTHON_EXECUTABLE} ${CMAKE_HOME_DIRECTORY}/tools/testsuite.py $<TARGET_FILE:testrunner> -v"
+			"${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py $<TARGET_FILE:testrunner> -v"
 			coverage
 		)
 		message(STATUS "Python found; generate-coverage target enabled")
