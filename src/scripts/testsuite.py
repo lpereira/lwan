@@ -13,7 +13,7 @@ import sys
 import time
 import unittest
 
-LWAN_PATH = './build/testrunner/testrunner'
+LWAN_PATH = './build/src/bin/testrunner/testrunner'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
     LWAN_PATH = arg
