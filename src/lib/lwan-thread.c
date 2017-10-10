@@ -487,7 +487,7 @@ lwan_thread_shutdown(struct lwan *l)
             if (r >= 0)
                 break;
 
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+            if (errno == EAGAIN || errno == EINTR)
                 continue;
 
             lwan_status_error("Could not write to I/O thread (%d) pipe to shutdown", i);
