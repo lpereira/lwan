@@ -33,6 +33,7 @@
 
 #ifndef HAS_PTHREADBARRIER
 #define PTHREAD_BARRIER_SERIAL_THREAD -1
+
 int
 pthread_barrier_init(pthread_barrier_t *restrict barrier,
         const pthread_barrierattr_t *restrict attr __attribute__((unused)),
@@ -61,6 +62,7 @@ pthread_barrier_destroy(pthread_barrier_t *barrier)
     pthread_mutex_destroy(&barrier->mutex);
     pthread_cond_destroy(&barrier->cond);
     barrier->in = 0;
+
     return 0;
 }
 
@@ -68,15 +70,19 @@ int
 pthread_barrier_wait(pthread_barrier_t *barrier)
 {
     pthread_mutex_lock(&barrier->mutex);
-    if (__sync_add_and_fetch(&barrier->in, 1) >= barrier->count) {
+
+    barrier->in++;
+    if (barrier->in >= barrier->count) {
         barrier->in = 0;
         pthread_cond_broadcast(&barrier->cond);
         pthread_mutex_unlock(&barrier->mutex);
+
         return PTHREAD_BARRIER_SERIAL_THREAD;
     }
 
     pthread_cond_wait(&barrier->cond, &barrier->mutex);
     pthread_mutex_unlock(&barrier->mutex);
+
     return 0;
 }
 #endif
