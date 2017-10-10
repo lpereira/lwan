@@ -1327,10 +1327,7 @@ bool json_check(const JsonNode *node, char errmsg[256])
 	if (!tag_is_valid(node->tag))
 		problem("tag is invalid (%u)", node->tag);
 	
-	if (node->tag == JSON_BOOL) {
-		if (node->bool_ != false && node->bool_ != true)
-			problem("bool_ is neither false (%d) nor true (%d)", (int)false, (int)true);
-	} else if (node->tag == JSON_STRING) {
+	if (node->tag == JSON_STRING) {
 		if (node->string_ == NULL)
 			problem("string_ is NULL");
 		if (!utf8_validate(node->string_))
