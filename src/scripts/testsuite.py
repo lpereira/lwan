@@ -378,6 +378,16 @@ class TestMalformedRequests(SocketTest):
     except requests.exceptions.ConnectionError:
       pass
 
+class TestChunkedEncoding(LwanTest):
+  def test_chunked_encoding(self):
+    r = requests.get('http://localhost:8080/chunked')
+    self.assertResponsePlain(r)
+    self.assertTrue('Transfer-Encoding' in r.headers)
+    self.assertTrue(r.headers['Transfer-Encoding'], 'chunked')
+    self.assertEqual(r.text,
+      'Testing chunked encoding! First chunk\n' +
+      ''.join('*This is chunk %d*\n' % i for i in range(11)) +
+      'Last chunk\n')
 
 class TestLua(LwanTest):
   def test_inline(self):
