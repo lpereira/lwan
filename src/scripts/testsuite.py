@@ -422,6 +422,39 @@ class TestLua(LwanTest):
       self.assertEqual(r.cookies[cookie], value)
 
 
+class TestAuthentication(LwanTest):
+  class TempHtpasswd:
+    def __init__(self, users):
+      self._users = users
+
+    def __enter__(self):
+      with open('htpasswd', 'w') as f:
+        for u, p in self._users.items():
+          f.write('%s = %s\n' % (u, p))
+
+    def __exit__(self, type, value, traceback):
+      os.remove('htpasswd')
+
+  def test_no_creds(self):
+    r = requests.get('http://127.0.0.1:8080/admin')
+    self.assertResponseHtml(r, status_code=401)
+
+  def test_invalid_creds(self):
+    with TestAuthentication.TempHtpasswd({'foo': 'bar', 'foobar': 'test123'}):
+      r = requests.get('http://127.0.0.1:8080/admin', auth=requests.auth.HTTPBasicAuth('nosuch', 'user'))
+      self.assertResponseHtml(r, status_code=401)
+
+  def test_valid_creds(self):
+    with TestAuthentication.TempHtpasswd({'foo': 'bar', 'foobar': 'test123'}):
+      r = requests.get('http://127.0.0.1:8080/admin', auth=requests.auth.HTTPBasicAuth('foobar', 'test123'))
+      self.assertResponsePlain(r)
+
+      self.assertTrue('content-length' in r.headers)
+      self.assertEqual(int(r.headers['content-length']), len('Hello, world!'))
+
+      self.assertEqual(r.text, 'Hello, world!')
+
+
 class TestHelloWorld(LwanTest):
   def test_cookies(self):
     c = {
