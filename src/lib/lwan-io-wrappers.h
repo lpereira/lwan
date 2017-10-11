@@ -24,8 +24,6 @@
 
 #include "lwan.h"
 
-int lwan_openat(struct lwan_request *request, int dirfd, const char *pathname,
-                int flags);
 ssize_t lwan_writev(struct lwan_request *request, struct iovec *iov,
                     int iovcnt);
 ssize_t lwan_write(struct lwan_request *request, const void *buffer,

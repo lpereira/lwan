@@ -30,33 +30,6 @@
 
 static const int MAX_FAILED_TRIES = 5;
 
-int
-lwan_openat(struct lwan_request *request,
-            int dirfd, const char *pathname, int flags)
-{
-    for (int tries = MAX_FAILED_TRIES; tries; tries--) {
-        int fd = openat(dirfd, pathname, flags);
-        if (LIKELY(fd >= 0)) {
-            coro_defer(request->conn->coro, CORO_DEFER(close), (void *)(intptr_t)fd);
-            return fd;
-        }
-
-        switch (errno) {
-        case EWOULDBLOCK:
-        case EMFILE:
-        case ENFILE:
-        case EINTR:
-        case ENOMEM:
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-            break;
-        default:
-            return -errno;
-        }
-    }
-
-    return -ENFILE;
-}
-
 ssize_t
 lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 {
