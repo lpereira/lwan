@@ -89,6 +89,9 @@ set(CMAKE_EXTRA_INCLUDE_FILES fcntl.h)
 check_function_exists(readahead HAS_READAHEAD)
 set(HAS_READAHEAD ${HAS_READAHEAD})
 
+check_function_exists(mkostemp HAS_MKOSTEMP)
+set(HAS_MKOSTEMP ${HAS_MKOSTEMP})
+
 set(CMAKE_EXTRA_INCLUDE_FILES time.h)
 check_function_exists(clock_gettime HAS_CLOCK_GETTIME)
 if (NOT HAS_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")

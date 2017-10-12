@@ -29,6 +29,7 @@
 #cmakedefine HAS_RAWMEMCHR
 #cmakedefine HAS_READAHEAD
 #cmakedefine HAS_REALLOCARRAY
+#cmakedefine HAS_MKOSTEMP
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL
