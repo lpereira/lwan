@@ -173,11 +173,21 @@ static void abort_on_open_directories(void)
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
+    uid_t uid = 0;
+    gid_t gid = 0;
+    bool got_uid_gid = false;
+
     if (!sj->user_name && !sj->chroot_path)
         return;
 
     if (geteuid() != 0)
         lwan_status_critical("Straitjacket requires root privileges");
+
+    if (sj->user_name && *sj->user_name) {
+        if (!get_user_uid_gid(sj->user_name, &uid, &gid))
+            lwan_status_critical("Unknown user: %s", sj->user_name);
+        got_uid_gid = true;
+    }
 
     if (sj->chroot_path) {
         abort_on_open_directories();
@@ -193,13 +203,7 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
         lwan_status_info("Jailed to %s", sj->chroot_path);
     }
 
-    if (sj->user_name && *sj->user_name) {
-        uid_t uid;
-        gid_t gid;
-
-        if (!get_user_uid_gid(sj->user_name, &uid, &gid))
-            lwan_status_critical("Unknown user: %s", sj->user_name);
-
+    if (got_uid_gid) {
         if (!switch_to_user(uid, gid, sj->user_name))
             lwan_status_critical("Could not drop privileges to %s, aborting",
                 sj->user_name);
