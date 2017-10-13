@@ -41,11 +41,6 @@ static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
     long pw_size_max = sysconf(_SC_GETPW_R_SIZE_MAX);
     int r;
 
-    if (!user || !*user) {
-        lwan_status_error("Username should be provided");
-        return false;
-    }
-
     if (pw_size_max < 0)
         pw_size_max = 16384;
 
@@ -109,8 +104,10 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
 #ifdef __linux__
 static void abort_on_open_directories(void)
 {
-    /* This is racy, of course, but right now I see no other way of ensuring
-     * that there are no file descriptors to directories open. */
+    /* This is racy, but is a way to detect misconfiguration.  Since it's
+     * called just once during boot time, before threads are created, this
+     * should be fine (maybe not if Lwan is used as a library.)
+     */
     DIR *dir = opendir("/proc/self/fd");
     struct dirent *ent;
     char own_fd[3 * sizeof(int)];
@@ -174,28 +171,64 @@ static void abort_on_open_directories(void)
 }
 #endif
 
-void lwan_straitjacket_enforce(struct config *c, struct config_line *l)
+void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
-    char *user_name = NULL;
-    char *chroot_path = NULL;
     uid_t uid;
     gid_t gid;
 
+    if (!sj->user_name && !sj->chroot_path)
+        return;
+
     if (geteuid() != 0) {
-        config_error(c, "Straitjacket requires root privileges");
+        lwan_status_critical("Straitjacket requires root privileges");
         return;
     }
 
-    while (config_read_line(c, l)) {
-        switch (l->type) {
+    if (sj->user_name && *sj->user_name) {
+        if (!get_user_uid_gid(sj->user_name, &uid, &gid)) {
+            lwan_status_critical("Unknown user: %s", sj->user_name);
+            return;
+        }
+    }
+
+    if (sj->chroot_path) {
+        abort_on_open_directories();
+
+        if (chroot(sj->chroot_path) < 0) {
+            lwan_status_critical_perror("Could not chroot() to %s",
+                sj->chroot_path);
+        }
+
+        if (chdir("/") < 0)
+            lwan_status_critical_perror("Could not chdir() to /");
+
+        lwan_status_info("Jailed to %s", sj->chroot_path);
+    }
+
+    if (sj->user_name && *sj->user_name) {
+        if (!switch_to_user(uid, gid, sj->user_name)) {
+            lwan_status_critical("Could not drop privileges to %s, aborting",
+                sj->user_name);
+        }
+    }
+}
+
+void lwan_straitjacket_enforce_from_config(struct config *c)
+{
+    struct config_line l;
+    char *user_name = NULL;
+    char *chroot_path = NULL;
+
+    while (config_read_line(c, &l)) {
+        switch (l.type) {
         case CONFIG_LINE_TYPE_LINE:
             /* TODO: limit_syscalls */
-            if (streq(l->key, "user")) {
-                user_name = strdupa(l->value);
-            } else if (streq(l->key, "chroot")) {
-                chroot_path = strdupa(l->value);
+            if (streq(l.key, "user")) {
+                user_name = strdupa(l.value);
+            } else if (streq(l.key, "chroot")) {
+                chroot_path = strdupa(l.value);
             } else {
-                config_error(c, "Invalid key: %s", l->key);
+                config_error(c, "Invalid key: %s", l.key);
                 return;
             }
             break;
@@ -203,26 +236,11 @@ void lwan_straitjacket_enforce(struct config *c, struct config_line *l)
             config_error(c, "Straitjacket accepts no sections");
             return;
         case CONFIG_LINE_TYPE_SECTION_END:
-            if (!get_user_uid_gid(user_name, &uid, &gid)) {
-                config_error(c, "Unknown user: %s", user_name);
-                return;
-            }
+            lwan_straitjacket_enforce(&(struct lwan_straitjacket) {
+                .user_name = user_name,
+                .chroot_path = chroot_path,
+            });
 
-            if (chroot_path) {
-                abort_on_open_directories();
-                if (chroot(chroot_path) < 0) {
-                    lwan_status_critical_perror("Could not chroot() to %s",
-                        chroot_path);
-                }
-                if (chdir("/") < 0)
-                    lwan_status_critical_perror("Could not chdir() to /");
-                lwan_status_debug("Jailed to %s", chroot_path);
-            }
-
-            if (!switch_to_user(uid, gid, user_name)) {
-                lwan_status_critical("Could not drop privileges to %s, aborting",
-                    user_name);
-            }
             return;
         }
     }

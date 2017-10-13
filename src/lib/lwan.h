@@ -302,6 +302,11 @@ struct lwan_thread {
     pthread_t self;
 };
 
+struct lwan_straitjacket {
+    const char *user_name;
+    const char *chroot_path;
+};
+
 struct lwan_config {
     char *listener;
     char *error_template;
@@ -366,6 +371,8 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name)
 void lwan_init(struct lwan *l);
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config);
 void lwan_shutdown(struct lwan *l);
+
+void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
 
 const struct lwan_config *lwan_get_default_config(void);
 

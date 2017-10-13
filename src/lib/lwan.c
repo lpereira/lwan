@@ -454,7 +454,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                     config_error(conf, "Only one listener supported");
                 }
             } else if (streq(line.key, "straitjacket")) {
-                lwan_straitjacket_enforce(conf, &line);
+                lwan_straitjacket_enforce_from_config(conf);
             } else {
                 config_error(conf, "Unknown section type: %s", line.key);
             }
