@@ -133,7 +133,9 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
             dest = mempmove(dest, start, (size_t)(end - start));
             *dest = '\0';
 
-            if (LIKELY(!strncmp(rpath, dirfdpath, (size_t)dirfdlen))) {
+            if (dirfdlen == 1 && *dirfdpath == '/') {
+                pathat = rpath + dirfdlen;
+            } else if (LIKELY(!strncmp(rpath, dirfdpath, (size_t)dirfdlen))) {
                 pathat = rpath + dirfdlen + 1;
                 if (*pathat == '\0')
                     pathat = rpath;
