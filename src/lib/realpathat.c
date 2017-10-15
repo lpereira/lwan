@@ -133,15 +133,14 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
             dest = mempmove(dest, start, (size_t)(end - start));
             *dest = '\0';
 
-            if (dirfdlen == 1 && *dirfdpath == '/') {
-                pathat = rpath + dirfdlen;
-            } else if (LIKELY(!strncmp(rpath, dirfdpath, (size_t)dirfdlen))) {
-                pathat = rpath + dirfdlen + 1;
-                if (*pathat == '\0')
-                    pathat = rpath;
-            } else {
+            if ((dirfdlen == 1 && *dirfdpath == '/') ||
+                    strncmp(rpath, dirfdpath, (size_t)dirfdlen)) {
                 pathat = rpath;
+            } else {
+                pathat = rpath + dirfdlen + 1;
             }
+            if (UNLIKELY(*pathat == '\0'))
+                pathat = rpath;
 
             if (UNLIKELY(fstatat(dirfd, pathat, st, AT_SYMLINK_NOFOLLOW) < 0))
                 goto error;
