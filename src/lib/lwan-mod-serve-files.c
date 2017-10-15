@@ -452,6 +452,12 @@ get_rel_path(const char *full_path, struct serve_files_priv *priv)
 {
     const char *root_path = full_path + priv->root_path_len;
 
+    if (priv->root_path_len == 1) {
+        /* If root path length is 1, it's actually "/".   Don't skip
+         * the first forward slash if serving from root directory. */
+        root_path--;
+    }
+
     if (*root_path)
         return root_path;
 
