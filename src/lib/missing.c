@@ -300,8 +300,6 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         if (maskptr) {
             struct kevent *kev = &evs[i];
 
-            hash_del(coalesce, (void*)(intptr_t)evs[i].ident);
-
             ev->data.ptr = kev->udata;
             ev->events = (uint32_t)(uintptr_t)maskptr;
             ev++;
