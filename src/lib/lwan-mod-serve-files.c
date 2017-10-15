@@ -323,11 +323,13 @@ mmap_init(struct file_cache_entry *ce, struct serve_files_priv *priv,
     const char *full_path, struct stat *st)
 {
     struct mmap_cache_data *md = (struct mmap_cache_data *)(ce + 1);
+    const char *path = full_path + priv->root_path_len;
     int file_fd;
     bool success;
 
-    file_fd = openat(priv->root_fd, full_path + priv->root_path_len + 1,
-                open_mode);
+    path += *path == '/';
+
+    file_fd = openat(priv->root_fd, path, open_mode);
     if (UNLIKELY(file_fd < 0))
         return false;
 
