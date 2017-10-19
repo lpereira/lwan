@@ -43,6 +43,8 @@ static volatile bool quiet = false;
 static bool use_colors;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static bool can_use_colors(void);
+
 void
 lwan_status_init(struct lwan *l)
 {
@@ -52,12 +54,27 @@ lwan_status_init(struct lwan *l)
     quiet = false;
     (void) l;
 #endif
-    use_colors = isatty(fileno(stdout));
+    use_colors = can_use_colors();
 }
 
 void
 lwan_status_shutdown(struct lwan *l __attribute__((unused)))
 {
+}
+
+static bool
+can_use_colors(void)
+{
+    const char *term;
+
+    if (!isatty(fileno(stdout)))
+        return false;
+
+    term = secure_getenv("TERM");
+    if (term && streq(term, "dumb"))
+        return false;
+
+    return true;
 }
 
 static const char *
