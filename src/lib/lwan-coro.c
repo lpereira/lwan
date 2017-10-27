@@ -82,7 +82,7 @@ struct coro {
  *     -- Leandro
  */
 #if defined(__x86_64__)
-void __attribute__((noinline))
+void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
     asm(
     ".text\n\t"
@@ -112,7 +112,7 @@ coro_swapcontext(coro_context *current, coro_context *other);
     "mov    56(%rsi),%rsi\n\t"
     "jmp    *%rcx\n\t");
 #elif defined(__i386__)
-void __attribute__((noinline))
+void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
     asm(
     ".text\n\t"
