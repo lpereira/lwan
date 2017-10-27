@@ -439,9 +439,14 @@ class TestAuthentication(LwanTest):
     r = requests.get('http://127.0.0.1:8080/admin')
     self.assertResponseHtml(r, status_code=401)
 
-  def test_invalid_creds(self):
+  def test_unknown_user(self):
     with TestAuthentication.TempHtpasswd({'foo': 'bar', 'foobar': 'test123'}):
       r = requests.get('http://127.0.0.1:8080/admin', auth=requests.auth.HTTPBasicAuth('nosuch', 'user'))
+      self.assertResponseHtml(r, status_code=401)
+
+  def test_invalid_creds(self):
+    with TestAuthentication.TempHtpasswd({'foo': 'bar', 'foobar': 'test123'}):
+      r = requests.get('http://127.0.0.1:8080/admin', auth=requests.auth.HTTPBasicAuth('foo', 'test123'))
       self.assertResponseHtml(r, status_code=401)
 
   def test_valid_creds(self):
