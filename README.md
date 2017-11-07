@@ -162,10 +162,17 @@ logs all requests to the standard output, but does so while holding a
 mutex.
 
 The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
-a version suitable for debugging purposes. This version can be used under
-Valgrind, is built with Undefined Behavior Sanitizer, and includes debugging
-messages that are stripped in the release version. Debugging messages are
-printed for each and every request.
+a version suitable for debugging purposes.  This version can be used under
+Valgrind *(if its headers are present)*, is built with Undefined Behavior
+Sanitizer, and includes debugging messages that are stripped in the release
+version.  Debugging messages are printed for each and every request.
+
+Which sanitizer will be used in a debug build can be selected by passing the
+following arguments to the CMake invocation line:
+
+ - `-DSANITIZER=ubsan` selects the Undefined Behavior Sanitizer.
+ - `-DSANITIZER=address` selects the Address Sanitizer.
+ - `-DSANITIZER=thread` selects the Thread Sanitizer.
 
 ### Tests
 
