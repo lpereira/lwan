@@ -661,7 +661,7 @@ parse_accept_encoding(struct lwan_request *request, struct request_parser_helper
         ENCODING_GZIP2 = MULTICHAR_CONSTANT(' ','g','z','i')
     };
 
-    for (char *p = helper->accept_encoding.value; p && *p; p++) {
+    for (char *p = helper->accept_encoding.value; *p; p++) {
         STRING_SWITCH(p) {
         case ENCODING_DEFL1:
         case ENCODING_DEFL2:
