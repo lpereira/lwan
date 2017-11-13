@@ -913,7 +913,7 @@ sendfile_serve(struct lwan_request *request, void *data)
         return HTTP_INTERNAL_ERROR;
 
     if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        lwan_write(request, headers, header_len);
+        lwan_send(request, headers, header_len, 0);
     } else {
         lwan_sendfile(request, fd, from, (size_t)to, headers, header_len);
     }
@@ -939,7 +939,7 @@ serve_contents_and_size(struct lwan_request *request, struct file_cache_entry *f
         return HTTP_INTERNAL_ERROR;
 
     if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD || return_status == HTTP_NOT_MODIFIED) {
-        lwan_write(request, headers, header_len);
+        lwan_send(request, headers, header_len, 0);
     } else {
         struct iovec response_vec[] = {
             { .iov_base = headers, .iov_len = header_len },

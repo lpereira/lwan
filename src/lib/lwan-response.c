@@ -199,7 +199,7 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
         lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
     } else {
-        lwan_write(request, headers, header_len);
+        lwan_send(request, headers, header_len, 0);
     }
 }
 

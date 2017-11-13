@@ -26,8 +26,6 @@
 
 ssize_t lwan_writev(struct lwan_request *request, struct iovec *iov,
                     int iovcnt);
-ssize_t lwan_write(struct lwan_request *request, const void *buffer,
-                   size_t count);
 ssize_t lwan_send(struct lwan_request *request, const void *buf, size_t count,
                   int flags);
 void lwan_sendfile(struct lwan_request *request, int in_fd,
