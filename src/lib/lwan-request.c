@@ -886,7 +886,7 @@ create_temp_file(void)
         return -ENOENT;
 
 #if defined(O_TMPFILE)
-    int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC,
+    int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
         S_IRUSR | S_IWUSR);
     if (LIKELY(fd >= 0))
         return fd;
