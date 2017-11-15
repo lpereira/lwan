@@ -24,6 +24,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
@@ -864,8 +865,8 @@ get_temp_dir(void)
     if (tmpdir)
         return tmpdir;
 
-    if (!stat("/tmp", &st) && S_ISDIR(st.st_mode))
-        return "/tmp";
+    if (!stat(P_tmpdir, &st) && S_ISDIR(st.st_mode))
+        return P_tmpdir;
 
     if (!stat("/var/tmp", &st) && S_ISDIR(st.st_mode))
         return "/var/tmp";
