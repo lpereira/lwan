@@ -382,6 +382,7 @@ class TestChunkedEncoding(LwanTest):
   def test_chunked_encoding(self):
     r = requests.get('http://localhost:8080/chunked')
     self.assertResponsePlain(r)
+    self.assertFalse('Content-Length' in r.headers)
     self.assertTrue('Transfer-Encoding' in r.headers)
     self.assertTrue(r.headers['Transfer-Encoding'], 'chunked')
     self.assertEqual(r.text,
