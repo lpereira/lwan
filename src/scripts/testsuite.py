@@ -505,6 +505,17 @@ class TestHelloWorld(LwanTest):
 
     self.assertEqual(r.text, 'Hello, world!')
 
+  def test_with_empty_param(self):
+    r = requests.get('http://127.0.0.1:8080/hello?key=&otherkey=&name=testsuite&dump_vars=1')
+
+    self.assertResponsePlain(r)
+
+    self.assertTrue('Query String Variables' in r.text)
+    self.assertTrue('Key = "key"; Value = ""\n' in r.text)
+    self.assertTrue('Key = "otherkey"; Value = ""\n' in r.text)
+    self.assertTrue('Key = "dump_vars"; Value = "1"\n' in r.text)
+    self.assertTrue('Key = "name"; Value = "testsuite"\n' in r.text)
+
 
   def test_with_param(self):
     r = requests.get('http://127.0.0.1:8080/hello?name=testsuite')

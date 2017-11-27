@@ -299,18 +299,22 @@ decode_hex_digit(char ch)
     return (char)((ch <= '9') ? ch - '0' : (ch & 7) + 9);
 }
 
-static size_t
+static ssize_t
 url_decode(char *str)
 {
     if (UNLIKELY(!str))
-        return 0;
+        return -EINVAL;
 
     char *ch, *decoded;
     for (decoded = ch = str; *ch; ch++) {
         if (*ch == '%' && LIKELY(lwan_char_isxdigit(ch[1]) && lwan_char_isxdigit(ch[2]))) {
-            char tmp = (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
+            char tmp;
+
+            tmp = (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
+
             if (UNLIKELY(!tmp))
-                return 0;
+                return -EINVAL;
+
             *decoded++ = tmp;
             ch += 2;
         } else if (*ch == '+') {
@@ -321,7 +325,7 @@ url_decode(char *str)
     }
 
     *decoded = '\0';
-    return (size_t)(decoded - str);
+    return (ssize_t)(decoded - str);
 }
 
 static int
@@ -333,7 +337,7 @@ key_value_compare(const void *a, const void *b)
 static void
 parse_key_values(struct lwan_request *request,
     struct lwan_value *helper_value, struct lwan_key_value_array *array,
-    size_t (*decode_value)(char *value), const char separator)
+    ssize_t (*decode_value)(char *value), const char separator)
 {
     struct lwan_key_value *kv;
     char *ptr = helper_value->value;
@@ -358,13 +362,17 @@ parse_key_values(struct lwan_request *request,
         ptr = strsep_char(key, separator);
 
         value = strsep_char(key, '=');
-        if (UNLIKELY(!value))
+        if (UNLIKELY(!value)) {
             value = "";
-        else if (UNLIKELY(!decode_value(value)))
+        } else if (UNLIKELY(decode_value(value) < 0)) {
+            /* Disallow values that failed decoding, but allow empty values */
             goto error;
+        }
 
-        if (UNLIKELY(!decode_value(key)))
+        if (UNLIKELY(decode_value(key) <= 0)) {
+            /* Disallow keys that failed decoding, or empty keys */
             goto error;
+        }
 
         kv = lwan_key_value_array_append(array);
         if (UNLIKELY(!kv))
@@ -387,7 +395,7 @@ error:
     lwan_key_value_array_reset(array);
 }
 
-static size_t
+static ssize_t
 identity_decode(char *input __attribute__((unused)))
 {
     return 1;
@@ -1060,10 +1068,10 @@ parse_http_request(struct lwan_request *request, struct request_parser_helper *h
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    size_t decoded_len = url_decode(request->url.value);
-    if (UNLIKELY(!decoded_len))
+    ssize_t decoded_len = url_decode(request->url.value);
+    if (UNLIKELY(decoded_len < 0))
         return HTTP_BAD_REQUEST;
-    request->original_url.len = request->url.len = decoded_len;
+    request->original_url.len = request->url.len = (size_t)decoded_len;
 
     compute_keep_alive_flag(request, helper);
 
