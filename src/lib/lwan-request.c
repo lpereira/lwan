@@ -933,7 +933,7 @@ static void*
 alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
 {
     struct file_backed_buffer *buf;
-    void *ptr;
+    void *ptr = (void *)MAP_FAILED;
     int fd;
 
     if (LIKELY(size < 1<<20)) {
@@ -955,7 +955,12 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
         return NULL;
     }
 
-    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (MAP_HUGETLB) {
+        ptr = mmap(NULL, size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_HUGETLB, fd, 0);
+    }
+    if (UNLIKELY(ptr == MAP_FAILED))
+        ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     close(fd);
     if (UNLIKELY(ptr == MAP_FAILED))
         return NULL;
