@@ -46,7 +46,8 @@ static int output_append(struct output *output, const char *str)
     if (total_size >= output->capacity) {
         char *tmp;
 
-        output->capacity *= 2;
+        while (total_size >= output->capacity)
+            output->capacity *= 2;
 
         tmp = realloc(output->ptr, output->capacity);
         if (!tmp)
