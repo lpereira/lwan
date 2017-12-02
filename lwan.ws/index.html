@@ -3,235 +3,15 @@
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <title>Lwan Web Server</title>
 <link href="prism.css" rel="stylesheet" type="text/css">
-<style>
-body{
-  height:100%;
-  border:0;
-  margin:0;
-  padding:0;
-  background:#627d4d;
-  background:-moz-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
-  background:-webkit-gradient(radial,center center,0px,center center,100%,color-stop(15%,#627d4d),color-stop(100%,#1f3b08));
-  background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
-  background:-o-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
-  background:-ms-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
-  background:radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);
-  background-attachment: fixed;
-}
-@font-face {
-  /* Font license: http://www.fontsquirrel.com/license/League-Gothic */
-  font-family: 'LeagueGothicRegular';
-  src: url('League_Gothic-webfont.eot');
-  src: url('League_Gothic-webfont.woff') format('woff'),
-  url('League_Gothic-webfont.ttf') format('truetype'),
-  url('League_Gothic-webfont.svg') format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-#left {
-  color:#ccc;
-  text-shadow:0 1px 4px rgba(0,0,0,0.68);
-  font-family:LeagueGothicRegular, helvetica;
-  position: absolute;
-  top: 0;
-  left: 0;
-  text-align: center;
-  height: 100%;
-  float: left;
-  padding-top: 54px;
-  width: 300px;
-
-  background: linear-gradient(135deg, rgba(1,1,1,0.08) 25%, transparent 25%) -50px 0,
-  	linear-gradient(225deg, rgba(1,1,1,0.08) 25%, transparent 25%) -50px 0,
-  	linear-gradient(315deg, rgba(1,1,1,0.08) 25%, transparent 25%),
-  	linear-gradient(45deg, rgba(1,1,1,0.08) 25%, transparent 25%);
-  background-size: 32px 32px;
-  background-color: transparent;
-  display: block;
-}
-#left div {
-  text-transform: uppercase;
-}
-#left #logo {
- text-shadow: 0 1px 0 #ccc,
- 0 2px 0 #c9c9c9,
- 0 3px 0 #bbb,
- 0 4px 0 #b9b9b9,
- 0 5px 0 #aaa,
- 0 6px 1px rgba(0,0,0,.1),
- 0 0 5px rgba(0,0,0,.1),
- 0 1px 3px rgba(0,0,0,.3),
- 0 3px 5px rgba(0,0,0,.2),
- 0 5px 10px rgba(0,0,0,.25),
- 0 10px 10px rgba(0,0,0,.2),
- 0 20px 20px rgba(0,0,0,.15);
-}
-#right {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: calc(100% - 300px - 108px);
-  margin: 0;
-  padding: 54px;
-  color: #999;
-  font-family: helvetica, sans-serif;
-  font-size: 15px;
-  background: #111;
-  min-height: 100%;
-}
-#right b {
-  color: #aaa;
-}
-#right a {
-  color: #8F9D6A;
-  font-weight: bold;
-}
-#left a {
-  color: #aca;
-  font-weight: bold;
-}
-#button-middle-text {
-  display: none;
-}
-@media all and (min-height: 400px) {
-  #left {
-    position: fixed;
-  }
-}
-@media all and (max-height: 620px) {
-  #left .secondary {
-    display: none;
-  }
-}
-@media all and (max-width: 780px) {
-  #right {
-    top: 155px;
-    left: 0;
-    width: calc(100% - 40px);
-    padding: 20px;
-  }
-  #left {
-    padding-top: 4px;
-    text-align: center;
-    width: 100%;
-  }
-  #button-middle-text {
-    display: block;
-  }
-}
-@media all and (max-width: 940px) and (min-width: 780px) {
-  #right {
-    padding-left: 30px;
-    padding-right: 30px;
-    width: calc(100% - 240px - 60px);
-  }
-  #left {
-    width: 240px;
-  }
-}
-p, li {
-  line-height: 19.5px;
-}
-.btn {
-  display:inline-block;
-  border-radius:8px;
-  box-shadow:0 8px 0 #221d2d, 0 15px 20px rgba(0,0,0,.35);
-  transition:box-shadow .2s ease-in-out;
-}
-
-.btn span {
-  color:eee;
-  display:inline-block;
-  font-family:Helvetica, Arial, sans-serif;
-  line-height:1;
-  text-shadow:0 -1px 1px rgba(19,65,88,.8);
-  border-radius:8px;
-  box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);
-  transition: transform .2s ease-in-out;
-  padding:10px 20px;
-  background: #826d9d;
-  background: linear-gradient(#826d9d, #321d4d);
-}
-.btn:active {
-  box-shadow:0 8px 0 #0e1b08, 0 12px 10px rgba(0,0,0,.3);
-}
-
-.btn:active span {
-  transform:translate(0,4px);
-}
-.chartfloater {
-  float: right;
-  text-align: center;
-  margin-left: 6px;
-  margin-bottom: 6px;
-  width:300px;
-  padding: 0 20px 10px 20px;
-}
-.chartfloater p {
-  line-height: 16px;
-  color: #777;
-  font-size: 12px;
-}
-.chartfloater table {
-  color: #777;
-  font-size: 12px;
-}
-h2 {
-  padding-top: 54px;
-}
-h3 {
-  padding-top: 27px;
-  margin-bottom: 13.5px;
-}
-.quote td {
-  color: #999;
-  padding-bottom: 13.5px;
-  padding-right: 13.5px;
-  font-size: 15px;
-}
-blockquote {
-  font-size: 14px;
-  font-style: italic;
-  width: calc(100% - 4em);
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 1em 1em 1em 4em;
-  line-height: 1.45;
-  position: relative;
-  border-radius: .5em;
-  border: 1px solid #282A2B;
-  box-shadow: 1px 1px .5em black inset;
-  background: #141414;
-}
-blockquote:before {
-  font-family: Georgia, serif;
-  display: block;
-  content: "\201C";
-  font-size: 70px;
-  position: absolute;
-  left: 0.2em;
-  top: -12px;
-  color: #555;
-}
-blockquote cite {
-  color: #999;
-  font-size: 90%;
-  margin-right: 1em;
-  display: block;
-}
-blockquote cite:before {
-  content: "\2014 \2009";
-}
-</style>
+<style>#left,body{height:100%}#left,#right{top:0;position:absolute}#left,#right,blockquote:before{position:absolute}body{border:0;margin:0;padding:0;background:#627d4d;background:-moz-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-webkit-gradient(radial,center center,0,center center,100%,color-stop(15%,#627d4d),color-stop(100%,#1f3b08));background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-o-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-ms-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background-attachment:fixed}@font-face{font-family:LeagueGothicRegular;src:url(League_Gothic-webfont.eot);src:url(League_Gothic-webfont.woff) format('woff'),url(League_Gothic-webfont.ttf) format('truetype'),url(League_Gothic-webfont.svg) format('svg');font-weight:400;font-style:normal}#left{color:#ccc;text-shadow:0 1px 4px rgba(0,0,0,.68);font-family:LeagueGothicRegular,helvetica;left:0;text-align:center;float:left;padding-top:54px;width:300px;background:linear-gradient(135deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(225deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(315deg,rgba(1,1,1,.08) 25%,transparent 25%),linear-gradient(45deg,rgba(1,1,1,.08) 25%,transparent 25%);background-size:32px 32px;background-color:transparent;display:block}#left div{text-transform:uppercase}#left #logo{text-shadow:0 1px 0 #ccc,0 2px 0 #c9c9c9,0 3px 0 #bbb,0 4px 0 #b9b9b9,0 5px 0 #aaa,0 6px 1px rgba(0,0,0,.1),0 0 5px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.3),0 3px 5px rgba(0,0,0,.2),0 5px 10px rgba(0,0,0,.25),0 10px 10px rgba(0,0,0,.2),0 20px 20px rgba(0,0,0,.15)}#right{right:0;width:calc(100% - 300px - 108px);margin:0;padding:54px;color:#999;font-family:helvetica,sans-serif;font-size:15px;background:#111;min-height:100%}#right b{color:#aaa}#right a{color:#8F9D6A;font-weight:700}#left a{color:#aca;font-weight:700}#button-middle-text{display:none}@media all and (min-height:400px){#left{position:fixed}}@media all and (max-height:620px){#left .secondary{display:none}}@media all and (max-width:780px){#right{top:155px;left:0;width:calc(100% - 40px);padding:20px}#left{padding-top:4px;text-align:center;width:100%}#button-middle-text{display:block}}.btn,.btn span{display:inline-block;border-radius:8px}@media all and (max-width:940px) and (min-width:780px){#right{padding-left:30px;padding-right:30px;width:calc(100% - 240px - 60px)}#left{width:240px}}li,p{line-height:19.5px}.btn{box-shadow:0 8px 0 #221d2d,0 15px 20px rgba(0,0,0,.35);transition:box-shadow .2s ease-in-out}.btn span{color:eee;font-family:Helvetica,Arial,sans-serif;line-height:1;text-shadow:0 -1px 1px rgba(19,65,88,.8);box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);transition:transform .2s ease-in-out;padding:10px 20px;background:#826d9d;background:linear-gradient(#826d9d,#321d4d)}.chartfloater p,.chartfloater table{color:#777;font-size:12px}.btn:active{box-shadow:0 8px 0 #0e1b08,0 12px 10px rgba(0,0,0,.3)}.btn:active span{transform:translate(0,4px)}.chartfloater{float:right;text-align:center;margin-left:6px;margin-bottom:6px;width:300px;padding:0 20px 10px}.chartfloater p{line-height:16px}h2{padding-top:54px}h3{padding-top:27px;margin-bottom:13.5px}.quote td{color:#999;padding-bottom:13.5px;padding-right:13.5px;font-size:15px}blockquote{font-size:14px;font-style:italic;width:calc(100% - 4em);max-width:400px;margin-left:auto;margin-right:auto;padding:1em 1em 1em 4em;line-height:1.45;position:relative;border-radius:.5em;border:1px solid #282A2B;box-shadow:1px 1px .5em #000 inset;background:#141414}blockquote:before{font-family:Georgia,serif;display:block;content:"\201C";font-size:70px;left:.2em;top:-12px;color:#555}blockquote cite{color:#999;font-size:90%;margin-right:1em;display:block}blockquote cite:before{content:"\2014 \2009"}</style>
 </head>
 <body>
     <div id="left">
           <div id="logo" style="font-size: 129px; color: #eee">Lwan</div>
-          <div style="font-size: 55px" class="secondary">Lightweight</div>
-          <div style="font-size: 45px" class="secondary">Asynchronous</div>
-          <div style="font-size: 42.4px" class="secondary">Multi-threaded</div>
-          <div style="font-size: 53px" class="secondary">Event-based</div>
+          <div style="font-size: 55px" class="secondary"><span style="color: #fff">L</span>ightweight</div>
+          <div style="font-size: 45px" class="secondary"><span style="color: #fff">A</span>synchronous</div>
+          <div style="font-size: 42.4px" class="secondary"><span style="color: #fff">M</span>ulti-threaded</div>
+          <div style="font-size: 53px" class="secondary"><span style="color: #fff">E</span>vent-based</div>
           <div style="font-size: 57px; color: #eee">Web server</div>
 
           <p style="padding-top: 30px; padding-bottom: 30px; text-align: center">
@@ -250,7 +30,7 @@ blockquote cite:before {
 </p>
 <div class="chartfloater">
 <p>Requests per second <em>vs.</em> number of concurrent connections<sup title="On a laptop with a Intel Core i7 2740M processor at 2.80GHz, 8GiB of RAM, Intel SSD SA2BW16, running an up-to-date Arch Linux, with Linux 3.11.6">?</sup></p>
-<canvas id="rps" height="200" width="300"></canvas>
+<img src="chart.png" alt="performance-chart">
 <table style="margin-left: auto; margin-right: auto">
 <tr>
   <td><span style="display:inline-block; width: 12px; height: 8px; background: #627d4d; border: 1px solid black"></span></td>
@@ -267,9 +47,9 @@ blockquote cite:before {
 </table>
 </div>
 
-<p>In development for over 4 years, Lwan was until recently a personal research
-effort that focused mostly on building a <b>solid infrastructure</b> for a
-lightweight and speedy web server.</p>
+<p>Lwan was until recently just a personal research effort that focused
+mostly on building a <b>solid infrastructure</b> for a lightweight and
+speedy web server.</p>
 
 <p>With its low <b>disk</b> <em>and</em> <b>memory</b> footprints, it's
 suitable to be used from <b>embedded devices</b> to <b>robust servers</b>.
@@ -317,7 +97,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
     <ul>
         <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
         <li><b>Coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
-        <li>Supports <b>Linux</b>, <b>FreeBSD</b> and <b>OS X</b></li>
+        <li>Supports <b>Linux</b>, <b>FreeBSD</b> and <b>macOS</b></li>
         <li>Purpose-built I/O loop</li>
     </ul>
   </li>
@@ -334,7 +114,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
         <li>Lua scripts can be executed to control the rewriting behavior as well</li>
      </ul>
   </li>
-  <li><b>Diminute codebase</b> with roughly 10000 lines of C99 (<tt>gnu99</tt>, in fact) code</li>
+  <li><b>Diminute codebase</b> with roughly 10000 lines of C99 code</li>
   <li>Efficient <a href="https://mustache.github.io/">Mustache templating</a> engine
      <ul>
         <li>Used internally for directory listing &amp; error messages (can
@@ -344,10 +124,13 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   </li>
   <li><b>Easy to use API</b> to create web applications or extend the web server
   <ul>
-        <li>Example: <a href="http://freegeoip.net">Freegeoip</a>
-        <a href="https://github.com/lpereira/lwan/blob/master/freegeoip/freegeoip.c">reimplementation</a>,
+        <li>Example: <a href="http://freegeoip.net">Freegeoip</a> <a
+        href="https://github.com/lpereira/lwan/blob/master/freegeoip/freegeoip.c">reimplementation</a>,
         which performs better than the Go version and is roughly the same
-        amount of lines of code.  Test the <a href="http://freegeoip.lwan.ws">live version</a>.</li>
+        amount of lines of code.  The <a
+        href="http://freegeoip.lwan.ws">live version</a> has been up for
+        years, and serves millions of requests per day, with a RSS of
+        roughtly 5MiB.</li>
         <li>Handlers can be written in <b>C</b> and <b>Lua</b></li>
   </ul></li>
   <li>Supports rebimboca da parafuseta</li>
@@ -372,7 +155,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	    <ul>
   	        <li><b>Arch Linux</b>, always up-to-date</li>
   	        <li><b>FreeBSD</b> 10 and 11, courtesy of <a href="https://twitter.com/koobs">@koobs</a></li>
-  	        <li><b>Mac OS X</b> Yosemite</li>
+  	        <li><b>macOS</b> Sierra</li>
   	    </ul>
   	</li>
   	<li>Test suite written in Python <b>tests the server</b> as a black box</li>
@@ -464,28 +247,32 @@ need to specify them with something akin to an <tt>lwan_url_map_t</tt>
 array. In this case, issuing a <b>GET /hello</b> will be sufficient to run
 this handler.</p>
 
+<p>An in-depth view of the C API can be seen <a
+href="https://github.com/lpereira/lwan/wiki/Using-Lwan-as-a-Library">in this
+article</a>.</p>
+
+
 <h2>FAQ</h2>
 
 <p><h3>Is it secure?</h3> <blockquote>How is it possible to write a
 “hand-crafted HTTP parser” in 2014, and not have at least an H2 for
 security?<cite><a
 href="https://twitter.com/gnat/status/521575202728054786">@gnat</a></cite></blockquote>
-We're not security experts, by any means.  The code has never been audited
-by one either.  Having said that:</p> <ul> <li>Lwan has a <b>0.0 defect
+We're not security experts, by any means. Having said that, here are some facts:</p> <ul> <li>Lwan has a <b>0.0 defect
 density</b> as reported by <a
 href="https://scan.coverity.com/projects/375">Coverity</a>. No top <a
 href="https://cwe.mitre.org/top25/">CWE 25
-defects were found</a> by this tool.</li> <li>Lwan
-has only two false positives when analyzed with <a
+defects were found</a> by this tool.</li> <li>Every commit is
+checked with <a
 href="https://buildbot.lwan.ws/#/builders/1">Clang Static
-Analyzer</a>.  Every commit is automatically checked with this tool.</li>
+Analyzer</a>.  As far as we can tell, only false positives remain in the
+code; <a href="https://buildbot.lwan.ws/sa/">feel free to check for yourself</a>.</li>
 <li>It produces no warnings when executed on <a
 href="http://valgrind.org/">Valgrind Memcheck</a> (with debug builds:
 release builds disable some things that Memcheck relies on to keep sanity when
-coroutines switches stacks.)</li> <li>It is also always built using
-<tt>-Wall -Wextra -Wshadow -Wconversion</tt> (plus
-<tt>-fsanitize=undefined</tt> on debug builds).  <b>No warnings</b> are
-produced while building Lwan.</li> <li>It has been also fuzzed with Sulley,
+coroutines switches stacks.)</li> <li><b>No warnings</b> are
+produced while building Lwan, even though options to enable extra warnings are always passed.</li>
+<li>It has been also fuzzed with Sulley,
 libFuzzer, and afl.  One bug has been found with libFuzzer and it has been
 fixed.</li><li>All tests are performed automatically, with both <b>Address
 Sanitizer</b> and <b>Undefined Behavior Sanitizer</b>; <a
@@ -498,6 +285,15 @@ at least find the most mundane sources of vulnerabilities and fix them
 before they hit the source tree.</p> <p>There's nothing stopping you from
 exploiting Lwan, however.  We would specially appreciate a public writeup
 about the bug; we'll even pay you a drink if we ever meet in person.</p>
+
+<blockquote>
+It's interesting how some of the tricks you used for performance also made
+the code less "risky".  For example all the parsing is just setting
+pointers, no allocation of new buffers, so there isn't much opportunity for
+memory corruption, and coro_defer makes use-after-frees pretty much
+impossible.
+<cite><tt>immerse</tt></cite>
+</blockquote>
 
 <p><h3>A web server is rarely the bottleneck. Why not just use Nginx or
 Apache?</h3> If you're asking this question, then you probably should.
@@ -555,51 +351,20 @@ Please refer to <a
 href="https://github.com/lpereira/lwan#lwan-in-the-wild">the GitHub
 repository</a> for a list of Lwan servers spotted in the wild.
 
-<p><h3>Does it support HTTP2?</h3> Not yet.</p>
+<p><h3>Does it support HTTP2, or at least TLS?</h3> Not yet.  As for TLS,
+Lwan supports the PROXY protocol, so a TLS terminator proxy such as Hitch
+can be used.</p>
+
+<p><h3>This web page looks like an advertisement for snake oil.</h3> That's
+not a question.  And, yes, it's on purpose.  It's a parody of the web page
+for a similarly-named web server.  In fact, there are a few easter eggs in
+this web page.</p>
 
 <div style="padding-top: 240px; font-size: 80%">Brought to you by <a
 href="http://twitter.com/lafp">@lafp</a>. Powered by <b>Lwan</b>.</div>
 </div>
 
-    </div>
-<script src="Chart.min.js"></script>
-<script>
-var rpsData = {
-    labels: ["100", "6090", "12080", "18070", "24060", "30050", "42030", "48020", "54010", "60000"],
-    datasets: [
-        {
-            strokeColor: "#627d4d",
-            data: [311281,220195,189257,175084,174950,166152,160332,159480,159856,153449,151039]
-        },
-        {
-            strokeColor: "#7d624d",
-            data: [263763,176919,131799,153484,149156,150527,142337,140361,135362,127335,124762]
-        },
-        {
-            strokeColor: "#b0ce7a",
-            data: [205771,146209,136657,131498,127808,123418,120594,113461,110392,109617,100225]
-        },
-        {
-            strokeColor: "#624d7d",
-            data:
-            [121734,83395,76983,77692,75953,53227,51372,68977,33744,71261,40220],
-        },
-    ]
-}
-
-var ctx = document.getElementById("rps").getContext("2d");
-var rps = new Chart(ctx).Line(rpsData, {
-    animationSteps: 120,
-    pointDot: false,
-    scaleOverride: true,
-    scaleSteps: 6,
-    scaleStepWidth: 50000,
-    scaleStartValue: 0,
-    scaleGridLineColor: "#444",
-    datasetStrokeWidth: 3,
-    datasetFill: false
-});
-</script>
+</div>
 <script src="prism.js"></script>
 </body>
 </html>
