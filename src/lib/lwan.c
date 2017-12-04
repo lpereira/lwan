@@ -323,6 +323,7 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
 
 static void parse_listener(struct config *c, struct config_line *l, struct lwan *lwan)
 {
+    free(lwan->config.listener);
     lwan->config.listener = strdup(l->value);
 
     while (config_read_line(c, l)) {
