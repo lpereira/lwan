@@ -20,7 +20,6 @@
 #define PATTERNS_H
 
 #include <sys/types.h>
-#include <sys/cdefs.h>
 
 #define MAXCAPTURES	32	/* Max no. of allowed captures in pattern */
 #define MAXCCALLS	200	/* Max recusion depth in pattern matching */
@@ -36,12 +35,10 @@ struct str_match {
 	int		  sm_nmatch; /* number of elements in array */
 };
 
-__BEGIN_DECLS
 int	 str_find(const char *, const char *, struct str_find *, size_t,
 	    const char **);
 int	 str_match(const char *, const char *, struct str_match *,
 	    const char **);
 void	 str_match_free(struct str_match *);
-__END_DECLS
 
 #endif /* PATTERNS_H */
