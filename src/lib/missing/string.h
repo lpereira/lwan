@@ -42,7 +42,7 @@
 
 #ifdef NEED_ALLOCA_H
 #   undef NEED_ALLOCA_H
-#   if HAS_ALLOCA_H
+#   ifdef HAS_ALLOCA_H
 #      include <alloca.h>
 #   else
 #      include <stdlib.h>
