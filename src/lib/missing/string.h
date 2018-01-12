@@ -29,20 +29,24 @@
 })
 
 #ifndef strndupa
-#define strndupa(s, l) strndupa_impl((s), strnlen((s), (l)))
-#undef NEED_ALLOCA_H
-#define NEED_ALLOCA_H
+#   define strndupa(s, l) strndupa_impl((s), strnlen((s), (l)))
+#   undef NEED_ALLOCA_H
+#   define NEED_ALLOCA_H
 #endif
 
 #ifndef strdupa
-#define strdupa(s) strndupa((s), strlen(s))
-#undef NEED_ALLOCA_H
-#define NEED_ALLOCA_H
+#   define strdupa(s) strndupa((s), strlen(s))
+#   undef NEED_ALLOCA_H
+#   define NEED_ALLOCA_H
 #endif
 
 #ifdef NEED_ALLOCA_H
-#undef NEED_ALLOCA_H
-#include <alloca.h>
+#   undef NEED_ALLOCA_H
+#   if HAS_ALLOCA_H
+#      include <alloca.h>
+#   else
+#      include <stdlib.h>
+#   endif
 #endif
 
 #ifndef HAS_RAWMEMCHR
