@@ -21,6 +21,7 @@
 
 /* API available in Glibc/Linux, but possibly not elsewhere */
 #cmakedefine HAS_ACCEPT4
+#cmakedefine HAS_GETAUXVAL
 #cmakedefine HAS_CLOCK_GETTIME
 #cmakedefine HAS_MEMPCPY
 #cmakedefine HAS_MEMRCHR

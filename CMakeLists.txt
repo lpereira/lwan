@@ -8,6 +8,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/src/cmake")
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(CheckFunctionExists)
+include(CheckIncludeFile)
 include(CodeCoverage)
 include(EnableCFlag)
 include(FindPkgConfig)
@@ -73,6 +74,15 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	time.h
 	unistd.h
 )
+check_include_file(sys/auxv.h HAS_SYS_AUXV)
+if (HAS_SYS_AUXV)
+	set(CMAKE_EXTRA_INCLUDE_FILES
+		${CMAKE_EXTRA_INCLUDE_FILES}
+		sys/auxv.h
+	)
+	check_function_exists(getauxval HAS_GETAUXVAL)
+endif ()
+
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
 check_function_exists(rawmemchr HAS_RAWMEMCHR)

@@ -311,43 +311,72 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 }
 #endif
 
-#ifndef __APPLE__
-
-#ifdef __FreeBSD__
-#include <sys/sysctl.h>
+#if defined(__linux__)
+#if defined(HAS_GETAUXVAL)
+#include <sys/auxv.h>
 #endif
 
 int
 proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
+    ssize_t path_len;
+
     if (getpid() != pid) {
         errno = EACCES;
+
         return -1;
     }
 
-#ifdef __linux__
-    ssize_t path_len;
+#if defined(HAS_GETAUXVAL)
+    const char *execfn = (const char *)getauxval(AT_EXECFN);
+
+    if (execfn) {
+        size_t len = strlen(execfn);
+
+        if (len + 1 < buffersize) {
+            memcpy(buffer, execfn, len + 1);
+
+            return 0;
+        }
+    }
+#endif
 
     path_len = readlink("/proc/self/exe", buffer, buffersize);
     if (path_len < 0)
         return -1;
-    if (path_len >= (ssize_t)buffersize) {
-        errno = EOVERFLOW;
+
+    if (path_len < (ssize_t)buffersize) {
+        ((char *)buffer)[path_len] = '\0';
+
+        return 0;
+    }
+
+    errno = EOVERFLOW;
+    return -1;
+}
+
+#elif defined(__FreeBSD__)
+#include <sys/sysctl.h>
+
+int
+proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+{
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+    size_t path_len = buffersize;
+
+    if (getpid() != pid) {
+        errno = EACCES;
+
         return -1;
     }
-    ((char *)buffer)[path_len] = '\0';
-#elif __FreeBSD__
-    size_t path_len = buffersize;
-    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
 
     if (sysctl(mib, N_ELEMENTS(mib), buffer, &path_len, NULL, 0) < 0)
         return -1;
-#else
-    errno = ENOSYS;
-    return -1;
-#endif
+
     return 0;
 }
+#elif !defined(__APPLE__)
+#error proc_pidpath() not implemented for this architecture
 #endif
 
 #if defined(__linux__)
