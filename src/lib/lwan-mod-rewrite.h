@@ -21,5 +21,4 @@
 
 #include "lwan.h"
 
-const struct lwan_module *lwan_module_rewrite(void);
-
+LWAN_MODULE_FORWARD_DECL(rewrite)

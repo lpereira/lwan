@@ -59,14 +59,14 @@ Without keep-alive, these numbers drop around 6-fold.
 Portability
 -----------
 
-Although it uses [epoll](https://en.wikipedia.org/wiki/Epoll) and the
-Linux variant of sendfile(), it is fairly portable to other event-based
-pollers, like [kqueue](https://en.wikipedia.org/wiki/Kqueue).
+While Lwan was written originally for Linux, it has been ported to BSD
+systems as well.  The build system will detect the supported features
+and build support library functions as appropriate.
 
-Porting for FreeBSD and OS X is a work in progress.   It works on
-FreeBSD, but the module registry can't find any module and/or handlers
-(so it's essentially only serves 404 pages at the moment).  Help to fix
-this is appreciated.
+For instance, [epoll](https://en.wikipedia.org/wiki/Epoll) has been
+implemented on top of [kqueue](https://en.wikipedia.org/wiki/Kqueue), and
+Linux-only syscalls and GNU extensions have been implemented for the
+supported systems.
 
 Building
 --------

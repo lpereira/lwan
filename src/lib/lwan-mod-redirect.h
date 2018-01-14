@@ -25,12 +25,12 @@ struct lwan_redirect_settings {
   char *to;
 };
 
+LWAN_MODULE_FORWARD_DECL(redirect)
+
 #define REDIRECT(to_) \
-  .module = lwan_module_redirect(), \
+  .module = LWAN_MODULE_REF(redirect), \
   .args = ((struct lwan_redirect_settings[]) {{ \
     .to = to_ \
   }}), \
   .flags = 0
-
-const struct lwan_module *lwan_module_redirect(void);
 

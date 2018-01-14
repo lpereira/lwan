@@ -42,6 +42,22 @@ extern "C" {
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
+#define LWAN_MODULE_REF(name_) lwan_module_info_##name_.module
+
+#define LWAN_MODULE_FORWARD_DECL(name_)                                        \
+    extern const struct lwan_module_info lwan_module_info_##name_;
+
+#ifdef __APPLE__
+#  define LWAN_MODULE_SECTION_NAME(name_) "__DATA," # name_
+#else
+#  define LWAN_MODULE_SECTION_NAME(name_) #name_
+#endif
+
+#define LWAN_REGISTER_MODULE(name_, module_)                                   \
+  const struct lwan_module_info                                                \
+      __attribute__((used, section(LWAN_MODULE_SECTION_NAME(lwan_module))))    \
+          lwan_module_info_##name_ = {.name = #name_, .module = module_}
+
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
 #else
@@ -272,6 +288,11 @@ struct lwan_module {
     enum lwan_handler_flags flags;
 };
 
+struct lwan_module_info {
+    const char *name;
+    const struct lwan_module *module;
+};
+
 struct lwan_url_map {
     enum lwan_http_status (*handler)(struct lwan_request *request, struct lwan_response *response, void *data);
     void *data;
@@ -333,7 +354,6 @@ struct lwan {
         unsigned short count;
     } thread;
 
-    struct hash *module_registry;
     struct lwan_config config;
     int main_socket;
 };

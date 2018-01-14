@@ -33,8 +33,10 @@ struct lwan_serve_files_settings {
   bool auto_index;
 };
 
+LWAN_MODULE_FORWARD_DECL(serve_files);
+
 #define SERVE_FILES_SETTINGS(root_path_, index_html_, serve_precompressed_files_) \
-  .module = lwan_module_serve_files(), \
+  .module = LWAN_MODULE_REF(serve_files), \
   .args = ((struct lwan_serve_files_settings[]) {{ \
     .root_path = root_path_, \
     .index_html = index_html_, \
@@ -46,8 +48,6 @@ struct lwan_serve_files_settings {
 
 #define SERVE_FILES(root_path) \
   SERVE_FILES_SETTINGS(root_path, NULL, true)
-
-const struct lwan_module *lwan_module_serve_files(void);
 
 #if defined (__cplusplus)
 }

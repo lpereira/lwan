@@ -28,11 +28,11 @@ struct lwan_lua_settings {
     unsigned int cache_period;
 };
 
+LWAN_MODULE_FORWARD_DECL(lua);
+
 #define LUA(default_type_) \
-    .module = lwan_module_lua(), \
+    .module = LWAN_MODULE_REF(lua), \
     .args = ((struct lwan_lua[]) {{ \
         .default_type = default_type_ \
     }}), \
     .flags = 0
-
-const struct lwan_module *lwan_module_lua(void);

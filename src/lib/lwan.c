@@ -54,19 +54,6 @@ static const struct lwan_config default_config = {
     .allow_post_temp_file = false,
 };
 
-static void lwan_module_init(struct lwan *l)
-{
-    if (!l->module_registry) {
-        lwan_status_debug("Initializing module registry");
-        l->module_registry = hash_str_new(free, NULL);
-    }
-}
-
-static void lwan_module_shutdown(struct lwan *l)
-{
-    hash_free(l->module_registry);
-}
-
 static void *find_handler_symbol(const char *name)
 {
     void *symbol = dlsym(RTLD_NEXT, name);
@@ -75,48 +62,28 @@ static void *find_handler_symbol(const char *name)
     return symbol;
 }
 
-static const struct lwan_module *lwan_module_find(struct lwan *l, const char *name)
+#ifdef __APPLE__
+#  define SECTION_START(name_) \
+        __start_ ## name_[] __asm("section$start$__DATA$" #name_)
+#  define SECTION_END(name_) \
+        __stop_ ## name_[] __asm("section$end$__DATA$" #name_)
+#else
+#  define SECTION_START(name_) __start_ ## name_[]
+#  define SECTION_END(name_) __stop_ ## name_[]
+#endif
+
+static const struct lwan_module *find_module(const char *name)
 {
-    struct lwan_module *module = hash_find(l->module_registry, name);
-    if (!module) {
-        struct lwan_module *(*module_fn)(void);
-        char module_symbol[128];
-        int r;
+    extern const struct lwan_module_info SECTION_START(lwan_module);
+    extern const struct lwan_module_info SECTION_END(lwan_module);
+    const struct lwan_module_info *module;
 
-        for (const char *p = name; *p; p++) {
-            if (isalnum(*p) || *p == '_')
-                continue;
-
-            lwan_status_error("Module name (%s) contains invalid character: %c",
-                name, *p);
-            return NULL;
-        }
-
-        r = snprintf(module_symbol, sizeof(module_symbol),
-            "lwan_module_%s", name);
-        if (r < 0 || r >= (int)sizeof(module_symbol)) {
-            lwan_status_error("Module name too long: %s", name);
-            return NULL;
-        }
-
-        module_fn = find_handler_symbol(module_symbol);
-        if (!module_fn) {
-            lwan_status_error("Module \"%s\" does not exist", name);
-            return NULL;
-        }
-
-        module = module_fn();
-        if (!module) {
-            lwan_status_error("Function \"%s()\" didn't return a module",
-                module_symbol);
-            return NULL;
-        }
-
-        lwan_status_debug("Module \"%s\" registered", name);
-        hash_add(l->module_registry, strdup(name), module);
+    for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
+        if (!strcmp(module->name, name))
+            return module->module;
     }
 
-    return module;
+    return NULL;
 }
 
 static void destroy_urlmap(void *data)
@@ -220,7 +187,7 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
                   config_error(c, "Module already specified");
                   goto out;
               }
-              module = lwan_module_find(lwan, l->value);
+              module = find_module(l->value);
               if (!module) {
                   config_error(c, "Could not find module \"%s\"", l->value);
                   goto out;
@@ -350,7 +317,7 @@ static void parse_listener(struct config *c, struct config_line *l, struct lwan 
                 return;
             }
 
-            const struct lwan_module *module = lwan_module_find(lwan, l->key);
+            const struct lwan_module *module = find_module(l->key);
             if (module) {
                 parse_listener_prefix(c, l, lwan, module, NULL);
                 continue;
@@ -553,8 +520,6 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_job_thread_init();
     lwan_tables_init();
 
-    lwan_module_init(l);
-
     /* Load the configuration file. */
     if (config == &default_config || config->config_file_path) {
         if (!setup_from_config(l, config->config_file_path))
@@ -619,7 +584,6 @@ lwan_shutdown(struct lwan *l)
     lwan_tables_shutdown();
     lwan_status_shutdown(l);
     lwan_http_authorize_shutdown();
-    lwan_module_shutdown(l);
 }
 
 static ALWAYS_INLINE void

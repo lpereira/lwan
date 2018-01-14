@@ -59,15 +59,12 @@ static void *redirect_init_from_hash(const char *prefix, const struct hash *hash
     return redirect_init(prefix, &settings);
 }
 
-const struct lwan_module *lwan_module_redirect(void)
-{
-    static const struct lwan_module redirect_module = {
-        .init = redirect_init,
-        .init_from_hash = redirect_init_from_hash,
-        .shutdown = free,
-        .handle = redirect_handle_cb,
-        .flags = 0
-    };
+static const struct lwan_module module = {
+    .init = redirect_init,
+    .init_from_hash = redirect_init_from_hash,
+    .shutdown = free,
+    .handle = redirect_handle_cb,
+    .flags = 0
+};
 
-    return &redirect_module;
-}
+LWAN_REGISTER_MODULE(redirect, &module);

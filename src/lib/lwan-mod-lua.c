@@ -287,17 +287,14 @@ static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
     return lua_init(prefix, &settings);
 }
 
-const struct lwan_module *lwan_module_lua(void)
-{
-    static const struct lwan_module lua_module = {
-        .init = lua_init,
-        .init_from_hash = lua_init_from_hash,
-        .shutdown = lua_shutdown,
-        .handle = lua_handle_cb,
-        .flags = HANDLER_PARSE_QUERY_STRING
-            | HANDLER_REMOVE_LEADING_SLASH
-            | HANDLER_PARSE_COOKIES
-    };
+static const struct lwan_module module = {
+    .init = lua_init,
+    .init_from_hash = lua_init_from_hash,
+    .shutdown = lua_shutdown,
+    .handle = lua_handle_cb,
+    .flags = HANDLER_PARSE_QUERY_STRING
+        | HANDLER_REMOVE_LEADING_SLASH
+        | HANDLER_PARSE_COOKIES
+};
 
-    return &lua_module;
-}
+LWAN_REGISTER_MODULE(lua, &module);

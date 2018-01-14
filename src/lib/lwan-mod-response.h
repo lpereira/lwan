@@ -25,11 +25,11 @@ struct lwan_response_settings {
   enum lwan_http_status code;
 };
 
+LWAN_MODULE_FORWARD_DECL(response)
+
 #define RESPONSE(code_) \
-  .module = lwan_module_response(), \
+  .module = LWAN_MODULE_REF(response), \
   .args = ((struct lwan_response_settings[]) {{ \
     .code = code_ \
   }}), \
   .flags = 0
-
-const struct lwan_module *lwan_module_response(void);

@@ -383,17 +383,13 @@ module_parse_conf(void *data, struct config *config)
     return !config_last_error(config);
 }
 
-const struct lwan_module *
-lwan_module_rewrite(void)
-{
-    static const struct lwan_module rewrite_module = {
-        .init = module_init,
-        .init_from_hash = module_init_from_hash,
-        .parse_conf = module_parse_conf,
-        .shutdown = module_shutdown,
-        .handle = module_handle_cb,
-        .flags = HANDLER_CAN_REWRITE_URL
-    };
+static const struct lwan_module module = {
+    .init = module_init,
+    .init_from_hash = module_init_from_hash,
+    .parse_conf = module_parse_conf,
+    .shutdown = module_shutdown,
+    .handle = module_handle_cb,
+    .flags = HANDLER_CAN_REWRITE_URL
+};
 
-    return &rewrite_module;
-}
+LWAN_REGISTER_MODULE(rewrite, &module);

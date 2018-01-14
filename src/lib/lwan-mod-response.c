@@ -59,15 +59,12 @@ static void *response_init_from_hash(const char *prefix, const struct hash *hash
     return response_init(prefix, &settings);
 }
 
-const struct lwan_module *lwan_module_response(void)
-{
-    static const struct lwan_module response_module = {
-        .init = response_init,
-        .init_from_hash = response_init_from_hash,
-        .shutdown = NULL,
-        .handle = response_handle,
-        .flags = 0
-    };
+static const struct lwan_module module = {
+    .init = response_init,
+    .init_from_hash = response_init_from_hash,
+    .shutdown = NULL,
+    .handle = response_handle,
+    .flags = 0
+};
 
-    return &response_module;
-}
+LWAN_REGISTER_MODULE(response, &module);

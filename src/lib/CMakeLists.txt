@@ -47,7 +47,10 @@ set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
 # then link with the static library just recently built.
 file(WRITE "${CMAKE_BINARY_DIR}/empty.c" "")
 add_library(lwan-shared SHARED "${CMAKE_BINARY_DIR}/empty.c")
-target_link_libraries(lwan-shared ${LWAN_COMMON_LIBS})
+target_link_libraries(lwan-shared
+	${LWAN_COMMON_LIBS}
+	${ADDITIONAL_LIBRARIES}
+)
 set_target_properties(lwan-shared PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 

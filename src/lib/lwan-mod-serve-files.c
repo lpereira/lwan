@@ -1064,9 +1064,7 @@ fail:
     return return_status;
 }
 
-const struct lwan_module *lwan_module_serve_files(void)
-{
-    static const struct lwan_module serve_files = {
+static const struct lwan_module module = {
         .init = serve_files_init,
         .init_from_hash = serve_files_init_from_hash,
         .shutdown = serve_files_shutdown,
@@ -1076,7 +1074,6 @@ const struct lwan_module *lwan_module_serve_files(void)
             | HANDLER_PARSE_RANGE
             | HANDLER_PARSE_ACCEPT_ENCODING
             | HANDLER_PARSE_QUERY_STRING
-    };
+};
 
-    return &serve_files;
-}
+LWAN_REGISTER_MODULE(serve_files, &module);
