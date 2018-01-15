@@ -352,10 +352,7 @@ static bool is_rate_limited(const char *ip_address)
 }
 #endif
 
-static enum lwan_http_status
-templated_output(struct lwan_request *request,
-                 struct lwan_response *response,
-                 void *data)
+LWAN_HANDLER(templated_output)
 {
     const struct template_mime *tm = data;
     const char *ip_address;
@@ -430,9 +427,15 @@ main(void)
 #endif
 
     const struct lwan_url_map default_map[] = {
-        { .prefix = "/json/", .handler = templated_output, .data = &json_tpl },
-        { .prefix = "/xml/", .handler = templated_output, .data = &xml_tpl },
-        { .prefix = "/csv/", .handler = templated_output, .data = &csv_tpl },
+        { .prefix = "/json/",
+          .handler = LWAN_HANDLER_REF(templated_output),
+          .data = &json_tpl },
+        { .prefix = "/xml/",
+          .handler = LWAN_HANDLER_REF(templated_output),
+          .data = &xml_tpl },
+        { .prefix = "/csv/",
+          .handler = LWAN_HANDLER_REF(templated_output),
+          .data = &csv_tpl },
         { .prefix = "/", SERVE_FILES("./static") },
         { .prefix = NULL }
     };

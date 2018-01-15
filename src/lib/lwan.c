@@ -54,14 +54,6 @@ static const struct lwan_config default_config = {
     .allow_post_temp_file = false,
 };
 
-static void *find_handler_symbol(const char *name)
-{
-    void *symbol = dlsym(RTLD_NEXT, name);
-    if (!symbol)
-        symbol = dlsym(RTLD_DEFAULT, name);
-    return symbol;
-}
-
 #ifdef __APPLE__
 #  define SECTION_START(name_) \
         __start_ ## name_[] __asm("section$start$__DATA$" #name_)
@@ -71,6 +63,29 @@ static void *find_handler_symbol(const char *name)
 #  define SECTION_START(name_) __start_ ## name_[]
 #  define SECTION_END(name_) __stop_ ## name_[]
 #endif
+
+LWAN_HANDLER(brew_coffee)
+{
+    /* Placeholder handler so that __start_lwan_handler and __stop_lwan_handler
+     * symbols will get defined.
+     */
+    return HTTP_I_AM_A_TEAPOT;
+}
+
+static void *find_handler(const char *name)
+{
+    extern const struct lwan_handler_info SECTION_START(lwan_handler);
+    extern const struct lwan_handler_info SECTION_END(lwan_handler);
+    const struct lwan_handler_info *handler;
+
+    for (handler = __start_lwan_handler; handler < __stop_lwan_handler;
+         handler++) {
+        if (!strcmp(handler->name, name))
+            return handler->handler;
+    }
+
+    return NULL;
+}
 
 static const struct lwan_module *find_module(const char *name)
 {
@@ -197,7 +212,7 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
                   config_error(c, "Handler already specified");
                   goto out;
               }
-              handler = find_handler_symbol(l->value);
+              handler = find_handler(l->value);
               if (!handler) {
                   config_error(c, "Could not find handler \"%s\"", l->value);
                   goto out;
@@ -307,7 +322,7 @@ static void parse_listener(struct config *c, struct config_line *l, struct lwan 
             if (l->key[0] == '&') {
                 l->key++;
 
-                void *handler = find_handler_symbol(l->key);
+                void *handler = find_handler(l->key);
                 if (handler) {
                     parse_listener_prefix(c, l, lwan, NULL, handler);
                     continue;

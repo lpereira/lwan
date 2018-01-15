@@ -48,15 +48,28 @@ extern "C" {
     extern const struct lwan_module_info lwan_module_info_##name_;
 
 #ifdef __APPLE__
-#  define LWAN_MODULE_SECTION_NAME(name_) "__DATA," # name_
+#  define LWAN_SECTION_NAME(name_) "__DATA," # name_
 #else
-#  define LWAN_MODULE_SECTION_NAME(name_) #name_
+#  define LWAN_SECTION_NAME(name_) #name_
 #endif
 
 #define LWAN_REGISTER_MODULE(name_, module_)                                   \
   const struct lwan_module_info                                                \
-      __attribute__((used, section(LWAN_MODULE_SECTION_NAME(lwan_module))))    \
+      __attribute__((used, section(LWAN_SECTION_NAME(lwan_module))))           \
           lwan_module_info_##name_ = {.name = #name_, .module = module_}
+
+#define LWAN_HANDLER_REF(name_) lwan_handler_##name_
+
+#define LWAN_HANDLER(name_)                                                    \
+    static enum lwan_http_status lwan_handler_##name_(                         \
+        struct lwan_request *, struct lwan_response *, void *data);            \
+    static const struct lwan_handler_info                                      \
+        __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
+            lwan_handler_info_##name_ = {.name = #name_,                       \
+                                         .handler = lwan_handler_##name_};     \
+    static enum lwan_http_status lwan_handler_##name_(                         \
+        struct lwan_request *request, struct lwan_response *response,          \
+        void *data)
 
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
@@ -291,6 +304,13 @@ struct lwan_module {
 struct lwan_module_info {
     const char *name;
     const struct lwan_module *module;
+};
+
+struct lwan_handler_info {
+    const char *name;
+    enum lwan_http_status (*handler)(struct lwan_request *request,
+                                     struct lwan_response *response,
+                                     void *data);
 };
 
 struct lwan_url_map {

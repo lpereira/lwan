@@ -10,7 +10,6 @@ if (SQLITE_FOUND)
 
 	target_link_libraries(freegeoip
 		${LWAN_COMMON_LIBS}
-		${CMAKE_DL_LIBS}
 		${ADDITIONAL_LIBRARIES}
 		${SQLITE_LIBRARIES}
 		${SQLITE_LDFLAGS}

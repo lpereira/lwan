@@ -134,7 +134,6 @@ endif()
 
 
 enable_c_flag_if_avail(-mtune=native C_FLAGS_REL HAS_MTUNE_NATIVE)
-enable_c_flag_if_avail(-rdynamic CMAKE_EXE_LINKER_FLAGS HAS_RDYNAMIC)
 
 #
 # Check if immediate binding and read-only global offset table flags
@@ -181,6 +180,7 @@ enable_warning_if_supported(-Wduplicated-branches)
 enable_warning_if_supported(-Wlogical-op)
 enable_warning_if_supported(-Wrestrict)
 enable_warning_if_supported(-Wdouble-promotion)
+enable_warning_if_supported(-Wno-unused-parameter)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")

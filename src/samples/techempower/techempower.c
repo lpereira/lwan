@@ -89,10 +89,7 @@ json_response(struct lwan_response *response, JsonNode *node)
     return HTTP_OK;
 }
 
-static enum lwan_http_status
-json(struct lwan_request *request __attribute__((unused)),
-     struct lwan_response *response,
-     void *data __attribute__((unused)))
+LWAN_HANDLER(json)
 {
     JsonNode *hello = json_mkobject();
     if (UNLIKELY(!hello))
@@ -128,10 +125,7 @@ out:
     return object;
 }
 
-static enum lwan_http_status
-db(struct lwan_request *request __attribute__((unused)),
-   struct lwan_response *response,
-   void *data __attribute__((unused)))
+LWAN_HANDLER(db)
 {
     struct db_row rows[1] = {{ .kind = 'i' }};
     struct db_row results[] = {{ .kind = 'i' }, { .kind = '\0' }};
@@ -149,10 +143,7 @@ db(struct lwan_request *request __attribute__((unused)),
     return json_response(response, object);
 }
 
-static enum lwan_http_status
-queries(struct lwan_request *request,
-        struct lwan_response *response,
-        void *data __attribute__((unused)))
+LWAN_HANDLER(queries)
 {
     const char *queries_str = lwan_request_get_query_param(request, "queries");
     long queries;
@@ -197,10 +188,7 @@ out_no_array:
     return HTTP_INTERNAL_ERROR;
 }
 
-static enum lwan_http_status
-plaintext(struct lwan_request *request __attribute__((unused)),
-          struct lwan_response *response,
-          void *data __attribute__((unused)))
+LWAN_HANDLER(plaintext)
 {
     strbuf_set_static(response->buffer, hello_world, sizeof(hello_world) - 1);
 
@@ -290,10 +278,7 @@ out:
     return 0;
 }
 
-static enum lwan_http_status
-fortunes(struct lwan_request *request __attribute__((unused)),
-         struct lwan_response *response,
-         void *data __attribute__((unused)))
+LWAN_HANDLER(fortunes)
 {
     struct Fortune fortune;
 
@@ -309,11 +294,11 @@ int
 main(void)
 {
     static const struct lwan_url_map url_map[] = {
-        { .prefix = "/json", .handler = json },
-        { .prefix = "/db", .handler = db },
-        { .prefix = "/queries", .handler = queries },
-        { .prefix = "/plaintext", .handler = plaintext },
-        { .prefix = "/fortunes", .handler = fortunes },
+        { .prefix = "/json", .handler = LWAN_HANDLER_REF(json) },
+        { .prefix = "/db", .handler = LWAN_HANDLER_REF(db) },
+        { .prefix = "/queries", .handler = LWAN_HANDLER_REF(queries) },
+        { .prefix = "/plaintext", .handler = LWAN_HANDLER_REF(plaintext) },
+        { .prefix = "/fortunes", .handler = LWAN_HANDLER_REF(fortunes) },
         { .prefix = NULL }
     };
     struct lwan l;

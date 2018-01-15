@@ -23,19 +23,13 @@
 
 #include "lwan.h"
 
-enum lwan_http_status
-quit_lwan(struct lwan_request *request __attribute__((unused)),
-           struct lwan_response *response __attribute__((unused)),
-           void *data __attribute__((unused)))
+LWAN_HANDLER(quit_lwan)
 {
     exit(0);
     return HTTP_OK;
 }
 
-enum lwan_http_status
-gif_beacon(struct lwan_request *request __attribute__((unused)),
-           struct lwan_response *response,
-           void *data __attribute__((unused)))
+LWAN_HANDLER(gif_beacon)
 {
     /*
      * 1x1 transparent GIF image generated with tinygif
@@ -54,10 +48,7 @@ gif_beacon(struct lwan_request *request __attribute__((unused)),
     return HTTP_OK;
 }
 
-enum lwan_http_status
-test_chunked_encoding(struct lwan_request *request,
-            struct lwan_response *response,
-            void *data __attribute__((unused)))
+LWAN_HANDLER(test_chunked_encoding)
 {
     int i;
 
@@ -77,10 +68,7 @@ test_chunked_encoding(struct lwan_request *request,
     return HTTP_OK;
 }
 
-enum lwan_http_status
-test_server_sent_event(struct lwan_request *request,
-            struct lwan_response *response,
-            void *data __attribute__((unused)))
+LWAN_HANDLER(test_server_sent_event)
 {
     int i;
 
@@ -92,10 +80,7 @@ test_server_sent_event(struct lwan_request *request,
     return HTTP_OK;
 }
 
-enum lwan_http_status
-test_proxy(struct lwan_request *request,
-           struct lwan_response *response,
-           void *data __attribute__((unused)))
+LWAN_HANDLER(test_proxy)
 {
     struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
@@ -115,9 +100,7 @@ test_proxy(struct lwan_request *request,
     return HTTP_OK;
 }
 
-enum lwan_http_status
-test_post_will_it_blend(struct lwan_request *request, struct lwan_response *response,
-    void *data __attribute__((unused)))
+LWAN_HANDLER(test_post_will_it_blend)
 {
     static const char type[] = "application/json";
     static const char request_body[] = "{\"will-it-blend\": true}";
@@ -147,9 +130,7 @@ test_post_will_it_blend(struct lwan_request *request, struct lwan_response *resp
     return HTTP_OK;
 }
 
-enum lwan_http_status
-test_post_big(struct lwan_request *request, struct lwan_response *response,
-    void *data __attribute__((unused)))
+LWAN_HANDLER(test_post_big)
 {
     static const char type[] = "x-test/trololo";
     size_t i, sum = 0;
@@ -173,10 +154,7 @@ test_post_big(struct lwan_request *request, struct lwan_response *response,
     return HTTP_OK;
 }
 
-enum lwan_http_status
-hello_world(struct lwan_request *request,
-            struct lwan_response *response,
-            void *data __attribute__((unused)))
+LWAN_HANDLER(hello_world)
 {
     static struct lwan_key_value headers[] = {
         { .key = "X-The-Answer-To-The-Universal-Question", .value = "42" },
