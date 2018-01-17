@@ -88,6 +88,19 @@ next_module:
 }
 
 static void
+print_handler_info(void)
+{
+    extern const struct lwan_handler_info SECTION_START(lwan_handler);
+    extern const struct lwan_handler_info SECTION_END(lwan_handler);
+    const struct lwan_handler_info *handler;
+
+    printf("Available handlers:\n");
+    for (handler = __start_lwan_handler; handler < __stop_lwan_handler; handler++) {
+        printf(" * %s\n", handler->name);
+    }
+}
+
+static void
 print_help(const char *argv0, const struct lwan_config *config)
 {
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
@@ -101,6 +114,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("\t-u, --user      Username to drop privileges to (root required).\n");
     printf("\t-C, --chroot    Chroot to path passed to --root (root required).\n");
     printf("\t-m, --modules   Print information about available modules.\n");
+    printf("\t-H, --handlers  Print information about available handlers.\n");
     printf("\t-h, --help      This.\n");
     printf("\n");
     printf("Examples:\n");
@@ -122,13 +136,18 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
         { .name = "chroot", .val = 'C' },
         { .name = "user", .val = 'u', .has_arg = 1 },
         { .name = "modules", .val = 'm' },
+        { .name = "handlers", .val = 'H' },
         { }
     };
     int c, optidx = 0;
     enum args result = ARGS_USE_CONFIG;
 
-    while ((c = getopt_long(argc, argv, "mhr:l:c:u:C", opts, &optidx)) != -1) {
+    while ((c = getopt_long(argc, argv, "Hmhr:l:c:u:C", opts, &optidx)) != -1) {
         switch (c) {
+        case 'H':
+            print_handler_info();
+            return ARGS_FAILED;
+
         case 'm':
             print_module_info();
             return ARGS_FAILED;
