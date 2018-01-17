@@ -54,16 +54,6 @@ static const struct lwan_config default_config = {
     .allow_post_temp_file = false,
 };
 
-#ifdef __APPLE__
-#  define SECTION_START(name_) \
-        __start_ ## name_[] __asm("section$start$__DATA$" #name_)
-#  define SECTION_END(name_) \
-        __stop_ ## name_[] __asm("section$end$__DATA$" #name_)
-#else
-#  define SECTION_START(name_) __start_ ## name_[]
-#  define SECTION_END(name_) __stop_ ## name_[]
-#endif
-
 LWAN_HANDLER(brew_coffee)
 {
     /* Placeholder handler so that __start_lwan_handler and __stop_lwan_handler

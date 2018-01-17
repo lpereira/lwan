@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-mod-serve-files.h"
 
 enum args {
@@ -31,6 +31,84 @@ enum args {
     ARGS_USE_CONFIG,
     ARGS_SERVE_FILES
 };
+
+static void
+print_module_info(void)
+{
+    extern const struct lwan_module_info SECTION_START(lwan_module);
+    extern const struct lwan_module_info SECTION_END(lwan_module);
+    const struct lwan_module_info *module;
+    struct strbuf buf;
+
+    if (!strbuf_init(&buf))
+        return;
+
+    printf("Available modules:\n");
+    for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
+        size_t len;
+
+        if (module->module->flags & HANDLER_PARSE_QUERY_STRING) {
+            if (!strbuf_append_str(&buf, "parse-query-string, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_PARSE_IF_MODIFIED_SINCE) {
+            if (!strbuf_append_str(&buf, "parse-if-modified-since, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_PARSE_RANGE) {
+            if (!strbuf_append_str(&buf, "parse-range, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_PARSE_ACCEPT_ENCODING) {
+            if (!strbuf_append_str(&buf, "parse-accept-encoding, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_PARSE_POST_DATA) {
+            if (!strbuf_append_str(&buf, "parse-post-data, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_CAN_REWRITE_URL) {
+            if (!strbuf_append_str(&buf, "can-rewrite, ", 0))
+                goto next_module;
+        }
+        if (module->module->flags & HANDLER_PARSE_COOKIES) {
+            if (!strbuf_append_str(&buf, "parse-cookies, ", 0))
+                goto next_module;
+        }
+
+        len = strbuf_get_length(&buf);
+        printf(" * %s%s%.*s%s\n", module->name, len ? " (" : "",
+               (int)(len ? (len - 2) : 0), strbuf_get_buffer(&buf),
+               len ? ")" : "");
+next_module:
+        strbuf_reset(&buf);
+    }
+
+    strbuf_free(&buf);
+}
+
+static void
+print_help(const char *argv0, const struct lwan_config *config)
+{
+    printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
+    printf("\t[--config] [--user username] [--chroot]\n");
+    printf("Serve files through HTTP.\n\n");
+    printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
+    printf("Options:\n");
+    printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
+    printf("\t-l, --listen    Listener (default: %s).\n", config->listener);
+    printf("\t-c, --config    Path to config file path.\n");
+    printf("\t-u, --user      Username to drop privileges to (root required).\n");
+    printf("\t-C, --chroot    Chroot to path passed to --root (root required).\n");
+    printf("\t-m, --modules   Print information about available modules.\n");
+    printf("\t-h, --help      This.\n");
+    printf("\n");
+    printf("Examples:\n");
+    printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv0);
+    printf("        Serve on a different port: %s -l '*:1337'\n", argv0);
+    printf("\n");
+    printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+}
 
 static enum args
 parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
@@ -43,13 +121,18 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
         { .name = "config", .has_arg = 1, .val = 'c' },
         { .name = "chroot", .val = 'C' },
         { .name = "user", .val = 'u', .has_arg = 1 },
+        { .name = "modules", .val = 'm' },
         { }
     };
     int c, optidx = 0;
     enum args result = ARGS_USE_CONFIG;
 
-    while ((c = getopt_long(argc, argv, "hr:l:c:u:C", opts, &optidx)) != -1) {
+    while ((c = getopt_long(argc, argv, "mhr:l:c:u:C", opts, &optidx)) != -1) {
         switch (c) {
+        case 'm':
+            print_module_info();
+            return ARGS_FAILED;
+
         case 'u':
             free((char *)sj->user_name);
             sj->user_name = (const char *)strdup(optarg);
@@ -85,23 +168,7 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
         }
 
         case 'h':
-            printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv[0]);
-            printf("\t[--config] [--user username] [--chroot]\n");
-            printf("Serve files through HTTP.\n\n");
-            printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
-            printf("Options:\n");
-            printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
-            printf("\t-l, --listen    Listener (default: %s).\n", config->listener);
-            printf("\t-c, --config    Path to config file path.\n");
-            printf("\t-u, --user      Username to drop privileges to (root required).\n");
-            printf("\t-C, --chroot    Chroot to path passed to --root (root required).\n");
-            printf("\t-h, --help      This.\n");
-            printf("\n");
-            printf("Examples:\n");
-            printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv[0]);
-            printf("        Serve on a different port: %s -l '*:1337'\n", argv[0]);
-            printf("\n");
-            printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+            print_help(argv[0], config);
             return ARGS_FAILED;
 
         default:

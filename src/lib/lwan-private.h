@@ -61,3 +61,13 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script);
 void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request);
 const char *lwan_lua_state_last_error(lua_State *L);
 #endif
+
+#ifdef __APPLE__
+#  define SECTION_START(name_) \
+        __start_ ## name_[] __asm("section$start$__DATA$" #name_)
+#  define SECTION_END(name_) \
+        __stop_ ## name_[] __asm("section$end$__DATA$" #name_)
+#else
+#  define SECTION_START(name_) __start_ ## name_[]
+#  define SECTION_END(name_) __stop_ ## name_[]
+#endif
