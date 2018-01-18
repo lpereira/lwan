@@ -106,7 +106,6 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
     printf("\t[--config] [--user username] [--chroot]\n");
     printf("Serve files through HTTP.\n\n");
-    printf("Defaults to listening on %s, serving from ./wwwroot.\n\n", config->listener);
     printf("Options:\n");
     printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
     printf("\t-l, --listen    Listener (default: %s).\n", config->listener);
