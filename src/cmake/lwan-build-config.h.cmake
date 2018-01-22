@@ -21,17 +21,18 @@
 
 /* API available in Glibc/Linux, but possibly not elsewhere */
 #cmakedefine HAS_ACCEPT4
-#cmakedefine HAS_GETAUXVAL
+#cmakedefine HAS_ALLOCA_H
 #cmakedefine HAS_CLOCK_GETTIME
+#cmakedefine HAS_GET_CURRENT_DIR_NAME
+#cmakedefine HAS_GETAUXVAL
 #cmakedefine HAS_MEMPCPY
 #cmakedefine HAS_MEMRCHR
+#cmakedefine HAS_MKOSTEMP
 #cmakedefine HAS_PIPE2
 #cmakedefine HAS_PTHREADBARRIER
 #cmakedefine HAS_RAWMEMCHR
 #cmakedefine HAS_READAHEAD
 #cmakedefine HAS_REALLOCARRAY
-#cmakedefine HAS_MKOSTEMP
-#cmakedefine HAS_ALLOCA_H
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

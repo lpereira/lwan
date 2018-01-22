@@ -87,6 +87,7 @@ endif ()
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
 check_function_exists(rawmemchr HAS_RAWMEMCHR)
+check_function_exists(get_current_dir_name HAS_GET_CURRENT_DIR_NAME)
 check_function_exists(reallocarray HAS_REALLOCARRAY)
 check_function_exists(mempcpy HAS_MEMPCPY)
 check_function_exists(memrchr HAS_MEMRCHR)

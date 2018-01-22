@@ -103,6 +103,10 @@ print_handler_info(void)
 static void
 print_help(const char *argv0, const struct lwan_config *config)
 {
+    char path_buf[PATH_MAX];
+    char *current_dir = get_current_dir_name();
+    const char *config_file = lwan_get_config_path(path_buf, sizeof(path_buf));
+
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
     printf("\t[--config] [--user username] [--chroot]\n");
     printf("Serve files through HTTP.\n\n");
@@ -117,10 +121,18 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("\t-h, --help      This.\n");
     printf("\n");
     printf("Examples:\n");
-    printf("  Serve system-wide documentation: %s -r /usr/share/doc\n", argv0);
-    printf("        Serve on a different port: %s -l '*:1337'\n", argv0);
+    printf("  Serve system-wide documentation:\n");
+    printf("        %s -r /usr/share/doc\n", argv0);
+    printf("  Serve on a different port:\n");
+    printf("        %s -l '*:1337'\n", argv0);
+    printf("  Use %s from %s:\n", config_file, current_dir);
+    printf("        %s\n", argv0);
+    printf("  Use /etc/%s:\n", config_file);
+    printf("        %s -c /etc/%s\n", argv0, config_file);
     printf("\n");
     printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+
+    free(current_dir);
 }
 
 static enum args

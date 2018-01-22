@@ -37,4 +37,8 @@ int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
     __attribute__((warn_unused_result));
 #endif
 
+#if !defined(HAS_GET_CURRENT_DIR_NAME)
+char *get_current_dir_name(void);
+#endif
+
 #endif /* MISSING_UNISTD_H */

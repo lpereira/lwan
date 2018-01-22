@@ -50,6 +50,8 @@ size_t lwan_prepare_response_header_full(struct lwan_request *request,
 
 void lwan_straitjacket_enforce_from_config(struct config *c);
 
+const char *lwan_get_config_path(char *path_buf, size_t path_buf_len);
+
 uint8_t lwan_char_isspace(char ch) __attribute__((pure));
 uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
 uint8_t lwan_char_isdigit(char ch) __attribute__((pure));

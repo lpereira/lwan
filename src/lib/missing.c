@@ -572,3 +572,19 @@ ssize_t readahead(int fd __attribute__((unused)),
     return 0;
 }
 #endif
+
+#if !defined(HAS_GET_CURRENT_DIR_NAME)
+#include <limits.h>
+
+char *get_current_dir_name(void)
+{
+    char buffer[PATH_MAX];
+    char *ret;
+
+    ret = getcwd(buffer, sizeof(buffer));
+    if (!ret)
+        return strdup("/");
+
+    return strdup(buffer);
+}
+#endif

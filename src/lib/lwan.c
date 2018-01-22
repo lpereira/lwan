@@ -338,7 +338,7 @@ static void parse_listener(struct config *c, struct config_line *l, struct lwan 
     config_error(c, "Expecting section end while parsing listener");
 }
 
-static const char *get_config_path(char *path_buf)
+const char *lwan_get_config_path(char *path_buf, size_t path_buf_len)
 {
     char buffer[PATH_MAX];
 
@@ -348,8 +348,8 @@ static const char *get_config_path(char *path_buf)
     char *path = strrchr(buffer, '/');
     if (!path)
         goto out;
-    int ret = snprintf(path_buf, PATH_MAX, "%s.conf", path + 1);
-    if (ret < 0 || ret >= PATH_MAX)
+    int ret = snprintf(path_buf, path_buf_len, "%s.conf", path + 1);
+    if (ret < 0 || ret >= (int)path_buf_len)
         goto out;
 
     return path_buf;
@@ -366,7 +366,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     char path_buf[PATH_MAX];
 
     if (!path)
-        path = get_config_path(path_buf);
+        path = lwan_get_config_path(path_buf, sizeof(path_buf));
     lwan_status_info("Loading configuration file: %s", path);
 
     conf = config_open(path);
