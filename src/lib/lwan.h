@@ -68,8 +68,9 @@ extern "C" {
             lwan_handler_info_##name_ = {.name = #name_,                       \
                                          .handler = lwan_handler_##name_};     \
     static enum lwan_http_status lwan_handler_##name_(                         \
-        struct lwan_request *request, struct lwan_response *response,          \
-        void *data)
+        struct lwan_request *request __attribute__((unused)),                  \
+        struct lwan_response *response __attribute__((unused)),                \
+        void *data __attribute__((unused)))
 
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
