@@ -582,9 +582,6 @@ char *get_current_dir_name(void)
     char *ret;
 
     ret = getcwd(buffer, sizeof(buffer));
-    if (!ret)
-        return strdup("/");
-
-    return strdup(buffer);
+    return strdup(ret ? ret : "/");
 }
 #endif
