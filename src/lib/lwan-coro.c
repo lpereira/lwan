@@ -34,7 +34,7 @@
 #include <valgrind/valgrind.h>
 #endif
 
-#if PTHREAD_STACK_MIN <= 2048
+#if PTHREAD_STACK_MIN <= 16384
 #  undef PTHREAD_STACK_MIN
 #  define PTHREAD_STACK_MIN 16384
 #endif
