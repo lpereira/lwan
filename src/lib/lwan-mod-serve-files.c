@@ -922,8 +922,8 @@ sendfile_serve(struct lwan_request *request, void *data)
 }
 
 static enum lwan_http_status
-serve_contents_and_size(struct lwan_request *request, struct file_cache_entry *fce,
-    const char *compression_type, const void *contents, size_t size)
+serve_buffer(struct lwan_request *request, struct file_cache_entry *fce,
+             const char *compression_type, const void *contents, size_t size)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
@@ -971,7 +971,7 @@ mmap_serve(struct lwan_request *request, void *data)
         compressed = compression_none;
     }
 
-    return serve_contents_and_size(request, fce, compressed, contents, size);
+    return serve_buffer(request, fce, compressed, contents, size);
 }
 
 static enum lwan_http_status
@@ -1003,7 +1003,7 @@ dirlist_serve(struct lwan_request *request, void *data)
         return HTTP_NOT_FOUND;
     }
 
-    return serve_contents_and_size(request, fce, compression_none, contents, size);
+    return serve_buffer(request, fce, compression_none, contents, size);
 }
 
 static enum lwan_http_status
@@ -1065,15 +1065,15 @@ fail:
 }
 
 static const struct lwan_module module = {
-        .init = serve_files_init,
-        .init_from_hash = serve_files_init_from_hash,
-        .shutdown = serve_files_shutdown,
-        .handle = serve_files_handle_cb,
-        .flags = HANDLER_REMOVE_LEADING_SLASH
-            | HANDLER_PARSE_IF_MODIFIED_SINCE
-            | HANDLER_PARSE_RANGE
-            | HANDLER_PARSE_ACCEPT_ENCODING
-            | HANDLER_PARSE_QUERY_STRING
+    .init = serve_files_init,
+    .init_from_hash = serve_files_init_from_hash,
+    .shutdown = serve_files_shutdown,
+    .handle = serve_files_handle_cb,
+    .flags = HANDLER_REMOVE_LEADING_SLASH
+        | HANDLER_PARSE_IF_MODIFIED_SINCE
+        | HANDLER_PARSE_RANGE
+        | HANDLER_PARSE_ACCEPT_ENCODING
+        | HANDLER_PARSE_QUERY_STRING
 };
 
 LWAN_REGISTER_MODULE(serve_files, &module);
