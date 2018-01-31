@@ -118,36 +118,44 @@ fallback:
     return "application/octet-stream";
 }
 
+#define STATUS(code_, status_, description_)                                   \
+    [code_] = {.status = #code_ " " status_, .description = description_}
+static const struct {
+    const char *status;
+    const char *description;
+} status_table[] = {
+    STATUS(200, "OK", "Success!"),
+    STATUS(206, "Partial content", "Delivering part of requested resource."),
+    STATUS(301, "Moved permanently", "This content has moved to another place."),
+    STATUS(304, "Not modified", "The content has not changed since previous request."),
+    STATUS(400, "Bad request", "The client has issued a bad request."),
+    STATUS(401, "Not authorized", "Client has no authorization to access this resource."),
+    STATUS(403, "Forbidden", "Access to this resource has been denied."),
+    STATUS(404, "Not found", "The requested resource could not be found on this server."),
+    STATUS(405, "Not allowed", "The requested method is not allowed by this server."),
+    STATUS(408, "Request timeout", "Client did not produce a request within expected timeframe."),
+    STATUS(413, "Request too large", "The request entity is too large."),
+    STATUS(416, "Requested range unsatisfiable", "The server can't supply the requested portion of the requested resource."),
+    STATUS(418, "I'm a teapot", "Client requested to brew coffee but device is a teapot."),
+    STATUS(420, "Client too high", "Client is too high to make a request."),
+    STATUS(500, "Internal server error", "The server encountered an internal error that couldn't be recovered from."),
+    STATUS(501, "Not implemented", "Server lacks the ability to fulfil the request."),
+    STATUS(503, "Service unavailable", "The server is either overloaded or down for maintenance."),
+    STATUS(520, "Server too high", "The server is too high to answer the request."),
+};
+#undef STATUS
+
 const char *
 lwan_http_status_as_string_with_code(enum lwan_http_status status)
 {
-    const char *ret;
+    if (LIKELY(status < N_ELEMENTS(status_table))) {
+        const char *ret = status_table[status].status;
 
-#define RESP(code,description)		[code] = #code " " description
-    static const char *responses[] = {
-        RESP(200, "OK"),
-        RESP(206, "Partial content"),
-        RESP(301, "Moved permanently"),
-        RESP(304, "Not modified"),
-        RESP(400, "Bad request"),
-        RESP(401, "Not authorized"),
-        RESP(403, "Forbidden"),
-        RESP(404, "Not found"),
-        RESP(405, "Not allowed"),
-        RESP(408, "Request timeout"),
-        RESP(413, "Request too large"),
-        RESP(416, "Requested range unsatisfiable"),
-        RESP(418, "I'm a teapot"),
-        RESP(420, "Client too high"),
-        RESP(500, "Internal server error"),
-        RESP(501, "Not implemented"),
-        RESP(503, "Service unavailable"),
-        RESP(520, "Server too high"),
-    };
-#undef RESP
+        if (LIKELY(ret))
+            return ret;
+    }
 
-    ret = LIKELY(status < N_ELEMENTS(responses)) ? responses[status] : NULL;
-    return LIKELY(ret) ? ret : "999 Invalid";
+    return "999 Invalid";
 }
 
 ALWAYS_INLINE const char *
@@ -159,44 +167,13 @@ lwan_http_status_as_string(enum lwan_http_status status)
 const char *
 lwan_http_status_as_descriptive_string(enum lwan_http_status status)
 {
-    switch (status) {
-    case HTTP_OK:
-        return "Success!";
-    case HTTP_PARTIAL_CONTENT:
-        return "Delivering part of requested resource.";
-    case HTTP_MOVED_PERMANENTLY:
-        return "This content has moved to another place.";
-    case HTTP_NOT_MODIFIED:
-        return "The content has not changed since previous request.";
-    case HTTP_BAD_REQUEST:
-        return "The client has issued a bad request.";
-    case HTTP_NOT_AUTHORIZED:
-        return "Client has no authorization to access this resource.";
-    case HTTP_FORBIDDEN:
-        return "Access to this resource has been denied.";
-    case HTTP_NOT_FOUND:
-        return "The requested resource could not be found on this server.";
-    case HTTP_NOT_ALLOWED:
-        return "The requested method is not allowed by this server.";
-    case HTTP_TIMEOUT:
-        return "Client did not produce a request within expected timeframe.";
-    case HTTP_TOO_LARGE:
-        return "The request entity is too large.";
-    case HTTP_RANGE_UNSATISFIABLE:
-        return "The server can't supply the requested portion of the requested resource.";
-    case HTTP_I_AM_A_TEAPOT:
-        return "Client requested to brew coffee but device is a teapot.";
-    case HTTP_CLIENT_TOO_HIGH:
-        return "Client is too high to make a request.";
-    case HTTP_INTERNAL_ERROR:
-        return "The server encountered an internal error that couldn't be recovered from.";
-    case HTTP_NOT_IMPLEMENTED:
-        return "Server lacks the ability to fulfil the request.";
-    case HTTP_UNAVAILABLE:
-        return "The server is either overloaded or down for maintenance.";
-    case HTTP_SERVER_TOO_HIGH:
-        return "The server is too high to answer the request.";
+    if (LIKELY(status < N_ELEMENTS(status_table))) {
+        const char *ret = status_table[status].description;
+
+        if (LIKELY(ret))
+            return ret;
     }
+
     return "Invalid";
 }
 
