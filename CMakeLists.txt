@@ -192,10 +192,7 @@ add_definitions("-D_FILE_OFFSET_BITS=64")
 if (APPLE)
 	set(LWAN_COMMON_LIBS -Wl,-force_load lwan-static)
 else ()
-	set(LWAN_COMMON_LIBS
-		-Wl,-whole-archive lwan-static -Wl,-no-whole-archive
-		-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/lib/liblwan.sym
-	)
+	set(LWAN_COMMON_LIBS -Wl,-whole-archive lwan-static -Wl,-no-whole-archive)
 endif ()
 
 include_directories(src/lib)

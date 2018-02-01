@@ -51,6 +51,12 @@ target_link_libraries(lwan-shared
 	${LWAN_COMMON_LIBS}
 	${ADDITIONAL_LIBRARIES}
 )
+if (NOT APPLE)
+	target_link_libraries(lwan-shared
+		-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/liblwan.sym
+	)
+endif ()
+
 set_target_properties(lwan-shared PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 
