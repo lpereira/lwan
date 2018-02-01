@@ -240,7 +240,7 @@ Some other distribution channels were made available as well:
 * A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://hub.docker.com/r/jaxgeller/lwan/).
 * A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
 * Lwan is also available as a package in [Biicode](http://docs.biicode.com/c++/examples/lwan.html).
-* User packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/) and [Ubuntu](https://launchpad.net/lwan-unofficial).
+* Packages for [Arch Linux](https://aur.archlinux.org/packages/lwan-git/), [Ubuntu](https://launchpad.net/lwan-unofficial), and [Alpine Linux](https://pkgs.alpinelinux.org/package/edge/testing/x86_64/lwan) are available.
 
 Lwan has been also used as a benchmark:
 
