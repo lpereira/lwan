@@ -24,9 +24,8 @@
 #include "lwan-mod-redirect.h"
 
 static enum lwan_http_status
-redirect_handle_cb(struct lwan_request *request,
-                   struct lwan_response *response,
-                   void *data)
+redirect_handle_request(struct lwan_request *request,
+                        struct lwan_response *response, void *instance)
 {
     if (UNLIKELY(!data))
         return HTTP_INTERNAL_ERROR;
@@ -45,26 +44,29 @@ redirect_handle_cb(struct lwan_request *request,
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static void *redirect_init(const char *prefix __attribute__((unused)), void *data)
+static void *redirect_new(const char *prefix __attribute__((unused)),
+                                   void *instance)
 {
-    struct lwan_redirect_settings *settings = data;
+    struct lwan_redirect_settings *settings = instance;
+
     return (settings->to) ? strdup(settings->to) : NULL;
 }
 
-static void *redirect_init_from_hash(const char *prefix, const struct hash *hash)
+static void *redirect_new_from_hash(const char *prefix,
+                                             const struct hash *hash)
 {
     struct lwan_redirect_settings settings = {
         .to = hash_find(hash, "to")
     };
-    return redirect_init(prefix, &settings);
+
+    return redirect_new(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .init = redirect_init,
-    .init_from_hash = redirect_init_from_hash,
-    .shutdown = free,
-    .handle = redirect_handle_cb,
-    .flags = 0
+    .new = redirect_new,
+    .new_from_hash = redirect_new_from_hash,
+    .free = free,
+    .handle_request = redirect_handle_request,
 };
 
 LWAN_REGISTER_MODULE(redirect, &module);

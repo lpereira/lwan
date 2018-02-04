@@ -169,11 +169,11 @@ static lua_State *push_newthread(lua_State *L, struct coro *coro)
 }
 
 static enum lwan_http_status
-lua_handle_cb(struct lwan_request *request,
+lua_handle_request(struct lwan_request *request,
               struct lwan_response *response,
-              void *data)
+              void *instance)
 {
-    struct lwan_lua_priv *priv = data;
+    struct lwan_lua_priv *priv = instance;
 
     if (UNLIKELY(!priv))
         return HTTP_INTERNAL_ERROR;
@@ -212,7 +212,7 @@ lua_handle_cb(struct lwan_request *request,
     }
 }
 
-static void *lua_init(const char *prefix __attribute__((unused)), void *data)
+static void *lua_new(const char *prefix __attribute__((unused)), void *data)
 {
     struct lwan_lua_settings *settings = data;
     struct lwan_lua_priv *priv;
@@ -264,9 +264,10 @@ error:
     return NULL;
 }
 
-static void lua_shutdown(void *data)
+static void lua_free(void *instance)
 {
-    struct lwan_lua_priv *priv = data;
+    struct lwan_lua_priv *priv = instance;
+
     if (priv) {
         pthread_key_delete(priv->cache_key);
         free(priv->default_type);
@@ -276,7 +277,7 @@ static void lua_shutdown(void *data)
     }
 }
 
-static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
+static void *lua_new_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_lua_settings settings = {
         .default_type = hash_find(hash, "default_type"),
@@ -284,14 +285,14 @@ static void *lua_init_from_hash(const char *prefix, const struct hash *hash)
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
         .script = hash_find(hash, "script")
     };
-    return lua_init(prefix, &settings);
+    return lua_new(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .init = lua_init,
-    .init_from_hash = lua_init_from_hash,
-    .shutdown = lua_shutdown,
-    .handle = lua_handle_cb,
+    .new = lua_new,
+    .new_from_hash = lua_new_from_hash,
+    .free = lua_free,
+    .handle_request = lua_handle_request,
     .flags = HANDLER_PARSE_QUERY_STRING
         | HANDLER_REMOVE_LEADING_SLASH
         | HANDLER_PARSE_COOKIES

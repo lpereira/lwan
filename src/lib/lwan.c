@@ -97,8 +97,9 @@ static void destroy_urlmap(void *data)
 
     if (url_map->module) {
         const struct lwan_module *module = url_map->module;
-        if (module->shutdown)
-            module->shutdown(url_map->data);
+
+        if (module->free)
+            module->free(url_map->data);
     } else if (url_map->data && url_map->flags & HANDLER_DATA_IS_HASH_TABLE) {
         hash_free(url_map->data);
     }
@@ -248,15 +249,17 @@ add_map:
         url_map.module = NULL;
 
         hash = NULL;
-    } else if (module && module->init_from_hash && module->handle) {
-        url_map.data = module->init_from_hash(prefix, hash);
+    } else if (module && module->new_from_hash && module->handle_request) {
+        url_map.data = module->new_from_hash(prefix, hash);
+
         if (module->parse_conf && !module->parse_conf(url_map.data, isolated)) {
             const char *msg = config_last_error(isolated);
 
             config_error(c, "Error from module: %s", msg ? msg : "Unknown");
             goto out;
         }
-        url_map.handler = module->handle;
+
+        url_map.handler = module->handle_request;
         url_map.flags |= module->flags;
         url_map.module = module;
     } else {
@@ -283,10 +286,10 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
         if (UNLIKELY(!copy))
             continue;
 
-        if (copy->module && copy->module->init) {
-            copy->data = copy->module->init(map->prefix, copy->args);
+        if (copy->module && copy->module->new) {
+            copy->data = copy->module->new(map->prefix, copy->args);
             copy->flags = copy->module->flags;
-            copy->handler = copy->module->handle;
+            copy->handler = copy->module->handle_request;
         } else {
             copy->flags = HANDLER_PARSE_MASK;
         }

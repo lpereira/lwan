@@ -294,11 +294,16 @@ struct lwan_request {
 };
 
 struct lwan_module {
-    void *(*init)(const char *prefix, void *args);
-    void *(*init_from_hash)(const char *prefix, const struct hash *hash);
-    void (*shutdown)(void *data);
-    bool (*parse_conf)(void *data, struct config *config);
-    enum lwan_http_status (*handle)(struct lwan_request *request, struct lwan_response *response, void *data);
+    void *(*new)(const char *prefix, void *args);
+    void *(*new_from_hash)(const char *prefix, const struct hash *hash);
+    void (*free)(void *instance);
+
+    bool (*parse_conf)(void *instance, struct config *config);
+
+    enum lwan_http_status (*handle_request)(struct lwan_request *request,
+                                            struct lwan_response *response,
+                                            void *instance);
+
     enum lwan_handler_flags flags;
 };
 

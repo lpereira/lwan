@@ -212,12 +212,12 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
 #endif
 
 static enum lwan_http_status
-module_handle_cb(struct lwan_request *request,
-    struct lwan_response *response __attribute__((unused)), void *data)
+rewrite_handle_request(struct lwan_request *request,
+    struct lwan_response *response __attribute__((unused)), void *instance)
 {
+    struct private_data *pd = instance;
     const char *url = request->url.value;
     char final_url[PATH_MAX];
-    struct private_data *pd = data;
     struct pattern *p;
 
     if (UNLIKELY(!pd))
@@ -243,8 +243,8 @@ module_handle_cb(struct lwan_request *request,
 }
 
 static void *
-module_init(const char *prefix __attribute__((unused)),
-    void *data __attribute__((unused)))
+rewrite_new(const char *prefix __attribute__((unused)),
+                     void *instance __attribute__((unused)))
 {
     struct private_data *pd = malloc(sizeof(*pd));
 
@@ -256,9 +256,9 @@ module_init(const char *prefix __attribute__((unused)),
 }
 
 static void
-module_shutdown(void *data)
+rewrite_free(void *instance)
 {
-    struct private_data *pd = data;
+    struct private_data *pd = instance;
     struct pattern *iter, *next;
 
     list_for_each_safe(&pd->patterns, iter, next, list) {
@@ -271,14 +271,16 @@ module_shutdown(void *data)
 }
 
 static void *
-module_init_from_hash(const char *prefix,
-    const struct hash *hash __attribute__((unused)))
+rewrite_new_from_hash(const char *prefix,
+                               const struct hash *hash __attribute__((unused)))
 {
-    return module_init(prefix, NULL);
+    return rewrite_new(prefix, NULL);
 }
 
 static bool
-module_parse_conf_pattern(struct private_data *pd, struct config *config, struct config_line *line)
+rewrite_parse_conf_pattern(struct private_data *pd,
+                           struct config *config,
+                           struct config_line *line)
 {
     struct pattern *pattern;
     char *redirect_to = NULL, *rewrite_as = NULL;
@@ -358,9 +360,9 @@ out_no_free:
 }
 
 static bool
-module_parse_conf(void *data, struct config *config)
+rewrite_parse_conf(void *instance, struct config *config)
 {
-    struct private_data *pd = data;
+    struct private_data *pd = instance;
     struct config_line line;
 
     while (config_read_line(config, &line)) {
@@ -370,7 +372,7 @@ module_parse_conf(void *data, struct config *config)
             break;
         case CONFIG_LINE_TYPE_SECTION:
             if (streq(line.key, "pattern")) {
-                module_parse_conf_pattern(pd, config, &line);
+                rewrite_parse_conf_pattern(pd, config, &line);
             } else {
                 config_error(config, "Unknown section: %s", line.key);
             }
@@ -384,11 +386,11 @@ module_parse_conf(void *data, struct config *config)
 }
 
 static const struct lwan_module module = {
-    .init = module_init,
-    .init_from_hash = module_init_from_hash,
-    .parse_conf = module_parse_conf,
-    .shutdown = module_shutdown,
-    .handle = module_handle_cb,
+    .new = rewrite_new,
+    .new_from_hash = rewrite_new_from_hash,
+    .parse_conf = rewrite_parse_conf,
+    .free = rewrite_free,
+    .handle_request = rewrite_handle_request,
     .flags = HANDLER_CAN_REWRITE_URL
 };
 

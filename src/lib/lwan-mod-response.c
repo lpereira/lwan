@@ -24,21 +24,23 @@
 #include "lwan-mod-response.h"
 
 static enum lwan_http_status
-response_handle(struct lwan_request *request __attribute__((unused)),
-    struct lwan_response *response __attribute__((unused)),
-    void *data)
+response_handle_request(struct lwan_request *request __attribute__((unused)),
+                        struct lwan_response *response __attribute__((unused)),
+                        void *instance)
 {
-    return (enum lwan_http_status)data;
+    return (enum lwan_http_status)instance;
 }
 
-static void *response_init(const char *prefix __attribute__((unused)), void *data)
+static void *response_new(const char *prefix __attribute__((unused)),
+                                   void *instance)
 {
-    struct lwan_response_settings *settings = data;
+    struct lwan_response_settings *settings = instance;
 
     return (void *)settings->code;
 }
 
-static void *response_init_from_hash(const char *prefix, const struct hash *hash)
+static void *response_new_from_hash(const char *prefix,
+                                             const struct hash *hash)
 {
     const char *code = hash_find(hash, "code");
 
@@ -56,15 +58,13 @@ static void *response_init_from_hash(const char *prefix, const struct hash *hash
         return NULL;
     }
 
-    return response_init(prefix, &settings);
+    return response_new(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .init = response_init,
-    .init_from_hash = response_init_from_hash,
-    .shutdown = NULL,
-    .handle = response_handle,
-    .flags = 0
+    .new = response_new,
+    .new_from_hash = response_new_from_hash,
+    .handle_request = response_handle_request,
 };
 
 LWAN_REGISTER_MODULE(response, &module);

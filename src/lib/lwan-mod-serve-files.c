@@ -671,7 +671,7 @@ redir_free(void *data)
 }
 
 static void *
-serve_files_init(const char *prefix, void *args)
+serve_files_new(const char *prefix, void *args)
 {
     struct lwan_serve_files_settings *settings = args;
     char *canonical_root;
@@ -752,7 +752,7 @@ out_realpath:
 }
 
 static void *
-serve_files_init_from_hash(const char *prefix, const struct hash *hash)
+serve_files_new_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_serve_files_settings settings = {
         .root_path = hash_find(hash, "path"),
@@ -762,11 +762,12 @@ serve_files_init_from_hash(const char *prefix, const struct hash *hash)
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template")
     };
-    return serve_files_init(prefix, &settings);
+
+    return serve_files_new(prefix, &settings);
 }
 
 static void
-serve_files_shutdown(void *data)
+serve_files_free(void *data)
 {
     struct serve_files_priv *priv = data;
 
@@ -1036,10 +1037,10 @@ redir_serve(struct lwan_request *request, void *data)
 }
 
 static enum lwan_http_status
-serve_files_handle_cb(struct lwan_request *request, struct lwan_response *response, void *data)
+serve_files_handle_request(struct lwan_request *request, struct lwan_response *response, void *instance)
 {
     enum lwan_http_status return_status = HTTP_NOT_FOUND;
-    struct serve_files_priv *priv = data;
+    struct serve_files_priv *priv = instance;
     struct cache_entry *ce;
 
     if (UNLIKELY(!priv)) {
@@ -1065,10 +1066,10 @@ fail:
 }
 
 static const struct lwan_module module = {
-    .init = serve_files_init,
-    .init_from_hash = serve_files_init_from_hash,
-    .shutdown = serve_files_shutdown,
-    .handle = serve_files_handle_cb,
+    .new = serve_files_new,
+    .new_from_hash = serve_files_new_from_hash,
+    .free = serve_files_free,
+    .handle_request = serve_files_handle_request,
     .flags = HANDLER_REMOVE_LEADING_SLASH
         | HANDLER_PARSE_IF_MODIFIED_SINCE
         | HANDLER_PARSE_RANGE
