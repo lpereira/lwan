@@ -108,7 +108,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     const char *config_file = lwan_get_config_path(path_buf, sizeof(path_buf));
 
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
-    printf("\t[--config] [--user username] [--chroot]\n");
+    printf("\t[--config] [--user username] [--chroot] [--modules|--handlers]\n");
     printf("Serve files through HTTP.\n\n");
     printf("Options:\n");
     printf("\t-r, --root      Path to serve files from (default: ./wwwroot).\n");
