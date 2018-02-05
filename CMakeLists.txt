@@ -135,6 +135,7 @@ endif()
 
 
 enable_c_flag_if_avail(-mtune=native C_FLAGS_REL HAS_MTUNE_NATIVE)
+enable_c_flag_if_avail(-march=native C_FLAGS_REL HAS_MARCH_NATIVE)
 
 #
 # Check if immediate binding and read-only global offset table flags
