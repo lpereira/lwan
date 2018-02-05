@@ -27,7 +27,7 @@ static enum lwan_http_status
 redirect_handle_request(struct lwan_request *request,
                         struct lwan_response *response, void *instance)
 {
-    if (UNLIKELY(!data))
+    if (UNLIKELY(!instance))
         return HTTP_INTERNAL_ERROR;
 
     struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
@@ -35,7 +35,7 @@ redirect_handle_request(struct lwan_request *request,
         return HTTP_INTERNAL_ERROR;
 
     headers[0].key = "Location";
-    headers[0].value = data;
+    headers[0].value = instance;
     headers[1].key = NULL;
     headers[1].value = NULL;
 
