@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -47,7 +48,7 @@ struct lwan_lua_state {
 };
 
 static struct cache_entry *state_create(const char *key __attribute__((unused)),
-        void *context)
+                                        void *context)
 {
     struct lwan_lua_priv *priv = context;
     struct lwan_lua_state *state = malloc(sizeof(*state));
@@ -64,7 +65,7 @@ static struct cache_entry *state_create(const char *key __attribute__((unused)),
 }
 
 static void state_destroy(struct cache_entry *entry,
-        void *context __attribute__((unused)))
+                          void *context __attribute__((unused)))
 {
     struct lwan_lua_state *state = (struct lwan_lua_state *)entry;
 
@@ -75,15 +76,18 @@ static void state_destroy(struct cache_entry *entry,
 static struct cache *get_or_create_cache(struct lwan_lua_priv *priv)
 {
     struct cache *cache = pthread_getspecific(priv->cache_key);
+
     if (UNLIKELY(!cache)) {
         lwan_status_debug("Creating cache for this thread");
-        cache = cache_create(state_create, state_destroy, priv, priv->cache_period);
+        cache =
+            cache_create(state_create, state_destroy, priv, priv->cache_period);
         if (UNLIKELY(!cache))
             lwan_status_error("Could not create cache");
         /* FIXME: This cache instance leaks: store it somewhere and
          * free it on module shutdown */
         pthread_setspecific(priv->cache_key, cache);
     }
+
     return cache;
 }
 
@@ -91,10 +95,12 @@ static void unref_thread(void *data1, void *data2)
 {
     lua_State *L = data1;
     int thread_ref = (int)(intptr_t)data2;
+
     luaL_unref(L, LUA_REGISTRYINDEX, thread_ref);
 }
 
-static ALWAYS_INLINE const char *get_handle_prefix(struct lwan_request *request, size_t *len)
+static ALWAYS_INLINE const char *get_handle_prefix(struct lwan_request *request,
+                                                   size_t *len)
 {
     switch (lwan_request_get_method(request)) {
     case REQUEST_METHOD_GET:
@@ -159,19 +165,20 @@ static bool get_handler_function(lua_State *L, struct lwan_request *request)
 static lua_State *push_newthread(lua_State *L, struct coro *coro)
 {
     lua_State *L1 = lua_newthread(L);
+
     if (UNLIKELY(!L1))
         return NULL;
 
     int thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    coro_defer2(coro, CORO_DEFER2(unref_thread), L, (void *)(intptr_t)thread_ref);
+    coro_defer2(coro, CORO_DEFER2(unref_thread), L,
+                (void *)(intptr_t)thread_ref);
 
     return L1;
 }
 
-static enum lwan_http_status
-lua_handle_request(struct lwan_request *request,
-              struct lwan_response *response,
-              void *instance)
+static enum lwan_http_status lua_handle_request(struct lwan_request *request,
+                                                struct lwan_response *response,
+                                                void *instance)
 {
     struct lwan_lua_priv *priv = instance;
 
@@ -182,7 +189,8 @@ lua_handle_request(struct lwan_request *request,
     if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;
 
-    struct lwan_lua_state *state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
+    struct lwan_lua_state *state =
+        (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
             cache, request->conn->coro, "");
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
@@ -223,8 +231,8 @@ static void *lua_new(const char *prefix __attribute__((unused)), void *data)
         return NULL;
     }
 
-    priv->default_type = strdup(
-        settings->default_type ? settings->default_type : "text/plain");
+    priv->default_type =
+        strdup(settings->default_type ? settings->default_type : "text/plain");
     if (!priv->default_type) {
         lwan_status_perror("strdup");
         goto error;
@@ -261,6 +269,7 @@ error:
     free(priv->default_type);
     free(priv->script);
     free(priv);
+
     return NULL;
 }
 
@@ -285,6 +294,7 @@ static void *lua_new_from_hash(const char *prefix, const struct hash *hash)
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
         .script = hash_find(hash, "script")
     };
+
     return lua_new(prefix, &settings);
 }
 
@@ -293,9 +303,8 @@ static const struct lwan_module module = {
     .new_from_hash = lua_new_from_hash,
     .free = lua_free,
     .handle_request = lua_handle_request,
-    .flags = HANDLER_PARSE_QUERY_STRING
-        | HANDLER_REMOVE_LEADING_SLASH
-        | HANDLER_PARSE_COOKIES
+    .flags = HANDLER_PARSE_QUERY_STRING | HANDLER_REMOVE_LEADING_SLASH |
+             HANDLER_PARSE_COOKIES
 };
 
 LWAN_REGISTER_MODULE(lua, &module);

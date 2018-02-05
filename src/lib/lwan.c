@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -110,7 +111,8 @@ static void destroy_urlmap(void *data)
     free(url_map);
 }
 
-static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix, const struct lwan_url_map *map)
+static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
+                                        const struct lwan_url_map *map)
 {
     struct lwan_url_map *copy = malloc(sizeof(*copy));
 
@@ -127,7 +129,8 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
 }
 
 static void parse_listener_prefix_authorization(struct config *c,
-                    struct config_line *l, struct lwan_url_map *url_map)
+                                                struct config_line *l,
+                                                struct lwan_url_map *url_map)
 {
     if (!streq(l->value, "basic")) {
         config_error(c, "Only basic authorization supported");
@@ -171,10 +174,12 @@ error:
     free(url_map->authorization.password_file);
 }
 
-static void parse_listener_prefix(struct config *c, struct config_line *l, struct lwan *lwan,
-    const struct lwan_module *module, void *handler)
+static void parse_listener_prefix(struct config *c, struct config_line *l,
+                                  struct lwan *lwan,
+                                  const struct lwan_module *module,
+                                  void *handler)
 {
-    struct lwan_url_map url_map = { };
+    struct lwan_url_map url_map = {};
     struct hash *hash = hash_str_new(free, free);
     char *prefix = strdupa(l->value);
     struct config *isolated;
@@ -186,47 +191,47 @@ static void parse_listener_prefix(struct config *c, struct config_line *l, struc
     }
 
     while (config_read_line(c, l)) {
-      switch (l->type) {
-      case CONFIG_LINE_TYPE_LINE:
-          if (streq(l->key, "module")) {
-              if (module) {
-                  config_error(c, "Module already specified");
-                  goto out;
-              }
-              module = find_module(l->value);
-              if (!module) {
-                  config_error(c, "Could not find module \"%s\"", l->value);
-                  goto out;
-              }
-          } else if (streq(l->key, "handler")) {
-              if (handler) {
-                  config_error(c, "Handler already specified");
-                  goto out;
-              }
-              handler = find_handler(l->value);
-              if (!handler) {
-                  config_error(c, "Could not find handler \"%s\"", l->value);
-                  goto out;
-              }
-          } else {
-              hash_add(hash, strdup(l->key), strdup(l->value));
-          }
+        switch (l->type) {
+        case CONFIG_LINE_TYPE_LINE:
+            if (streq(l->key, "module")) {
+                if (module) {
+                    config_error(c, "Module already specified");
+                    goto out;
+                }
+                module = find_module(l->value);
+                if (!module) {
+                    config_error(c, "Could not find module \"%s\"", l->value);
+                    goto out;
+                }
+            } else if (streq(l->key, "handler")) {
+                if (handler) {
+                    config_error(c, "Handler already specified");
+                    goto out;
+                }
+                handler = find_handler(l->value);
+                if (!handler) {
+                    config_error(c, "Could not find handler \"%s\"", l->value);
+                    goto out;
+                }
+            } else {
+                hash_add(hash, strdup(l->key), strdup(l->value));
+            }
 
-          break;
-      case CONFIG_LINE_TYPE_SECTION:
-          if (streq(l->key, "authorization")) {
-              parse_listener_prefix_authorization(c, l, &url_map);
-          } else {
-              if (!config_skip_section(c, l)) {
-                  config_error(c, "Could not skip section");
-                  goto out;
-              }
-          }
+            break;
+        case CONFIG_LINE_TYPE_SECTION:
+            if (streq(l->key, "authorization")) {
+                parse_listener_prefix_authorization(c, l, &url_map);
+            } else {
+                if (!config_skip_section(c, l)) {
+                    config_error(c, "Could not skip section");
+                    goto out;
+                }
+            }
 
-          break;
-      case CONFIG_LINE_TYPE_SECTION_END:
-          goto add_map;
-      }
+            break;
+        case CONFIG_LINE_TYPE_SECTION_END:
+            goto add_map;
+        }
     }
 
     config_error(c, "Expecting section end while parsing prefix");
@@ -287,7 +292,7 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
             continue;
 
         if (copy->module && copy->module->new) {
-            copy->data = copy->module->new(map->prefix, copy->args);
+            copy->data = copy->module->new (map->prefix, copy->args);
             copy->flags = copy->module->flags;
             copy->handler = copy->module->handle_request;
         } else {
@@ -296,7 +301,8 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
     }
 }
 
-static void parse_listener(struct config *c, struct config_line *l, struct lwan *lwan)
+static void parse_listener(struct config *c, struct config_line *l,
+                           struct lwan *lwan)
 {
     free(lwan->config.listener);
     lwan->config.listener = strdup(l->value);
@@ -383,40 +389,45 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
         switch (line.type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(line.key, "keep_alive_timeout")) {
-                lwan->config.keep_alive_timeout = (unsigned short)parse_long(line.value,
-                            default_config.keep_alive_timeout);
+                lwan->config.keep_alive_timeout = (unsigned short)parse_long(
+                    line.value, default_config.keep_alive_timeout);
             } else if (streq(line.key, "quiet")) {
-                lwan->config.quiet = parse_bool(line.value,
-                            default_config.quiet);
+                lwan->config.quiet =
+                    parse_bool(line.value, default_config.quiet);
             } else if (streq(line.key, "reuse_port")) {
-                lwan->config.reuse_port = parse_bool(line.value,
-                            default_config.reuse_port);
+                lwan->config.reuse_port =
+                    parse_bool(line.value, default_config.reuse_port);
             } else if (streq(line.key, "proxy_protocol")) {
-                lwan->config.proxy_protocol = parse_bool(line.value,
-                            default_config.proxy_protocol);
+                lwan->config.proxy_protocol =
+                    parse_bool(line.value, default_config.proxy_protocol);
             } else if (streq(line.key, "allow_cors")) {
-                lwan->config.allow_cors = parse_bool(line.value,
-                            default_config.allow_cors);
+                lwan->config.allow_cors =
+                    parse_bool(line.value, default_config.allow_cors);
             } else if (streq(line.key, "expires")) {
-                lwan->config.expires = parse_time_period(line.value,
-                            default_config.expires);
+                lwan->config.expires =
+                    parse_time_period(line.value, default_config.expires);
             } else if (streq(line.key, "error_template")) {
                 free(lwan->config.error_template);
                 lwan->config.error_template = strdup(line.value);
             } else if (streq(line.key, "threads")) {
-                long n_threads = parse_long(line.value, default_config.n_threads);
+                long n_threads =
+                    parse_long(line.value, default_config.n_threads);
                 if (n_threads < 0)
-                    config_error(conf, "Invalid number of threads: %d", n_threads);
+                    config_error(conf, "Invalid number of threads: %d",
+                                 n_threads);
                 lwan->config.n_threads = (unsigned short int)n_threads;
             } else if (streq(line.key, "max_post_data_size")) {
-                long max_post_data_size = parse_long(line.value, (long)default_config.max_post_data_size);
+                long max_post_data_size = parse_long(
+                    line.value, (long)default_config.max_post_data_size);
                 if (max_post_data_size < 0)
                     config_error(conf, "Negative maximum post data size");
-                else if (max_post_data_size > 128 * 1<<20)
-                    config_error(conf, "Maximum post data can't be over 128MiB");
+                else if (max_post_data_size > 128 * 1 << 20)
+                    config_error(conf,
+                                 "Maximum post data can't be over 128MiB");
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
             } else if (streq(line.key, "allow_temp_files")) {
-                lwan->config.allow_post_temp_file = !!strstr(line.value, "post");
+                lwan->config.allow_post_temp_file =
+                    !!strstr(line.value, "post");
             } else {
                 config_error(conf, "Unknown config key: %s", line.key);
             }
@@ -441,8 +452,8 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     }
 
     if (config_last_error(conf)) {
-        lwan_status_critical("Error on config file \"%s\", line %d: %s",
-              path, config_cur_line(conf), config_last_error(conf));
+        lwan_status_critical("Error on config file \"%s\", line %d: %s", path,
+                             config_cur_line(conf), config_last_error(conf));
     }
 
     config_close(conf);
@@ -450,8 +461,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     return true;
 }
 
-static rlim_t
-setup_open_file_count_limits(void)
+static rlim_t setup_open_file_count_limits(void)
 {
     struct rlimit r;
 
@@ -470,14 +480,12 @@ setup_open_file_count_limits(void)
     return r.rlim_cur;
 }
 
-static inline size_t
-align_to_size(size_t value, size_t alignment)
+static inline size_t align_to_size(size_t value, size_t alignment)
 {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-static void
-allocate_connections(struct lwan *l, size_t max_open_files)
+static void allocate_connections(struct lwan *l, size_t max_open_files)
 {
     const size_t sz = max_open_files * sizeof(struct lwan_connection);
 
@@ -487,31 +495,25 @@ allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
-static unsigned short int
-get_number_of_cpus(void)
+static unsigned short int get_number_of_cpus(void)
 {
     long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
     if (UNLIKELY(n_online_cpus < 0)) {
-        lwan_status_warning("Could not get number of online CPUs, assuming 1 CPU");
+        lwan_status_warning(
+            "Could not get number of online CPUs, assuming 1 CPU");
         return 1;
     }
     return (unsigned short int)n_online_cpus;
 }
 
-void
-lwan_init(struct lwan *l)
-{
-    lwan_init_with_config(l, &default_config);
-}
+void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }
 
-const struct lwan_config *
-lwan_get_default_config(void)
+const struct lwan_config *lwan_get_default_config(void)
 {
     return &default_config;
 }
 
-void
-lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
+void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
     memset(l, 0, sizeof(*l));
@@ -532,7 +534,7 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     if (config == &default_config || config->config_file_path) {
         if (!setup_from_config(l, config->config_file_path))
             lwan_status_critical("Could not read config file: %s",
-                config->config_file_path);
+                                 config->config_file_path);
 
         /* `quiet` key might have changed value. */
         lwan_status_init(l);
@@ -551,8 +553,9 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     } else if (l->config.n_threads > 3 * n_cpus) {
         l->thread.count = (short unsigned int)(n_cpus * 3);
 
-        lwan_status_warning("%d threads requested, but only %d online CPUs; capping to %d threads",
-            l->config.n_threads, n_cpus, 3 * n_cpus);
+        lwan_status_warning("%d threads requested, but only %d online CPUs; "
+                            "capping to %d threads",
+                            l->config.n_threads, n_cpus, 3 * n_cpus);
     } else {
         l->thread.count = l->config.n_threads;
     }
@@ -562,7 +565,7 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;
     lwan_status_info("Using %d threads, maximum %d sockets per thread",
-        l->thread.count, l->thread.max_fd);
+                     l->thread.count, l->thread.max_fd);
 
     signal(SIGPIPE, SIG_IGN);
 
@@ -571,8 +574,7 @@ lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_http_authorize_init();
 }
 
-void
-lwan_shutdown(struct lwan *l)
+void lwan_shutdown(struct lwan *l)
 {
     lwan_status_info("Shutting down");
 
@@ -594,15 +596,14 @@ lwan_shutdown(struct lwan *l)
     lwan_http_authorize_shutdown();
 }
 
-static ALWAYS_INLINE void
-schedule_client(struct lwan *l, int fd)
+static ALWAYS_INLINE void schedule_client(struct lwan *l, int fd)
 {
     int thread;
 #ifdef __x86_64__
     static_assert(sizeof(struct lwan_connection) == 32,
-                                        "Two connections per cache line");
-    /* Since struct lwan_connection is guaranteed to be 32-byte long, two of them
-     * can fill up a cache line.  This formula will group two connections
+                  "Two connections per cache line");
+    /* Since struct lwan_connection is guaranteed to be 32-byte long, two of
+     * them can fill up a cache line.  This formula will group two connections
      * per thread in a way that false-sharing is avoided.  This gives wrong
      * results when fd=0, but this shouldn't happen (as 0 is either the
      * standard input or the main socket, but even if that changes,
@@ -618,10 +619,10 @@ schedule_client(struct lwan *l, int fd)
 
 static volatile sig_atomic_t main_socket = -1;
 
-static_assert(sizeof(main_socket) >= sizeof(int), "size of sig_atomic_t > size of int");
+static_assert(sizeof(main_socket) >= sizeof(int),
+              "size of sig_atomic_t > size of int");
 
-static void
-sigint_handler(int signal_number __attribute__((unused)))
+static void sigint_handler(int signal_number __attribute__((unused)))
 {
     if (main_socket < 0)
         return;
@@ -630,8 +631,7 @@ sigint_handler(int signal_number __attribute__((unused)))
     main_socket = -1;
 }
 
-void
-lwan_main_loop(struct lwan *l)
+void lwan_main_loop(struct lwan *l)
 {
     assert(main_socket == -1);
     main_socket = l->main_socket;
@@ -641,7 +641,8 @@ lwan_main_loop(struct lwan *l)
     lwan_status_info("Ready to serve");
 
     for (;;) {
-        int client_fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+        int client_fd =
+            accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (UNLIKELY(client_fd < 0)) {
             switch (errno) {
             case EBADF:
