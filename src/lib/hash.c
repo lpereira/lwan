@@ -155,8 +155,9 @@ static void initialize_odd_constant(void)
 
 static inline int hash_int_key_cmp(const void *k1, const void *k2)
 {
-	int a = (int)(intptr_t)k1;
-	int b = (int)(intptr_t)k2;
+	intptr_t a = (intptr_t)k1;
+	intptr_t b = (intptr_t)k2;
+
 	return (a > b) - (a < b);
 }
 
@@ -172,6 +173,7 @@ static struct hash *hash_internal_new(
 {
 	struct hash *hash = calloc(1, sizeof(struct hash) +
 				n_buckets * sizeof(struct hash_bucket));
+
 	if (hash == NULL)
 		return NULL;
 
