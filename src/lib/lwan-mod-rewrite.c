@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -25,8 +26,8 @@
 
 #include "lwan-private.h"
 
-#include "lwan-mod-rewrite.h"
 #include "list.h"
+#include "lwan-mod-rewrite.h"
 #include "patterns.h"
 
 #ifdef HAVE_LUA
@@ -46,10 +47,11 @@ struct pattern {
     char *pattern;
     char *expand_pattern;
 
-    enum lwan_http_status (*handle)(struct lwan_request *request, const char *url);
+    enum lwan_http_status (*handle)(struct lwan_request *request,
+                                    const char *url);
     const char *(*expand)(struct lwan_request *request, struct pattern *pattern,
-        const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
-        int captures);
+                          const char *orig, char buffer[static PATH_MAX],
+                          struct str_find *sf, int captures);
 };
 
 struct str_builder {
@@ -57,10 +59,12 @@ struct str_builder {
     size_t size, len;
 };
 
-static enum lwan_http_status
-module_redirect_to(struct lwan_request *request, const char *url)
+static enum lwan_http_status module_redirect_to(struct lwan_request *request,
+                                                const char *url)
 {
-    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    struct lwan_key_value *headers =
+        coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+
     if (UNLIKELY(!headers))
         return HTTP_INTERNAL_ERROR;
 
@@ -76,10 +80,11 @@ module_redirect_to(struct lwan_request *request, const char *url)
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static enum lwan_http_status
-module_rewrite_as(struct lwan_request *request, const char *url)
+static enum lwan_http_status module_rewrite_as(struct lwan_request *request,
+                                               const char *url)
 {
     request->url.value = coro_strdup(request->conn->coro, url);
+
     if (UNLIKELY(!request->url.value))
         return HTTP_INTERNAL_ERROR;
 
@@ -90,8 +95,8 @@ module_rewrite_as(struct lwan_request *request, const char *url)
     return HTTP_OK;
 }
 
-static bool
-append_str(struct str_builder *builder, const char *src, size_t src_len)
+static bool append_str(struct str_builder *builder, const char *src,
+                       size_t src_len)
 {
     size_t total_size = builder->len + src_len;
     char *dest;
@@ -106,19 +111,19 @@ append_str(struct str_builder *builder, const char *src, size_t src_len)
     return true;
 }
 
-static __attribute__((noinline)) int
-parse_int_len(const char *s, size_t len, int default_value)
+static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
+                                                   int default_value)
 {
     return parse_int(strndupa(s, len), default_value);
 }
 
-static const char *
-expand(struct lwan_request *request __attribute__((unused)), struct pattern *pattern,
-    const char *orig, char buffer[static PATH_MAX], struct str_find *sf,
-    int captures)
+static const char *expand(struct lwan_request *request __attribute__((unused)),
+                          struct pattern *pattern, const char *orig,
+                          char buffer[static PATH_MAX], struct str_find *sf,
+                          int captures)
 {
     const char *expand_pattern = pattern->expand_pattern;
-    struct str_builder builder = { .buffer = buffer, .size = PATH_MAX };
+    struct str_builder builder = {.buffer = buffer, .size = PATH_MAX};
     char *ptr;
 
     ptr = strchr(expand_pattern, '%');
@@ -129,7 +134,8 @@ expand(struct lwan_request *request __attribute__((unused)), struct pattern *pat
         size_t index_len = strspn(ptr + 1, "0123456789");
 
         if (ptr > expand_pattern) {
-            if (UNLIKELY(!append_str(&builder, expand_pattern, (size_t)(ptr - expand_pattern))))
+            if (UNLIKELY(!append_str(&builder, expand_pattern,
+                                     (size_t)(ptr - expand_pattern))))
                 return NULL;
 
             expand_pattern += ptr - expand_pattern;
@@ -141,8 +147,9 @@ expand(struct lwan_request *request __attribute__((unused)), struct pattern *pat
             if (UNLIKELY(index < 0 || index > captures))
                 return NULL;
 
-            if (UNLIKELY(!append_str(&builder, orig + sf[index].sm_so,
-                    (size_t)(sf[index].sm_eo - sf[index].sm_so))))
+            if (UNLIKELY(
+                    !append_str(&builder, orig + sf[index].sm_so,
+                                (size_t)(sf[index].sm_eo - sf[index].sm_so))))
                 return NULL;
 
             ptr += index_len;
@@ -154,7 +161,8 @@ expand(struct lwan_request *request __attribute__((unused)), struct pattern *pat
         expand_pattern++;
     } while ((ptr = strchr(ptr + 1, '%')));
 
-    if (*expand_pattern && !append_str(&builder, expand_pattern, strlen(expand_pattern)))
+    if (*expand_pattern &&
+        !append_str(&builder, expand_pattern, strlen(expand_pattern)))
         return NULL;
 
     if (UNLIKELY(!builder.len))
@@ -164,9 +172,10 @@ expand(struct lwan_request *request __attribute__((unused)), struct pattern *pat
 }
 
 #ifdef HAVE_LUA
-static const char *
-expand_lua(struct lwan_request *request, struct pattern *pattern, const char *orig,
-    char buffer[static PATH_MAX], struct str_find *sf, int captures)
+static const char *expand_lua(struct lwan_request *request,
+                              struct pattern *pattern, const char *orig,
+                              char buffer[static PATH_MAX], struct str_find *sf,
+                              int captures)
 {
     const char *output;
     size_t output_len;
@@ -180,7 +189,8 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
 
     lua_getglobal(L, "handle_rewrite");
     if (!lua_isfunction(L, -1)) {
-        lwan_status_error("Could not obtain reference to `handle_rewrite()` function: %s",
+        lwan_status_error(
+            "Could not obtain reference to `handle_rewrite()` function: %s",
             lwan_lua_state_last_error(L));
         return NULL;
     }
@@ -190,20 +200,21 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
     lua_createtable(L, captures, 0);
     for (i = 0; i < captures; i++) {
         lua_pushinteger(L, i);
-        lua_pushlstring(L, orig + sf[i].sm_so, (size_t)(sf[i].sm_eo - sf[i].sm_so));
+        lua_pushlstring(L, orig + sf[i].sm_so,
+                        (size_t)(sf[i].sm_eo - sf[i].sm_so));
         lua_settable(L, -3);
     }
 
     if (lua_pcall(L, 2, 1, 0) != 0) {
         lwan_status_error("Could not execute `handle_rewrite()` function: %s",
-            lwan_lua_state_last_error(L));
+                          lwan_lua_state_last_error(L));
         return NULL;
     }
 
     output = lua_tolstring(L, -1, &output_len);
     if (output_len >= PATH_MAX) {
         lwan_status_error("Rewritten URL exceeds %d bytes (got %ld bytes)",
-            PATH_MAX, output_len);
+                          PATH_MAX, output_len);
         return NULL;
     }
 
@@ -213,7 +224,8 @@ expand_lua(struct lwan_request *request, struct pattern *pattern, const char *or
 
 static enum lwan_http_status
 rewrite_handle_request(struct lwan_request *request,
-    struct lwan_response *response __attribute__((unused)), void *instance)
+                       struct lwan_response *response __attribute__((unused)),
+                       void *instance)
 {
     struct private_data *pd = instance;
     const char *url = request->url.value;
@@ -242,9 +254,8 @@ rewrite_handle_request(struct lwan_request *request,
     return HTTP_NOT_FOUND;
 }
 
-static void *
-rewrite_new(const char *prefix __attribute__((unused)),
-                     void *instance __attribute__((unused)))
+static void *rewrite_new(const char *prefix __attribute__((unused)),
+                         void *instance __attribute__((unused)))
 {
     struct private_data *pd = malloc(sizeof(*pd));
 
@@ -255,8 +266,7 @@ rewrite_new(const char *prefix __attribute__((unused)),
     return pd;
 }
 
-static void
-rewrite_free(void *instance)
+static void rewrite_free(void *instance)
 {
     struct private_data *pd = instance;
     struct pattern *iter, *next;
@@ -270,17 +280,15 @@ rewrite_free(void *instance)
     free(pd);
 }
 
-static void *
-rewrite_new_from_hash(const char *prefix,
-                               const struct hash *hash __attribute__((unused)))
+static void *rewrite_new_from_hash(const char *prefix, const struct hash *hash
+                                   __attribute__((unused)))
 {
     return rewrite_new(prefix, NULL);
 }
 
-static bool
-rewrite_parse_conf_pattern(struct private_data *pd,
-                           struct config *config,
-                           struct config_line *line)
+static bool rewrite_parse_conf_pattern(struct private_data *pd,
+                                       struct config *config,
+                                       struct config_line *line)
 {
     struct pattern *pattern;
     char *redirect_to = NULL, *rewrite_as = NULL;
@@ -289,7 +297,7 @@ rewrite_parse_conf_pattern(struct private_data *pd,
     pattern = calloc(1, sizeof(*pattern));
     if (!pattern)
         goto out_no_free;
-    
+
     pattern->pattern = strdup(line->value);
     if (!pattern->pattern)
         goto out;
@@ -321,7 +329,9 @@ rewrite_parse_conf_pattern(struct private_data *pd,
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
             if (redirect_to && rewrite_as) {
-                config_error(config, "`redirect to` and `rewrite as` are mutually exclusive");
+                config_error(
+                    config,
+                    "`redirect to` and `rewrite as` are mutually exclusive");
                 goto out;
             }
             if (redirect_to) {
@@ -331,14 +341,17 @@ rewrite_parse_conf_pattern(struct private_data *pd,
                 pattern->expand_pattern = rewrite_as;
                 pattern->handle = module_rewrite_as;
             } else {
-                config_error(config, "either `redirect to` or `rewrite as` are required");
+                config_error(
+                    config,
+                    "either `redirect to` or `rewrite as` are required");
                 goto out;
             }
             if (expand_with_lua) {
 #ifdef HAVE_LUA
                 pattern->expand = expand_lua;
 #else
-                config_error(config, "Lwan has been built without Lua. `expand_with_lua` is not available");
+                config_error(config, "Lwan has been built without Lua. "
+                                     "`expand_with_lua` is not available");
                 goto out;
 #endif
             } else {
@@ -359,8 +372,7 @@ out_no_free:
     return false;
 }
 
-static bool
-rewrite_parse_conf(void *instance, struct config *config)
+static bool rewrite_parse_conf(void *instance, struct config *config)
 {
     struct private_data *pd = instance;
     struct config_line line;
