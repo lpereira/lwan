@@ -51,7 +51,7 @@ struct pattern {
                                     const char *url);
     const char *(*expand)(struct lwan_request *request, struct pattern *pattern,
                           const char *orig, char buffer[static PATH_MAX],
-                          struct str_find *sf, int captures);
+                          const struct str_find *sf, int captures);
 };
 
 struct str_builder {
@@ -119,8 +119,8 @@ static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
 
 static const char *expand(struct lwan_request *request __attribute__((unused)),
                           struct pattern *pattern, const char *orig,
-                          char buffer[static PATH_MAX], struct str_find *sf,
-                          int captures)
+                          char buffer[static PATH_MAX],
+                          const struct str_find *sf, int captures)
 {
     const char *expand_pattern = pattern->expand_pattern;
     struct str_builder builder = {.buffer = buffer, .size = PATH_MAX};
@@ -174,8 +174,8 @@ static const char *expand(struct lwan_request *request __attribute__((unused)),
 #ifdef HAVE_LUA
 static const char *expand_lua(struct lwan_request *request,
                               struct pattern *pattern, const char *orig,
-                              char buffer[static PATH_MAX], struct str_find *sf,
-                              int captures)
+                              char buffer[static PATH_MAX],
+                              const struct str_find *sf, int captures)
 {
     const char *output;
     size_t output_len;
