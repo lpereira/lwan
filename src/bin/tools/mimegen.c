@@ -108,9 +108,6 @@ static char *compress_output(const struct output *output, size_t *outlen)
     if (!*outlen)
         return NULL;
 
-    fprintf(stderr, "Uncompressed: %zu bytes; compressed: %zu bytes (compressed %2fx)\n",
-        output->used, *outlen, (double)output->used / (double)*outlen);
-
     return compressed;
 }
 
