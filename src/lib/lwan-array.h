@@ -40,6 +40,11 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
          ((typeof(iter_))(array_)->base.base + (array_)->base.elements);       \
          iter_++)
 
+#define LWAN_ARRAY_FOREACH_REVERSE(array_, iter_)                              \
+    for (iter_ = ((typeof(iter_))(array_)->base.base +                         \
+                  (array_)->base.elements - 1);                                \
+         iter_ >= (typeof(iter_))(array_)->base.base; iter_--)
+
 #define DEFINE_ARRAY_TYPE(array_type_, element_type_)                          \
     struct array_type_ {                                                       \
         struct lwan_array base;                                                \
