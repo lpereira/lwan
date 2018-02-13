@@ -34,6 +34,12 @@ void *lwan_array_append(struct lwan_array *a, size_t element_size);
 void lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void *a, const void *b));
 struct lwan_array *coro_lwan_array_new(struct coro *coro);
 
+#define LWAN_ARRAY_FOREACH(array_, iter_)                                      \
+    for (iter_ = (array_)->base.base;                                          \
+         iter_ <                                                               \
+         ((typeof(iter_))(array_)->base.base + (array_)->base.elements);       \
+         iter_++)
+
 #define DEFINE_ARRAY_TYPE(array_type_, element_type_) \
     struct array_type_ { \
         struct lwan_array base; \
