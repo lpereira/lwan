@@ -26,7 +26,7 @@
 
 #include "lwan-private.h"
 
-#include "list.h"
+#include "lwan-array.h"
 #include "lwan-mod-rewrite.h"
 #include "patterns.h"
 
@@ -38,12 +38,7 @@
 #include "lwan-lua.h"
 #endif
 
-struct private_data {
-    struct list_head patterns;
-};
-
 struct pattern {
-    struct list_node list;
     char *pattern;
     char *expand_pattern;
 
@@ -52,6 +47,12 @@ struct pattern {
     const char *(*expand)(struct lwan_request *request, struct pattern *pattern,
                           const char *orig, char buffer[static PATH_MAX],
                           const struct str_find *sf, int captures);
+};
+
+DEFINE_ARRAY_TYPE(pattern_array, struct pattern)
+
+struct private_data {
+    struct pattern_array patterns;
 };
 
 struct str_builder {
@@ -235,7 +236,7 @@ rewrite_handle_request(struct lwan_request *request,
     if (UNLIKELY(!pd))
         return HTTP_INTERNAL_ERROR;
 
-    list_for_each(&pd->patterns, p, list) {
+    LWAN_ARRAY_FOREACH(&pd->patterns, p) {
         struct str_find sf[MAXCAPTURES];
         const char *errmsg, *expanded;
         int captures;
@@ -262,21 +263,22 @@ static void *rewrite_new(const char *prefix __attribute__((unused)),
     if (!pd)
         return NULL;
 
-    list_head_init(&pd->patterns);
+    pattern_array_init(&pd->patterns);
+
     return pd;
 }
 
 static void rewrite_free(void *instance)
 {
     struct private_data *pd = instance;
-    struct pattern *iter, *next;
+    struct pattern *iter;
 
-    list_for_each_safe(&pd->patterns, iter, next, list) {
+    LWAN_ARRAY_FOREACH(&pd->patterns, iter) {
         free(iter->pattern);
         free(iter->expand_pattern);
-        free(iter);
     }
 
+    pattern_array_reset(&pd->patterns);
     free(pd);
 }
 
@@ -294,7 +296,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
     char *redirect_to = NULL, *rewrite_as = NULL;
     bool expand_with_lua = false;
 
-    pattern = calloc(1, sizeof(*pattern));
+    pattern = pattern_array_append0(&pd->patterns);
     if (!pattern)
         goto out_no_free;
 
@@ -357,7 +359,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             } else {
                 pattern->expand = expand;
             }
-            list_add_tail(&pd->patterns, &pattern->list);
+
             return true;
         }
     }
@@ -366,7 +368,6 @@ out:
     free(pattern->pattern);
     free(redirect_to);
     free(rewrite_as);
-    free(pattern);
 out_no_free:
     config_error(config, "Could not copy pattern");
     return false;
