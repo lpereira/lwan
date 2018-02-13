@@ -260,7 +260,6 @@ main(int argc, char *argv[])
 
 out:
     free(c.listener);
-    free(c.config_file_path);
     free((char *)sj.user_name);
 
     return ret;
