@@ -586,7 +586,6 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
 {
     struct chunk *iter;
     struct lwan_var_descriptor *symbol;
-    ssize_t idx;
 
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
         return NULL;
@@ -599,13 +598,12 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
 
     if (!parser->chunks.base.elements)
         return error_lexeme(lexeme, "No chunks were emitted but parsing end iter");
-    for (idx = (ssize_t)parser->chunks.base.elements - 1; idx >= 0; idx--) {
-        iter = (struct chunk *)parser->chunks.base.base + idx;
 
+    LWAN_ARRAY_FOREACH_REVERSE(&parser->chunks, iter) {
         if (iter->action != ACTION_START_ITER)
             continue;
         if (iter->data == symbol) {
-            emit_chunk(parser, ACTION_END_ITER, 0, (void *)(ptrdiff_t)idx);
+            emit_chunk(parser, ACTION_END_ITER, 0, iter);
             symtab_pop(parser);
             return parser_text;
         }
@@ -618,7 +616,6 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
 {
     struct chunk *iter;
     struct lwan_var_descriptor *symbol;
-    ssize_t idx;
 
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
         return NULL;
@@ -629,9 +626,10 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
             lexeme->value.value);
     }
 
-    for (idx = (ssize_t)parser->chunks.base.elements - 1; idx >= 0; idx--) {
-        iter = (struct chunk *)parser->chunks.base.base + idx;
+    if (!parser->chunks.base.elements)
+        return error_lexeme(lexeme, "No chunks were emitted but parsing end variable not empty");
 
+    LWAN_ARRAY_FOREACH_REVERSE(&parser->chunks, iter) {
         if (iter->action != ACTION_IF_VARIABLE_NOT_EMPTY)
             continue;
         if (iter->data == symbol) {
@@ -951,14 +949,15 @@ free_chunk(struct chunk *chunk)
 void
 lwan_tpl_free(struct lwan_tpl *tpl)
 {
-    struct chunk *iter;
-
     if (!tpl)
         return;
 
     if (tpl->chunks.base.elements) {
-        for (iter = tpl->chunks.base.base; iter->action != ACTION_LAST; iter++)
+        struct chunk *iter;
+
+        LWAN_ARRAY_FOREACH(&tpl->chunks, iter)
             free_chunk(iter);
+
         chunk_array_reset(&tpl->chunks);
     }
 
@@ -968,14 +967,10 @@ lwan_tpl_free(struct lwan_tpl *tpl)
 static bool
 post_process_template(struct parser *parser)
 {
-    size_t idx;
     struct chunk *prev_chunk;
+    struct chunk *chunk;
 
-#define CHUNK_IDX(c) (size_t)(ptrdiff_t)((c) - (struct chunk *)parser->chunks.base.base)
-
-    for (idx = 0; idx < parser->chunks.base.elements; idx++) {
-        struct chunk *chunk = (struct chunk *)parser->chunks.base.base + idx;
-
+    LWAN_ARRAY_FOREACH(&parser->chunks, chunk) {
         if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
             for (prev_chunk = chunk; ; chunk++) {
                 if (chunk->action == ACTION_LAST)
@@ -994,7 +989,7 @@ post_process_template(struct parser *parser)
             prev_chunk->data = cd;
             prev_chunk->flags &= ~FLAGS_NO_FREE;
 
-            idx = CHUNK_IDX(prev_chunk) + 1;
+            chunk = prev_chunk + 1;
         } else if (chunk->action == ACTION_START_ITER) {
             enum flags flags = chunk->flags;
 
@@ -1002,10 +997,7 @@ post_process_template(struct parser *parser)
                 if (chunk->action == ACTION_LAST)
                     break;
                 if (chunk->action == ACTION_END_ITER) {
-                    struct chunk *end_iter_data = (struct chunk *)parser->chunks.base.base + (ptrdiff_t)chunk->data;
-
-                    if (end_iter_data == prev_chunk) {
-                        chunk->data = end_iter_data;
+                    if (chunk->data == prev_chunk) {
                         chunk->flags |= flags;
                         break;
                     }
@@ -1025,7 +1017,7 @@ post_process_template(struct parser *parser)
             else
                 cd->chunk = chunk + 1;
 
-            idx = CHUNK_IDX(prev_chunk) + 1;
+            chunk = prev_chunk + 1;
         } else if (chunk->action == ACTION_VARIABLE) {
             struct lwan_var_descriptor *descriptor = chunk->data;
             bool escape = chunk->flags & FLAGS_QUOTE;
@@ -1051,8 +1043,6 @@ post_process_template(struct parser *parser)
     parser->tpl->chunks = parser->chunks;
 
     return true;
-
-#undef CHUNK_IDX
 }
 
 static bool parser_init(struct parser *parser, const struct lwan_var_descriptor *descriptor,
@@ -1164,7 +1154,7 @@ static void dump_program(const struct lwan_tpl *tpl)
     if (!tpl->chunks.base.elements)
         return;
 
-    for (iter = tpl->chunks.base.base; iter->action != ACTION_LAST; iter++) {
+    LWAN_ARRAY_FOREACH(&tpl->chunks, iter) {
         char instr_buf[32];
 
         switch (iter->action) {
