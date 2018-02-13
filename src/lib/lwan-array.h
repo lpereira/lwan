@@ -40,32 +40,41 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
          ((typeof(iter_))(array_)->base.base + (array_)->base.elements);       \
          iter_++)
 
-#define DEFINE_ARRAY_TYPE(array_type_, element_type_) \
-    struct array_type_ { \
-        struct lwan_array base; \
-    }; \
-    __attribute__((unused)) \
-    static inline int array_type_ ## _init(struct array_type_ *array) \
-    { \
-        return lwan_array_init((struct lwan_array *)array); \
-    } \
-    __attribute__((unused)) \
-    static inline int array_type_ ## _reset(struct array_type_ *array) \
-    { \
-        return lwan_array_reset((struct lwan_array *)array); \
-    } \
-    __attribute__((unused)) \
-    static inline element_type_ * array_type_ ## _append(struct array_type_ *array) \
-    { \
-        return (element_type_ *)lwan_array_append((struct lwan_array *)array, sizeof(element_type_)); \
-    } \
-    __attribute__((unused)) \
-    static inline void array_type_ ## _sort(struct array_type_ *array, int (*cmp)(const void *a, const void *b)) \
-    { \
-        lwan_array_sort((struct lwan_array *)array, sizeof(element_type_), cmp); \
-    } \
-    __attribute__((unused)) \
-    static inline struct array_type_ *coro_ ## array_type_ ## _new(struct coro *coro) \
-    { \
-        return (struct array_type_ *)coro_lwan_array_new(coro); \
+#define DEFINE_ARRAY_TYPE(array_type_, element_type_)                          \
+    struct array_type_ {                                                       \
+        struct lwan_array base;                                                \
+    };                                                                         \
+    __attribute__((unused)) static inline int array_type_##_init(              \
+        struct array_type_ *array)                                             \
+    {                                                                          \
+        return lwan_array_init((struct lwan_array *)array);                    \
+    }                                                                          \
+    __attribute__((unused)) static inline int array_type_##_reset(             \
+        struct array_type_ *array)                                             \
+    {                                                                          \
+        return lwan_array_reset((struct lwan_array *)array);                   \
+    }                                                                          \
+    __attribute__((unused)) static inline element_type_ *array_type_##_append( \
+        struct array_type_ *array)                                             \
+    {                                                                          \
+        return (element_type_ *)lwan_array_append((struct lwan_array *)array,  \
+                                                  sizeof(element_type_));      \
+    }                                                                          \
+    __attribute__((unused)) static inline element_type_                        \
+        *array_type_##_append0(struct array_type_ *array)                      \
+    {                                                                          \
+        element_type_ *element = array_type_##_append(array);                  \
+        memset(element, 0, sizeof(*element));                                  \
+        return element;                                                        \
+    }                                                                          \
+    __attribute__((unused)) static inline void array_type_##_sort(             \
+        struct array_type_ *array, int (*cmp)(const void *a, const void *b))   \
+    {                                                                          \
+        lwan_array_sort((struct lwan_array *)array, sizeof(element_type_),     \
+                        cmp);                                                  \
+    }                                                                          \
+    __attribute__((unused)) static inline struct array_type_                   \
+        *coro_##array_type_##_new(struct coro *coro)                           \
+    {                                                                          \
+        return (struct array_type_ *)coro_lwan_array_new(coro);                \
     }
