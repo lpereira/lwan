@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -27,8 +28,7 @@
 
 #define INCREMENT 16
 
-int
-lwan_array_init(struct lwan_array *a)
+int lwan_array_init(struct lwan_array *a)
 {
     if (UNLIKELY(!a))
         return -EINVAL;
@@ -39,8 +39,7 @@ lwan_array_init(struct lwan_array *a)
     return 0;
 }
 
-int
-lwan_array_reset(struct lwan_array *a)
+int lwan_array_reset(struct lwan_array *a)
 {
     if (UNLIKELY(!a))
         return -EINVAL;
@@ -65,8 +64,7 @@ static inline bool add_overflow(size_t a, size_t b, size_t *out)
 #define add_overflow __builtin_add_overflow
 #endif
 
-void *
-lwan_array_append(struct lwan_array *a, size_t element_size)
+void *lwan_array_append(struct lwan_array *a, size_t element_size)
 {
     if (!(a->elements % INCREMENT)) {
         void *new_base;
@@ -87,15 +85,15 @@ lwan_array_append(struct lwan_array *a, size_t element_size)
     return ((unsigned char *)a->base) + a->elements++ * element_size;
 }
 
-void
-lwan_array_sort(struct lwan_array *a, size_t element_size, int (*cmp)(const void *a, const void *b))
+void lwan_array_sort(struct lwan_array *a,
+                     size_t element_size,
+                     int (*cmp)(const void *a, const void *b))
 {
     if (LIKELY(a->elements))
         qsort(a->base, a->elements - 1, element_size, cmp);
 }
 
-static void
-coro_lwan_array_free(void *data)
+static void coro_lwan_array_free(void *data)
 {
     struct lwan_array *array = data;
 
@@ -103,8 +101,7 @@ coro_lwan_array_free(void *data)
     free(array);
 }
 
-struct lwan_array *
-coro_lwan_array_new(struct coro *coro)
+struct lwan_array *coro_lwan_array_new(struct coro *coro)
 {
     struct lwan_array *array;
 
