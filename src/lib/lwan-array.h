@@ -72,7 +72,10 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
         *array_type_##_append0(struct array_type_ *array)                      \
     {                                                                          \
         element_type_ *element = array_type_##_append(array);                  \
-        memset(element, 0, sizeof(*element));                                  \
+                                                                               \
+        if (element)                                                           \
+            memset(element, 0, sizeof(*element));                              \
+                                                                               \
         return element;                                                        \
     }                                                                          \
     __attribute__((unused)) static inline void array_type_##_sort(             \
