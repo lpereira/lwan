@@ -259,8 +259,6 @@ main(int argc, char *argv[])
     lwan_shutdown(&l);
 
 out:
-    free(c.listener);
-    free(c.config_file_path);
     free((char *)sj.user_name);
 
     return ret;
