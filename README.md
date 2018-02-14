@@ -4,42 +4,7 @@ Lwan Web Server
 Lwan is a **high-performance** & **scalable** web server for glibc/Linux
 platforms.
 
-In development for almost 4 years, Lwan was until now a personal research
-effort that focused mostly on building a **solid infrastructure** for
-a lightweight and speedy web server:
-
-  - Low memory footprint (~500KiB for 10k idle connections)
-  - Minimal memory allocations & copies
-  - Minimal system calls
-  - Hand-crafted HTTP request parser
-  - Files are served using the most efficient way according to their size
-    - No copies between kernel and userland for files larger than 16KiB
-    - Smaller files are sent using vectored I/O of memory-mapped buffers
-    - Header overhead is considered before compressing small files
-  - Mostly wait-free multi-threaded design
-  - Diminute code base with roughly 14000 lines of C code
-
-It is now transitioning into a fully working, capable HTTP server. It is
-not, however, as feature-packed as other popular web servers. But it is
-[free software](http://www.gnu.org/philosophy/free-sw.html), so scratching
-your own itches and making Lwan hum the way you want it to is possible.
-
-Features include:
-
-  - Mustache templating engine
-    - Used for directory listing & error messages
-    - Available for user-built handlers
-  - Easy to use API to create web applications or extend the web server
-  - Supports rebimboca da parafuseta
-  - Test suite written in Python tests the server as a black box
-  - No-nonsense configuration file syntax
-  - Supports a subset of HTTP/1.0 and HTTP/1.1
-  - systemd socket activation
-  - IPv6 ready
-
-The [web site](https://lwan.ws/) has more details, including a FAQ about the
-name of the project and security concerns.
-
+The [project web site](https://lwan.ws/) contains more details.
 
 Building
 --------
