@@ -40,33 +40,6 @@ Features include:
 The [web site](https://lwan.ws/) has more details, including a FAQ about the
 name of the project and security concerns.
 
-Performance
------------
-
-It can achieve good performance, yielding about **320000 requests/second**
-on a Core i7 laptop for requests without disk access, and without pipelining.
-
-When disk I/O is required, for files up to 16KiB, it yields about
-**290000 requests/second**; for larger files, this drops to **185000
-requests/second**, which isn't too shabby either.
-
-These results, of course, with keep-alive connections, and with weighttp
-running on the same machine (and thus using resources that could be used
-for the webserver itself).
-
-Without keep-alive, these numbers drop around 6-fold.
-
-Portability
------------
-
-While Lwan was written originally for Linux, it has been ported to BSD
-systems as well.  The build system will detect the supported features
-and build support library functions as appropriate.
-
-For instance, [epoll](https://en.wikipedia.org/wiki/Epoll) has been
-implemented on top of [kqueue](https://en.wikipedia.org/wiki/Kqueue), and
-Linux-only syscalls and GNU extensions have been implemented for the
-supported systems.
 
 Building
 --------
@@ -215,13 +188,40 @@ settings for the environment it's running on.
 Optionally, the `lwan` binary can be used for one-shot static file serving
 without any configuration file. Run it with `--help` for help on that.
 
+Portability
+-----------
+
+While Lwan was written originally for Linux, it has been ported to BSD
+systems as well.  The build system will detect the supported features
+and build support library functions as appropriate.
+
+For instance, [epoll](https://en.wikipedia.org/wiki/Epoll) has been
+implemented on top of [kqueue](https://en.wikipedia.org/wiki/Kqueue), and
+Linux-only syscalls and GNU extensions have been implemented for the
+supported systems.
+
+Performance
+-----------
+
+It can achieve good performance, yielding about **320000 requests/second**
+on a Core i7 laptop for requests without disk access, and without pipelining.
+
+When disk I/O is required, for files up to 16KiB, it yields about
+**290000 requests/second**; for larger files, this drops to **185000
+requests/second**, which isn't too shabby either.
+
+These results, of course, with keep-alive connections, and with weighttp
+running on the same machine (and thus using resources that could be used
+for the webserver itself).
+
+Without keep-alive, these numbers drop around 6-fold.
+
 IRC Channel
 -----------
 
 There is an IRC channel (`#lwan`) on [Freenode](http://freenode.net). A
 standard IRC client can be used.  A [web IRC gateway](http://webchat.freenode.net?channels=%23lwan&uio=d4)
 is also available.
-
 
 Lwan in the wild
 ----------------
