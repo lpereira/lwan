@@ -513,12 +513,18 @@ const struct lwan_config *lwan_get_default_config(void)
     return &default_config;
 }
 
+static char *dup_or_null(const char *s)
+{
+    return s ? strdup(s) : NULL;
+}
+
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
     memset(l, 0, sizeof(*l));
     memcpy(&l->config, config, sizeof(*config));
-    l->config.listener = strdup(l->config.listener);
+    l->config.listener = dup_or_null(l->config.listener);
+    l->config.config_file_path = dup_or_null(l->config.listener);
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
