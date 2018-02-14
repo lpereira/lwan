@@ -38,15 +38,20 @@
 #include "lwan-lua.h"
 #endif
 
+enum pattern_flag {
+    PATTERN_HANDLE_REWRITE = 1<<0,
+    PATTERN_HANDLE_REDIRECT = 1<<1,
+    PATTERN_HANDLE_MASK = PATTERN_HANDLE_REWRITE | PATTERN_HANDLE_REDIRECT,
+
+    PATTERN_EXPAND_LWAN = 1<<2,
+    PATTERN_EXPAND_LUA = 1<<3,
+    PATTERN_EXPAND_MASK = PATTERN_EXPAND_LWAN | PATTERN_EXPAND_LUA,
+};
+
 struct pattern {
     char *pattern;
     char *expand_pattern;
-
-    enum lwan_http_status (*handle)(struct lwan_request *request,
-                                    const char *url);
-    const char *(*expand)(struct lwan_request *request, struct pattern *pattern,
-                          const char *orig, char buffer[static PATH_MAX],
-                          const struct str_find *sf, int captures);
+    enum pattern_flag flags;
 };
 
 DEFINE_ARRAY_TYPE(pattern_array, struct pattern)
@@ -238,16 +243,33 @@ rewrite_handle_request(struct lwan_request *request,
 
     LWAN_ARRAY_FOREACH(&pd->patterns, p) {
         struct str_find sf[MAXCAPTURES];
-        const char *errmsg, *expanded;
+        const char *expanded = NULL;
+        const char *errmsg;
         int captures;
 
         captures = str_find(url, p->pattern, sf, MAXCAPTURES, &errmsg);
         if (captures <= 0)
             continue;
 
-        expanded = p->expand(request, p, url, final_url, sf, captures);
-        if (LIKELY(expanded))
-            return p->handle(request, expanded);
+        switch (p->flags & PATTERN_EXPAND_MASK) {
+#ifdef HAVE_LUA
+        case PATTERN_EXPAND_LUA:
+            expanded = expand_lua(request, p, url, final_url, sf, captures);
+            break;
+#endif
+        case PATTERN_EXPAND_LWAN:
+            expanded = expand(request, p, url, final_url, sf, captures);
+            break;
+        }
+
+        if (LIKELY(expanded)) {
+            switch (p->flags & PATTERN_HANDLE_MASK) {
+            case PATTERN_HANDLE_REDIRECT:
+                return module_redirect_to(request, expanded);
+            case PATTERN_HANDLE_REWRITE:
+                return module_rewrite_as(request, expanded);
+            }
+        }
 
         return HTTP_INTERNAL_ERROR;
     }
@@ -338,10 +360,10 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             }
             if (redirect_to) {
                 pattern->expand_pattern = redirect_to;
-                pattern->handle = module_redirect_to;
+                pattern->flags |= PATTERN_HANDLE_REDIRECT;
             } else if (rewrite_as) {
                 pattern->expand_pattern = rewrite_as;
-                pattern->handle = module_rewrite_as;
+                pattern->flags |= PATTERN_HANDLE_REWRITE;
             } else {
                 config_error(
                     config,
@@ -350,14 +372,14 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             }
             if (expand_with_lua) {
 #ifdef HAVE_LUA
-                pattern->expand = expand_lua;
+                pattern->flags |= PATTERN_EXPAND_LUA;
 #else
                 config_error(config, "Lwan has been built without Lua. "
                                      "`expand_with_lua` is not available");
                 goto out;
 #endif
             } else {
-                pattern->expand = expand;
+                pattern->flags |= PATTERN_EXPAND_LWAN;
             }
 
             return true;
