@@ -1,5 +1,5 @@
 project(lwan C)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.10)
 set(PROJECT_DESCRIPTION "Scalable, high performance, experimental web server")
 message(STATUS "Running CMake for ${PROJECT_NAME} (${PROJECT_DESCRIPTION})")
 
@@ -13,6 +13,7 @@ include(CodeCoverage)
 include(EnableCFlag)
 include(FindPkgConfig)
 include(TrySanitizer)
+include(GNUInstallDirs)
 
 if (NOT CMAKE_BUILD_TYPE)
 	message(STATUS "No build type selected, defaulting to Debug")

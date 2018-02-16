@@ -99,27 +99,11 @@ include_directories(${CMAKE_BINARY_DIR})
 
 set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 
-
-get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-if ("${LIB64}" STREQUAL "TRUE")
-       set(LIBSUFFIX 64)
-else ()
-       get_property(LIB32 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB32_PATHS)
-       if ("${LIB32}" STREQUAL "TRUE")
-	       set(LIBSUFFIX 32)
-       else ()
-	       set(LIBSUFFIX "")
-       endif ()
-endif ()
-set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
-mark_as_advanced(INSTALL_LIB_DIR)
-message(STATUS "Library install directory: ${CMAKE_INSTALL_PREFIX}/${INSTALL_LIB_DIR}")
-
-
 install(
 	TARGETS lwan-static lwan-shared
-	DESTINATION ${INSTALL_LIB_DIR}
+	DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
 )
+
 install(FILES
 	hash.h
 	lwan-array.h
@@ -134,4 +118,4 @@ install(FILES
 	lwan-template.h
 	lwan-trie.h
 	strbuf.h
-  DESTINATION "include/lwan")
+  DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
