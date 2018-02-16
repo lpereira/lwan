@@ -556,6 +556,11 @@ class TestHelloWorld(LwanTest):
 
 
 class TestCache(LwanTest):
+  @classmethod
+  def setUpClass(cls):
+    if os.uname().sysname != 'Linux':
+      raise unittest.SkipTest
+
   def mmaps(self, f):
     with open('/proc/%d/maps' % self.lwan.pid) as map_file:
       f = f + '\n'
