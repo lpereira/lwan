@@ -89,7 +89,7 @@ struct sendfile_cache_data {
 };
 
 struct dir_list_cache_data {
-    struct strbuf *rendered;
+    struct lwan_strbuf *rendered;
 };
 
 struct redir_cache_data {
@@ -664,7 +664,7 @@ static void dirlist_free(void *data)
 {
     struct dir_list_cache_data *dd = data;
 
-    strbuf_free(dd->rendered);
+    lwan_strbuf_free(dd->rendered);
 }
 
 static void redir_free(void *data)
@@ -992,8 +992,8 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
 
     icon = lwan_request_get_query_param(request, "icon");
     if (!icon) {
-        contents = strbuf_get_buffer(dd->rendered);
-        size = strbuf_get_length(dd->rendered);
+        contents = lwan_strbuf_get_buffer(dd->rendered);
+        size = lwan_strbuf_get_length(dd->rendered);
     } else if (!strcmp(icon, "back")) {
         contents = back_gif;
         size = sizeof(back_gif);

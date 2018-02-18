@@ -34,7 +34,7 @@
 
 #include "lwan-status.h"
 #include "lwan-config.h"
-#include "strbuf.h"
+#include "lwan-strbuf.h"
 
 enum lexeme_type {
     LEXEME_ERROR,
@@ -89,7 +89,7 @@ struct parser {
     struct lexer lexer;
     struct lexeme_ring_buffer buffer;
     struct config_ring_buffer items;
-    struct strbuf strbuf;
+    struct lwan_strbuf strbuf;
 };
 
 struct config {
@@ -494,13 +494,13 @@ static void *parse_key_value(struct parser *parser)
     size_t key_size;
 
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
-        strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
 
         if (parser->buffer.population >= 1)
-            strbuf_append_char(&parser->strbuf, '_');
+            lwan_strbuf_append_char(&parser->strbuf, '_');
     }
-    key_size = strbuf_get_length(&parser->strbuf);
-    strbuf_append_char(&parser->strbuf, '\0');
+    key_size = lwan_strbuf_get_length(&parser->strbuf);
+    lwan_strbuf_append_char(&parser->strbuf, '\0');
 
     while (lex_next(&parser->lexer, &lexeme)) {
         switch (lexeme->type) {
@@ -514,16 +514,16 @@ static void *parse_key_value(struct parser *parser)
                 return NULL;
             }
 
-            strbuf_append_str(&parser->strbuf, value, 0);
+            lwan_strbuf_append_str(&parser->strbuf, value, 0);
             break;
         }
 
         case LEXEME_EQUAL:
-            strbuf_append_char(&parser->strbuf, '=');
+            lwan_strbuf_append_char(&parser->strbuf, '=');
             break;
 
         case LEXEME_STRING:
-            strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+            lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
             break;
 
         case LEXEME_CLOSE_BRACKET:
@@ -531,7 +531,7 @@ static void *parse_key_value(struct parser *parser)
             /* fallthrough */
 
         case LEXEME_LINEFEED:
-            line.key = strbuf_get_buffer(&parser->strbuf);
+            line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
             if (!config_buffer_emit(&parser->items, &line))
                 return NULL;
@@ -557,21 +557,21 @@ static void *parse_section(struct parser *parser)
     if (!lexeme_buffer_consume(&parser->buffer, &lexeme))
         return NULL;
 
-    strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
     name_len = lexeme->value.len;
-    strbuf_append_char(&parser->strbuf, '\0');
+    lwan_strbuf_append_char(&parser->strbuf, '\0');
 
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
-        strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
 
         if (parser->buffer.population >= 1)
-            strbuf_append_char(&parser->strbuf, ' ');
+            lwan_strbuf_append_char(&parser->strbuf, ' ');
     }
 
     struct config_line line = {
         .type = CONFIG_LINE_TYPE_SECTION,
-        .key = strbuf_get_buffer(&parser->strbuf),
-        .value = strbuf_get_buffer(&parser->strbuf) + name_len + 1
+        .key = lwan_strbuf_get_buffer(&parser->strbuf),
+        .value = lwan_strbuf_get_buffer(&parser->strbuf) + name_len + 1
     };
     if (!config_buffer_emit(&parser->items, &line))
         return NULL;
@@ -644,7 +644,7 @@ static bool parser_next(struct parser *parser, struct config_line **line)
         if (config_buffer_consume(&parser->items, line))
             return true;
 
-        strbuf_reset(&parser->strbuf);
+        lwan_strbuf_reset(&parser->strbuf);
 
         parser->state = parser->state(parser);
     }
@@ -695,7 +695,7 @@ struct config *config_open(const char *path)
     config->mapped.sz = (size_t)st.st_size;
     config->error_message = NULL;
 
-    strbuf_init(&config->parser.strbuf);
+    lwan_strbuf_init(&config->parser.strbuf);
 
     return config;
 }
@@ -709,7 +709,7 @@ void config_close(struct config *config)
         munmap(config->mapped.addr, config->mapped.sz);
 
     free(config->error_message);
-    strbuf_free(&config->parser.strbuf);
+    lwan_strbuf_free(&config->parser.strbuf);
     free(config);
 }
 
@@ -765,7 +765,7 @@ struct config *config_isolate_section(struct config *current_conf,
         return NULL;
 
     memcpy(isolated, current_conf, sizeof(*isolated));
-    strbuf_init(&isolated->parser.strbuf);
+    lwan_strbuf_init(&isolated->parser.strbuf);
 
     isolated->mapped.addr = NULL;
     isolated->mapped.sz = 0;
@@ -775,7 +775,7 @@ struct config *config_isolate_section(struct config *current_conf,
 
     pos = isolated->parser.lexer.pos;
     if (!find_section_end(isolated)) {
-        strbuf_free(&isolated->parser.strbuf);
+        lwan_strbuf_free(&isolated->parser.strbuf);
         free(isolated);
 
         config_error(current_conf,

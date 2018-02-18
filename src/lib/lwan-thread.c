@@ -141,10 +141,10 @@ process_request_coro(struct coro *coro, void *data)
 {
     /* NOTE: This function should not return; coro_yield should be used
      * instead.  This ensures the storage for `strbuf` is alive when the
-     * coroutine ends and strbuf_free() is called. */
+     * coroutine ends and lwan_strbuf_free() is called. */
     struct lwan_connection *conn = data;
     const enum lwan_request_flags flags_filter = (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
-    struct strbuf strbuf;
+    struct lwan_strbuf strbuf;
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
     char request_buffer[DEFAULT_BUFFER_SIZE];
@@ -156,11 +156,11 @@ process_request_coro(struct coro *coro, void *data)
     enum lwan_request_flags flags = 0;
     struct lwan_proxy proxy;
 
-    if (UNLIKELY(!strbuf_init(&strbuf))) {
+    if (UNLIKELY(!lwan_strbuf_init(&strbuf))) {
         coro_yield(coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
-    coro_defer(coro, CORO_DEFER(strbuf_free), &strbuf);
+    coro_defer(coro, CORO_DEFER(lwan_strbuf_free), &strbuf);
 
     if (lwan->config.proxy_protocol)
         flags |= REQUEST_ALLOW_PROXY_REQS;
@@ -186,7 +186,7 @@ process_request_coro(struct coro *coro, void *data)
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
-        if (UNLIKELY(!strbuf_reset(&strbuf))) {
+        if (UNLIKELY(!lwan_strbuf_reset(&strbuf))) {
             coro_yield(coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }

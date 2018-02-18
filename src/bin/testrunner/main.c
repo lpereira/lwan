@@ -43,7 +43,7 @@ LWAN_HANDLER(gif_beacon)
     };
 
     response->mime_type = "image/gif";
-    strbuf_set_static(response->buffer, (char*)gif_beacon_data, sizeof(gif_beacon_data));
+    lwan_strbuf_set_static(response->buffer, (char*)gif_beacon_data, sizeof(gif_beacon_data));
 
     return HTTP_OK;
 }
@@ -54,15 +54,15 @@ LWAN_HANDLER(test_chunked_encoding)
 
     response->mime_type = "text/plain";
 
-    strbuf_printf(response->buffer, "Testing chunked encoding! First chunk\n");
+    lwan_strbuf_printf(response->buffer, "Testing chunked encoding! First chunk\n");
     lwan_response_send_chunk(request);
 
     for (i = 0; i <= 10; i++) {
-        strbuf_printf(response->buffer, "*This is chunk %d*\n", i);
+        lwan_strbuf_printf(response->buffer, "*This is chunk %d*\n", i);
         lwan_response_send_chunk(request);
     }
 
-    strbuf_printf(response->buffer, "Last chunk\n");
+    lwan_strbuf_printf(response->buffer, "Last chunk\n");
     lwan_response_send_chunk(request);
 
     return HTTP_OK;
@@ -73,7 +73,7 @@ LWAN_HANDLER(test_server_sent_event)
     int i;
 
     for (i = 0; i <= 10; i++) {
-        strbuf_printf(response->buffer, "Current value is %d", i);
+        lwan_strbuf_printf(response->buffer, "Current value is %d", i);
         lwan_response_send_event(request, "currval");
     }
 
@@ -125,7 +125,7 @@ LWAN_HANDLER(test_post_will_it_blend)
         return HTTP_BAD_REQUEST;
 
     response->mime_type = type;
-    strbuf_set_static(response->buffer, response_body, sizeof(response_body) -1);
+    lwan_strbuf_set_static(response->buffer, response_body, sizeof(response_body) -1);
 
     return HTTP_OK;
 }
@@ -148,7 +148,7 @@ LWAN_HANDLER(test_post_big)
         sum += (size_t)request->header.body->value[i];
 
     response->mime_type = "application/json";
-    strbuf_printf(response->buffer, "{\"received\": %zu, \"sum\": %zu}",
+    lwan_strbuf_printf(response->buffer, "{\"received\": %zu, \"sum\": %zu}",
         request->header.body->len, sum);
 
     return HTTP_OK;
@@ -165,37 +165,37 @@ LWAN_HANDLER(hello_world)
 
     const char *name = lwan_request_get_query_param(request, "name");
     if (name)
-        strbuf_printf(response->buffer, "Hello, %s!", name);
+        lwan_strbuf_printf(response->buffer, "Hello, %s!", name);
     else
-        strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
+        lwan_strbuf_set_static(response->buffer, "Hello, world!", sizeof("Hello, world!") -1);
 
     const char *dump_vars = lwan_request_get_query_param(request, "dump_vars");
     if (!dump_vars)
         goto end;
 
-    strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
-    strbuf_append_str(response->buffer, "-------\n\n", 0);
+    lwan_strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
+    lwan_strbuf_append_str(response->buffer, "-------\n\n", 0);
 
     struct lwan_key_value *qs = request->cookies.base.base;
     for (; qs && qs->key; qs++)
-        strbuf_append_printf(response->buffer,
+        lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
-    strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
-    strbuf_append_str(response->buffer, "----------------------\n\n", 0);
+    lwan_strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
+    lwan_strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
     for (qs = request->query_params.base.base; qs && qs->key; qs++)
-        strbuf_append_printf(response->buffer,
+        lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
     if (lwan_request_get_method(request) != REQUEST_METHOD_POST)
         goto end;
 
-    strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
-    strbuf_append_str(response->buffer, "---------\n\n", 0);
+    lwan_strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
+    lwan_strbuf_append_str(response->buffer, "---------\n\n", 0);
 
     for (qs = request->post_data.base.base; qs && qs->key; qs++)
-        strbuf_append_printf(response->buffer,
+        lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
 
 end:

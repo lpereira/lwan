@@ -59,6 +59,21 @@ global:
     lwan_writev;
     lwan_send;
     lwan_sendfile;
+
+    lwan_strbuf_append_char;
+    lwan_strbuf_append_printf;
+    lwan_strbuf_append_str;
+    lwan_strbuf_free;
+    lwan_strbuf_init;
+    lwan_strbuf_init_with_size;
+    lwan_strbuf_new;
+    lwan_strbuf_new_static;
+    lwan_strbuf_new_with_size;
+    lwan_strbuf_printf;
+    lwan_strbuf_reset;
+    lwan_strbuf_set;
+    lwan_strbuf_set_static;
+
 local:
     *;
 };

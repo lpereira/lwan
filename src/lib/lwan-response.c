@@ -145,7 +145,7 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        if (UNLIKELY(!strbuf_reset(request->response.buffer)))
+        if (UNLIKELY(!lwan_strbuf_reset(request->response.buffer)))
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
         lwan_response_send_chunk(request);
         log_request(request, status);
@@ -192,8 +192,8 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
                 .iov_len = header_len
             },
             {
-                .iov_base = strbuf_get_buffer(request->response.buffer),
-                .iov_len = strbuf_get_length(request->response.buffer)
+                .iov_base = lwan_strbuf_get_buffer(request->response.buffer),
+                .iov_len = lwan_strbuf_get_length(request->response.buffer)
             }
         };
 
@@ -282,7 +282,7 @@ lwan_prepare_response_header_full(struct lwan_request *request,
         if (request->response.stream.callback)
             APPEND_UINT(request->response.content_length);
         else
-            APPEND_UINT(strbuf_get_length(request->response.buffer));
+            APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
     }
 
     APPEND_CONSTANT("\r\nContent-Type: ");
@@ -393,7 +393,7 @@ lwan_response_send_chunk(struct lwan_request *request)
             return;
     }
 
-    size_t buffer_len = strbuf_get_length(request->response.buffer);
+    size_t buffer_len = lwan_strbuf_get_length(request->response.buffer);
     if (UNLIKELY(!buffer_len)) {
         static const char last_chunk[] = "0\r\n\r\n";
         lwan_send(request, last_chunk, sizeof(last_chunk) - 1, 0);
@@ -408,13 +408,13 @@ lwan_response_send_chunk(struct lwan_request *request)
 
     struct iovec chunk_vec[] = {
         { .iov_base = chunk_size, .iov_len = chunk_size_len },
-        { .iov_base = strbuf_get_buffer(request->response.buffer), .iov_len = buffer_len },
+        { .iov_base = lwan_strbuf_get_buffer(request->response.buffer), .iov_len = buffer_len },
         { .iov_base = "\r\n", .iov_len = 2 }
     };
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (LIKELY(strbuf_reset(request->response.buffer))) {
+    if (LIKELY(lwan_strbuf_reset(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
         return;
     }
@@ -472,13 +472,13 @@ lwan_response_send_event(struct lwan_request *request, const char *event)
         last++;
     }
 
-    size_t buffer_len = strbuf_get_length(request->response.buffer);
+    size_t buffer_len = lwan_strbuf_get_length(request->response.buffer);
     if (buffer_len) {
         vec[last].iov_base = "data: ";
         vec[last].iov_len = sizeof("data: ") - 1;
         last++;
 
-        vec[last].iov_base = strbuf_get_buffer(request->response.buffer);
+        vec[last].iov_base = lwan_strbuf_get_buffer(request->response.buffer);
         vec[last].iov_len = buffer_len;
         last++;
 
@@ -490,7 +490,7 @@ lwan_response_send_event(struct lwan_request *request, const char *event)
 
     lwan_writev(request, vec, last);
 
-    if (UNLIKELY(!strbuf_reset(request->response.buffer))) {
+    if (UNLIKELY(!lwan_strbuf_reset(request->response.buffer))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }

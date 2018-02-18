@@ -44,7 +44,7 @@
 #include "int-to-str.h"
 #include "list.h"
 #include "lwan-template.h"
-#include "strbuf.h"
+#include "lwan-strbuf.h"
 #include "lwan-array.h"
 
 /* Define this and build a debug version to have the template
@@ -800,14 +800,14 @@ static void *parser_meta(struct parser *parser, struct lexeme *lexeme)
     return unexpected_lexeme(lexeme);
 }
 
-static struct strbuf *strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
+static struct lwan_strbuf *lwan_strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
 {
     if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE)
-        return strbuf_new_static(lexeme->value.value, lexeme->value.len);
+        return lwan_strbuf_new_static(lexeme->value.value, lexeme->value.len);
 
-    struct strbuf *buf = strbuf_new_with_size(lexeme->value.len);
+    struct lwan_strbuf *buf = lwan_strbuf_new_with_size(lexeme->value.len);
     if (buf)
-        strbuf_set(buf, lexeme->value.value, lexeme->value.len);
+        lwan_strbuf_set(buf, lexeme->value.value, lexeme->value.len);
 
     return buf;
 }
@@ -821,7 +821,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         if (lexeme->value.len == 1) {
             emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*lexeme->value.value);
         } else {
-            struct strbuf *buf = strbuf_from_lexeme(parser, lexeme);
+            struct lwan_strbuf *buf = lwan_strbuf_from_lexeme(parser, lexeme);
             if (!buf)
                 return error_lexeme(lexeme, "Out of memory");
 
@@ -840,14 +840,14 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
 }
 
 void
-lwan_append_int_to_strbuf(struct strbuf *buf, void *ptr)
+lwan_append_int_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     char convertbuf[INT_TO_STR_BUFFER_SIZE];
     size_t len;
     char *converted;
 
     converted = int_to_string(*(int *)ptr, convertbuf, &len);
-    strbuf_append_str(buf, converted, len);
+    lwan_strbuf_append_str(buf, converted, len);
 }
 
 bool
@@ -857,9 +857,9 @@ lwan_tpl_int_is_empty(void *ptr)
 }
 
 void
-lwan_append_double_to_strbuf(struct strbuf *buf, void *ptr)
+lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
-    strbuf_append_printf(buf, "%f", *(double *)ptr);
+    lwan_strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
 
 bool
@@ -869,16 +869,16 @@ lwan_tpl_double_is_empty(void *ptr)
 }
 
 void
-lwan_append_str_to_strbuf(struct strbuf *buf, void *ptr)
+lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     const char *str = *(char **)ptr;
 
     if (LIKELY(str))
-        strbuf_append_str(buf, str, 0);
+        lwan_strbuf_append_str(buf, str, 0);
 }
 
 void
-lwan_append_str_escaped_to_strbuf(struct strbuf *buf, void *ptr)
+lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     if (UNLIKELY(!ptr))
         return;
@@ -889,19 +889,19 @@ lwan_append_str_escaped_to_strbuf(struct strbuf *buf, void *ptr)
 
     for (const char *p = str; *p; p++) {
         if (*p == '<')
-            strbuf_append_str(buf, "&lt;", 4);
+            lwan_strbuf_append_str(buf, "&lt;", 4);
         else if (*p == '>')
-            strbuf_append_str(buf, "&gt;", 4);
+            lwan_strbuf_append_str(buf, "&gt;", 4);
         else if (*p == '&')
-            strbuf_append_str(buf, "&amp;", 5);
+            lwan_strbuf_append_str(buf, "&amp;", 5);
         else if (*p == '"')
-            strbuf_append_str(buf, "&quot;", 6);
+            lwan_strbuf_append_str(buf, "&quot;", 6);
         else if (*p == '\'')
-            strbuf_append_str(buf, "&#x27;", 6);
+            lwan_strbuf_append_str(buf, "&#x27;", 6);
         else if (*p == '/')
-            strbuf_append_str(buf, "&#x2f;", 6);
+            lwan_strbuf_append_str(buf, "&#x2f;", 6);
         else
-            strbuf_append_char(buf, *p);
+            lwan_strbuf_append_char(buf, *p);
     }
 }
 
@@ -938,7 +938,7 @@ free_chunk(struct chunk *chunk)
         free(chunk->data);
         break;
     case ACTION_APPEND:
-        strbuf_free(chunk->data);
+        lwan_strbuf_free(chunk->data);
         break;
     case ACTION_APPLY_TPL:
         lwan_tpl_free(chunk->data);
@@ -1171,8 +1171,8 @@ static void dump_program(const struct lwan_tpl *tpl)
         switch (iter->action) {
         case ACTION_APPEND:
             printf("%s [%.*s]", instr("APPEND", instr_buf),
-                (int)strbuf_get_length(iter->data),
-                strbuf_get_buffer(iter->data));
+                (int)lwan_strbuf_get_length(iter->data),
+                lwan_strbuf_get_buffer(iter->data));
             break;
         case ACTION_APPEND_CHAR:
             printf("%s [%d]", instr("APPEND_CHAR", instr_buf),
@@ -1296,7 +1296,7 @@ end:
 }
 
 static struct chunk *
-apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct strbuf *buf, void *variables,
+apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct lwan_strbuf *buf, void *variables,
             void *until_data)
 {
     static const void *const dispatch_table[] = {
@@ -1325,12 +1325,12 @@ apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct strbuf *buf, void
     DISPATCH();
 
 action_append:
-    strbuf_append_str(buf, strbuf_get_buffer(chunk->data),
-                strbuf_get_length(chunk->data));
+    lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(chunk->data),
+                lwan_strbuf_get_length(chunk->data));
     NEXT_ACTION();
 
 action_append_char:
-    strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
+    lwan_strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
     NEXT_ACTION();
 
 action_variable: {
@@ -1366,9 +1366,9 @@ action_end_if_variable_not_empty:
     NEXT_ACTION();
 
 action_apply_tpl: {
-        struct strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
-        strbuf_append_str(buf, strbuf_get_buffer(tmp), strbuf_get_length(tmp));
-        strbuf_free(tmp);
+        struct lwan_strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
+        lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(tmp), lwan_strbuf_get_length(tmp));
+        lwan_strbuf_free(tmp);
         NEXT_ACTION();
     }
 
@@ -1427,13 +1427,13 @@ finalize:
 #undef NEXT_ACTION
 }
 
-struct strbuf *
-lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *variables)
+struct lwan_strbuf *
+lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct lwan_strbuf *buf, void *variables)
 {
-    if (UNLIKELY(!strbuf_reset(buf)))
+    if (UNLIKELY(!lwan_strbuf_reset(buf)))
         return NULL;
 
-    if (UNLIKELY(!strbuf_grow_to(buf, tpl->minimum_size)))
+    if (UNLIKELY(!lwan_strbuf_grow_to(buf, tpl->minimum_size)))
         return NULL;
 
     apply_until(tpl, tpl->chunks.base.base, buf, variables, NULL);
@@ -1441,10 +1441,10 @@ lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *varia
     return buf;
 }
 
-struct strbuf *
+struct lwan_strbuf *
 lwan_tpl_apply(struct lwan_tpl *tpl, void *variables)
 {
-    struct strbuf *buf = strbuf_new_with_size(tpl->minimum_size);
+    struct lwan_strbuf *buf = lwan_strbuf_new_with_size(tpl->minimum_size);
     return lwan_tpl_apply_with_buffer(tpl, buf, variables);
 }
 
@@ -1474,11 +1474,11 @@ int main(int argc, char *argv[])
 
     printf("*** Applying template 100000 times...\n");
     for (size_t i = 0; i < 100000; i++) {
-        struct strbuf *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
+        struct lwan_strbuf *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
             .some_int = 42,
             .a_string = "some string"
         });
-        strbuf_free(applied);
+        lwan_strbuf_free(applied);
     }
 
     lwan_tpl_free(tpl);

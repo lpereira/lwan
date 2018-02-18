@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "strbuf.h"
+#include "lwan-strbuf.h"
 
 enum config_line_type {
     CONFIG_LINE_TYPE_LINE,

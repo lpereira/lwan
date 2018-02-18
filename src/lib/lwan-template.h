@@ -19,7 +19,7 @@
 #pragma once
 
 #include <stddef.h>
-#include "strbuf.h"
+#include "lwan-strbuf.h"
 #include "lwan-coro.h"
 
 enum lwan_tpl_flag {
@@ -30,18 +30,18 @@ struct lwan_var_descriptor {
     const char *name;
     const off_t offset;
 
-    void (*append_to_strbuf)(struct strbuf *buf, void *ptr);
+    void (*append_to_strbuf)(struct lwan_strbuf *buf, void *ptr);
     bool (*get_is_empty)(void *ptr);
 
     coro_function_t generator;
     const struct lwan_var_descriptor *list_desc;
 };
 
-#define TPL_VAR_SIMPLE(struct_, var_, append_to_strbuf_, get_is_empty_) \
+#define TPL_VAR_SIMPLE(struct_, var_, append_to_lwan_strbuf_, get_is_empty_) \
     { \
         .name = #var_, \
         .offset = offsetof(struct_, var_), \
-        .append_to_strbuf = append_to_strbuf_, \
+        .append_to_strbuf = append_to_lwan_strbuf_, \
         .get_is_empty = get_is_empty_ \
     }
 
@@ -73,18 +73,18 @@ struct lwan_var_descriptor {
  * them, though, that's why they're exported. Eventually this will move to
  * something more opaque.
  */
-void	 lwan_append_int_to_strbuf(struct strbuf *buf, void *ptr);
+void	 lwan_append_int_to_strbuf(struct lwan_strbuf *buf, void *ptr);
 bool	 lwan_tpl_int_is_empty(void *ptr);
-void	 lwan_append_str_to_strbuf(struct strbuf *buf, void *ptr);
-void	 lwan_append_str_escaped_to_strbuf(struct strbuf *buf, void *ptr);
+void	 lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr);
+void	 lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr);
 bool	 lwan_tpl_str_is_empty(void *ptr);
-void	 lwan_append_double_to_strbuf(struct strbuf *buf, void *ptr);
+void	 lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr);
 bool	 lwan_tpl_double_is_empty(void *ptr);
 
 struct lwan_tpl	*lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descriptor *descriptor, enum lwan_tpl_flag flags);
 struct lwan_tpl	*lwan_tpl_compile_string(const char *string, const struct lwan_var_descriptor *descriptor);
 struct lwan_tpl	*lwan_tpl_compile_file(const char *filename, const struct lwan_var_descriptor *descriptor);
-struct strbuf	*lwan_tpl_apply(struct lwan_tpl *tpl, void *variables);
-struct strbuf	*lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct strbuf *buf, void *variables);
+struct lwan_strbuf	*lwan_tpl_apply(struct lwan_tpl *tpl, void *variables);
+struct lwan_strbuf	*lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct lwan_strbuf *buf, void *variables);
 void	 	 lwan_tpl_free(struct lwan_tpl *tpl);
 

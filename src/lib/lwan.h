@@ -35,7 +35,7 @@ extern "C" {
 #include "lwan-coro.h"
 #include "lwan-status.h"
 #include "lwan-trie.h"
-#include "strbuf.h"
+#include "lwan-strbuf.h"
 
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
@@ -235,7 +235,7 @@ struct lwan_key_value {
 
 struct lwan_request;
 struct lwan_response {
-    struct strbuf *buffer;
+    struct lwan_strbuf *buffer;
     const char *mime_type;
     size_t content_length;
     struct lwan_key_value *headers;

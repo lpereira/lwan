@@ -82,7 +82,7 @@ json_response(struct lwan_response *response, JsonNode *node)
     if (UNLIKELY(!serialized))
         return HTTP_INTERNAL_ERROR;
 
-    strbuf_set(response->buffer, serialized, length);
+    lwan_strbuf_set(response->buffer, serialized, length);
     free(serialized);
 
     response->mime_type = "application/json";
@@ -190,7 +190,7 @@ out_no_array:
 
 LWAN_HANDLER(plaintext)
 {
-    strbuf_set_static(response->buffer, hello_world, sizeof(hello_world) - 1);
+    lwan_strbuf_set_static(response->buffer, hello_world, sizeof(hello_world) - 1);
 
     response->mime_type = "text/plain";
     return HTTP_OK;

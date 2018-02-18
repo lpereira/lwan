@@ -38,9 +38,9 @@ print_module_info(void)
     extern const struct lwan_module_info SECTION_START(lwan_module);
     extern const struct lwan_module_info SECTION_END(lwan_module);
     const struct lwan_module_info *module;
-    struct strbuf buf;
+    struct lwan_strbuf buf;
 
-    if (!strbuf_init(&buf))
+    if (!lwan_strbuf_init(&buf))
         return;
 
     printf("Available modules:\n");
@@ -48,43 +48,43 @@ print_module_info(void)
         size_t len;
 
         if (module->module->flags & HANDLER_PARSE_QUERY_STRING) {
-            if (!strbuf_append_str(&buf, "parse-query-string, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-query-string, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_PARSE_IF_MODIFIED_SINCE) {
-            if (!strbuf_append_str(&buf, "parse-if-modified-since, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-if-modified-since, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_PARSE_RANGE) {
-            if (!strbuf_append_str(&buf, "parse-range, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-range, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_PARSE_ACCEPT_ENCODING) {
-            if (!strbuf_append_str(&buf, "parse-accept-encoding, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-accept-encoding, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_PARSE_POST_DATA) {
-            if (!strbuf_append_str(&buf, "parse-post-data, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-post-data, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_CAN_REWRITE_URL) {
-            if (!strbuf_append_str(&buf, "can-rewrite, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "can-rewrite, ", 0))
                 goto next_module;
         }
         if (module->module->flags & HANDLER_PARSE_COOKIES) {
-            if (!strbuf_append_str(&buf, "parse-cookies, ", 0))
+            if (!lwan_strbuf_append_str(&buf, "parse-cookies, ", 0))
                 goto next_module;
         }
 
-        len = strbuf_get_length(&buf);
+        len = lwan_strbuf_get_length(&buf);
         printf(" * %s%s%.*s%s\n", module->name, len ? " (" : "",
-               (int)(len ? (len - 2) : 0), strbuf_get_buffer(&buf),
+               (int)(len ? (len - 2) : 0), lwan_strbuf_get_buffer(&buf),
                len ? ")" : "");
 next_module:
-        strbuf_reset(&buf);
+        lwan_strbuf_reset(&buf);
     }
 
-    strbuf_free(&buf);
+    lwan_strbuf_free(&buf);
 }
 
 static void

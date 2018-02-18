@@ -30,7 +30,7 @@ set(SOURCES
 	patterns.c
 	realpathat.c
 	sd-daemon.c
-	strbuf.c
+	lwan-strbuf.c
 )
 
 if (HAVE_LUA)
@@ -117,5 +117,5 @@ install(FILES
 	lwan-status.h
 	lwan-template.h
 	lwan-trie.h
-	strbuf.h
+	lwan-strbuf.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
