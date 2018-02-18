@@ -195,7 +195,7 @@ LWAN_HANDLER(hello_world)
     static const char message[] = "Hello, World!";
 
     response->mime_type = "text/plain";
-    strbuf_set_static(response->buffer, message, sizeof(message) - 1);
+    lwan_strbuf_set_static(response->buffer, message, sizeof(message) - 1);
 
     return HTTP_OK;
 }
