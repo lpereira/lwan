@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -26,12 +27,11 @@
 #include "lwan.h"
 #include "lwan-strbuf.h"
 
-static const unsigned int STATIC = 1<<0;
-static const unsigned int DYNAMICALLY_ALLOCATED = 1<<1;
+static const unsigned int STATIC = 1 << 0;
+static const unsigned int DYNAMICALLY_ALLOCATED = 1 << 1;
 static const size_t DEFAULT_BUF_SIZE = 64;
 
-static size_t
-find_next_power_of_two(size_t number)
+static size_t find_next_power_of_two(size_t number)
 {
 #if defined(HAVE_BUILTIN_CLZLL)
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
@@ -41,7 +41,8 @@ find_next_power_of_two(size_t number)
     } else if (sizeof(size_t) == sizeof(unsigned long)) {
         return (size_t)1 << (size_bits - __builtin_clzl((unsigned long)number));
     } else if (sizeof(size_t) == sizeof(unsigned long long)) {
-        return (size_t)1 << (size_bits - __builtin_clzll((unsigned long long)number));
+        return (size_t)1 << (size_bits -
+                             __builtin_clzll((unsigned long long)number));
     } else {
         (void)size_bits;
     }
@@ -67,15 +68,12 @@ static inline size_t align_size(size_t unaligned_size)
     return aligned_size;
 }
 
-
-static ALWAYS_INLINE size_t
-max(size_t one, size_t another)
+static ALWAYS_INLINE size_t max(size_t one, size_t another)
 {
     return (one > another) ? one : another;
 }
 
-static bool
-grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
+static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 {
     if (s->flags & STATIC) {
         const size_t aligned_size = align_size(max(size + 1, s->len.buffer));
@@ -111,8 +109,7 @@ grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
     return true;
 }
 
-bool
-lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
+bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
 {
     if (UNLIKELY(!s))
         return false;
@@ -128,14 +125,12 @@ lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
     return true;
 }
 
-ALWAYS_INLINE bool
-lwan_strbuf_init(struct lwan_strbuf *s)
+ALWAYS_INLINE bool lwan_strbuf_init(struct lwan_strbuf *s)
 {
     return lwan_strbuf_init_with_size(s, DEFAULT_BUF_SIZE);
 }
 
-struct lwan_strbuf *
-lwan_strbuf_new_with_size(size_t size)
+struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
 {
     struct lwan_strbuf *s = malloc(sizeof(*s));
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, size))) {
@@ -147,14 +142,13 @@ lwan_strbuf_new_with_size(size_t size)
     return s;
 }
 
-ALWAYS_INLINE struct lwan_strbuf *
-lwan_strbuf_new(void)
+ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new(void)
 {
     return lwan_strbuf_new_with_size(DEFAULT_BUF_SIZE);
 }
 
-ALWAYS_INLINE struct lwan_strbuf *
-lwan_strbuf_new_static(const char *str, size_t size)
+ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new_static(const char *str,
+                                                         size_t size)
 {
     struct lwan_strbuf *s = malloc(sizeof(*s));
 
@@ -168,8 +162,7 @@ lwan_strbuf_new_static(const char *str, size_t size)
     return s;
 }
 
-void
-lwan_strbuf_free(struct lwan_strbuf *s)
+void lwan_strbuf_free(struct lwan_strbuf *s)
 {
     if (UNLIKELY(!s))
         return;
@@ -179,8 +172,7 @@ lwan_strbuf_free(struct lwan_strbuf *s)
         free(s);
 }
 
-bool
-lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
+bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
 {
     if (UNLIKELY(!grow_buffer_if_needed(s, s->len.buffer + 2)))
         return false;
@@ -191,8 +183,7 @@ lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
     return true;
 }
 
-bool
-lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
+bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -207,8 +198,7 @@ lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
     return true;
 }
 
-bool
-lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
+bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -222,8 +212,7 @@ lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
     return true;
 }
 
-bool
-lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz)
+bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
     if (!sz)
         sz = strlen(s2);
@@ -239,7 +228,10 @@ lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz)
 }
 
 static ALWAYS_INLINE bool
-internal_printf(struct lwan_strbuf *s1, bool (*save_str)(struct lwan_strbuf *, const char *, size_t), const char *fmt, va_list values)
+internal_printf(struct lwan_strbuf *s1,
+                bool (*save_str)(struct lwan_strbuf *, const char *, size_t),
+                const char *fmt,
+                va_list values)
 {
     char *s2;
     int len;
@@ -253,8 +245,7 @@ internal_printf(struct lwan_strbuf *s1, bool (*save_str)(struct lwan_strbuf *, c
     return success;
 }
 
-bool
-lwan_strbuf_printf(struct lwan_strbuf *s, const char *fmt, ...)
+bool lwan_strbuf_printf(struct lwan_strbuf *s, const char *fmt, ...)
 {
     bool could_printf;
     va_list values;
@@ -266,8 +257,7 @@ lwan_strbuf_printf(struct lwan_strbuf *s, const char *fmt, ...)
     return could_printf;
 }
 
-bool
-lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
+bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
 {
     bool could_printf;
     va_list values;
@@ -279,14 +269,12 @@ lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
     return could_printf;
 }
 
-bool
-lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size)
+bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size)
 {
     return grow_buffer_if_needed(s, new_size + 1);
 }
 
-bool
-lwan_strbuf_reset(struct lwan_strbuf *s)
+bool lwan_strbuf_reset(struct lwan_strbuf *s)
 {
     if (s->flags & STATIC) {
         s->value.buffer = "";
