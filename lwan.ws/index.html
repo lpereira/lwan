@@ -190,10 +190,7 @@ internals, as they're very tightly-coupled.</p>
 
 <pre><code class="language-clike">#include "lwan.h"
 
-static enum lwan_http_status
-hello_world(struct lwan_request *request,
-            struct lwan_response *response,
-            void *data)
+LWAN_HANDLER(hello_world)
 {
     static const char message[] = "Hello, World!";
 
