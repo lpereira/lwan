@@ -129,7 +129,7 @@ static inline unsigned int hash_crc32(const void *keyptr)
         len--;
     }
     if (*key)
-        hash = __builtin_ia32_crc32qi(hash, (unsigned int char)*key);
+        hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
 
     return hash;
 }
