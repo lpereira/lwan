@@ -20,6 +20,12 @@ if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Debug")
 endif ()
 
+find_program(CCACHE ccache)
+if (CCACHE)
+       message(STATUS "Using ccache from ${CCACHE}")
+       set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE})
+       set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE})
+endif ()
 
 #
 # Find libraries
