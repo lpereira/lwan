@@ -170,10 +170,6 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
             lwan_status_warning("%s not supported by the kernel", #_option);   \
     } while (0)
 
-#ifndef SO_REUSEPORT
-#define SO_REUSEPORT 15
-#endif
-
 static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
 {
     const struct addrinfo *addr;
@@ -186,8 +182,10 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
             continue;
 
         SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){1}, sizeof(int));
+#ifdef SO_REUSEPORT
         SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
                                    (int[]){reuse_port}, sizeof(int));
+#endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
             return listen_addrinfo(fd, addr);
