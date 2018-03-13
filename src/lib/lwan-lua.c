@@ -31,14 +31,14 @@
 
 static const char *request_metatable_name = "Lwan.Request";
 
-static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L, int n)
+static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L)
 {
-    return *((struct lwan_request **)luaL_checkudata(L, n, request_metatable_name));
+    return *((struct lwan_request **)luaL_checkudata(L, 1, request_metatable_name));
 }
 
 static int req_say_cb(lua_State *L)
 {
-    struct lwan_request *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -50,7 +50,7 @@ static int req_say_cb(lua_State *L)
 
 static int req_send_event_cb(lua_State *L)
 {
-    struct lwan_request *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L);
     size_t event_str_len;
     const char *event_str = lua_tolstring(L, -1, &event_str_len);
     const char *event_name = lua_tostring(L, -2);
@@ -63,7 +63,7 @@ static int req_send_event_cb(lua_State *L)
 
 static int req_set_response_cb(lua_State *L)
 {
-    struct lwan_request *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -75,7 +75,7 @@ static int req_set_response_cb(lua_State *L)
 static int request_param_getter(lua_State *L,
         const char *(*getter)(struct lwan_request *req, const char *key))
 {
-    struct lwan_request *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L);
     const char *key_str = lua_tostring(L, -1);
 
     const char *value = getter(request, key_str);
@@ -124,7 +124,7 @@ static int req_set_headers_cb(lua_State *L)
     const int value_index = 2 + table_index;
     const int nested_value_index = value_index * 2 - table_index;
     struct lwan_key_value_array *headers;
-    struct lwan_request *request = userdata_as_request(L, 1);
+    struct lwan_request *request = userdata_as_request(L);
     struct coro *coro = request->conn->coro;
     struct lwan_key_value *kv;
 
@@ -233,8 +233,8 @@ close_lua_state:
 void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request)
 {
     struct lwan_request **userdata = lua_newuserdata(L, sizeof(struct lwan_request *));
+
     *userdata = request;
     luaL_getmetatable(L, request_metatable_name);
     lua_setmetatable(L, -2);
 }
-
