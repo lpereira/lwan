@@ -99,8 +99,8 @@ static void destroy_urlmap(void *data)
     if (url_map->module) {
         const struct lwan_module *module = url_map->module;
 
-        if (module->free)
-            module->free(url_map->data);
+        if (module->destroy)
+            module->destroy(url_map->data);
     } else if (url_map->data && url_map->flags & HANDLER_DATA_IS_HASH_TABLE) {
         hash_free(url_map->data);
     }
@@ -254,8 +254,8 @@ add_map:
         url_map.module = NULL;
 
         hash = NULL;
-    } else if (module && module->new_from_hash && module->handle_request) {
-        url_map.data = module->new_from_hash(prefix, hash);
+    } else if (module && module->create_from_hash && module->handle_request) {
+        url_map.data = module->create_from_hash(prefix, hash);
 
         if (module->parse_conf && !module->parse_conf(url_map.data, isolated)) {
             const char *msg = config_last_error(isolated);
@@ -291,8 +291,8 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
         if (UNLIKELY(!copy))
             continue;
 
-        if (copy->module && copy->module->new) {
-            copy->data = copy->module->new (map->prefix, copy->args);
+        if (copy->module && copy->module->create) {
+            copy->data = copy->module->create (map->prefix, copy->args);
             copy->flags = copy->module->flags;
             copy->handler = copy->module->handle_request;
         } else {

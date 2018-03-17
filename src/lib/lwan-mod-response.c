@@ -31,16 +31,16 @@ response_handle_request(struct lwan_request *request __attribute__((unused)),
     return (enum lwan_http_status)instance;
 }
 
-static void *response_new(const char *prefix __attribute__((unused)),
-                                   void *instance)
+static void *response_create(const char *prefix __attribute__((unused)),
+                             void *instance)
 {
     struct lwan_response_settings *settings = instance;
 
     return (void *)settings->code;
 }
 
-static void *response_new_from_hash(const char *prefix,
-                                             const struct hash *hash)
+static void *response_create_from_hash(const char *prefix,
+                                       const struct hash *hash)
 {
     const char *code = hash_find(hash, "code");
 
@@ -58,12 +58,12 @@ static void *response_new_from_hash(const char *prefix,
         return NULL;
     }
 
-    return response_new(prefix, &settings);
+    return response_create(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .new = response_new,
-    .new_from_hash = response_new_from_hash,
+    .create = response_create,
+    .create_from_hash = response_create_from_hash,
     .handle_request = response_handle_request,
 };
 

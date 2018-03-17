@@ -44,28 +44,28 @@ redirect_handle_request(struct lwan_request *request,
     return HTTP_MOVED_PERMANENTLY;
 }
 
-static void *redirect_new(const char *prefix __attribute__((unused)),
-                                   void *instance)
+static void *redirect_create(const char *prefix __attribute__((unused)),
+                             void *instance)
 {
     struct lwan_redirect_settings *settings = instance;
 
     return (settings->to) ? strdup(settings->to) : NULL;
 }
 
-static void *redirect_new_from_hash(const char *prefix,
-                                             const struct hash *hash)
+static void *redirect_create_from_hash(const char *prefix,
+                                       const struct hash *hash)
 {
     struct lwan_redirect_settings settings = {
         .to = hash_find(hash, "to")
     };
 
-    return redirect_new(prefix, &settings);
+    return redirect_create(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .new = redirect_new,
-    .new_from_hash = redirect_new_from_hash,
-    .free = free,
+    .create = redirect_create,
+    .create_from_hash = redirect_create_from_hash,
+    .destroy = free,
     .handle_request = redirect_handle_request,
 };
 

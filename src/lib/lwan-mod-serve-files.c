@@ -674,7 +674,7 @@ static void redir_free(void *data)
     free(rd->redir_to);
 }
 
-static void *serve_files_new(const char *prefix, void *args)
+static void *serve_files_create(const char *prefix, void *args)
 {
     struct lwan_serve_files_settings *settings = args;
     char *canonical_root;
@@ -754,7 +754,7 @@ out_realpath:
     return NULL;
 }
 
-static void *serve_files_new_from_hash(const char *prefix,
+static void *serve_files_create_from_hash(const char *prefix,
                                        const struct hash *hash)
 {
     struct lwan_serve_files_settings settings = {
@@ -765,10 +765,10 @@ static void *serve_files_new_from_hash(const char *prefix,
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template")};
 
-    return serve_files_new(prefix, &settings);
+    return serve_files_create(prefix, &settings);
 }
 
-static void serve_files_free(void *data)
+static void serve_files_destroy(void *data)
 {
     struct serve_files_priv *priv = data;
 
@@ -1074,9 +1074,9 @@ fail:
 }
 
 static const struct lwan_module module = {
-    .new = serve_files_new,
-    .new_from_hash = serve_files_new_from_hash,
-    .free = serve_files_free,
+    .create = serve_files_create,
+    .create_from_hash = serve_files_create_from_hash,
+    .destroy = serve_files_destroy,
     .handle_request = serve_files_handle_request,
     .flags = HANDLER_REMOVE_LEADING_SLASH | HANDLER_PARSE_IF_MODIFIED_SINCE |
              HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING |

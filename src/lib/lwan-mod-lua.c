@@ -220,7 +220,7 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     }
 }
 
-static void *lua_new(const char *prefix __attribute__((unused)), void *data)
+static void *lua_create(const char *prefix __attribute__((unused)), void *data)
 {
     struct lwan_lua_settings *settings = data;
     struct lwan_lua_priv *priv;
@@ -273,7 +273,7 @@ error:
     return NULL;
 }
 
-static void lua_free(void *instance)
+static void lua_destroy(void *instance)
 {
     struct lwan_lua_priv *priv = instance;
 
@@ -286,7 +286,7 @@ static void lua_free(void *instance)
     }
 }
 
-static void *lua_new_from_hash(const char *prefix, const struct hash *hash)
+static void *lua_create_from_hash(const char *prefix, const struct hash *hash)
 {
     struct lwan_lua_settings settings = {
         .default_type = hash_find(hash, "default_type"),
@@ -295,13 +295,13 @@ static void *lua_new_from_hash(const char *prefix, const struct hash *hash)
         .script = hash_find(hash, "script")
     };
 
-    return lua_new(prefix, &settings);
+    return lua_create(prefix, &settings);
 }
 
 static const struct lwan_module module = {
-    .new = lua_new,
-    .new_from_hash = lua_new_from_hash,
-    .free = lua_free,
+    .create = lua_create,
+    .create_from_hash = lua_create_from_hash,
+    .destroy = lua_destroy,
     .handle_request = lua_handle_request,
     .flags = HANDLER_PARSE_QUERY_STRING | HANDLER_REMOVE_LEADING_SLASH |
              HANDLER_PARSE_COOKIES

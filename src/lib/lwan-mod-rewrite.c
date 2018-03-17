@@ -277,8 +277,8 @@ rewrite_handle_request(struct lwan_request *request,
     return HTTP_NOT_FOUND;
 }
 
-static void *rewrite_new(const char *prefix __attribute__((unused)),
-                         void *instance __attribute__((unused)))
+static void *rewrite_create(const char *prefix __attribute__((unused)),
+                            void *instance __attribute__((unused)))
 {
     struct private_data *pd = malloc(sizeof(*pd));
 
@@ -290,7 +290,7 @@ static void *rewrite_new(const char *prefix __attribute__((unused)),
     return pd;
 }
 
-static void rewrite_free(void *instance)
+static void rewrite_destroy(void *instance)
 {
     struct private_data *pd = instance;
     struct pattern *iter;
@@ -304,10 +304,11 @@ static void rewrite_free(void *instance)
     free(pd);
 }
 
-static void *rewrite_new_from_hash(const char *prefix, const struct hash *hash
-                                   __attribute__((unused)))
+static void *rewrite_create_from_hash(const char *prefix,
+                                      const struct hash *hash
+                                      __attribute__((unused)))
 {
-    return rewrite_new(prefix, NULL);
+    return rewrite_create(prefix, NULL);
 }
 
 static bool rewrite_parse_conf_pattern(struct private_data *pd,
@@ -421,10 +422,10 @@ static bool rewrite_parse_conf(void *instance, struct config *config)
 }
 
 static const struct lwan_module module = {
-    .new = rewrite_new,
-    .new_from_hash = rewrite_new_from_hash,
+    .create = rewrite_create,
+    .create_from_hash = rewrite_create_from_hash,
     .parse_conf = rewrite_parse_conf,
-    .free = rewrite_free,
+    .destroy = rewrite_destroy,
     .handle_request = rewrite_handle_request,
     .flags = HANDLER_CAN_REWRITE_URL
 };

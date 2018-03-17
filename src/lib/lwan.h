@@ -294,9 +294,9 @@ struct lwan_request {
 };
 
 struct lwan_module {
-    void *(*new)(const char *prefix, void *args);
-    void *(*new_from_hash)(const char *prefix, const struct hash *hash);
-    void (*free)(void *instance);
+    void *(*create)(const char *prefix, void *args);
+    void *(*create_from_hash)(const char *prefix, const struct hash *hash);
+    void (*destroy)(void *instance);
 
     bool (*parse_conf)(void *instance, struct config *config);
 
