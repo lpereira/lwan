@@ -1,3 +1,8 @@
+if (CMAKE_CROSSCOMPILING)
+	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH "Point it to the export file from a native build")
+	include(${IMPORT_EXECUTABLES})
+endif ()
+
 set(SOURCES
 	base64.c
 	hash.c
@@ -64,7 +69,7 @@ set_target_properties(lwan-shared PROPERTIES
 # Build mimegen
 add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/mime-types.h
-        COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/mimegen
+        COMMAND mimegen
                 ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types >
                 ${CMAKE_BINARY_DIR}/mime-types.h
         DEPENDS ${CMAKE_SOURCE_DIR}/src/bin/tools/mime.types mimegen
@@ -77,7 +82,7 @@ add_dependencies(lwan-static generate_mime_types_table)
 
 add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
-        COMMAND ${CMAKE_BINARY_DIR}/src/bin/tools/bin2hex
+        COMMAND bin2hex
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
