@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifndef __CYGWIN__
 #include <sys/syscall.h>
+#endif
 #include <sys/types.h>
 #include <unistd.h>
 
