@@ -311,7 +311,7 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 }
 #endif
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__CYGWIN__)
 #if defined(HAS_GETAUXVAL)
 #include <sys/auxv.h>
 #endif

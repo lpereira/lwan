@@ -1,5 +1,5 @@
 if (CMAKE_CROSSCOMPILING)
-	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH)
+	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH "Point it to the export file from a native build")
 	include(${IMPORT_EXECUTABLES})
 else ()
 	add_executable(mimegen
@@ -22,6 +22,5 @@ else ()
 		bin2hex.c
 	)
 
-	export(TARGETS mimegen FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
-	export(TARGETS bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+	export(TARGETS mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 endif ()
