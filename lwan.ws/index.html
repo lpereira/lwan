@@ -204,7 +204,7 @@ int
 main(void)
 {
     const struct lwan_url_map default_map[] = {
-        { .prefix = "/", .handler = hello_world },
+        { .prefix = "/", .handler = LWAN_HANDLER_REF(hello_world) },
         { .prefix = NULL }
     };
     struct lwan l;
