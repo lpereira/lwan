@@ -537,7 +537,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_tables_init();
 
     /* Load the configuration file. */
-    if (config == &default_config || config->config_file_path) {
+    if (config->config_file_path) {
         if (!setup_from_config(l, config->config_file_path)) {
             if (config->config_file_path) {
                 lwan_status_critical("Could not read config file: %s",
@@ -546,7 +546,8 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
                 lwan_status_critical("Could not read config file");
             }
         }
-
+    }
+    if (config->config_file_path || config == &default_config) {
         /* `quiet` key might have changed value. */
         lwan_status_init(l);
     }
