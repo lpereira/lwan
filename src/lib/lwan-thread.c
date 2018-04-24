@@ -162,10 +162,8 @@ process_request_coro(struct coro *coro, void *data)
     }
     coro_defer(coro, CORO_DEFER(lwan_strbuf_free), &strbuf);
 
-    if (lwan->config.proxy_protocol)
-        flags |= REQUEST_ALLOW_PROXY_REQS;
-    if (lwan->config.allow_cors)
-        flags |= REQUEST_ALLOW_CORS;
+    flags |= lwan->config.proxy_protocol << REQUEST_ALLOW_PROXY_REQS_SHIFT |
+             lwan->config.allow_cors << REQUEST_ALLOW_CORS_SHIFT;
 
     while (true) {
         struct lwan_request request = {
