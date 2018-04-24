@@ -186,11 +186,7 @@ process_request_coro(struct coro *coro, void *data)
 
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
-        if (UNLIKELY(!lwan_strbuf_reset(&strbuf))) {
-            coro_yield(coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
-        }
-
+        lwan_strbuf_reset(&strbuf);
         flags = request.flags & flags_filter;
     }
 }

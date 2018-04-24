@@ -274,7 +274,7 @@ bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size)
     return grow_buffer_if_needed(s, new_size + 1);
 }
 
-bool lwan_strbuf_reset(struct lwan_strbuf *s)
+void lwan_strbuf_reset(struct lwan_strbuf *s)
 {
     if (s->flags & STATIC) {
         s->value.buffer = "";
@@ -284,6 +284,4 @@ bool lwan_strbuf_reset(struct lwan_strbuf *s)
     }
 
     s->len.buffer = 0;
-
-    return true;
 }

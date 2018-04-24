@@ -145,8 +145,7 @@ lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        if (UNLIKELY(!lwan_strbuf_reset(request->response.buffer)))
-            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        lwan_strbuf_reset(request->response.buffer);
         lwan_response_send_chunk(request);
         log_request(request, status);
         return;
@@ -402,8 +401,10 @@ lwan_response_send_chunk(struct lwan_request *request)
 
     char chunk_size[3 * sizeof(size_t) + 2];
     int converted_len = snprintf(chunk_size, sizeof(chunk_size), "%zx\r\n", buffer_len);
-    if (UNLIKELY(converted_len < 0 || (size_t)converted_len >= sizeof(chunk_size)))
-        goto abort_coro;
+    if (UNLIKELY(converted_len < 0 || (size_t)converted_len >= sizeof(chunk_size))) {
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
     size_t chunk_size_len = (size_t)converted_len;
 
     struct iovec chunk_vec[] = {
@@ -414,14 +415,8 @@ lwan_response_send_chunk(struct lwan_request *request)
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    if (LIKELY(lwan_strbuf_reset(request->response.buffer))) {
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-        return;
-    }
-
-abort_coro:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    lwan_strbuf_reset(request->response.buffer);
+    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 }
 
 bool
@@ -490,10 +485,7 @@ lwan_response_send_event(struct lwan_request *request, const char *event)
 
     lwan_writev(request, vec, last);
 
-    if (UNLIKELY(!lwan_strbuf_reset(request->response.buffer))) {
-        coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-    }
+    lwan_strbuf_reset(request->response.buffer);
 
     coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
 }

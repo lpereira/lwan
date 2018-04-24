@@ -41,7 +41,7 @@ struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size);
 struct lwan_strbuf *lwan_strbuf_new(void);
 void lwan_strbuf_free(struct lwan_strbuf *s);
 
-bool lwan_strbuf_reset(struct lwan_strbuf *s);
+void lwan_strbuf_reset(struct lwan_strbuf *s);
 
 bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c);
 bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz);
