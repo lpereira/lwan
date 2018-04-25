@@ -155,13 +155,8 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
     if (UNLIKELY(!dst_port))
         return NULL;
 
-    enum {
-        TCP4 = MULTICHAR_CONSTANT('T', 'C', 'P', '4'),
-        TCP6 = MULTICHAR_CONSTANT('T', 'C', 'P', '6'),
-    };
-
     STRING_SWITCH(protocol) {
-    case TCP4: {
+    case MULTICHAR_CONSTANT('T', 'C', 'P', '4'): {
         struct sockaddr_in *from = &proxy->from.ipv4;
         struct sockaddr_in *to = &proxy->to.ipv4;
 
@@ -178,7 +173,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 
         break;
     }
-    case TCP6: {
+    case MULTICHAR_CONSTANT('T', 'C', 'P', '6'): {
         struct sockaddr_in6 *from = &proxy->from.ipv6;
         struct sockaddr_in6 *to = &proxy->to.ipv6;
 
@@ -264,28 +259,20 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 static ALWAYS_INLINE char *
 identify_http_method(struct lwan_request *request, char *buffer)
 {
-    enum {
-        HTTP_STR_GET     = MULTICHAR_CONSTANT('G','E','T',' '),
-        HTTP_STR_HEAD    = MULTICHAR_CONSTANT('H','E','A','D'),
-        HTTP_STR_POST    = MULTICHAR_CONSTANT('P','O','S','T'),
-        HTTP_STR_OPTIONS = MULTICHAR_CONSTANT('O','P','T','I'),
-        HTTP_STR_DELETE  = MULTICHAR_CONSTANT('D','E','L','E'),
-    };
-
     STRING_SWITCH(buffer) {
-    case HTTP_STR_GET:
+    case MULTICHAR_CONSTANT('G','E','T',' '):
         request->flags |= REQUEST_METHOD_GET;
         return buffer + sizeof("GET ") - 1;
-    case HTTP_STR_HEAD:
+    case MULTICHAR_CONSTANT('H','E','A','D'):
         request->flags |= REQUEST_METHOD_HEAD;
         return buffer + sizeof("HEAD ") - 1;
-    case HTTP_STR_POST:
+    case MULTICHAR_CONSTANT('P','O','S','T'):
         request->flags |= REQUEST_METHOD_POST;
         return buffer + sizeof("POST ") - 1;
-    case HTTP_STR_OPTIONS:
+    case MULTICHAR_CONSTANT('O','P','T','I'):
         request->flags |= REQUEST_METHOD_OPTIONS;
         return buffer + sizeof("OPTIONS ") - 1;
-    case HTTP_STR_DELETE:
+    case MULTICHAR_CONSTANT('D','E','L','E'):
         request->flags |= REQUEST_METHOD_DELETE;
         return buffer + sizeof("DELETE ") - 1;
     }
@@ -462,10 +449,6 @@ identify_http_path(struct lwan_request *request, char *buffer,
 {
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
     char *space, *end_of_line;
-    enum {
-        HTTP_VERSION_1_0 = MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','0'),
-        HTTP_VERSION_1_1 = MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','1'),
-    };
 
     if (UNLIKELY(*buffer != '/'))
         return NULL;
@@ -488,10 +471,10 @@ identify_http_path(struct lwan_request *request, char *buffer,
     *space++ = '\0';
 
     STRING_SWITCH_LARGE(space) {
-    case HTTP_VERSION_1_0:
+    case MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','0'):
         request->flags |= REQUEST_IS_HTTP_1_0;
-        /* fallthrough */
-    case HTTP_VERSION_1_1:
+        break;
+    case MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','1'):
         break;
     default:
         return NULL;
@@ -506,7 +489,7 @@ identify_http_path(struct lwan_request *request, char *buffer,
         if (UNLIKELY(p >= buffer_end)) /* reached the end of header blocks */ \
             return NULL; \
         \
-        if (UNLIKELY(string_as_int16(p) != HTTP_HDR_COLON_SPACE)) \
+        if (UNLIKELY(string_as_int16(p) != MULTICHAR_CONSTANT_SMALL(':', ' '))) \
             goto did_not_match; \
         p += 2; \
         \
@@ -529,21 +512,6 @@ identify_http_path(struct lwan_request *request, char *buffer,
 static char *
 parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_end)
 {
-    enum {
-        HTTP_HDR_COLON_SPACE       = MULTICHAR_CONSTANT_SMALL(':', ' '),
-        HTTP_HDR_REQUEST_END       = MULTICHAR_CONSTANT_SMALL('\r','\n'),
-        HTTP_HDR_ENCODING          = MULTICHAR_CONSTANT_L('-','E','n','c'),
-        HTTP_HDR_LENGTH            = MULTICHAR_CONSTANT_L('-','L','e','n'),
-        HTTP_HDR_TYPE              = MULTICHAR_CONSTANT_L('-','T','y','p'),
-        HTTP_HDR_ACCEPT            = MULTICHAR_CONSTANT_L('A','c','c','e'),
-        HTTP_HDR_AUTHORIZATION     = MULTICHAR_CONSTANT_L('A','u','t','h'),
-        HTTP_HDR_CONNECTION        = MULTICHAR_CONSTANT_L('C','o','n','n'),
-        HTTP_HDR_CONTENT           = MULTICHAR_CONSTANT_L('C','o','n','t'),
-        HTTP_HDR_COOKIE            = MULTICHAR_CONSTANT_L('C','o','o','k'),
-        HTTP_HDR_IF_MODIFIED_SINCE = MULTICHAR_CONSTANT_L('I','f','-','M'),
-        HTTP_HDR_RANGE             = MULTICHAR_CONSTANT_L('R','a','n','g')
-    };
-
     for (char *p = buffer; *p; buffer = ++p) {
         char *value;
         size_t length;
@@ -552,52 +520,52 @@ parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_e
             break;
 
         STRING_SWITCH_L(p) {
-        case HTTP_HDR_ACCEPT:
+        case MULTICHAR_CONSTANT_L('A','c','c','e'):
             p += sizeof("Accept") - 1;
 
             STRING_SWITCH_L(p) {
-            CASE_HEADER(HTTP_HDR_ENCODING, "-Encoding")
+            CASE_HEADER(MULTICHAR_CONSTANT_L('-','E','n','c'), "-Encoding")
                 helper->accept_encoding.value = value;
                 helper->accept_encoding.len = length;
                 break;
             }
             break;
-        CASE_HEADER(HTTP_HDR_AUTHORIZATION, "Authorization")
+        CASE_HEADER(MULTICHAR_CONSTANT_L('A','u','t','h'), "Authorization")
             helper->authorization.value = value;
             helper->authorization.len = length;
             break;
-        CASE_HEADER(HTTP_HDR_CONNECTION, "Connection")
+        CASE_HEADER(MULTICHAR_CONSTANT_L('C','o','n','n'), "Connection")
             helper->connection = (*value | 0x20);
             break;
-        case HTTP_HDR_CONTENT:
+        case MULTICHAR_CONSTANT_L('C','o','n','t'):
             p += sizeof("Content") - 1;
 
             STRING_SWITCH_L(p) {
-            CASE_HEADER(HTTP_HDR_TYPE, "-Type")
+            CASE_HEADER(MULTICHAR_CONSTANT_L('-','T','y','p'), "-Type")
                 helper->content_type.value = value;
                 helper->content_type.len = length;
                 break;
-            CASE_HEADER(HTTP_HDR_LENGTH, "-Length")
+            CASE_HEADER(MULTICHAR_CONSTANT_L('-','L','e','n'), "-Length")
                 helper->content_length.value = value;
                 helper->content_length.len = length;
                 break;
             }
             break;
-        CASE_HEADER(HTTP_HDR_COOKIE, "Cookie")
+        CASE_HEADER(MULTICHAR_CONSTANT_L('C','o','o','k'), "Cookie")
             helper->cookie.value = value;
             helper->cookie.len = length;
             break;
-        CASE_HEADER(HTTP_HDR_IF_MODIFIED_SINCE, "If-Modified-Since")
+        CASE_HEADER(MULTICHAR_CONSTANT_L('I','f','-','M'), "If-Modified-Since")
             helper->if_modified_since.value = value;
             helper->if_modified_since.len = length;
             break;
-        CASE_HEADER(HTTP_HDR_RANGE, "Range")
+        CASE_HEADER(MULTICHAR_CONSTANT_L('R','a','n','g'), "Range")
             helper->range.value = value;
             helper->range.len = length;
             break;
         default:
             STRING_SWITCH_SMALL(p) {
-            case HTTP_HDR_REQUEST_END:
+            case MULTICHAR_CONSTANT_SMALL('\r','\n'):
                 *p = '\0';
                 helper->next_request = p + sizeof("\r\n") - 1;
                 return p;
@@ -663,21 +631,14 @@ parse_accept_encoding(struct lwan_request *request, struct request_parser_helper
     if (!helper->accept_encoding.len)
         return;
 
-    enum {
-        ENCODING_DEFL1 = MULTICHAR_CONSTANT('d','e','f','l'),
-        ENCODING_DEFL2 = MULTICHAR_CONSTANT(' ','d','e','f'),
-        ENCODING_GZIP1 = MULTICHAR_CONSTANT('g','z','i','p'),
-        ENCODING_GZIP2 = MULTICHAR_CONSTANT(' ','g','z','i')
-    };
-
-    for (char *p = helper->accept_encoding.value; *p; p++) {
+    for (const char *p = helper->accept_encoding.value; *p; p++) {
         STRING_SWITCH(p) {
-        case ENCODING_DEFL1:
-        case ENCODING_DEFL2:
+        case MULTICHAR_CONSTANT('d','e','f','l'):
+        case MULTICHAR_CONSTANT(' ','d','e','f'):
             request->flags |= REQUEST_ACCEPT_DEFLATE;
             break;
-        case ENCODING_GZIP1:
-        case ENCODING_GZIP2:
+        case MULTICHAR_CONSTANT('g','z','i','p'):
+        case MULTICHAR_CONSTANT(' ','g','z','i'):
             request->flags |= REQUEST_ACCEPT_GZIP;
             break;
         }
@@ -1031,15 +992,10 @@ read_post_data(struct lwan_request *request, struct request_parser_helper *helpe
 static char *
 parse_proxy_protocol(struct lwan_request *request, char *buffer)
 {
-    enum {
-        HTTP_PROXY_VER1 = MULTICHAR_CONSTANT('P','R','O','X'),
-        HTTP_PROXY_VER2 = MULTICHAR_CONSTANT('\x0D','\x0A','\x0D','\x0A'),
-    };
-
     STRING_SWITCH(buffer) {
-    case HTTP_PROXY_VER1:
+    case MULTICHAR_CONSTANT('P','R','O','X'):
         return parse_proxy_protocol_v1(request, buffer);
-    case HTTP_PROXY_VER2:
+    case MULTICHAR_CONSTANT('\x0D','\x0A','\x0D','\x0A'):
         return parse_proxy_protocol_v2(request, buffer);
     }
 
