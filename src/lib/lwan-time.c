@@ -94,11 +94,11 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
         return -EINVAL;
     str += 5;
 
-    tm.tm_hour = parse_2_digit_num(str, ':', 1, 24);
+    tm.tm_hour = parse_2_digit_num(str, ':', 0, 23);
     str += 3;
-    tm.tm_min = parse_2_digit_num(str, ':', 1, 59);
+    tm.tm_min = parse_2_digit_num(str, ':', 0, 59);
     str += 3;
-    tm.tm_sec = parse_2_digit_num(str, ' ', 1, 59);
+    tm.tm_sec = parse_2_digit_num(str, ' ', 0, 59);
     str += 3;
 
     STRING_SWITCH(str) {
