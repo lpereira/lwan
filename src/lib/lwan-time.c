@@ -119,21 +119,20 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
 
 int lwan_format_rfc_time(const time_t in, char out[static 30])
 {
-    static const char *weekdays[] = {
-        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-    };
-    static const char *months[] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
-        "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
+    static const char *weekdays = "SunMonTueWedThuFriSat";
+    static const char *months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    const char *weekday, *month;
     struct tm tm;
     int r;
 
     if (UNLIKELY(!gmtime_r(&in, &tm)))
         return -errno;
 
-    r = snprintf(out, 30, "%s, %02d %s %04d %02d:%02d:%02d GMT",
-        weekdays[tm.tm_wday], tm.tm_mday, months[tm.tm_mon],
+    weekday = weekdays + tm.tm_wday * 3;
+    month = months + tm.tm_mon * 3;
+
+    r = snprintf(out, 30, "%.*s, %02d %.*s %04d %02d:%02d:%02d GMT",
+        3, weekday, tm.tm_mday, 3, month,
         tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
     if (UNLIKELY(r < 0 || r > 30))
         return -EINVAL;
