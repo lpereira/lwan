@@ -57,7 +57,7 @@ static inline bool add_overflow(size_t a, size_t b, size_t *out)
     if (UNLIKELY(a > 0 && b > SIZE_MAX - a))
         return true;
 
-    *out = a + INCREMENT;
+    *out = a + b;
     return false;
 }
 #else
