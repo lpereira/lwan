@@ -198,6 +198,7 @@ enable_warning_if_supported(-Wlogical-op)
 enable_warning_if_supported(-Wrestrict)
 enable_warning_if_supported(-Wdouble-promotion)
 enable_warning_if_supported(-Wno-unused-parameter)
+enable_warning_if_supported(-Wstringop-truncation)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
