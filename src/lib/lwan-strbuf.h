@@ -49,7 +49,8 @@ bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...);
 
 bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz);
 bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz);
-bool lwan_strbuf_printf(struct lwan_strbuf *s1, const char *fmt, ...);
+bool lwan_strbuf_printf(struct lwan_strbuf *s1, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
 
 bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size);
 

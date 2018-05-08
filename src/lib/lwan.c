@@ -413,7 +413,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 long n_threads =
                     parse_long(line.value, default_config.n_threads);
                 if (n_threads < 0)
-                    config_error(conf, "Invalid number of threads: %d",
+                    config_error(conf, "Invalid number of threads: %ld",
                                  n_threads);
                 lwan->config.n_threads = (unsigned short int)n_threads;
             } else if (streq(line.key, "max_post_data_size")) {

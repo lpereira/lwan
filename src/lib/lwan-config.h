@@ -48,7 +48,8 @@ struct config;
 
 struct config *config_open(const char *path);
 void config_close(struct config *conf);
-bool config_error(struct config *conf, const char *fmt, ...);
+bool config_error(struct config *conf, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
 bool config_read_line(struct config *conf, struct config_line *l);
 
 const char *config_last_error(struct config *conf);
