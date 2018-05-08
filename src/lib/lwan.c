@@ -524,7 +524,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     memset(l, 0, sizeof(*l));
     memcpy(&l->config, config, sizeof(*config));
     l->config.listener = dup_or_null(l->config.listener);
-    l->config.config_file_path = dup_or_null(l->config.listener);
+    l->config.config_file_path = dup_or_null(l->config.config_file_path);
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
@@ -537,14 +537,12 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_tables_init();
 
     /* Load the configuration file. */
-    if (config->config_file_path) {
-        if (!setup_from_config(l, config->config_file_path)) {
-            if (config->config_file_path) {
-                lwan_status_critical("Could not read config file: %s",
-                                     config->config_file_path);
-            } else {
-                lwan_status_critical("Could not read config file");
-            }
+    if (!setup_from_config(l, config->config_file_path)) {
+        if (config->config_file_path) {
+            lwan_status_critical("Could not read config file: %s",
+                                 config->config_file_path);
+        } else {
+            lwan_status_critical("Could not read config file");
         }
     }
     if (config->config_file_path || config == &default_config) {
