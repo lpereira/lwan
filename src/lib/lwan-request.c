@@ -322,6 +322,14 @@ key_value_compare(const void *a, const void *b)
 }
 
 static void
+reset_key_value_array(void *data)
+{
+    struct lwan_key_value_array *array = data;
+
+    lwan_key_value_array_reset(array);
+}
+
+static void
 parse_key_values(struct lwan_request *request,
     struct lwan_value *helper_value, struct lwan_key_value_array *array,
     ssize_t (*decode_value)(char *value), const char separator)
@@ -335,7 +343,7 @@ parse_key_values(struct lwan_request *request,
     lwan_key_value_array_init(array);
     /* Calling lwan_key_value_array_reset() twice is fine, so even if 'goto
      * error' is executed in this function, nothing bad should happen.  */
-    coro_defer(request->conn->coro, CORO_DEFER(lwan_key_value_array_reset), array);
+    coro_defer(request->conn->coro, CORO_DEFER(reset_key_value_array), array);
 
     do {
         char *key, *value;
