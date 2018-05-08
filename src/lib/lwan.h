@@ -402,11 +402,11 @@ size_t lwan_prepare_response_header(struct lwan_request *request, enum lwan_http
     __attribute__((warn_unused_result));
 
 const char *lwan_request_get_post_param(struct lwan_request *request, const char *key)
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result, pure));
 const char *lwan_request_get_query_param(struct lwan_request *request, const char *key)
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result, pure));
 const char * lwan_request_get_cookie(struct lwan_request *request, const char *key)
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result, pure));
 
 bool lwan_response_set_chunked(struct lwan_request *request, enum lwan_http_status status);
 void lwan_response_send_chunk(struct lwan_request *request);
@@ -415,11 +415,11 @@ bool lwan_response_set_event_stream(struct lwan_request *request, enum lwan_http
 void lwan_response_send_event(struct lwan_request *request, const char *event);
 
 const char *lwan_http_status_as_string(enum lwan_http_status status)
-    __attribute__((pure)) __attribute__((warn_unused_result));
+    __attribute__((const)) __attribute__((warn_unused_result));
 const char *lwan_http_status_as_string_with_code(enum lwan_http_status status)
-    __attribute__((pure)) __attribute__((warn_unused_result));
+    __attribute__((const)) __attribute__((warn_unused_result));
 const char *lwan_http_status_as_descriptive_string(enum lwan_http_status status)
-    __attribute__((pure)) __attribute__((warn_unused_result));
+    __attribute__((const)) __attribute__((warn_unused_result));
 const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
