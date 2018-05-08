@@ -555,6 +555,12 @@ class TestHelloWorld(LwanTest):
       self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
 
 
+  def test_read_env(self):
+    r = requests.get('http://127.0.0.1:8080/read-env/user')
+
+    self.assertResponsePlain(r)
+    self.assertEqual(r.text, 'Hello, %s!' % os.getenv('USER'))
+
 class TestCache(LwanTest):
   @classmethod
   def setUpClass(cls):
