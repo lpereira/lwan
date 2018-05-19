@@ -156,7 +156,7 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 }
 #else
 void __attribute__((noinline, visibility("internal")))
-void coro_entry_point(struct coro *coro, coro_function_t func, void *data);
+coro_entry_point(struct coro *coro, coro_function_t func, void *data);
     asm(
     ".text\n\t"
     ".p2align 4\n\t"
