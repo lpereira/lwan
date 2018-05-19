@@ -136,7 +136,7 @@ min(const int a, const int b)
     return a < b ? a : b;
 }
 
-static int
+__attribute__((noreturn)) static int
 process_request_coro(struct coro *coro, void *data)
 {
     /* NOTE: This function should not return; coro_yield should be used
