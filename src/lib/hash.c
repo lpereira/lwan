@@ -128,8 +128,10 @@ static inline unsigned int hash_crc32(const void *keyptr)
         key += sizeof(uint16_t);
         len--;
     }
-    if (*key)
-        hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
+    /* Last byte might be the terminating NUL or the last character.
+     * For a hash, this doesn't matter, and shaves off a branch.
+     */
+    hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
 
     return hash;
 }
