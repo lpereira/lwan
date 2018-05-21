@@ -126,7 +126,6 @@ static inline unsigned int hash_crc32(const void *keyptr)
         memcpy(&data, key, sizeof(data));
         hash = __builtin_ia32_crc32hi(hash, data);
         key += sizeof(uint16_t);
-        len--;
     }
     /* Last byte might be the terminating NUL or the last character.
      * For a hash, this doesn't matter, and shaves off a branch.
