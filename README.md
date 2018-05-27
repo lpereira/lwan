@@ -246,4 +246,39 @@ Not really third-party, but alas:
 * The [author's blog](http://tia.mat.br).
 * The [project's webpage](http://lwan.ws).
 
+Lwan quotes
+-----------
 
+These are some of the quotes found in the wild about Lwan.  They're presented
+in no particular order.  Contributions are appreciated:
+
+> "I read lwan's source code. Especially, the part of using coroutine was
+> very impressive and it was more interesting than a good novel.  Thank you
+> for that." --
+> [@patagonia](https://twitter.com/hakman314/status/996617563470680064)
+
+> "For the server side, we're using Lwan, which can handle 100k+ reqs/s.
+> It's supposed to be super robust and it's working well for us." --
+> [@fawadkhaliq](https://twitter.com/fawadkhaliq)
+
+> "Insane C thing" -- [Michael
+> Sproul](https://michaelsproul.github.io/iron-talk/)
+
+> "I've never had a chance to thank you for Lwan.  It inspired me a lot to
+> develop [Zewo](https://github.com/Zewo/Zero)" --
+> [@paulofariarl](https://twitter.com/paulofariarl/status/707926806373003265)
+
+> "Let me say that lwan is a thing of beauty.  I got sucked into reading the
+> source code for pure entertainment, it's so good.  *high five*" --
+> [@kwilczynski](https://twitter.com/kwilczynski/status/692881117003644929)
+
+> "Nice work with Lwan! I haven't looked _that_ carefully yet but so far I
+> like what I saw.  You definitely have the right ideas." --
+> [@thinkingfish](https://twitter.com/thinkingfish/status/521574267612196864)
+
+> "Lwan is a work of art. Every time I read through it, I am almost always
+> awe-struck." --
+> [@neurodrone](https://twitter.com/neurodrone/status/359296080283840513)
+
+> "For Round 10, Lwan has taken the crown" --
+> [TechEmpower](https://www.techempower.com/blog/2015/04/21/framework-benchmarks-round-10/)
