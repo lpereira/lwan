@@ -102,7 +102,9 @@ add_dependencies(lwan-static generate_auto_index_icons)
 
 include_directories(${CMAKE_BINARY_DIR})
 
-set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
+if (NOT HAVE_BUILTIN_FPCLASSIFY)
+	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
+endif ()
 
 install(
 	TARGETS lwan-static lwan-shared

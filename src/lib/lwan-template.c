@@ -862,10 +862,14 @@ lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr)
     lwan_strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
 
-bool
-lwan_tpl_double_is_empty(void *ptr)
+bool lwan_tpl_double_is_empty(void *ptr)
 {
+#if defined(HAVE_BUILTIN_FPCLASSIFY)
+    return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL,
+                                FP_ZERO, *(double *)ptr);
+#else
     return fpclassify(*(double *)ptr) == FP_ZERO;
+#endif
 }
 
 void
