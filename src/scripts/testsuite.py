@@ -140,6 +140,61 @@ class TestFileServing(LwanTest):
     self.assertEqual(r.text, 'X' * 100)
 
 
+  def test_range_half(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=0-50'})
+
+    self.assertHttpResponseValid(r, 206, 'application/octet-stream')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(r.headers['content-length'], '50')
+
+    self.assertEqual(r.text, '\0' * 50)
+
+  def test_range_half_inverted(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=50-0'})
+
+    self.assertHttpResponseValid(r, 416, 'text/html')
+
+
+  def test_range_half_equal(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=50-50'})
+
+    self.assertHttpResponseValid(r, 416, 'text/html')
+
+
+  def test_range_too_big(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=0-40000'})
+
+    self.assertHttpResponseValid(r, 416, 'text/html')
+
+
+  def test_range_no_from(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=-100'})
+
+    self.assertHttpResponseValid(r, 206, 'application/octet-stream')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(r.headers['content-length'], '100')
+
+    self.assertEqual(r.text, '\0' * 100)
+
+  def test_range_no_to(self):
+    r = requests.get('http://127.0.0.1:8080/zero',
+          headers={'Range': 'bytes=50-'})
+
+    self.assertHttpResponseValid(r, 206, 'application/octet-stream')
+
+    self.assertTrue('content-length' in r.headers)
+    self.assertEqual(r.headers['content-length'], '32718')
+
+    self.assertEqual(r.text, '\0' * 32718)
+
+
   def test_slash_slash_slash_does_not_matter_404(self):
     r = requests.get('http://127.0.0.1:8080//////////etc/passwd')
 

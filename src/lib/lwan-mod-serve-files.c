@@ -823,44 +823,32 @@ compute_range(struct lwan_request *request, off_t *from, off_t *to, off_t size)
     f = request->header.range.from;
     t = request->header.range.to;
 
-    /*
-     * No Range: header present: both t and f are -1
-     */
+    /* No Range: header present: both t and f are -1 */
     if (LIKELY(t <= 0 && f <= 0)) {
         *from = 0;
         *to = size;
+
         return HTTP_OK;
     }
 
-    /*
-     * To goes beyond from or To and From are the same: this is unsatisfiable.
-     */
-    if (UNLIKELY(t >= f))
+    /* To must be greater than From; it doesn't make any sense to be
+     * equal, either. */
+    if (UNLIKELY(f >= t && t >= 0))
         return HTTP_RANGE_UNSATISFIABLE;
 
-    /*
-     * Range goes beyond the size of the file
-     */
+    /* Range goes beyond the size of the file */
     if (UNLIKELY(f >= size || t >= size))
         return HTTP_RANGE_UNSATISFIABLE;
 
-    /*
-     * t < 0 means ranges from f to the file size
-     */
-    if (t < 0)
-        t = size - f;
-    else
-        t -= f;
-
-    /*
-     * If for some reason the previous calculations yields something
-     * less than zero, the range is unsatisfiable.
-     */
-    if (UNLIKELY(t <= 0))
-        return HTTP_RANGE_UNSATISFIABLE;
+    /* t < 0: ranges from f to the file size */
+    if (t < 0) {
+	*to = size;
+    } else {
+        if (UNLIKELY(__builtin_sub_overflow(t, f, to)))
+            return HTTP_RANGE_UNSATISFIABLE;
+    }
 
     *from = f;
-    *to = t;
 
     return HTTP_PARTIAL_CONTENT;
 }
