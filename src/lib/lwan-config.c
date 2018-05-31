@@ -599,43 +599,43 @@ static void *parse_config(struct parser *parser)
 {
     struct lexeme *lexeme;
 
-    while (lex_next(&parser->lexer, &lexeme)) {
-        switch (lexeme->type) {
-        case LEXEME_EQUAL:
-            return parse_key_value;
+    if (!lex_next(&parser->lexer, &lexeme))
+        return NULL;
 
-        case LEXEME_OPEN_BRACKET:
-            return parse_section;
+    switch (lexeme->type) {
+    case LEXEME_EQUAL:
+        return parse_key_value;
 
-        case LEXEME_LINEFEED:
-            if (parser->buffer.population)
-                return parse_section_shorthand;
+    case LEXEME_OPEN_BRACKET:
+        return parse_section;
 
-            return parse_config;
+    case LEXEME_LINEFEED:
+        if (parser->buffer.population)
+            return parse_section_shorthand;
 
-        case LEXEME_STRING:
-            lexeme_buffer_emit(&parser->buffer, lexeme);
-            break;
+        return parse_config;
 
-        case LEXEME_CLOSE_BRACKET: {
-            struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
+    case LEXEME_STRING:
+        lexeme_buffer_emit(&parser->buffer, lexeme);
 
-            config_buffer_emit(&parser->items, &line);
+        return parse_config;
 
-            return parse_config;
-        }
+    case LEXEME_CLOSE_BRACKET: {
+        struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
 
-        case LEXEME_EOF:
-            return NULL;
+        config_buffer_emit(&parser->items, &line);
 
-        default:
-            lwan_status_error("Unexpected lexeme type: %s",
-                lexeme_type_str[lexeme->type]);
-            return NULL;
-        }
+        return parse_config;
     }
 
-    return NULL;
+    case LEXEME_EOF:
+        return NULL;
+
+    default:
+        lwan_status_error("Unexpected lexeme type: %s",
+            lexeme_type_str[lexeme->type]);
+        return NULL;
+    }
 }
 
 static bool parser_next(struct parser *parser, struct config_line **line)
