@@ -977,6 +977,7 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
             contents = (char *)md->uncompressed.contents + from;
             size = (size_t)(to - from);
             compressed = compression_none;
+            break;
 
         default:
             return HTTP_INTERNAL_ERROR;
