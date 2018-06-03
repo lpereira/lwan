@@ -28,9 +28,7 @@ struct lwan_strbuf {
         char *buffer;
         const char *static_buffer;
     } value;
-    struct {
-        size_t allocated, buffer;
-    } len;
+    size_t used;
     unsigned int flags;
 };
 
@@ -54,5 +52,5 @@ bool lwan_strbuf_printf(struct lwan_strbuf *s1, const char *fmt, ...)
 
 bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size);
 
-#define lwan_strbuf_get_length(s) (((struct lwan_strbuf *)(s))->len.buffer)
+#define lwan_strbuf_get_length(s) (((struct lwan_strbuf *)(s))->used)
 #define lwan_strbuf_get_buffer(s) (((struct lwan_strbuf *)(s))->value.buffer)
