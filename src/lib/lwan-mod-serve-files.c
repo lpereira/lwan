@@ -969,9 +969,6 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
         status =
             compute_range(request, &from, &to, (off_t)md->uncompressed.size);
         switch (status) {
-        case HTTP_RANGE_UNSATISFIABLE:
-            return HTTP_RANGE_UNSATISFIABLE;
-
         case HTTP_PARTIAL_CONTENT:
         case HTTP_OK:
             contents = (char *)md->uncompressed.contents + from;
@@ -980,7 +977,7 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
             break;
 
         default:
-            return HTTP_INTERNAL_ERROR;
+            return status;
         }
     }
 
