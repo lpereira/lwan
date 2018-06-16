@@ -424,7 +424,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                     line.value, (long)default_config.max_post_data_size);
                 if (max_post_data_size < 0)
                     config_error(conf, "Negative maximum post data size");
-                else if (max_post_data_size > 128 * 1 << 20)
+                else if (max_post_data_size > 128 * (1 << 20))
                     config_error(conf,
                                  "Maximum post data can't be over 128MiB");
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
