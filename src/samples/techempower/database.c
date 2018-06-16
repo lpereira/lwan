@@ -107,7 +107,7 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
 
         stmt_mysql->param_bind = calloc(n_rows, sizeof(*stmt_mysql->param_bind));
         if (!stmt_mysql->param_bind) {
-            free(stmt_mysql->param_bind);
+            free(stmt_mysql->result_bind);
             return false;
         }
 
