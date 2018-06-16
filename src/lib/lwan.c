@@ -122,6 +122,9 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
     memcpy(copy, map, sizeof(*copy));
 
     copy->prefix = strdup(prefix ? prefix : copy->prefix);
+    if (!copy->prefix)
+        lwan_status_critical_perror("Could not copy URL prefix");
+
     copy->prefix_len = strlen(copy->prefix);
     lwan_trie_add(t, copy->prefix, copy);
 

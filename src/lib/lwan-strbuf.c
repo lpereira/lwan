@@ -131,6 +131,10 @@ ALWAYS_INLINE bool lwan_strbuf_init(struct lwan_strbuf *s)
 struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
 {
     struct lwan_strbuf *s = malloc(sizeof(*s));
+
+    if (UNLIKELY(!s))
+        return NULL;
+
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, size))) {
         free(s);
         s = NULL;
