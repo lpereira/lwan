@@ -616,18 +616,28 @@ parse_range(struct lwan_request *request, struct request_parser_helper *helper)
         return;
 
     range += sizeof("bytes=") - 1;
-    off_t from, to;
+    unsigned long from, to;
 
     if (sscanf(range, "%"SCNu64"-%"SCNu64, &from, &to) == 2) {
-        request->header.range.from = from;
-        request->header.range.to = to;
+        if (UNLIKELY(from > LONG_MAX || to > LONG_MAX))
+            goto invalid_range;
+
+        request->header.range.from = (off_t)from;
+        request->header.range.to = (off_t)to;
     } else if (sscanf(range, "-%"SCNu64, &to) == 1) {
+        if (UNLIKELY(to > LONG_MAX))
+            goto invalid_range;
+
         request->header.range.from = 0;
-        request->header.range.to = to;
+        request->header.range.to = (off_t)to;
     } else if (sscanf(range, "%"SCNu64"-", &from) == 1) {
-        request->header.range.from = from;
+        if (UNLIKELY(from > LONG_MAX))
+            goto invalid_range;
+
+        request->header.range.from = (off_t)from;
         request->header.range.to = -1;
     } else {
+invalid_range:
         request->header.range.from = -1;
         request->header.range.to = -1;
     }
