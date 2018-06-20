@@ -34,7 +34,7 @@
 # define SOCK_NONBLOCK 00004000
 #endif
 
-#ifndef HAS_ACCEPT4
+#ifndef HAVE_ACCEPT4
 int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags);
 #endif
 

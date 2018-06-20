@@ -81,31 +81,31 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	time.h
 	unistd.h
 )
-check_include_file(sys/auxv.h HAS_SYS_AUXV)
-check_include_file(alloca.h HAS_ALLOCA_H)
-if (HAS_SYS_AUXV)
+check_include_file(sys/auxv.h HAVE_SYS_AUXV)
+check_include_file(alloca.h HAVE_ALLOCA_H)
+if (HAVE_SYS_AUXV)
 	set(CMAKE_EXTRA_INCLUDE_FILES
 		${CMAKE_EXTRA_INCLUDE_FILES}
 		sys/auxv.h
 	)
-	check_function_exists(getauxval HAS_GETAUXVAL)
+	check_function_exists(getauxval HAVE_GETAUXVAL)
 endif ()
 
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
-check_function_exists(rawmemchr HAS_RAWMEMCHR)
-check_function_exists(get_current_dir_name HAS_GET_CURRENT_DIR_NAME)
-check_function_exists(reallocarray HAS_REALLOCARRAY)
-check_function_exists(mempcpy HAS_MEMPCPY)
-check_function_exists(memrchr HAS_MEMRCHR)
-check_function_exists(pipe2 HAS_PIPE2)
-check_function_exists(accept4 HAS_ACCEPT4)
-check_function_exists(readahead HAS_READAHEAD)
-check_function_exists(mkostemp HAS_MKOSTEMP)
-check_function_exists(clock_gettime HAS_CLOCK_GETTIME)
-check_function_exists(pthread_barrier_init HAS_PTHREADBARRIER)
+check_function_exists(rawmemchr HAVE_RAWMEMCHR)
+check_function_exists(get_current_dir_name HAVE_GET_CURRENT_DIR_NAME)
+check_function_exists(reallocarray HAVE_REALLOCARRAY)
+check_function_exists(mempcpy HAVE_MEMPCPY)
+check_function_exists(memrchr HAVE_MEMRCHR)
+check_function_exists(pipe2 HAVE_PIPE2)
+check_function_exists(accept4 HAVE_ACCEPT4)
+check_function_exists(readahead HAVE_READAHEAD)
+check_function_exists(mkostemp HAVE_MKOSTEMP)
+check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
+check_function_exists(pthread_barrier_init HAVE_PTHREADBARRIER)
 
-if (NOT HAS_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if (NOT HAVE_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	list(APPEND ADDITIONAL_LIBRARIES rt)
 endif ()
 
@@ -113,8 +113,8 @@ endif ()
 #
 # Ensure compiler is compatible with GNU99 standard
 #
-check_c_compiler_flag(-std=gnu99 HAS_STD_GNU99)
-if (NOT HAS_STD_GNU99)
+check_c_compiler_flag(-std=gnu99 HAVE_STD_GNU99)
+if (NOT HAVE_STD_GNU99)
 	message(FATAL_ERROR "Compiler does not support -std=gnu99. Consider using a newer compiler")
 endif()
 
@@ -136,17 +136,17 @@ check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATI
 find_path(VALGRIND_INCLUDE_DIR valgrind.h /usr/include /usr/include/valgrind /usr/local/include /usr/local/include/valgrind)
 if (VALGRIND_INCLUDE_DIR)
 	message(STATUS "Building with Valgrind support")
-	set(USE_VALGRIND 1)
+	set(HAVE_VALGRIND 1)
 else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
 
-enable_c_flag_if_avail(-mtune=native C_FLAGS_REL HAS_MTUNE_NATIVE)
-enable_c_flag_if_avail(-march=native C_FLAGS_REL HAS_MARCH_NATIVE)
+enable_c_flag_if_avail(-mtune=native C_FLAGS_REL HAVE_MTUNE_NATIVE)
+enable_c_flag_if_avail(-march=native C_FLAGS_REL HAVE_MARCH_NATIVE)
 
 enable_c_flag_if_avail(-fstack-protector-explicit CMAKE_C_FLAGS
-	HAS_STACK_PROTECTOR_EXPLICIT)
+	HAVE_STACK_PROTECTOR_EXPLICIT)
 
 #
 # Check if immediate binding and read-only global offset table flags
@@ -154,27 +154,27 @@ enable_c_flag_if_avail(-fstack-protector-explicit CMAKE_C_FLAGS
 #
 if (APPLE)
 	enable_c_flag_if_avail(-Wl,-bind_at_load CMAKE_EXE_LINKER_FLAGS
-		HAS_IMMEDIATE_BINDING)
+		HAVE_IMMEDIATE_BINDING)
 else ()
 	enable_c_flag_if_avail(-Wl,-z,now CMAKE_EXE_LINKER_FLAGS
-		HAS_IMMEDIATE_BINDING)
+		HAVE_IMMEDIATE_BINDING)
 	enable_c_flag_if_avail(-Wl,-z,relro CMAKE_EXE_LINKER_FLAGS
-		HAS_READ_ONLY_GOT)
+		HAVE_READ_ONLY_GOT)
 	enable_c_flag_if_avail(-fno-plt CMAKE_C_FLAGS
-		HAS_NO_PLT)
+		HAVE_NO_PLT)
 endif ()
 
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
-	enable_c_flag_if_avail(-malign-data=abi C_FLAGS_REL HAS_ALIGN_DATA)
-	enable_c_flag_if_avail(-fno-asynchronous-unwind-tables C_FLAGS_REL HAS_NO_ASYNC_UNWIND_TABLES)
+	enable_c_flag_if_avail(-malign-data=abi C_FLAGS_REL HAVE_ALIGN_DATA)
+	enable_c_flag_if_avail(-fno-asynchronous-unwind-tables C_FLAGS_REL HAVE_NO_ASYNC_UNWIND_TABLES)
 
-	enable_c_flag_if_avail(-flto=jobserver C_FLAGS_REL HAS_LTO_JOBSERVER)
-	if (NOT HAS_LTO_JOBSERVER)
-		enable_c_flag_if_avail(-flto C_FLAGS_REL HAS_LTO)
+	enable_c_flag_if_avail(-flto=jobserver C_FLAGS_REL HAVE_LTO_JOBSERVER)
+	if (NOT HAVE_LTO_JOBSERVER)
+		enable_c_flag_if_avail(-flto C_FLAGS_REL HAVE_LTO)
 	endif ()
 
-	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL HAS_LTO_FAT_OBJS)
+	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL HAVE_LTO_FAT_OBJS)
 	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL HAVE_BUILTIN_IA32_CRC32)
 else ()
 	option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")

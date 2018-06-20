@@ -31,7 +31,7 @@
 
 #include "lwan.h"
 
-#ifndef HAS_PTHREADBARRIER
+#ifndef HAVE_PTHREADBARRIER
 #define PTHREAD_BARRIER_SERIAL_THREAD -1
 
 int
@@ -87,7 +87,7 @@ pthread_barrier_wait(pthread_barrier_t *barrier)
 }
 #endif
 
-#ifndef HAS_MEMPCPY
+#ifndef HAVE_MEMPCPY
 void *
 mempcpy(void *dest, const void *src, size_t len)
 {
@@ -96,7 +96,7 @@ mempcpy(void *dest, const void *src, size_t len)
 }
 #endif
 
-#ifndef HAS_MEMRCHR
+#ifndef HAVE_MEMRCHR
 void *
 memrchr(const void *s, int c, size_t n)
 {
@@ -113,7 +113,7 @@ memrchr(const void *s, int c, size_t n)
 }
 #endif
 
-#ifndef HAS_PIPE2
+#ifndef HAVE_PIPE2
 int
 pipe2(int pipefd[2], int flags)
 {
@@ -137,7 +137,7 @@ pipe2(int pipefd[2], int flags)
 }
 #endif
 
-#ifndef HAS_ACCEPT4
+#ifndef HAVE_ACCEPT4
 int
 accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
@@ -173,7 +173,7 @@ accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
 }
 #endif
 
-#ifndef HAS_CLOCK_GETTIME
+#ifndef HAVE_CLOCK_GETTIME
 int
 clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
@@ -312,7 +312,7 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
-#if defined(HAS_GETAUXVAL)
+#if defined(HAVE_GETAUXVAL)
 #include <sys/auxv.h>
 #endif
 
@@ -327,7 +327,7 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
         return -1;
     }
 
-#if defined(HAS_GETAUXVAL)
+#if defined(HAVE_GETAUXVAL)
     const char *execfn = (const char *)getauxval(AT_EXECFN);
 
     if (execfn) {
@@ -477,7 +477,7 @@ getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
 }
 #endif
 
-#if !defined(HAS_MKOSTEMP)
+#if !defined(HAVE_MKOSTEMP)
 int mkostemp(char *tmpl, int flags)
 {
     int fd, fl;
@@ -504,14 +504,14 @@ out:
 }
 #endif
 
-#if !defined(HAS_RAWMEMCHR)
+#if !defined(HAVE_RAWMEMCHR)
 void *rawmemchr(const void *ptr, char c)
 {
     return memchr(ptr, c, SIZE_MAX);
 }
 #endif
 
-#if !defined (HAS_REALLOCARRAY)
+#if !defined (HAVE_REALLOCARRAY)
 /*	$OpenBSD: reallocarray.c,v 1.2 2014/12/08 03:45:00 bcook Exp $	*/
 /*
  * Copyright (c) 2008 Otto Moerbeek <otto@drijf.net>
@@ -562,9 +562,9 @@ void *reallocarray(void *optr, size_t nmemb, size_t size)
     }
     return realloc(optr, total_size);
 }
-#endif /* HAS_REALLOCARRAY */
+#endif /* HAVE_REALLOCARRAY */
 
-#if !defined(HAS_READAHEAD)
+#if !defined(HAVE_READAHEAD)
 ssize_t readahead(int fd __attribute__((unused)),
                   off_t offset __attribute__((unused)),
                   size_t count __attribute__((unused)))
@@ -573,7 +573,7 @@ ssize_t readahead(int fd __attribute__((unused)),
 }
 #endif
 
-#if !defined(HAS_GET_CURRENT_DIR_NAME)
+#if !defined(HAVE_GET_CURRENT_DIR_NAME)
 #include <limits.h>
 
 char *get_current_dir_name(void)

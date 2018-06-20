@@ -22,7 +22,7 @@
 #ifndef MISSING_PTHREAD_H
 #define MISSING_PTHREAD_H
 
-#ifndef HAS_PTHREADBARRIER
+#ifndef HAVE_PTHREADBARRIER
 typedef int pthread_barrierattr_t;
 typedef struct pthread_barrier {
     unsigned int count;

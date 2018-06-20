@@ -30,7 +30,7 @@
 #include "lwan-array.h"
 #include "lwan-coro.h"
 
-#ifdef USE_VALGRIND
+#ifdef HAVE_VALGRIND
 #include <valgrind/valgrind.h>
 #endif
 
@@ -60,7 +60,7 @@ struct coro {
 
     int yield_value;
 
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     unsigned int vg_stack_id;
 #endif
 
@@ -266,7 +266,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     coro->switcher = switcher;
     coro_reset(coro, function, data);
 
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     char *stack = (char *)(coro + 1);
     coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
 #endif
@@ -324,7 +324,7 @@ void
 coro_free(struct coro *coro)
 {
     assert(coro);
-#if !defined(NDEBUG) && defined(USE_VALGRIND)
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_deferred_run(coro, 0);

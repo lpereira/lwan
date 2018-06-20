@@ -42,22 +42,22 @@
 
 #ifdef NEED_ALLOCA_H
 #   undef NEED_ALLOCA_H
-#   ifdef HAS_ALLOCA_H
+#   ifdef HAVE_ALLOCA_H
 #      include <alloca.h>
 #   else
 #      include <stdlib.h>
 #   endif
 #endif
 
-#ifndef HAS_RAWMEMCHR
+#ifndef HAVE_RAWMEMCHR
 void *rawmemchr(const void *ptr, char c);
 #endif
 
-#ifndef HAS_MEMPCPY
+#ifndef HAVE_MEMPCPY
 void *mempcpy(void *dest, const void *src, size_t len);
 #endif
 
-#ifndef HAS_MEMRCHR
+#ifndef HAVE_MEMRCHR
 void *memrchr(const void *s, int c, size_t n);
 #endif
 

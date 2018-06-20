@@ -22,7 +22,7 @@
 #ifndef MISSING_UNISTD_H
 #define MISSING_UNISTD_H
 
-#ifndef HAS_PIPE2
+#ifndef HAVE_PIPE2
 int pipe2(int pipefd[2], int flags);
 #endif
 
@@ -37,7 +37,7 @@ int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
     __attribute__((warn_unused_result));
 #endif
 
-#if !defined(HAS_GET_CURRENT_DIR_NAME)
+#if !defined(HAVE_GET_CURRENT_DIR_NAME)
 char *get_current_dir_name(void);
 #endif
 

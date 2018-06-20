@@ -52,7 +52,7 @@
 
 #endif /* __linux__ */
 
-#ifndef HAS_READAHEAD
+#ifndef HAVE_READAHEAD
 #include <sys/types.h>
 
 ssize_t readahead(int fd, off_t offset, size_t count);
