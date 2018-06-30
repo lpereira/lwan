@@ -89,7 +89,7 @@ struct sendfile_cache_data {
 };
 
 struct dir_list_cache_data {
-    struct lwan_strbuf *rendered;
+    struct lwan_strbuf rendered;
 };
 
 struct redir_cache_data {
@@ -484,10 +484,17 @@ static bool dirlist_init(struct file_cache_entry *ce,
     struct file_list vars = {.full_path = full_path,
                              .rel_path = get_rel_path(full_path, priv)};
 
-    dd->rendered = lwan_tpl_apply(priv->directory_list_tpl, &vars);
+    if (!lwan_strbuf_init(&dd->rendered))
+        return false;
+
+    if (!lwan_tpl_apply_with_buffer(priv->directory_list_tpl, &dd->rendered, &vars)) {
+        lwan_strbuf_free(&dd->rendered);
+        return false;
+    }
+
     ce->mime_type = "text/html";
 
-    return !!dd->rendered;
+    return true;
 }
 
 static bool redir_init(struct file_cache_entry *ce,
@@ -664,7 +671,7 @@ static void dirlist_free(void *data)
 {
     struct dir_list_cache_data *dd = data;
 
-    lwan_strbuf_free(dd->rendered);
+    lwan_strbuf_free(&dd->rendered);
 }
 
 static void redir_free(void *data)
@@ -995,8 +1002,8 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
 
     icon = lwan_request_get_query_param(request, "icon");
     if (!icon) {
-        contents = lwan_strbuf_get_buffer(dd->rendered);
-        size = lwan_strbuf_get_length(dd->rendered);
+        contents = lwan_strbuf_get_buffer(&dd->rendered);
+        size = lwan_strbuf_get_length(&dd->rendered);
     } else if (!strcmp(icon, "back")) {
         contents = back_gif;
         size = sizeof(back_gif);
