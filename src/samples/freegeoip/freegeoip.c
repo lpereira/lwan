@@ -376,8 +376,11 @@ LWAN_HANDLER(templated_output)
     struct ip_info info_with_callback = *info;
     info_with_callback.callback = callback;
 
-    lwan_tpl_apply_with_buffer(tm->tpl, response->buffer,
-                &info_with_callback);
+    if (!lwan_tpl_apply_with_buffer(tm->tpl, response->buffer,
+                                    &info_with_callback)) {
+        return HTTP_INTERNAL_ERROR;
+    }
+
     response->mime_type = tm->mime_type;
 
     return HTTP_OK;

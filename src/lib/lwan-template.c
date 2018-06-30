@@ -1431,24 +1431,32 @@ finalize:
 #undef NEXT_ACTION
 }
 
-struct lwan_strbuf *
-lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct lwan_strbuf *buf, void *variables)
+bool lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl,
+                                struct lwan_strbuf *buf,
+                                void *variables)
 {
     lwan_strbuf_reset(buf);
 
     if (UNLIKELY(!lwan_strbuf_grow_to(buf, tpl->minimum_size)))
-        return NULL;
+        return false;
 
     apply_until(tpl, tpl->chunks.base.base, buf, variables, NULL);
 
-    return buf;
+    return true;
 }
 
-struct lwan_strbuf *
-lwan_tpl_apply(struct lwan_tpl *tpl, void *variables)
+struct lwan_strbuf *lwan_tpl_apply(struct lwan_tpl *tpl, void *variables)
 {
     struct lwan_strbuf *buf = lwan_strbuf_new_with_size(tpl->minimum_size);
-    return lwan_tpl_apply_with_buffer(tpl, buf, variables);
+
+    if (UNLIKELY(!buf))
+        return NULL;
+
+    if (LIKELY(lwan_tpl_apply_with_buffer(tpl, buf, variables)))
+        return buf;
+
+    lwan_strbuf_free(buf);
+    return NULL;
 }
 
 #ifdef TEMPLATE_TEST

@@ -85,6 +85,6 @@ struct lwan_tpl	*lwan_tpl_compile_string_full(const char *string, const struct l
 struct lwan_tpl	*lwan_tpl_compile_string(const char *string, const struct lwan_var_descriptor *descriptor);
 struct lwan_tpl	*lwan_tpl_compile_file(const char *filename, const struct lwan_var_descriptor *descriptor);
 struct lwan_strbuf	*lwan_tpl_apply(struct lwan_tpl *tpl, void *variables);
-struct lwan_strbuf	*lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct lwan_strbuf *buf, void *variables);
+bool                     lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl, struct lwan_strbuf *buf, void *variables);
 void	 	 lwan_tpl_free(struct lwan_tpl *tpl);
 
