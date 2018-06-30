@@ -204,6 +204,7 @@ Lwan in the wild
 Here's a non-definitive list of third-party stuff that uses Lwan and have
 been seen in the wild.  *Help build this list!*
 
+* [This project uses Cython and Lwan](https://www.erp5.com/NXD-Blog.Multicore.Python.HTTP.Server) to make it possible to write handlers in Python.
 * [An experimental version of Node.js using Lwan](https://github.com/raadad/node-lwan) as its HTTP server is maintained by [@raadad](https://github.com/raadad).
 * The beginnings of a C++11 [web framework](https://github.com/vileda/wfpp) based on Lwan written by [@vileda](https://github.com/vileda).
 * A more complete C++14 [web framework](https://github.com/matt-42/silicon) by [@matt-42](https://github.com/matt-42) offers Lwan as one of its backends.
