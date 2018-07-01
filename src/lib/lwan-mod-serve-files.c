@@ -904,9 +904,6 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         }
     }
 
-    if (client_has_fresh_content(request, fce->last_modified.integer))
-        return_status = HTTP_NOT_MODIFIED;
-
     header_len = prepare_headers(request, return_status, fce, size, compressed,
                                  headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
@@ -930,9 +927,6 @@ static enum lwan_http_status serve_buffer(struct lwan_request *request,
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
-
-    if (client_has_fresh_content(request, fce->last_modified.integer))
-        return_status = HTTP_NOT_MODIFIED;
 
     header_len =
         prepare_headers(request, return_status, fce, size, compression_type,
@@ -1070,12 +1064,16 @@ serve_files_handle_request(struct lwan_request *request,
     if (LIKELY(ce)) {
         struct file_cache_entry *fce = (struct file_cache_entry *)ce;
 
-        response->mime_type = fce->mime_type;
-        response->stream.callback = fce->funcs->serve;
-        response->stream.data = ce;
-        response->stream.priv = priv;
+        if (client_has_fresh_content(request, fce->last_modified.integer)) {
+            return_status = HTTP_NOT_MODIFIED;
+        } else {
+            response->mime_type = fce->mime_type;
+            response->stream.callback = fce->funcs->serve;
+            response->stream.data = ce;
+            response->stream.priv = priv;
 
-        return HTTP_OK;
+            return HTTP_OK;
+        }
     }
 
 fail:
