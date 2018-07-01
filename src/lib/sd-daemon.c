@@ -108,7 +108,10 @@ finish:
 static int sd_is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
-        if (fd < 0 || type < 0)
+        if (fd < 0)
+                return -EBADF;
+
+        if (type < 0)
                 return -EINVAL;
 
         if (fstat(fd, &st_fd) < 0)
