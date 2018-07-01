@@ -34,26 +34,11 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
-
-static unsigned int
-get_max_fd(void)
-{
-        struct rlimit r;
-
-        if (getrlimit(RLIMIT_NOFILE, &r) < 0)
-                return INT_MAX;
-
-        if (r.rlim_max == RLIM_INFINITY)
-                return INT_MAX;
-
-        return (unsigned int)r.rlim_max;
-}
+#include "lwan-config.h"
 
 int sd_listen_fds(int unset_environment) {
-        int r, fd;
+        int n, l, r, fd;
         const char *e;
-        char *p = NULL;
-        unsigned long l;
 
         e = getenv("LISTEN_PID");
         if (!e) {
@@ -61,21 +46,14 @@ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        errno = 0;
-        l = strtoul(e, &p, 10);
-
-        if (errno > 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        if (!p || p == e || *p || l == 0) {
+        l = parse_int(e, -1);
+        if (l <= 0) {
                 r = -EINVAL;
                 goto finish;
         }
 
         /* Is this for us? */
-        if (getpid() != (pid_t) l) {
+        if (getpid() != (pid_t)l) {
                 r = 0;
                 goto finish;
         }
@@ -86,25 +64,19 @@ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        errno = 0;
-        l = strtoul(e, &p, 10);
-
-        if (errno > 0) {
-                r = -errno;
+        n = parse_int(e, -1);
+        if (!n) {
+                r = 0;
                 goto finish;
         }
 
-        if (!p || p == e || *p) {
+        static_assert(SD_LISTEN_FDS_START < INT_MAX, "");
+        if (n < 0 || n > INT_MAX - SD_LISTEN_FDS_START) {
                 r = -EINVAL;
                 goto finish;
         }
 
-        if (l > get_max_fd() - SD_LISTEN_FDS_START) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) l; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int)n; fd++) {
                 int flags;
 
                 flags = fcntl(fd, F_GETFD);
@@ -122,7 +94,7 @@ int sd_listen_fds(int unset_environment) {
                 }
         }
 
-        r = (int) l;
+        r = n;
 
 finish:
         if (unset_environment) {
