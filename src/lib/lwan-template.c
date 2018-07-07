@@ -51,6 +51,8 @@
  * chunks printed out after compilation. */
 #undef TEMPLATE_DEBUG
 
+#define LEXEME_MAX_LEN 64
+
 enum action {
     ACTION_APPEND,
     ACTION_APPEND_CHAR,
@@ -201,6 +203,18 @@ symtab_lookup(struct parser *parser, const char *var_name)
     }
 
     return NULL;
+}
+
+static __attribute__((noinline)) struct lwan_var_descriptor *
+symtab_lookup_lexeme(struct parser *parser, struct lexeme *lexeme)
+{
+    if (lexeme->value.len > LEXEME_MAX_LEN) {
+        lwan_status_error("Lexeme exceeds %d characters", LEXEME_MAX_LEN);
+        return NULL;
+    }
+
+    return symtab_lookup(parser,
+                         strndupa(lexeme->value.value, lexeme->value.len));
 }
 
 static int
@@ -590,7 +604,7 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
         return NULL;
 
-    symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+    symbol = symtab_lookup_lexeme(parser, lexeme);
     if (!symbol) {
         return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
             lexeme->value.value);
@@ -620,7 +634,7 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
     if (!parser_stack_top_matches(parser, lexeme, LEXEME_IDENTIFIER))
         return NULL;
 
-    symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+    symbol = symtab_lookup_lexeme(parser, lexeme);
     if (!symbol) {
         return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
             lexeme->value.value);
@@ -665,8 +679,7 @@ static void *parser_iter(struct parser *parser, struct lexeme *lexeme)
 {
     if (lexeme->type == LEXEME_IDENTIFIER) {
         enum flags negate = parser->flags & FLAGS_NEGATE;
-        const char *symname = strndupa(lexeme->value.value, lexeme->value.len);
-        struct lwan_var_descriptor *symbol = symtab_lookup(parser, symname);
+        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);
@@ -674,8 +687,11 @@ static void *parser_iter(struct parser *parser, struct lexeme *lexeme)
 
         int r = symtab_push(parser, symbol->list_desc);
         if (r < 0) {
-            if (r == -ENODEV)
-                return error_lexeme(lexeme, "Couldn't find descriptor for variable `%s'", symname);
+            if (r == -ENODEV) {
+                return error_lexeme(lexeme,
+                                    "Couldn't find descriptor for variable `%.*s'",
+                                    (int)lexeme->value.len, lexeme->value.value);
+            }
             return error_lexeme(lexeme, "Could not push symbol table (out of memory)");
         }
 
@@ -723,7 +739,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_RIGHT_META) {
-        struct lwan_var_descriptor *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);
@@ -737,7 +753,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_QUESTION_MARK) {
-        struct lwan_var_descriptor *symbol = symtab_lookup(parser, strndupa(lexeme->value.value, lexeme->value.len));
+        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
             return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
                 lexeme->value.value);

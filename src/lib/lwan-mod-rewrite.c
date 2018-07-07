@@ -117,9 +117,14 @@ static bool append_str(struct str_builder *builder, const char *src,
     return true;
 }
 
+#define MAX_INT_DIGITS (3 * sizeof(int))
+
 static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
                                                    int default_value)
 {
+    if (UNLIKELY(len > MAX_INT_DIGITS))
+        return default_value;
+
     return parse_int(strndupa(s, len), default_value);
 }
 

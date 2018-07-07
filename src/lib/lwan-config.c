@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
 #include "lwan-status.h"
 #include "lwan-config.h"
 #include "lwan-strbuf.h"
@@ -482,8 +483,15 @@ static bool lex_next(struct lexer *lexer, struct lexeme **lexeme)
 
 static void *parse_config(struct parser *parser);
 
+#define ENV_VAR_NAME_LEN_MAX 64
+
 static __attribute__((noinline)) const char *secure_getenv_len(const char *key, size_t len)
 {
+    if (UNLIKELY(len > ENV_VAR_NAME_LEN_MAX)) {
+        lwan_status_error("Variable name exceeds %d bytes", ENV_VAR_NAME_LEN_MAX);
+        return NULL;
+    }
+
     return secure_getenv(strndupa(key, len));
 }
 
