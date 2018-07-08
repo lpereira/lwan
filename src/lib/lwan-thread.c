@@ -27,6 +27,10 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 
+#if defined(HAVE_EVENTFD)
+#include <sys/eventfd.h>
+#endif
+
 #include "lwan-private.h"
 
 struct death_queue {
@@ -299,13 +303,11 @@ accept_nudge(int pipe_fd, struct spsc_queue *pending_fds,
     struct coro_switcher *switcher, int epoll_fd)
 {
     void *new_fd;
-    bool cmd;
+    uint64_t event;
 
-    if (read(pipe_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
+    if (read(pipe_fd, &event, sizeof(event)) < 0) {
         return;
-
-    if (!cmd)
-        return;
+    }
 
     while ((new_fd = spsc_queue_pop(pending_fds))) {
         struct lwan_connection *conn = &conns[(int)(intptr_t)new_fd];
@@ -405,8 +407,16 @@ create_thread(struct lwan *l, struct lwan_thread *thread)
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
+#if defined(HAVE_EVENTFD)
+    int efd = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE);
+    if (efd < 0)
+        lwan_status_critical_perror("eventfd");
+
+    thread->pipe_fd[0] = thread->pipe_fd[1] = efd;
+#else
     if (pipe2(thread->pipe_fd, O_NONBLOCK | O_CLOEXEC) < 0)
         lwan_status_critical_perror("pipe");
+#endif
 
     struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
     if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->pipe_fd[0], &event) < 0)
@@ -437,9 +447,11 @@ lwan_thread_add_client(struct lwan_thread *t, int fd)
 }
 
 void
-lwan_thread_nudge(struct lwan_thread *t, bool created)
+lwan_thread_nudge(struct lwan_thread *t)
 {
-    if (UNLIKELY(write(t->pipe_fd[1], &created, sizeof(created)) < 0))
+    uint64_t event = 1;
+
+    if (UNLIKELY(write(t->pipe_fd[1], &event, sizeof(event)) < 0))
         lwan_status_perror("write");
 }
 
@@ -475,7 +487,7 @@ lwan_thread_shutdown(struct lwan *l)
             t->epoll_fd);
 
         close(t->epoll_fd);
-        lwan_thread_nudge(t, false);
+        lwan_thread_nudge(t);
 
         spsc_queue_free(&t->pending_fds);
     }
@@ -486,10 +498,15 @@ lwan_thread_shutdown(struct lwan *l)
     for (int i = l->thread.count - 1; i >= 0; i--) {
         struct lwan_thread *t = &l->thread.threads[i];
 
+#if defined(HAVE_EVENTFD)
+        lwan_status_debug("Closing eventfd (%d)", t->pipe_fd[0]);
+        close(t->pipe_fd[0]);
+#else
         lwan_status_debug("Closing pipe (%d, %d)", t->pipe_fd[0],
             t->pipe_fd[1]);
         close(t->pipe_fd[0]);
         close(t->pipe_fd[1]);
+#endif
 
         lwan_status_debug("Waiting for thread %d to finish", i);
         pthread_join(l->thread.threads[i].self, NULL);

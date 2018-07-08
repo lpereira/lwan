@@ -33,6 +33,7 @@
 #cmakedefine HAVE_RAWMEMCHR
 #cmakedefine HAVE_READAHEAD
 #cmakedefine HAVE_REALLOCARRAY
+#cmakedefine HAVE_EVENTFD
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

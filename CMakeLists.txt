@@ -104,6 +104,7 @@ check_function_exists(readahead HAVE_READAHEAD)
 check_function_exists(mkostemp HAVE_MKOSTEMP)
 check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
 check_function_exists(pthread_barrier_init HAVE_PTHREADBARRIER)
+check_function_exists(eventfd HAVE_EVENTFD)
 
 if (NOT HAVE_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	list(APPEND ADDITIONAL_LIBRARIES rt)

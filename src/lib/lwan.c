@@ -729,7 +729,7 @@ lwan_main_loop(struct lwan *l)
         if (LIKELY(cores)) {
             for (unsigned short t = 0; t < l->thread.count; t++) {
                 if (cores & 1ULL<<t)
-                    lwan_thread_nudge(&l->thread.threads[t], true);
+                    lwan_thread_nudge(&l->thread.threads[t]);
             }
 
             cores = 0;

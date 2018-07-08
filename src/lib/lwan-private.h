@@ -30,7 +30,7 @@ void lwan_socket_shutdown(struct lwan *l);
 void lwan_thread_init(struct lwan *l);
 void lwan_thread_shutdown(struct lwan *l);
 void lwan_thread_add_client(struct lwan_thread *t, int fd);
-void lwan_thread_nudge(struct lwan_thread *t, bool created);
+void lwan_thread_nudge(struct lwan_thread *t);
 
 void lwan_status_init(struct lwan *l);
 void lwan_status_shutdown(struct lwan *l);
