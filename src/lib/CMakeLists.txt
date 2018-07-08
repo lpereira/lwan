@@ -126,4 +126,5 @@ install(FILES
 	lwan-template.h
 	lwan-trie.h
 	lwan-strbuf.h
+	queue.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
