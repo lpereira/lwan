@@ -29,7 +29,7 @@
 
 #include "lwan-private.h"
 
-struct death_queue_t {
+struct death_queue {
     const struct lwan *lwan;
     struct lwan_connection *conns;
     struct lwan_connection head;
@@ -42,19 +42,19 @@ static const uint32_t events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
-static inline int death_queue_node_to_idx(struct death_queue_t *dq,
+static inline int death_queue_node_to_idx(struct death_queue *dq,
     struct lwan_connection *conn)
 {
     return (conn == &dq->head) ? -1 : (int)(ptrdiff_t)(conn - dq->conns);
 }
 
-static inline struct lwan_connection *death_queue_idx_to_node(struct death_queue_t *dq,
+static inline struct lwan_connection *death_queue_idx_to_node(struct death_queue *dq,
     int idx)
 {
     return (idx < 0) ? &dq->head : &dq->conns[idx];
 }
 
-static void death_queue_insert(struct death_queue_t *dq,
+static void death_queue_insert(struct death_queue *dq,
     struct lwan_connection *new_node)
 {
     new_node->next = -1;
@@ -63,7 +63,7 @@ static void death_queue_insert(struct death_queue_t *dq,
     dq->head.prev = prev->next = death_queue_node_to_idx(dq, new_node);
 }
 
-static void death_queue_remove(struct death_queue_t *dq,
+static void death_queue_remove(struct death_queue *dq,
     struct lwan_connection *node)
 {
     struct lwan_connection *prev = death_queue_idx_to_node(dq, node->prev);
@@ -76,12 +76,12 @@ static void death_queue_remove(struct death_queue_t *dq,
     node->next = node->prev = -1;
 }
 
-static bool death_queue_empty(struct death_queue_t *dq)
+static bool death_queue_empty(struct death_queue *dq)
 {
     return dq->head.next < 0;
 }
 
-static void death_queue_move_to_last(struct death_queue_t *dq,
+static void death_queue_move_to_last(struct death_queue *dq,
     struct lwan_connection *conn)
 {
     /*
@@ -101,7 +101,7 @@ static void death_queue_move_to_last(struct death_queue_t *dq,
 }
 
 static void
-death_queue_init(struct death_queue_t *dq, const struct lwan *lwan)
+death_queue_init(struct death_queue *dq, const struct lwan *lwan)
 {
     dq->lwan = lwan;
     dq->conns = lwan->conns;
@@ -111,13 +111,13 @@ death_queue_init(struct death_queue_t *dq, const struct lwan *lwan)
 }
 
 static ALWAYS_INLINE int
-death_queue_epoll_timeout(struct death_queue_t *dq)
+death_queue_epoll_timeout(struct death_queue *dq)
 {
     return death_queue_empty(dq) ? -1 : 1000;
 }
 
 static ALWAYS_INLINE void
-destroy_coro(struct death_queue_t *dq, struct lwan_connection *conn)
+destroy_coro(struct death_queue *dq, struct lwan_connection *conn)
 {
     death_queue_remove(dq, conn);
     if (LIKELY(conn->coro)) {
@@ -190,7 +190,7 @@ process_request_coro(struct coro *coro, void *data)
 }
 
 static ALWAYS_INLINE void
-resume_coro_if_needed(struct death_queue_t *dq, struct lwan_connection *conn,
+resume_coro_if_needed(struct death_queue *dq, struct lwan_connection *conn,
     int epoll_fd)
 {
     assert(conn->coro);
@@ -234,7 +234,7 @@ resume_coro_if_needed(struct death_queue_t *dq, struct lwan_connection *conn,
 }
 
 static void
-death_queue_kill_waiting(struct death_queue_t *dq)
+death_queue_kill_waiting(struct death_queue *dq)
 {
     dq->time++;
 
@@ -252,7 +252,7 @@ death_queue_kill_waiting(struct death_queue_t *dq)
 }
 
 static void
-death_queue_kill_all(struct death_queue_t *dq)
+death_queue_kill_all(struct death_queue *dq)
 {
     while (!death_queue_empty(dq)) {
         struct lwan_connection *conn = death_queue_idx_to_node(dq, dq->head.next);
@@ -275,7 +275,7 @@ update_date_cache(struct lwan_thread *thread)
 
 static ALWAYS_INLINE void
 spawn_coro(struct lwan_connection *conn,
-            struct coro_switcher *switcher, struct death_queue_t *dq)
+            struct coro_switcher *switcher, struct death_queue *dq)
 {
     assert(!conn->coro);
     assert(!(conn->flags & CONN_IS_ALIVE));
@@ -324,7 +324,7 @@ thread_io_loop(void *data)
     struct lwan_connection *conns = lwan->conns;
     struct epoll_event *events;
     struct coro_switcher switcher;
-    struct death_queue_t dq;
+    struct death_queue dq;
     int n_fds;
 
     lwan_status_debug("Starting IO loop on thread #%d",
