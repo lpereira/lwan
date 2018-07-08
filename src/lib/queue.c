@@ -34,23 +34,12 @@
 
 #endif
 
-#if defined(__has_feature) && __has_feature(c_atomic)
-# define HAS_C11_ATOMIC 1
-#endif
-
 #if HAS_GCC_ATOMIC
 
 #define ATOMIC_INIT(P, V)	do { (P) = (V); } while (0)
 
 #define ATOMIC_LOAD(P, O)	__atomic_load_n((P), (O))
 #define ATOMIC_STORE(P, V, O)	__atomic_store_n((P), (V), (O))
-
-#elif HAS_C11_ATOMIC
-
-#define ATOMIC_INIT(P, V)	__c11_atomic_init((P), (V))
-
-#define ATOMIC_LOAD(P, O)	__c11_atomic_load((P), (O))
-#define ATOMIC_STORE(P, V, O)	__c11_atomic_store((P), (V), (O))
 
 #elif HAS_SYNC_ATOMIC
 
