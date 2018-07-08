@@ -282,46 +282,47 @@ spawn_coro(struct lwan_connection *conn,
     assert(!(conn->flags & CONN_SHOULD_RESUME_CORO));
 
     conn->coro = coro_new(switcher, process_request_coro, conn);
+    if (UNLIKELY(!conn->coro)) {
+        lwan_status_error("Could not create coroutine");
+        return;
+    }
+
     conn->flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO;
+    conn->time_to_die = dq->time + dq->keep_alive_timeout;
 
     death_queue_insert(dq, conn);
 }
 
-static int
-grab_command(int pipe_fd)
+static void
+accept_nudge(int pipe_fd, struct spsc_queue *pending_fds,
+    struct lwan_connection *conns, struct death_queue *dq,
+    struct coro_switcher *switcher, int epoll_fd)
 {
-    int cmd;
-    ssize_t sz = read(pipe_fd, &cmd, sizeof(cmd));
+    void *new_fd;
+    bool cmd;
 
-    if (UNLIKELY(sz < 0))
-        return -1;
-    if (UNLIKELY((size_t)sz < sizeof(cmd)))
-        return -2;
-    return cmd;
-}
+    if (read(pipe_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
+        return;
 
-static struct lwan_connection *
-watch_client(int epoll_fd, int fd, struct lwan_connection *conns)
-{
-    struct epoll_event event = {
-        .events = events_by_write_flag[1],
-        .data.ptr = &conns[fd]
-    };
-    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
-        return NULL;
+    if (!cmd)
+        return;
 
-    return &conns[fd];
+    while ((new_fd = spsc_queue_pop(pending_fds))) {
+        struct lwan_connection *conn = &conns[(int)(intptr_t)new_fd];
+
+        spawn_coro(conn, switcher, dq);
+        resume_coro_if_needed(dq, conn, epoll_fd);
+    }
 }
 
 static void *
 thread_io_loop(void *data)
 {
     struct lwan_thread *t = data;
-    const int epoll_fd = t->epoll_fd;
+    int epoll_fd = t->epoll_fd;
     const int read_pipe_fd = t->pipe_fd[0];
     const int max_events = min((int)t->lwan->thread.max_fd, 1024);
     struct lwan *lwan = t->lwan;
-    struct lwan_connection *conns = lwan->conns;
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct death_queue dq;
@@ -342,44 +343,34 @@ thread_io_loop(void *data)
         switch (n_fds = epoll_wait(epoll_fd, events, max_events,
                                    death_queue_epoll_timeout(&dq))) {
         case -1:
-            switch (errno) {
-            case EBADF:
-            case EINVAL:
+            if (errno == EBADF || errno == EINVAL)
                 goto epoll_fd_closed;
-            }
             continue;
+
         case 0: /* timeout: shutdown waiting sockets */
             death_queue_kill_waiting(&dq);
             break;
+
         default: /* activity in some of this poller's file descriptor */
             update_date_cache(t);
 
             for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
                 struct lwan_connection *conn;
 
-                if (!ep_event->data.ptr) {
-                    int cmd = grab_command(read_pipe_fd);
-                    if (LIKELY(cmd >= 0)) {
-                        conn = watch_client(epoll_fd, cmd, conns);
-                        spawn_coro(conn, &switcher, &dq);
-                    } else if (UNLIKELY(cmd == -1)) {
-                        continue;
-                    } else if (UNLIKELY(cmd == -2)) {
-                        goto epoll_fd_closed;
-                    } else {
-                        lwan_status_debug("Unknown command received, ignored");
-                        continue;
-                    }
-                } else {
-                    conn = ep_event->data.ptr;
-                    if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                        destroy_coro(&dq, conn);
-                        continue;
-                    }
-
-                    resume_coro_if_needed(&dq, conn, epoll_fd);
+                if (UNLIKELY(!ep_event->data.ptr)) {
+                    accept_nudge(read_pipe_fd, &t->pending_fds, lwan->conns,
+                        &dq, &switcher, epoll_fd);
+                    continue;
                 }
 
+                conn = ep_event->data.ptr;
+
+                if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                    destroy_coro(&dq, conn);
+                    continue;
+                }
+
+                resume_coro_if_needed(&dq, conn, epoll_fd);
                 death_queue_move_to_last(&dq, conn);
             }
         }
@@ -426,15 +417,29 @@ create_thread(struct lwan *l, struct lwan_thread *thread)
 
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
+
+    if (spsc_queue_init(&thread->pending_fds, thread->lwan->thread.max_fd) < 0)
+        lwan_status_critical("Could not initialize pending fd queue");
 }
 
 void
 lwan_thread_add_client(struct lwan_thread *t, int fd)
 {
-    t->lwan->conns[fd].flags = 0;
-    t->lwan->conns[fd].thread = t;
+    struct epoll_event event = { .events = events_by_write_flag[1] };
 
-    if (UNLIKELY(write(t->pipe_fd[1], &fd, sizeof(int)) < 0))
+    t->lwan->conns[fd] = (struct lwan_connection) { .thread = t };
+
+    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+        lwan_status_perror("epoll_ctl");
+
+    if (!spsc_queue_push(&t->pending_fds, (void *)(intptr_t)fd))
+        lwan_status_error("spsc_queue_push");
+}
+
+void
+lwan_thread_nudge(struct lwan_thread *t, bool created)
+{
+    if (UNLIKELY(write(t->pipe_fd[1], &created, sizeof(created)) < 0))
         lwan_status_perror("write");
 }
 
@@ -465,28 +470,14 @@ lwan_thread_shutdown(struct lwan *l)
 
     for (int i = l->thread.count - 1; i >= 0; i--) {
         struct lwan_thread *t = &l->thread.threads[i];
-        char less_than_int = 0;
-        ssize_t r;
 
         lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
             t->epoll_fd);
 
-        /* Close the epoll_fd and write less than an int to signal the
-         * thread to gracefully finish.  */
         close(t->epoll_fd);
+        lwan_thread_nudge(t, false);
 
-        while (true) {
-            r = write(t->pipe_fd[1], &less_than_int, sizeof(less_than_int));
-
-            if (r >= 0)
-                break;
-
-            if (errno == EAGAIN || errno == EINTR)
-                continue;
-
-            lwan_status_error("Could not write to I/O thread (%d) pipe to shutdown", i);
-            break;
-        }
+        spsc_queue_free(&t->pending_fds);
     }
 
     pthread_barrier_wait(&l->thread.barrier);

@@ -36,6 +36,7 @@ set(SOURCES
 	realpathat.c
 	sd-daemon.c
 	lwan-strbuf.c
+	queue.c
 )
 
 if (HAVE_LUA)

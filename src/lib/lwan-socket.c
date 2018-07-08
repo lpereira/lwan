@@ -69,6 +69,12 @@ static int setup_socket_from_systemd(void)
     if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0)
         lwan_status_critical_perror("Could not set socket flags");
 
+    flags = fcntl(fd, F_GETFL);
+    if (flags < 0)
+        lwan_status_critical_perror("Could not obtain socket flags");
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+        lwan_status_critical_perror("Could not set socket flags");
+
     return fd;
 }
 
@@ -176,7 +182,8 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
 
     /* Try each address until we bind one successfully. */
     for (addr = addrs; addr; addr = addr->ai_next) {
-        int fd = socket(addr->ai_family, addr->ai_socktype | SOCK_CLOEXEC,
+        int fd = socket(addr->ai_family,
+                        addr->ai_socktype | SOCK_CLOEXEC | SOCK_NONBLOCK,
                         addr->ai_protocol);
         if (fd < 0)
             continue;
