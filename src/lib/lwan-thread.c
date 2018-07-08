@@ -480,36 +480,26 @@ lwan_thread_shutdown(struct lwan *l)
 {
     lwan_status_debug("Shutting down threads");
 
-    for (int i = l->thread.count - 1; i >= 0; i--) {
+    for (int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
-
-        lwan_status_debug("Closing epoll for thread %d (fd=%d)", i,
-            t->epoll_fd);
 
         close(t->epoll_fd);
         lwan_thread_nudge(t);
-
-        spsc_queue_free(&t->pending_fds);
     }
 
     pthread_barrier_wait(&l->thread.barrier);
     pthread_barrier_destroy(&l->thread.barrier);
 
-    for (int i = l->thread.count - 1; i >= 0; i--) {
+    for (int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
 
-#if defined(HAVE_EVENTFD)
-        lwan_status_debug("Closing eventfd (%d)", t->pipe_fd[0]);
         close(t->pipe_fd[0]);
-#else
-        lwan_status_debug("Closing pipe (%d, %d)", t->pipe_fd[0],
-            t->pipe_fd[1]);
-        close(t->pipe_fd[0]);
+#if !defined(HAVE_EVENTFD)
         close(t->pipe_fd[1]);
 #endif
 
-        lwan_status_debug("Waiting for thread %d to finish", i);
         pthread_join(l->thread.threads[i].self, NULL);
+        spsc_queue_free(&t->pending_fds);
     }
 
     free(l->thread.threads);
