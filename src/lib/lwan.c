@@ -464,6 +464,19 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     return true;
 }
 
+static void try_setup_from_config(struct lwan *l, const struct lwan_config *config)
+{
+    if (!setup_from_config(l, config->config_file_path)) {
+        if (config->config_file_path) {
+            lwan_status_critical("Could not read config file: %s",
+                                 config->config_file_path);
+        }
+    }
+
+    /* `quiet` key might have changed value. */
+    lwan_status_init(l);
+}
+
 static rlim_t setup_open_file_count_limits(void)
 {
     struct rlimit r;
@@ -539,19 +552,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_job_thread_init();
     lwan_tables_init();
 
-    /* Load the configuration file. */
-    if (!setup_from_config(l, config->config_file_path)) {
-        if (config->config_file_path) {
-            lwan_status_critical("Could not read config file: %s",
-                                 config->config_file_path);
-        } else {
-            lwan_status_critical("Could not read config file");
-        }
-    }
-    if (config->config_file_path || config == &default_config) {
-        /* `quiet` key might have changed value. */
-        lwan_status_init(l);
-    }
+    try_setup_from_config(l, config);
 
     lwan_response_init(l);
 
