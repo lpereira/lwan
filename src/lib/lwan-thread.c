@@ -310,14 +310,7 @@ accept_nudge(int pipe_fd, struct spsc_queue *pending_fds,
     }
 
     while ((new_fd = spsc_queue_pop(pending_fds))) {
-        int fd = (int)(intptr_t)new_fd;
-        struct lwan_connection *conn = &conns[fd];
-        struct epoll_event ep_event = { .events = events_by_write_flag[1] };
-
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ep_event) < 0) {
-            lwan_status_perror("epoll_ctl");
-            continue;
-        }
+        struct lwan_connection *conn = &conns[(int)(intptr_t)new_fd];
 
         spawn_coro(conn, switcher, dq);
         resume_coro_if_needed(dq, conn, epoll_fd);
@@ -442,7 +435,12 @@ create_thread(struct lwan *l, struct lwan_thread *thread)
 void
 lwan_thread_add_client(struct lwan_thread *t, int fd)
 {
+    struct epoll_event event = { .events = events_by_write_flag[1] };
+
     t->lwan->conns[fd] = (struct lwan_connection) { .thread = t };
+
+    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
+        lwan_status_perror("epoll_ctl");
 
     if (!spsc_queue_push(&t->pending_fds, (void *)(intptr_t)fd))
         lwan_status_error("spsc_queue_push");
