@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 /*
  * Ideas from Mustache logic-less templates: http://mustache.github.com/
@@ -43,9 +44,9 @@
 #include "hash.h"
 #include "int-to-str.h"
 #include "list.h"
-#include "lwan-template.h"
-#include "lwan-strbuf.h"
 #include "lwan-array.h"
+#include "lwan-strbuf.h"
+#include "lwan-template.h"
 
 /* Define this and build a debug version to have the template
  * chunks printed out after compilation. */
@@ -69,9 +70,9 @@ enum action {
 
 enum flags {
     FLAGS_ALL = -1,
-    FLAGS_NEGATE = 1<<0,
-    FLAGS_QUOTE = 1<<1,
-    FLAGS_NO_FREE = 1<<2,
+    FLAGS_NEGATE = 1 << 0,
+    FLAGS_QUOTE = 1 << 1,
+    FLAGS_NO_FREE = 1 << 2,
 };
 
 enum lexeme_type {
@@ -169,7 +170,7 @@ struct chunk_descriptor {
 static const char left_meta[] = "{{";
 static const char right_meta[] = "}}";
 static_assert(sizeof(left_meta) == sizeof(right_meta),
-    "right_meta and left_meta are the same length");
+              "right_meta and left_meta are the same length");
 
 static void *lex_inside_action(struct lexer *lexer);
 static void *lex_identifier(struct lexer *lexer);
@@ -178,7 +179,8 @@ static void *lex_right_meta(struct lexer *lexer);
 static void *lex_text(struct lexer *lexer);
 
 static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme);
-static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexeme);
+static void *parser_end_var_not_empty(struct parser *parser,
+                                      struct lexeme *lexeme);
 static void *parser_iter(struct parser *parser, struct lexeme *lexeme);
 static void *parser_meta(struct parser *parser, struct lexeme *lexeme);
 static void *parser_negate(struct parser *parser, struct lexeme *lexeme);
@@ -193,8 +195,8 @@ static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
 
-static struct lwan_var_descriptor *
-symtab_lookup(struct parser *parser, const char *var_name)
+static struct lwan_var_descriptor *symtab_lookup(struct parser *parser,
+                                                 const char *var_name)
 {
     for (struct symtab *tab = parser->symtab; tab; tab = tab->next) {
         struct lwan_var_descriptor *var = hash_find(tab->hash, var_name);
@@ -217,8 +219,8 @@ symtab_lookup_lexeme(struct parser *parser, struct lexeme *lexeme)
                          strndupa(lexeme->value.value, lexeme->value.len));
 }
 
-static int
-symtab_push(struct parser *parser, const struct lwan_var_descriptor *descriptor)
+static int symtab_push(struct parser *parser,
+                       const struct lwan_var_descriptor *descriptor)
 {
     struct symtab *tab;
     int r;
@@ -256,8 +258,7 @@ hash_new_err:
     return r;
 }
 
-static void
-symtab_pop(struct parser *parser)
+static void symtab_pop(struct parser *parser)
 {
     struct symtab *tab = parser->symtab;
 
@@ -270,10 +271,12 @@ symtab_pop(struct parser *parser)
 
 static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
 {
-    assert(lexer->ring_buffer.population < N_ELEMENTS(lexer->ring_buffer.lexemes));
+    assert(lexer->ring_buffer.population <
+           N_ELEMENTS(lexer->ring_buffer.lexemes));
 
     lexer->ring_buffer.lexemes[lexer->ring_buffer.last] = *lexeme;
-    lexer->ring_buffer.last = (lexer->ring_buffer.last + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
+    lexer->ring_buffer.last =
+        (lexer->ring_buffer.last + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
     lexer->ring_buffer.population++;
 
     lexer->start = lexer->pos;
@@ -285,7 +288,8 @@ static bool consume_lexeme(struct lexer *lexer, struct lexeme **lexeme)
         return false;
 
     *lexeme = &lexer->ring_buffer.lexemes[lexer->ring_buffer.first];
-    lexer->ring_buffer.first = (lexer->ring_buffer.first + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
+    lexer->ring_buffer.first =
+        (lexer->ring_buffer.first + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
     lexer->ring_buffer.population--;
 
     return true;
@@ -312,15 +316,9 @@ static int next(struct lexer *lexer)
     return r;
 }
 
-static void ignore(struct lexer *lexer)
-{
-    lexer->start = lexer->pos;
-}
+static void ignore(struct lexer *lexer) { lexer->start = lexer->pos; }
 
-static void backup(struct lexer *lexer)
-{
-    lexer->pos--;
-}
+static void backup(struct lexer *lexer) { lexer->pos--; }
 
 static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
 {
@@ -425,7 +423,8 @@ static void *lex_comment(struct lexer *lexer)
         else if (r == '}')
             brackets--;
         else if (r == EOF)
-            return lex_error(lexer, "unexpected EOF while scanning comment end");
+            return lex_error(lexer,
+                             "unexpected EOF while scanning comment end");
     } while (brackets);
 
     ignore(lexer);
@@ -527,12 +526,15 @@ static void lex_init(struct lexer *lexer, const char *input)
 static void *unexpected_lexeme(struct lexeme *lexeme)
 {
     return error_lexeme(lexeme, "unexpected lexeme: %s [%.*s]",
-        lexeme_type_str[lexeme->type], (int)lexeme->value.len, lexeme->value.value);
+                        lexeme_type_str[lexeme->type], (int)lexeme->value.len,
+                        lexeme->value.value);
 }
 
-static void *unexpected_lexeme_or_lex_error(struct lexeme *lexeme, struct lexeme *lex_error)
+static void *unexpected_lexeme_or_lex_error(struct lexeme *lexeme,
+                                            struct lexeme *lex_error)
 {
-    if (lex_error && (lex_error->type == LEXEME_ERROR || lex_error->type == LEXEME_EOF)) {
+    if (lex_error &&
+        (lex_error->type == LEXEME_ERROR || lex_error->type == LEXEME_EOF)) {
         *lexeme = *lex_error;
         return NULL;
     }
@@ -550,8 +552,10 @@ static void parser_push_lexeme(struct parser *parser, struct lexeme *lexeme)
     list_add(&parser->stack, &stacked_lexeme->stack);
 }
 
-static void emit_chunk(struct parser *parser, enum action action,
-        enum flags flags, void *data)
+static void emit_chunk(struct parser *parser,
+                       enum action action,
+                       enum flags flags,
+                       void *data)
 {
     struct chunk *chunk;
 
@@ -564,17 +568,22 @@ static void emit_chunk(struct parser *parser, enum action action,
     chunk->data = data;
 }
 
-static bool parser_stack_top_matches(struct parser *parser, struct lexeme *lexeme, enum lexeme_type type)
+static bool parser_stack_top_matches(struct parser *parser,
+                                     struct lexeme *lexeme,
+                                     enum lexeme_type type)
 {
     if (list_empty(&parser->stack)) {
-        error_lexeme(lexeme, "unexpected {{/%.*s}}", (int)lexeme->value.len, lexeme->value.value);
+        error_lexeme(lexeme, "unexpected {{/%.*s}}", (int)lexeme->value.len,
+                     lexeme->value.value);
         return false;
     }
 
-    struct stacked_lexeme *stacked_lexeme = (struct stacked_lexeme *)parser->stack.n.next;
-    bool matches = (stacked_lexeme->lexeme.type == type
-            && lexeme->value.len == stacked_lexeme->lexeme.value.len
-            && !memcmp(stacked_lexeme->lexeme.value.value, lexeme->value.value, lexeme->value.len));
+    struct stacked_lexeme *stacked_lexeme =
+        (struct stacked_lexeme *)parser->stack.n.next;
+    bool matches = (stacked_lexeme->lexeme.type == type &&
+                    lexeme->value.len == stacked_lexeme->lexeme.value.len &&
+                    !memcmp(stacked_lexeme->lexeme.value.value,
+                            lexeme->value.value, lexeme->value.len));
     if (matches) {
         list_del(&stacked_lexeme->stack);
         free(stacked_lexeme);
@@ -582,14 +591,15 @@ static bool parser_stack_top_matches(struct parser *parser, struct lexeme *lexem
     }
 
     error_lexeme(lexeme, "expecting %s `%.*s' but found `%.*s'",
-        lexeme_type_str[stacked_lexeme->lexeme.type],
-        (int)stacked_lexeme->lexeme.value.len, stacked_lexeme->lexeme.value.value,
-        (int)lexeme->value.len, lexeme->value.value);
+                 lexeme_type_str[stacked_lexeme->lexeme.type],
+                 (int)stacked_lexeme->lexeme.value.len,
+                 stacked_lexeme->lexeme.value.value, (int)lexeme->value.len,
+                 lexeme->value.value);
     return false;
 }
 
 static void *parser_right_meta(struct parser *parser __attribute__((unused)),
-    struct lexeme *lexeme)
+                               struct lexeme *lexeme)
 {
     if (lexeme->type != LEXEME_RIGHT_META)
         return unexpected_lexeme(lexeme);
@@ -606,12 +616,13 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
 
     symbol = symtab_lookup_lexeme(parser, lexeme);
     if (!symbol) {
-        return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
-            lexeme->value.value);
+        return error_lexeme(lexeme, "Unknown variable: %.*s",
+                            (int)lexeme->value.len, lexeme->value.value);
     }
 
     if (!parser->chunks.base.elements)
-        return error_lexeme(lexeme, "No chunks were emitted but parsing end iter");
+        return error_lexeme(lexeme,
+                            "No chunks were emitted but parsing end iter");
 
     LWAN_ARRAY_FOREACH_REVERSE(&parser->chunks, iter) {
         if (iter->action != ACTION_START_ITER)
@@ -623,10 +634,12 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
         }
     }
 
-    return error_lexeme(lexeme, "Could not find {{#%.*s}}", (int)lexeme->value.len, lexeme->value.value);
+    return error_lexeme(lexeme, "Could not find {{#%.*s}}",
+                        (int)lexeme->value.len, lexeme->value.value);
 }
 
-static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexeme)
+static void *parser_end_var_not_empty(struct parser *parser,
+                                      struct lexeme *lexeme)
 {
     struct chunk *iter;
     struct lwan_var_descriptor *symbol;
@@ -636,12 +649,14 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
 
     symbol = symtab_lookup_lexeme(parser, lexeme);
     if (!symbol) {
-        return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
-            lexeme->value.value);
+        return error_lexeme(lexeme, "Unknown variable: %.*s",
+                            (int)lexeme->value.len, lexeme->value.value);
     }
 
     if (!parser->chunks.base.elements)
-        return error_lexeme(lexeme, "No chunks were emitted but parsing end variable not empty");
+        return error_lexeme(
+            lexeme,
+            "No chunks were emitted but parsing end variable not empty");
 
     LWAN_ARRAY_FOREACH_REVERSE(&parser->chunks, iter) {
         if (iter->action != ACTION_IF_VARIABLE_NOT_EMPTY)
@@ -652,7 +667,8 @@ static void *parser_end_var_not_empty(struct parser *parser, struct lexeme *lexe
         }
     }
 
-    return error_lexeme(lexeme, "Could not find {{%.*s?}}", (int)lexeme->value.len, lexeme->value.value);
+    return error_lexeme(lexeme, "Could not find {{%.*s?}}",
+                        (int)lexeme->value.len, lexeme->value.value);
 }
 
 static void *parser_slash(struct parser *parser, struct lexeme *lexeme)
@@ -679,20 +695,22 @@ static void *parser_iter(struct parser *parser, struct lexeme *lexeme)
 {
     if (lexeme->type == LEXEME_IDENTIFIER) {
         enum flags negate = parser->flags & FLAGS_NEGATE;
-        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
+        struct lwan_var_descriptor *symbol =
+            symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
-            return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
-                lexeme->value.value);
+            return error_lexeme(lexeme, "Unknown variable: %.*s",
+                                (int)lexeme->value.len, lexeme->value.value);
         }
 
         int r = symtab_push(parser, symbol->list_desc);
         if (r < 0) {
             if (r == -ENODEV) {
-                return error_lexeme(lexeme,
-                                    "Couldn't find descriptor for variable `%.*s'",
-                                    (int)lexeme->value.len, lexeme->value.value);
+                return error_lexeme(
+                    lexeme, "Couldn't find descriptor for variable `%.*s'",
+                    (int)lexeme->value.len, lexeme->value.value);
             }
-            return error_lexeme(lexeme, "Could not push symbol table (out of memory)");
+            return error_lexeme(lexeme,
+                                "Could not push symbol table (out of memory)");
         }
 
         emit_chunk(parser, ACTION_START_ITER, negate | FLAGS_NO_FREE, symbol);
@@ -739,10 +757,11 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_RIGHT_META) {
-        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
+        struct lwan_var_descriptor *symbol =
+            symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
-            return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
-                lexeme->value.value);
+            return error_lexeme(lexeme, "Unknown variable: %.*s",
+                                (int)lexeme->value.len, lexeme->value.value);
         }
 
         emit_chunk(parser, ACTION_VARIABLE, parser->flags, symbol);
@@ -753,10 +772,11 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (next->type == LEXEME_QUESTION_MARK) {
-        struct lwan_var_descriptor *symbol = symtab_lookup_lexeme(parser, lexeme);
+        struct lwan_var_descriptor *symbol =
+            symtab_lookup_lexeme(parser, lexeme);
         if (!symbol) {
-            return error_lexeme(lexeme, "Unknown variable: %.*s", (int)lexeme->value.len,
-                lexeme->value.value);
+            return error_lexeme(lexeme, "Unknown variable: %.*s",
+                                (int)lexeme->value.len, lexeme->value.value);
         }
 
         enum flags flags = FLAGS_NO_FREE | (parser->flags & FLAGS_NEGATE);
@@ -790,33 +810,36 @@ static void *parser_partial(struct parser *parser, struct lexeme *lexeme)
 
 static void *parser_meta(struct parser *parser, struct lexeme *lexeme)
 {
-    if (lexeme->type == LEXEME_OPEN_CURLY_BRACE) {
+    switch (lexeme->type) {
+    default:
+        return unexpected_lexeme(lexeme);
+
+    case LEXEME_OPEN_CURLY_BRACE:
         if (parser->flags & FLAGS_QUOTE)
             return unexpected_lexeme(lexeme);
 
         parser->flags |= FLAGS_QUOTE;
         return parser_meta;
-    }
 
-    if (lexeme->type == LEXEME_IDENTIFIER)
+    case LEXEME_IDENTIFIER:
         return parser_identifier(parser, lexeme);
 
-    if (lexeme->type == LEXEME_GREATER_THAN)
+    case LEXEME_GREATER_THAN:
         return parser_partial;
 
-    if (lexeme->type == LEXEME_HASH)
+    case LEXEME_HASH:
         return parser_iter;
 
-    if (lexeme->type == LEXEME_HAT)
+    case LEXEME_HAT:
         return parser_negate;
 
-    if (lexeme->type == LEXEME_SLASH)
+    case LEXEME_SLASH:
         return parser_slash;
-
-    return unexpected_lexeme(lexeme);
+    }
 }
 
-static struct lwan_strbuf *lwan_strbuf_from_lexeme(struct parser *parser, struct lexeme *lexeme)
+static struct lwan_strbuf *lwan_strbuf_from_lexeme(struct parser *parser,
+                                                   struct lexeme *lexeme)
 {
     if (parser->template_flags & LWAN_TPL_FLAG_CONST_TEMPLATE)
         return lwan_strbuf_new_static(lexeme->value.value, lexeme->value.len);
@@ -835,7 +858,8 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
 
     if (lexeme->type == LEXEME_TEXT) {
         if (lexeme->value.len == 1) {
-            emit_chunk(parser, ACTION_APPEND_CHAR, 0, (void *)(uintptr_t)*lexeme->value.value);
+            emit_chunk(parser, ACTION_APPEND_CHAR, 0,
+                       (void *)(uintptr_t)*lexeme->value.value);
         } else {
             struct lwan_strbuf *buf = lwan_strbuf_from_lexeme(parser, lexeme);
             if (!buf)
@@ -855,8 +879,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
     return unexpected_lexeme(lexeme);
 }
 
-void
-lwan_append_int_to_strbuf(struct lwan_strbuf *buf, void *ptr)
+void lwan_append_int_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     char convertbuf[INT_TO_STR_BUFFER_SIZE];
     size_t len;
@@ -866,14 +889,9 @@ lwan_append_int_to_strbuf(struct lwan_strbuf *buf, void *ptr)
     lwan_strbuf_append_str(buf, converted, len);
 }
 
-bool
-lwan_tpl_int_is_empty(void *ptr)
-{
-    return (*(int *)ptr) == 0;
-}
+bool lwan_tpl_int_is_empty(void *ptr) { return (*(int *)ptr) == 0; }
 
-void
-lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr)
+void lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     lwan_strbuf_append_printf(buf, "%f", *(double *)ptr);
 }
@@ -888,8 +906,7 @@ bool lwan_tpl_double_is_empty(void *ptr)
 #endif
 }
 
-void
-lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
+void lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     const char *str = *(char **)ptr;
 
@@ -897,8 +914,7 @@ lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
         lwan_strbuf_append_str(buf, str, 0);
 }
 
-void
-lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
+void lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
     if (UNLIKELY(!ptr))
         return;
@@ -925,8 +941,7 @@ lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
     }
 }
 
-bool
-lwan_tpl_str_is_empty(void *ptr)
+bool lwan_tpl_str_is_empty(void *ptr)
 {
     if (UNLIKELY(!ptr))
         return true;
@@ -935,8 +950,7 @@ lwan_tpl_str_is_empty(void *ptr)
     return !str || *str == '\0';
 }
 
-static void
-free_chunk(struct chunk *chunk)
+static void free_chunk(struct chunk *chunk)
 {
     if (!chunk)
         return;
@@ -966,8 +980,7 @@ free_chunk(struct chunk *chunk)
     }
 }
 
-void
-lwan_tpl_free(struct lwan_tpl *tpl)
+void lwan_tpl_free(struct lwan_tpl *tpl)
 {
     if (!tpl)
         return;
@@ -984,8 +997,7 @@ lwan_tpl_free(struct lwan_tpl *tpl)
     free(tpl);
 }
 
-static bool
-post_process_template(struct parser *parser)
+static bool post_process_template(struct parser *parser)
 {
     struct chunk *prev_chunk;
     struct chunk *chunk;
@@ -995,8 +1007,8 @@ post_process_template(struct parser *parser)
             for (prev_chunk = chunk; ; chunk++) {
                 if (chunk->action == ACTION_LAST)
                     break;
-                if (chunk->action == ACTION_END_IF_VARIABLE_NOT_EMPTY
-                            && chunk->data == prev_chunk->data)
+                if (chunk->action == ACTION_END_IF_VARIABLE_NOT_EMPTY &&
+                    chunk->data == prev_chunk->data)
                     break;
             }
 
@@ -1065,8 +1077,9 @@ post_process_template(struct parser *parser)
     return true;
 }
 
-static bool parser_init(struct parser *parser, const struct lwan_var_descriptor *descriptor,
-    const char *string)
+static bool parser_init(struct parser *parser,
+                        const struct lwan_var_descriptor *descriptor,
+                        const char *string)
 {
     if (symtab_push(parser, descriptor) < 0)
         return false;
@@ -1085,7 +1098,8 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     bool success = true;
 
     if (lexeme->type == LEXEME_ERROR && lexeme->value.value) {
-        lwan_status_error("Parser error: %.*s", (int)lexeme->value.len, lexeme->value.value);
+        lwan_status_error("Parser error: %.*s", (int)lexeme->value.len,
+                          lexeme->value.value);
         free((char *)lexeme->value.value);
 
         success = false;
@@ -1094,8 +1108,9 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     if (!list_empty(&parser->stack)) {
         struct stacked_lexeme *stacked, *stacked_next;
 
-        list_for_each_safe(&parser->stack, stacked, stacked_next, stack) {
-            lwan_status_error("Parser error: EOF while looking for matching {{/%.*s}}",
+        list_for_each_safe (&parser->stack, stacked, stacked_next, stack) {
+            lwan_status_error(
+                "Parser error: EOF while looking for matching {{/%.*s}}",
                 (int)stacked->lexeme.value.len, stacked->lexeme.value.value);
             list_del(&stacked->stack);
             free(stacked);
@@ -1106,7 +1121,8 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
 
     symtab_pop(parser);
     if (parser->symtab) {
-        lwan_status_error("Parser error: Symbol table not empty when finishing parser");
+        lwan_status_error(
+            "Parser error: Symbol table not empty when finishing parser");
 
         while (parser->symtab)
             symtab_pop(parser);
@@ -1127,15 +1143,18 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
         success = post_process_template(parser);
 
     if (!success) {
-        /* Emit a ACTION_LAST chunk so that lwan_tpl_free() knows when to stop */
+        /* Emit a ACTION_LAST chunk so that lwan_tpl_free() knows when to stop
+         */
         emit_chunk(parser, ACTION_LAST, 0, NULL);
     }
 
     return success;
 }
 
-static bool parse_string(struct lwan_tpl *tpl, const char *string, const struct lwan_var_descriptor *descriptor,
-    enum lwan_tpl_flag flags)
+static bool parse_string(struct lwan_tpl *tpl,
+                         const char *string,
+                         const struct lwan_var_descriptor *descriptor,
+                         enum lwan_tpl_flag flags)
 {
     struct parser parser = {
         .tpl = tpl,
@@ -1149,7 +1168,8 @@ static bool parse_string(struct lwan_tpl *tpl, const char *string, const struct 
     if (!parser_init(&parser, descriptor, string))
         return false;
 
-    while (state && lex_next(&parser.lexer, &lexeme) && lexeme->type != LEXEME_ERROR)
+    while (state && lex_next(&parser.lexer, &lexeme) &&
+           lexeme->type != LEXEME_ERROR)
         state = state(&parser, lexeme);
 
     return parser_shutdown(&parser, lexeme);
@@ -1191,18 +1211,17 @@ static void dump_program(const struct lwan_tpl *tpl)
         switch (iter->action) {
         case ACTION_APPEND:
             printf("%s [%.*s]", instr("APPEND", instr_buf),
-                (int)lwan_strbuf_get_length(iter->data),
-                lwan_strbuf_get_buffer(iter->data));
+                   (int)lwan_strbuf_get_length(iter->data),
+                   lwan_strbuf_get_buffer(iter->data));
             break;
         case ACTION_APPEND_CHAR:
             printf("%s [%d]", instr("APPEND_CHAR", instr_buf),
-                (char)(uintptr_t)iter->data);
+                   (char)(uintptr_t)iter->data);
             break;
         case ACTION_VARIABLE: {
             struct lwan_var_descriptor *descriptor = iter->data;
 
-            printf("%s [%s]", instr("APPEND_VAR", instr_buf),
-                descriptor->name);
+            printf("%s [%s]", instr("APPEND_VAR", instr_buf), descriptor->name);
             break;
         }
         case ACTION_VARIABLE_STR:
@@ -1215,7 +1234,7 @@ static void dump_program(const struct lwan_tpl *tpl)
             struct chunk_descriptor *descriptor = iter->data;
 
             printf("%s [%s]", instr("START_ITER", instr_buf),
-                descriptor->descriptor->name);
+                   descriptor->descriptor->name);
             indent++;
             break;
         }
@@ -1223,7 +1242,7 @@ static void dump_program(const struct lwan_tpl *tpl)
             struct chunk_descriptor *descriptor = iter->data;
 
             printf("%s [%s]", instr("END_ITER", instr_buf),
-                descriptor->descriptor->name);
+                   descriptor->descriptor->name);
             indent--;
             break;
         }
@@ -1231,7 +1250,7 @@ static void dump_program(const struct lwan_tpl *tpl)
             struct chunk_descriptor *cd = iter->data;
 
             printf("%s [%s]", instr("IF_VAR_NOT_EMPTY", instr_buf),
-                cd->descriptor->name);
+                   cd->descriptor->name);
             indent++;
             break;
         }
@@ -1259,8 +1278,9 @@ static void dump_program(const struct lwan_tpl *tpl)
 #endif
 
 struct lwan_tpl *
-lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descriptor *descriptor,
-    enum lwan_tpl_flag flags)
+lwan_tpl_compile_string_full(const char *string,
+                             const struct lwan_var_descriptor *descriptor,
+                             enum lwan_tpl_flag flags)
 {
     struct lwan_tpl *tpl;
 
@@ -1280,13 +1300,15 @@ lwan_tpl_compile_string_full(const char *string, const struct lwan_var_descripto
 }
 
 struct lwan_tpl *
-lwan_tpl_compile_string(const char *string, const struct lwan_var_descriptor *descriptor)
+lwan_tpl_compile_string(const char *string,
+                        const struct lwan_var_descriptor *descriptor)
 {
     return lwan_tpl_compile_string_full(string, descriptor, 0);
 }
 
 struct lwan_tpl *
-lwan_tpl_compile_file(const char *filename, const struct lwan_var_descriptor *descriptor)
+lwan_tpl_compile_file(const char *filename,
+                      const struct lwan_var_descriptor *descriptor)
 {
     int fd;
     struct stat st;
@@ -1315,9 +1337,11 @@ end:
     return tpl;
 }
 
-static struct chunk *
-apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct lwan_strbuf *buf, void *variables,
-            void *until_data)
+static struct chunk *apply(struct lwan_tpl *tpl,
+                           struct chunk *chunks,
+                           struct lwan_strbuf *buf,
+                           void *variables,
+                           void *data)
 {
     static const void *const dispatch_table[] = {
         [ACTION_APPEND] = &&action_append,
@@ -1339,14 +1363,21 @@ apply_until(struct lwan_tpl *tpl, struct chunk *chunks, struct lwan_strbuf *buf,
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define DISPATCH()	do { goto *dispatch_table[chunk->action]; } while(false)
-#define NEXT_ACTION()	do { chunk++; DISPATCH(); } while(false)
+#define DISPATCH()                                                             \
+    do {                                                                       \
+        goto *dispatch_table[chunk->action];                                   \
+    } while (false)
+#define NEXT_ACTION()                                                          \
+    do {                                                                       \
+        chunk++;                                                               \
+        DISPATCH();                                                            \
+    } while (false)
 
     DISPATCH();
 
 action_append:
     lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(chunk->data),
-                lwan_strbuf_get_length(chunk->data));
+                           lwan_strbuf_get_length(chunk->data));
     NEXT_ACTION();
 
 action_append_char:
@@ -1364,30 +1395,33 @@ action_variable_str:
     NEXT_ACTION();
 
 action_variable_str_escape:
-    lwan_append_str_escaped_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
+    lwan_append_str_escaped_to_strbuf(buf, (char *)variables +
+                                               (uintptr_t)chunk->data);
     NEXT_ACTION();
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
-        bool empty = cd->descriptor->get_is_empty((char *)variables + cd->descriptor->offset);
+        bool empty = cd->descriptor->get_is_empty((char *)variables +
+                                                  cd->descriptor->offset);
         if (chunk->flags & FLAGS_NEGATE)
             empty = !empty;
         if (empty) {
             chunk = cd->chunk;
         } else {
-            chunk = apply_until(tpl, chunk + 1, buf, variables, cd->chunk);
+            chunk = apply(tpl, chunk + 1, buf, variables, cd->chunk);
         }
         NEXT_ACTION();
     }
 
 action_end_if_variable_not_empty:
-    if (LIKELY(until_data == chunk))
+    if (LIKELY(data == chunk))
         goto finalize;
     NEXT_ACTION();
 
 action_apply_tpl: {
         struct lwan_strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
-        lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(tmp), lwan_strbuf_get_length(tmp));
+        lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(tmp),
+                               lwan_strbuf_get_length(tmp));
         lwan_strbuf_free(tmp);
         NEXT_ACTION();
     }
@@ -1419,11 +1453,11 @@ action_start_iter:
         NEXT_ACTION();
     }
 
-    chunk = apply_until(tpl, chunk + 1, buf, variables, chunk);
+    chunk = apply(tpl, chunk + 1, buf, variables, chunk);
     DISPATCH();
 
 action_end_iter:
-    if (until_data == chunk->data)
+    if (data == chunk->data)
         goto finalize;
 
     if (UNLIKELY(!coro)) {
@@ -1438,7 +1472,8 @@ action_end_iter:
         NEXT_ACTION();
     }
 
-    chunk = apply_until(tpl, ((struct chunk *)chunk->data) + 1, buf, variables, chunk->data);
+    chunk = apply(tpl, ((struct chunk *)chunk->data) + 1, buf, variables,
+                  chunk->data);
     DISPATCH();
 
 finalize:
@@ -1456,7 +1491,7 @@ bool lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl,
     if (UNLIKELY(!lwan_strbuf_grow_to(buf, tpl->minimum_size)))
         return false;
 
-    apply_until(tpl, tpl->chunks.base.base, buf, variables, NULL);
+    apply(tpl, tpl->chunks.base.base, buf, variables, NULL);
 
     return true;
 }
