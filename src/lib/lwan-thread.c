@@ -328,7 +328,6 @@ thread_io_loop(void *data)
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct death_queue dq;
-    int n_fds;
 
     lwan_status_debug("Starting IO loop on thread #%d",
         (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) + 1);
@@ -342,18 +341,11 @@ thread_io_loop(void *data)
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        switch (n_fds = epoll_wait(epoll_fd, events, max_events,
-                                   death_queue_epoll_timeout(&dq))) {
-        case -1:
-            if (errno == EBADF || errno == EINVAL)
-                goto epoll_fd_closed;
-            continue;
+        int timeout = death_queue_epoll_timeout(&dq);
+        int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
 
-        case 0: /* timeout: shutdown waiting sockets */
-            death_queue_kill_waiting(&dq);
-            break;
-
-        default: /* activity in some of this poller's file descriptor */
+        if (LIKELY(n_fds > 0)) {
+            /* activity in some of this poller's file descriptor */
             update_date_cache(t);
 
             for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
@@ -375,10 +367,15 @@ thread_io_loop(void *data)
                 resume_coro_if_needed(&dq, conn, epoll_fd);
                 death_queue_move_to_last(&dq, conn);
             }
+        } else if (UNLIKELY(n_fds < 0)) {
+            if (errno == EBADF || errno == EINVAL)
+                break;
+        } else {
+            /* timeout: shutdown waiting sockets */
+            death_queue_kill_waiting(&dq);
         }
     }
 
-epoll_fd_closed:
     pthread_barrier_wait(&lwan->thread.barrier);
 
     death_queue_kill_all(&dq);
