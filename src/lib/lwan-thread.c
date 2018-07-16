@@ -33,6 +33,7 @@
 #endif
 
 #include "lwan-private.h"
+#include "list.h"
 
 struct death_queue {
     const struct lwan *lwan;
@@ -183,24 +184,21 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     }
 }
 
-static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
-                                                struct lwan_connection *conn,
-                                                int epoll_fd)
+static void update_epoll_flags(struct death_queue *dq,
+                               struct lwan_connection *conn,
+                               int epoll_fd,
+                               enum lwan_connection_coro_yield yield_result)
 {
-    assert(conn->coro);
-
-    if (!(conn->flags & CONN_SHOULD_RESUME_CORO))
-        return;
-
-    enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
-    /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
-    if (yield_result < CONN_CORO_MAY_RESUME) {
-        destroy_coro(dq, conn);
-        return;
-    }
-
+    uint32_t events = 0;
     bool write_events;
-    if (conn->flags & CONN_MUST_READ) {
+
+    if (UNLIKELY(conn->flags & CONN_RESUMED_FROM_TIMER)) {
+        conn->flags &= ~(CONN_RESUMED_FROM_TIMER | CONN_WRITE_EVENTS);
+        write_events = false;
+    } else if (UNLIKELY(conn->flags & CONN_SUSPENDED_BY_TIMER)) {
+        /* CONN_WRITE_EVENTS shouldn't be flipped in this case. */
+        events = EPOLLERR | EPOLLRDHUP;
+    } else if (conn->flags & CONN_MUST_READ) {
         write_events = true;
     } else {
         bool should_resume_coro = (yield_result == CONN_CORO_MAY_RESUME);
@@ -215,14 +213,35 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
             return;
     }
 
-    struct epoll_event event = {.events = events_by_write_flag[write_events],
-                                .data.ptr = conn};
+    if (!events) {
+        events = events_by_write_flag[write_events];
+        conn->flags ^= CONN_WRITE_EVENTS;
+    }
+
+    struct epoll_event event = {.events = events, .data.ptr = conn};
 
     int fd = lwan_connection_get_fd(dq->lwan, conn);
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
+}
 
-    conn->flags ^= CONN_WRITE_EVENTS;
+static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
+                                                struct lwan_connection *conn,
+                                                int epoll_fd)
+{
+    assert(conn->coro);
+
+    if (!(conn->flags & CONN_SHOULD_RESUME_CORO))
+        return;
+
+    enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
+    /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
+    if (UNLIKELY(yield_result < CONN_CORO_MAY_RESUME)) {
+        destroy_coro(dq, conn);
+        return;
+    }
+
+    update_epoll_flags(dq, conn, epoll_fd, yield_result);
 }
 
 static void death_queue_kill_waiting(struct death_queue *dq)
@@ -306,6 +325,38 @@ static void accept_nudge(int pipe_fd,
     }
 }
 
+static void turn_timer_wheel(struct timeouts *wheel, struct timespec *prev)
+{
+    struct timespec now;
+    int64_t diff_ms = 0;
+
+    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0))
+        lwan_status_critical("Could not get monotonic time");
+
+    diff_ms += (now.tv_sec - prev->tv_sec) * 1000;
+    diff_ms += (now.tv_nsec - prev->tv_nsec) / 1000000;
+
+    timeouts_step(wheel, (timeout_t)diff_ms);
+    *prev = now;
+}
+
+static void process_pending_timers(struct death_queue *dq,
+                                   struct timeouts *wheel,
+                                   int epoll_fd)
+{
+    struct timeout *timeout;
+
+    while ((timeout = timeouts_get(wheel))) {
+        struct lwan_request *request;
+
+        request = container_of(timeout, struct lwan_request, timeout);
+
+        request->conn->flags &= ~CONN_SUSPENDED_BY_TIMER;
+        request->conn->flags |= CONN_RESUMED_FROM_TIMER;
+        update_epoll_flags(dq, request->conn, epoll_fd, CONN_CORO_MAY_RESUME);
+    }
+}
+
 static void *thread_io_loop(void *data)
 {
     struct lwan_thread *t = data;
@@ -316,6 +367,7 @@ static void *thread_io_loop(void *data)
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct death_queue dq;
+    struct timespec prev_wheel_time;
 
     lwan_status_debug("Starting IO loop on thread #%d",
                       (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) +
@@ -330,11 +382,22 @@ static void *thread_io_loop(void *data)
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        int timeout = death_queue_epoll_timeout(&dq);
-        int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
+        timeout_t wheel_timeout = timeouts_timeout(t->wheel);
+        int dq_timeout = death_queue_epoll_timeout(&dq);
+        int timeout;
+        int n_fds;
 
+        if (UNLIKELY((int64_t)wheel_timeout >= 0)) {
+            if (dq_timeout < 0)
+                timeout = (int)wheel_timeout;
+            else
+                timeout = min((int)wheel_timeout, dq_timeout);
+        } else {
+            timeout = dq_timeout;
+        }
+
+        n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
         if (LIKELY(n_fds > 0)) {
-            /* activity in some of this poller's file descriptor */
             update_date_cache(t);
 
             for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
@@ -356,12 +419,20 @@ static void *thread_io_loop(void *data)
                 resume_coro_if_needed(&dq, conn, epoll_fd);
                 death_queue_move_to_last(&dq, conn);
             }
+
+            /* FIXME: use timerfd on Linux */
+            if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &prev_wheel_time) < 0))
+                lwan_status_critical("Could not get time");
         } else if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)
                 break;
+            if (errno == EINTR)
+                turn_timer_wheel(t->wheel, &prev_wheel_time);
         } else {
             /* timeout: shutdown waiting sockets */
             death_queue_kill_waiting(&dq);
+            turn_timer_wheel(t->wheel, &prev_wheel_time);
+            process_pending_timers(&dq, t->wheel, epoll_fd);
         }
     }
 
@@ -379,6 +450,10 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
 
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
+
+    thread->wheel = timeouts_open(0, NULL);
+    if (!thread->wheel)
+        lwan_status_critical("Could not create timer wheel");
 
     if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
         lwan_status_critical_perror("epoll_create");
@@ -483,6 +558,7 @@ void lwan_thread_shutdown(struct lwan *l)
 
         pthread_join(l->thread.threads[i].self, NULL);
         spsc_queue_free(&t->pending_fds);
+        timeouts_close(t->wheel);
     }
 
     free(l->thread.threads);

@@ -37,6 +37,7 @@ extern "C" {
 #include "lwan-trie.h"
 #include "lwan-strbuf.h"
 #include "queue.h"
+#include "timeout.h"
 
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
@@ -230,6 +231,8 @@ enum lwan_connection_flags {
     CONN_SHOULD_RESUME_CORO = 1<<2,
     CONN_WRITE_EVENTS       = 1<<3,
     CONN_MUST_READ          = 1<<4,
+    CONN_SUSPENDED_BY_TIMER = 1<<5,
+    CONN_RESUMED_FROM_TIMER = 1<<6,
 };
 
 enum lwan_connection_coro_yield {
@@ -290,6 +293,8 @@ struct lwan_request {
     struct lwan_proxy *proxy;
 
     struct lwan_key_value_array query_params, post_data, cookies;
+
+    struct timeout timeout;
 
     struct {
         time_t if_modified_since;
@@ -354,7 +359,7 @@ struct lwan_thread {
         time_t last;
     } date;
     struct spsc_queue pending_fds;
-
+    struct timeouts *wheel;
     int epoll_fd;
     int pipe_fd[2];
     pthread_t self;
@@ -409,6 +414,8 @@ const char *lwan_request_get_query_param(struct lwan_request *request, const cha
     __attribute__((warn_unused_result, pure));
 const char * lwan_request_get_cookie(struct lwan_request *request, const char *key)
     __attribute__((warn_unused_result, pure));
+
+void lwan_request_sleep(struct lwan_request *request, uint64_t ms);
 
 bool lwan_response_set_chunked(struct lwan_request *request, enum lwan_http_status status);
 void lwan_response_send_chunk(struct lwan_request *request);

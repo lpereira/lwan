@@ -202,6 +202,32 @@ end:
     return HTTP_OK;
 }
 
+LWAN_HANDLER(sleep)
+{
+    response->mime_type = "text/plain";
+    uint64_t ms =
+        (uint64_t)parse_long(lwan_request_get_query_param(request, "ms"), 0);
+
+    if (ms) {
+        struct timespec t1, t2;
+        int64_t diff_ms;
+
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+
+        lwan_request_sleep(request, ms);
+
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        diff_ms = (t2.tv_sec - t1.tv_sec) * 1000;
+        diff_ms += (t2.tv_nsec - t1.tv_nsec) / 1000000;
+
+        lwan_strbuf_printf(response->buffer, "Returned from sleep. diff_ms = %ld", diff_ms);
+    } else {
+        lwan_strbuf_set_static(response->buffer, "Did not sleep", 0);
+    }
+
+    return HTTP_OK;
+}
+
 int
 main()
 {

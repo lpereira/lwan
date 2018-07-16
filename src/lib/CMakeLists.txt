@@ -37,6 +37,7 @@ set(SOURCES
 	sd-daemon.c
 	lwan-strbuf.c
 	queue.c
+	timeout.c
 )
 
 if (HAVE_LUA)
@@ -127,4 +128,5 @@ install(FILES
 	lwan-trie.h
 	lwan-strbuf.h
 	queue.h
+	timeout.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")

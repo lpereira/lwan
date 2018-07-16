@@ -38,6 +38,7 @@
 
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
+#include "list.h"
 
 enum lwan_read_finalizer {
     FINALIZER_DONE,
@@ -1268,4 +1269,33 @@ lwan_request_get_remote_address(struct lwan_request *request,
     return inet_ntop(AF_INET6,
                      &((struct sockaddr_in6 *) sock_addr)->sin6_addr,
                      buffer, INET6_ADDRSTRLEN);
+}
+
+static void remove_sleep(void *data1, void *data2)
+{
+    struct timeouts *wheel = data1;
+    struct timeout *timeout = data2;
+    struct lwan_request *request =
+        container_of(timeout, struct lwan_request, timeout);
+
+    if (request->conn->flags & CONN_SUSPENDED_BY_TIMER)
+        timeouts_del(wheel, timeout);
+}
+
+void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
+{
+    /* Holy indirection, Batman! */
+    struct timeouts *wheel = request->conn->thread->wheel;
+    struct coro *coro = request->conn->coro;
+
+    assert(!(request->conn->flags & CONN_SUSPENDED_BY_TIMER));
+    request->conn->flags |= CONN_SUSPENDED_BY_TIMER;
+
+    timeouts_add(wheel, &request->timeout, ms);
+    coro_defer2(coro, remove_sleep, wheel, &request->timeout);
+
+    coro_yield(coro, CONN_CORO_MAY_RESUME);
+
+    assert(!(request->conn->flags & CONN_SUSPENDED_BY_TIMER));
+    assert(!(request->conn->flags & CONN_RESUMED_FROM_TIMER));
 }
