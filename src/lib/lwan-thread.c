@@ -357,6 +357,25 @@ static void process_pending_timers(struct death_queue *dq,
     }
 }
 
+static int next_timeout(struct death_queue *dq, struct timeouts *wheel)
+{
+    timeout_t wheel_timeout = timeouts_timeout(wheel);
+    int dq_timeout = death_queue_epoll_timeout(dq);
+
+    /* This condition is unlikely as it's more likely that there will be no
+     * connections waiting on a timer.  wheel_timeout is cast to int64_t as
+     * it might return (uint64_t)-1 in some cases; this combines with the
+     * check for 0, which it might also return. */
+    if (UNLIKELY((int64_t)wheel_timeout >= 0)) {
+        if (dq_timeout < 0)
+            return (int)wheel_timeout;
+
+        return min((int)wheel_timeout, dq_timeout);
+    }
+
+    return dq_timeout;
+}
+
 static void *thread_io_loop(void *data)
 {
     struct lwan_thread *t = data;
@@ -385,19 +404,8 @@ static void *thread_io_loop(void *data)
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        timeout_t wheel_timeout = timeouts_timeout(t->wheel);
-        int dq_timeout = death_queue_epoll_timeout(&dq);
-        int timeout;
+        int timeout = next_timeout(&dq, t->wheel);
         int n_fds;
-
-        if (UNLIKELY((int64_t)wheel_timeout >= 0)) {
-            if (dq_timeout < 0)
-                timeout = (int)wheel_timeout;
-            else
-                timeout = min((int)wheel_timeout, dq_timeout);
-        } else {
-            timeout = dq_timeout;
-        }
 
         n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
         if (LIKELY(n_fds > 0)) {
