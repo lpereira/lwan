@@ -408,7 +408,7 @@ create_thread(struct lwan *l, struct lwan_thread *thread)
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
 #if defined(HAVE_EVENTFD)
-    int efd = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE);
+    int efd = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE | EFD_CLOEXEC);
     if (efd < 0)
         lwan_status_critical_perror("eventfd");
 
