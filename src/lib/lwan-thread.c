@@ -377,6 +377,9 @@ static void *thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
+    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &prev_wheel_time) < 0))
+        lwan_status_critical("Could not get time");
+
     death_queue_init(&dq, lwan);
 
     pthread_barrier_wait(&lwan->thread.barrier);
