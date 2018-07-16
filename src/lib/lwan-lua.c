@@ -182,6 +182,16 @@ out:
     return 1;
 }
 
+static int req_sleep_cb(lua_State *L)
+{
+    struct lwan_request *request = userdata_as_request(L);
+    lua_Integer ms = lua_tointeger(L, -1);
+
+    lwan_request_sleep(request, (uint64_t)ms);
+
+    return 0;
+}
+
 static const struct luaL_reg lwan_request_meta_regs[] = {
     { "query_param", req_query_param_cb },
     { "post_param", req_post_param_cb },
@@ -190,6 +200,7 @@ static const struct luaL_reg lwan_request_meta_regs[] = {
     { "send_event", req_send_event_cb },
     { "cookie", req_cookie_cb },
     { "set_headers", req_set_headers_cb },
+    { "sleep", req_sleep_cb },
     { NULL, NULL }
 };
 
