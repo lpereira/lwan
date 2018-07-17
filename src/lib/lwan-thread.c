@@ -48,6 +48,21 @@ static const uint32_t events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
+static clockid_t clock_id;
+
+__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
+{
+#ifdef CLOCK_MONOTONIC_COARSE
+    struct timespec ts;
+
+    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts)) {
+        clock_id = CLOCK_MONOTONIC_COARSE;
+        return;
+    }
+#endif
+    clock_id = CLOCK_MONOTONIC;
+}
+
 static inline int death_queue_node_to_idx(struct death_queue *dq,
                                           struct lwan_connection *conn)
 {
@@ -330,7 +345,7 @@ static void turn_timer_wheel(struct timeouts *wheel, struct timespec *prev)
     struct timespec now;
     int64_t diff_ms = 0;
 
-    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0))
+    if (UNLIKELY(clock_gettime(clock_id, &now) < 0))
         lwan_status_critical("Could not get monotonic time");
 
     diff_ms += (now.tv_sec - prev->tv_sec) * 1000;
@@ -396,7 +411,7 @@ static void *thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
-    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &prev_wheel_time) < 0))
+    if (UNLIKELY(clock_gettime(clock_id, &prev_wheel_time) < 0))
         lwan_status_critical("Could not get time");
 
     death_queue_init(&dq, lwan);
@@ -432,7 +447,7 @@ static void *thread_io_loop(void *data)
             }
 
             /* FIXME: use timerfd on Linux */
-            if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &prev_wheel_time) < 0))
+            if (UNLIKELY(clock_gettime(clock_id, &prev_wheel_time) < 0))
                 lwan_status_critical("Could not get time");
         } else if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)

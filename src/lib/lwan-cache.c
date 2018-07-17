@@ -60,7 +60,6 @@ struct cache {
 
     struct {
         time_t time_to_live;
-        clockid_t clock_id;
     } settings;
 
     unsigned flags;
@@ -75,22 +74,25 @@ struct cache {
 };
 
 static bool cache_pruner_job(void *data);
+static clockid_t clock_id;
 
-static clockid_t detect_fastest_monotonic_clock(void)
+__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
 {
 #ifdef CLOCK_MONOTONIC_COARSE
     struct timespec ts;
 
-    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts))
-        return CLOCK_MONOTONIC_COARSE;
+    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts)) {
+        clock_id = CLOCK_MONOTONIC_COARSE;
+        return;
+    }
 #endif
-    return CLOCK_MONOTONIC;
+    clock_id = CLOCK_MONOTONIC;
 }
 
 static ALWAYS_INLINE void clock_monotonic_gettime(struct cache *cache,
     struct timespec *ts)
 {
-    if (UNLIKELY(clock_gettime(cache->settings.clock_id, ts) < 0))
+    if (UNLIKELY(clock_gettime(clock_id, ts) < 0))
         lwan_status_perror("clock_gettime");
 }
 
@@ -122,7 +124,6 @@ struct cache *cache_create(cache_create_entry_cb create_entry_cb,
     cache->cb.destroy_entry = destroy_entry_cb;
     cache->cb.context = cb_context;
 
-    cache->settings.clock_id = detect_fastest_monotonic_clock();
     cache->settings.time_to_live = time_to_live;
 
     list_head_init(&cache->queue.list);
