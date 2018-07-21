@@ -105,8 +105,10 @@ static char *compress_output(const struct output *output, size_t *outlen)
         exit(1);
     }
 #endif
-    if (!*outlen)
+    if (!*outlen) {
+        free(compressed);
         return NULL;
+    }
 
     return compressed;
 }
