@@ -333,7 +333,7 @@ static void accept_nudge(int pipe_fd,
         struct lwan_connection *conn = &conns[(int)(intptr_t)new_fd];
 
         spawn_coro(conn, switcher, dq);
-        resume_coro_if_needed(dq, conn, epoll_fd);
+        update_epoll_flags(dq, conn, epoll_fd, CONN_CORO_MAY_RESUME);
     }
 
     timeouts_add(wheel, &dq->timeout, 1000);
