@@ -39,6 +39,7 @@ struct death_queue {
     const struct lwan *lwan;
     struct lwan_connection *conns;
     struct lwan_connection head;
+    struct timeout timeout;
     unsigned time;
     unsigned short keep_alive_timeout;
 };
@@ -128,11 +129,6 @@ static void death_queue_init(struct death_queue *dq, const struct lwan *lwan)
     dq->time = 0;
     dq->keep_alive_timeout = lwan->config.keep_alive_timeout;
     dq->head.next = dq->head.prev = -1;
-}
-
-static ALWAYS_INLINE int death_queue_epoll_timeout(struct death_queue *dq)
-{
-    return death_queue_empty(dq) ? -1 : 1000;
 }
 
 static ALWAYS_INLINE void destroy_coro(struct death_queue *dq,
@@ -323,6 +319,7 @@ static void accept_nudge(int pipe_fd,
                          struct lwan_connection *conns,
                          struct death_queue *dq,
                          struct coro_switcher *switcher,
+                         struct timeouts *wheel,
                          int epoll_fd)
 {
     void *new_fd;
@@ -338,6 +335,8 @@ static void accept_nudge(int pipe_fd,
         spawn_coro(conn, switcher, dq);
         resume_coro_if_needed(dq, conn, epoll_fd);
     }
+
+    timeouts_add(wheel, &dq->timeout, 1000);
 }
 
 static void turn_timer_wheel(struct timeouts *wheel, struct timespec *prev)
@@ -355,14 +354,35 @@ static void turn_timer_wheel(struct timeouts *wheel, struct timespec *prev)
     *prev = now;
 }
 
+static int next_timeout(struct timeouts *wheel)
+{
+    timeout_t wheel_timeout = timeouts_timeout(wheel);
+
+    /* This condition is unlikely as it's more likely that there will be no
+     * connections waiting on a timer.  wheel_timeout is cast to int64_t as
+     * it might return (uint64_t)-1 in some cases; this combines with the
+     * check for 0, which it might also return. */
+    if (UNLIKELY((int64_t)wheel_timeout >= 0))
+        return (int)wheel_timeout;
+
+    return -1;
+}
+
 static void process_pending_timers(struct death_queue *dq,
                                    struct timeouts *wheel,
                                    int epoll_fd)
 {
     struct timeout *timeout;
+    bool processed_dq_timeout = false;
 
     while ((timeout = timeouts_get(wheel))) {
         struct lwan_request *request;
+
+        if (timeout == &dq->timeout) {
+            death_queue_kill_waiting(dq);
+            processed_dq_timeout = true;
+            continue;
+        }
 
         request = container_of(timeout, struct lwan_request, timeout);
 
@@ -370,25 +390,13 @@ static void process_pending_timers(struct death_queue *dq,
         request->conn->flags |= CONN_RESUMED_FROM_TIMER;
         update_epoll_flags(dq, request->conn, epoll_fd, CONN_CORO_MAY_RESUME);
     }
-}
 
-static int next_timeout(struct death_queue *dq, struct timeouts *wheel)
-{
-    timeout_t wheel_timeout = timeouts_timeout(wheel);
-    int dq_timeout = death_queue_epoll_timeout(dq);
-
-    /* This condition is unlikely as it's more likely that there will be no
-     * connections waiting on a timer.  wheel_timeout is cast to int64_t as
-     * it might return (uint64_t)-1 in some cases; this combines with the
-     * check for 0, which it might also return. */
-    if (UNLIKELY((int64_t)wheel_timeout >= 0)) {
-        if (dq_timeout < 0)
-            return (int)wheel_timeout;
-
-        return min((int)wheel_timeout, dq_timeout);
+    if (processed_dq_timeout) {
+        if (death_queue_empty(dq))
+            timeouts_del(wheel, &dq->timeout);
+        else
+            timeouts_add(wheel, &dq->timeout, 1000);
     }
-
-    return dq_timeout;
 }
 
 static void *thread_io_loop(void *data)
@@ -419,10 +427,9 @@ static void *thread_io_loop(void *data)
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        int timeout = next_timeout(&dq, t->wheel);
         int n_fds;
 
-        n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
+        n_fds = epoll_wait(epoll_fd, events, max_events, next_timeout(t->wheel));
         if (LIKELY(n_fds > 0)) {
             update_date_cache(t);
 
@@ -431,7 +438,7 @@ static void *thread_io_loop(void *data)
 
                 if (UNLIKELY(!ep_event->data.ptr)) {
                     accept_nudge(read_pipe_fd, &t->pending_fds, lwan->conns,
-                                 &dq, &switcher, epoll_fd);
+                                 &dq, &switcher, t->wheel, epoll_fd);
                     continue;
                 }
 
@@ -455,8 +462,6 @@ static void *thread_io_loop(void *data)
             if (errno == EINTR)
                 turn_timer_wheel(t->wheel, &prev_wheel_time);
         } else {
-            /* timeout: shutdown waiting sockets */
-            death_queue_kill_waiting(&dq);
             turn_timer_wheel(t->wheel, &prev_wheel_time);
             process_pending_timers(&dq, t->wheel, epoll_fd);
         }
