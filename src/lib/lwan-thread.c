@@ -228,7 +228,7 @@ static void update_epoll_flags(struct death_queue *dq,
             return;
     }
 
-    if (!events) {
+    if (LIKELY(!events)) {
         events = events_by_write_flag[write_events];
         conn->flags ^= CONN_WRITE_EVENTS;
     }
