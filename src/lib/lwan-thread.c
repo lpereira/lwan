@@ -49,7 +49,7 @@ static const uint32_t events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
-static clockid_t clock_id;
+static clockid_t monotonic_clock_id;
 
 __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
 {
@@ -57,11 +57,11 @@ __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
     struct timespec ts;
 
     if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts)) {
-        clock_id = CLOCK_MONOTONIC_COARSE;
+        monotonic_clock_id = CLOCK_MONOTONIC_COARSE;
         return;
     }
 #endif
-    clock_id = CLOCK_MONOTONIC;
+    monotonic_clock_id = CLOCK_MONOTONIC;
 }
 
 static inline int death_queue_node_to_idx(struct death_queue *dq,
@@ -339,36 +339,20 @@ static void accept_nudge(int pipe_fd,
     timeouts_add(wheel, &dq->timeout, 1000);
 }
 
-static void turn_timer_wheel(struct timeouts *wheel, struct timespec *prev)
+static void turn_timer_wheel(struct lwan_thread *t)
 {
     struct timespec now;
-    int64_t diff_ms = 0;
 
-    if (UNLIKELY(clock_gettime(clock_id, &now) < 0))
+    if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
         lwan_status_critical("Could not get monotonic time");
 
-    diff_ms += (now.tv_sec - prev->tv_sec) * 1000;
-    diff_ms += (now.tv_nsec - prev->tv_nsec) / 1000000;
+    timeouts_update(t->wheel,
+                    (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
 
-    timeouts_step(wheel, (timeout_t)diff_ms);
-    *prev = now;
+    update_date_cache(t);
 }
 
-static int next_timeout(struct timeouts *wheel)
-{
-    timeout_t wheel_timeout = timeouts_timeout(wheel);
-
-    /* This condition is unlikely as it's more likely that there will be no
-     * connections waiting on a timer.  wheel_timeout is cast to int64_t as
-     * it might return (uint64_t)-1 in some cases; this combines with the
-     * check for 0, which it might also return. */
-    if (UNLIKELY((int64_t)wheel_timeout >= 0))
-        return (int)wheel_timeout;
-
-    return -1;
-}
-
-static void process_pending_timers(struct death_queue *dq,
+static bool process_pending_timers(struct death_queue *dq,
                                    struct timeouts *wheel,
                                    int epoll_fd)
 {
@@ -392,11 +376,32 @@ static void process_pending_timers(struct death_queue *dq,
     }
 
     if (processed_dq_timeout) {
-        if (death_queue_empty(dq))
+        if (death_queue_empty(dq)) {
             timeouts_del(wheel, &dq->timeout);
-        else
-            timeouts_add(wheel, &dq->timeout, 1000);
+            return false;
+        }
+
+        timeouts_add(wheel, &dq->timeout, 1000);
+        return true;
     }
+
+    return false;
+}
+
+static int
+next_timeout(struct death_queue *dq, struct timeouts *wheel, int epoll_fd)
+{
+    timeout_t wheel_timeout = timeouts_timeout(wheel);
+
+    if (UNLIKELY((int64_t)wheel_timeout < 0))
+        return -1;
+
+    if (wheel_timeout == 0) {
+        if (process_pending_timers(dq, wheel, epoll_fd))
+            wheel_timeout = timeouts_timeout(wheel);
+    }
+
+    return (int)wheel_timeout;
 }
 
 static void *thread_io_loop(void *data)
@@ -409,7 +414,6 @@ static void *thread_io_loop(void *data)
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct death_queue dq;
-    struct timespec prev_wheel_time;
 
     lwan_status_debug("Starting IO loop on thread #%d",
                       (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) +
@@ -419,20 +423,16 @@ static void *thread_io_loop(void *data)
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
 
-    if (UNLIKELY(clock_gettime(clock_id, &prev_wheel_time) < 0))
-        lwan_status_critical("Could not get time");
-
     death_queue_init(&dq, lwan);
 
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
+        int timeout = next_timeout(&dq, t->wheel, epoll_fd);
         int n_fds;
 
-        n_fds = epoll_wait(epoll_fd, events, max_events, next_timeout(t->wheel));
+        n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
         if (LIKELY(n_fds > 0)) {
-            update_date_cache(t);
-
             for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
                 struct lwan_connection *conn;
 
@@ -452,19 +452,12 @@ static void *thread_io_loop(void *data)
                 resume_coro_if_needed(&dq, conn, epoll_fd);
                 death_queue_move_to_last(&dq, conn);
             }
-
-            /* FIXME: use timerfd on Linux */
-            if (UNLIKELY(clock_gettime(clock_id, &prev_wheel_time) < 0))
-                lwan_status_critical("Could not get time");
         } else if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)
                 break;
-            if (errno == EINTR)
-                turn_timer_wheel(t->wheel, &prev_wheel_time);
-        } else {
-            turn_timer_wheel(t->wheel, &prev_wheel_time);
-            process_pending_timers(&dq, t->wheel, epoll_fd);
         }
+
+        turn_timer_wheel(t);
     }
 
     pthread_barrier_wait(&lwan->thread.barrier);
