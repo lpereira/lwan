@@ -33,6 +33,9 @@
 
 #include <sys/queue.h>  /* TAILQ(3) */
 
+#define TIMEOUT_DISABLE_INTERVALS
+#define TIMEOUT_DISABLE_CALLBACKS
+#define TIMEOUT_DISABLE_RELATIVE_ACCESS
 
 /*
  * V E R S I O N  I N T E R F A C E S
