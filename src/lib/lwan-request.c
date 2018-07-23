@@ -1284,18 +1284,16 @@ static void remove_sleep(void *data1, void *data2)
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
 {
-    /* Holy indirection, Batman! */
-    struct timeouts *wheel = request->conn->thread->wheel;
-    struct coro *coro = request->conn->coro;
+    struct lwan_connection *conn = request->conn;
+    struct timeouts *wheel = conn->thread->wheel;
 
-    assert(!(request->conn->flags & CONN_SUSPENDED_BY_TIMER));
-    request->conn->flags |= CONN_SUSPENDED_BY_TIMER;
+    assert(!(conn->flags & CONN_SUSPENDED_BY_TIMER));
+    conn->flags |= CONN_SUSPENDED_BY_TIMER;
 
     timeouts_add(wheel, &request->timeout, ms);
-    coro_defer2(coro, remove_sleep, wheel, &request->timeout);
+    coro_defer2(conn->coro, remove_sleep, wheel, &request->timeout);
+    coro_yield(conn->coro, CONN_CORO_MAY_RESUME);
 
-    coro_yield(coro, CONN_CORO_MAY_RESUME);
-
-    assert(!(request->conn->flags & CONN_SUSPENDED_BY_TIMER));
-    assert(!(request->conn->flags & CONN_RESUMED_FROM_TIMER));
+    assert(!(conn->flags & CONN_SUSPENDED_BY_TIMER));
+    assert(!(conn->flags & CONN_RESUMED_FROM_TIMER));
 }
