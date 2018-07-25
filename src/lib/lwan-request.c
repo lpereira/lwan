@@ -1290,6 +1290,7 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
     assert(!(conn->flags & CONN_SUSPENDED_BY_TIMER));
     conn->flags |= CONN_SUSPENDED_BY_TIMER;
 
+    request->timeout = (struct timeout) { 0 };
     timeouts_add(wheel, &request->timeout, ms);
     coro_defer2(conn->coro, remove_sleep, wheel, &request->timeout);
     coro_yield(conn->coro, CONN_CORO_MAY_RESUME);
