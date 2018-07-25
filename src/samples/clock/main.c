@@ -62,27 +62,26 @@ LWAN_HANDLER(clock)
         {.key = "Cache-Control", .value = "no-cache"},
         {.key = "Cache-Control", .value = "no-store"},
         {.key = "Cache-Control", .value = "no-transform"},
-        {}
+        {},
     };
 
     memset(gif->frame, 0, (size_t)(width * height));
 
     while (true) {
         time_t curtime;
-        char digits[16];
-        int i, j, k;
+        char digits[8];
+        int digit, line, base;
 
         curtime = time(NULL);
         strftime(digits, sizeof(digits), "%H%M%S", localtime(&curtime));
 
+        for (digit = 0; digit < 6; digit++) {
+            int dig = digits[digit] - '0';
 
-        for (k = 0; k < 6; k++) {
-            int dig = digits[k] - '0';
-
-            for (i = 0, j = k * 4; i < 5; i++, j += width) {
-                gif->frame[j + 0] = font[dig][i][0];
-                gif->frame[j + 1] = font[dig][i][1];
-                gif->frame[j + 2] = font[dig][i][2];
+            for (line = 0, base = digit * 4; line < 5; line++, base += width) {
+                gif->frame[base + 0] = font[dig][line][0];
+                gif->frame[base + 1] = font[dig][line][1];
+                gif->frame[base + 2] = font[dig][line][2];
             }
         }
 
