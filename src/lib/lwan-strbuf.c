@@ -65,7 +65,7 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
         return true;
     }
 
-    if (UNLIKELY(lwan_nextpow2(s->used) < size)) {
+    if (UNLIKELY(!s->used || lwan_nextpow2(s->used) < size)) {
         const size_t aligned_size = align_size(size + 1);
         if (UNLIKELY(!aligned_size))
             return false;
