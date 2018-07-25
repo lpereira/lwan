@@ -79,9 +79,8 @@ LWAN_HANDLER(clock)
             }
         }
 
-        ge_add_frame(gif, 0);
+        ge_add_frame(gif, 100);
         lwan_response_send_chunk(request);
-
         lwan_request_sleep(request, 1000);
     }
 
