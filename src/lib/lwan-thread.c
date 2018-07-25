@@ -471,12 +471,13 @@ static void *thread_io_loop(void *data)
 
 static void create_thread(struct lwan *l, struct lwan_thread *thread)
 {
+    int ignore;
     pthread_attr_t attr;
 
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
 
-    thread->wheel = timeouts_open(0, NULL);
+    thread->wheel = timeouts_open(0, &ignore);
     if (!thread->wheel)
         lwan_status_critical("Could not create timer wheel");
 
