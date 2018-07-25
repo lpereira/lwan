@@ -72,9 +72,9 @@ LWAN_HANDLER(clock)
         char digits[16];
         int i, j, k;
 
+        curtime = time(NULL);
+        strftime(digits, sizeof(digits), "%H%M%S", localtime(&curtime));
 
-        time(&curtime);
-        strftime(digits, 16, "%H%M%S", localtime(&curtime));
 
         for (k = 0; k < 6; k++) {
             int dig = digits[k] - '0';
