@@ -65,14 +65,13 @@ LWAN_HANDLER(clock)
         {}
     };
 
-    lwan_response_send_chunk(request);
+    memset(gif->frame, 0, (size_t)(width * height));
 
     while (true) {
         time_t curtime;
         char digits[16];
         int i, j, k;
 
-        memset(gif->frame, 0, (size_t)(width * height));
 
         time(&curtime);
         strftime(digits, 16, "%H%M%S", localtime(&curtime));
