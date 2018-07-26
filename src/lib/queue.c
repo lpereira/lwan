@@ -6,7 +6,6 @@
  * [1] https://github.com/mstump/queues/blob/master/include/spsc-bounded-queue.hpp
  */
 
-#include <malloc.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -57,11 +56,15 @@
 int
 spsc_queue_init(struct spsc_queue *q, size_t size)
 {
+    int ret;
     if (size == 0)
         return -EINVAL;
 
     size = lwan_nextpow2(size);
-    q->buffer = memalign(sizeof(void *), (1 + size) * sizeof(void *));
+    ret = posix_memalign((void **)&q->buffer, sizeof(void *), (1 + size) * sizeof(void *));
+    if (ret < 0)
+        return -errno;
+
     if (!q->buffer)
         return -errno;
 
