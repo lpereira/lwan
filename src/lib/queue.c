@@ -61,14 +61,10 @@ spsc_queue_init(struct spsc_queue *q, size_t size)
         return -EINVAL;
 
     size = lwan_nextpow2(size);
-    #ifdef __APPLE__
-    ret = posix_memalign(q->buffer, sizeof(void *), (1 + size) * sizeof(void *));
+    ret = posix_memalign((void **)&q->buffer, sizeof(void *), (1 + size) * sizeof(void *));
     if (ret < 0) {
     	return -errno;
     }
-    #elif
-    q->buffer = memalign(sizeof(void *), (1 + size) * sizeof(void *));
-    #endif
 
     if (!q->buffer)
         return -errno;
