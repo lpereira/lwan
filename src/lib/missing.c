@@ -219,8 +219,10 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
         if (event->events & EPOLLIN)
             events = EVFILT_READ;
-        if (event->events & EPOLLOUT)
+        else if (event->events & EPOLLOUT)
             events = EVFILT_WRITE;
+        else
+            events = EVFILT_EXCEPT;
 
         if (event->events & EPOLLONESHOT)
             flags |= EV_ONESHOT;
