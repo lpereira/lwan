@@ -55,14 +55,8 @@ static int get_backlog_size(void)
     return backlog;
 }
 
-static int setup_socket_from_systemd(void)
+static int set_socket_flags(int fd)
 {
-    int fd = SD_LISTEN_FDS_START;
-
-    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0))
-        lwan_status_critical("Passed file descriptor is not a "
-                             "listening TCP socket");
-
     int flags = fcntl(fd, F_GETFD);
     if (flags < 0)
         lwan_status_critical_perror("Could not obtain socket flags");
@@ -76,6 +70,17 @@ static int setup_socket_from_systemd(void)
         lwan_status_critical_perror("Could not set socket flags");
 
     return fd;
+}
+
+static int setup_socket_from_systemd(void)
+{
+    int fd = SD_LISTEN_FDS_START;
+
+    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0))
+        lwan_status_critical("Passed file descriptor is not a "
+                             "listening TCP socket");
+
+    return set_socket_flags(fd);
 }
 
 static sa_family_t parse_listener_ipv4(char *listener, char **node, char **port)
@@ -161,7 +166,7 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
     else
         lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
 
-    return fd;
+    return set_socket_flags(fd);
 }
 
 #define SET_SOCKET_OPTION(_domain, _option, _param, _size)                     \
@@ -183,7 +188,7 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
     /* Try each address until we bind one successfully. */
     for (addr = addrs; addr; addr = addr->ai_next) {
         int fd = socket(addr->ai_family,
-                        addr->ai_socktype | SOCK_CLOEXEC | SOCK_NONBLOCK,
+                        addr->ai_socktype,
                         addr->ai_protocol);
         if (fd < 0)
             continue;
