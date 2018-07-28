@@ -89,8 +89,7 @@ __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
     clock_id = CLOCK_MONOTONIC;
 }
 
-static ALWAYS_INLINE void clock_monotonic_gettime(struct cache *cache,
-    struct timespec *ts)
+static ALWAYS_INLINE void clock_monotonic_gettime(struct timespec *ts)
 {
     if (UNLIKELY(clock_gettime(clock_id, ts) < 0))
         lwan_status_perror("clock_gettime");
@@ -232,7 +231,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
         struct timespec time_to_die;
-        clock_monotonic_gettime(cache, &time_to_die);
+        clock_monotonic_gettime(&time_to_die);
         entry->time_to_die = time_to_die.tv_sec + cache->settings.time_to_live;
 
         if (LIKELY(!pthread_rwlock_wrlock(&cache->queue.lock))) {
@@ -313,7 +312,7 @@ static bool cache_pruner_job(void *data)
         goto end;
     }
 
-    clock_monotonic_gettime(cache, &now);
+    clock_monotonic_gettime(&now);
     list_for_each_safe(&queue, node, next, entries) {
         char *key = node->key;
 
