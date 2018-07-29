@@ -89,7 +89,7 @@ LWAN_HANDLER(clock)
         gif->frame[18 + width * 3] = dot_visible;
         dot_visible = dot_visible ? 0 : 3;
 
-        ge_add_frame(gif, 100);
+        ge_add_frame(gif, 0);
         lwan_response_send_chunk(request);
         lwan_request_sleep(request, 500);
     }
