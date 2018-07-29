@@ -39,10 +39,6 @@
 
 #include "timeout.h"
 
-#if TIMEOUT_DEBUG - 0
-#include "timeout-debug.h"
-#endif
-
 /*
  * A N C I L L A R Y  R O U T I N E S
  *
@@ -53,10 +49,6 @@
 
 #if !defined countof
 #define countof(a) (sizeof (a) / sizeof *(a))
-#endif
-
-#if !defined endof
-#define endof(a) (&(a)[countof(a)])
 #endif
 
 #if !defined MIN
@@ -190,7 +182,7 @@ struct timeouts {
 }; /* struct timeouts */
 
 
-static struct timeouts *timeouts_init(struct timeouts *T, timeout_t hz) {
+static struct timeouts *timeouts_init(struct timeouts *T) {
 	unsigned i, j;
 
 	for (i = 0; i < countof(T->wheel); i++) {
@@ -206,17 +198,16 @@ static struct timeouts *timeouts_init(struct timeouts *T, timeout_t hz) {
 	}
 
 	T->curtime = 0;
-	T->hertz = (hz)? hz : TIMEOUT_mHZ;
 
 	return T;
 } /* timeouts_init() */
 
 
-TIMEOUT_PUBLIC struct timeouts *timeouts_open(timeout_t hz, int *error) {
+struct timeouts *timeouts_open(timeout_error_t *error) {
 	struct timeouts *T;
 
 	if ((T = malloc(sizeof *T)))
-		return timeouts_init(T, hz);
+		return timeouts_init(T);
 
 	*error = errno;
 
@@ -245,7 +236,7 @@ static void timeouts_reset(struct timeouts *T) {
 } /* timeouts_reset() */
 
 
-TIMEOUT_PUBLIC void timeouts_close(struct timeouts *T) {
+void timeouts_close(struct timeouts *T) {
 	/*
 	 * NOTE: Delete installed timeouts so timeout_pending() and
 	 * timeout_expired() worked as expected.
@@ -256,12 +247,7 @@ TIMEOUT_PUBLIC void timeouts_close(struct timeouts *T) {
 } /* timeouts_close() */
 
 
-TIMEOUT_PUBLIC timeout_t timeouts_hz(struct timeouts *T) {
-	return T->hertz;
-} /* timeouts_hz() */
-
-
-TIMEOUT_PUBLIC void timeouts_del(struct timeouts *T, struct timeout *to) {
+void timeouts_del(struct timeouts *T, struct timeout *to) {
 	if (to->pending) {
 		list_del_from(to->pending, &to->tqe);
 
@@ -324,7 +310,7 @@ static void timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t exp
 } /* timeouts_sched() */
 
 
-TIMEOUT_PUBLIC void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout) {
+void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout) {
 	if (to->flags & TIMEOUT_ABS)
 		timeouts_sched(T, to, timeout);
 	else
@@ -332,7 +318,7 @@ TIMEOUT_PUBLIC void timeouts_add(struct timeouts *T, struct timeout *to, timeout
 } /* timeouts_add() */
 
 
-TIMEOUT_PUBLIC void timeouts_update(struct timeouts *T, abstime_t curtime) {
+void timeouts_update(struct timeouts *T, abstime_t curtime) {
 	timeout_t elapsed = curtime - T->curtime;
 	struct list_head todo;
 	int wheel;
@@ -408,12 +394,12 @@ TIMEOUT_PUBLIC void timeouts_update(struct timeouts *T, abstime_t curtime) {
 } /* timeouts_update() */
 
 
-TIMEOUT_PUBLIC void timeouts_step(struct timeouts *T, reltime_t elapsed) {
+void timeouts_step(struct timeouts *T, reltime_t elapsed) {
 	timeouts_update(T, T->curtime + elapsed);
 } /* timeouts_step() */
 
 
-TIMEOUT_PUBLIC bool timeouts_pending(struct timeouts *T) {
+bool timeouts_pending(struct timeouts *T) {
 	wheel_t pending = 0;
 	int wheel;
 
@@ -425,7 +411,7 @@ TIMEOUT_PUBLIC bool timeouts_pending(struct timeouts *T) {
 } /* timeouts_pending() */
 
 
-TIMEOUT_PUBLIC bool timeouts_expired(struct timeouts *T) {
+bool timeouts_expired(struct timeouts *T) {
 	return !list_empty(&T->expired);
 } /* timeouts_expired() */
 
@@ -480,7 +466,7 @@ static timeout_t timeouts_int(struct timeouts *T) {
  * Calculate the interval our caller can wait before needing to process
  * events.
  */
-TIMEOUT_PUBLIC timeout_t timeouts_timeout(struct timeouts *T) {
+timeout_t timeouts_timeout(struct timeouts *T) {
 	if (!list_empty(&T->expired))
 		return 0;
 
@@ -488,7 +474,7 @@ TIMEOUT_PUBLIC timeout_t timeouts_timeout(struct timeouts *T) {
 } /* timeouts_timeout() */
 
 
-TIMEOUT_PUBLIC struct timeout *timeouts_get(struct timeouts *T) {
+struct timeout *timeouts_get(struct timeouts *T) {
 	if (!list_empty(&T->expired)) {
 		struct timeout *to = list_top(&T->expired, struct timeout, tqe);
 

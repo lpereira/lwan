@@ -477,7 +477,7 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
     memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
 
-    thread->wheel = timeouts_open(0, &ignore);
+    thread->wheel = timeouts_open(&ignore);
     if (!thread->wheel)
         lwan_status_critical("Could not create timer wheel");
 
