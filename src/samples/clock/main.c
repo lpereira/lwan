@@ -31,7 +31,7 @@ static const uint8_t font[10][5] = {
     [9] = {7, 5, 7, 1, 7},
 };
 
-static const uint16_t width = 24;
+static const uint16_t width = 24 + 6;
 static const uint16_t height = 5;
 
 static void destroy_gif(void *data)
@@ -43,7 +43,9 @@ static void destroy_gif(void *data)
 
 LWAN_HANDLER(clock)
 {
+    static const uint8_t base_offsets[] = {0, 0, 2, 2, 4, 4};
     ge_GIF *gif = ge_new_gif(response->buffer, width, height, NULL, 2, 0);
+    uint8_t dot_visible = 0;
 
     if (!gif)
         return HTTP_INTERNAL_ERROR;
@@ -71,17 +73,25 @@ LWAN_HANDLER(clock)
 
         for (digit = 0; digit < 6; digit++) {
             int dig = digits[digit] - '0';
+            uint8_t off = base_offsets[digit];
 
             for (line = 0, base = digit * 4; line < 5; line++, base += width) {
-                gif->frame[base + 0] = !!(font[dig][line] & 1<<2);
-                gif->frame[base + 1] = !!(font[dig][line] & 1<<1);
-                gif->frame[base + 2] = !!(font[dig][line] & 1<<0);
+                gif->frame[base + 0 + off] = !!(font[dig][line] & 1<<2);
+                gif->frame[base + 1 + off] = !!(font[dig][line] & 1<<1);
+                gif->frame[base + 2 + off] = !!(font[dig][line] & 1<<0);
+
             }
         }
 
+        gif->frame[8 + width] = dot_visible;
+        gif->frame[18 + width] = dot_visible;
+        gif->frame[8 + width * 3] = dot_visible;
+        gif->frame[18 + width * 3] = dot_visible;
+        dot_visible = dot_visible ? 0 : 3;
+
         ge_add_frame(gif, 100);
         lwan_response_send_chunk(request);
-        lwan_request_sleep(request, 1000);
+        lwan_request_sleep(request, 500);
     }
 
     return HTTP_OK;
