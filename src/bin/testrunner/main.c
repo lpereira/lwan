@@ -204,9 +204,14 @@ end:
 
 LWAN_HANDLER(sleep)
 {
+    const char *ms_param = lwan_request_get_query_param(request, "ms");
+    uint64_t ms;
+
+    if (!ms_param)
+        return HTTP_INTERNAL_ERROR;
+
+    ms = (uint64_t)parse_long(ms_param, 0);
     response->mime_type = "text/plain";
-    uint64_t ms =
-        (uint64_t)parse_long(lwan_request_get_query_param(request, "ms"), 0);
 
     if (ms) {
         struct timespec t1, t2;
