@@ -31,11 +31,10 @@
 
 #include <inttypes.h>   /* PRIu64 PRIx64 PRIX64 uint64_t */
 
-#include <sys/queue.h>  /* TAILQ(3) */
-
 #define TIMEOUT_DISABLE_INTERVALS
 #define TIMEOUT_DISABLE_CALLBACKS
 #define TIMEOUT_DISABLE_RELATIVE_ACCESS
+#include "list.h"
 
 /*
  * V E R S I O N  I N T E R F A C E S
@@ -121,10 +120,10 @@ struct timeout {
 	timeout_t expires;
 	/* absolute expiration time */
 
-	struct timeout_list *pending;
+	struct list_head *pending;
 	/* timeout list if pending on wheel or expiry queue */
 
-	TAILQ_ENTRY(timeout) tqe;
+	struct list_node tqe;
 	/* entry member for struct timeout_list lists */
 
 #ifndef TIMEOUT_DISABLE_CALLBACKS
