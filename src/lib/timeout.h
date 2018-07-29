@@ -31,9 +31,6 @@
 
 #include <inttypes.h>   /* PRIu64 PRIx64 PRIX64 uint64_t */
 
-#define TIMEOUT_DISABLE_INTERVALS
-#define TIMEOUT_DISABLE_CALLBACKS
-#define TIMEOUT_DISABLE_RELATIVE_ACCESS
 #include "list.h"
 
 /*
@@ -81,38 +78,14 @@ typedef uint64_t timeout_t;
 
 #define timeout_error_t int /* for documentation purposes */
 
-
-/*
- * C A L L B A C K  I N T E R F A C E
- *
- * Callback function parameters unspecified to make embedding into existing
- * applications easier.
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-#ifndef TIMEOUT_CB_OVERRIDE
-struct timeout_cb {
-	void (*fn)();
-	void *arg;
-}; /* struct timeout_cb */
-#endif
-
 /*
  * T I M E O U T  I N T E R F A C E S
  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef TIMEOUT_DISABLE_INTERVALS
-#define TIMEOUT_INT 0x01 /* interval (repeating) timeout */
-#endif
-#define TIMEOUT_ABS 0x02 /* treat timeout values as absolute */
+#define TIMEOUT_ABS 0x01 /* treat timeout values as absolute */
 
 #define TIMEOUT_INITIALIZER(flags) { (flags) }
-
-#define timeout_setcb(to, fn, arg) do { \
-	(to)->callback.fn = (fn);       \
-	(to)->callback.arg = (arg);     \
-} while (0)
 
 struct timeout {
 	int flags;
@@ -125,37 +98,11 @@ struct timeout {
 
 	struct list_node tqe;
 	/* entry member for struct timeout_list lists */
-
-#ifndef TIMEOUT_DISABLE_CALLBACKS
-	struct timeout_cb callback;
-	/* optional callback information */
-#endif
-
-#ifndef TIMEOUT_DISABLE_INTERVALS
-	timeout_t interval;
-	/* timeout interval if periodic */
-#endif
-
-#ifndef TIMEOUT_DISABLE_RELATIVE_ACCESS
-	struct timeouts *timeouts;
-	/* timeouts collection if member of */
-#endif
 }; /* struct timeout */
 
 
 TIMEOUT_PUBLIC struct timeout *timeout_init(struct timeout *, int);
 /* initialize timeout structure (same as TIMEOUT_INITIALIZER) */
-
-#ifndef TIMEOUT_DISABLE_RELATIVE_ACCESS
-TIMEOUT_PUBLIC bool timeout_pending(struct timeout *);
-/* true if on timing wheel, false otherwise */
- 
-TIMEOUT_PUBLIC bool timeout_expired(struct timeout *);
-/* true if on expired queue, false otherwise */
-
-TIMEOUT_PUBLIC void timeout_del(struct timeout *);
-/* remove timeout from any timing wheel (okay if not member of any) */
-#endif
 
 /*
  * T I M I N G  W H E E L  I N T E R F A C E S

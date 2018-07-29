@@ -43,12 +43,6 @@
 #include "timeout-debug.h"
 #endif
 
-#ifdef TIMEOUT_DISABLE_RELATIVE_ACCESS
-#define TO_SET_TIMEOUTS(to, T) ((void)0)
-#else
-#define TO_SET_TIMEOUTS(to, T) ((to)->timeouts = (T))
-#endif
-
 /*
  * A N C I L L A R Y  R O U T I N E S
  *
@@ -247,7 +241,6 @@ static void timeouts_reset(struct timeouts *T) {
 
 	list_for_each(&reset, to, tqe) {
 		to->pending = NULL;
-		TO_SET_TIMEOUTS(to, NULL);
 	}
 } /* timeouts_reset() */
 
@@ -281,7 +274,6 @@ TIMEOUT_PUBLIC void timeouts_del(struct timeouts *T, struct timeout *to) {
 		}
 
 		to->pending = NULL;
-		TO_SET_TIMEOUTS(to, NULL);
 	}
 } /* timeouts_del() */
 
@@ -310,8 +302,6 @@ static void timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t exp
 
 	to->expires = expires;
 
-	TO_SET_TIMEOUTS(to, T);
-
 	if (expires > T->curtime) {
 		rem = timeout_rem(T, to);
 
@@ -334,31 +324,7 @@ static void timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t exp
 } /* timeouts_sched() */
 
 
-#ifndef TIMEOUT_DISABLE_INTERVALS
-static void timeouts_readd(struct timeouts *T, struct timeout *to) {
-	to->expires += to->interval;
-
-	if (to->expires <= T->curtime) {
-		/* If we've missed the next firing of this timeout, reschedule
-		 * it to occur at the next multiple of its interval after
-		 * the last time that it fired.
-		 */
-		timeout_t n = T->curtime - to->expires;
-		timeout_t r = n % to->interval;
-		to->expires = T->curtime + (to->interval - r);
-	}
-
-	timeouts_sched(T, to, to->expires);
-} /* timeouts_readd() */
-#endif
-
-
 TIMEOUT_PUBLIC void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout) {
-#ifndef TIMEOUT_DISABLE_INTERVALS
-	if (to->flags & TIMEOUT_INT)
-		to->interval = MAX(1, timeout);
-#endif
-
 	if (to->flags & TIMEOUT_ABS)
 		timeouts_sched(T, to, timeout);
 	else
@@ -528,139 +494,9 @@ TIMEOUT_PUBLIC struct timeout *timeouts_get(struct timeouts *T) {
 
 		list_del_from(&T->expired, &to->tqe);
 		to->pending = NULL;
-		TO_SET_TIMEOUTS(to, NULL);
-
-#ifndef TIMEOUT_DISABLE_INTERVALS
-		if ((to->flags & TIMEOUT_INT) && to->interval > 0)
-			timeouts_readd(T, to);
-#endif
 
 		return to;
 	} else {
 		return NULL;
 	}
 } /* timeouts_get() */
-
-
-/*
- * Use dumb looping to locate the earliest timeout pending on the wheel so
- * our invariant assertions can check the result of our optimized code.
- */
-static struct timeout *timeouts_min(struct timeouts *T) {
-	struct timeout *to, *min = NULL;
-	unsigned i, j;
-
-	for (i = 0; i < countof(T->wheel); i++) {
-		for (j = 0; j < countof(T->wheel[i]); j++) {
-			TAILQ_FOREACH(to, &T->wheel[i][j], tqe) {
-				if (!min || to->expires < min->expires)
-					min = to;
-			}
-		}
-	}
-
-	return min;
-} /* timeouts_min() */
-
-
-/*
- * Check some basic algorithm invariants. If these invariants fail then
- * something is definitely broken.
- */
-#define report(...) do { \
-	if ((fp)) \
-		fprintf(fp, __VA_ARGS__); \
-} while (0)
-
-#define check(expr, ...) do { \
-	if (!(expr)) { \
-		report(__VA_ARGS__); \
-		return 0; \
-	} \
-} while (0)
-
-TIMEOUT_PUBLIC bool timeouts_check(struct timeouts *T, FILE *fp) {
-	timeout_t timeout;
-	struct timeout *to;
-
-	if ((to = timeouts_min(T))) {
-		check(to->expires > T->curtime, "missed timeout (expires:%" TIMEOUT_PRIu " <= curtime:%" TIMEOUT_PRIu ")\n", to->expires, T->curtime);
-
-		timeout = timeouts_int(T);
-		check(timeout <= to->expires - T->curtime, "wrong soft timeout (soft:%" TIMEOUT_PRIu " > hard:%" TIMEOUT_PRIu ") (expires:%" TIMEOUT_PRIu "; curtime:%" TIMEOUT_PRIu ")\n", timeout, (to->expires - T->curtime), to->expires, T->curtime);
-
-		timeout = timeouts_timeout(T);
-		check(timeout <= to->expires - T->curtime, "wrong soft timeout (soft:%" TIMEOUT_PRIu " > hard:%" TIMEOUT_PRIu ") (expires:%" TIMEOUT_PRIu "; curtime:%" TIMEOUT_PRIu ")\n", timeout, (to->expires - T->curtime), to->expires, T->curtime);
-	} else {
-		timeout = timeouts_timeout(T);
-
-		if (!TAILQ_EMPTY(&T->expired))
-			check(timeout == 0, "wrong soft timeout (soft:%" TIMEOUT_PRIu " != hard:%" TIMEOUT_PRIu ")\n", timeout, TIMEOUT_C(0));
-		else
-			check(timeout == ~TIMEOUT_C(0), "wrong soft timeout (soft:%" TIMEOUT_PRIu " != hard:%" TIMEOUT_PRIu ")\n", timeout, ~TIMEOUT_C(0));
-	}
-
-	return 1;
-} /* timeouts_check() */
-
-
-/*
- * T I M E O U T  R O U T I N E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-TIMEOUT_PUBLIC struct timeout *timeout_init(struct timeout *to, int flags) {
-	memset(to, 0, sizeof *to);
-
-	to->flags = flags;
-
-	return to;
-} /* timeout_init() */
-
-
-#ifndef TIMEOUT_DISABLE_RELATIVE_ACCESS
-TIMEOUT_PUBLIC bool timeout_pending(struct timeout *to) {
-	return to->pending && to->pending != &to->timeouts->expired;
-} /* timeout_pending() */
-
-
-TIMEOUT_PUBLIC bool timeout_expired(struct timeout *to) {
-	return to->pending && to->pending == &to->timeouts->expired;
-} /* timeout_expired() */
-
-
-TIMEOUT_PUBLIC void timeout_del(struct timeout *to) {
-	timeouts_del(to->timeouts, to);
-} /* timeout_del() */
-#endif
-
-
-/*
- * V E R S I O N  I N T E R F A C E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-TIMEOUT_PUBLIC int timeout_version(void) {
-	return TIMEOUT_VERSION;
-} /* timeout_version() */
-
-
-TIMEOUT_PUBLIC const char *timeout_vendor(void) {
-	return TIMEOUT_VENDOR;
-} /* timeout_version() */
-
-
-TIMEOUT_PUBLIC int timeout_v_rel(void) {
-	return TIMEOUT_V_REL;
-} /* timeout_version() */
-
-
-TIMEOUT_PUBLIC int timeout_v_abi(void) {
-	return TIMEOUT_V_ABI;
-} /* timeout_version() */
-
-
-TIMEOUT_PUBLIC int timeout_v_api(void) {
-	return TIMEOUT_V_API;
-} /* timeout_version() */
-
