@@ -87,10 +87,36 @@ LWAN_HANDLER(clock)
     return HTTP_OK;
 }
 
+LWAN_HANDLER(index)
+{
+    static const char index[] = "<html><head>" \
+        "<style>" \
+        "body{background:black;height:100\x25;text-align:center;" \
+        "border:0;margin:0;padding:0}" \
+        "</style>" \
+        "<title>Lwan Clock Sample</title>\n"
+        "</head>" \
+        "<body>" \
+        "<table height=\"100\x25\" width=\"100\x25\">" \
+        "<tr><td align=\"center\" valign=\"middle\">" \
+        "<div><img style=\"image-rendering: pixelated; "\
+        "image-rendering: -moz-crisp-edges; "\
+        "image-rendering: crisp-edges;\" " \
+        "src=\"/clock.gif\" width=\"200px\"></div>" \
+        "</td></tr></table>" \
+        "</body>" \
+        "</html>";
+    response->mime_type = "text/html";
+    lwan_strbuf_set_static(response->buffer, index, sizeof(index) - 1);
+
+    return HTTP_OK;
+}
+
 int main(void)
 {
     const struct lwan_url_map default_map[] = {
-        {.prefix = "/", .handler = LWAN_HANDLER_REF(clock)},
+        {.prefix = "/clock.gif", .handler = LWAN_HANDLER_REF(clock)},
+        {.prefix = "/", .handler = LWAN_HANDLER_REF(index)},
         {.prefix = NULL},
     };
     struct lwan l;
