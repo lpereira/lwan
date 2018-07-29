@@ -206,31 +206,6 @@ TIMEOUT_PUBLIC bool timeouts_check(struct timeouts *, FILE *);
 #define TIMEOUTS_ALL     (TIMEOUTS_PENDING|TIMEOUTS_EXPIRED)
 #define TIMEOUTS_CLEAR   0x40
 
-#define TIMEOUTS_IT_INITIALIZER(flags) { (flags), 0, 0, 0, 0 }
-
-#define TIMEOUTS_IT_INIT(cur, _flags) do {                              \
-	(cur)->flags = (_flags);                                        \
-	(cur)->pc = 0;                                                  \
-} while (0)
-
-struct timeouts_it {
-	int flags;
-	unsigned pc, i, j;
-	struct timeout *to;
-}; /* struct timeouts_it */
-
-TIMEOUT_PUBLIC struct timeout *timeouts_next(struct timeouts *, struct timeouts_it *);
-/* return next timeout in pending wheel or expired queue. caller can delete
- * the returned timeout, but should not otherwise manipulate the timing
- * wheel. in particular, caller SHOULD NOT delete any other timeout as that
- * could invalidate cursor state and trigger a use-after-free.
- */
-
-#define TIMEOUTS_FOREACH(var, T, flags)                                 \
-	struct timeouts_it _it = TIMEOUTS_IT_INITIALIZER((flags));      \
-	while (((var) = timeouts_next((T), &_it)))
-
-
 /*
  * B O N U S  W H E E L  I N T E R F A C E S
  *
