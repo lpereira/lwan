@@ -231,10 +231,12 @@ static void timeouts_reset(struct timeouts *T)
     for (i = 0; i < countof(T->wheel); i++) {
         for (j = 0; j < countof(T->wheel[i]); j++) {
             list_append_list(&reset, &T->wheel[i][j]);
+            list_head_init(&T->wheel[i][j]);
         }
     }
 
     list_append_list(&reset, &T->expired);
+    list_head_init(&T->expired);
 
     list_for_each (&reset, to, tqe) {
         to->pending = NULL;
@@ -383,7 +385,10 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
         while (pending & T->pending[wheel]) {
             /* ctz input cannot be zero: loop condition. */
             int slot = ctz(pending & T->pending[wheel]);
+
             list_append_list(&todo, &T->wheel[wheel][slot]);
+            list_head_init(&T->wheel[wheel][slot]);
+
             T->pending[wheel] &= ~(UINT64_C(1) << slot);
         }
 
