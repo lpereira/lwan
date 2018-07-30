@@ -402,7 +402,7 @@ next_timeout(struct death_queue *dq, struct timeouts *wheel, int epoll_fd)
             wheel_timeout = timeouts_timeout(wheel);
     }
 
-    return (int)wheel_timeout;
+    return wheel_timeout ? (int)wheel_timeout : -1;
 }
 
 static void *thread_io_loop(void *data)
