@@ -150,7 +150,9 @@ typedef uint8_t wheel_t;
 #endif
 
 
-static inline wheel_t rotl(const wheel_t v, unsigned int c) {
+static inline wheel_t rotl(const wheel_t v, int cs) {
+	unsigned int c = (unsigned int)cs;
+
 	if (!(c &= (sizeof v * CHAR_BIT - 1)))
 		return v;
 
@@ -158,7 +160,9 @@ static inline wheel_t rotl(const wheel_t v, unsigned int c) {
 } /* rotl() */
 
 
-static inline wheel_t rotr(const wheel_t v, unsigned int c) {
+static inline wheel_t rotr(const wheel_t v, int cs) {
+	unsigned int c = (unsigned int)cs;
+
 	if (!(c &= (sizeof v * CHAR_BIT - 1)))
 		return v;
 
@@ -276,7 +280,10 @@ static inline int timeout_wheel(timeout_t timeout) {
 
 
 static inline int timeout_slot(int wheel, timeout_t expires) {
-	return WHEEL_MASK & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
+	const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
+	const timeout_t slot = wheel_mask & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
+
+	return (int)slot;
 } /* timeout_slot() */
 
 
@@ -349,20 +356,21 @@ void timeouts_update(struct timeouts *T, abstime_t curtime) {
 		if ((elapsed >> (wheel * WHEEL_BIT)) > WHEEL_MAX) {
 			pending = (wheel_t)~WHEEL_C(0);
 		} else {
+			const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
 			wheel_t _elapsed = WHEEL_MASK & (elapsed >> (wheel * WHEEL_BIT));
-			unsigned int oslot, nslot;
+			int oslot, nslot;
 
 			/*
 			 * TODO: It's likely that at least one of the
 			 * following three bit fill operations is redundant
 			 * or can be replaced with a simpler operation.
 			 */
-			oslot = WHEEL_MASK & (T->curtime >> (wheel * WHEEL_BIT));
+			oslot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
 			pending = rotl(((UINT64_C(1) << _elapsed) - 1), oslot);
 
-			nslot = WHEEL_MASK & (curtime >> (wheel * WHEEL_BIT));
+			nslot = (int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
 			pending |= rotr(rotl(((WHEEL_C(1) << _elapsed) - 1), nslot),
-					(unsigned int)_elapsed);
+					(int)_elapsed);
 			pending |= WHEEL_C(1) << nslot;
 		}
 
@@ -433,15 +441,16 @@ bool timeouts_expired(struct timeouts *T) {
  * We should never return a timeout larger than the lowest actual timeout.
  */
 static timeout_t timeouts_int(struct timeouts *T) {
+	const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
 	timeout_t timeout = ~TIMEOUT_C(0), _timeout;
 	timeout_t relmask;
-	unsigned int wheel, slot;
+	int wheel, slot;
 
 	relmask = 0;
 
 	for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
 		if (T->pending[wheel]) {
-			slot = WHEEL_MASK & (T->curtime >> (wheel * WHEEL_BIT));
+			slot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
 
 			/* ctz input cannot be zero: T->pending[wheel] is
 			 * nonzero, so rotr() is nonzero. */
