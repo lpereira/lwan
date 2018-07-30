@@ -162,13 +162,13 @@ static inline wheel_t rotl(const wheel_t v, uint32_t n)
 {
     assert(n < WHEEL_T_BITS);
     return (v << n) | (v >> (-n & (WHEEL_T_BITS - 1)));
-} /* rotl() */
+}
 
 static inline wheel_t rotr(const wheel_t v, uint32_t n)
 {
     assert(n < WHEEL_T_BITS);
     return (v >> n) | (v << (-n & (WHEEL_T_BITS - 1)));
-} /* rotr() */
+}
 
 #undef WHEEL_T_BITS
 
@@ -185,7 +185,7 @@ struct timeouts {
 
     timeout_t curtime;
     timeout_t hertz;
-}; /* struct timeouts */
+};
 
 static struct timeouts *timeouts_init(struct timeouts *T)
 {
@@ -206,7 +206,7 @@ static struct timeouts *timeouts_init(struct timeouts *T)
     T->curtime = 0;
 
     return T;
-} /* timeouts_init() */
+}
 
 struct timeouts *timeouts_open(timeout_error_t *error)
 {
@@ -218,7 +218,7 @@ struct timeouts *timeouts_open(timeout_error_t *error)
     *error = errno;
 
     return NULL;
-} /* timeouts_open() */
+}
 
 static void timeouts_reset(struct timeouts *T)
 {
@@ -239,7 +239,7 @@ static void timeouts_reset(struct timeouts *T)
     list_for_each (&reset, to, tqe) {
         to->pending = NULL;
     }
-} /* timeouts_reset() */
+}
 
 void timeouts_close(struct timeouts *T)
 {
@@ -250,7 +250,7 @@ void timeouts_close(struct timeouts *T)
     timeouts_reset(T);
 
     free(T);
-} /* timeouts_close() */
+}
 
 void timeouts_del(struct timeouts *T, struct timeout *to)
 {
@@ -267,18 +267,18 @@ void timeouts_del(struct timeouts *T, struct timeout *to)
 
         to->pending = NULL;
     }
-} /* timeouts_del() */
+}
 
 static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to)
 {
     return to->expires - T->curtime;
-} /* timeout_rem() */
+}
 
 static inline int timeout_wheel(timeout_t timeout)
 {
     /* must be called with timeout != 0, so fls input is nonzero */
     return (fls(MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
-} /* timeout_wheel() */
+}
 
 static inline int timeout_slot(int wheel, timeout_t expires)
 {
@@ -287,7 +287,7 @@ static inline int timeout_slot(int wheel, timeout_t expires)
         wheel_mask & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
 
     return (int)slot;
-} /* timeout_slot() */
+}
 
 static void
 timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
@@ -318,7 +318,7 @@ timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
     }
 
     list_add_tail(to->pending, &to->tqe);
-} /* timeouts_sched() */
+}
 
 void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
 {
@@ -326,7 +326,7 @@ void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
         timeouts_sched(T, to, timeout);
     else
         timeouts_sched(T, to, T->curtime + timeout);
-} /* timeouts_add() */
+}
 
 void timeouts_update(struct timeouts *T, abstime_t curtime)
 {
@@ -405,12 +405,12 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
     }
 
     return;
-} /* timeouts_update() */
+}
 
 void timeouts_step(struct timeouts *T, reltime_t elapsed)
 {
     timeouts_update(T, T->curtime + elapsed);
-} /* timeouts_step() */
+}
 
 bool timeouts_pending(struct timeouts *T)
 {
@@ -422,12 +422,12 @@ bool timeouts_pending(struct timeouts *T)
     }
 
     return !!pending;
-} /* timeouts_pending() */
+}
 
 bool timeouts_expired(struct timeouts *T)
 {
     return !list_empty(&T->expired);
-} /* timeouts_expired() */
+}
 
 /*
  * Calculate the interval before needing to process any timeouts pending on
@@ -477,7 +477,7 @@ static timeout_t timeouts_int(struct timeouts *T)
     }
 
     return timeout;
-} /* timeouts_int() */
+}
 
 /*
  * Calculate the interval our caller can wait before needing to process
@@ -489,7 +489,7 @@ timeout_t timeouts_timeout(struct timeouts *T)
         return 0;
 
     return timeouts_int(T);
-} /* timeouts_timeout() */
+}
 
 struct timeout *timeouts_get(struct timeouts *T)
 {
@@ -503,4 +503,4 @@ struct timeout *timeouts_get(struct timeouts *T)
     } else {
         return NULL;
     }
-} /* timeouts_get() */
+}
