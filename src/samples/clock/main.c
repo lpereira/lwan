@@ -44,7 +44,7 @@ static void destroy_gif(void *data)
 LWAN_HANDLER(clock)
 {
     static const uint8_t base_offsets[] = {0, 0, 2, 2, 4, 4};
-    ge_GIF *gif = ge_new_gif(response->buffer, width, height, NULL, 2, 0);
+    ge_GIF *gif = ge_new_gif(response->buffer, width, height, NULL, 2, -1);
     uint8_t dot_visible = 0;
 
     if (!gif)
