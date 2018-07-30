@@ -462,7 +462,7 @@ static timeout_t timeouts_int(struct timeouts *T)
 
     for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
         if (T->pending[wheel]) {
-            slot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
+            slot = (unsigned int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
 
             /* ctz input cannot be zero: T->pending[wheel] is
              * nonzero, so rotr() is nonzero. */
