@@ -215,14 +215,17 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
         int events = 0;
         /* EV_CLEAR should be set only if EPOLLET is there, but Lwan doesn't
          * always set EPOLLET.  In the meantime, force EV_CLEAR every time.  */
+        uintptr_t udata = (uintptr_t)event->data.ptr;
         int flags = EV_ADD | EV_CLEAR;
 
-        if (event->events & EPOLLIN)
+        if (event->events & EPOLLIN) {
             events = EVFILT_READ;
-        else if (event->events & EPOLLOUT)
+        } else if (event->events & EPOLLOUT) {
             events = EVFILT_WRITE;
-        else
-            events = EVFILT_EXCEPT;
+        } else {
+            events = EVFILT_WRITE;
+            udata = 1;
+        }
 
         if (event->events & EPOLLONESHOT)
             flags |= EV_ONESHOT;
@@ -231,7 +234,7 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
         if (event->events & EPOLLERR)
             flags |= EV_ERROR;
 
-        EV_SET(&ev, fd, events, flags, 0, 0, event->data.ptr);
+        EV_SET(&ev, fd, events, flags, 0, 0, (void *)udata);
         break;
     }
 
@@ -297,8 +300,14 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     }
 
     for (i = 0; i < r; i++) {
-        void *maskptr = hash_find(coalesce, (void*)(intptr_t)evs[i].ident);
+        uintptr_t udata = (uintptr_t)evs[i].udata;
+        void *maskptr;
 
+        if (udata == 1) {
+            continue;
+        }
+
+        maskptr = hash_find(coalesce, (void*)(intptr_t)evs[i].ident);
         if (maskptr) {
             struct kevent *kev = &evs[i];
 
