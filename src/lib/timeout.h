@@ -26,10 +26,10 @@
 #ifndef TIMEOUT_H
 #define TIMEOUT_H
 
-#include <stdbool.h>    /* bool */
-#include <stdio.h>      /* FILE */
+#include <stdbool.h> /* bool */
+#include <stdio.h>   /* FILE */
 
-#include <inttypes.h>   /* PRIu64 PRIx64 PRIX64 uint64_t */
+#include <inttypes.h> /* PRIu64 PRIx64 PRIX64 uint64_t */
 
 #include "list.h"
 
@@ -54,21 +54,23 @@ typedef uint64_t timeout_t;
 
 #define TIMEOUT_ABS 0x01 /* treat timeout values as absolute */
 
-#define TIMEOUT_INITIALIZER(flags) { (flags) }
+#define TIMEOUT_INITIALIZER(flags)                                             \
+    {                                                                          \
+        (flags)                                                                \
+    }
 
 struct timeout {
-	int flags;
+    int flags;
 
-	timeout_t expires;
-	/* absolute expiration time */
+    timeout_t expires;
+    /* absolute expiration time */
 
-	struct list_head *pending;
-	/* timeout list if pending on wheel or expiry queue */
+    struct list_head *pending;
+    /* timeout list if pending on wheel or expiry queue */
 
-	struct list_node tqe;
-	/* entry member for struct timeout_list lists */
+    struct list_node tqe;
+    /* entry member for struct timeout_list lists */
 }; /* struct timeout */
-
 
 struct timeout *timeout_init(struct timeout *);
 /* initialize timeout structure (same as TIMEOUT_INITIALIZER) */

@@ -26,17 +26,17 @@
 
 #include <assert.h>
 
-#include <limits.h>    /* CHAR_BIT */
+#include <limits.h> /* CHAR_BIT */
 
-#include <stddef.h>    /* NULL */
-#include <stdlib.h>    /* malloc(3) free(3) */
-#include <stdio.h>     /* FILE fprintf(3) */
+#include <stddef.h> /* NULL */
+#include <stdio.h>  /* FILE fprintf(3) */
+#include <stdlib.h> /* malloc(3) free(3) */
 
-#include <inttypes.h>  /* UINT64_C uint64_t */
+#include <inttypes.h> /* UINT64_C uint64_t */
 
-#include <string.h>    /* memset(3) */
+#include <string.h> /* memset(3) */
 
-#include <errno.h>     /* errno */
+#include <errno.h> /* errno */
 
 #include "list.h"
 
@@ -51,17 +51,16 @@
 #define reltime_t timeout_t /* "" */
 
 #if !defined countof
-#define countof(a) (sizeof (a) / sizeof *(a))
+#define countof(a) (sizeof(a) / sizeof *(a))
 #endif
 
 #if !defined MIN
-#define MIN(a, b) (((a) < (b))? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
 #if !defined MAX
-#define MAX(a, b) (((a) > (b))? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
-
 
 /*
  * B I T  M A N I P U L A T I O N  R O U T I N E S
@@ -152,7 +151,6 @@ typedef uint8_t wheel_t;
 #error invalid WHEEL_BIT value
 #endif
 
-
 /* See "Safe, Efficient, and Portable Rotate in C/C++" by John Regehr
  *     http://blog.regehr.org/archives/1063
  * These should be recognized by the backend C compiler and turned into a rol
@@ -162,15 +160,15 @@ typedef uint8_t wheel_t;
 
 static inline wheel_t rotl(const wheel_t v, uint32_t n)
 {
-	assert(n < WHEEL_T_BITS);
-	return (v << n) | (v >> (-n & (WHEEL_T_BITS - 1)));
-}
+    assert(n < WHEEL_T_BITS);
+    return (v << n) | (v >> (-n & (WHEEL_T_BITS - 1)));
+} /* rotl() */
 
 static inline wheel_t rotr(const wheel_t v, uint32_t n)
 {
-	assert(n < WHEEL_T_BITS);
-	return (v >> n) | (v << (-n & (WHEEL_T_BITS - 1)));
-}
+    assert(n < WHEEL_T_BITS);
+    return (v >> n) | (v << (-n & (WHEEL_T_BITS - 1)));
+} /* rotr() */
 
 #undef WHEEL_T_BITS
 
@@ -180,253 +178,256 @@ static inline wheel_t rotr(const wheel_t v, uint32_t n)
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 struct timeouts {
-	struct list_head wheel[WHEEL_NUM][WHEEL_LEN];
-	struct list_head expired;
+    struct list_head wheel[WHEEL_NUM][WHEEL_LEN];
+    struct list_head expired;
 
-	wheel_t pending[WHEEL_NUM];
+    wheel_t pending[WHEEL_NUM];
 
-	timeout_t curtime;
-	timeout_t hertz;
+    timeout_t curtime;
+    timeout_t hertz;
 }; /* struct timeouts */
 
+static struct timeouts *timeouts_init(struct timeouts *T)
+{
+    unsigned i, j;
 
-static struct timeouts *timeouts_init(struct timeouts *T) {
-	unsigned i, j;
+    for (i = 0; i < countof(T->wheel); i++) {
+        for (j = 0; j < countof(T->wheel[i]); j++) {
+            list_head_init(&T->wheel[i][j]);
+        }
+    }
 
-	for (i = 0; i < countof(T->wheel); i++) {
-		for (j = 0; j < countof(T->wheel[i]); j++) {
-			list_head_init(&T->wheel[i][j]);
-		}
-	}
+    list_head_init(&T->expired);
 
-	list_head_init(&T->expired);
+    for (i = 0; i < countof(T->pending); i++) {
+        T->pending[i] = 0;
+    }
 
-	for (i = 0; i < countof(T->pending); i++) {
-		T->pending[i] = 0;
-	}
+    T->curtime = 0;
 
-	T->curtime = 0;
-
-	return T;
+    return T;
 } /* timeouts_init() */
 
+struct timeouts *timeouts_open(timeout_error_t *error)
+{
+    struct timeouts *T;
 
-struct timeouts *timeouts_open(timeout_error_t *error) {
-	struct timeouts *T;
+    if ((T = malloc(sizeof *T)))
+        return timeouts_init(T);
 
-	if ((T = malloc(sizeof *T)))
-		return timeouts_init(T);
+    *error = errno;
 
-	*error = errno;
-
-	return NULL;
+    return NULL;
 } /* timeouts_open() */
 
+static void timeouts_reset(struct timeouts *T)
+{
+    struct list_head reset;
+    struct timeout *to;
+    unsigned i, j;
 
-static void timeouts_reset(struct timeouts *T) {
-	struct list_head reset;
-	struct timeout *to;
-	unsigned i, j;
+    list_head_init(&reset);
 
-	list_head_init(&reset);
+    for (i = 0; i < countof(T->wheel); i++) {
+        for (j = 0; j < countof(T->wheel[i]); j++) {
+            list_append_list(&reset, &T->wheel[i][j]);
+        }
+    }
 
-	for (i = 0; i < countof(T->wheel); i++) {
-		for (j = 0; j < countof(T->wheel[i]); j++) {
-			list_append_list(&reset, &T->wheel[i][j]);
-		}
-	}
+    list_append_list(&reset, &T->expired);
 
-	list_append_list(&reset, &T->expired);
-
-	list_for_each(&reset, to, tqe) {
-		to->pending = NULL;
-	}
+    list_for_each (&reset, to, tqe) {
+        to->pending = NULL;
+    }
 } /* timeouts_reset() */
 
+void timeouts_close(struct timeouts *T)
+{
+    /*
+     * NOTE: Delete installed timeouts so timeout_pending() and
+     * timeout_expired() worked as expected.
+     */
+    timeouts_reset(T);
 
-void timeouts_close(struct timeouts *T) {
-	/*
-	 * NOTE: Delete installed timeouts so timeout_pending() and
-	 * timeout_expired() worked as expected.
-	 */
-	timeouts_reset(T);
-
-	free(T);
+    free(T);
 } /* timeouts_close() */
 
+void timeouts_del(struct timeouts *T, struct timeout *to)
+{
+    if (to->pending) {
+        list_del_from(to->pending, &to->tqe);
 
-void timeouts_del(struct timeouts *T, struct timeout *to) {
-	if (to->pending) {
-		list_del_from(to->pending, &to->tqe);
+        if (to->pending != &T->expired && list_empty(to->pending)) {
+            ptrdiff_t index = to->pending - &T->wheel[0][0];
+            ptrdiff_t wheel = index / WHEEL_LEN;
+            ptrdiff_t slot = index % WHEEL_LEN;
 
-		if (to->pending != &T->expired && list_empty(to->pending)) {
-			ptrdiff_t index = to->pending - &T->wheel[0][0];
-			ptrdiff_t wheel = index / WHEEL_LEN;
-			ptrdiff_t slot = index % WHEEL_LEN;
+            T->pending[wheel] &= ~(WHEEL_C(1) << slot);
+        }
 
-			T->pending[wheel] &= ~(WHEEL_C(1) << slot);
-		}
-
-		to->pending = NULL;
-	}
+        to->pending = NULL;
+    }
 } /* timeouts_del() */
 
-
-static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to) {
-	return to->expires - T->curtime;
+static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to)
+{
+    return to->expires - T->curtime;
 } /* timeout_rem() */
 
-
-static inline int timeout_wheel(timeout_t timeout) {
-	/* must be called with timeout != 0, so fls input is nonzero */
-	return (fls(MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
+static inline int timeout_wheel(timeout_t timeout)
+{
+    /* must be called with timeout != 0, so fls input is nonzero */
+    return (fls(MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
 } /* timeout_wheel() */
 
+static inline int timeout_slot(int wheel, timeout_t expires)
+{
+    const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
+    const timeout_t slot =
+        wheel_mask & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
 
-static inline int timeout_slot(int wheel, timeout_t expires) {
-	const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
-	const timeout_t slot = wheel_mask & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
-
-	return (int)slot;
+    return (int)slot;
 } /* timeout_slot() */
 
+static void
+timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
+{
+    timeout_t rem;
+    int wheel, slot;
 
-static void timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires) {
-	timeout_t rem;
-	int wheel, slot;
+    timeouts_del(T, to);
 
-	timeouts_del(T, to);
+    to->expires = expires;
 
-	to->expires = expires;
+    if (expires > T->curtime) {
+        rem = timeout_rem(T, to);
 
-	if (expires > T->curtime) {
-		rem = timeout_rem(T, to);
+        /* rem is nonzero since:
+         *   rem == timeout_rem(T,to),
+         *       == to->expires - T->curtime
+         *   and above we have expires > T->curtime.
+         */
+        wheel = timeout_wheel(rem);
+        slot = timeout_slot(wheel, to->expires);
 
-		/* rem is nonzero since:
-		 *   rem == timeout_rem(T,to),
-		 *       == to->expires - T->curtime
-		 *   and above we have expires > T->curtime.
-		 */
-		wheel = timeout_wheel(rem);
-		slot = timeout_slot(wheel, to->expires);
+        to->pending = &T->wheel[wheel][slot];
 
-		to->pending = &T->wheel[wheel][slot];
+        T->pending[wheel] |= WHEEL_C(1) << slot;
+    } else {
+        to->pending = &T->expired;
+    }
 
-		T->pending[wheel] |= WHEEL_C(1) << slot;
-	} else {
-		to->pending = &T->expired;
-	}
-
-	list_add_tail(to->pending, &to->tqe);
+    list_add_tail(to->pending, &to->tqe);
 } /* timeouts_sched() */
 
-
-void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout) {
-	if (to->flags & TIMEOUT_ABS)
-		timeouts_sched(T, to, timeout);
-	else
-		timeouts_sched(T, to, T->curtime + timeout);
+void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
+{
+    if (to->flags & TIMEOUT_ABS)
+        timeouts_sched(T, to, timeout);
+    else
+        timeouts_sched(T, to, T->curtime + timeout);
 } /* timeouts_add() */
 
+void timeouts_update(struct timeouts *T, abstime_t curtime)
+{
+    timeout_t elapsed = curtime - T->curtime;
+    struct list_head todo;
+    int wheel;
 
-void timeouts_update(struct timeouts *T, abstime_t curtime) {
-	timeout_t elapsed = curtime - T->curtime;
-	struct list_head todo;
-	int wheel;
+    list_head_init(&todo);
 
-	list_head_init(&todo);
+    /*
+     * There's no avoiding looping over every wheel. It's best to keep
+     * WHEEL_NUM smallish.
+     */
+    for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
+        wheel_t pending;
 
-	/*
-	 * There's no avoiding looping over every wheel. It's best to keep
-	 * WHEEL_NUM smallish.
-	 */
-	for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
-		wheel_t pending;
+        /*
+         * Calculate the slots expiring in this wheel
+         *
+         * If the elapsed time is greater than the maximum period of
+         * the wheel, mark every position as expiring.
+         *
+         * Otherwise, to determine the expired slots fill in all the
+         * bits between the last slot processed and the current
+         * slot, inclusive of the last slot. We'll bitwise-AND this
+         * with our pending set below.
+         *
+         * If a wheel rolls over, force a tick of the next higher
+         * wheel.
+         */
+        if ((elapsed >> (wheel * WHEEL_BIT)) > WHEEL_MAX) {
+            pending = (wheel_t)~WHEEL_C(0);
+        } else {
+            const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
+            wheel_t _elapsed = WHEEL_MASK & (elapsed >> (wheel * WHEEL_BIT));
+            unsigned int oslot, nslot;
 
-		/*
-		 * Calculate the slots expiring in this wheel
-		 *
-		 * If the elapsed time is greater than the maximum period of
-		 * the wheel, mark every position as expiring.
-		 *
-		 * Otherwise, to determine the expired slots fill in all the
-		 * bits between the last slot processed and the current
-		 * slot, inclusive of the last slot. We'll bitwise-AND this
-		 * with our pending set below.
-		 *
-		 * If a wheel rolls over, force a tick of the next higher
-		 * wheel.
-		 */
-		if ((elapsed >> (wheel * WHEEL_BIT)) > WHEEL_MAX) {
-			pending = (wheel_t)~WHEEL_C(0);
-		} else {
-			const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
-			wheel_t _elapsed = WHEEL_MASK & (elapsed >> (wheel * WHEEL_BIT));
-			unsigned int oslot, nslot;
+            /*
+             * TODO: It's likely that at least one of the
+             * following three bit fill operations is redundant
+             * or can be replaced with a simpler operation.
+             */
+            oslot = (unsigned int)(wheel_mask &
+                                   (T->curtime >> (wheel * WHEEL_BIT)));
+            pending = rotl(((UINT64_C(1) << _elapsed) - 1), oslot);
 
-			/*
-			 * TODO: It's likely that at least one of the
-			 * following three bit fill operations is redundant
-			 * or can be replaced with a simpler operation.
-			 */
-			oslot = (unsigned int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
-			pending = rotl(((UINT64_C(1) << _elapsed) - 1), oslot);
+            nslot =
+                (unsigned int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
+            pending |= rotr(rotl(((WHEEL_C(1) << _elapsed) - 1), nslot),
+                            (unsigned int)_elapsed);
+            pending |= WHEEL_C(1) << nslot;
+        }
 
-			nslot = (unsigned int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
-			pending |= rotr(rotl(((WHEEL_C(1) << _elapsed) - 1), nslot),
-					(unsigned int)_elapsed);
-			pending |= WHEEL_C(1) << nslot;
-		}
+        while (pending & T->pending[wheel]) {
+            /* ctz input cannot be zero: loop condition. */
+            int slot = ctz(pending & T->pending[wheel]);
+            list_append_list(&todo, &T->wheel[wheel][slot]);
+            T->pending[wheel] &= ~(UINT64_C(1) << slot);
+        }
 
-		while (pending & T->pending[wheel]) {
-			/* ctz input cannot be zero: loop condition. */
-			int slot = ctz(pending & T->pending[wheel]);
-			list_append_list(&todo, &T->wheel[wheel][slot]);
-			T->pending[wheel] &= ~(UINT64_C(1) << slot);
-		}
+        if (!(0x1 & pending))
+            break; /* break if we didn't wrap around end of wheel */
 
-		if (!(0x1 & pending))
-			break; /* break if we didn't wrap around end of wheel */
+        /* if we're continuing, the next wheel must tick at least once */
+        elapsed = MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
+    }
 
-		/* if we're continuing, the next wheel must tick at least once */
-		elapsed = MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
-	}
+    T->curtime = curtime;
 
-	T->curtime = curtime;
+    struct timeout *to, *next;
+    list_for_each_safe (&todo, to, next, tqe) {
+        list_del_from(&todo, &to->tqe);
+        to->pending = NULL;
 
-	struct timeout *to, *next;
-	list_for_each_safe(&todo, to, next, tqe) {
-		list_del_from(&todo, &to->tqe);
-		to->pending = NULL;
+        timeouts_sched(T, to, to->expires);
+    }
 
-		timeouts_sched(T, to, to->expires);
-	}
-
-	return;
+    return;
 } /* timeouts_update() */
 
-
-void timeouts_step(struct timeouts *T, reltime_t elapsed) {
-	timeouts_update(T, T->curtime + elapsed);
+void timeouts_step(struct timeouts *T, reltime_t elapsed)
+{
+    timeouts_update(T, T->curtime + elapsed);
 } /* timeouts_step() */
 
+bool timeouts_pending(struct timeouts *T)
+{
+    wheel_t pending = 0;
+    int wheel;
 
-bool timeouts_pending(struct timeouts *T) {
-	wheel_t pending = 0;
-	int wheel;
+    for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
+        pending |= T->pending[wheel];
+    }
 
-	for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
-		pending |= T->pending[wheel];
-	}
-
-	return !!pending;
+    return !!pending;
 } /* timeouts_pending() */
 
-
-bool timeouts_expired(struct timeouts *T) {
-	return !list_empty(&T->expired);
+bool timeouts_expired(struct timeouts *T)
+{
+    return !list_empty(&T->expired);
 } /* timeouts_expired() */
-
 
 /*
  * Calculate the interval before needing to process any timeouts pending on
@@ -444,59 +445,62 @@ bool timeouts_expired(struct timeouts *T) {
  *
  * We should never return a timeout larger than the lowest actual timeout.
  */
-static timeout_t timeouts_int(struct timeouts *T) {
-	const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
-	timeout_t timeout = ~TIMEOUT_C(0), _timeout;
-	timeout_t relmask;
-	unsigned int slot;
-	int wheel;
+static timeout_t timeouts_int(struct timeouts *T)
+{
+    const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
+    timeout_t timeout = ~TIMEOUT_C(0), _timeout;
+    timeout_t relmask;
+    unsigned int slot;
+    int wheel;
 
-	relmask = 0;
+    relmask = 0;
 
-	for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
-		if (T->pending[wheel]) {
-			slot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
+    for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
+        if (T->pending[wheel]) {
+            slot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
 
-			/* ctz input cannot be zero: T->pending[wheel] is
-			 * nonzero, so rotr() is nonzero. */
-			_timeout = (timeout_t)(ctz(rotr(T->pending[wheel], slot)) + !!wheel) << (wheel * WHEEL_BIT);
-			/* +1 to higher order wheels as those timeouts are one rotation in the future (otherwise they'd be on a lower wheel or expired) */
+            /* ctz input cannot be zero: T->pending[wheel] is
+             * nonzero, so rotr() is nonzero. */
+            _timeout = (timeout_t)(ctz(rotr(T->pending[wheel], slot)) + !!wheel)
+                       << (wheel * WHEEL_BIT);
+            /* +1 to higher order wheels as those timeouts are one rotation in
+             * the future (otherwise they'd be on a lower wheel or expired) */
 
-			_timeout -= relmask & T->curtime;
-			/* reduce by how much lower wheels have progressed */
+            _timeout -= relmask & T->curtime;
+            /* reduce by how much lower wheels have progressed */
 
-			timeout = MIN(_timeout, timeout);
-		}
+            timeout = MIN(_timeout, timeout);
+        }
 
-		relmask <<= WHEEL_BIT; 
-		relmask |= WHEEL_MASK;
-	}
+        relmask <<= WHEEL_BIT;
+        relmask |= WHEEL_MASK;
+    }
 
-	return timeout;
+    return timeout;
 } /* timeouts_int() */
-
 
 /*
  * Calculate the interval our caller can wait before needing to process
  * events.
  */
-timeout_t timeouts_timeout(struct timeouts *T) {
-	if (!list_empty(&T->expired))
-		return 0;
+timeout_t timeouts_timeout(struct timeouts *T)
+{
+    if (!list_empty(&T->expired))
+        return 0;
 
-	return timeouts_int(T);
+    return timeouts_int(T);
 } /* timeouts_timeout() */
 
+struct timeout *timeouts_get(struct timeouts *T)
+{
+    if (!list_empty(&T->expired)) {
+        struct timeout *to = list_top(&T->expired, struct timeout, tqe);
 
-struct timeout *timeouts_get(struct timeouts *T) {
-	if (!list_empty(&T->expired)) {
-		struct timeout *to = list_top(&T->expired, struct timeout, tqe);
+        list_del_from(&T->expired, &to->tqe);
+        to->pending = NULL;
 
-		list_del_from(&T->expired, &to->tqe);
-		to->pending = NULL;
-
-		return to;
-	} else {
-		return NULL;
-	}
+        return to;
+    } else {
+        return NULL;
+    }
 } /* timeouts_get() */
