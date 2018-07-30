@@ -23,6 +23,9 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  * ==========================================================================
  */
+
+#include <assert.h>
+
 #include <limits.h>    /* CHAR_BIT */
 
 #include <stddef.h>    /* NULL */
@@ -150,25 +153,26 @@ typedef uint8_t wheel_t;
 #endif
 
 
-static inline wheel_t rotl(const wheel_t v, int cs) {
-	unsigned int c = (unsigned int)cs;
+/* See "Safe, Efficient, and Portable Rotate in C/C++" by John Regehr
+ *     http://blog.regehr.org/archives/1063
+ * These should be recognized by the backend C compiler and turned into a rol
+ */
 
-	if (!(c &= (sizeof v * CHAR_BIT - 1)))
-		return v;
+#define WHEEL_T_BITS ((CHAR_BIT) * sizeof(wheel_t))
 
-	return (v << c) | (v >> (sizeof v * CHAR_BIT - c));
-} /* rotl() */
+static inline wheel_t rotl(const wheel_t v, uint32_t n)
+{
+	assert(n < WHEEL_T_BITS);
+	return (v << n) | (v >> (-n & (WHEEL_T_BITS - 1)));
+}
 
+static inline wheel_t rotr(const wheel_t v, uint32_t n)
+{
+	assert(n < WHEEL_T_BITS);
+	return (v >> n) | (v << (-n & (WHEEL_T_BITS - 1)));
+}
 
-static inline wheel_t rotr(const wheel_t v, int cs) {
-	unsigned int c = (unsigned int)cs;
-
-	if (!(c &= (sizeof v * CHAR_BIT - 1)))
-		return v;
-
-	return (v >> c) | (v << (sizeof v * CHAR_BIT - c));
-} /* rotr() */
-
+#undef WHEEL_T_BITS
 
 /*
  * T I M E R  R O U T I N E S
@@ -358,19 +362,19 @@ void timeouts_update(struct timeouts *T, abstime_t curtime) {
 		} else {
 			const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
 			wheel_t _elapsed = WHEEL_MASK & (elapsed >> (wheel * WHEEL_BIT));
-			int oslot, nslot;
+			unsigned int oslot, nslot;
 
 			/*
 			 * TODO: It's likely that at least one of the
 			 * following three bit fill operations is redundant
 			 * or can be replaced with a simpler operation.
 			 */
-			oslot = (int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
+			oslot = (unsigned int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
 			pending = rotl(((UINT64_C(1) << _elapsed) - 1), oslot);
 
-			nslot = (int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
+			nslot = (unsigned int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
 			pending |= rotr(rotl(((WHEEL_C(1) << _elapsed) - 1), nslot),
-					(int)_elapsed);
+					(unsigned int)_elapsed);
 			pending |= WHEEL_C(1) << nslot;
 		}
 
@@ -444,7 +448,8 @@ static timeout_t timeouts_int(struct timeouts *T) {
 	const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
 	timeout_t timeout = ~TIMEOUT_C(0), _timeout;
 	timeout_t relmask;
-	int wheel, slot;
+	unsigned int slot;
+	int wheel;
 
 	relmask = 0;
 
