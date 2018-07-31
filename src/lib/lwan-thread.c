@@ -340,19 +340,6 @@ static void accept_nudge(int pipe_fd,
     timeouts_add(wheel, &dq->timeout, 1000);
 }
 
-static void turn_timer_wheel(struct lwan_thread *t)
-{
-    struct timespec now;
-
-    if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
-        lwan_status_critical("Could not get monotonic time");
-
-    timeouts_update(t->wheel,
-                    (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
-
-    update_date_cache(t);
-}
-
 static bool process_pending_timers(struct death_queue *dq,
                                    struct timeouts *wheel,
                                    int epoll_fd)
@@ -390,19 +377,33 @@ static bool process_pending_timers(struct death_queue *dq,
 }
 
 static int
-next_timeout(struct death_queue *dq, struct timeouts *wheel, int epoll_fd)
+turn_timer_wheel(struct death_queue *dq, struct lwan_thread *t, int epoll_fd)
 {
-    timeout_t wheel_timeout = timeouts_timeout(wheel);
+    timeout_t wheel_timeout;
+    struct timespec now;
 
+    if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
+        lwan_status_critical("Could not get monotonic time");
+
+    timeouts_update(t->wheel,
+                    (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
+
+    update_date_cache(t);
+
+    wheel_timeout = timeouts_timeout(t->wheel);
     if (UNLIKELY((int64_t)wheel_timeout < 0))
         return -1;
 
     if (wheel_timeout == 0) {
-        if (process_pending_timers(dq, wheel, epoll_fd))
-            wheel_timeout = timeouts_timeout(wheel);
+        if (process_pending_timers(dq, t->wheel, epoll_fd)) {
+            wheel_timeout = timeouts_timeout(t->wheel);
+
+            if (!wheel_timeout)
+                return -1;
+        }
     }
 
-    return wheel_timeout ? (int)wheel_timeout : -1;
+    return (int)wheel_timeout;
 }
 
 static void *thread_io_loop(void *data)
@@ -429,7 +430,7 @@ static void *thread_io_loop(void *data)
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        int timeout = next_timeout(&dq, t->wheel, epoll_fd);
+        int timeout = turn_timer_wheel(&dq, t, epoll_fd);
         int n_fds;
 
         n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
@@ -457,8 +458,6 @@ static void *thread_io_loop(void *data)
             if (errno == EBADF || errno == EINVAL)
                 break;
         }
-
-        turn_timer_wheel(t);
     }
 
     pthread_barrier_wait(&lwan->thread.barrier);
