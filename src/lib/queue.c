@@ -44,7 +44,7 @@
 
 #define ATOMIC_INIT(P, V)	do { (P) = (V); } while(0)
 
-#define ATOMIC_LOAD(P, O)	({ __sync_fetch_and_add((P), 0); })
+#define ATOMIC_LOAD(P, O)	__sync_fetch_and_add((P), 0)
 #define ATOMIC_STORE(P, V, O)	({ __sync_synchronize(); __sync_lock_test_and_set((P), (V)); })
 
 #else
