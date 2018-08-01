@@ -468,10 +468,6 @@ static void *thread_io_loop(void *data)
     return NULL;
 }
 
-static inline size_t max_size_t(size_t a, size_t b) {
-    return a > b ? a : b;
-}
-
 static void create_thread(struct lwan *l, struct lwan_thread *thread)
 {
     int ignore;
@@ -517,7 +513,9 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
 
-    size_t n_queue_fds = max_size_t(thread->lwan->thread.max_fd, 128);
+    size_t n_queue_fds = thread->lwan->thread.max_fd;
+    if (n_queue_fds > 128)
+        n_queue_fds = 128;
     if (spsc_queue_init(&thread->pending_fds, n_queue_fds) < 0) {
         lwan_status_critical("Could not initialize pending fd "
                              "queue width %zu elements", n_queue_fds);
