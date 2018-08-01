@@ -99,22 +99,33 @@ LWAN_HANDLER(clock)
 
 LWAN_HANDLER(index)
 {
-    static const char index[] = "<html><head>" \
-        "<style>" \
-        "body{background:black;height:100\x25;text-align:center;" \
-        "border:0;margin:0;padding:0}" \
-        "</style>" \
+    static const char index[] = "<html>\n"
+        "<head>\n" \
+        "<style>\n" \
+        "body {\n" \
+        "   background:black;\n" \
+        "   height:100\x25;\n" \
+        "   text-align:center;\n" \
+        "   border:0;\n" \
+        "   margin:0;\n" \
+        "   padding:0;\n" \
+        "}\n" \
+        "img {\n"
+        "   image-rendering: pixelated;\n" \
+        "   image-rendering: -moz-crisp-edges;\n" \
+        "   image-rendering: crisp-edges;\n" \
+        "}\n" \
+        "</style>\n" \
         "<title>Lwan Clock Sample</title>\n"
-        "</head>" \
-        "<body>" \
-        "<table height=\"100\x25\" width=\"100\x25\">" \
-        "<tr><td align=\"center\" valign=\"middle\">" \
-        "<div><img style=\"image-rendering: pixelated; "\
-        "image-rendering: -moz-crisp-edges; "\
-        "image-rendering: crisp-edges;\" " \
-        "src=\"/clock.gif\" width=\"200px\"></div>" \
-        "</td></tr></table>" \
-        "</body>" \
+        "</head>\n" \
+        "<body>\n" \
+        "  <table height=\"100\x25\" width=\"100\x25\">\n" \
+        "  <tr>\n" \
+        "    <td align=\"center\" valign=\"middle\">\n" \
+        "    <div><img src=\"/clock.gif\" width=\"200px\"></div>\n" \
+        "    </td>\n" \
+        "  </tr></table>\n" \
+        "</body>\n" \
         "</html>";
     response->mime_type = "text/html";
     lwan_strbuf_set_static(response->buffer, index, sizeof(index) - 1);
