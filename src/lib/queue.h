@@ -11,7 +11,7 @@
 struct spsc_queue {
     size_t size;
     size_t mask;
-    void **buffer;
+    int *buffer;
     char cache_line_pad0[64 - sizeof(size_t) + sizeof(size_t) + sizeof(void *)];
 
     size_t head;
@@ -25,6 +25,6 @@ int spsc_queue_init(struct spsc_queue *q, size_t size);
 
 void spsc_queue_free(struct spsc_queue *q);
 
-bool spsc_queue_push(struct spsc_queue *q, void *input);
+bool spsc_queue_push(struct spsc_queue *q, int input);
 
-void *spsc_queue_pop(struct spsc_queue *q);
+bool spsc_queue_pop(struct spsc_queue *q, int *output);

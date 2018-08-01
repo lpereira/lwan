@@ -56,15 +56,11 @@
 int
 spsc_queue_init(struct spsc_queue *q, size_t size)
 {
-    int ret;
     if (size == 0)
         return -EINVAL;
 
     size = lwan_nextpow2(size);
-    ret = posix_memalign((void **)&q->buffer, sizeof(void *), (1 + size) * sizeof(void *));
-    if (ret < 0)
-        return -errno;
-
+    q->buffer = calloc(1 + size, sizeof(int));
     if (!q->buffer)
         return -errno;
 
@@ -84,7 +80,7 @@ spsc_queue_free(struct spsc_queue *q)
 }
 
 bool
-spsc_queue_push(struct spsc_queue *q, void *input)
+spsc_queue_push(struct spsc_queue *q, int input)
 {
     const size_t head = ATOMIC_LOAD(&q->head, ATOMIC_RELAXED);
 
@@ -98,18 +94,18 @@ spsc_queue_push(struct spsc_queue *q, void *input)
     return false;
 }
 
-void *
-spsc_queue_pop(struct spsc_queue *q)
+bool
+spsc_queue_pop(struct spsc_queue *q, int *output)
 {
     const size_t tail = ATOMIC_LOAD(&q->tail, ATOMIC_RELAXED);
 
     if (((ATOMIC_LOAD(&q->head, ATOMIC_ACQUIRE) - tail) & q->mask) >= 1) {
-        void *output = q->buffer[tail & q->mask];
+        *output = q->buffer[tail & q->mask];
 
         ATOMIC_STORE(&q->tail, tail + 1, ATOMIC_RELEASE);
 
-        return output;
+        return true;
     }
 
-    return NULL;
+    return false;
 }

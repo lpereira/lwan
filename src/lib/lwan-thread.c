@@ -323,15 +323,15 @@ static void accept_nudge(int pipe_fd,
                          struct timeouts *wheel,
                          int epoll_fd)
 {
-    void *new_fd;
     uint64_t event;
+    int new_fd;
 
     if (read(pipe_fd, &event, sizeof(event)) < 0) {
         return;
     }
 
-    while ((new_fd = spsc_queue_pop(pending_fds))) {
-        struct lwan_connection *conn = &conns[(int)(intptr_t)new_fd];
+    while (spsc_queue_pop(pending_fds, &new_fd)) {
+        struct lwan_connection *conn = &conns[new_fd];
 
         spawn_coro(conn, switcher, dq);
         update_epoll_flags(dq, conn, epoll_fd, CONN_CORO_MAY_RESUME);
@@ -543,7 +543,7 @@ void lwan_thread_add_client(struct lwan_thread *t, int fd)
     }
 
     do {
-        bool pushed = spsc_queue_push(&t->pending_fds, (void *)(intptr_t)fd);
+        bool pushed = spsc_queue_push(&t->pending_fds, fd);
 
         if (LIKELY(pushed))
             return;
