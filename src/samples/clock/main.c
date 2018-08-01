@@ -31,7 +31,9 @@ static const uint8_t font[10][5] = {
     [9] = {7, 5, 7, 1, 7},
 };
 
-static const uint16_t width = 24 + 6;
+static const uint16_t width = 3 * 6 /* 6*3px wide digits */ +
+                              3 * 1 /* 3*1px wide decimal digit space */ +
+                              3 * 2 /* 2*3px wide minutes+seconds dots */;
 static const uint16_t height = 5;
 
 static void destroy_gif(void *data)
