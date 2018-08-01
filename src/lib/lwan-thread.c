@@ -517,25 +517,40 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
         lwan_status_critical("Could not initialize pending fd queue");
 }
 
-void lwan_thread_add_client(struct lwan_thread *t, int fd)
-{
-    struct epoll_event event = {.events = events_by_write_flag[1]};
-
-    t->lwan->conns[fd] = (struct lwan_connection){.thread = t};
-
-    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0))
-        lwan_status_perror("epoll_ctl");
-
-    if (!spsc_queue_push(&t->pending_fds, (void *)(intptr_t)fd))
-        lwan_status_error("spsc_queue_push");
-}
-
 void lwan_thread_nudge(struct lwan_thread *t)
 {
     uint64_t event = 1;
 
     if (UNLIKELY(write(t->pipe_fd[1], &event, sizeof(event)) < 0))
         lwan_status_perror("write");
+}
+
+void lwan_thread_add_client(struct lwan_thread *t, int fd)
+{
+    struct epoll_event event = {.events = events_by_write_flag[1]};
+    int i = 0;
+
+    t->lwan->conns[fd] = (struct lwan_connection){.thread = t};
+
+    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
+        lwan_status_perror("EPOLL_CTL_ADD failed");
+        goto drop_connection;
+    }
+
+    do {
+        bool pushed = spsc_queue_push(&t->pending_fds, (void *)(intptr_t)fd);
+
+        if (LIKELY(pushed))
+            return;
+
+        /* Queue is full; nudge the thread to consume it. */
+        lwan_thread_nudge(t);
+    } while (i++ < 10);
+
+drop_connection:
+    lwan_status_error("Dropping connection %d", fd);
+    /* FIXME: send "busy" response now, even without receiving request? */
+    close(fd);
 }
 
 void lwan_thread_init(struct lwan *l)
