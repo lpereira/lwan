@@ -660,7 +660,7 @@ wait_herd(void)
 {
     struct pollfd fds = { .fd = (int)main_socket, .events = POLLIN };
 
-    return poll(&fds, 1, -1) == 1;
+    return poll(&fds, 1, -1) > 0;
 }
 
 enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
@@ -723,7 +723,9 @@ lwan_main_loop(struct lwan *l)
     lwan_status_info("Ready to serve");
 
     while (LIKELY(main_socket >= 0)) {
-        if (UNLIKELY(accept_herd(l, &cores) == HERD_SHUTDOWN))
+        enum herd_accept ha = accept_herd(l, &cores);
+
+        if (UNLIKELY(ha > HERD_MORE))
             break;
 
         if (LIKELY(cores)) {
