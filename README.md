@@ -283,3 +283,12 @@ in no particular order.  Contributions are appreciated:
 
 > "For Round 10, Lwan has taken the crown" --
 > [TechEmpower](https://www.techempower.com/blog/2015/04/21/framework-benchmarks-round-10/)
+
+> "Jeez this is amazing. Just end to end, rock solid engineering. (...) But that sells this work short."
+> [kjeetgill](https://news.ycombinator.com/item?id=17548983)
+
+> "I am only a spare time C coder myself and was surprised that I can follow the code. Nice!"
+> [cntlzw](https://news.ycombinator.com/item?id=17550319)
+
+> "Impressive all and all, even more for being written in (grokkable!) C. Nice work."
+> [tpaschalis](https://news.ycombinator.com/item?id=17550961)
