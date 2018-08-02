@@ -76,3 +76,5 @@ const char *lwan_lua_state_last_error(lua_State *L);
 #  define SECTION_START(name_) __start_ ## name_[]
 #  define SECTION_END(name_) __stop_ ## name_[]
 #endif
+
+extern clockid_t monotonic_clock_id;

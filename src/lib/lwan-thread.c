@@ -49,21 +49,6 @@ static const uint32_t events_by_write_flag[] = {
     EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
 };
 
-static clockid_t monotonic_clock_id;
-
-__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
-{
-#ifdef CLOCK_MONOTONIC_COARSE
-    struct timespec ts;
-
-    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts)) {
-        monotonic_clock_id = CLOCK_MONOTONIC_COARSE;
-        return;
-    }
-#endif
-    monotonic_clock_id = CLOCK_MONOTONIC;
-}
-
 static inline int death_queue_node_to_idx(struct death_queue *dq,
                                           struct lwan_connection *conn)
 {

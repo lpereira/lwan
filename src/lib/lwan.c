@@ -43,6 +43,9 @@
 #include "lwan-lua.h"
 #endif
 
+/* See detect_fastest_monotonic_clock() */
+clockid_t monotonic_clock_id = CLOCK_MONOTONIC;
+
 static const struct lwan_config default_config = {
     .listener = "localhost:8080",
     .keep_alive_timeout = 15,
@@ -765,3 +768,13 @@ lwan_nextpow2(size_t number)
 
     return number + 1;
 }
+
+#ifdef CLOCK_MONOTONIC_COARSE
+__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
+{
+    struct timespec ts;
+
+    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts))
+        monotonic_clock_id = CLOCK_MONOTONIC_COARSE;
+}
+#endif

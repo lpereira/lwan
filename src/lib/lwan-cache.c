@@ -74,26 +74,6 @@ struct cache {
 };
 
 static bool cache_pruner_job(void *data);
-static clockid_t clock_id;
-
-__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
-{
-#ifdef CLOCK_MONOTONIC_COARSE
-    struct timespec ts;
-
-    if (!clock_gettime(CLOCK_MONOTONIC_COARSE, &ts)) {
-        clock_id = CLOCK_MONOTONIC_COARSE;
-        return;
-    }
-#endif
-    clock_id = CLOCK_MONOTONIC;
-}
-
-static ALWAYS_INLINE void clock_monotonic_gettime(struct timespec *ts)
-{
-    if (UNLIKELY(clock_gettime(clock_id, ts) < 0))
-        lwan_status_perror("clock_gettime");
-}
 
 struct cache *cache_create(cache_create_entry_cb create_entry_cb,
                              cache_destroy_entry_cb destroy_entry_cb,
@@ -231,7 +211,10 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
         struct timespec time_to_die;
-        clock_monotonic_gettime(&time_to_die);
+
+        if (UNLIKELY(clock_gettime(monotonic_clock_id, &time_to_die) < 0))
+            lwan_status_critical("clock_gettime");
+
         entry->time_to_die = time_to_die.tv_sec + cache->settings.time_to_live;
 
         if (LIKELY(!pthread_rwlock_wrlock(&cache->queue.lock))) {
@@ -312,7 +295,11 @@ static bool cache_pruner_job(void *data)
         goto end;
     }
 
-    clock_monotonic_gettime(&now);
+    if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0)) {
+        lwan_status_perror("clock_gettime");
+        goto end;
+    }
+
     list_for_each_safe(&queue, node, next, entries) {
         char *key = node->key;
 
