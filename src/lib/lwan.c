@@ -200,29 +200,7 @@ static void parse_listener_prefix(struct config *c, struct config_line *l,
     while (config_read_line(c, l)) {
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (streq(l->key, "module")) {
-                if (module) {
-                    config_error(c, "Module already specified");
-                    goto out;
-                }
-                module = find_module(l->value);
-                if (!module) {
-                    config_error(c, "Could not find module \"%s\"", l->value);
-                    goto out;
-                }
-            } else if (streq(l->key, "handler")) {
-                if (handler) {
-                    config_error(c, "Handler already specified");
-                    goto out;
-                }
-                handler = find_handler(l->value);
-                if (!handler) {
-                    config_error(c, "Could not find handler \"%s\"", l->value);
-                    goto out;
-                }
-            } else {
-                hash_add(hash, strdup(l->key), strdup(l->value));
-            }
+            hash_add(hash, strdup(l->key), strdup(l->value));
 
             break;
         case CONFIG_LINE_TYPE_SECTION:
@@ -245,15 +223,6 @@ static void parse_listener_prefix(struct config *c, struct config_line *l,
     goto out;
 
 add_map:
-    if (!module && !handler) {
-        config_error(c, "Missing module or handler");
-        goto out;
-    }
-    if (module && handler) {
-        config_error(c, "Handler and module are mutually exclusive");
-        goto out;
-    }
-
     if (handler) {
         url_map.handler = handler;
         url_map.flags |= HANDLER_PARSE_MASK | HANDLER_DATA_IS_HASH_TABLE;
@@ -324,11 +293,6 @@ static void parse_listener(struct config *c, struct config_line *l,
             config_error(c, "Expecting prefix section");
             return;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(l->key, "prefix")) {
-                parse_listener_prefix(c, l, lwan, NULL, NULL);
-                continue;
-            }
-
             if (l->key[0] == '&') {
                 l->key++;
 
