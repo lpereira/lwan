@@ -243,9 +243,6 @@ rewrite_handle_request(struct lwan_request *request,
     char final_url[PATH_MAX];
     struct pattern *p;
 
-    if (UNLIKELY(!pd))
-        return HTTP_INTERNAL_ERROR;
-
     LWAN_ARRAY_FOREACH(&pd->patterns, p) {
         struct str_find sf[MAXCAPTURES];
         const char *expanded = NULL;

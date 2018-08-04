@@ -182,9 +182,6 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
 {
     struct lwan_lua_priv *priv = instance;
 
-    if (UNLIKELY(!priv))
-        return HTTP_INTERNAL_ERROR;
-
     struct cache *cache = get_or_create_cache(priv);
     if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;

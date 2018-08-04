@@ -245,7 +245,7 @@ static void parse_listener_prefix(struct config *c, struct config_line *l,
     goto out;
 
 add_map:
-    if (module == handler && !handler) {
+    if (!module && !handler) {
         config_error(c, "Missing module or handler");
         goto out;
     }
@@ -263,6 +263,10 @@ add_map:
         hash = NULL;
     } else if (module && module->create_from_hash && module->handle_request) {
         url_map.data = module->create_from_hash(prefix, hash);
+        if (!url_map.data) {
+            config_error(c, "Could not create module instance");
+            goto out;
+        }
 
         if (module->parse_conf && !module->parse_conf(url_map.data, isolated)) {
             const char *msg = config_last_error(isolated);

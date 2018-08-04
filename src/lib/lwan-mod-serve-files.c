@@ -1050,33 +1050,32 @@ static enum lwan_http_status
 serve_files_handle_request(struct lwan_request *request,
                            struct lwan_response *response, void *instance)
 {
-    enum lwan_http_status return_status = HTTP_NOT_FOUND;
     struct serve_files_priv *priv = instance;
+    enum lwan_http_status return_status;
+    struct file_cache_entry *fce;
     struct cache_entry *ce;
-
-    if (UNLIKELY(!priv)) {
-        return_status = HTTP_INTERNAL_ERROR;
-        goto fail;
-    }
 
     ce = cache_coro_get_and_ref_entry(priv->cache, request->conn->coro,
                                       request->url.value);
-    if (LIKELY(ce)) {
-        struct file_cache_entry *fce = (struct file_cache_entry *)ce;
-
-        if (client_has_fresh_content(request, fce->last_modified.integer)) {
-            return_status = HTTP_NOT_MODIFIED;
-        } else {
-            response->mime_type = fce->mime_type;
-            response->stream.callback = fce->funcs->serve;
-            response->stream.data = ce;
-            response->stream.priv = priv;
-
-            return HTTP_OK;
-        }
+    if (UNLIKELY(!ce)) {
+        return_status = HTTP_NOT_FOUND;
+        goto out;
     }
 
-fail:
+    fce = (struct file_cache_entry *)ce;
+    if (client_has_fresh_content(request, fce->last_modified.integer)) {
+        return_status = HTTP_NOT_MODIFIED;
+        goto out;
+    }
+
+    response->mime_type = fce->mime_type;
+    response->stream.callback = fce->funcs->serve;
+    response->stream.data = ce;
+    response->stream.priv = priv;
+
+    return HTTP_OK;
+
+out:
     response->stream.callback = NULL;
     return return_status;
 }
