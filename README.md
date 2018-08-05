@@ -112,12 +112,12 @@ mutex.
 
 The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
 a version suitable for debugging purposes.  This version can be used under
-Valgrind *(if its headers are present)*, is built with Undefined Behavior
-Sanitizer, and includes debugging messages that are stripped in the release
-version.  Debugging messages are printed for each and every request.
+Valgrind *(if its headers are present)* and includes debugging messages that
+are stripped in the release version.  Debugging messages are printed for
+each and every request.
 
-Which sanitizer will be used in a debug build can be selected by passing the
-following arguments to the CMake invocation line:
+On debug builds, sanitizers can be enabled.  To select which one to build Lwan
+with, specify one of the following options to the CMake invocation line:
 
  - `-DSANITIZER=ubsan` selects the Undefined Behavior Sanitizer.
  - `-DSANITIZER=address` selects the Address Sanitizer.
@@ -164,10 +164,128 @@ the `./wwwroot` directory. Lwan will listen on port 8080 on all interfaces.
 
 Lwan will detect the number of CPUs, will increase the maximum number of
 open file descriptors and generally try its best to autodetect reasonable
-settings for the environment it's running on.
+settings for the environment it's running on.  Many of these settings can
+be tweaked in the configuration file, but it's usually a good idea to not
+mess with them.
 
 Optionally, the `lwan` binary can be used for one-shot static file serving
 without any configuration file. Run it with `--help` for help on that.
+
+Built-in modules
+----------------
+
+A list of built-in modules can be obtained by executing Lwan with the `-m`
+command-line argument.
+
+### Built-in modules
+
+A list of built-in modules can be obtained by executing Lwan with the `-m`
+command-line argument.  The following is some basic documentation for the modules shipped with Lwan.
+
+Note that, for options in configuration files, `this_key` is equivalent to `this key`.
+
+#### File Serving
+
+The `serve_files` module will serve static files, and automatically create
+directory indices or serve pre-compressed files.  It'll generally try its
+best to serve files in the fastest way possible according to some heuristics.
+
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `path`                     | `str`  | `NULL`       | Path to a directory containing files to be served |
+| `index_path`               | `str`  | `index.html` | File name to serve as an index for a directory |
+| `serve_precompressed_path` | `bool` | `true`       | If $FILE.gz exists, is smaller and newer than $FILE, and the client accepts `gzip` encoding, transfer it |
+| `auto_index`               | `bool` | `true`       | Generate a directory list automatically if no `index_path` file present.  Otherwise, yields 404 |
+| `directory_list_template`  | `str`  | `NULL`       | Path to a Mustache template for the directory list; by default, use an internal template |
+
+#### Lua
+
+The `lua` module will allow requests to be serviced by scripts written in
+the [Lua](https://www.lua.org/) programming language.  Although the
+functionality provided by this module is quite spartan, it's able to run
+frameworks such as [Sailor](https://github.com/lpereira/sailor-hello-lwan).
+
+Scripts can be served from files or embedded in the configuration file, and
+the results of loading them, the standard Lua modules, and (optionally, if
+using LuaJIT) optimizing the code will be cached for a while.  Each I/O
+thread in Lwan will create an instance of a Lua VM (i.e.  one `lua_State`
+struct for every I/O thread), and each Lwan coroutine will spawn a Lua
+thread (with `lua_newthread()`) per request.  Because of this, Lua scripts
+can't use global variables, as they may be not only serviced by different
+threads, but the state will be available only for the amount of time
+specified in the `cache_period` configuration option.
+
+There's no need to have one instance of the Lua module for each endpoint; a
+single script, embeded in the configuration file or otherwise, can service
+many different endpoints.  Scripts are supposed to implement functions with
+the following signature: `handle_${METHOD}_${ENDPOINT}(req)`, where
+`${METHOD}` can be a HTTP method (i.e.  `get`, `post`, `head`, etc.), and
+`${ENDPOINT}` is the desired endpoint to be handled by that function.  The
+special `${ENDPOINT}` `root` can be specified to act as a catchall.  The
+`req` parameter points to a metatable that contains methods to obtain
+information from the request, or to set the response, as seen below:
+
+   - `req:query_param(param)` returns the query parameter (from the query string) with the key `param`, or `nil` if not found
+   - `req:post_param(param)` returns the post parameter (only for `${POST}` handlers) with the key `param`, or `nil` if not found
+   - `req:set_response(str)` sets the response to the string `str`
+   - `req:say(str)` sends a response chunk (using chunked encoding in HTTP)
+   - `req:send_event(event, str)` sends an event (using server-sent events)
+   - `req:cookie(param)` returns the cookie named `param`, or `nil` is not found
+   - `req:set_headers(tbl)` sets the response headers from the table `tbl`; a header may be specified multiple times by using a table, rather than a string, in the table value (`{'foo'={'bar', 'baz'}}`); must be called before sending any response with `say()` or `send_event()`
+   - `req:sleep(ms)` pauses the current handler for the specified amount of milliseconds
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default_type` | `str` | `text/plain` | Default MIME-Type for responses |
+| `script_file` | `str` | `NULL` | Path to Lua script|
+| `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
+| `script` | `str` | `NULL` | Inline lua script |
+
+Rewrite
+-------
+
+The `rewrite` module will match
+[patterns](https://man.openbsd.org/patterns.7) in URLs and give the option
+to either redirect to another URL, or rewrite the request in a way that Lwan
+will handle the request as if it were made in that way originally.  The
+patterns are a special kind of regular expressions, forked from Lua 5.3.1,
+that do not contain backreferences and other features that could create
+denial-of-service issues in Lwan.  The new URL can be specified using a
+simple text substitution syntax, or use Lua scripts; Lua scripts will
+contain the same metamethods available in the `req` metatable provided by
+the Lua module, so it can be quite powerful.
+
+Each instance of the rewrite module will require a `pattern` and the action
+to execute when such pattern is matched.  Patterns are evaluated in the
+order they appear in the configuration file, and are specified using nested
+sections in the configuration file.  For instance, consider the following
+example, where two patterns are specified:
+
+```
+rewrite /some/base/endpoint {
+    pattern posts/(%d+) {
+        rewrite_as = /cms/view-post?id=%1
+    }
+    pattern imgur/(%a+)/(%g+) {
+        redirect_to = https://i.imgur.com/%2.%1
+    }
+}
+```
+
+This example defines two patterns, one providing a nicer URL that's hidden
+from the user, and another providing a dufferent way to obtain a direct link
+to an image hosted on a popular image hosting service.
+
+The value of `rewrite_as` or `redirect_to` can be Lua scripts as well; in
+which case, the option `expand_with_lua` must be set to `true`, and, instead
+of using the simple text substitution syntax as the example above, a
+function named `handle_rewrite(req, captures)` has to be defined instead.
+The `req` parameter is documented in the Lua module section; the `captures`
+parameter is a table containing all the captures, in order.  This function
+returns the new URL to redirect to.
+
+This module has no options by itself.
 
 Portability
 -----------
