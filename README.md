@@ -242,8 +242,7 @@ information from the request, or to set the response, as seen below:
 | `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
 | `script` | `str` | `NULL` | Inline lua script |
 
-Rewrite
--------
+#### Rewrite
 
 The `rewrite` module will match
 [patterns](https://man.openbsd.org/patterns.7) in URLs and give the option
@@ -265,17 +264,21 @@ example, where two patterns are specified:
 ```
 rewrite /some/base/endpoint {
     pattern posts/(%d+) {
+        # Matches /some/base/endpointposts/2600
         rewrite_as = /cms/view-post?id=%1
     }
     pattern imgur/(%a+)/(%g+) {
+        # Matches /some/base/endpointimgur/gif/mpT94Ld
         redirect_to = https://i.imgur.com/%2.%1
     }
 }
 ```
 
 This example defines two patterns, one providing a nicer URL that's hidden
-from the user, and another providing a dufferent way to obtain a direct link
-to an image hosted on a popular image hosting service.
+from the user, and another providing a different way to obtain a direct link
+to an image hosted on a popular image hosting service (i.e.  requesting
+`/some/base/endpoint/imgur/mp4/4kOZNYX` will redirect directly to a resource
+in the Imgur service).
 
 The value of `rewrite_as` or `redirect_to` can be Lua scripts as well; in
 which case, the option `expand_with_lua` must be set to `true`, and, instead
@@ -285,7 +288,48 @@ The `req` parameter is documented in the Lua module section; the `captures`
 parameter is a table containing all the captures, in order.  This function
 returns the new URL to redirect to.
 
-This module has no options by itself.
+This module has no options by itself.  Options are specified in each and
+every pattern.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `rewrite_as` | `str` | `NULL` | Rewrite the URL following this pattern |
+| `redirect_to` | `str` | `NULL` | Redirect to a new URL following this pattern |
+| `expand_with_lua` | `bool` | `false` | Use Lua scripts to redirect to or rewrite a request |
+
+`redirect_to` and `rewrite_as` are mutually exclusive, and one of them must be
+specified at least.
+
+#### Redirect
+
+The `redirect` module will, as it says in the tin, generate a `301
+Moved permanently` response, according to the options specified in its
+configuration.  Generally, the `rewrite` module should be used instead
+as it packs more features; however, this module serves also as an
+example of how to write Lwan modules (weighing at ~40 lines of code).
+
+If the `to` option is not specified, it always generates a `500
+Internal Server Error` response.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `to` | `str` | `NULL` | The location to redirect to |
+
+#### Response
+
+The `response` module will generate an artificial response of any HTTP code.
+In addition to also serving as an example of how to write a Lwan module,
+it can be used to carve out voids from other modules (e.g. generating a 
+`405 Not Allowed` response for files in `/.git`, if `/` is served with
+the `serve_files` module).
+
+If the supplied `code` falls outside the response codes known by Lwan,
+a `404 Not Found` error will be sent instead.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `code` | `int` | `999` | A HTTP response code |
+
 
 Portability
 -----------
@@ -298,6 +342,7 @@ For instance, [epoll](https://en.wikipedia.org/wiki/Epoll) has been
 implemented on top of [kqueue](https://en.wikipedia.org/wiki/Kqueue), and
 Linux-only syscalls and GNU extensions have been implemented for the
 supported systems.
+
 
 Performance
 -----------
