@@ -34,9 +34,10 @@ package management tool that's used by your distribution.
 The build system will look for these libraries and enable/link if available.
 
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
- - [TCMalloc](https://github.com/gperftools/gperftools)
- - [jemalloc](http://jemalloc.net/)
  - [Valgrind](http://valgrind.org)
+ - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC=ON` to CMake:
+    - [TCMalloc](https://github.com/gperftools/gperftools)
+    - [jemalloc](http://jemalloc.net/)
  - To run test suite:
     - [Python](https://www.python.org/) (2.6+) with Requests
     - [Lua 5.1](http://www.lua.org)
@@ -121,6 +122,11 @@ following arguments to the CMake invocation line:
  - `-DSANITIZER=ubsan` selects the Undefined Behavior Sanitizer.
  - `-DSANITIZER=address` selects the Address Sanitizer.
  - `-DSANITIZER=thread` selects the Thread Sanitizer.
+
+Alternative memory allocators can be selected as well.  Lwan currently
+supports [TCMalloc](https://github.com/gperftools/gperftools) and
+[jemalloc](http://jemalloc.net/) out of the box.  To use either one of them,
+pass `-DALTERNATIVE_MALLOC=ON` to the CMake invocation line.
 
 ### Tests
 
