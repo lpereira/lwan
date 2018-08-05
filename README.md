@@ -171,18 +171,154 @@ mess with them.
 Optionally, the `lwan` binary can be used for one-shot static file serving
 without any configuration file. Run it with `--help` for help on that.
 
-Built-in modules
+Configuration File
 ----------------
 
+### Format
+
+Lwan uses a familiar `key = value` configuration file syntax.  Comments are
+supported with the `#` character (similar to e.g.  shell scripts, Python,
+and Perl).  Nested sections can be created with curly brackets.  Sections
+can be empty; in this case, curly brackets are optional.
+
+`some_key_name` is equivalent to `some key name` in configuration files (as
+an implementation detail, code reading configuration options will only be
+given the version with underscores).
+
+```
+sound volume = 11 # This one is 1 louder
+
+playlist metal {
+   files = '''
+	/multi/line/strings/are/supported.mp3
+   '''
+}
+
+playlist chiptune {
+   files = """
+	/if/it/starts/with/single/quotes/it/ends/with/single/quotes.mod
+	/but/it/can/use/double/quotes.s3m
+   """
+}
+```
+
+#### Value types
+
+| Type   | Description |
+|--------|-------------|
+| `str`  | Any kind of free-form text, usually application specific |
+| `int`  | Integer number. Range is application specific |
+| `time` | Time interval.  See table below for units |
+| `bool` | Boolean value. See table below for valid values |
+
+#### Time Intervals
+
+Time fields can be specified using multipliers. Multiple can be specified, they're
+just added together; for instance, "1M 1w" specifies "1 month and 1 week".  The following
+table lists all known multipliers:
+
+| Multiplier | Description |
+|------------|-------------|
+| `s`        | Seconds |
+| `m`        | Minutes |
+| `h`        | Hours |
+| `d`        | Days |
+| `w`        | Weeks |
+| `M`        | Months |
+| `y`        | Years |
+
+A number with a multiplier not in this table is ignored; a warning is issued while
+reading the configuration file.  No spaces must exist between the number and its
+multiplier.
+
+#### Boolean Values
+
+Valid values for "true":
+
+    - Any integer number different than 0
+    - `on`
+    - `true`
+    - `yes`
+
+Valid values for "false":
+
+    - 0
+    - `off`
+    - `false`
+    - `no`
+
+### Global Settings
+
+It's generally a good idea to let Lwan decide the best settings for your environment.
+However, not environment is the same, and not all uses can be decided automatically,
+so some configuration options are provided.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `keep alive timeout` | `time`  | `15` | Timeout to keep a connection alive |
+| `quiet` | `bool` | `false` | Set to true to not print any debugging messages. Only effective in release builds. |
+| `reuse port` | `bool` | `false` | Sets `SO_REUSEPORT` to `1` in the master socket |
+| `expires` | `time` | `1M 1w` | Value of the "Expires" header. Default is 1 month and 1 week |
+| `threads` | `int` | `0` | Number of I/O threads. Default (0) is the number of online CPUs |
+| `proxy protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
+| `max post data size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
+
+### Straitjacket
+
+Lwan can drop its privileges to a user in the system, and limit its
+filesystem view with a chroot.  While not bulletproof, this provides a
+first layer of security in the case there's a bug in Lwan.
+
+In order to use this feature, declare a `straitjacket` section, and set
+some options.  This requires Lwan to be executed as `root`.
+
+Although this section can be written anywhere in the file (as long as
+it is a top level declaration), if any directories are open, due to
+e.g.  instantiating the `serve_files` module, Lwan will refuse to
+start.  (This check is only performed on Linux as a safeguard for
+malconfiguration.)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `user` | `str`  | `NULL` | Drop privileges to this user name |
+| `chroot` | `str` | `NULL` | Path to `chroot()` |
+
+### Listeners
+
+In order to specify which interfaces Lwan should listen on, a `listener` section
+must be specified.  Only one listener per Lwan process is accepted at the moment.
+The only parameter to a listener block is the interface address and the port to
+listen on; anything inside a listener section are instances of modules.
+
+The syntax for the listener parameter is `${ADDRESS}:${PORT}`, where `${ADDRESS}`
+can either be `*` (binding to all interfaces), an IPv6 address (if surrounded by
+square brackets), an IPv4 address, or a hostname.  If systemd's socket activation
+is used, `systemd` can be specified as a parameter.
+
+### Routing URLs Using Modules or Handlers
+
+In order to route URLs, Lwan matches the largest common prefix from the request
+URI with a set of prefixes specified in the listener section.  How a request to
+a particular prefix will be handled depends on which handler or module has been
+declared in the listener section.  Handlers and modules are similar internally;
+handlers are merely functions and hold no state, and modules holds state (named
+instance).  Multiple instances of a module can appear in a listener section.
+
+There is no special syntax to attach a prefix to a handler or module; all the
+configuration parser rules apply here.  Use `${NAME} ${PREFIX}` to link the
+`${PREFIX}` prefix path to either a handler named `${NAME}` (if `${NAME}`
+begins with `&`, as with C's "address of" operator), or a module named
+`${NAME}`.  Empty sections can be used here.
+
+Each module will have its specific set of options, and they're listed in the
+next sections.  In addition to configuration options, a special `authorization`
+section can be present in the declaration of a module instance.  Handlers do
+not take any configuration options, but may include the `authorization`
+section.
+
 A list of built-in modules can be obtained by executing Lwan with the `-m`
-command-line argument.
-
-### Built-in modules
-
-A list of built-in modules can be obtained by executing Lwan with the `-m`
-command-line argument.  The following is some basic documentation for the modules shipped with Lwan.
-
-Note that, for options in configuration files, `this_key` is equivalent to `this key`.
+command-line argument.  The following is some basic documentation for the
+modules shipped with Lwan.
 
 #### File Serving
 
@@ -319,7 +455,7 @@ Internal Server Error` response.
 
 The `response` module will generate an artificial response of any HTTP code.
 In addition to also serving as an example of how to write a Lwan module,
-it can be used to carve out voids from other modules (e.g. generating a 
+it can be used to carve out voids from other modules (e.g. generating a
 `405 Not Allowed` response for files in `/.git`, if `/` is served with
 the `serve_files` module).
 
@@ -330,6 +466,18 @@ a `404 Not Found` error will be sent instead.
 |--------|------|---------|-------------|
 | `code` | `int` | `999` | A HTTP response code |
 
+### Authorization Section
+
+Authorization sections can be declared in any module instance or handler,
+and provides a way to authorize the fulfillment of that request through
+the standard HTTP authorization mechanism.  In order to require authorization
+to access a certain module instance or handler, declare an `authorization`
+section with a `basic` parameter, and set one of its options.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
+| `password file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
 Portability
 -----------
