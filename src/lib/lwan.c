@@ -181,7 +181,8 @@ error:
     free(url_map->authorization.password_file);
 }
 
-static void parse_listener_prefix(struct config *c, struct config_line *l,
+static void parse_listener_prefix(struct config *c,
+                                  struct config_line *l,
                                   struct lwan *lwan,
                                   const struct lwan_module *module,
                                   void *handler)
@@ -201,19 +202,17 @@ static void parse_listener_prefix(struct config *c, struct config_line *l,
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             hash_add(hash, strdup(l->key), strdup(l->value));
-
             break;
+
         case CONFIG_LINE_TYPE_SECTION:
             if (streq(l->key, "authorization")) {
                 parse_listener_prefix_authorization(c, l, &url_map);
-            } else {
-                if (!config_skip_section(c, l)) {
-                    config_error(c, "Could not skip section");
-                    goto out;
-                }
+            } else if (!config_skip_section(c, l)) {
+                config_error(c, "Could not skip section");
+                goto out;
             }
-
             break;
+
         case CONFIG_LINE_TYPE_SECTION_END:
             goto add_map;
         }
@@ -230,7 +229,7 @@ add_map:
         url_map.module = NULL;
 
         hash = NULL;
-    } else if (module && module->create_from_hash && module->handle_request) {
+    } else if (module->create_from_hash && module->handle_request) {
         url_map.data = module->create_from_hash(prefix, hash);
         if (!url_map.data) {
             config_error(c, "Could not create module instance");
@@ -247,8 +246,12 @@ add_map:
         url_map.handler = module->handle_request;
         url_map.flags |= module->flags;
         url_map.module = module;
-    } else {
-        config_error(c, "Invalid handler");
+    } else if (UNLIKELY(!module->create_from_hash)) {
+        config_error(c, "Module isn't prepared to load settings from a file; "
+                        "create_from_hash() method isn't present");
+        goto out;
+    } else if (UNLIKELY(!module->handle_request)) {
+        config_error(c, "Module does not have handle_request() method");
         goto out;
     }
 
