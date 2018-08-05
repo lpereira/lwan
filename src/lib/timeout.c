@@ -91,13 +91,8 @@
  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#if !defined WHEEL_BIT
 #define WHEEL_BIT 6
-#endif
-
-#if !defined WHEEL_NUM
 #define WHEEL_NUM 4
-#endif
 
 #define WHEEL_LEN (1U << WHEEL_BIT)
 #define WHEEL_MAX (WHEEL_LEN - 1)
@@ -117,50 +112,15 @@
 #define clz32(n) __builtin_clz(n)
 #endif
 
-#if WHEEL_BIT == 6
 #define ctz(n) ctz64(n)
 #define clz(n) clz64(n)
 #define fls(n) ((int)(64 - clz64(n)))
-#else
-#define ctz(n) ctz32(n)
-#define clz(n) clz32(n)
-#define fls(n) ((int)(32 - clz32(n)))
-#endif
 
-#if WHEEL_BIT == 6
 #define WHEEL_C(n) UINT64_C(n)
 #define WHEEL_PRIu PRIu64
 #define WHEEL_PRIx PRIx64
 
 typedef uint64_t wheel_t;
-
-#elif WHEEL_BIT == 5
-
-#define WHEEL_C(n) UINT32_C(n)
-#define WHEEL_PRIu PRIu32
-#define WHEEL_PRIx PRIx32
-
-typedef uint32_t wheel_t;
-
-#elif WHEEL_BIT == 4
-
-#define WHEEL_C(n) UINT16_C(n)
-#define WHEEL_PRIu PRIu16
-#define WHEEL_PRIx PRIx16
-
-typedef uint16_t wheel_t;
-
-#elif WHEEL_BIT == 3
-
-#define WHEEL_C(n) UINT8_C(n)
-#define WHEEL_PRIu PRIu8
-#define WHEEL_PRIx PRIx8
-
-typedef uint8_t wheel_t;
-
-#else
-#error invalid WHEEL_BIT value
-#endif
 
 /* See "Safe, Efficient, and Portable Rotate in C/C++" by John Regehr
  *     http://blog.regehr.org/archives/1063
