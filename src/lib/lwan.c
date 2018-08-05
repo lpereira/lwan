@@ -645,7 +645,7 @@ accept_one(struct lwan *l, uint64_t *cores)
     int fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
-        *cores |= 1ULL<<(unsigned)schedule_client(l, fd);
+        *cores |= UINT64_C(1)<<(unsigned)schedule_client(l, fd);
 
         return HERD_MORE;
     }
@@ -704,7 +704,7 @@ lwan_main_loop(struct lwan *l)
 
         if (LIKELY(cores)) {
             for (unsigned short t = 0; t < l->thread.count; t++) {
-                if (cores & 1ULL<<t)
+                if (cores & UINT64_C(1)<<t)
                     lwan_thread_nudge(&l->thread.threads[t]);
             }
 
