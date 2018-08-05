@@ -29,7 +29,6 @@
 #include <limits.h> /* CHAR_BIT */
 
 #include <stddef.h> /* NULL */
-#include <stdio.h>  /* FILE fprintf(3) */
 #include <stdlib.h> /* malloc(3) free(3) */
 
 #include <inttypes.h> /* UINT64_C uint64_t */
