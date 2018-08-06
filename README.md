@@ -157,7 +157,7 @@ Running
 -------
 
 Set up the server by editing the provided `lwan.conf`; the format is
-very simple and should be self-explanatory.
+explained in details below.
 
 Configuration files are loaded from the current directory. If no changes
 are made to this file, running Lwan will serve static files located in
@@ -192,6 +192,7 @@ sound volume = 11 # This one is 1 louder
 playlist metal {
    files = '''
 	/multi/line/strings/are/supported.mp3
+	/anything/inside/these/are/stored/verbatim.mp3
    '''
 }
 
@@ -236,23 +237,23 @@ multiplier.
 
 Valid values for "true":
 
-    - Any integer number different than 0
-    - `on`
-    - `true`
-    - `yes`
+ - Any integer number different than 0
+ - `on`
+ - `true`
+ - `yes`
 
 Valid values for "false":
 
-    - 0
-    - `off`
-    - `false`
-    - `no`
+ - 0
+ - `off`
+ - `false`
+ - `no`
 
 ### Global Settings
 
-It's generally a good idea to let Lwan decide the best settings for your environment.
-However, not environment is the same, and not all uses can be decided automatically,
-so some configuration options are provided.
+It's generally a good idea to let Lwan decide the best settings for your
+environment.  However, not every environment is the same, and not all uses
+can be decided automatically, so some configuration options are provided.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -434,8 +435,8 @@ every pattern.
 | `redirect_to` | `str` | `NULL` | Redirect to a new URL following this pattern |
 | `expand_with_lua` | `bool` | `false` | Use Lua scripts to redirect to or rewrite a request |
 
-`redirect_to` and `rewrite_as` are mutually exclusive, and one of them must be
-specified at least.
+`redirect_to` and `rewrite_as` options are mutually exclusive, and one of
+them must be specified at least.
 
 #### Redirect
 
