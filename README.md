@@ -235,19 +235,12 @@ multiplier.
 
 #### Boolean Values
 
-Valid values for "true":
-
- - Any integer number different than 0
- - `on`
- - `true`
- - `yes`
-
-Valid values for "false":
-
- - 0
- - `off`
- - `false`
- - `no`
+| True Values | False Values |
+|-------------|--------------|
+| Any integer number different than 0 | 0 |
+| `on` | `off` |
+| `true` | `false` |
+| `yes` | `no` |
 
 ### Global Settings
 
