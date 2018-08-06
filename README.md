@@ -490,7 +490,7 @@ Lwan tries to follow a consistent coding style throughout the project.  If you'r
 considering contributing a patch to the project, please respect this style by trying
 to match the style of the surrounding code.  In general:
 
- - `global_variables_are_named_like_this`, even though they tend to be rare and, with rare exceptions, marked as `static`
+ - `global_variables_are_named_like_this`, even though they tend to be rare and should be marked as `static` (with rare exceptions)
  - Local variables are usually shorter `local_var`
  - Struct names are often as short as they're descriptive.  `typedef` for structs are rarely used in Lwan
  - Header files should use `#pragma once` instead of the usual include guard hackery
