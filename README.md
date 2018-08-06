@@ -565,16 +565,18 @@ with GPLv2 (e.g. MIT, BSD 3-clause), or public domain code (e.g. CC0)
  - Although the program can be distributed and used as if it were licensed as GPLv3,
 its code must be compatible with GPLv2 as well; no new code can be licensed under versions
 of GPL newer than 2
- - Likewise, licenses that are compatible with GPLv3 but incompatible with GPLv2 (e.g. Apache 2)
-are not suitable for inclusion in Lwan
+ - Likewise, code licensed under licenses compatible with GPLv3 but
+incompatible with GPLv2 (e.g.  Apache 2) are not suitable for inclusion in
+Lwan
  - Even if the license does not specify that credit should be given (e.g. CC0-licensed code),
 please give credit to the original author for that piece of code
  - Contrary to popular belief, it is possible to use a GPL'd piece of code on a server without
 having to share the code for your application.  It is only when the binary of that server is
 shared that source must be available to whoever has that binary.  Merely accessing a Lwan
 server through HTTP does not qualify as having access to the binary program that's running
-on the server.
- - When in doubt, please consult a lawyer that understands free software licensing
+on the server
+ - When in doubt, don't take legal advice from a README file: please consult
+a lawyer that understands free software licensing
 
 Portability
 -----------
