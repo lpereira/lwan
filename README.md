@@ -96,8 +96,9 @@ This will generate a few binaries:
 
  - `src/bin/lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
  - `src/bin/testrunner/testrunner`: Contains code to execute the test suite.
- - `src/samples/freegeoip/freegeoip`: FreeGeoIP sample implementation. Requires SQLite.
+ - `src/samples/freegeoip/freegeoip`: [FreeGeoIP sample implementation](https://freegeoip.lwan.ws). Requires SQLite.
  - `src/samples/techempower/techempower`: Code for the Techempower Web Framework benchmark. Requires SQLite and MySQL libraries.
+ - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a GIF file that always shows the local time.
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
 
