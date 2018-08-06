@@ -486,7 +486,7 @@ considering contributing a patch to the project, please respect this style by tr
 to match the style of the surrounding code.  In general:
 
  - `global_variables_are_named_like_this`, even though they tend to be rare and should be marked as `static` (with rare exceptions)
- - Local variables are usually shorter `local_var`
+ - Local variables are usually shorter, e.g. `local_var`, `i`, `conn`
  - Struct names are often as short as they're descriptive.  `typedef` for structs are rarely used in Lwan
  - Header files should use `#pragma once` instead of the usual include guard hackery
  - Functions that are used between .c files but are not APIs to be exposed to liblwan should have their prototype added to `lwan-private.h`
