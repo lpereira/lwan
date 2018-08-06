@@ -479,6 +479,11 @@ section with a `basic` parameter, and set one of its options.
 Hacking
 -------
 
+Please read this section (and follow it) if you're planning on contributing
+to Lwan.  There's nothing unexpected here; this mostly follows the rules and
+expectations of many other FOSS projects, but every one expects things a
+little bit different from one another.
+
 ### Coding Style
 
 Lwan tries to follow a consistent coding style throughout the project.  If you're
@@ -534,16 +539,18 @@ matter if it is your legal name or a nickname, but it should be enough to credit
 you) and a valid email address.  There's no need to add `Signed-off-by` lines,
 even though it's fine to send commits with them.
 
-If a change is requested in a pull request, you have two choices:
+If a change is requested in a pull request, you have three choices:
 
- - Reply asking for clarification.  Maybe the intentions were not clear enough,
+ - *Reply asking for clarification.*  Maybe the intentions were not clear enough,
 and whoever asked for changes didn't fully understand what you were trying to
 achieve
- - Fix the issue.  When fixing issues found in pull requests, *please* use
+ - *Fix the issue.*  When fixing issues found in pull requests, *please* use
 [interactive rebases](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History) to
-squash or fixup commits; don't add your fixes on top of your tree.  After rewriting
+squash or fixup commits; don't add your fixes on top of your tree.  Do not create
+another pull request just to accomodate the changes. After rewriting
 the history locally, force-push to your PR branch; the PR will update automatically
-with your changes.
+with your changes.  Rewriting the history of development branches is fine, and
+force-pushing them is normal and expected.
 
 It is not enforced, but it is recommended to create smaller commits. How
 commits are split in Lwan is pretty much arbitrary, so please take a look at
