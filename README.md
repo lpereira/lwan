@@ -55,11 +55,13 @@ The build system will look for these libraries and enable/link if available.
  - ArchLinux: `pacman -S cmake zlib`
  - FreeBSD: `pkg install cmake pkgconf`
  - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config`
+ - macOS: `brew install cmake`
 
 #### Build all examples
  - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind`
  - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
  - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
+ - macOS: `brew install cmake mysql-connector-c sqlite lua@5.1 pkg-config`
 
 ### Build commands
 
