@@ -481,6 +481,108 @@ section with a `basic` parameter, and set one of its options.
 | `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
 | `password file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
+Hacking
+-------
+
+## Coding Style
+
+Lwan tries to follow a consistent coding style throughout the project.  If you're
+considering contributing a patch to the project, please respect this style by trying
+to match the style of the surrounding code.  In general:
+
+ - `global_variables_are_named_like_this`, even though they tend to be rare and, with rare exceptions, marked as `static`
+ - Local variables are usually shorter `local_var`
+ - Struct names are often as short as they're descriptive.  `typedef` for structs are rarely used in Lwan
+ - Header files should use `#pragma once` instead of the usual include guard hackery
+ - Functions that are used between .c files but are not APIs to be exposed to liblwan should have their prototype added to `lwan-private.h`
+ - Functions should be short and sweet.  Exceptions may apply
+ - Public functions should be prefixed with `lwan_`
+ - Public types should be prefixed with `lwan_`
+ - Private functions must be static, and can be named without the `lwan_` prefix
+ - Code is indented with 4 spaces; don't use tabs
+ - There's a suggested line break at column 80, but it's not enforced
+ - `/* Old C-style comments are preferred */`
+ - `clang-format` can be used to format the source code in an acceptable way; a `.clang-format` file is provided
+
+## Tests
+
+If modifying well-tested areas of the code (e.g. the event loop, HTTP parser,
+etc.), please add a new integration test and make sure that, before you send a
+pull request, all tests (including the new ones you've sent) are working.
+Tests can be added by modifying `src/scripts/testsuite.py`, and executed by
+either invoking that script directly from the source root, or executing the
+`testsuite` build target.
+
+Some tests will only work on Linux, and won't be executed on other platforms.
+
+## Exporting APIs
+
+The shared object version of `liblwan` on ELF targets (e.g. Linux) will use
+a symbol filter script to hide symbols that are considered private to the
+library.  Please edit `src/lib/liblwan.sym` to add new symbols that should
+be exported to `liblwan.so`.
+
+## Using Git and Pull Requests
+
+Lwan tries to maintain a source history that's as flat as possible, devoid of
+merge commits.  This means that pull requests should be rebased on top of the
+current master before they can be merged; sometimes this can be made
+automatically by the GitHub interface, sometimes they need some manual work to
+fix conflicts.  It is appreciated if the contributor fixes these conflicts when
+asked.
+
+It is advisable to push your changes to your fork on a branch-per-pull request,
+rather than pushing to the `master` branch; the reason is explained below.
+
+Please ensure that Git is configured properly with your name (it doesn't really
+matter if it is your legal name or a nickname, but it should be enough to credit
+you) and a valid email address.  There's no need to add `Signed-off-by` lines,
+even though it's fine to send commits with them.
+
+If a change is requested in a pull request, you have two choices:
+
+ - Reply asking for clarification.  Maybe the intentions were not clear enough,
+and whoever asked for changes didn't fully understand what you were trying to
+achieve
+ - Fix the issue.  When fixing issues found in pull requests, *please* use
+[interactive rebases](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History) to
+squash or fixup commits; don't add your fixes on top of your tree.  After rewriting
+the history locally, force-push to your PR branch; the PR will update automatically
+with your changes.
+
+It is not enforced, but it is recommended to create smaller commits. How
+commits are split in Lwan is pretty much arbitrary, so please take a look at
+the commit history to get the idea on how the division should be made.  Git
+offers a plethora of commands to achieve this result: the already mentioned
+interactive rebase, the `-p` option to `git add`, and `git commit --amend`
+are good examples.
+
+Commit messages should have one line of summary (~72 chars), followed by an
+empty line, followed by paragraphs of 80-lines explaining the change.  The
+paragraphs explaining the changes are usually not necessary if the summary
+is good enough.  Try to [write good commit messages](https://chris.beams.io/posts/git-commit/).
+
+## Licensing
+
+Lwan is licensed under the GNU General Public License, version 2, or (at your option),
+any later version.  Therefore:
+
+ - Code must be either LGPLv2.1, GPLv2, a permissive "copyfree" license that is compatible
+with GPLv2 (e.g. MIT, BSD 3-clause), or public domain code (e.g. CC0)
+ - Although the program can be distributed and used as if it were licensed as GPLv3,
+its code must be compatible with GPLv2 as well; no new code can be licensed under versions
+of GPL newer than 2
+ - Likewise, licenses that are compatible with GPLv3 but incompatible with GPLv2 (e.g. Apache 2)
+are not suitable for inclusion in Lwan
+ - Even if the license does not specify that credit should be given (e.g. CC0-licensed code),
+please give credit to the original author for that piece of code
+ - Contrary to popular belief, it is possible to use a GPL'd piece of code on a server without
+having to share the code for your application.  It is only when the binary of that server is
+shared that source must be available to whoever has that binary.  Merely accessing a Lwan
+server through HTTP does not qualify as having access to the binary program that's running
+on the server.
+ - When in doubt, please consult a lawyer that understands free software licensing
+
 Portability
 -----------
 
@@ -491,8 +593,8 @@ and build support library functions as appropriate.
 For instance, [epoll](https://en.wikipedia.org/wiki/Epoll) has been
 implemented on top of [kqueue](https://en.wikipedia.org/wiki/Kqueue), and
 Linux-only syscalls and GNU extensions have been implemented for the
-supported systems.
-
+supported systems.  [This blog post](https://tia.mat.br/posts/2018/06/28/include_next_and_portability.html)
+explains the details and how `#include_next` is used.
 
 Performance
 -----------
