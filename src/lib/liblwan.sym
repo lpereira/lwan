@@ -27,6 +27,7 @@ global:
     lwan_request_get_post_param;
     lwan_request_get_query_param;
     lwan_request_get_remote_address;
+    lwan_request_sleep;
 
     lwan_response;
     lwan_response_send_chunk;
