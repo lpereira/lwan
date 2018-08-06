@@ -484,7 +484,7 @@ section with a `basic` parameter, and set one of its options.
 Hacking
 -------
 
-## Coding Style
+### Coding Style
 
 Lwan tries to follow a consistent coding style throughout the project.  If you're
 considering contributing a patch to the project, please respect this style by trying
@@ -504,7 +504,7 @@ to match the style of the surrounding code.  In general:
  - `/* Old C-style comments are preferred */`
  - `clang-format` can be used to format the source code in an acceptable way; a `.clang-format` file is provided
 
-## Tests
+### Tests
 
 If modifying well-tested areas of the code (e.g. the event loop, HTTP parser,
 etc.), please add a new integration test and make sure that, before you send a
@@ -515,14 +515,14 @@ either invoking that script directly from the source root, or executing the
 
 Some tests will only work on Linux, and won't be executed on other platforms.
 
-## Exporting APIs
+### Exporting APIs
 
 The shared object version of `liblwan` on ELF targets (e.g. Linux) will use
 a symbol filter script to hide symbols that are considered private to the
 library.  Please edit `src/lib/liblwan.sym` to add new symbols that should
 be exported to `liblwan.so`.
 
-## Using Git and Pull Requests
+### Using Git and Pull Requests
 
 Lwan tries to maintain a source history that's as flat as possible, devoid of
 merge commits.  This means that pull requests should be rebased on top of the
@@ -562,7 +562,7 @@ empty line, followed by paragraphs of 80-lines explaining the change.  The
 paragraphs explaining the changes are usually not necessary if the summary
 is good enough.  Try to [write good commit messages](https://chris.beams.io/posts/git-commit/).
 
-## Licensing
+### Licensing
 
 Lwan is licensed under the GNU General Public License, version 2, or (at your option),
 any later version.  Therefore:
