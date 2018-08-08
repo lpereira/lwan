@@ -58,8 +58,11 @@ struct hash {
 #define STEPS 64
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
 
+static inline unsigned int hash_int_shift_mult(const void *keyptr);
+
 static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
 static unsigned (*hash_str)(const void *key) = murmur3_simple;
+static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
 
 static unsigned int get_random_unsigned(void)
 {
@@ -84,7 +87,7 @@ static unsigned int get_random_unsigned(void)
     return value;
 }
 
-static inline unsigned int hash_int(const void *keyptr)
+static inline unsigned int hash_int_shift_mult(const void *keyptr)
 {
     /* http://www.concentric.net/~Ttwang/tech/inthash.htm */
     unsigned int key = (unsigned int)(long)keyptr;
@@ -99,7 +102,7 @@ static inline unsigned int hash_int(const void *keyptr)
 }
 
 #if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
-static inline unsigned int hash_crc32(const void *keyptr)
+static inline unsigned int hash_str_crc32(const void *keyptr)
 {
     unsigned int hash = odd_constant;
     const char *key = keyptr;
@@ -134,6 +137,12 @@ static inline unsigned int hash_crc32(const void *keyptr)
 
     return hash;
 }
+
+static inline unsigned int hash_int_crc32(const void *keyptr)
+{
+    return __builtin_ia32_crc32si(odd_constant,
+                                  (unsigned int)(uintptr_t)keyptr);
+}
 #endif
 
 __attribute__((constructor)) static void initialize_odd_constant(void)
@@ -146,7 +155,8 @@ __attribute__((constructor)) static void initialize_odd_constant(void)
 #if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
     __builtin_cpu_init();
     if (__builtin_cpu_supports("sse4.2")) {
-        hash_str = hash_crc32;
+        hash_str = hash_str_crc32;
+        hash_int = hash_int_crc32;
     }
 #endif
 }
