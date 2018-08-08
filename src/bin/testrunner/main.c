@@ -156,6 +156,7 @@ LWAN_HANDLER(test_post_big)
 
 LWAN_HANDLER(hello_world)
 {
+    struct lwan_key_value *iter;
     static struct lwan_key_value headers[] = {
         { .key = "X-The-Answer-To-The-Universal-Question", .value = "42" },
         { NULL, NULL }
@@ -176,17 +177,18 @@ LWAN_HANDLER(hello_world)
     lwan_strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
     lwan_strbuf_append_str(response->buffer, "-------\n\n", 0);
 
-    struct lwan_key_value *qs = request->cookies.base.base;
-    for (; qs && qs->key; qs++)
+    LWAN_ARRAY_FOREACH(&request->cookies, iter) {
         lwan_strbuf_append_printf(response->buffer,
-                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
+                    "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
+    }
 
     lwan_strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
     lwan_strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
-    for (qs = request->query_params.base.base; qs && qs->key; qs++)
+    LWAN_ARRAY_FOREACH(&request->query_params, iter) {
         lwan_strbuf_append_printf(response->buffer,
-                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
+                    "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
+    }
 
     if (lwan_request_get_method(request) != REQUEST_METHOD_POST)
         goto end;
@@ -194,9 +196,10 @@ LWAN_HANDLER(hello_world)
     lwan_strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
     lwan_strbuf_append_str(response->buffer, "---------\n\n", 0);
 
-    for (qs = request->post_data.base.base; qs && qs->key; qs++)
+    LWAN_ARRAY_FOREACH(&request->post_data, iter) {
         lwan_strbuf_append_printf(response->buffer,
-                    "Key = \"%s\"; Value = \"%s\"\n", qs->key, qs->value);
+                    "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
+    }
 
 end:
     return HTTP_OK;
