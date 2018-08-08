@@ -218,12 +218,7 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     if (UNLIKELY(size > (unsigned int)sizeof(*hdr)))
         return NULL;
 
-    if (hdr->cmd_ver == LOCAL) {
-        struct sockaddr_in *from = &proxy->from.ipv4;
-        struct sockaddr_in *to = &proxy->to.ipv4;
-
-        from->sin_family = to->sin_family = AF_UNSPEC;
-    } else if (hdr->cmd_ver == PROXY) {
+    if (LIKELY(hdr->cmd_ver == PROXY)) {
         if (hdr->fam == TCP4) {
             struct sockaddr_in *from = &proxy->from.ipv4;
             struct sockaddr_in *to = &proxy->to.ipv4;
@@ -249,6 +244,11 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
         } else {
             return NULL;
         }
+    } else if (hdr->cmd_ver == LOCAL) {
+        struct sockaddr_in *from = &proxy->from.ipv4;
+        struct sockaddr_in *to = &proxy->to.ipv4;
+
+        from->sin_family = to->sin_family = AF_UNSPEC;
     } else {
         return NULL;
     }
