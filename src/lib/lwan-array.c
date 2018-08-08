@@ -90,7 +90,7 @@ void lwan_array_sort(struct lwan_array *a,
                      int (*cmp)(const void *a, const void *b))
 {
     if (LIKELY(a->elements))
-        qsort(a->base, a->elements - 1, element_size, cmp);
+        qsort(a->base, a->elements, element_size, cmp);
 }
 
 static void coro_lwan_array_free(void *data)

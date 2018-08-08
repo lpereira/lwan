@@ -378,11 +378,6 @@ parse_key_values(struct lwan_request *request,
         kv->value = value;
     } while (ptr);
 
-    kv = lwan_key_value_array_append(array);
-    if (UNLIKELY(!kv))
-        goto error;
-    kv->key = kv->value = NULL;
-
     lwan_key_value_array_sort(array, key_value_compare);
 
     return;
@@ -1206,7 +1201,7 @@ value_lookup(const struct lwan_key_value_array *array, const char *key)
         struct lwan_key_value k = { .key = (char *)key };
         struct lwan_key_value *entry;
 
-        entry = bsearch(&k, la->base, la->elements - 1, sizeof(k), key_value_compare);
+        entry = bsearch(&k, la->base, la->elements, sizeof(k), key_value_compare);
         if (LIKELY(entry))
             return entry->value;
     }
