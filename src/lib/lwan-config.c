@@ -70,8 +70,8 @@ struct lexeme {
     } value;
 };
 
-DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 16)
-DEFINE_RING_BUFFER_TYPE(config_ring_buffer, struct config_line, 16)
+DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)
+DEFINE_RING_BUFFER_TYPE(config_ring_buffer, struct config_line, 4)
 
 struct lexer {
     void *(*state)(struct lexer *);
