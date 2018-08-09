@@ -47,6 +47,7 @@
 #include "lwan-array.h"
 #include "lwan-strbuf.h"
 #include "lwan-template.h"
+#include "ringbuffer.h"
 
 /* Define this and build a debug version to have the template
  * chunks printed out after compilation. */
@@ -134,16 +135,13 @@ struct lexeme {
     } value;
 };
 
+DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)
+
 struct lexer {
     void *(*state)(struct lexer *);
     const char *start, *pos, *end;
 
-    struct {
-        struct lexeme lexemes[4];
-        size_t first;
-        size_t last;
-        size_t population;
-    } ring_buffer;
+    struct lexeme_ring_buffer ring_buffer;
 };
 
 struct parser {
@@ -271,27 +269,16 @@ static void symtab_pop(struct parser *parser)
 
 static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
 {
-    assert(lexer->ring_buffer.population <
-           N_ELEMENTS(lexer->ring_buffer.lexemes));
-
-    lexer->ring_buffer.lexemes[lexer->ring_buffer.last] = *lexeme;
-    lexer->ring_buffer.last =
-        (lexer->ring_buffer.last + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
-    lexer->ring_buffer.population++;
-
+    lexeme_ring_buffer_put(&lexer->ring_buffer, lexeme);
     lexer->start = lexer->pos;
 }
 
 static bool consume_lexeme(struct lexer *lexer, struct lexeme **lexeme)
 {
-    if (!lexer->ring_buffer.population)
+    if (lexeme_ring_buffer_empty(&lexer->ring_buffer))
         return false;
 
-    *lexeme = &lexer->ring_buffer.lexemes[lexer->ring_buffer.first];
-    lexer->ring_buffer.first =
-        (lexer->ring_buffer.first + 1) % N_ELEMENTS(lexer->ring_buffer.lexemes);
-    lexer->ring_buffer.population--;
-
+    *lexeme = lexeme_ring_buffer_get_ptr(&lexer->ring_buffer);
     return true;
 }
 
@@ -521,6 +508,7 @@ static void lex_init(struct lexer *lexer, const char *input)
     lexer->state = lex_text;
     lexer->pos = lexer->start = input;
     lexer->end = rawmemchr(input, '\0');
+    lexeme_ring_buffer_init(&lexer->ring_buffer);
 }
 
 static void *unexpected_lexeme(struct lexeme *lexeme)

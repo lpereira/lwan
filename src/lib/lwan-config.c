@@ -37,6 +37,8 @@
 #include "lwan-config.h"
 #include "lwan-strbuf.h"
 
+#include "ringbuffer.h"
+
 enum lexeme_type {
     LEXEME_ERROR,
     LEXEME_STRING,
@@ -68,15 +70,8 @@ struct lexeme {
     } value;
 };
 
-struct lexeme_ring_buffer {
-    struct lexeme lexemes[16];
-    size_t first, last, population;
-};
-
-struct config_ring_buffer {
-    struct config_line items[16];
-    size_t first, last, population;
-};
+DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 16)
+DEFINE_RING_BUFFER_TYPE(config_ring_buffer, struct config_line, 16)
 
 struct lexer {
     void *(*state)(struct lexer *);
@@ -197,52 +192,40 @@ bool config_error(struct config *conf, const char *fmt, ...)
 static bool config_buffer_consume(struct config_ring_buffer *buf,
     struct config_line **line)
 {
-    if (!buf->population)
+    if (config_ring_buffer_empty(buf))
         return false;
 
-    *line = &buf->items[buf->first];
-    buf->first = (buf->first + 1) % 16;
-    buf->population--;
-
+    *line = config_ring_buffer_get_ptr(buf);
     return true;
 }
 
 static bool config_buffer_emit(struct config_ring_buffer *buf,
     struct config_line *line)
 {
-    if (buf->population == 16)
+    if (config_ring_buffer_full(buf))
         return false;
 
-    buf->items[buf->last] = *line;
-    buf->last = (buf->last + 1) % 16;
-    buf->population++;
-
+    config_ring_buffer_put(buf, line);
     return true;
 }
 
 static bool lexeme_buffer_consume(struct lexeme_ring_buffer *buf,
     struct lexeme **lexeme)
 {
-    if (!buf->population)
+    if (lexeme_ring_buffer_empty(buf))
         return false;
 
-    *lexeme = &buf->lexemes[buf->first];
-    buf->first = (buf->first + 1) % 16;
-    buf->population--;
-
+    *lexeme = lexeme_ring_buffer_get_ptr(buf);
     return true;
 }
 
 static bool lexeme_buffer_emit(struct lexeme_ring_buffer *buf,
     struct lexeme *lexeme)
 {
-    if (buf->population == 16)
+    if (lexeme_ring_buffer_full(buf))
         return false;
 
-    buf->lexemes[buf->last] = *lexeme;
-    buf->last = (buf->last + 1) % 16;
-    buf->population++;
-
+    lexeme_ring_buffer_put(buf, lexeme);
     return true;
 }
 
@@ -504,7 +487,7 @@ static void *parse_key_value(struct parser *parser)
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
 
-        if (parser->buffer.population >= 1)
+        if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, '_');
     }
     key_size = lwan_strbuf_get_length(&parser->strbuf);
@@ -572,7 +555,7 @@ static void *parse_section(struct parser *parser)
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
 
-        if (parser->buffer.population >= 1)
+        if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, ' ');
     }
 
@@ -618,7 +601,7 @@ static void *parse_config(struct parser *parser)
         return parse_section;
 
     case LEXEME_LINEFEED:
-        if (parser->buffer.population)
+        if (!lexeme_ring_buffer_empty(&parser->buffer))
             return parse_section_shorthand;
 
         return parse_config;
@@ -704,6 +687,8 @@ struct config *config_open(const char *path)
     config->error_message = NULL;
 
     lwan_strbuf_init(&config->parser.strbuf);
+    config_ring_buffer_init(&config->parser.items);
+    lexeme_ring_buffer_init(&config->parser.buffer);
 
     return config;
 }
