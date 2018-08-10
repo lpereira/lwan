@@ -189,5 +189,58 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
     } while (total_written < count);
 }
 #else
-#error No sendfile() implementation for this platform
+static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
+
+static off_t
+try_pread(struct coro *coro, int fd, void *buffer, size_t len, off_t offset)
+{
+    ssize_t total_read = 0;
+
+    for (int tries = MAX_FAILED_TRIES; tries;) {
+        ssize_t r = pread(fd, buffer, len, offset);
+
+        if (UNLIKELY(r < 0)) {
+            tries--;
+
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                goto try_again;
+            default:
+                goto out;
+            }
+        }
+
+        total_read += r;
+        offset += r;
+        if ((size_t)total_read == len)
+            return offset;
+    try_again:
+        coro_yield(coro, CONN_CORO_MAY_RESUME);
+    }
+
+out:
+    coro_yield(coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
+}
+
+void lwan_sendfile(struct lwan_request *request,
+                   int in_fd,
+                   off_t offset,
+                   size_t count,
+                   const char *header,
+                   size_t header_len)
+{
+    unsigned char buffer[512];
+
+    lwan_send(request, header, header_len, MSG_MORE);
+
+    while (count) {
+        size_t to_read = min_size(count, sizeof(buffer));
+
+        offset = try_pread(request->conn->coro, in_fd, buffer, to_read, offset);
+        lwan_send(request, buffer, to_read, 0);
+        count -= to_read;
+    }
+}
 #endif

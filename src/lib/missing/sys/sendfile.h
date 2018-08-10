@@ -19,6 +19,9 @@
 
 #if defined(__FreeBSD__) || defined(__APPLE__)
 # include <sys/uio.h>
+#elif defined(__OpenBSD__)
+/* OpenBSD has no sendfile(); implement the Lwan wrapper directly in
+ * lwan-io-wrappers.c */
 #else
 # include_next <sys/sendfile.h>
 #endif
