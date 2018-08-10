@@ -386,6 +386,26 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 
     return 0;
 }
+#elif defined(__OpenBSD__)
+int
+proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+{
+    /* FIXME: there doesn't seem to be a way to do this on OpenBSD */
+    if (getpid() != pid) {
+        errno = EACCES;
+
+        return -1;
+    }
+
+    if (buffersize < sizeof("lwan")) {
+        errno = ENOMEM;
+
+        return -1;
+    }
+
+    memcpy(buffer, "lwan", sizeof("lwan"));
+    return 0;
+}
 #elif !defined(__APPLE__)
 #error proc_pidpath() not implemented for this architecture
 #endif
