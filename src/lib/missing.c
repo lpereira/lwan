@@ -191,7 +191,7 @@ clock_gettime(clockid_t clk_id, struct timespec *ts)
 }
 #endif
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if !defined(HAVE_EPOLL)
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>

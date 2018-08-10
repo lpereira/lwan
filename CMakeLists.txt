@@ -84,6 +84,7 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	unistd.h
 )
 check_include_file(sys/auxv.h HAVE_SYS_AUXV)
+check_include_file(sys/epoll.h HAVE_EPOLL)
 check_include_file(alloca.h HAVE_ALLOCA_H)
 if (HAVE_SYS_AUXV)
 	set(CMAKE_EXTRA_INCLUDE_FILES

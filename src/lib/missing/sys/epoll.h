@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if !defined(HAVE_EPOLL)
 #pragma once
 #include <stdint.h>
 
