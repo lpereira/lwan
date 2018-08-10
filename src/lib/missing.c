@@ -191,7 +191,7 @@ clock_gettime(clockid_t clk_id, struct timespec *ts)
 }
 #endif
 
-#if !defined(HAVE_EPOLL)
+#if !defined(HAVE_EPOLL) && defined(HAVE_KQUEUE)
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
@@ -320,6 +320,8 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     hash_free(coalesce);
     return (int)(intptr_t)(ev - events);
 }
+#elif !defined(HAVE_EPOLL)
+#error epoll() not implemented for this platform
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)

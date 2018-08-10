@@ -35,6 +35,7 @@
 #cmakedefine HAVE_REALLOCARRAY
 #cmakedefine HAVE_EVENTFD
 #cmakedefine HAVE_EPOLL
+#cmakedefine HAVE_KQUEUE
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

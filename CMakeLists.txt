@@ -9,6 +9,7 @@ include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(CheckFunctionExists)
 include(CheckIncludeFile)
+include(CheckIncludeFiles)
 include(CodeCoverage)
 include(EnableCFlag)
 include(FindPkgConfig)
@@ -85,6 +86,14 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 )
 check_include_file(sys/auxv.h HAVE_SYS_AUXV)
 check_include_file(sys/epoll.h HAVE_EPOLL)
+check_include_files("sys/time.h;sys/types.h;sys/event.h" HAVE_SYS_EVENT)
+if (HAVE_SYS_EVENT)
+	set(CMAKE_EXTRA_INCLUDE_FILES
+		${CMAKE_EXTRA_INCLUDE_FILES}
+		sys/event.h sys/types.h sys/time.h
+	)
+	check_function_exists(kqueue HAVE_KQUEUE)
+endif ()
 check_include_file(alloca.h HAVE_ALLOCA_H)
 if (HAVE_SYS_AUXV)
 	set(CMAKE_EXTRA_INCLUDE_FILES
