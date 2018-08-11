@@ -388,24 +388,37 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 
     return 0;
 }
-#elif defined(__OpenBSD__)
+#elif defined(HAVE_DLADDR)
+#include <dlfcn.h>
+
 int
 proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
-    /* FIXME: there doesn't seem to be a way to do this on OpenBSD */
+    Dl_info info;
+
     if (getpid() != pid) {
         errno = EACCES;
-
         return -1;
     }
 
-    if (buffersize < sizeof("lwan")) {
+    extern int main();
+    if (dladdr(main, &info)) {
+        if (!info.dli_fname)
+            goto fallback;
+
+        if (buffersize < PATH_MAX - 1)
+            goto fallback;
+
+        if (realpath(info.dli_fname, buffer))
+            return 0;
+    }
+
+fallback:
+    if (strlcpy(buffer, "lwan", buffersize) >= buffersize) {
         errno = ENOMEM;
-
         return -1;
     }
 
-    memcpy(buffer, "lwan", sizeof("lwan"));
     return 0;
 }
 #elif !defined(__APPLE__)

@@ -83,6 +83,7 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	string.h
 	time.h
 	unistd.h
+	dlfcn.h
 )
 check_include_file(sys/auxv.h HAVE_SYS_AUXV)
 check_include_file(sys/epoll.h HAVE_EPOLL)
@@ -117,6 +118,12 @@ check_function_exists(mkostemp HAVE_MKOSTEMP)
 check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
 check_function_exists(pthread_barrier_init HAVE_PTHREADBARRIER)
 check_function_exists(eventfd HAVE_EVENTFD)
+
+# This is available on -ldl in glibc, but some systems (such as OpenBSD)
+# will bundle these in the C library.  This isn't required for glibc anyway,
+# as there's getauxval(), with a fallback to reading the link
+# /proc/self/exe.
+check_function_exists(dladdr HAVE_DLADDR)
 
 if (NOT HAVE_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	list(APPEND ADDITIONAL_LIBRARIES rt)
