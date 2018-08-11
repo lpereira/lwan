@@ -559,6 +559,33 @@ void lwan_thread_init(struct lwan *l)
     for (short i = 0; i < l->thread.count; i++)
         create_thread(l, &l->thread.threads[i]);
 
+#ifdef __x86_64__
+    static_assert(sizeof(struct lwan_connection) == 32,
+                  "Two connections per cache line");
+    /*
+     * Pre-schedule each file descriptor, to reduce some operations in the
+     * fast path.
+     *
+     * Since struct lwan_connection is guaranteed to be 32-byte long, two of
+     * them can fill up a cache line.  This formula will group two connections
+     * per thread in a way that false-sharing is avoided.
+     */
+    l->thread.fd_to_thread_mask =
+        (unsigned int)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
+    l->thread.fd_to_thread =
+        calloc(l->thread.fd_to_thread_mask, sizeof(unsigned int));
+
+    if (!l->thread.fd_to_thread)
+        lwan_status_critical("Could not allocate fd_to_thread array");
+
+    for (unsigned int i = 0; i < l->thread.fd_to_thread_mask; i++) {
+        /* TODO: do not assume the CPU topology */
+        l->thread.fd_to_thread[i] = (i / 2) % l->thread.count;
+    }
+
+    l->thread.fd_to_thread_mask--;
+#endif
+
     pthread_barrier_wait(&l->thread.barrier);
 
     lwan_status_debug("IO threads created and ready to serve");
@@ -592,4 +619,8 @@ void lwan_thread_shutdown(struct lwan *l)
     }
 
     free(l->thread.threads);
+
+#ifdef __x86_64__
+    free(l->thread.fd_to_thread);
+#endif
 }

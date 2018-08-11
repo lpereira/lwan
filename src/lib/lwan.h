@@ -267,7 +267,7 @@ struct lwan_value {
 
 struct lwan_connection {
     /* This structure is exactly 32-bytes on x86-64. If it is changed,
-     * make sure the scheduler (lwan.c) is updated as well. */
+     * make sure the scheduler (lwan-thread.c) is updated as well. */
     enum lwan_connection_flags flags;
     unsigned int time_to_die;
     struct coro *coro;
@@ -390,6 +390,10 @@ struct lwan {
     struct lwan_connection *conns;
 
     struct {
+#ifdef __x86_64__
+        unsigned int *fd_to_thread;
+        unsigned int fd_to_thread_mask;
+#endif
         pthread_barrier_t barrier;
         struct lwan_thread *threads;
         unsigned int max_fd;

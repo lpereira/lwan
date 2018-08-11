@@ -590,25 +590,18 @@ void lwan_shutdown(struct lwan *l)
     lwan_http_authorize_shutdown();
 }
 
-static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
+static ALWAYS_INLINE unsigned int schedule_client(struct lwan *l, int fd)
 {
-    int thread;
+    unsigned int thread;
+
 #ifdef __x86_64__
-    static_assert(sizeof(struct lwan_connection) == 32,
-                  "Two connections per cache line");
-    /* Since struct lwan_connection is guaranteed to be 32-byte long, two of
-     * them can fill up a cache line.  This formula will group two connections
-     * per thread in a way that false-sharing is avoided.  This gives wrong
-     * results when fd=0, but this shouldn't happen (as 0 is either the
-     * standard input or the main socket, but even if that changes,
-     * scheduling will still work).  */
-    thread = ((fd - 1) / 2) % l->thread.count;
+    thread = l->thread.fd_to_thread[(unsigned int)fd & l->thread.fd_to_thread_mask];
 #else
-    static int counter = 0;
+    static unsigned int counter = 0;
     thread = counter++ % l->thread.count;
 #endif
-    struct lwan_thread *t = &l->thread.threads[thread];
-    lwan_thread_add_client(t, fd);
+
+    lwan_thread_add_client(&l->thread.threads[thread], fd);
 
     return thread;
 }
@@ -645,7 +638,7 @@ accept_one(struct lwan *l, uint64_t *cores)
     int fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
-        *cores |= UINT64_C(1)<<(unsigned)schedule_client(l, fd);
+        *cores |= UINT64_C(1)<<schedule_client(l, fd);
 
         return HERD_MORE;
     }
