@@ -23,9 +23,10 @@
 /* Defining a handler like this will make it invisible for configuration
  * files, but it can be referenced by a url_map and will work just the
  * same.  */
-static enum lwan_http_status hello_world(struct lwan_request *request,
+static enum lwan_http_status hello_world(struct lwan_request *request
+                                         __attribute__((unused)),
                                          struct lwan_response *response,
-                                         void *data)
+                                         void *data __attribute__((unused)))
 {
     static const char message[] = "Hello, World!";
 
