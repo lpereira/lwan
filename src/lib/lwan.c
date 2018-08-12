@@ -222,6 +222,8 @@ static void parse_listener_prefix(struct config *c,
     goto out;
 
 add_map:
+    assert((handler && !module) || (!handler && module));
+
     if (handler) {
         url_map.handler = handler;
         url_map.flags |= HANDLER_PARSE_MASK | HANDLER_DATA_IS_HASH_TABLE;
