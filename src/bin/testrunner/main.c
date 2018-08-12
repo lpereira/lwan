@@ -228,14 +228,14 @@ LWAN_HANDLER(sleep)
         diff_ms = (t2.tv_sec - t1.tv_sec) * 1000;
         diff_ms += (t2.tv_nsec - t1.tv_nsec) / 1000000;
 
-        lwan_strbuf_printf(response->buffer, "Returned from sleep. diff_ms = %ld", diff_ms);
+        lwan_strbuf_printf(response->buffer,
+                           "Returned from sleep. diff_ms = %"PRIi64, diff_ms);
     } else {
         lwan_strbuf_set_static(response->buffer, "Did not sleep", 0);
     }
 
     return HTTP_OK;
 }
-
 int
 main()
 {
