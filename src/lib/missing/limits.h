@@ -30,4 +30,9 @@
 # define OPEN_MAX 65535
 #endif
 
+#ifndef OFF_MAX
+#include <sys/types.h>
+# define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
+#endif
+
 #endif /* MISSING_LIMITS_H */
