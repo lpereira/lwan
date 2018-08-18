@@ -188,6 +188,9 @@ can be empty; in this case, curly brackets are optional.
 an implementation detail, code reading configuration options will only be
 given the version with underscores).
 
+Values can contain environment variables. Use the syntax
+`${VARIABLE_NAME}`.
+
 ```
 sound volume = 11 # This one is 1 louder
 
