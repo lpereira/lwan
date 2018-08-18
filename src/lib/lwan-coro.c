@@ -63,8 +63,6 @@ struct coro {
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     unsigned int vg_stack_id;
 #endif
-
-    bool ended;
 };
 
 #if defined(__APPLE__)
@@ -151,7 +149,6 @@ static void
 coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 {
     int return_value = func(coro, data);
-    coro->ended = true;
     coro_yield(coro, return_value);
 }
 #else
@@ -167,7 +164,6 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data);
     "movq  %r15, %rsi\n\t"		/* data = r15 */
     "call  *%rdx\n\t"			/* eax = func(coro, data) */
     "movq  (%rbx), %rsi\n\t"
-    "movb  $1, 0x6c(%rbx)\n\t"		/* coro->ended = true */
     "movl  %eax, 0x68(%rbx)\n\t"	/* coro->yield_value = eax */
     "popq  %rbx\n\t"
     "leaq  0x50(%rsi), %rdi\n\t"	/* get coro context from coro */
@@ -201,8 +197,6 @@ void
 coro_reset(struct coro *coro, coro_function_t func, void *data)
 {
     unsigned char *stack = (unsigned char *)(coro + 1);
-
-    coro->ended = false;
 
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
@@ -278,24 +272,20 @@ ALWAYS_INLINE int
 coro_resume(struct coro *coro)
 {
     assert(coro);
-    assert(coro->ended == false);
 
 #if defined(__x86_64__) || defined(__i386__)
     coro_swapcontext(&coro->switcher->caller, &coro->context);
-    if (!coro->ended)
-        memcpy(&coro->context, &coro->switcher->callee,
-                    sizeof(coro->context));
+    memcpy(&coro->context, &coro->switcher->callee,
+                sizeof(coro->context));
 #else
     coro_context prev_caller;
 
     memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
     coro_swapcontext(&coro->switcher->caller, &coro->context);
-    if (!coro->ended) {
-        memcpy(&coro->context, &coro->switcher->callee,
-                    sizeof(coro->context));
-        memcpy(&coro->switcher->caller, &prev_caller,
-                    sizeof(coro->switcher->caller));
-    }
+    memcpy(&coro->context, &coro->switcher->callee,
+                sizeof(coro->context));
+    memcpy(&coro->switcher->caller, &prev_caller,
+                sizeof(coro->switcher->caller));
 #endif
 
     return coro->yield_value;
@@ -305,7 +295,6 @@ ALWAYS_INLINE int
 coro_resume_value(struct coro *coro, int value)
 {
     assert(coro);
-    assert(coro->ended == false);
 
     coro->yield_value = value;
     return coro_resume(coro);
