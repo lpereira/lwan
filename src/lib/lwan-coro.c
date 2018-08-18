@@ -63,6 +63,8 @@ struct coro {
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     unsigned int vg_stack_id;
 #endif
+
+    unsigned char stack[];
 };
 
 #if defined(__APPLE__)
@@ -196,7 +198,7 @@ coro_deferred_get_generation(const struct coro *coro)
 void
 coro_reset(struct coro *coro, coro_function_t func, void *data)
 {
-    unsigned char *stack = (unsigned char *)(coro + 1);
+    unsigned char *stack = coro->stack;
 
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
@@ -261,7 +263,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     coro_reset(coro, function, data);
 
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
-    char *stack = (char *)(coro + 1);
+    unsigned char *stack = coro->stack;
     coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
 #endif
 
