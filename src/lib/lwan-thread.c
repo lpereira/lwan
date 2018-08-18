@@ -271,13 +271,12 @@ static void death_queue_kill_all(struct death_queue *dq)
 static void update_date_cache(struct lwan_thread *thread)
 {
     time_t now = time(NULL);
-    if (now != thread->date.last) {
-        thread->date.last = now;
 
-        lwan_format_rfc_time(now, thread->date.date);
-        lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
-                             thread->date.expires);
-    }
+    thread->date.last = now;
+
+    lwan_format_rfc_time(now, thread->date.date);
+    lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
+                         thread->date.expires);
 }
 
 static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
@@ -326,13 +325,13 @@ static void accept_nudge(int pipe_fd,
 }
 
 static bool process_pending_timers(struct death_queue *dq,
-                                   struct timeouts *wheel,
+                                   struct lwan_thread *t,
                                    int epoll_fd)
 {
     struct timeout *timeout;
     bool processed_dq_timeout = false;
 
-    while ((timeout = timeouts_get(wheel))) {
+    while ((timeout = timeouts_get(t->wheel))) {
         struct lwan_request *request;
 
         if (timeout == &dq->timeout) {
@@ -350,11 +349,15 @@ static bool process_pending_timers(struct death_queue *dq,
 
     if (processed_dq_timeout) {
         if (death_queue_empty(dq)) {
-            timeouts_del(wheel, &dq->timeout);
+            timeouts_del(t->wheel, &dq->timeout);
             return false;
         }
 
-        timeouts_add(wheel, &dq->timeout, 1000);
+        /* dq timeout expires every 1000ms if there are connections, so
+         * update the date cache at this point as well.  */
+        update_date_cache(t);
+
+        timeouts_add(t->wheel, &dq->timeout, 1000);
         return true;
     }
 
@@ -373,14 +376,12 @@ turn_timer_wheel(struct death_queue *dq, struct lwan_thread *t, int epoll_fd)
     timeouts_update(t->wheel,
                     (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
 
-    update_date_cache(t);
-
     wheel_timeout = timeouts_timeout(t->wheel);
     if (UNLIKELY((int64_t)wheel_timeout < 0))
         return -1;
 
     if (wheel_timeout == 0) {
-        if (process_pending_timers(dq, t->wheel, epoll_fd)) {
+        if (process_pending_timers(dq, t, epoll_fd)) {
             wheel_timeout = timeouts_timeout(t->wheel);
 
             if (!wheel_timeout)
@@ -409,6 +410,8 @@ static void *thread_io_loop(void *data)
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
         lwan_status_critical("Could not allocate memory for events");
+
+    update_date_cache(t);
 
     death_queue_init(&dq, lwan);
 
