@@ -356,7 +356,6 @@ struct lwan_thread {
     struct {
         char date[30];
         char expires[30];
-        time_t last;
     } date;
     struct spsc_queue pending_fds;
     struct timeouts *wheel;

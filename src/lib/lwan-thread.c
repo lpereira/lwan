@@ -272,8 +272,6 @@ static void update_date_cache(struct lwan_thread *thread)
 {
     time_t now = time(NULL);
 
-    thread->date.last = now;
-
     lwan_format_rfc_time(now, thread->date.date);
     lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
                          thread->date.expires);
