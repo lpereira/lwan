@@ -275,20 +275,9 @@ coro_resume(struct coro *coro)
 {
     assert(coro);
 
-#if defined(__x86_64__) || defined(__i386__)
     coro_swapcontext(&coro->switcher->caller, &coro->context);
     memcpy(&coro->context, &coro->switcher->callee,
                 sizeof(coro->context));
-#else
-    coro_context prev_caller;
-
-    memcpy(&prev_caller, &coro->switcher->caller, sizeof(prev_caller));
-    coro_swapcontext(&coro->switcher->caller, &coro->context);
-    memcpy(&coro->context, &coro->switcher->callee,
-                sizeof(coro->context));
-    memcpy(&coro->switcher->caller, &prev_caller,
-                sizeof(coro->switcher->caller));
-#endif
 
     return coro->yield_value;
 }
