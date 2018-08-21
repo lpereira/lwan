@@ -382,28 +382,6 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
     return;
 }
 
-void timeouts_step(struct timeouts *T, reltime_t elapsed)
-{
-    timeouts_update(T, T->curtime + elapsed);
-}
-
-bool timeouts_pending(struct timeouts *T)
-{
-    wheel_t pending = 0;
-    int wheel;
-
-    for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
-        pending |= T->pending[wheel];
-    }
-
-    return !!pending;
-}
-
-bool timeouts_expired(struct timeouts *T)
-{
-    return !list_empty(&T->expired);
-}
-
 /*
  * Calculate the interval before needing to process any timeouts pending on
  * any wheel.

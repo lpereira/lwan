@@ -91,9 +91,6 @@ void timeouts_close(struct timeouts *);
 void timeouts_update(struct timeouts *, timeout_t);
 /* update timing wheel with current absolute time */
 
-void timeouts_step(struct timeouts *, timeout_t);
-/* step timing wheel by relative time */
-
 timeout_t timeouts_timeout(struct timeouts *);
 /* return interval to next required update */
 
@@ -105,11 +102,5 @@ void timeouts_del(struct timeouts *, struct timeout *);
 
 struct timeout *timeouts_get(struct timeouts *);
 /* return any expired timeout (caller should loop until NULL-return) */
-
-bool timeouts_pending(struct timeouts *);
-/* return true if any timeouts pending on timing wheel */
-
-bool timeouts_expired(struct timeouts *);
-/* return true if any timeouts on expired queue */
 
 #endif /* TIMEOUT_H */
