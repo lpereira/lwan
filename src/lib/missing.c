@@ -388,7 +388,7 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 
     return 0;
 }
-#elif defined(HAVE_DLADDR)
+#elif defined(HAVE_DLADDR) && !defined(__APPLE__)
 #include <dlfcn.h>
 
 int
