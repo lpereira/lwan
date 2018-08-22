@@ -61,6 +61,8 @@ struct serve_files_priv {
 
     struct lwan_tpl *directory_list_tpl;
 
+    size_t read_ahead;
+
     bool serve_precompressed_files;
     bool auto_index;
 };
@@ -371,6 +373,16 @@ static bool is_world_readable(mode_t mode)
     return (mode & world_readable) == world_readable;
 }
 
+static void
+try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
+{
+    if (size > priv->read_ahead)
+        size = priv->read_ahead;
+
+    if (LIKELY(size))
+        readahead(fd, 0, size);
+}
+
 static int try_open_compressed(const char *relpath,
                                const struct serve_files_priv *priv,
                                const struct stat *uncompressed,
@@ -403,7 +415,7 @@ static int try_open_compressed(const char *relpath,
                                      (size_t)uncompressed->st_size))) {
         *compressed_sz = (size_t)st.st_size;
 
-        readahead(fd, 0, *compressed_sz);
+        try_readahead(priv, fd, *compressed_sz);
 
         return fd;
     }
@@ -451,7 +463,7 @@ static bool sendfile_init(struct file_cache_entry *ce,
     }
 
     sd->uncompressed.size = (size_t)st->st_size;
-    readahead(sd->uncompressed.fd, 0, sd->uncompressed.size);
+    try_readahead(priv, sd->uncompressed.fd, sd->uncompressed.size);
 
     return true;
 }
@@ -745,6 +757,7 @@ static void *serve_files_create(const char *prefix, void *args)
         settings->index_html ? settings->index_html : "index.html";
     priv->serve_precompressed_files = settings->serve_precompressed_files;
     priv->auto_index = settings->auto_index;
+    priv->read_ahead = settings->read_ahead;
 
     return priv;
 
@@ -770,7 +783,9 @@ static void *serve_files_create_from_hash(const char *prefix,
         .serve_precompressed_files =
             parse_bool(hash_find(hash, "serve_precompressed_files"), true),
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
-        .directory_list_template = hash_find(hash, "directory_list_template")};
+        .directory_list_template = hash_find(hash, "directory_list_template"),
+        .read_ahead = (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
+    };
 
     return serve_files_create(prefix, &settings);
 }
