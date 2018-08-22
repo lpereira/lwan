@@ -417,32 +417,32 @@ static void *thread_io_loop(void *data)
 
     for (;;) {
         int timeout = turn_timer_wheel(&dq, t, epoll_fd);
-        int n_fds;
+        int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
 
-        n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
-        if (LIKELY(n_fds > 0)) {
-            for (struct epoll_event *ep_event = events; n_fds--; ep_event++) {
-                struct lwan_connection *conn;
-
-                if (UNLIKELY(!ep_event->data.ptr)) {
-                    accept_nudge(read_pipe_fd, &t->pending_fds, lwan->conns,
-                                 &dq, &switcher, t->wheel, epoll_fd);
-                    continue;
-                }
-
-                conn = ep_event->data.ptr;
-
-                if (UNLIKELY(ep_event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                    destroy_coro(&dq, conn);
-                    continue;
-                }
-
-                resume_coro_if_needed(&dq, conn, epoll_fd);
-                death_queue_move_to_last(&dq, conn);
-            }
-        } else if (UNLIKELY(n_fds < 0)) {
+        if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)
                 break;
+            continue;
+        }
+
+        for (struct epoll_event *event = events; n_fds--; event++) {
+            struct lwan_connection *conn;
+
+            if (UNLIKELY(!event->data.ptr)) {
+                accept_nudge(read_pipe_fd, &t->pending_fds, lwan->conns,
+                             &dq, &switcher, t->wheel, epoll_fd);
+                continue;
+            }
+
+            conn = event->data.ptr;
+
+            if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                destroy_coro(&dq, conn);
+                continue;
+            }
+
+            resume_coro_if_needed(&dq, conn, epoll_fd);
+            death_queue_move_to_last(&dq, conn);
         }
     }
 
