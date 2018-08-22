@@ -114,7 +114,7 @@ static void death_queue_init(struct death_queue *dq, const struct lwan *lwan)
     dq->time = 0;
     dq->keep_alive_timeout = lwan->config.keep_alive_timeout;
     dq->head.next = dq->head.prev = -1;
-    dq->timeout = (struct timeout) { 0 };
+    dq->timeout = (struct timeout) {};
 }
 
 static ALWAYS_INLINE void destroy_coro(struct death_queue *dq,
