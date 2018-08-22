@@ -31,7 +31,7 @@
 #include "lwan-coro.h"
 
 #ifdef HAVE_VALGRIND
-#include <valgrind/valgrind.h>
+#include <valgrind.h>
 #endif
 
 #if PTHREAD_STACK_MIN <= 16384

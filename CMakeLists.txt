@@ -157,6 +157,8 @@ check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATI
 find_path(VALGRIND_INCLUDE_DIR valgrind.h /usr/include /usr/include/valgrind /usr/local/include /usr/local/include/valgrind)
 if (VALGRIND_INCLUDE_DIR)
 	message(STATUS "Building with Valgrind support")
+	include_directories(${VALGRIND_INCLUDE_DIR})
+
 	set(HAVE_VALGRIND 1)
 else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
