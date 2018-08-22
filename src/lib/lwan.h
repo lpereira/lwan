@@ -367,6 +367,7 @@ struct lwan_thread {
 struct lwan_straitjacket {
     const char *user_name;
     const char *chroot_path;
+    bool drop_capabilities;
 };
 
 struct lwan_config {

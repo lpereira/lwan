@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <grp.h>
 #include <limits.h>
+#include <linux/capability.h>
 #include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -179,7 +180,7 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
     bool got_uid_gid = false;
 
     if (!sj->user_name && !sj->chroot_path)
-        return;
+        goto out;
 
     if (geteuid() != 0)
         lwan_status_critical("Straitjacket requires root privileges");
@@ -195,7 +196,7 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 
         if (chroot(sj->chroot_path) < 0) {
             lwan_status_critical_perror("Could not chroot() to %s",
-                sj->chroot_path);
+                                        sj->chroot_path);
         }
 
         if (chdir("/") < 0)
@@ -207,7 +208,18 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
     if (got_uid_gid) {
         if (!switch_to_user(uid, gid, sj->user_name))
             lwan_status_critical("Could not drop privileges to %s, aborting",
-                sj->user_name);
+                                 sj->user_name);
+    }
+
+out:
+    if (sj->drop_capabilities) {
+        struct __user_cap_header_struct header = {
+            .version = _LINUX_CAPABILITY_VERSION_1
+        };
+        struct __user_cap_data_struct data = {};
+
+        if (capset(&header, &data) < 0)
+            lwan_status_critical_perror("Could not drop capabilities");
     }
 }
 
@@ -216,6 +228,7 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
     struct config_line l;
     char *user_name = NULL;
     char *chroot_path = NULL;
+    bool drop_capabilities = true;
 
     while (config_read_line(c, &l)) {
         switch (l.type) {
@@ -225,6 +238,8 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
                 user_name = strdupa(l.value);
             } else if (streq(l.key, "chroot")) {
                 chroot_path = strdupa(l.value);
+            } else if (streq(l.key, "drop_capabilities")) {
+                drop_capabilities = parse_bool(l.value, true);
             } else {
                 config_error(c, "Invalid key: %s", l.key);
                 return;
@@ -237,6 +252,7 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
             lwan_straitjacket_enforce(&(struct lwan_straitjacket) {
                 .user_name = user_name,
                 .chroot_path = chroot_path,
+                .drop_capabilities = drop_capabilities,
             });
 
             return;

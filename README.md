@@ -282,6 +282,7 @@ malconfiguration.)
 |--------|------|---------|-------------|
 | `user` | `str`  | `NULL` | Drop privileges to this user name |
 | `chroot` | `str` | `NULL` | Path to `chroot()` |
+| `drop_capabilities` | `bool` | `true` | Drop all capabilities with capset(2). Only effective under Linux. |
 
 ### Listeners
 
