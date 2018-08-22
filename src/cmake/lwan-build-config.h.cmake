@@ -37,6 +37,7 @@
 #cmakedefine HAVE_EPOLL
 #cmakedefine HAVE_KQUEUE
 #cmakedefine HAVE_DLADDR
+#cmakedefine HAVE_POSIX_FADVISE
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

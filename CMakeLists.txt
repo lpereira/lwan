@@ -118,6 +118,7 @@ check_function_exists(mkostemp HAVE_MKOSTEMP)
 check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
 check_function_exists(pthread_barrier_init HAVE_PTHREADBARRIER)
 check_function_exists(eventfd HAVE_EVENTFD)
+check_function_exists(posix_fadvise HAVE_POSIX_FADVISE)
 
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,

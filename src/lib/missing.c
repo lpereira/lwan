@@ -611,11 +611,18 @@ void *reallocarray(void *optr, size_t nmemb, size_t size)
 #endif /* HAVE_REALLOCARRAY */
 
 #if !defined(HAVE_READAHEAD)
-ssize_t readahead(int fd __attribute__((unused)),
-                  off_t offset __attribute__((unused)),
-                  size_t count __attribute__((unused)))
+ssize_t readahead(int fd, off_t offset, size_t count)
 {
+#if defined(HAVE_POSIX_FADVISE)
+    return (ssize_t)posix_fadvise(fd, offset, (off_t)count,
+                                  POSIX_FADV_WILLNEED);
+#else
+    (void)fd;
+    (void)offset;
+    (void)count;
+
     return 0;
+#endif
 }
 #endif
 
