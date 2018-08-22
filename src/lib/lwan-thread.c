@@ -350,13 +350,12 @@ static bool process_pending_timers(struct death_queue *dq,
          * update the date cache at this point as well.  */
         update_date_cache(t);
 
-        if (death_queue_empty(dq)) {
-            timeouts_del(t->wheel, &dq->timeout);
-            return false;
+        if (!death_queue_empty(dq)) {
+            timeouts_add(t->wheel, &dq->timeout, 1000);
+            return true;
         }
 
-        timeouts_add(t->wheel, &dq->timeout, 1000);
-        return true;
+        timeouts_del(t->wheel, &dq->timeout);
     }
 
     return false;
