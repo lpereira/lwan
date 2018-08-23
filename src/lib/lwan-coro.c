@@ -20,6 +20,7 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,16 +32,16 @@
 #include "lwan-coro.h"
 
 #ifdef HAVE_VALGRIND
-#include <valgrind.h>
+#  include <valgrind.h>
 #endif
 
-#if PTHREAD_STACK_MIN <= 16384
-#  undef PTHREAD_STACK_MIN
-#  define PTHREAD_STACK_MIN 16384
+#if !defined(SIGSTKSZ)
+#  define SIGSTKSZ 16384
 #endif
-#define CORO_STACK_MIN ((3 * (PTHREAD_STACK_MIN)) / 2)
 
-static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + PTHREAD_STACK_MIN),
+#define CORO_STACK_MIN (4 * SIGSTKSZ)
+
+static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
     "Request buffer fits inside coroutine stack");
 
 typedef void (*defer_func)();
