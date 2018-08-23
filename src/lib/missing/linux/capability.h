@@ -26,7 +26,6 @@
 #include_next <linux/capability.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-
 #include <stdio.h>
 
 static inline int capset(struct __user_cap_header_struct *header,
@@ -50,13 +49,9 @@ struct __user_cap_header_struct {
     int pid;
 };
 
-static inline int capset(struct __user_cap_header_struct *header
-                         __attribute__((unused)),
-                         struct __user_cap_data_struct *data
-                         __attribute__((unused)))
-{
-    return 0;
-}
+int capset(struct __user_cap_header_struct *header,
+           struct __user_cap_data_struct *data);
+
 #endif
 
 #endif /* __MISSING_CAPABILITY_H__ */

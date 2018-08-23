@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libproc.h>
+#include <linux/capability.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -636,5 +637,25 @@ char *get_current_dir_name(void)
 
     ret = getcwd(buffer, sizeof(buffer));
     return strdup(ret ? ret : "/");
+}
+#endif
+
+#ifndef __linux__
+int capset(struct __user_cap_header_struct *header,
+           struct __user_cap_data_struct *data)
+{
+#ifdef __OpenBSD__
+    if (header->version != _LINUX_CAPABILITY_VERSION_1)
+        return -EINVAL;
+    if (header->pid != 0)
+        return -EINVAL;
+    if (data->effective == 0 && data->permitted == 0)
+        return pledge("stdio rpath tmppath inet error", NULL);
+#else
+    (void)header;
+    (void)data;
+#endif
+
+    return 0;
 }
 #endif
