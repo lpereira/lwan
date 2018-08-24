@@ -11,6 +11,10 @@ struct hash_iter {
     int entry;
 };
 
+struct hash *hash_custom_new(unsigned int (*hash_value)(const void *key),
+                             int (*key_compare)(const void *k1, const void *k2),
+                             void (*free_key)(void *value),
+                             void (*free_value)(void *value));
 struct hash *hash_int_new(void (*free_key)(void *value),
                           void (*free_value)(void *value));
 struct hash *hash_str_new(void (*free_key)(void *value),

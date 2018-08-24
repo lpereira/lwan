@@ -171,11 +171,10 @@ static inline int hash_int_key_cmp(const void *k1, const void *k2)
 
 static void no_op(void *arg __attribute__((unused))) {}
 
-static struct hash *
-hash_internal_new(unsigned int (*hash_value)(const void *key),
-                  int (*key_compare)(const void *k1, const void *k2),
-                  void (*free_key)(void *value),
-                  void (*free_value)(void *value))
+struct hash *hash_custom_new(unsigned int (*hash_value)(const void *key),
+                             int (*key_compare)(const void *k1, const void *k2),
+                             void (*free_key)(void *value),
+                             void (*free_value)(void *value))
 {
     struct hash *hash =
         calloc(1, sizeof(struct hash) + N_BUCKETS * sizeof(struct hash_bucket));
@@ -185,25 +184,23 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
 
     hash->hash_value = hash_value;
     hash->key_compare = key_compare;
-    hash->free_value = free_value;
-    hash->free_key = free_key;
+    hash->free_value = free_value ? free_value : no_op;
+    hash->free_key = free_key ? free_key : no_op;
     return hash;
 }
 
 struct hash *hash_int_new(void (*free_key)(void *value),
                           void (*free_value)(void *value))
 {
-    return hash_internal_new(hash_int, hash_int_key_cmp,
-                             free_key ? free_key : no_op,
-                             free_value ? free_value : no_op);
+    return hash_custom_new(hash_int, hash_int_key_cmp, free_key, free_value);
 }
 
 struct hash *hash_str_new(void (*free_key)(void *value),
                           void (*free_value)(void *value))
 {
-    return hash_internal_new(
-        hash_str, (int (*)(const void *, const void *))strcmp,
-        free_key ? free_key : no_op, free_value ? free_value : no_op);
+    return hash_custom_new(hash_str,
+                           (int (*)(const void *, const void *))strcmp,
+                           free_key, free_value);
 }
 
 void hash_free(struct hash *hash)
