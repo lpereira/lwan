@@ -29,3 +29,6 @@ void hash_iter_init(const struct hash *hash, struct hash_iter *iter);
 bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value);
+
+extern unsigned (*hash_str)(const void *key);
+extern unsigned (*hash_int)(const void *key);

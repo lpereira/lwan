@@ -61,8 +61,9 @@ struct hash {
 static inline unsigned int hash_int_shift_mult(const void *keyptr);
 
 static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
-static unsigned (*hash_str)(const void *key) = murmur3_simple;
-static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
+
+unsigned (*hash_str)(const void *key) = murmur3_simple;
+unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
 
 static unsigned int get_random_unsigned(void)
 {

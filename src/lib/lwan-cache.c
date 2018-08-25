@@ -145,8 +145,8 @@ static ALWAYS_INLINE void convert_to_temporary(struct cache_entry *entry)
     entry->flags = TEMPORARY;
 }
 
-struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
-                                              const char *key, int *error)
+static struct cache_entry *
+l2_cache_get_and_ref_entry(struct cache *cache, const char *key, int *error)
 {
     struct cache_entry *entry;
     char *key_copy;
@@ -242,7 +242,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     return entry;
 }
 
-void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
+static void l2_cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
@@ -353,21 +353,16 @@ end:
     return evicted;
 }
 
-struct cache_entry*
-cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro,
-                             const char *key)
+static struct cache_entry *l2_cache_coro_get_and_ref_entry(struct cache *cache,
+                                                           struct coro *coro,
+                                                           const char *key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
-        struct cache_entry *ce = cache_get_and_ref_entry(cache, key, &error);
+        struct cache_entry *ce = l2_cache_get_and_ref_entry(cache, key, &error);
 
         if (LIKELY(ce)) {
-            /*
-             * This is deferred here so that, if the coroutine is killed
-             * after it has been yielded, this cache entry is properly
-             * freed.
-             */
-            coro_defer2(coro, CORO_DEFER2(cache_entry_unref), cache, ce);
+            /* The reference will be dropped by the L1 cache automatically. */
             return ce;
         }
 
@@ -381,6 +376,156 @@ cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro,
             break;
         }
     }
+
+    return NULL;
+}
+
+static __thread struct hash *level1_cache;
+
+struct l1_cache_key {
+    struct cache *cache;
+    const char *key;
+    struct cache_entry *entry;
+    int refs;
+};
+
+static unsigned int l1_cache_hash(const void *k)
+{
+    const struct l1_cache_key *key = k;
+
+    return hash_str(key->key);
+}
+
+static int l1_cache_cmp(const void *key1, const void *key2)
+{
+    const struct l1_cache_key *k1 = key1;
+    const struct l1_cache_key *k2 = key2;
+
+    if (k1 == k2/* || k1->entry == k2->entry*/)
+        return 0;
+
+    /*if (k1->cache == k2->cache)
+        return strcmp(k1->key, k2->key);*/
+
+    return 1;
+}
+
+static inline struct l1_cache_key *copy_l1_key(const struct l1_cache_key *k)
+{
+    struct l1_cache_key *kk = malloc(sizeof(*kk));
+
+    if (LIKELY(kk))
+        memcpy(kk, k, sizeof(*kk));
+
+    return kk;
+}
+
+static inline struct hash *get_l1_cache(void) {
+    if (UNLIKELY(!level1_cache)) {
+        level1_cache = hash_custom_new(l1_cache_hash, l1_cache_cmp, free, NULL);
+
+        if (UNLIKELY(!level1_cache))
+            lwan_status_critical("Could not create L1 cache instance");
+    }
+
+    return level1_cache;
+}
+
+struct cache_entry *
+cache_get_and_ref_entry(struct cache *cache, const char *key, int *error)
+{
+    const struct l1_cache_key k = { .cache = cache, .key = key };
+    struct l1_cache_key *kk;
+    struct hash *hash = get_l1_cache();
+    struct cache_entry *ce;
+
+    kk = hash_find(hash, &k);
+    if (UNLIKELY(!kk)) {
+        kk = copy_l1_key(&k);
+
+        if (UNLIKELY(!kk))
+            return NULL;
+
+        ce = l2_cache_get_and_ref_entry(cache, key, error);
+        if (UNLIKELY(!ce))
+            goto free_kk;
+
+        kk->entry = ce;
+        kk->key = key;
+
+        *error = hash_add_unique(hash, kk, kk);
+        if (UNLIKELY(*error < 0)) {
+            l2_cache_entry_unref(cache, ce);
+            goto free_kk;
+        }
+    }
+    
+    kk->refs++;
+    return kk->entry;
+
+free_kk:
+    free(kk);
+    return NULL;
+}
+
+static void l1_cache_entry_unref(void *data)
+{
+    struct l1_cache_key *kk = data;
+    int refs;
+
+    refs = kk->refs--;
+    if (!refs) {
+        hash_del(get_l1_cache(), kk);
+        l2_cache_entry_unref(kk->cache, kk->entry);
+    }
+
+    if (refs < 0) abort();
+}
+
+void cache_entry_unref(struct cache *cache, struct cache_entry *ce)
+{
+    const struct l1_cache_key k = { .cache = cache, .key = ce->key };
+    struct l1_cache_key *kk = hash_find(get_l1_cache(), &k);
+
+    l1_cache_entry_unref(kk);
+}
+
+struct cache_entry *
+cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro, const char *key)
+{
+    const struct l1_cache_key k = { .cache = cache, .key = key };
+    struct hash *hash = get_l1_cache();
+    struct l1_cache_key *kk;
+
+    kk = hash_find(hash, &k);
+    if (UNLIKELY(!kk)) {
+        struct cache_entry *ce;
+
+        kk = copy_l1_key(&k);
+
+        if (UNLIKELY(!kk))
+            return NULL;
+
+        ce = l2_cache_coro_get_and_ref_entry(cache, coro, key);
+        if (UNLIKELY(!ce))
+            goto free_kk;
+
+        kk->entry = ce;
+        kk->key = key;
+
+        if (hash_add_unique(hash, kk, kk) < 0) {
+            l2_cache_entry_unref(cache, ce);
+            goto free_kk;
+        }
+    }
+
+    kk->refs++;
+    coro_defer(coro, CORO_DEFER(l1_cache_entry_unref), kk);
+
+    return kk->entry;
+
+free_kk:
+    free(kk);
 
     return NULL;
 }
