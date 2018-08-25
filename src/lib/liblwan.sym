@@ -75,6 +75,15 @@ global:
     lwan_strbuf_set;
     lwan_strbuf_set_static;
 
+    lwan_append_int_to_strbuf;
+    lwan_append_double_to_strbuf;
+    lwan_append_str_to_strbuf;
+    lwan_append_str_escaped_to_strbuf;
+
+    lwan_tpl_int_is_empty;
+    lwan_tpl_double_is_empty;
+    lwan_tpl_str_is_empty;
+
 local:
     *;
 };
