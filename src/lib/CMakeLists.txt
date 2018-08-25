@@ -129,4 +129,5 @@ install(FILES
 	lwan-strbuf.h
 	queue.h
 	timeout.h
+	list.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
