@@ -85,6 +85,7 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	unistd.h
 	dlfcn.h
 )
+check_include_file(linux/capability.h HAVE_LINUX_CAPABILITY)
 check_include_file(sys/auxv.h HAVE_SYS_AUXV)
 check_include_file(sys/epoll.h HAVE_EPOLL)
 check_include_files("sys/time.h;sys/types.h;sys/event.h" HAVE_SYS_EVENT)
