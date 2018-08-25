@@ -26,8 +26,17 @@
 # define PATH_MAX 4096
 #endif
 
+
 #ifndef OPEN_MAX
-# define OPEN_MAX 65535
+
+# include <sys/param.h>
+
+# ifdef NOFILE
+#  define OPEN_MAX NOFILE
+# else
+#  define OPEN_MAX 65535
+# endif
+
 #endif
 
 #ifndef OFF_MAX

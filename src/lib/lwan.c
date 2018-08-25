@@ -458,18 +458,34 @@ static rlim_t setup_open_file_count_limits(void)
 {
     struct rlimit r;
 
-    if (getrlimit(RLIMIT_NOFILE, &r) < 0)
-        lwan_status_critical_perror("getrlimit");
-
-    if (r.rlim_max != r.rlim_cur) {
-        if (r.rlim_max == RLIM_INFINITY)
-            r.rlim_cur = OPEN_MAX;
-        else if (r.rlim_cur < r.rlim_max)
-            r.rlim_cur = r.rlim_max;
-        if (setrlimit(RLIMIT_NOFILE, &r) < 0)
-            lwan_status_critical_perror("setrlimit");
+    if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
+        lwan_status_perror("Could not obtain maximum number of file "
+                           "descriptors. Assuming %d",
+                           OPEN_MAX);
+        return OPEN_MAX;
     }
 
+    if (r.rlim_max != r.rlim_cur) {
+        const rlim_t current = r.rlim_cur;
+
+        if (r.rlim_max == RLIM_INFINITY) {
+            r.rlim_cur = OPEN_MAX;
+        } else if (r.rlim_cur < r.rlim_max) {
+            r.rlim_cur = r.rlim_max;
+        } else {
+            /* Shouldn't happen, so just return the current value. */
+            goto out;
+        }
+
+        if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
+            lwan_status_perror("Could not raise maximum number of file "
+                               "descriptors to %" PRIu64 ". Leaving at "
+                               "%" PRIu64, r.rlim_max, current);
+            r.rlim_cur = current;
+        }
+    }
+
+out:
     return r.rlim_cur;
 }
 
