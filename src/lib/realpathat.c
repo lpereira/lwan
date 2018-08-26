@@ -160,7 +160,7 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                 buf[n] = '\0';
 
                 len = strlen(end);
-                if (UNLIKELY((long int) (n + (long int)len) >= PATH_MAX)) {
+                if (UNLIKELY(PATH_MAX - n <= len)) {
                     errno = ENAMETOOLONG;
                     goto error;
                 }
