@@ -39,7 +39,7 @@ static inline int ioprio_set(int which, int who, int ioprio)
 #define IOPRIO_PRIO_VALUE(arg1, arg2) 0
 #define IOPRIO_CLASS_IDLE 0
 
-static inline int ioprio_set(int which __attribute__((unused),
+static inline int ioprio_set(int which __attribute__((unused)),
                              int who __attribute__((unused)),
                              int ioprio __attribute__((unused)))
 {
