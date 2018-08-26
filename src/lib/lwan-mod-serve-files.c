@@ -924,8 +924,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
-    if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD ||
-        return_status == HTTP_NOT_MODIFIED) {
+    if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD) {
         lwan_send(request, headers, header_len, 0);
     } else {
         lwan_sendfile(request, fd, from, (size_t)to, headers, header_len);
@@ -949,8 +948,7 @@ static enum lwan_http_status serve_buffer(struct lwan_request *request,
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
-    if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD ||
-        return_status == HTTP_NOT_MODIFIED) {
+    if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD) {
         lwan_send(request, headers, header_len, 0);
     } else {
         struct iovec response_vec[] = {
