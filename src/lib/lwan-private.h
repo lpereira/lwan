@@ -43,6 +43,8 @@ void lwan_job_del(bool (*cb)(void *data), void *data);
 void lwan_tables_init(void);
 void lwan_tables_shutdown(void);
 
+void lwan_readahead_queue(int fd, size_t size);
+
 char *lwan_process_request(struct lwan *l, struct lwan_request *request,
                            struct lwan_value *buffer, char *next_request);
 size_t lwan_prepare_response_header_full(struct lwan_request *request,
