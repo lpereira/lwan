@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2018 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,31 +17,33 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include_next <limits.h>
+#pragma once
 
-#ifndef MISSING_LIMITS_H
-#define MISSING_LIMITS_H
+#include <unistd.h>
+#include <sys/syscall.h>
 
-#ifndef PATH_MAX
-# define PATH_MAX 4096
+#if defined(__linux__) && defined(SYS_ioprio_set)
+
+#define IOPRIO_WHO_PROCESS 1
+#define IOPRIO_CLASS_IDLE 3
+#define IOPRIO_PRIO_VALUE(class, data) (((class) << 13) | (data))
+
+static inline int ioprio_set(int which, int who, int ioprio)
+{
+    return (int)syscall(SYS_ioprio_set, which, who, ioprio);
+}
+
+#else
+
+#define IOPRIO_WHO_PROCESS 0
+#define IOPRIO_PRIO_VALUE(arg1, arg2) 0
+#define IOPRIO_CLASS_IDLE 0
+
+static inline int ioprio_set(int which __attribute__((unused)),
+                             int who __attribute__((unused)),
+                             int ioprio __attribute__((unused)))
+{
+    return 0;
+}
+
 #endif
-
-
-#ifndef OPEN_MAX
-
-# include <sys/param.h>
-
-# ifdef NOFILE
-#  define OPEN_MAX NOFILE
-# else
-#  define OPEN_MAX 65535
-# endif
-
-#endif
-
-#ifndef OFF_MAX
-#include <sys/types.h>
-# define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
-#endif
-
-#endif /* MISSING_LIMITS_H */

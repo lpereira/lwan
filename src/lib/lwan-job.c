@@ -20,12 +20,13 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
+#include <ioprio.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "lwan.h"
 #include "lwan-status.h"
@@ -65,6 +66,11 @@ timedwait(bool had_job)
 static void*
 job_thread(void *data __attribute__((unused)))
 {
+    /* Idle priority for the calling thread.   Magic value of `7` obtained from
+     * sample program in linux/Documentation/block/ioprio.txt.  This is a no-op
+     * on anything but Linux.  */
+    ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 7));
+
     if (pthread_mutex_lock(&job_wait_mutex))
         lwan_status_critical("Could not lock job wait mutex");
     
