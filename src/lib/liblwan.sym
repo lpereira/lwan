@@ -84,6 +84,8 @@ global:
     lwan_tpl_double_is_empty;
     lwan_tpl_str_is_empty;
 
+    lwan_module_info_*;
+
 local:
     *;
 };
