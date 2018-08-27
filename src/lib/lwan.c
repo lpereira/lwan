@@ -577,11 +577,8 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
             lwan_status_debug("Got request to readahead fd %d, size %zu",
                               cmd.fd, cmd.size);
             readahead(cmd.fd, 0, cmd.size);
-        } else if (UNLIKELY(n_bytes < 0)) {
-            if (errno == EAGAIN || errno == EINTR)
-                continue;
-            break;
-        } else {
+        } else if (UNLIKELY(n_bytes == 1)) {
+            /* Shutdown request received. */
             break;
         }
     }
