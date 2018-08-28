@@ -294,19 +294,14 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
         if (kev->filter == EVFILT_READ)
             mask |= EPOLLIN;
-        else if (kev->filter == EVFILT_WRITE)
+        else if (kev->filter == EVFILT_WRITE && (uintptr_t)evs[i].udata != 1)
             mask |= EPOLLOUT;
 
         hash_add(coalesce, (void*)(intptr_t)evs[i].ident, (void *)(uintptr_t)mask);
     }
 
     for (i = 0; i < r; i++) {
-        uintptr_t udata = (uintptr_t)evs[i].udata;
         void *maskptr;
-
-        if (udata == 1) {
-            continue;
-        }
 
         maskptr = hash_find(coalesce, (void*)(intptr_t)evs[i].ident);
         if (maskptr) {
