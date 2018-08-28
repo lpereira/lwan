@@ -20,23 +20,24 @@ set(SOURCES
 	lwan-mod-response.c
 	lwan-mod-rewrite.c
 	lwan-mod-serve-files.c
+	lwan-readahead.c
 	lwan-request.c
 	lwan-response.c
 	lwan-socket.c
 	lwan-status.c
 	lwan-straitjacket.c
+	lwan-strbuf.c
 	lwan-tables.c
 	lwan-template.c
 	lwan-thread.c
-	lwan-trie.c
 	lwan-time.c
+	lwan-trie.c
 	missing.c
 	murmur3.c
 	patterns.c
+	queue.c
 	realpathat.c
 	sd-daemon.c
-	lwan-strbuf.c
-	queue.c
 	timeout.c
 )
 
