@@ -56,6 +56,8 @@ global:
     lwan_tpl_compile_string;
     lwan_tpl_compile_string_full;
     lwan_tpl_free;
+    lwan_append_*_to_strbuf;
+    lwan_tpl_*_is_empty;
 
     lwan_writev;
     lwan_send;
@@ -74,15 +76,6 @@ global:
     lwan_strbuf_reset;
     lwan_strbuf_set;
     lwan_strbuf_set_static;
-
-    lwan_append_int_to_strbuf;
-    lwan_append_double_to_strbuf;
-    lwan_append_str_to_strbuf;
-    lwan_append_str_escaped_to_strbuf;
-
-    lwan_tpl_int_is_empty;
-    lwan_tpl_double_is_empty;
-    lwan_tpl_str_is_empty;
 
     lwan_module_info_*;
 
