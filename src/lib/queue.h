@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdbool.h>
+
 struct spsc_queue {
     size_t size;
     size_t mask;
