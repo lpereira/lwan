@@ -750,5 +750,14 @@ class TestArtificialResponse(LwanTest):
 
     self.assertEqual(r.status_code, 418)
 
+
+class TestSleep(LwanTest):
+  def test_sleep(self):
+    now = time.time()
+    requests.get('http://127.0.0.1:8080/sleep?ms=1500')
+    diff = time.time() - now
+
+    self.assertTrue(1.450 < diff < 1.550)
+
 if __name__ == '__main__':
   unittest.main()
