@@ -39,6 +39,7 @@ struct lwan_readahead_cmd {
     union {
         struct {
             size_t size;
+            off_t off;
             int fd;
         } readahead;
         struct {
@@ -70,10 +71,10 @@ void lwan_readahead_shutdown(void)
     readahead_pipe_fd[0] = readahead_pipe_fd[1] = 0;
 }
 
-void lwan_readahead_queue(int fd, size_t size)
+void lwan_readahead_queue(int fd, off_t off, size_t size)
 {
     struct lwan_readahead_cmd cmd = {
-        .readahead = {.size = size, .fd = fd},
+        .readahead = {.size = size, .fd = fd, .off = off},
         .cmd = READAHEAD,
     };
 
@@ -108,7 +109,7 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
 
         switch (cmd.cmd) {
         case READAHEAD:
-            readahead(cmd.readahead.fd, 0, cmd.readahead.size);
+            readahead(cmd.readahead.fd, cmd.readahead.off, cmd.readahead.size);
             break;
         case MADVISE:
             madvise(cmd.madvise.addr, cmd.madvise.length, MADV_WILLNEED);

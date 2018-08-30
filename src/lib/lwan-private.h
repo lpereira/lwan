@@ -45,7 +45,7 @@ void lwan_tables_shutdown(void);
 
 void lwan_readahead_init(void);
 void lwan_readahead_shutdown(void);
-void lwan_readahead_queue(int fd, size_t size);
+void lwan_readahead_queue(int fd, off_t off, size_t size);
 void lwan_madvise_queue(void *addr, size_t size);
 
 char *lwan_process_request(struct lwan *l, struct lwan_request *request,

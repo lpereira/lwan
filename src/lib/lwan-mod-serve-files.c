@@ -378,7 +378,7 @@ try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
         size = priv->read_ahead;
 
     if (LIKELY(size))
-        lwan_readahead_queue(fd, size);
+        lwan_readahead_queue(fd, 0, size);
 }
 
 static int try_open_compressed(const char *relpath,

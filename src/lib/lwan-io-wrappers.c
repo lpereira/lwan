@@ -25,7 +25,7 @@
 #include <sys/socket.h>
 #include <sys/sendfile.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-io-wrappers.h"
 
 static const int MAX_FAILED_TRIES = 5;
@@ -140,6 +140,7 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         to_be_written -= (size_t)written;
         chunk_size = min_size(to_be_written, 1<<19);
 
+        lwan_readahead_queue(in_fd, offset, chunk_size);
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     } while (to_be_written > 0);
 }
