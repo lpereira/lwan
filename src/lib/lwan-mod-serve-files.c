@@ -348,9 +348,7 @@ static bool mmap_init(struct file_cache_entry *ce,
         goto close_file;
     }
 
-    if (UNLIKELY(madvise(md->uncompressed.contents, (size_t)st->st_size,
-                         MADV_WILLNEED) < 0))
-        lwan_status_perror("madvise");
+    lwan_madvise_queue(md->uncompressed.contents, (size_t)st->st_size);
 
     md->uncompressed.size = (size_t)st->st_size;
     compress_cached_entry(md);

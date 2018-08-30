@@ -24,12 +24,28 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <ioprio.h>
+#include <sys/mman.h>
 
 #include "lwan-private.h"
 
+enum readahead_cmd {
+    READAHEAD,
+    MADVISE,
+    SHUTDOWN,
+};
+
 struct lwan_readahead_cmd {
-    size_t size;
-    int fd;
+    enum readahead_cmd cmd;
+    union {
+        struct {
+            size_t size;
+            int fd;
+        } readahead;
+        struct {
+            void *addr;
+            size_t length;
+        } madvise;
+    };
 } __attribute__((packed));
 
 static int readahead_pipe_fd[2];
@@ -37,24 +53,40 @@ static pthread_t readahead_self;
 
 void lwan_readahead_shutdown(void)
 {
-    unsigned char quit_cmd = 0;
+    struct lwan_readahead_cmd cmd = {
+        .cmd = SHUTDOWN,
+    };
 
-    if (readahead_pipe_fd[0] != readahead_pipe_fd[1]) {
-        lwan_status_debug("Shutting down readahead thread");
+    if (readahead_pipe_fd[0] == readahead_pipe_fd[1])
+        return;
 
-        /* Writing only 1 byte will signal the thread to end. */
-        write(readahead_pipe_fd[1], &quit_cmd, sizeof(quit_cmd));
-        pthread_join(readahead_self, NULL);
+    lwan_status_debug("Shutting down readahead thread");
 
-        close(readahead_pipe_fd[0]);
-        close(readahead_pipe_fd[1]);
-        readahead_pipe_fd[0] = readahead_pipe_fd[1] = 0;
-    }
+    write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
+    pthread_join(readahead_self, NULL);
+
+    close(readahead_pipe_fd[0]);
+    close(readahead_pipe_fd[1]);
+    readahead_pipe_fd[0] = readahead_pipe_fd[1] = 0;
 }
 
 void lwan_readahead_queue(int fd, size_t size)
 {
-    struct lwan_readahead_cmd cmd = {.size = size, .fd = fd};
+    struct lwan_readahead_cmd cmd = {
+        .readahead = {.size = size, .fd = fd},
+        .cmd = READAHEAD,
+    };
+
+    /* Readahead is just a hint.  Failing to write is not an error. */
+    write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
+}
+
+void lwan_madvise_queue(void *addr, size_t length)
+{
+    struct lwan_readahead_cmd cmd = {
+        .madvise = {.addr = addr, .length = length},
+        .cmd = MADVISE,
+    };
 
     /* Readahead is just a hint.  Failing to write is not an error. */
     write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
@@ -71,16 +103,22 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
         struct lwan_readahead_cmd cmd;
         ssize_t n_bytes = read(readahead_pipe_fd[0], &cmd, sizeof(cmd));
 
-        if (LIKELY(n_bytes == (ssize_t)sizeof(cmd))) {
-            lwan_status_debug("Got request to readahead fd %d, size %zu",
-                              cmd.fd, cmd.size);
-            readahead(cmd.fd, 0, cmd.size);
-        } else if (UNLIKELY(n_bytes == 1)) {
-            /* Shutdown request received. */
+        if (UNLIKELY(n_bytes < 0))
+            continue;
+
+        switch (cmd.cmd) {
+        case READAHEAD:
+            readahead(cmd.readahead.fd, 0, cmd.readahead.size);
             break;
+        case MADVISE:
+            madvise(cmd.madvise.addr, cmd.madvise.length, MADV_WILLNEED);
+            break;
+        case SHUTDOWN:
+            goto out;
         }
     }
 
+out:
     return NULL;
 }
 
