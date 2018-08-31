@@ -762,3 +762,30 @@ __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
         monotonic_clock_id = CLOCK_MONOTONIC_COARSE;
 }
 #endif
+
+#ifdef __linux__
+#include <sys/prctl.h>
+
+void lwan_set_thread_name(const char *name)
+{
+    char thread_name[16];
+    char process_name[PATH_MAX];
+    char *tmp;
+    int ret;
+
+    if (proc_pidpath(getpid(), process_name, sizeof(process_name)) < 0)
+        return;
+
+    tmp = strrchr(process_name, '/');
+    if (!tmp)
+        return;
+
+    ret = snprintf(thread_name, sizeof(thread_name), "%s %s", tmp + 1, name);
+    if (ret < 0)
+        return;
+
+    prctl(PR_SET_NAME, thread_name, 0, 0, 0);
+}
+#else
+void lwan_set_thread_name(const char *name) {}
+#endif

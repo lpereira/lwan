@@ -21,6 +21,8 @@
 
 #include "lwan.h"
 
+void lwan_set_thread_name(const char *name);
+
 void lwan_response_init(struct lwan *l);
 void lwan_response_shutdown(struct lwan *l);
 

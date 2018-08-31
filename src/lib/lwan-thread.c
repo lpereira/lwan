@@ -403,6 +403,7 @@ static void *thread_io_loop(void *data)
     lwan_status_debug("Starting IO loop on thread #%d",
                       (unsigned short)(ptrdiff_t)(t - t->lwan->thread.threads) +
                           1);
+    lwan_set_thread_name("worker");
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))

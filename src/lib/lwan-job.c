@@ -28,7 +28,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-status.h"
 #include "list.h"
 
@@ -70,6 +70,8 @@ job_thread(void *data __attribute__((unused)))
      * sample program in linux/Documentation/block/ioprio.txt.  This is a no-op
      * on anything but Linux.  */
     ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 7));
+
+    lwan_set_thread_name("job");
 
     if (pthread_mutex_lock(&job_wait_mutex))
         lwan_status_critical("Could not lock job wait mutex");

@@ -100,6 +100,8 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
      * on anything but Linux.  */
     ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 7));
 
+    lwan_set_thread_name("readahead");
+
     while (true) {
         struct lwan_readahead_cmd cmd;
         ssize_t n_bytes = read(readahead_pipe_fd[0], &cmd, sizeof(cmd));
