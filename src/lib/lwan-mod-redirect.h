@@ -31,10 +31,10 @@ LWAN_MODULE_FORWARD_DECL(redirect)
 
 #define REDIRECT_CODE(to_, code_)                                              \
     .module = LWAN_MODULE_REF(redirect),                                       \
-    .args = &(struct lwan_redirect_settings[]){                                \
+    .args = ((struct lwan_redirect_settings[]) {{                              \
         .to = (to_),                                                           \
         .code = (code_),                                                       \
-    }),                                                                        \
-    .flags = 0
+    }}),                                                                       \
+    .flags = (enum lwan_handler_flags)0
 
 #define REDIRECT(to_) REDIRECT_CODE((to_), HTTP_MOVED_PERMANENTLY)
