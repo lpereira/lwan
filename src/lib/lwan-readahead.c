@@ -106,8 +106,17 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
         struct lwan_readahead_cmd cmd;
         ssize_t n_bytes = read(readahead_pipe_fd[0], &cmd, sizeof(cmd));
 
-        if (UNLIKELY(n_bytes < 0))
+        if (UNLIKELY(n_bytes < 0)) {
+            if (errno == EAGAIN || errno == EINTR)
+                continue;
+            lwan_status_perror("Ignoring error while reading from pipe (%d)",
+                               readahead_pipe_fd[0]);
             continue;
+        } else if (UNLIKELY(n_bytes != (ssize_t)sizeof(cmd))) {
+            lwan_status_debug(
+                "Ignoring incomplete command for readahead thread");
+            continue;
+        }
 
         switch (cmd.cmd) {
         case READAHEAD:
