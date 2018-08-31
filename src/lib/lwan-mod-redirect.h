@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #pragma once
@@ -22,15 +23,18 @@
 #include "lwan.h"
 
 struct lwan_redirect_settings {
-  char *to;
+    char *to;
+    enum lwan_http_status code;
 };
 
 LWAN_MODULE_FORWARD_DECL(redirect)
 
-#define REDIRECT(to_) \
-  .module = LWAN_MODULE_REF(redirect), \
-  .args = ((struct lwan_redirect_settings[]) {{ \
-    .to = to_ \
-  }}), \
-  .flags = 0
+#define REDIRECT_CODE(to_, code_)                                              \
+    .module = LWAN_MODULE_REF(redirect),                                       \
+    .args = &(struct lwan_redirect_settings[]){                                \
+        .to = (to_),                                                           \
+        .code = (code_),                                                       \
+    }),                                                                        \
+    .flags = 0
 
+#define REDIRECT(to_) REDIRECT_CODE((to_), HTTP_MOVED_PERMANENTLY)

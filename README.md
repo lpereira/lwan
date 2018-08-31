@@ -441,17 +441,21 @@ them must be specified at least.
 #### Redirect
 
 The `redirect` module will, as it says in the tin, generate a `301
-Moved permanently` response, according to the options specified in its
-configuration.  Generally, the `rewrite` module should be used instead
-as it packs more features; however, this module serves also as an
-example of how to write Lwan modules (weighing at ~40 lines of code).
+Moved permanently` (by default; the code can be changed, see below)
+response, according to the options specified in its configuration.
+Generally, the `rewrite` module should be used instead as it packs more
+features; however, this module serves also as an example of how to
+write Lwan modules (less than 100 lines of code).
 
 If the `to` option is not specified, it always generates a `500
-Internal Server Error` response.
+Internal Server Error` response.  Specifying an invalid HTTP code, or a
+code that Lwan doesn't know about (see `enum lwan_http_status`), will
+produce a `301 Moved Permanently` response.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `to` | `str` | `NULL` | The location to redirect to |
+| `code` | `int` | `301` | The HTTP code to perform a redirect |
 
 #### Response
 

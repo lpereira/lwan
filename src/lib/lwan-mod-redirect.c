@@ -14,46 +14,100 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lwan.h"
 #include "lwan-mod-redirect.h"
 
+struct redirect_priv {
+    char *to;
+    enum lwan_http_status code;
+};
+
 static enum lwan_http_status
 redirect_handle_request(struct lwan_request *request,
-                        struct lwan_response *response, void *instance)
+                        struct lwan_response *response,
+                        void *instance)
 {
-    struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    struct redirect_priv *priv = instance;
+    struct lwan_key_value *headers;
+
+    headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
     if (UNLIKELY(!headers))
         return HTTP_INTERNAL_ERROR;
 
     headers[0].key = "Location";
-    headers[0].value = instance;
+    headers[0].value = priv->to;
     headers[1].key = NULL;
     headers[1].value = NULL;
 
     response->headers = headers;
 
-    return HTTP_MOVED_PERMANENTLY;
+    return priv->code;
 }
 
 static void *redirect_create(const char *prefix __attribute__((unused)),
                              void *instance)
 {
     struct lwan_redirect_settings *settings = instance;
+    struct redirect_priv *priv = malloc(sizeof(*priv));
 
-    return (settings->to) ? strdup(settings->to) : NULL;
+    if (!priv)
+        return NULL;
+
+    priv->to = strdup(settings->to);
+    if (!priv->to) {
+        free(priv);
+        return NULL;
+    }
+
+    priv->code = settings->code;
+
+    return priv;
+}
+
+static void redirect_destroy(void *data)
+{
+    struct redirect_priv *priv = data;
+
+    if (priv) {
+        free(priv->to);
+        free(priv);
+    }
+}
+
+static enum lwan_http_status parse_http_code(const char *code,
+                                             enum lwan_http_status fallback)
+{
+    const char *known;
+    int as_int;
+
+    if (!code)
+        return fallback;
+
+    as_int = parse_int(code, 999);
+    if (as_int == 999)
+        return fallback;
+
+    known = lwan_http_status_as_string_with_code(as_int);
+    if (!strncmp(known, "999", 3))
+        return fallback;
+
+    return as_int;
 }
 
 static void *redirect_create_from_hash(const char *prefix,
                                        const struct hash *hash)
 {
     struct lwan_redirect_settings settings = {
-        .to = hash_find(hash, "to")
+        .to = hash_find(hash, "to"),
+        .code =
+            parse_http_code(hash_find(hash, "code"), HTTP_MOVED_PERMANENTLY),
     };
 
     return redirect_create(prefix, &settings);
@@ -62,7 +116,7 @@ static void *redirect_create_from_hash(const char *prefix,
 static const struct lwan_module module = {
     .create = redirect_create,
     .create_from_hash = redirect_create_from_hash,
-    .destroy = free,
+    .destroy = redirect_destroy,
     .handle_request = redirect_handle_request,
 };
 
