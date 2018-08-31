@@ -39,6 +39,7 @@
 #cmakedefine HAVE_DLADDR
 #cmakedefine HAVE_POSIX_FADVISE
 #cmakedefine HAVE_LINUX_CAPABILITY
+#cmakedefine HAVE_PTHREAD_SET_NAME_NP
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

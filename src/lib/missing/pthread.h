@@ -36,4 +36,8 @@ int pthread_barrier_destroy(pthread_barrier_t *barrier);
 int pthread_barrier_wait(pthread_barrier_t *barrier);
 #endif
 
+#ifndef HAVE_PTHREAD_SET_NAME_NP
+int pthread_set_name_np(pthread_t thread, const char *name);
+#endif
+
 #endif /* MISSING_PTHREAD_H */

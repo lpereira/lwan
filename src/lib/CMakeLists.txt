@@ -33,6 +33,7 @@ set(SOURCES
 	lwan-time.c
 	lwan-trie.c
 	missing.c
+	missing-pthread.c
 	murmur3.c
 	patterns.c
 	queue.c

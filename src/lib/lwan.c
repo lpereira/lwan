@@ -763,9 +763,6 @@ __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
 }
 #endif
 
-#ifdef __linux__
-#include <sys/prctl.h>
-
 void lwan_set_thread_name(const char *name)
 {
     char thread_name[16];
@@ -784,8 +781,5 @@ void lwan_set_thread_name(const char *name)
     if (ret < 0)
         return;
 
-    prctl(PR_SET_NAME, thread_name, 0, 0, 0);
+    pthread_set_name_np(pthread_self(), thread_name);
 }
-#else
-void lwan_set_thread_name(const char *name) {}
-#endif
