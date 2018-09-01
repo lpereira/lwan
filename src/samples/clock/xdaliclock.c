@@ -41,11 +41,6 @@ struct frame {
     struct scanline scanlines[1];
 };
 
-struct point {
-    int x;
-    int y;
-};
-
 struct xdaliclock {
     ge_GIF *gif_enc;
 
@@ -233,7 +228,7 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
            (size_t)(x2 - x1));
 }
 
-static void frame_render(struct xdaliclock *xdc, struct point ofs)
+static void frame_render(struct xdaliclock *xdc, int x)
 {
     struct frame *frame = xdc->temp_frame;
     int px, py;
@@ -251,39 +246,37 @@ static void frame_render(struct xdaliclock *xdc, struct point ofs)
 
             /* Erase the line between the last segment and this segment.
              */
-            draw_horizontal_line(xdc, ofs.x + last_right,
-                                 ofs.x + line->left[px], ofs.y + py,
+            draw_horizontal_line(xdc, x + last_right, x + line->left[px], py,
                                  xdc->gif_enc->w, 1 /* Black */);
 
             /* Draw the line of this segment.
              */
-            draw_horizontal_line(xdc, ofs.x + line->left[px],
-                                 ofs.x + line->right[px], ofs.y + py,
-                                 xdc->gif_enc->w, 0 /* White */);
+            draw_horizontal_line(xdc, x + line->left[px], x + line->right[px],
+                                 py, xdc->gif_enc->w, 0 /* White */);
 
             last_right = line->right[px];
         }
 
         /* Erase the line between the last segment and the right edge.
          */
-        draw_horizontal_line(xdc, ofs.x + last_right, ofs.x + char_width,
-                             ofs.y + py, xdc->gif_enc->w, 1 /* Black */);
+        draw_horizontal_line(xdc, x + last_right, x + char_width, py,
+                             xdc->gif_enc->w, 1 /* Black */);
     }
 }
 
 void xdaliclock_update(struct xdaliclock *xdc)
 {
+    const int offsets[] = {
+        0, 0, char_width / 2, char_width / 2, char_width, char_width,
+    };
     time_t now;
-    int x;
 
     now = time(NULL);
     if (now != xdc->last_time) {
-        struct tm *tm;
+        struct tm *tm = localtime(&now);
 
         for (int i = 0; i < 6; i++)
             xdc->current_digits[i] = xdc->target_digits[i];
-
-        tm = localtime(&now);
 
         xdc->target_digits[0] = tm->tm_hour / 10;
         xdc->target_digits[1] = tm->tm_hour % 10;
@@ -296,37 +289,10 @@ void xdaliclock_update(struct xdaliclock *xdc)
         xdc->animtime = 0;
     }
 
-    /* Hours... */
-    x = 0;
-    frame_lerp(xdc, 0);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
-
-    frame_lerp(xdc, 1);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
-
-    /* Minutes... */
-    x += char_width / 2;
-
-    frame_lerp(xdc, 2);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
-
-    frame_lerp(xdc, 3);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
-
-    /* Seconds... */
-    x += char_width / 2;
-
-    frame_lerp(xdc, 4);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
-
-    frame_lerp(xdc, 5);
-    frame_render(xdc, (struct point){.x = x, .y = 0});
-    x += char_width;
+    for (int digit = 0, x = 0; digit < 6; digit++, x += char_width) {
+        frame_lerp(xdc, digit);
+        frame_render(xdc, x + offsets[digit]);
+    }
 
     xdc->animtime += 65535 / (xdc->fps + 1);
 }
