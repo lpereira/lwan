@@ -21,6 +21,10 @@
 #include <string.h>
 #include <pthread.h>
 
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#endif
+
 #include "lwan-private.h"
 
 #ifndef HAVE_PTHREADBARRIER
