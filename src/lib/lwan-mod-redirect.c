@@ -94,11 +94,11 @@ static enum lwan_http_status parse_http_code(const char *code,
     if (as_int == 999)
         return fallback;
 
-    known = lwan_http_status_as_string_with_code(as_int);
+    known = lwan_http_status_as_string_with_code((enum lwan_http_status)as_int);
     if (!strncmp(known, "999", 3))
         return fallback;
 
-    return as_int;
+    return (enum lwan_http_status)as_int;
 }
 
 static void *redirect_create_from_hash(const char *prefix,
