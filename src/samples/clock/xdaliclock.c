@@ -56,6 +56,8 @@ struct xdaliclock {
     time_t last_time;
 };
 
+enum paint_color { BACKGROUND, FOREGROUND };
+
 static struct frame *base_frames[12];
 static POS char_height, char_width, colon_width;
 
@@ -201,9 +203,9 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
                                  int x2,
                                  int y,
                                  int screen_width,
-                                 bool black_p)
+                                 enum paint_color pc)
 {
-    uint8_t color = black_p ? 0 : 3;
+    uint8_t color = (pc == BACKGROUND) ? 0 : 3;
 
     if (x1 > screen_width)
         x1 = screen_width;
@@ -247,12 +249,12 @@ static void frame_render(struct xdaliclock *xdc, int x)
             /* Erase the line between the last segment and this segment.
              */
             draw_horizontal_line(xdc, x + last_right, x + line->left[px], py,
-                                 xdc->gif_enc->w, 1 /* Black */);
+                                 xdc->gif_enc->w, BACKGROUND);
 
             /* Draw the line of this segment.
              */
             draw_horizontal_line(xdc, x + line->left[px], x + line->right[px],
-                                 py, xdc->gif_enc->w, 0 /* White */);
+                                 py, xdc->gif_enc->w, FOREGROUND);
 
             last_right = line->right[px];
         }
@@ -260,7 +262,7 @@ static void frame_render(struct xdaliclock *xdc, int x)
         /* Erase the line between the last segment and the right edge.
          */
         draw_horizontal_line(xdc, x + last_right, x + char_width, py,
-                             xdc->gif_enc->w, 1 /* Black */);
+                             xdc->gif_enc->w, BACKGROUND);
     }
 }
 
