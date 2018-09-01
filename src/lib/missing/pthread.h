@@ -40,4 +40,8 @@ int pthread_barrier_wait(pthread_barrier_t *barrier);
 int pthread_set_name_np(pthread_t thread, const char *name);
 #endif
 
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#endif
+
 #endif /* MISSING_PTHREAD_H */
