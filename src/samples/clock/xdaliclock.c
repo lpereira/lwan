@@ -312,21 +312,21 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
     xdc->last_time = 0;
 
     xdc->temp_frame = frame_mk(char_width, char_height);
-    if (!xdc->temp_frame) {
-        free(xdc);
-        return NULL;
-    }
+    if (!xdc->temp_frame)
+        goto out;
 
     xdc->clear_frame = frame_mk(char_width, char_height);
-    if (!xdc->clear_frame) {
-        free(xdc);
-        return NULL;
-    }
+    if (!xdc->clear_frame)
+        goto out;
 
     for (unsigned int i = 0; i < N_ELEMENTS(xdc->target_digits); i++)
         xdc->target_digits[i] = xdc->current_digits[i] = -1;
 
     return xdc;
+
+out:
+    free(xdc);
+    return NULL;
 }
 
 void xdaliclock_free(struct xdaliclock *xdc)
