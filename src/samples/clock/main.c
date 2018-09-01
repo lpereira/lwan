@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include "gifenc.h"
+#include "xdaliclock.h"
 
 /* Font stolen from https://github.com/def-/time.gif */
 static const uint8_t font[10][5] = {
@@ -99,6 +100,51 @@ LWAN_HANDLER(clock)
     return HTTP_OK;
 }
 
+static void destroy_xdaliclock(void *data)
+{
+    struct xdaliclock *xdc = data;
+
+    xdaliclock_free(xdc);
+}
+
+LWAN_HANDLER(dali)
+{
+    ge_GIF *gif = ge_new_gif(response->buffer, 314, 64, NULL, 2, -1);
+    struct xdaliclock *xdc;
+
+    if (!gif)
+        return HTTP_INTERNAL_ERROR;
+
+    coro_defer(request->conn->coro, destroy_gif, gif);
+
+    xdc = xdaliclock_new(gif);
+    if (!xdc)
+        return HTTP_INTERNAL_ERROR;
+
+    coro_defer(request->conn->coro, destroy_xdaliclock, xdc);
+
+    response->mime_type = "image/gif";
+    response->headers = (struct lwan_key_value[]){
+        {.key = "Content-Transfer-Encoding", .value = "binary"},
+        {.key = "Cache-Control", .value = "no-cache"},
+        {.key = "Cache-Control", .value = "no-store"},
+        {.key = "Cache-Control", .value = "no-transform"},
+        {},
+    };
+
+    memset(gif->frame, 0, (size_t)(width * height));
+
+    while (true) {
+        xdaliclock_update(xdc);
+
+        ge_add_frame(gif, 0);
+        lwan_response_send_chunk(request);
+        lwan_request_sleep(request, xdaliclock_get_frame_time(xdc));
+    }
+
+    return HTTP_OK;
+}
+
 LWAN_HANDLER(index)
 {
     static const char index[] = "<html>\n"
@@ -129,6 +175,7 @@ LWAN_HANDLER(index)
         "  </tr></table>\n" \
         "</body>\n" \
         "</html>";
+
     response->mime_type = "text/html";
     lwan_strbuf_set_static(response->buffer, index, sizeof(index) - 1);
 
@@ -139,6 +186,7 @@ int main(void)
 {
     const struct lwan_url_map default_map[] = {
         {.prefix = "/clock.gif", .handler = LWAN_HANDLER_REF(clock)},
+        {.prefix = "/dali.gif", .handler = LWAN_HANDLER_REF(dali)},
         {.prefix = "/", .handler = LWAN_HANDLER_REF(index)},
         {.prefix = NULL},
     };

@@ -1,6 +1,8 @@
 add_executable(clock
 	main.c
 	gifenc.c
+	xdaliclock.c
+	numbers.c
 )
 
 target_link_libraries(clock
