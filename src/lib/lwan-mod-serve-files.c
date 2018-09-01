@@ -123,6 +123,8 @@ struct file_list {
 
         int size;
         const char *unit;
+
+        const char *zebra_class;
     } file_list;
 };
 
@@ -160,68 +162,82 @@ static const struct cache_funcs mmap_funcs = {
     .init = mmap_init,
     .free = mmap_free,
     .serve = mmap_serve,
-    .struct_size = sizeof(struct mmap_cache_data)};
+    .struct_size = sizeof(struct mmap_cache_data),
+};
 
 static const struct cache_funcs sendfile_funcs = {
     .init = sendfile_init,
     .free = sendfile_free,
     .serve = sendfile_serve,
-    .struct_size = sizeof(struct sendfile_cache_data)};
+    .struct_size = sizeof(struct sendfile_cache_data),
+};
 
 static const struct cache_funcs dirlist_funcs = {
     .init = dirlist_init,
     .free = dirlist_free,
     .serve = dirlist_serve,
-    .struct_size = sizeof(struct dir_list_cache_data)};
+    .struct_size = sizeof(struct dir_list_cache_data),
+};
 
 static const struct cache_funcs redir_funcs = {
     .init = redir_init,
     .free = redir_free,
     .serve = redir_serve,
-    .struct_size = sizeof(struct redir_cache_data)};
+    .struct_size = sizeof(struct redir_cache_data),
+};
 
 static const struct lwan_var_descriptor file_list_desc[] = {
     TPL_VAR_STR_ESCAPE(struct file_list, full_path),
     TPL_VAR_STR_ESCAPE(struct file_list, rel_path),
-    TPL_VAR_SEQUENCE(
-        struct file_list, file_list, directory_list_generator,
-        ((const struct lwan_var_descriptor[]){
-            TPL_VAR_STR(struct file_list, file_list.icon),
-            TPL_VAR_STR(struct file_list, file_list.icon_alt),
-            TPL_VAR_STR(struct file_list, file_list.name),
-            TPL_VAR_STR(struct file_list, file_list.type),
-            TPL_VAR_INT(struct file_list, file_list.size),
-            TPL_VAR_STR(struct file_list, file_list.unit), TPL_VAR_SENTINEL})),
-    TPL_VAR_SENTINEL};
+    TPL_VAR_SEQUENCE(struct file_list,
+                     file_list,
+                     directory_list_generator,
+                     ((const struct lwan_var_descriptor[]){
+                         TPL_VAR_STR(struct file_list, file_list.icon),
+                         TPL_VAR_STR(struct file_list, file_list.icon_alt),
+                         TPL_VAR_STR(struct file_list, file_list.name),
+                         TPL_VAR_STR(struct file_list, file_list.type),
+                         TPL_VAR_INT(struct file_list, file_list.size),
+                         TPL_VAR_STR(struct file_list, file_list.unit),
+                         TPL_VAR_STR(struct file_list, file_list.zebra_class),
+                         TPL_VAR_SENTINEL,
+                     })),
+    TPL_VAR_SENTINEL,
+};
 
 static const char *directory_list_tpl_str =
     "<html>\n"
     "<head>\n"
     "{{rel_path?}}  <title>Index of {{rel_path}}</title>{{/rel_path?}}\n"
     "{{^rel_path?}}  <title>Index of /</title>{{/rel_path?}}\n"
+    "<style>\n"
+    "  body { background: fff }\n"
+    "  tr.odd>td { background: #fff }\n"
+    "  tr.even>td { background: #eee }\n"
+    "</style>\n"
     "</head>\n"
     "<body>\n"
     "{{rel_path?}}  <h1>Index of {{rel_path}}</h1>{{/rel_path?}}\n"
     "{{^rel_path?}}  <h1>Index of /</h1>{{/rel_path?}}\n"
     "  <table>\n"
     "    <tr>\n"
-    "      <td>&nbsp;</td>\n"
-    "      <td>File name</td>\n"
-    "      <td>Type</td>\n"
-    "      <td>Size</td>\n"
-    "    </tr>\n"
-    "    <tr>\n"
     "      <td><img src=\"?icon=back\"></td>\n"
     "      <td colspan=\"3\"><a href=\"..\">Parent directory</a></td>\n"
     "    </tr>\n"
-    "{{#file_list}}"
     "    <tr>\n"
+    "      <td>&nbsp;</td>\n"
+    "      <th>File name</th>\n"
+    "      <th>Type</th>\n"
+    "      <th>Size</th>\n"
+    "    </tr>\n"
+    "{{#file_list}}"
+    "    <tr class=\"{{file_list.zebra_class}}\">\n"
     "      <td><img src=\"?icon={{file_list.icon}}\" "
     "alt=\"{{file_list.icon_alt}}\"></td>\n"
     "      <td><a "
     "href=\"{{rel_path}}/{{{file_list.name}}}\">{{{file_list.name}}}</a></td>\n"
     "      <td>{{file_list.type}}</td>\n"
-    "      <td>{{file_list.size}}{{file_list.unit}}</td>\n"
+    "      <td align=\"right\"><tt>{{file_list.size}}{{file_list.unit}}</tt></td>\n"
     "    </tr>\n"
     "{{/file_list}}"
     "{{^#file_list}}"
@@ -235,8 +251,10 @@ static const char *directory_list_tpl_str =
 
 static int directory_list_generator(struct coro *coro, void *data)
 {
+    static const char *zebra_classes[] = {"odd", "even"};
     struct file_list *fl = data;
     struct dirent *entry;
+    int zebra_class = 0;
     DIR *dir;
     int fd;
 
@@ -285,6 +303,7 @@ static int directory_list_generator(struct coro *coro, void *data)
         }
 
         fl->file_list.name = entry->d_name;
+        fl->file_list.zebra_class = zebra_classes[zebra_class++ % 2];
 
         if (coro_yield(coro, 1))
             break;
