@@ -82,6 +82,11 @@ static struct frame *frame_mk(int width, int height)
     return fr;
 }
 
+static inline bool get_bit(const unsigned char *bits, int x, int y, int width)
+{
+    return bits[(y * ((width + 7) >> 3)) + (x >> 3)] & 1 << (x & 7);
+}
+
 static struct frame *
 frame_from_pixmap(const unsigned char *bits, int width, int height)
 {
@@ -98,9 +103,6 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
         int seg, end;
         x = 0;
 
-#define GETBIT(bits, x, y)                                                     \
-    (!!((bits)[((y) * ((width + 7) >> 3)) + ((x) >> 3)] & (1 << ((x)&7))))
-
         left = frame->scanlines[y].left;
         right = frame->scanlines[y].right;
 
@@ -111,21 +113,21 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
 
         for (seg = 0; seg < MAX_SEGS_PER_LINE; seg++) {
             for (; x < width; x++) {
-                if (GETBIT(bits, x, y))
+                if (get_bit(bits, x, y, width))
                     break;
             }
             if (x == width)
                 break;
             left[seg] = (POS)x;
             for (; x < width; x++) {
-                if (!GETBIT(bits, x, y))
+                if (!get_bit(bits, x, y, width))
                     break;
             }
             right[seg] = (POS)x;
         }
 
         for (; x < width; x++) {
-            if (GETBIT(bits, x, y)) {
+            if (get_bit(bits, x, y, width)) {
                 /* This means the font is too curvy.  Increase MAX_SEGS_PER_LINE
                    and recompile. */
                 lwan_status_debug("builtin font is bogus");
@@ -144,7 +146,6 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
                 right[seg] = right[end - 1];
             }
         }
-#undef GETBIT
     }
 
     return frame;
