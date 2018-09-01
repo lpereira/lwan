@@ -182,18 +182,18 @@ static void frame_lerp(struct xdaliclock *xdc, int digit)
 {
     const int from = xdc->current_digits[digit];
     const int to = xdc->target_digits[digit];
-    struct frame *fromf, *tof;
-    int y, x;
-
-    fromf = from >= 0 ? base_frames[from] : xdc->clear_frame;
-    tof = to >= 0 ? base_frames[to] : xdc->clear_frame;
+    struct frame *fromf = (from >= 0) ? base_frames[from] : xdc->clear_frame;
+    struct frame *tof = (to >= 0) ? base_frames[to] : xdc->clear_frame;
+    int x, y;
 
     for (y = 0; y < char_height; y++) {
+        struct scanline *line = &xdc->temp_frame->scanlines[y];
+        struct scanline *to_line = &tof->scanlines[y];
+        struct scanline *from_line = &fromf->scanlines[y];
+
         for (x = 0; x < MAX_SEGS_PER_LINE; x++) {
-            xdc->temp_frame->scanlines[y].left[x] = lerp(
-                xdc, fromf->scanlines[y].left[x], tof->scanlines[y].left[x]);
-            xdc->temp_frame->scanlines[y].right[x] = lerp(
-                xdc, fromf->scanlines[y].right[x], tof->scanlines[y].right[x]);
+            line->left[x] = lerp(xdc, from_line->left[x], to_line->left[x]);
+            line->right[x] = lerp(xdc, from_line->right[x], to_line->right[x]);
         }
     }
 }
