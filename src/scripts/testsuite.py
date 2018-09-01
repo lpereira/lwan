@@ -312,6 +312,21 @@ class TestFileServing(LwanTest):
     self.assertTrue('location' in r.headers)
     self.assertEqual(r.headers['location'], '/icons/')
 
+class TestRedirect(LwanTest):
+  def test_redirect_default(self):
+    r = requests.get('http://127.0.0.1:8080/elsewhere', allow_redirects=False)
+
+    self.assertResponseHtml(r, 301)
+    self.assertTrue('location' in r.headers)
+    self.assertEqual(r.headers['location'], 'http://lwan.ws')
+
+  def test_redirect_307(self):
+    r = requests.get('http://127.0.0.1:8080/redirect307', allow_redirects=False)
+
+    self.assertResponseHtml(r, 307)
+    self.assertTrue('location' in r.headers)
+    self.assertEqual(r.headers['location'], 'http://lwan.ws')
+
 class TestRewrite(LwanTest):
   def test_pattern_redirect_to(self):
     r = requests.get('http://127.0.0.1:8080/pattern/foo/1234x5678', allow_redirects=False)
