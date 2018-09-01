@@ -227,7 +227,7 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
         x2 = swap;
     }
 
-    memset(xdc->gif_enc->frame + y * xdc->gif_enc->w + x1, color,
+    memset(xdc->gif_enc->frame + y * screen_width + x1, color,
            (size_t)(x2 - x1));
 }
 
