@@ -34,6 +34,14 @@ static const uint8_t font[10][5] = {
     [9] = {7, 5, 7, 1, 7},
 };
 
+static const struct lwan_key_value seriously_do_not_cache[] = {
+    {.key = "Content-Transfer-Encoding", .value = "binary"},
+    {.key = "Cache-Control", .value = "no-cache"},
+    {.key = "Cache-Control", .value = "no-store"},
+    {.key = "Cache-Control", .value = "no-transform"},
+    {},
+};
+
 static const uint16_t width = 3 * 6 /* 6*3px wide digits */ +
                               3 * 1 /* 3*1px wide decimal digit space */ +
                               3 * 2 /* 2*3px wide minutes+seconds dots */;
@@ -58,13 +66,7 @@ LWAN_HANDLER(clock)
     coro_defer(request->conn->coro, destroy_gif, gif);
 
     response->mime_type = "image/gif";
-    response->headers = (struct lwan_key_value[]){
-        {.key = "Content-Transfer-Encoding", .value = "binary"},
-        {.key = "Cache-Control", .value = "no-cache"},
-        {.key = "Cache-Control", .value = "no-store"},
-        {.key = "Cache-Control", .value = "no-transform"},
-        {},
-    };
+    response->headers = (struct lwan_key_value *)seriously_do_not_cache;
 
     memset(gif->frame, 0, (size_t)(width * height));
 
@@ -126,13 +128,7 @@ LWAN_HANDLER(dali)
     coro_defer(request->conn->coro, destroy_xdaliclock, xdc);
 
     response->mime_type = "image/gif";
-    response->headers = (struct lwan_key_value[]){
-        {.key = "Content-Transfer-Encoding", .value = "binary"},
-        {.key = "Cache-Control", .value = "no-cache"},
-        {.key = "Cache-Control", .value = "no-store"},
-        {.key = "Cache-Control", .value = "no-transform"},
-        {},
-    };
+    response->headers = seriously_do_not_cache;
 
     memset(gif->frame, 0, (size_t)(width * height));
 
