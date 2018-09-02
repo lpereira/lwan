@@ -50,7 +50,7 @@ struct xdaliclock {
     struct frame *temp_frame;
     struct frame *clear_frame;
 
-    uint32_t animtime;
+    uint32_t frame;
     uint32_t fps;
 
     time_t last_time;
@@ -173,8 +173,8 @@ __attribute__((constructor)) static void initialize_numbers(void)
 
 static inline POS lerp(const struct xdaliclock *xdc, POS a, POS b)
 {
-    uint32_t part_a = a * (65536 - xdc->animtime);
-    uint32_t part_b = b * (xdc->animtime + 1);
+    uint32_t part_a = a * (65536 - xdc->frame);
+    uint32_t part_b = b * (xdc->frame + 1);
 
     return (POS)((part_a + part_b) / 65536);
 }
@@ -293,7 +293,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
         xdc->target_digits[7] = tm->tm_sec % 10;
 
         xdc->last_time = now;
-        xdc->animtime = 0;
+        xdc->frame = 0;
     }
 
     for (int digit = 0, x = 0; digit < 8; x += widths[digit++]) {
@@ -301,7 +301,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
         frame_render(xdc, x);
     }
 
-    xdc->animtime += 65535 / (xdc->fps + 1);
+    xdc->frame += 65535 / (xdc->fps + 1);
 }
 
 struct xdaliclock *xdaliclock_new(ge_GIF *ge)
@@ -311,7 +311,7 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
     if (!xdc)
         return NULL;
 
-    xdc->animtime = 0;
+    xdc->frame = 0;
     xdc->fps = 10;
     xdc->gif_enc = ge;
     xdc->last_time = 0;
