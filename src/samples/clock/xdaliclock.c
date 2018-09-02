@@ -191,14 +191,15 @@ static void frame_lerp(struct xdaliclock *xdc, int digit)
 {
     const int from = xdc->current_digits[digit];
     const int to = xdc->target_digits[digit];
-    struct frame *fromf = (from >= 0) ? base_frames[from] : xdc->clear_frame;
-    struct frame *tof = (to >= 0) ? base_frames[to] : xdc->clear_frame;
+    const struct frame *fromf =
+        (from >= 0) ? base_frames[from] : xdc->clear_frame;
+    const struct frame *tof = (to >= 0) ? base_frames[to] : xdc->clear_frame;
     int x, y;
 
     for (y = 0; y < char_height; y++) {
         struct scanline *line = &xdc->temp_frame->scanlines[y];
-        struct scanline *to_line = &tof->scanlines[y];
-        struct scanline *from_line = &fromf->scanlines[y];
+        const struct scanline *to_line = &tof->scanlines[y];
+        const struct scanline *from_line = &fromf->scanlines[y];
 
         for (x = 0; x < MAX_SEGS_PER_LINE; x++) {
             line->left[x] = lerp(xdc, from_line->left[x], to_line->left[x]);
@@ -241,11 +242,11 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
 
 static void frame_render(struct xdaliclock *xdc, int x)
 {
-    struct frame *frame = xdc->temp_frame;
+    const struct frame *frame = xdc->temp_frame;
     int px, py;
 
     for (py = 0; py < char_height; py++) {
-        struct scanline *line = &frame->scanlines[py];
+        const struct scanline *line = &frame->scanlines[py];
         int last_right = 0;
 
         for (px = 0; px < MAX_SEGS_PER_LINE; px++) {
