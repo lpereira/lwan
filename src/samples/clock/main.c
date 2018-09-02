@@ -222,10 +222,10 @@ __attribute__((constructor)) static void initialize_template(void)
 
 LWAN_HANDLER(templated_index)
 {
-    response->mime_type = "text/html";
-
-    if (lwan_tpl_apply_with_buffer(index_tpl, response->buffer, data))
+    if (lwan_tpl_apply_with_buffer(index_tpl, response->buffer, data)) {
+        response->mime_type = "text/html";
         return HTTP_OK;
+    }
 
     return HTTP_INTERNAL_ERROR;
 }
