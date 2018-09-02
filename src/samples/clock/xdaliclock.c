@@ -44,8 +44,8 @@ struct frame {
 struct xdaliclock {
     ge_GIF *gif_enc;
 
-    int current_digits[6];
-    int target_digits[6];
+    int current_digits[8];
+    int target_digits[8];
 
     struct frame *temp_frame;
     struct frame *clear_frame;
@@ -269,8 +269,10 @@ static void frame_render(struct xdaliclock *xdc, int x)
 
 void xdaliclock_update(struct xdaliclock *xdc)
 {
-    const int offsets[] = {
-        0, 0, char_width / 2, char_width / 2, char_width, char_width,
+    const int widths[] = {
+        [0] = char_width, [1] = char_width, [2] = colon_width,
+        [3] = char_width, [4] = char_width, [5] = colon_width,
+        [6] = char_width, [7] = char_width, [8] = 0 /* avoid UB */,
     };
     time_t now;
 
@@ -278,23 +280,25 @@ void xdaliclock_update(struct xdaliclock *xdc)
     if (now != xdc->last_time) {
         struct tm *tm = localtime(&now);
 
-        for (int i = 0; i < 6; i++)
-            xdc->current_digits[i] = xdc->target_digits[i];
+        memcpy(xdc->current_digits, xdc->target_digits,
+               sizeof(xdc->current_digits));
 
         xdc->target_digits[0] = tm->tm_hour / 10;
         xdc->target_digits[1] = tm->tm_hour % 10;
-        xdc->target_digits[2] = tm->tm_min / 10;
-        xdc->target_digits[3] = tm->tm_min % 10;
-        xdc->target_digits[4] = tm->tm_sec / 10;
-        xdc->target_digits[5] = tm->tm_sec % 10;
+        xdc->target_digits[2] = 10;
+        xdc->target_digits[3] = tm->tm_min / 10;
+        xdc->target_digits[4] = tm->tm_min % 10;
+        xdc->target_digits[5] = 10;
+        xdc->target_digits[6] = tm->tm_sec / 10;
+        xdc->target_digits[7] = tm->tm_sec % 10;
 
         xdc->last_time = now;
         xdc->animtime = 0;
     }
 
-    for (int digit = 0, x = 0; digit < 6; digit++, x += char_width) {
+    for (int digit = 0, x = 0; digit < 8; x += widths[digit++]) {
         frame_lerp(xdc, digit);
-        frame_render(xdc, x + offsets[digit]);
+        frame_render(xdc, x);
     }
 
     xdc->animtime += 65535 / (xdc->fps + 1);

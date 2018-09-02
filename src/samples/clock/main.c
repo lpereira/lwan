@@ -109,7 +109,7 @@ static void destroy_xdaliclock(void *data)
 
 LWAN_HANDLER(dali)
 {
-    ge_GIF *gif = ge_new_gif(response->buffer, 314, 64, NULL, 2, -1);
+    ge_GIF *gif = ge_new_gif(response->buffer, 320, 64, NULL, 2, -1);
     struct xdaliclock *xdc;
 
     if (!gif)
