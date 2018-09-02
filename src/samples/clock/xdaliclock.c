@@ -60,6 +60,7 @@ enum paint_color { BACKGROUND, FOREGROUND };
 
 static struct frame *base_frames[12];
 static POS char_height, char_width, colon_width;
+static int digit_widths[8];
 
 static struct frame *frame_mk(int width, int height)
 {
@@ -169,6 +170,13 @@ __attribute__((constructor)) static void initialize_numbers(void)
         /* The base frames leak, but it's only one per program instance */
         base_frames[i] = frame;
     }
+
+    const int widths[] = {
+        [0] = char_width, [1] = char_width, [2] = colon_width,
+        [3] = char_width, [4] = char_width, [5] = colon_width,
+        [6] = char_width, [7] = char_width, [8] = 0 /* avoid UB */,
+    };
+    memcpy(digit_widths, widths, sizeof(digit_widths));
 }
 
 static inline POS lerp(const struct xdaliclock *xdc, POS a, POS b)
@@ -269,14 +277,8 @@ static void frame_render(struct xdaliclock *xdc, int x)
 
 void xdaliclock_update(struct xdaliclock *xdc)
 {
-    const int widths[] = {
-        [0] = char_width, [1] = char_width, [2] = colon_width,
-        [3] = char_width, [4] = char_width, [5] = colon_width,
-        [6] = char_width, [7] = char_width, [8] = 0 /* avoid UB */,
-    };
-    time_t now;
+    time_t now = time(NULL);
 
-    now = time(NULL);
     if (now != xdc->last_time) {
         struct tm *tm = localtime(&now);
 
@@ -296,7 +298,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
         xdc->frame = 0;
     }
 
-    for (int digit = 0, x = 0; digit < 8; x += widths[digit++]) {
+    for (int digit = 0, x = 0; digit < 8; x += digit_widths[digit++]) {
         frame_lerp(xdc, digit);
         frame_render(xdc, x);
     }
