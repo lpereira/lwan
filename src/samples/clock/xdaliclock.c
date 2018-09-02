@@ -23,6 +23,7 @@
 #include "numbers.h"
 #include "lwan-private.h"
 
+#define FRAMES_PER_SECOND 10
 #define ANIMATION_TIME_MSEC 1000
 
 /**************************************************************************/
@@ -50,10 +51,9 @@ struct xdaliclock {
     struct frame *temp_frame;
     struct frame *clear_frame;
 
-    uint32_t frame;
-    uint32_t fps;
-
     time_t last_time;
+
+    uint32_t frame;
 };
 
 enum paint_color { BACKGROUND, FOREGROUND };
@@ -301,7 +301,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
         frame_render(xdc, x);
     }
 
-    xdc->frame += 65535 / (xdc->fps + 1);
+    xdc->frame += 65535 / (FRAMES_PER_SECOND + 1);
 }
 
 struct xdaliclock *xdaliclock_new(ge_GIF *ge)
@@ -312,7 +312,6 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
         return NULL;
 
     xdc->frame = 0;
-    xdc->fps = 10;
     xdc->gif_enc = ge;
     xdc->last_time = 0;
 
@@ -344,7 +343,8 @@ void xdaliclock_free(struct xdaliclock *xdc)
     free(xdc);
 }
 
-uint32_t xdaliclock_get_frame_time(const struct xdaliclock *xdc)
+uint32_t xdaliclock_get_frame_time(const struct xdaliclock *xdc
+                                   __attribute__((unused)))
 {
-    return ANIMATION_TIME_MSEC / xdc->fps;
+    return ANIMATION_TIME_MSEC / FRAMES_PER_SECOND;
 }
