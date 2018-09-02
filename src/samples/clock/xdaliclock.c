@@ -129,9 +129,9 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
 
         for (; x < width; x++) {
             if (get_bit(bits, x, y, width)) {
-                /* This means the font is too curvy.  Increase MAX_SEGS_PER_LINE
-                   and recompile. */
-                lwan_status_debug("builtin font is bogus");
+                lwan_status_critical(
+                    "Font too curvy. Increase MAX_SEGS_PER_LINE "
+                    "and recompile");
                 return NULL;
             }
         }
