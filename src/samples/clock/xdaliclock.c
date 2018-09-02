@@ -32,7 +32,7 @@
  * (Largely stolen from the PalmOS original).
  */
 
-#define MAX_SEGS_PER_LINE 3
+#define MAX_SEGS_PER_LINE 2
 
 struct scanline {
     POS left[MAX_SEGS_PER_LINE], right[MAX_SEGS_PER_LINE];
