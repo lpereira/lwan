@@ -18,9 +18,11 @@
  * USA.
  */
 
-#include "lwan.h"
 #include <stdlib.h>
 
+#include "lwan.h"
+#include "lwan-template.h"
+#include "lwan-mod-redirect.h"
 #include "gifenc.h"
 #include "xdaliclock.h"
 
@@ -145,50 +147,129 @@ LWAN_HANDLER(dali)
     return HTTP_OK;
 }
 
-LWAN_HANDLER(index)
+struct index {
+    const char *title;
+    const char *variant;
+    int width;
+};
+
+static const struct lwan_var_descriptor index_desc[] = {
+    TPL_VAR_STR_ESCAPE(struct index, title),
+    TPL_VAR_STR_ESCAPE(struct index, variant),
+    TPL_VAR_INT(struct index, width),
+    TPL_VAR_SENTINEL,
+};
+
+static struct lwan_tpl *index_tpl;
+
+__attribute__((constructor)) static void initialize_template(void)
 {
-    static const char index[] = "<html>\n"
-        "<head>\n" \
-        "<style>\n" \
-        "body {\n" \
-        "   background:black;\n" \
-        "   height:100\x25;\n" \
-        "   text-align:center;\n" \
-        "   border:0;\n" \
-        "   margin:0;\n" \
-        "   padding:0;\n" \
-        "}\n" \
+    static const char index[] =
+        "<html>\n"
+        "<head>\n"
+        "<style>\n"
+        "body {\n"
+        "   background:black;\n"
+        "   height:100\x25;\n"
+        "   text-align:center;\n"
+        "   border:0;\n"
+        "   margin:0;\n"
+        "   padding:0;\n"
+        "}\n"
         "img {\n"
-        "   image-rendering: pixelated;\n" \
-        "   image-rendering: -moz-crisp-edges;\n" \
-        "   image-rendering: crisp-edges;\n" \
-        "}\n" \
-        "</style>\n" \
-        "<title>Lwan Clock Sample</title>\n"
-        "</head>\n" \
-        "<body>\n" \
-        "  <table height=\"100\x25\" width=\"100\x25\">\n" \
-        "  <tr>\n" \
-        "    <td align=\"center\" valign=\"middle\">\n" \
-        "    <div><img src=\"/clock.gif\" width=\"200px\"></div>\n" \
-        "    </td>\n" \
-        "  </tr></table>\n" \
-        "</body>\n" \
+        "   image-rendering: pixelated;\n"
+        "   image-rendering: -moz-crisp-edges;\n"
+        "   image-rendering: crisp-edges;\n"
+        "}\n"
+        "#styles {\n"
+        "   color: #444;\n"
+        "   top: 0;\n"
+        "   position: absolute;\n"
+        "   padding: 16px;\n"
+        "   left: calc(50% - 100px - 16px);\n"
+        "   width: 200px;\n"
+        "}\n"
+        "#styles a, #styles a:visited, #lwan a, #lwan a:visited { color: #666; }\n"
+        "#lwan {\n"
+        "   color: #555;\n"
+        "   top: calc(100% - 40px);\n"
+        "   position: absolute;\n"
+        "   height: 20px;\n"
+        "   font-size: 75%;\n"
+        "   width: 300px;\n"
+        "}\n"
+        "</style>\n"
+        "<title>{{title}}</title>\n"
+        "</head>\n"
+        "<body>\n"
+        "  <div id=\"lwan\">\n"
+        "    Powered by the <a href=\"https://lwan.ws\">Lwan</a> web server.\n"
+        "  </div>\n"
+        "  <table height=\"100\x25\" width=\"100\x25\">\n"
+        "  <tr>\n"
+        "    <td align=\"center\" valign=\"middle\">\n"
+        "    <div><img src=\"/{{variant}}.gif\" width=\"{{width}}px\"></div>\n"
+        "    </td>\n"
+        "  </tr>\n"
+        "  </table>\n"
+        "  <div id=\"styles\">\n"
+        "    Styles: <a href=\"/clock\">Digital</a> &middot; <a href=\"/dali\">Dali</a>\n"
+        "  </div>\n"
+        "</body>\n"
         "</html>";
 
-    response->mime_type = "text/html";
-    lwan_strbuf_set_static(response->buffer, index, sizeof(index) - 1);
+    index_tpl = lwan_tpl_compile_string_full(index, index_desc,
+                                             LWAN_TPL_FLAG_CONST_TEMPLATE);
+    if (!index_tpl)
+        lwan_status_critical("Could not compile template");
+}
 
-    return HTTP_OK;
+LWAN_HANDLER(templated_index)
+{
+    response->mime_type = "text/html";
+
+    if (lwan_tpl_apply_with_buffer(index_tpl, response->buffer, data))
+        return HTTP_OK;
+
+    return HTTP_INTERNAL_ERROR;
 }
 
 int main(void)
 {
+    struct index sample_clock = {
+        .title = "Lwan Sample Clock",
+        .variant = "clock",
+        .width = 200,
+    };
+    struct index dali_clock = {
+        .title = "Lwan Dali Clock",
+        .variant = "dali",
+        .width = 320,
+    };
     const struct lwan_url_map default_map[] = {
-        {.prefix = "/clock.gif", .handler = LWAN_HANDLER_REF(clock)},
-        {.prefix = "/dali.gif", .handler = LWAN_HANDLER_REF(dali)},
-        {.prefix = "/", .handler = LWAN_HANDLER_REF(index)},
-        {.prefix = NULL},
+        {
+            .prefix = "/clock.gif",
+            .handler = LWAN_HANDLER_REF(clock),
+        },
+        {
+            .prefix = "/dali.gif",
+            .handler = LWAN_HANDLER_REF(dali),
+        },
+        {
+            .prefix = "/clock",
+            .handler = LWAN_HANDLER_REF(templated_index),
+            .data = &sample_clock,
+        },
+        {
+            .prefix = "/dali",
+            .handler = LWAN_HANDLER_REF(templated_index),
+            .data = &dali_clock,
+        },
+        {
+            .prefix = "/",
+            REDIRECT("/clock"),
+        },
+        {},
     };
     struct lwan l;
 
