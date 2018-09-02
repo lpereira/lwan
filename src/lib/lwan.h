@@ -252,7 +252,7 @@ struct lwan_response {
     struct lwan_strbuf *buffer;
     const char *mime_type;
     size_t content_length;
-    struct lwan_key_value *headers;
+    const struct lwan_key_value *headers;
 
     struct {
         enum lwan_http_status (*callback)(struct lwan_request *request, void *data);
