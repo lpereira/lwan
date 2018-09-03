@@ -62,9 +62,11 @@ extern "C" {
 
 #define LWAN_HANDLER_REF(name_) lwan_handler_##name_
 
-#define LWAN_HANDLER(name_)                                                    \
+#define LWAN_HANDLER_DECLARE(name_)                                            \
     static enum lwan_http_status lwan_handler_##name_(                         \
-        struct lwan_request *, struct lwan_response *, void *data);            \
+        struct lwan_request *, struct lwan_response *, void *)
+
+#define LWAN_HANDLER_DEFINE(name_)                                             \
     static const struct lwan_handler_info                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
             lwan_handler_info_##name_ = {.name = #name_,                       \
@@ -73,6 +75,10 @@ extern "C" {
         struct lwan_request *request __attribute__((unused)),                  \
         struct lwan_response *response __attribute__((unused)),                \
         void *data __attribute__((unused)))
+
+#define LWAN_HANDLER(name_)                                                    \
+    LWAN_HANDLER_DECLARE(name_);                                               \
+    LWAN_HANDLER_DEFINE(name_)
 
 #ifdef DISABLE_INLINE_FUNCTIONS
 #  define ALWAYS_INLINE
