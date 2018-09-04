@@ -26,6 +26,10 @@
 #define FRAMES_PER_SECOND 10
 #define ANIMATION_TIME_MSEC 1000
 
+#if (FRAMES_PER_SECOND + 1) > 15
+#error Animation easing routine needs to be updated for this framerate
+#endif
+
 /**************************************************************************/
 /* Scanline parsing.
  *
@@ -54,6 +58,7 @@ struct xdaliclock {
     time_t last_time;
 
     uint32_t frame;
+    uint32_t frame_count;
 };
 
 enum paint_color { BACKGROUND, FOREGROUND };
@@ -305,6 +310,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
 
         xdc->last_time = now;
         xdc->frame = 0;
+        xdc->frame_count = 0;
     }
 
     for (int digit = 0, x = 0; digit < 8; x += digit_widths[digit++]) {
@@ -312,7 +318,8 @@ void xdaliclock_update(struct xdaliclock *xdc)
         frame_render(xdc, x);
     }
 
-    xdc->frame += 65535 / (FRAMES_PER_SECOND + 1);
+    xdc->frame = 65535u - 65535u / (1u << (xdc->frame_count + 1));
+    xdc->frame_count++;
 }
 
 struct xdaliclock *xdaliclock_new(ge_GIF *ge)
@@ -325,6 +332,7 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
     xdc->frame = 0;
     xdc->gif_enc = ge;
     xdc->last_time = 0;
+    xdc->frame_count = 0;
 
     xdc->temp_frame = frame_mk(char_width, char_height);
     if (!xdc->temp_frame)
