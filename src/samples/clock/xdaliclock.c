@@ -24,7 +24,6 @@
 #include "lwan-private.h"
 
 #define FRAMES_PER_SECOND 10
-#define ANIMATION_TIME_MSEC 1000
 
 #if (FRAMES_PER_SECOND + 1) > 15
 #error Animation easing routine needs to be updated for this framerate
@@ -365,5 +364,5 @@ void xdaliclock_free(struct xdaliclock *xdc)
 uint32_t xdaliclock_get_frame_time(const struct xdaliclock *xdc
                                    __attribute__((unused)))
 {
-    return ANIMATION_TIME_MSEC / FRAMES_PER_SECOND;
+    return 1000 / FRAMES_PER_SECOND;
 }
