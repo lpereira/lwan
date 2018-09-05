@@ -54,8 +54,6 @@ struct xdaliclock {
     struct frame *temp_frame;
     struct frame *clear_frame;
 
-    time_t last_time;
-
     uint32_t frame;
 };
 
@@ -295,10 +293,9 @@ static void frame_render(struct xdaliclock *xdc, int x)
 
 void xdaliclock_update(struct xdaliclock *xdc)
 {
-    time_t now = time(NULL);
-
-    if (now != xdc->last_time) {
-        struct tm *tm = localtime(&now);
+    if (xdc->frame >= FRAMES_PER_SECOND) {
+        const time_t now = time(NULL);
+        const struct tm *tm = localtime(&now);
 
         memcpy(xdc->current_digits, xdc->target_digits,
                sizeof(xdc->current_digits));
@@ -312,7 +309,6 @@ void xdaliclock_update(struct xdaliclock *xdc)
         xdc->target_digits[6] = tm->tm_sec / 10;
         xdc->target_digits[7] = tm->tm_sec % 10;
 
-        xdc->last_time = now;
         xdc->frame = 0;
     }
 
@@ -345,7 +341,6 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
     /* Ensure time() is called the first time xdaliclock_update() is called */
     xdc->frame = FRAMES_PER_SECOND;
     xdc->gif_enc = ge;
-    xdc->last_time = 0;
 
     return xdc;
 
