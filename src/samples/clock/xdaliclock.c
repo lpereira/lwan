@@ -198,7 +198,7 @@ static const struct frame *frame_lerp(struct xdaliclock *xdc, int digit, unsigne
     const int from = xdc->current_digits[digit];
     const int to = xdc->target_digits[digit];
     const struct frame *tof = (to >= 0) ? base_frames[to] : xdc->clear_frame;
-    const struct frame *from;
+    const struct frame *fromf;
     int x, y;
 
     if (from == to)
