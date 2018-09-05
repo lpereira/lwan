@@ -227,14 +227,16 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
                                  int screen_width,
                                  enum paint_color color)
 {
-    if (x1 > screen_width)
+    /* These unlikely checks won't happen with the default font. */
+
+    if (UNLIKELY(x1 > screen_width))
         x1 = screen_width;
-    else if (x1 < 0)
+    else if (UNLIKELY(x1 < 0))
         x1 = 0;
 
-    if (x2 > screen_width)
+    if (UNLIKELY(x2 > screen_width))
         x2 = screen_width;
-    else if (x2 < 0)
+    else if (UNLIKELY(x2 < 0))
         x2 = 0;
 
     if (x1 == x2)
