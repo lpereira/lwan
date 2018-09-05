@@ -70,7 +70,7 @@ LWAN_HANDLER(clock)
 
     memset(gif->frame, 0, (size_t)(width * height));
 
-    while (true) {
+    for (int frame = 0; frame < 3600 * 2; frame++) {
         time_t curtime;
         char digits[8];
         int digit, line, base;
@@ -115,6 +115,7 @@ LWAN_HANDLER(dali)
 {
     ge_GIF *gif = ge_new_gif(response->buffer, 320, 64, NULL, 2, -1);
     struct xdaliclock *xdc;
+    uint32_t one_hour;
 
     if (!gif)
         return HTTP_INTERNAL_ERROR;
@@ -132,7 +133,8 @@ LWAN_HANDLER(dali)
 
     memset(gif->frame, 0, (size_t)(width * height));
 
-    while (true) {
+    one_hour = 3600 * 1000 / xdaliclock_get_frame_time(xdc);
+    for (uint32_t frame = 0; frame < one_hour; frame++) {
         xdaliclock_update(xdc);
 
         ge_add_frame(gif, 0);
@@ -195,6 +197,7 @@ __attribute__((constructor)) static void initialize_template(void)
         "   width: 300px;\n"
         "}\n"
         "</style>\n"
+        "<meta http-equiv=\"Refresh\" content=\"3600;url=/{{variant}}\">\n"
         "<title>{{title}}</title>\n"
         "</head>\n"
         "<body>\n"
