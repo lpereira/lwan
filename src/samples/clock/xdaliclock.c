@@ -57,7 +57,6 @@ struct xdaliclock {
     time_t last_time;
 
     uint32_t frame;
-    uint32_t frame_count;
 };
 
 enum paint_color { BACKGROUND, FOREGROUND };
@@ -65,6 +64,7 @@ enum paint_color { BACKGROUND, FOREGROUND };
 static struct frame *base_frames[12];
 static POS char_height, char_width, colon_width;
 static int digit_widths[8];
+static unsigned int easing[FRAMES_PER_SECOND];
 
 static struct frame *frame_mk(int width, int height)
 {
@@ -181,17 +181,22 @@ __attribute__((constructor)) static void initialize_numbers(void)
         [6] = char_width, [7] = char_width, [8] = 0 /* avoid UB */,
     };
     memcpy(digit_widths, widths, sizeof(digit_widths));
+
+    /* Pre-compute easing function. */
+    for (unsigned int i = 0; i < FRAMES_PER_SECOND - 1; i++)
+        easing[i] = 65535u - 65535u / (1u << (i + 1));
+    easing[FRAMES_PER_SECOND - 1] = 65535u;
 }
 
-static inline POS lerp(const struct xdaliclock *xdc, POS a, POS b)
+static inline POS lerp(const struct xdaliclock *xdc, POS a, POS b, unsigned int anim)
 {
-    uint32_t part_a = a * (65536 - xdc->frame);
-    uint32_t part_b = b * (xdc->frame + 1);
+    uint32_t part_a = a * (65536 - anim);
+    uint32_t part_b = b * (anim + 1);
 
     return (POS)((part_a + part_b) / 65536);
 }
 
-static void frame_lerp(struct xdaliclock *xdc, int digit)
+static void frame_lerp(struct xdaliclock *xdc, int digit, unsigned int anim)
 {
     const int from = xdc->current_digits[digit];
     const int to = xdc->target_digits[digit];
@@ -212,9 +217,9 @@ static void frame_lerp(struct xdaliclock *xdc, int digit)
             const struct scanline *from_line = &fromf->scanlines[y];
 
             for (x = 0; x < MAX_SEGS_PER_LINE; x++) {
-                line->left[x] = lerp(xdc, from_line->left[x], to_line->left[x]);
+                line->left[x] = lerp(xdc, from_line->left[x], to_line->left[x], anim);
                 line->right[x] =
-                    lerp(xdc, from_line->right[x], to_line->right[x]);
+                    lerp(xdc, from_line->right[x], to_line->right[x], anim);
             }
         }
     }
@@ -309,16 +314,14 @@ void xdaliclock_update(struct xdaliclock *xdc)
 
         xdc->last_time = now;
         xdc->frame = 0;
-        xdc->frame_count = 0;
     }
 
     for (int digit = 0, x = 0; digit < 8; x += digit_widths[digit++]) {
-        frame_lerp(xdc, digit);
+        frame_lerp(xdc, digit, easing[xdc->frame]);
         frame_render(xdc, x);
     }
 
-    xdc->frame = 65535u - 65535u / (1u << (xdc->frame_count + 1));
-    xdc->frame_count++;
+    xdc->frame++;
 }
 
 struct xdaliclock *xdaliclock_new(ge_GIF *ge)
@@ -327,11 +330,6 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
 
     if (!xdc)
         return NULL;
-
-    xdc->frame = 0;
-    xdc->gif_enc = ge;
-    xdc->last_time = 0;
-    xdc->frame_count = 0;
 
     xdc->temp_frame = frame_mk(char_width, char_height);
     if (!xdc->temp_frame)
@@ -343,6 +341,11 @@ struct xdaliclock *xdaliclock_new(ge_GIF *ge)
 
     for (unsigned int i = 0; i < N_ELEMENTS(xdc->target_digits); i++)
         xdc->target_digits[i] = xdc->current_digits[i] = -1;
+
+    /* Ensure time() is called the first time xdaliclock_update() is called */
+    xdc->frame = FRAMES_PER_SECOND;
+    xdc->gif_enc = ge;
+    xdc->last_time = 0;
 
     return xdc;
 
