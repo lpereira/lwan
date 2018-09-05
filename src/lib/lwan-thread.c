@@ -375,18 +375,21 @@ turn_timer_wheel(struct death_queue *dq, struct lwan_thread *t, int epoll_fd)
 
     wheel_timeout = timeouts_timeout(t->wheel);
     if (UNLIKELY((int64_t)wheel_timeout < 0))
-        return -1;
+        goto infinite_timeout;
 
     if (wheel_timeout == 0) {
-        if (process_pending_timers(dq, t, epoll_fd)) {
-            wheel_timeout = timeouts_timeout(t->wheel);
+        if (!process_pending_timers(dq, t, epoll_fd))
+            goto infinite_timeout;
 
-            if (!wheel_timeout)
-                return -1;
-        }
+        wheel_timeout = timeouts_timeout(t->wheel);
+        if (wheel_timeout == 0)
+            goto infinite_timeout;
     }
 
     return (int)wheel_timeout;
+
+infinite_timeout:
+    return -1;
 }
 
 static void *thread_io_loop(void *data)
