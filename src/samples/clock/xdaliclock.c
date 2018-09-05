@@ -57,7 +57,7 @@ struct xdaliclock {
     uint32_t frame;
 };
 
-enum paint_color { BACKGROUND, FOREGROUND };
+enum paint_color { BACKGROUND = 0, FOREGROUND = 3 };
 
 static struct frame *base_frames[12];
 static POS char_height, char_width, colon_width;
@@ -225,10 +225,8 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
                                  int x2,
                                  int y,
                                  int screen_width,
-                                 enum paint_color pc)
+                                 enum paint_color color)
 {
-    uint8_t color = (pc == BACKGROUND) ? 0 : 3;
-
     if (x1 > screen_width)
         x1 = screen_width;
     else if (x1 < 0)
@@ -248,7 +246,7 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
         x2 = swap;
     }
 
-    memset(xdc->gif_enc->frame + y * screen_width + x1, color,
+    memset(xdc->gif_enc->frame + y * screen_width + x1, (uint8_t)color,
            (size_t)(x2 - x1));
 }
 
