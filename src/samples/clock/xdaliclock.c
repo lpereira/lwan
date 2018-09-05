@@ -66,9 +66,8 @@ static unsigned int easing[FRAMES_PER_SECOND];
 
 static struct frame *frame_mk(int width, int height)
 {
-    struct frame *fr =
-        calloc(1, sizeof(struct frame) +
-                      (sizeof(struct scanline) * ((size_t)height - 1)));
+    struct frame *fr = malloc(sizeof(struct frame) +
+                              (sizeof(struct scanline) * ((size_t)height - 1)));
     POS half_width = (POS)(width / 2);
     int x, y;
 
