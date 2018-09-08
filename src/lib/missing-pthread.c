@@ -18,6 +18,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -91,7 +92,7 @@ int pthread_set_name_np(pthread_t thread, const char *name)
 #elif defined(__APPLE__)
 int pthread_set_name_np(pthread_t thread, const char *name)
 {
-    if (!pthread_equal(thread, pthread_self())
+    if (!pthread_equal(thread, pthread_self()))
         return EPERM;
 
     /* macOS takes a char*; I don't know if it's modified or not, so
