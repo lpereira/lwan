@@ -19,6 +19,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -30,31 +31,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "lwan-private.h"
 #include "hash.h"
 #include "murmur3.h"
 
 struct hash_entry {
     const char *key;
     const void *value;
-    unsigned hashval;
+
+    unsigned int hashval;
 };
 
 struct hash_bucket {
     struct hash_entry *entries;
-    unsigned used;
-    unsigned total;
+
+    unsigned int used;
+    unsigned int total;
 };
 
 struct hash {
-    unsigned count;
+    unsigned int count;
+    unsigned int n_buckets;
+
     unsigned (*hash_value)(const void *key);
     int (*key_compare)(const void *k1, const void *k2);
     void (*free_value)(void *value);
     void (*free_key)(void *value);
-    struct hash_bucket buckets[];
+
+    struct hash_bucket *buckets;
 };
 
-#define N_BUCKETS 512
+#define MIN_BUCKETS 512
 #define STEPS 64
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
 
@@ -177,16 +184,26 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
                   void (*free_key)(void *value),
                   void (*free_value)(void *value))
 {
-    struct hash *hash =
-        calloc(1, sizeof(struct hash) + N_BUCKETS * sizeof(struct hash_bucket));
+    struct hash *hash = malloc(sizeof(*hash));
 
     if (hash == NULL)
         return NULL;
 
+    hash->buckets = calloc(MIN_BUCKETS, sizeof(struct hash_bucket));
+    if (hash->buckets == NULL) {
+        free(hash);
+        return NULL;
+    }
+
     hash->hash_value = hash_value;
     hash->key_compare = key_compare;
+
     hash->free_value = free_value;
     hash->free_key = free_key;
+
+    hash->n_buckets = MIN_BUCKETS;
+    hash->count = 0;
+
     return hash;
 }
 
@@ -214,7 +231,7 @@ void hash_free(struct hash *hash)
         return;
 
     bucket = hash->buckets;
-    bucket_end = bucket + N_BUCKETS;
+    bucket_end = hash->buckets + hash->n_buckets;
     for (; bucket < bucket_end; bucket++) {
         struct hash_entry *entry, *entry_end;
         entry = bucket->entries;
@@ -225,13 +242,14 @@ void hash_free(struct hash *hash)
         }
         free(bucket->entries);
     }
+    free(hash->buckets);
     free(hash);
 }
 
-static struct hash_entry *hash_add_entry(struct hash *hash, const void *key)
+static struct hash_entry *hash_add_entry_hashed(struct hash *hash, const void *key,
+                                                unsigned int hashval)
 {
-    unsigned int hashval = hash->hash_value(key);
-    unsigned int pos = hashval & (N_BUCKETS - 1);
+    unsigned int pos = hashval & (hash->n_buckets - 1);
     struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -270,6 +288,59 @@ static struct hash_entry *hash_add_entry(struct hash *hash, const void *key)
     return entry;
 }
 
+static int rehash(struct hash *hash, unsigned int new_bucket_size)
+{
+    struct hash_bucket *buckets = calloc(new_bucket_size, sizeof(*buckets));
+    const struct hash_bucket *bucket_end = hash->buckets + hash->n_buckets;
+    const struct hash_bucket *bucket;
+    struct hash hash_copy = *hash;
+
+    assert(hash->n_buckets != new_bucket_size);
+
+    if (buckets == NULL)
+        return -errno;
+
+    hash_copy.count = 0;
+    hash_copy.n_buckets = new_bucket_size;
+    hash_copy.buckets = buckets;
+
+    for (bucket = hash->buckets; bucket < bucket_end; bucket++) {
+        const struct hash_entry *old = bucket->entries;
+        const struct hash_entry *old_end = old + bucket->used;
+
+        for (; old < old_end; old++) {
+            struct hash_entry *new;
+
+            new = hash_add_entry_hashed(&hash_copy, old->key, old->hashval);
+            if (UNLIKELY(!new)) {
+                free(buckets);
+                return -ENOMEM;
+            }
+
+            new->key = old->key;
+            new->value = old->value;
+        }
+
+        free(bucket->entries);
+    }
+
+    free(hash->buckets);
+
+    hash->buckets = buckets;
+    hash->n_buckets = new_bucket_size;
+
+    assert(hash_copy.count == hash->count);
+
+    return 0;
+}
+
+static struct hash_entry *hash_add_entry(struct hash *hash, const void *key)
+{
+    unsigned int hashval = hash->hash_value(key);
+
+    return hash_add_entry_hashed(hash, key, hashval);
+}
+
 /*
  * add or replace key in hash map.
  *
@@ -289,6 +360,11 @@ int hash_add(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
+    if (hash->count > hash->n_buckets) {
+        /* Not being able to resize the bucket array is not an error */
+        rehash(hash, hash->n_buckets * 2);
+    }
+
     return 0;
 }
 
@@ -306,13 +382,18 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
+    if (hash->count > hash->n_buckets) {
+        /* Not being able to resize the bucket array is not an error */
+        rehash(hash, hash->n_buckets * 2);
+    }
+
     return 0;
 }
 
 static inline struct hash_entry *
 hash_find_entry(const struct hash *hash, const char *key, unsigned int hashval)
 {
-    unsigned int pos = hashval & (N_BUCKETS - 1);
+    unsigned int pos = hashval & (hash->n_buckets - 1);
     const struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -341,7 +422,7 @@ void *hash_find(const struct hash *hash, const void *key)
 int hash_del(struct hash *hash, const void *key)
 {
     unsigned int hashval = hash->hash_value(key);
-    unsigned int pos = hashval & (N_BUCKETS - 1);
+    unsigned int pos = hashval & (hash->n_buckets - 1);
     unsigned int steps_used, steps_total;
     struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
@@ -371,6 +452,11 @@ int hash_del(struct hash *hash, const void *key)
         }
     }
 
+    if (hash->n_buckets > MIN_BUCKETS && hash->count < hash->n_buckets / 2) {
+        /* Not being able to trim the bucket array size isn't an error. */
+        rehash(hash, hash->n_buckets / 2);
+    }
+
     return 0;
 }
 
@@ -395,14 +481,14 @@ bool hash_iter_next(struct hash_iter *iter,
     if ((unsigned int)iter->entry >= b->used) {
         iter->entry = 0;
 
-        for (iter->bucket++; iter->bucket < N_BUCKETS; iter->bucket++) {
+        for (iter->bucket++; iter->bucket < iter->hash->n_buckets; iter->bucket++) {
             b = iter->hash->buckets + iter->bucket;
 
             if (b->used > 0)
                 break;
         }
 
-        if (iter->bucket >= N_BUCKETS)
+        if (iter->bucket >= iter->hash->n_buckets)
             return false;
     }
 
