@@ -75,9 +75,13 @@ static unsigned int get_random_unsigned(void)
 {
     unsigned int value;
 
-#ifdef SYS_getrandom
+#if defined(SYS_getrandom)
     long int ret = syscall(SYS_getrandom, &value, sizeof(value), 0);
     if (ret == sizeof(value))
+        return value;
+#elif defined(HAVE_GETENTROPY)
+    int ret = getentropy(value, sizeof(value));
+    if (ret == 0)
         return value;
 #endif
 
