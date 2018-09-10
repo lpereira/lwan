@@ -122,7 +122,7 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
 
     lwan_send(request, header, header_len, MSG_MORE);
 
-    do {
+    while (true) {
         ssize_t written = sendfile(request->fd, in_fd, &offset, chunk_size);
         if (written < 0) {
             switch (errno) {
@@ -138,11 +138,13 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         }
 
         to_be_written -= (size_t)written;
-        chunk_size = min_size(to_be_written, 1<<19);
+        if (!to_be_written)
+            break;
 
+        chunk_size = min_size(to_be_written, 1<<19);
         lwan_readahead_queue(in_fd, offset, chunk_size);
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-    } while (to_be_written > 0);
+    }
 }
 #elif defined(__FreeBSD__) || defined(__APPLE__)
 void
