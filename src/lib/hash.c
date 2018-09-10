@@ -62,7 +62,7 @@ struct hash {
 };
 
 #define MIN_BUCKETS 512
-#define STEPS 64
+#define STEPS 16
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
 
 static inline unsigned int hash_int_shift_mult(const void *keyptr);
