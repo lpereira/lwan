@@ -427,7 +427,6 @@ int hash_del(struct hash *hash, const void *key)
 {
     unsigned int hashval = hash->hash_value(key);
     unsigned int pos = hashval & (hash->n_buckets - 1);
-    unsigned int steps_used, steps_total;
     struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -445,20 +444,21 @@ int hash_del(struct hash *hash, const void *key)
     bucket->used--;
     hash->count--;
 
-    steps_used = bucket->used / STEPS;
-    steps_total = bucket->total / STEPS;
-    if (steps_used + 1 < steps_total) {
-        struct hash_entry *tmp =
-            reallocarray(bucket->entries, steps_used + 1, STEPS * sizeof(*tmp));
-        if (tmp) {
-            bucket->entries = tmp;
-            bucket->total = (steps_used + 1) * STEPS;
-        }
-    }
-
     if (hash->n_buckets > MIN_BUCKETS && hash->count < hash->n_buckets / 2) {
         /* Not being able to trim the bucket array size isn't an error. */
         rehash(hash, hash->n_buckets / 2);
+    } else {
+        unsigned int steps_used = bucket->used / STEPS;
+        unsigned int steps_total = bucket->total / STEPS;
+
+        if (steps_used + 1 < steps_total) {
+            struct hash_entry *tmp = reallocarray(
+                bucket->entries, steps_used + 1, STEPS * sizeof(*tmp));
+            if (tmp) {
+                bucket->entries = tmp;
+                bucket->total = (steps_used + 1) * STEPS;
+            }
+        }
     }
 
     return 0;
