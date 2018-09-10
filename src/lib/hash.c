@@ -61,7 +61,7 @@ struct hash {
     struct hash_bucket *buckets;
 };
 
-#define MIN_BUCKETS 512
+#define MIN_BUCKETS 64
 #define STEPS 16
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
 
