@@ -173,6 +173,7 @@ __attribute__((constructor)) static void initialize_template(void)
         "   border:0;\n"
         "   margin:0;\n"
         "   padding:0;\n"
+        "   font-family: sans-serif;\n"
         "}\n"
         "img {\n"
         "   image-rendering: pixelated;\n"
