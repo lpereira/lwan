@@ -324,10 +324,13 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
             new->key = old->key;
             new->value = old->value;
         }
-
-        free(bucket->entries);
     }
 
+    /* Original table must remain untouched in the event resizing fails:
+     * previous loop may return early on allocation failure, so can't free
+     * bucket entry arrays there.  */
+    for (bucket = hash->buckets; bucket < bucket_end; bucket++)
+        free(bucket->entries);
     free(hash->buckets);
 
     hash->buckets = buckets;
