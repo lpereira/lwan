@@ -41,4 +41,9 @@ int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
 char *get_current_dir_name(void);
 #endif
 
+#if defined(__APPLE__)
+/* getrandom() is defined in <sys/random.h> on macOS */
+#include <sys/random.h>
+#endif
+
 #endif /* MISSING_UNISTD_H */

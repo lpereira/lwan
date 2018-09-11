@@ -80,7 +80,7 @@ static unsigned int get_random_unsigned(void)
     if (ret == sizeof(value))
         return value;
 #elif defined(HAVE_GETENTROPY)
-    int ret = getentropy(value, sizeof(value));
+    int ret = getentropy(&value, sizeof(value));
     if (ret == 0)
         return value;
 #endif
