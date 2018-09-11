@@ -51,7 +51,7 @@ struct hash_bucket {
 
 struct hash {
     unsigned int count;
-    unsigned int n_buckets;
+    unsigned int n_buckets_mask;
 
     unsigned (*hash_value)(const void *key);
     int (*key_compare)(const void *k1, const void *k2);
@@ -64,6 +64,9 @@ struct hash {
 #define MIN_BUCKETS 64
 #define STEPS 16
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
+
+static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
+              "Bucket size is power of 2");
 
 static inline unsigned int hash_int_shift_mult(const void *keyptr);
 
@@ -205,7 +208,7 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
     hash->free_value = free_value;
     hash->free_key = free_key;
 
-    hash->n_buckets = MIN_BUCKETS;
+    hash->n_buckets_mask = MIN_BUCKETS - 1;
     hash->count = 0;
 
     return hash;
@@ -235,7 +238,7 @@ void hash_free(struct hash *hash)
         return;
 
     bucket = hash->buckets;
-    bucket_end = hash->buckets + hash->n_buckets;
+    bucket_end = hash->buckets + hash->n_buckets_mask + 1;
     for (; bucket < bucket_end; bucket++) {
         struct hash_entry *entry, *entry_end;
         entry = bucket->entries;
@@ -253,7 +256,7 @@ void hash_free(struct hash *hash)
 static struct hash_entry *hash_add_entry_hashed(struct hash *hash, const void *key,
                                                 unsigned int hashval)
 {
-    unsigned int pos = hashval & (hash->n_buckets - 1);
+    unsigned int pos = hashval & hash->n_buckets_mask;
     struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -295,17 +298,18 @@ static struct hash_entry *hash_add_entry_hashed(struct hash *hash, const void *k
 static int rehash(struct hash *hash, unsigned int new_bucket_size)
 {
     struct hash_bucket *buckets = calloc(new_bucket_size, sizeof(*buckets));
-    const struct hash_bucket *bucket_end = hash->buckets + hash->n_buckets;
+    const struct hash_bucket *bucket_end = hash->buckets + hash->n_buckets_mask + 1;
     const struct hash_bucket *bucket;
     struct hash hash_copy = *hash;
 
-    assert(hash->n_buckets != new_bucket_size);
+    assert((new_bucket_size & (new_bucket_size - 1)) == 0);
+    assert((hash->n_buckets_mask + 1) != new_bucket_size);
 
     if (buckets == NULL)
         return -errno;
 
     hash_copy.count = 0;
-    hash_copy.n_buckets = new_bucket_size;
+    hash_copy.n_buckets_mask = new_bucket_size - 1;
     hash_copy.buckets = buckets;
 
     for (bucket = hash->buckets; bucket < bucket_end; bucket++) {
@@ -334,7 +338,7 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
     free(hash->buckets);
 
     hash->buckets = buckets;
-    hash->n_buckets = new_bucket_size;
+    hash->n_buckets_mask = new_bucket_size - 1;
 
     assert(hash_copy.count == hash->count);
 
@@ -367,9 +371,9 @@ int hash_add(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
-    if (hash->count > hash->n_buckets) {
+    if (hash->count > hash->n_buckets_mask) {
         /* Not being able to resize the bucket array is not an error */
-        rehash(hash, hash->n_buckets * 2);
+        rehash(hash, (hash->n_buckets_mask + 1) * 2);
     }
 
     return 0;
@@ -389,9 +393,9 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
-    if (hash->count > hash->n_buckets) {
+    if (hash->count > hash->n_buckets_mask) {
         /* Not being able to resize the bucket array is not an error */
-        rehash(hash, hash->n_buckets * 2);
+        rehash(hash, (hash->n_buckets_mask + 1) * 2);
     }
 
     return 0;
@@ -400,7 +404,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
 static inline struct hash_entry *
 hash_find_entry(const struct hash *hash, const char *key, unsigned int hashval)
 {
-    unsigned int pos = hashval & (hash->n_buckets - 1);
+    unsigned int pos = hashval & hash->n_buckets_mask;
     const struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -429,7 +433,7 @@ void *hash_find(const struct hash *hash, const void *key)
 int hash_del(struct hash *hash, const void *key)
 {
     unsigned int hashval = hash->hash_value(key);
-    unsigned int pos = hashval & (hash->n_buckets - 1);
+    unsigned int pos = hashval & hash->n_buckets_mask;
     struct hash_bucket *bucket = hash->buckets + pos;
     struct hash_entry *entry, *entry_end;
 
@@ -447,9 +451,9 @@ int hash_del(struct hash *hash, const void *key)
     bucket->used--;
     hash->count--;
 
-    if (hash->n_buckets > MIN_BUCKETS && hash->count < hash->n_buckets / 2) {
+    if (hash->n_buckets_mask > (MIN_BUCKETS - 1) && hash->count < hash->n_buckets_mask / 2) {
         /* Not being able to trim the bucket array size isn't an error. */
-        rehash(hash, hash->n_buckets / 2);
+        rehash(hash, (hash->n_buckets_mask + 1) / 2);
     } else {
         unsigned int steps_used = bucket->used / STEPS;
         unsigned int steps_total = bucket->total / STEPS;
@@ -486,16 +490,18 @@ bool hash_iter_next(struct hash_iter *iter,
     iter->entry++;
 
     if ((unsigned int)iter->entry >= b->used) {
+        unsigned int n_buckets = iter->hash->n_buckets_mask + 1;
+
         iter->entry = 0;
 
-        for (iter->bucket++; iter->bucket < iter->hash->n_buckets; iter->bucket++) {
+        for (iter->bucket++; iter->bucket < n_buckets; iter->bucket++) {
             b = iter->hash->buckets + iter->bucket;
 
             if (b->used > 0)
                 break;
         }
 
-        if (iter->bucket >= iter->hash->n_buckets)
+        if (iter->bucket >= n_buckets)
             return false;
     }
 
