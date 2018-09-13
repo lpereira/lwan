@@ -62,7 +62,12 @@ struct hash {
 };
 
 #define MIN_BUCKETS 64
-#define STEPS 16
+
+/* Due to rehashing heuristics, most hash tables won't have more than 4
+ * entries in each bucket.  Use a conservative allocation threshold to
+ * curb wasteful allocations */
+#define STEPS 4
+
 #define DEFAULT_ODD_CONSTANT 0x27d4eb2d
 
 static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
