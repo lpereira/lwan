@@ -331,10 +331,8 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
             struct hash_entry *new;
 
             new = hash_add_entry_hashed(&hash_copy, old->key, old->hashval);
-            if (UNLIKELY(!new)) {
-                free(buckets);
-                return -ENOMEM;
-            }
+            if (UNLIKELY(!new))
+                goto fail;
 
             new->key = old->key;
             new->value = old->value;
@@ -354,6 +352,14 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
     assert(hash_copy.count == hash->count);
 
     return 0;
+
+fail:
+    for (bucket_end = bucket, bucket = hash->buckets; bucket < bucket_end;
+         bucket++)
+        free(bucket->entries);
+
+    free(buckets);
+    return -ENOMEM;
 }
 
 static struct hash_entry *hash_add_entry(struct hash *hash, const void *key)
