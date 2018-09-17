@@ -442,46 +442,47 @@ lwan_response_set_event_stream(struct lwan_request *request,
     return true;
 }
 
-void
-lwan_response_send_event(struct lwan_request *request, const char *event)
+void lwan_response_send_event(struct lwan_request *request, const char *event)
 {
+    struct iovec vec[6];
+    int last = 0;
+
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
         if (UNLIKELY(!lwan_response_set_event_stream(request, HTTP_OK)))
             return;
     }
 
-    struct iovec vec[6];
-    int last = 0;
-
     if (event) {
-        vec[last].iov_base = "event: ";
-        vec[last].iov_len = sizeof("event: ") - 1;
-        last++;
-
-        vec[last].iov_base = (char *)event;
-        vec[last].iov_len = strlen(event);
-        last++;
-
-        vec[last].iov_base = "\r\n";
-        vec[last].iov_len = 2;
-        last++;
+        vec[last++] = (struct iovec){
+            .iov_base = "event: ",
+            .iov_len = sizeof("event: ") - 1,
+        };
+        vec[last++] = (struct iovec){
+            .iov_base = (char *)event,
+            .iov_len = strlen(event),
+        };
+        vec[last++] = (struct iovec){
+            .iov_base = "\r\n",
+            .iov_len = 2,
+        };
     }
 
     size_t buffer_len = lwan_strbuf_get_length(request->response.buffer);
     if (buffer_len) {
-        vec[last].iov_base = "data: ";
-        vec[last].iov_len = sizeof("data: ") - 1;
-        last++;
-
-        vec[last].iov_base = lwan_strbuf_get_buffer(request->response.buffer);
-        vec[last].iov_len = buffer_len;
-        last++;
-
+        vec[last++] = (struct iovec){
+            .iov_base = "data: ",
+            .iov_len = sizeof("data: ") - 1,
+        };
+        vec[last++] = (struct iovec){
+            .iov_base = lwan_strbuf_get_buffer(request->response.buffer),
+            .iov_len = buffer_len,
+        };
     }
 
-    vec[last].iov_base = "\r\n\r\n";
-    vec[last].iov_len = 4;
-    last++;
+    vec[last++] = (struct iovec){
+        .iov_base = "\r\n\r\n",
+        .iov_len = 4,
+    };
 
     lwan_writev(request, vec, last);
 
