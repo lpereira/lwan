@@ -364,8 +364,9 @@ coro_malloc(struct coro *coro, size_t size)
 char *
 coro_strndup(struct coro *coro, const char *str, size_t max_len)
 {
-    const size_t len = max_len + 1;
+    const size_t len = strnlen(str, max_len) + 1;
     char *dup = coro_malloc(coro, len);
+
     if (LIKELY(dup)) {
         memcpy(dup, str, len);
         dup[len - 1] = '\0';
@@ -376,7 +377,7 @@ coro_strndup(struct coro *coro, const char *str, size_t max_len)
 char *
 coro_strdup(struct coro *coro, const char *str)
 {
-    return coro_strndup(coro, str, strlen(str));
+    return coro_strndup(coro, str, SIZE_MAX - 1);
 }
 
 char *
