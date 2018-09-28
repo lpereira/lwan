@@ -185,7 +185,7 @@ __attribute__((constructor)) static void initialize_numbers(void)
     easing[FRAMES_PER_SECOND - 1] = 65535u;
 }
 
-static inline POS lerp(const struct xdaliclock *xdc, POS a, POS b, unsigned int anim)
+static inline POS lerp(POS a, POS b, unsigned int anim)
 {
     uint32_t part_a = a * (65536 - anim);
     uint32_t part_b = b * (anim + 1);
@@ -211,9 +211,8 @@ static const struct frame *frame_lerp(struct xdaliclock *xdc, int digit, unsigne
         const struct scanline *from_line = &fromf->scanlines[y];
 
         for (x = 0; x < MAX_SEGS_PER_LINE; x++) {
-            line->left[x] = lerp(xdc, from_line->left[x], to_line->left[x], anim);
-            line->right[x] =
-                lerp(xdc, from_line->right[x], to_line->right[x], anim);
+            line->left[x] = lerp(from_line->left[x], to_line->left[x], anim);
+            line->right[x] = lerp(from_line->right[x], to_line->right[x], anim);
         }
     }
 
