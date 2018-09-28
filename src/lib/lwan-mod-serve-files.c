@@ -102,7 +102,7 @@ struct file_cache_entry {
     struct cache_entry base;
 
     struct {
-        char string[31];
+        char string[30];
         time_t integer;
     } last_modified;
 
