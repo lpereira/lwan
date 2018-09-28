@@ -255,13 +255,13 @@ can be decided automatically, so some configuration options are provided.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `keep alive timeout` | `time`  | `15` | Timeout to keep a connection alive |
+| `keep_alive_timeout` | `time`  | `15` | Timeout to keep a connection alive |
 | `quiet` | `bool` | `false` | Set to true to not print any debugging messages. Only effective in release builds. |
-| `reuse port` | `bool` | `false` | Sets `SO_REUSEPORT` to `1` in the master socket |
+| `reuse_port` | `bool` | `false` | Sets `SO_REUSEPORT` to `1` in the master socket |
 | `expires` | `time` | `1M 1w` | Value of the "Expires" header. Default is 1 month and 1 week |
 | `threads` | `int` | `0` | Number of I/O threads. Default (0) is the number of online CPUs |
-| `proxy protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
-| `max post data size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
+| `proxy_protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
+| `max_post_data_size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
 
 ### Straitjacket
 
@@ -282,7 +282,7 @@ malconfiguration.)
 |--------|------|---------|-------------|
 | `user` | `str`  | `NULL` | Drop privileges to this user name |
 | `chroot` | `str` | `NULL` | Path to `chroot()` |
-| `drop_capabilities` | `bool` | `true` | Drop all capabilities with capset(2). Only effective under Linux. |
+| `drop_capabilities` | `bool` | `true` | Drop all capabilities with capset(2) (under Linux), or pledge(2) (under OpenBSD). |
 
 ### Listeners
 
@@ -335,7 +335,7 @@ best to serve files in the fastest way possible according to some heuristics.
 | `serve_precompressed_path` | `bool` | `true`       | If $FILE.gz exists, is smaller and newer than $FILE, and the client accepts `gzip` encoding, transfer it |
 | `auto_index`               | `bool` | `true`       | Generate a directory list automatically if no `index_path` file present.  Otherwise, yields 404 |
 | `directory_list_template`  | `str`  | `NULL`       | Path to a Mustache template for the directory list; by default, use an internal template |
-| `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Larger values can block until all the filesystem metadata is loaded from the disk. |
+| `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
 
 #### Lua
 
@@ -483,7 +483,7 @@ section with a `basic` parameter, and set one of its options.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
-| `password file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
+| `password_file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
 Hacking
 -------
