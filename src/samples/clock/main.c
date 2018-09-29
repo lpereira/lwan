@@ -25,6 +25,7 @@
 #include "lwan-mod-redirect.h"
 #include "gifenc.h"
 #include "xdaliclock.h"
+#include "blocks.h"
 
 /* Font stolen from https://github.com/def-/time.gif */
 static const uint8_t font[10][5] = {
@@ -145,6 +146,54 @@ LWAN_HANDLER(dali)
     return HTTP_OK;
 }
 
+LWAN_HANDLER(blocks)
+{
+    ge_GIF *gif = ge_new_gif(response->buffer, 32, 16, NULL, 4, -1);
+    struct block_state blocks[4];
+    int last_digits[4] = {0, 0, 0, 0};
+    uint64_t total_waited = 0;
+
+    if (!gif)
+        return HTTP_INTERNAL_ERROR;
+
+    coro_defer(request->conn->coro, destroy_gif, gif);
+
+    blocks_init(blocks);
+
+    response->mime_type = "image/gif";
+    response->headers = seriously_do_not_cache;
+
+    memset(gif->frame, 0, (size_t)(32 * 16));
+
+    while (total_waited <= 3600000) {
+        uint64_t timeout;
+        time_t curtime;
+        char digits[5];
+
+        curtime = time(NULL);
+        strftime(digits, sizeof(digits), "%H%M", localtime(&curtime));
+
+        for (int i = 0; i < 4; i++) {
+            blocks[i].num_to_draw = digits[i] - '0';
+
+            if (blocks[i].num_to_draw != last_digits[i]) {
+                blocks[i].fall_index = 0;
+                blocks[i].block_index = 0;
+                last_digits[i] = blocks[i].num_to_draw;
+            }
+        }
+
+        timeout = blocks_draw(blocks, gif->frame, curtime & 1);
+        total_waited += timeout;
+
+        ge_add_frame(gif, 0);
+        lwan_response_send_chunk(request);
+        lwan_request_sleep(request, timeout);
+    }
+
+    return HTTP_OK;
+}
+
 struct index {
     const char *title;
     const char *variant;
@@ -186,7 +235,7 @@ __attribute__((constructor)) static void initialize_template(void)
         "   position: absolute;\n"
         "   padding: 16px;\n"
         "   left: calc(50% - 100px - 16px);\n"
-        "   width: 200px;\n"
+        "   width: 250px;\n"
         "}\n"
         "#styles a, #styles a:visited, #lwan a, #lwan a:visited { color: #666; }\n"
         "#lwan {\n"
@@ -213,7 +262,10 @@ __attribute__((constructor)) static void initialize_template(void)
         "  </tr>\n"
         "  </table>\n"
         "  <div id=\"styles\">\n"
-        "    Styles: <a href=\"/clock\">Digital</a> &middot; <a href=\"/dali\">Dali</a>\n"
+        "    Styles: "
+        "<a href=\"/clock\">Digital</a> &middot; "
+        "<a href=\"/dali\">Dali</a> &middot; "
+        "<a href=\"/blocks\">Blocks</a>\n"
         "  </div>\n"
         "</body>\n"
         "</html>";
@@ -246,6 +298,11 @@ int main(void)
         .variant = "dali",
         .width = 320,
     };
+    struct index blocks_clock = {
+        .title = "Lwan Blocks Clock",
+        .variant = "blocks",
+        .width = 320,
+    };
     const struct lwan_url_map default_map[] = {
         {
             .prefix = "/clock.gif",
@@ -256,6 +313,10 @@ int main(void)
             .handler = LWAN_HANDLER_REF(dali),
         },
         {
+            .prefix = "/blocks.gif",
+            .handler = LWAN_HANDLER_REF(blocks),
+        },
+        {
             .prefix = "/clock",
             .handler = LWAN_HANDLER_REF(templated_index),
             .data = &sample_clock,
@@ -264,6 +325,11 @@ int main(void)
             .prefix = "/dali",
             .handler = LWAN_HANDLER_REF(templated_index),
             .data = &dali_clock,
+        },
+        {
+            .prefix = "/blocks",
+            .handler = LWAN_HANDLER_REF(templated_index),
+            .data = &blocks_clock,
         },
         {
             .prefix = "/",
