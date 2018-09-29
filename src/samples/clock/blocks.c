@@ -40,10 +40,16 @@ enum color {
 
 struct fall {
     enum shape shape;
-    enum color color;
     int x_pos;
     int y_stop;
     int n_rot;
+};
+
+static const enum color colors[] = {
+    [SHAPE_SQUARE] = COLOR_RED,     [SHAPE_L] = COLOR_CYAN,
+    [SHAPE_L_REVERSE] = COLOR_BLUE, [SHAPE_I] = COLOR_YELLOW,
+    [SHAPE_S] = COLOR_GREEN,        [SHAPE_S_REVERSE] = COLOR_ORANGE,
+    [SHAPE_T] = COLOR_MAGENTA,
 };
 
 static const int offs[SHAPE_MAX][4][8] = {
@@ -78,146 +84,86 @@ static const int offs[SHAPE_MAX][4][8] = {
 };
 
 static const struct fall fall0[] = {
-    {SHAPE_L_REVERSE, COLOR_CYAN, 4, 16, 0},
-    {SHAPE_S, COLOR_ORANGE, 2, 16, 1},
-    {SHAPE_I, COLOR_YELLOW, 0, 16, 1},
-    {SHAPE_T, COLOR_MAGENTA, 1, 16, 1},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 4, 14, 0},
-    {SHAPE_T, COLOR_MAGENTA, 0, 13, 3},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 4, 12, 0},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 0, 11, 0},
-    {SHAPE_T, COLOR_MAGENTA, 4, 10, 1},
-    {SHAPE_T, COLOR_MAGENTA, 0, 9, 1},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 1, 8, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_L_REVERSE, 4, 16, 0}, {SHAPE_S, 2, 16, 1},
+    {SHAPE_I, 0, 16, 1},         {SHAPE_T, 1, 16, 1},
+    {SHAPE_S_REVERSE, 4, 14, 0}, {SHAPE_T, 0, 13, 3},
+    {SHAPE_S_REVERSE, 4, 12, 0}, {SHAPE_S_REVERSE, 0, 11, 0},
+    {SHAPE_T, 4, 10, 1},         {SHAPE_T, 0, 9, 1},
+    {SHAPE_S_REVERSE, 1, 8, 1},  {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall1[] = {
-    {SHAPE_L_REVERSE, COLOR_CYAN, 4, 16, 0},
-    {SHAPE_I, COLOR_YELLOW, 4, 15, 1},
-    {SHAPE_I, COLOR_YELLOW, 5, 13, 3},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 4, 11, 2},
-    {SHAPE_SQUARE, COLOR_RED, 4, 8, 0},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_L_REVERSE, 4, 16, 0}, {SHAPE_I, 4, 15, 1},     {SHAPE_I, 5, 13, 3},
+    {SHAPE_L_REVERSE, 4, 11, 2}, {SHAPE_SQUARE, 4, 8, 0}, {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall2[] = {
-    {SHAPE_SQUARE, COLOR_RED, 4, 16, 0},
-    {SHAPE_I, COLOR_YELLOW, 0, 16, 1},
-    {SHAPE_L, COLOR_BLUE, 1, 16, 3},
-    {SHAPE_L, COLOR_BLUE, 1, 15, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 2},
-    {SHAPE_L, COLOR_BLUE, 0, 12, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 12, 3},
-    {SHAPE_SQUARE, COLOR_RED, 4, 10, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 8, 0},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_L, COLOR_BLUE, 0, 8, 1},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 4, 16, 0},    {SHAPE_I, 0, 16, 1},      {SHAPE_L, 1, 16, 3},
+    {SHAPE_L, 1, 15, 0},         {SHAPE_I, 1, 12, 2},      {SHAPE_L, 0, 12, 1},
+    {SHAPE_L_REVERSE, 3, 12, 3}, {SHAPE_SQUARE, 4, 10, 0}, {SHAPE_I, 1, 8, 0},
+    {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_L, 0, 8, 1},       {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall3[] = {
-    {SHAPE_L, COLOR_BLUE, 3, 16, 3},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 16, 1},
-    {SHAPE_I, COLOR_YELLOW, 1, 15, 2},
-    {SHAPE_SQUARE, COLOR_RED, 4, 14, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 2},
-    {SHAPE_L, COLOR_BLUE, 0, 12, 1},
-    {SHAPE_I, COLOR_YELLOW, 5, 12, 3},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 11, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 8, 0},
-    {SHAPE_L, COLOR_BLUE, 0, 8, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_L, 3, 16, 3},      {SHAPE_L_REVERSE, 0, 16, 1}, {SHAPE_I, 1, 15, 2},
+    {SHAPE_SQUARE, 4, 14, 0}, {SHAPE_I, 1, 12, 2},         {SHAPE_L, 0, 12, 1},
+    {SHAPE_I, 5, 12, 3},      {SHAPE_L_REVERSE, 3, 11, 0}, {SHAPE_I, 1, 8, 0},
+    {SHAPE_L, 0, 8, 1},       {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall4[] = {
-    {SHAPE_SQUARE, COLOR_RED, 4, 16, 0},
-    {SHAPE_SQUARE, COLOR_RED, 4, 14, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 0},
-    {SHAPE_L, COLOR_BLUE, 0, 12, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 10, 0},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 12, 3},
-    {SHAPE_I, COLOR_YELLOW, 4, 10, 3},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 9, 2},
-    {SHAPE_I, COLOR_YELLOW, 5, 10, 1},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 4, 16, 0},    {SHAPE_SQUARE, 4, 14, 0},
+    {SHAPE_I, 1, 12, 0},         {SHAPE_L, 0, 12, 1},
+    {SHAPE_L_REVERSE, 0, 10, 0}, {SHAPE_L_REVERSE, 3, 12, 3},
+    {SHAPE_I, 4, 10, 3},         {SHAPE_L_REVERSE, 0, 9, 2},
+    {SHAPE_I, 5, 10, 1},         {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall5[] = {
-    {SHAPE_SQUARE, COLOR_RED, 0, 16, 0},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 2, 16, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 15, 0},
-    {SHAPE_I, COLOR_YELLOW, 5, 16, 1},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 0},
-    {SHAPE_L, COLOR_BLUE, 0, 12, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 12, 3},
-    {SHAPE_SQUARE, COLOR_RED, 0, 10, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 8, 2},
-    {SHAPE_L, COLOR_BLUE, 0, 8, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 0, 16, 0},    {SHAPE_L_REVERSE, 2, 16, 1},
+    {SHAPE_L_REVERSE, 3, 15, 0}, {SHAPE_I, 5, 16, 1},
+    {SHAPE_I, 1, 12, 0},         {SHAPE_L, 0, 12, 1},
+    {SHAPE_L_REVERSE, 3, 12, 3}, {SHAPE_SQUARE, 0, 10, 0},
+    {SHAPE_I, 1, 8, 2},          {SHAPE_L, 0, 8, 1},
+    {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall6[] = {
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 16, 1},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 2, 16, 1},
-    {SHAPE_T, COLOR_MAGENTA, 0, 15, 3},
-    {SHAPE_T, COLOR_MAGENTA, 4, 16, 3},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 4, 14, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 2},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 13, 2},
-    {SHAPE_I, COLOR_YELLOW, 2, 11, 0},
-    {SHAPE_SQUARE, COLOR_RED, 0, 10, 0},
-    {SHAPE_I, COLOR_YELLOW, 1, 8, 0},
-    {SHAPE_L, COLOR_BLUE, 0, 8, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_L_REVERSE, 0, 16, 1}, {SHAPE_S_REVERSE, 2, 16, 1},
+    {SHAPE_T, 0, 15, 3},         {SHAPE_T, 4, 16, 3},
+    {SHAPE_S_REVERSE, 4, 14, 0}, {SHAPE_I, 1, 12, 2},
+    {SHAPE_L_REVERSE, 0, 13, 2}, {SHAPE_I, 2, 11, 0},
+    {SHAPE_SQUARE, 0, 10, 0},    {SHAPE_I, 1, 8, 0},
+    {SHAPE_L, 0, 8, 1},          {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall7[] = {
-    {SHAPE_SQUARE, COLOR_RED, 4, 16, 0},
-    {SHAPE_L, COLOR_BLUE, 4, 14, 0},
-    {SHAPE_I, COLOR_YELLOW, 5, 13, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 4, 11, 2},
-    {SHAPE_I, COLOR_YELLOW, 1, 8, 2},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 3, 8, 3},
-    {SHAPE_L, COLOR_BLUE, 0, 8, 1},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 4, 16, 0}, {SHAPE_L, 4, 14, 0},
+    {SHAPE_I, 5, 13, 1},      {SHAPE_L_REVERSE, 4, 11, 2},
+    {SHAPE_I, 1, 8, 2},       {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_L, 0, 8, 1},       {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall8[] = {
-    {SHAPE_I, COLOR_YELLOW, 1, 16, 0},
-    {SHAPE_T, COLOR_MAGENTA, 0, 16, 1},
-    {SHAPE_I, COLOR_YELLOW, 5, 16, 1},
-    {SHAPE_L, COLOR_BLUE, 2, 15, 3},
-    {SHAPE_S, COLOR_ORANGE, 0, 14, 0},
-    {SHAPE_L, COLOR_BLUE, 1, 12, 3},
-    {SHAPE_T, COLOR_MAGENTA, 4, 13, 1},
-    {SHAPE_L_REVERSE, COLOR_CYAN, 0, 11, 1},
-    {SHAPE_S, COLOR_ORANGE, 0, 10, 0},
-    {SHAPE_S, COLOR_ORANGE, 4, 11, 0},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 0, 8, 1},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 2, 8, 1},
-    {SHAPE_L, COLOR_BLUE, 4, 9, 2},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_I, 1, 16, 0},        {SHAPE_T, 0, 16, 1},
+    {SHAPE_I, 5, 16, 1},        {SHAPE_L, 2, 15, 3},
+    {SHAPE_S, 0, 14, 0},        {SHAPE_L, 1, 12, 3},
+    {SHAPE_T, 4, 13, 1},        {SHAPE_L_REVERSE, 0, 11, 1},
+    {SHAPE_S, 0, 10, 0},        {SHAPE_S, 4, 11, 0},
+    {SHAPE_S_REVERSE, 0, 8, 1}, {SHAPE_S_REVERSE, 2, 8, 1},
+    {SHAPE_L, 4, 9, 2},         {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall9[] = {
-    {SHAPE_SQUARE, COLOR_RED, 0, 16, 0},
-    {SHAPE_I, COLOR_YELLOW, 2, 16, 0},
-    {SHAPE_L, COLOR_BLUE, 2, 15, 3},
-    {SHAPE_L, COLOR_BLUE, 4, 15, 2},
-    {SHAPE_I, COLOR_YELLOW, 1, 12, 2},
-    {SHAPE_I, COLOR_YELLOW, 5, 12, 3},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 0, 12, 0},
-    {SHAPE_L, COLOR_BLUE, 2, 11, 3},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 4, 9, 0},
-    {SHAPE_T, COLOR_MAGENTA, 0, 10, 1},
-    {SHAPE_S_REVERSE, COLOR_GREEN, 0, 8, 1},
-    {SHAPE_T, COLOR_MAGENTA, 2, 8, 2},
-    {SHAPE_MAX, COLOR_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 0, 16, 0},    {SHAPE_I, 2, 16, 0},
+    {SHAPE_L, 2, 15, 3},         {SHAPE_L, 4, 15, 2},
+    {SHAPE_I, 1, 12, 2},         {SHAPE_I, 5, 12, 3},
+    {SHAPE_S_REVERSE, 0, 12, 0}, {SHAPE_L, 2, 11, 3},
+    {SHAPE_S_REVERSE, 4, 9, 0},  {SHAPE_T, 0, 10, 1},
+    {SHAPE_S_REVERSE, 0, 8, 1},  {SHAPE_T, 2, 8, 2},
+    {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall *fall[] = {
@@ -238,12 +184,8 @@ __attribute__((constructor)) void calculate_block_sizes(void)
     }
 }
 
-static void draw_shape(enum shape shape,
-                       enum color color,
-                       int x,
-                       int y,
-                       int rot,
-                       unsigned char *buffer)
+static void
+draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
 {
     assert(rot >= 0 && rot <= 3);
 
@@ -256,7 +198,7 @@ static void draw_shape(enum shape shape,
         int dx = x + x_off;
 
         if (dx < 32)
-            buffer[(y + y_off) * 32 + dx] = color;
+            buffer[(y + y_off) * 32 + dx] = colors[shape];
     }
 }
 
@@ -268,7 +210,8 @@ void blocks_init(struct block_state *states)
     states[3] = (struct block_state){4, 0, 0, 25};
 }
 
-uint64_t blocks_draw(struct block_state *states, unsigned char *buffer, bool odd_second)
+uint64_t
+blocks_draw(struct block_state *states, unsigned char *buffer, bool odd_second)
 {
     int digits_fallen = 0;
     int i;
@@ -304,7 +247,7 @@ uint64_t blocks_draw(struct block_state *states, unsigned char *buffer, bool odd
                 break;
             }
 
-            draw_shape(curr->shape, curr->color, curr->x_pos + state->x_shift,
+            draw_shape(curr->shape, curr->x_pos + state->x_shift,
                        state->fall_index - 1, rotations, buffer);
             state->fall_index++;
 
@@ -320,16 +263,15 @@ uint64_t blocks_draw(struct block_state *states, unsigned char *buffer, bool odd
             for (int j = 0; j < state->block_index; j++) {
                 const struct fall *fallen = &fall[state->num_to_draw][j];
 
-                draw_shape(fallen->shape, fallen->color,
-                           fallen->x_pos + state->x_shift, fallen->y_stop - 1,
-                           fallen->n_rot, buffer);
+                draw_shape(fallen->shape, fallen->x_pos + state->x_shift,
+                           fallen->y_stop - 1, fallen->n_rot, buffer);
             }
         }
     }
 
-    if (odd_second & 1) {
-        draw_shape(SHAPE_SQUARE, COLOR_WHITE, 15, 13, 0, buffer);
-        draw_shape(SHAPE_SQUARE, COLOR_WHITE, 15, 9, 0, buffer);
+    if (odd_second) {
+        draw_shape(SHAPE_SQUARE, 15, 13, 0, buffer);
+        draw_shape(SHAPE_SQUARE, 15, 9, 0, buffer);
     }
 
     return digits_fallen ? 100 : 500;
