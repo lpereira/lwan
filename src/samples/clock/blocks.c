@@ -184,8 +184,12 @@ __attribute__((constructor)) void calculate_block_sizes(void)
     }
 }
 
-static void
-draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
+static void draw_shape_full(enum shape shape,
+                            enum color color,
+                            int x,
+                            int y,
+                            int rot,
+                            unsigned char *buffer)
 {
     assert(rot >= 0 && rot <= 3);
 
@@ -198,8 +202,14 @@ draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
         int dx = x + x_off;
 
         if (dx < 32)
-            buffer[(y + y_off) * 32 + dx] = colors[shape];
+            buffer[(y + y_off) * 32 + dx] = color;
     }
+}
+
+static void
+draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
+{
+    draw_shape_full(shape, colors[shape], x, y, rot, buffer);
 }
 
 void blocks_init(struct block_state *states)
@@ -270,8 +280,8 @@ blocks_draw(struct block_state *states, unsigned char *buffer, bool odd_second)
     }
 
     if (odd_second) {
-        draw_shape(SHAPE_SQUARE, 15, 13, 0, buffer);
-        draw_shape(SHAPE_SQUARE, 15, 9, 0, buffer);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 13, 0, buffer);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 9, 0, buffer);
     }
 
     return digits_fallen ? 100 : 500;
