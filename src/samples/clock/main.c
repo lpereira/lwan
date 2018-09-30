@@ -152,6 +152,8 @@ LWAN_HANDLER(blocks)
     struct block_state blocks[4];
     int last_digits[4] = {0, 0, 0, 0};
     uint64_t total_waited = 0;
+    time_t last = 0;
+    bool odd_second;
 
     if (!gif)
         return HTTP_INTERNAL_ERROR;
@@ -171,7 +173,11 @@ LWAN_HANDLER(blocks)
         char digits[5];
 
         curtime = time(NULL);
-        strftime(digits, sizeof(digits), "%H%M", localtime(&curtime));
+        if (curtime != last) {
+            strftime(digits, sizeof(digits), "%H%M", localtime(&curtime));
+            last = curtime;
+            odd_second = last & 1;
+        }
 
         for (int i = 0; i < 4; i++) {
             blocks[i].num_to_draw = digits[i] - '0';
@@ -183,7 +189,7 @@ LWAN_HANDLER(blocks)
             }
         }
 
-        timeout = blocks_draw(blocks, gif->frame, curtime & 1);
+        timeout = blocks_draw(blocks, gif->frame, odd_second);
         total_waited += timeout;
 
         ge_add_frame(gif, 0);
