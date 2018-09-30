@@ -212,16 +212,17 @@ draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
     draw_shape_full(shape, colors[shape], x, y, rot, buffer);
 }
 
-void blocks_init(struct block_state *states)
+void blocks_init(struct block_state states[static 4])
 {
-    states[0] = (struct block_state){1, 0, 0, 1};
-    states[1] = (struct block_state){2, 0, 0, 8};
-    states[2] = (struct block_state){3, 0, 0, 18};
-    states[3] = (struct block_state){4, 0, 0, 25};
+    states[0] = (struct block_state){0, 0, 0, 1};
+    states[1] = (struct block_state){0, 0, 0, 8};
+    states[2] = (struct block_state){0, 0, 0, 18};
+    states[3] = (struct block_state){0, 0, 0, 25};
 }
 
-uint64_t
-blocks_draw(struct block_state *states, unsigned char *buffer, bool odd_second)
+uint64_t blocks_draw(struct block_state states[static 4],
+                     unsigned char *buffer,
+                     bool odd_second)
 {
     int digits_fallen = 0;
     int i;
