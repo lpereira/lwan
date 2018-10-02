@@ -193,16 +193,15 @@ static void draw_shape_full(enum shape shape,
 {
     assert(rot >= 0 && rot <= 3);
 
-    if (y < 0)
-        return;
-
     for (int i = 0; i < 8; i += 2) {
         int x_off = offs[shape][rot][i + 0];
         int y_off = offs[shape][rot][i + 1];
         int dx = x + x_off;
+        int dy = y + y_off;
+        int index = dy * 32 + dx;
 
-        if (dx < 32)
-            buffer[(y + y_off) * 32 + dx] = color;
+        if (index >= 0 && index < 32 * 16 && dx < 32)
+            buffer[index] = color;
     }
 }
 
