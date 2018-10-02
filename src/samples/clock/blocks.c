@@ -39,10 +39,10 @@ enum color {
 };
 
 struct fall {
-    enum shape shape;
-    int x_pos;
-    int y_stop;
-    int n_rot;
+    unsigned short shape      : 3;
+    unsigned short int x_pos  : 3;
+    unsigned short int y_stop : 6;
+    unsigned short int n_rot  : 2;
 };
 
 static const enum color colors[] = {
@@ -52,7 +52,7 @@ static const enum color colors[] = {
     [SHAPE_T] = COLOR_MAGENTA,
 };
 
-static const int offs[SHAPE_MAX][4][8] = {
+static const signed char offs[SHAPE_MAX][4][8] = {
     [SHAPE_SQUARE][0] = {0, 0, 1, 0, 0, -1, 1, -1},
     [SHAPE_SQUARE][1] = {0, 0, 1, 0, 0, -1, 1, -1},
     [SHAPE_SQUARE][2] = {0, 0, 1, 0, 0, -1, 1, -1},
