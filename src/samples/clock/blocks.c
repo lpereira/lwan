@@ -52,36 +52,43 @@ static const enum color colors[] = {
     [SHAPE_T] = COLOR_MAGENTA,
 };
 
-static const signed char offs[SHAPE_MAX][4][8] = {
-    [SHAPE_SQUARE][0] = {0, 0, 1, 0, 0, -1, 1, -1},
-    [SHAPE_SQUARE][1] = {0, 0, 1, 0, 0, -1, 1, -1},
-    [SHAPE_SQUARE][2] = {0, 0, 1, 0, 0, -1, 1, -1},
-    [SHAPE_SQUARE][3] = {0, 0, 1, 0, 0, -1, 1, -1},
-    [SHAPE_L][0] = {0, 0, 1, 0, 0, -1, 0, -2},
-    [SHAPE_L][1] = {0, 0, 0, -1, 1, -1, 2, -1},
-    [SHAPE_L][2] = {1, 0, 1, -1, 1, -2, 0, -2},
-    [SHAPE_L][3] = {0, 0, 1, 0, 2, 0, 2, -1},
-    [SHAPE_L_REVERSE][0] = {0, 0, 1, 0, 1, -1, 1, -2},
-    [SHAPE_L_REVERSE][1] = {0, 0, 1, 0, 2, 0, 0, -1},
-    [SHAPE_L_REVERSE][2] = {0, 0, 0, -1, 0, -2, 1, -2},
-    [SHAPE_L_REVERSE][3] = {0, -1, 1, -1, 2, -1, 2, 0},
-    [SHAPE_I][0] = {0, 0, 1, 0, 2, 0, 3, 0},
-    [SHAPE_I][1] = {0, 0, 0, -1, 0, -2, 0, -3},
-    [SHAPE_I][2] = {0, 0, 1, 0, 2, 0, 3, 0},
-    [SHAPE_I][3] = {0, 0, 0, -1, 0, -2, 0, -3},
-    [SHAPE_S][0] = {1, 0, 0, -1, 1, -1, 0, -2},
-    [SHAPE_S][1] = {0, 0, 1, 0, 1, -1, 2, -1},
-    [SHAPE_S][2] = {1, 0, 0, -1, 1, -1, 0, -2},
-    [SHAPE_S][3] = {0, 0, 1, 0, 1, -1, 2, -1},
-    [SHAPE_S_REVERSE][0] = {0, 0, 0, -1, 1, -1, 1, -2},
-    [SHAPE_S_REVERSE][1] = {1, 0, 2, 0, 0, -1, 1, -1},
-    [SHAPE_S_REVERSE][2] = {0, 0, 0, -1, 1, -1, 1, -2},
-    [SHAPE_S_REVERSE][3] = {1, 0, 2, 0, 0, -1, 1, -1},
-    [SHAPE_T][0] = {0, 0, 1, 0, 2, 0, 1, -1},
-    [SHAPE_T][1] = {0, 0, 0, -1, 0, -2, 1, -1},
-    [SHAPE_T][2] = {1, 0, 0, -1, 1, -1, 2, -1},
-    [SHAPE_T][3] = {1, 0, 0, -1, 1, -1, 1, -2},
+#define PAIR(x, y) (((x) + 3) << 3 | ((y) + 3))
+#define OFF(x1, y1, x2, y2, x3, y3, x4, y4)                                    \
+    PAIR(x1, y1) << 24 | PAIR(x2, y2) << 16 | PAIR(x3, y3) << 8 | PAIR(x4, y4)
+
+static const unsigned int offs[SHAPE_MAX][4] = {
+    [SHAPE_SQUARE][0] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][1] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][2] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][3] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_L][0] = OFF(0, 0, 1, 0, 0, -1, 0, -2),
+    [SHAPE_L][1] = OFF(0, 0, 0, -1, 1, -1, 2, -1),
+    [SHAPE_L][2] = OFF(1, 0, 1, -1, 1, -2, 0, -2),
+    [SHAPE_L][3] = OFF(0, 0, 1, 0, 2, 0, 2, -1),
+    [SHAPE_L_REVERSE][0] = OFF(0, 0, 1, 0, 1, -1, 1, -2),
+    [SHAPE_L_REVERSE][1] = OFF(0, 0, 1, 0, 2, 0, 0, -1),
+    [SHAPE_L_REVERSE][2] = OFF(0, 0, 0, -1, 0, -2, 1, -2),
+    [SHAPE_L_REVERSE][3] = OFF(0, -1, 1, -1, 2, -1, 2, 0),
+    [SHAPE_I][0] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
+    [SHAPE_I][1] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
+    [SHAPE_I][2] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
+    [SHAPE_I][3] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
+    [SHAPE_S][0] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
+    [SHAPE_S][1] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
+    [SHAPE_S][2] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
+    [SHAPE_S][3] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
+    [SHAPE_S_REVERSE][0] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
+    [SHAPE_S_REVERSE][1] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
+    [SHAPE_S_REVERSE][2] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
+    [SHAPE_S_REVERSE][3] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
+    [SHAPE_T][0] = OFF(0, 0, 1, 0, 2, 0, 1, -1),
+    [SHAPE_T][1] = OFF(0, 0, 0, -1, 0, -2, 1, -1),
+    [SHAPE_T][2] = OFF(1, 0, 0, -1, 1, -1, 2, -1),
+    [SHAPE_T][3] = OFF(1, 0, 0, -1, 1, -1, 1, -2),
 };
+
+#undef PAIR
+#undef OFF
 
 static const struct fall fall0[] = {
     {SHAPE_L_REVERSE, 4, 16, 0}, {SHAPE_S, 2, 16, 1},
@@ -191,17 +198,25 @@ static void draw_shape_full(enum shape shape,
                             int rot,
                             unsigned char *buffer)
 {
+    unsigned int offset;
+
     assert(rot >= 0 && rot <= 3);
 
-    for (int i = 0; i < 8; i += 2) {
-        int x_off = offs[shape][rot][i + 0];
-        int y_off = offs[shape][rot][i + 1];
-        int dx = x + x_off;
-        int dy = y + y_off;
-        int index = dy * 32 + dx;
+    offset = offs[shape][rot];
+    for (int i = 0; i < 4; i++) {
+        int y_off, x_off, dx, dy, index;
+
+        y_off = ((int)(offset & 7)) - 3;
+        offset >>= 3;
+        x_off = ((int)(offset & 7)) - 3;
+        offset >>= 5;
+
+        dx = x + x_off;
+        dy = y + y_off;
+        index = dy * 32 + dx;
 
         if (index >= 0 && index < 32 * 16 && dx < 32)
-            buffer[index] = color;
+            buffer[index] = (unsigned char *)color;
     }
 }
 
