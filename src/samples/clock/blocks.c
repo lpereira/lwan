@@ -211,25 +211,32 @@ draw_shape(enum shape shape, int x, int y, int rot, unsigned char *buffer)
     draw_shape_full(shape, colors[shape], x, y, rot, buffer);
 }
 
-void blocks_init(struct block_state states[static 4])
+void blocks_init(struct blocks *blocks, ge_GIF *gif)
 {
-    states[0] = (struct block_state){0, 0, 0, 1};
-    states[1] = (struct block_state){0, 0, 0, 8};
-    states[2] = (struct block_state){0, 0, 0, 18};
-    states[3] = (struct block_state){0, 0, 0, 25};
+    blocks->states[0] = (struct block_state){0, 0, 0, 1};
+    blocks->states[1] = (struct block_state){0, 0, 0, 8};
+    blocks->states[2] = (struct block_state){0, 0, 0, 18};
+    blocks->states[3] = (struct block_state){0, 0, 0, 25};
+    blocks->gif = gif;
+    memset(blocks->last_digits, 0, sizeof(blocks->last_digits));
 }
 
-uint64_t blocks_draw(struct block_state states[static 4],
-                     unsigned char *buffer,
-                     bool odd_second)
+uint64_t blocks_draw(struct blocks *blocks, bool odd_second)
 {
+    unsigned char *frame = blocks->gif->frame;
     int digits_fallen = 0;
     int i;
 
-    memset(buffer, COLOR_BLACK, 32 * 16);
+    memset(frame, COLOR_BLACK, (size_t)(blocks->gif->w * blocks->gif->h));
 
     for (i = 0; i < 4; i++) {
-        struct block_state *state = &states[i];
+        struct block_state *state = &blocks->states[i];
+
+        if (state->num_to_draw != blocks->last_digits[i]) {
+            state->fall_index = 0;
+            state->block_index = 0;
+            blocks->last_digits[i] = state->num_to_draw;
+        }
 
         if (state->block_index < block_sizes[state->num_to_draw]) {
             const struct fall *curr =
@@ -258,7 +265,7 @@ uint64_t blocks_draw(struct block_state states[static 4],
             }
 
             draw_shape(curr->shape, curr->x_pos + state->x_shift,
-                       state->fall_index - 1, rotations, buffer);
+                       state->fall_index - 1, rotations, frame);
             state->fall_index++;
 
             if (state->fall_index > curr->y_stop) {
@@ -274,14 +281,14 @@ uint64_t blocks_draw(struct block_state states[static 4],
                 const struct fall *fallen = &fall[state->num_to_draw][j];
 
                 draw_shape(fallen->shape, fallen->x_pos + state->x_shift,
-                           fallen->y_stop - 1, fallen->n_rot, buffer);
+                           fallen->y_stop - 1, fallen->n_rot, frame);
             }
         }
     }
 
     if (odd_second) {
-        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 13, 0, buffer);
-        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 9, 0, buffer);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 13, 0, frame);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 9, 0, frame);
     }
 
     return digits_fallen ? 100 : 500;

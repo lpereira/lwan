@@ -149,23 +149,20 @@ LWAN_HANDLER(dali)
 LWAN_HANDLER(blocks)
 {
     ge_GIF *gif = ge_new_gif(response->buffer, 32, 16, NULL, 4, -1);
-    struct block_state blocks[4];
-    int last_digits[4] = {0, 0, 0, 0};
+    struct blocks blocks;
     uint64_t total_waited = 0;
     time_t last = 0;
-    bool odd_second;
+    bool odd_second = false;
 
     if (!gif)
         return HTTP_INTERNAL_ERROR;
 
     coro_defer(request->conn->coro, destroy_gif, gif);
 
-    blocks_init(blocks);
+    blocks_init(&blocks, gif);
 
     response->mime_type = "image/gif";
     response->headers = seriously_do_not_cache;
-
-    memset(gif->frame, 0, (size_t)(32 * 16));
 
     while (total_waited <= 3600000) {
         uint64_t timeout;
@@ -179,17 +176,10 @@ LWAN_HANDLER(blocks)
             odd_second = last & 1;
         }
 
-        for (int i = 0; i < 4; i++) {
-            blocks[i].num_to_draw = digits[i] - '0';
+        for (int i = 0; i < 4; i++)
+            blocks.states[i].num_to_draw = digits[i] - '0';
 
-            if (blocks[i].num_to_draw != last_digits[i]) {
-                blocks[i].fall_index = 0;
-                blocks[i].block_index = 0;
-                last_digits[i] = blocks[i].num_to_draw;
-            }
-        }
-
-        timeout = blocks_draw(blocks, gif->frame, odd_second);
+        timeout = blocks_draw(&blocks, odd_second);
         total_waited += timeout;
 
         ge_add_frame(gif, 0);

@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "gifenc.h"
+
 struct block_state {
     int num_to_draw;
     int block_index;
@@ -10,7 +12,11 @@ struct block_state {
     int x_shift;
 };
 
-void blocks_init(struct block_state states[static 4]);
-uint64_t blocks_draw(struct block_state states[static 4],
-                     unsigned char *buffer,
-                     bool odd_second);
+struct blocks {
+    struct block_state states[4];
+    int last_digits[4];
+    ge_GIF *gif;
+};
+
+void blocks_init(struct blocks *blocks, ge_GIF *gif);
+uint64_t blocks_draw(struct blocks *blocks, bool odd_second);
