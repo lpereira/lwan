@@ -487,13 +487,18 @@ identify_http_path(struct lwan_request *request, char *buffer,
     return end_of_line + 1;
 }
 
-#define HEADER(hdr)                                                            \
+#define HEADER_RAW(hdr)                                                        \
     ({                                                                         \
         p += sizeof(hdr) - 1;                                                  \
         if (UNLIKELY(string_as_int16(p) !=                                     \
                      MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
             continue;                                                          \
-        char *value = p + sizeof(": ") - 1;                                    \
+        p + sizeof(": ") - 1;                                                  \
+    })
+
+#define HEADER(hdr)                                                            \
+    ({                                                                         \
+        char *value = HEADER_RAW(hdr);                                         \
         (struct lwan_value){.value = value, .len = (size_t)(end - value)};     \
     })
 
@@ -538,11 +543,9 @@ static char *parse_headers(struct request_parser_helper *helper,
         case MULTICHAR_CONSTANT_L('A','u','t','h'):
             helper->authorization = HEADER("Authorization");
             break;
-        case MULTICHAR_CONSTANT_L('C','o','n','n'): {
-            struct lwan_value conn = HEADER("Connection");
-            helper->connection = (*conn.value | 0x20);
+        case MULTICHAR_CONSTANT_L('C','o','n','n'):
+            helper->connection = *HEADER_RAW("Connection") | 0x20;
             break;
-        }
         case MULTICHAR_CONSTANT_L('C','o','n','t'):
             p += sizeof("Content") - 1;
 
@@ -576,6 +579,7 @@ static char *parse_headers(struct request_parser_helper *helper,
     return buffer;
 }
 
+#undef HEADER_RAW
 #undef HEADER
 
 static void
