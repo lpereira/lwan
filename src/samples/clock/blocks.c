@@ -17,10 +17,10 @@
 enum shape {
     SHAPE_SQUARE = 0,
     SHAPE_L = 1,
-    SHAPE_L_REVERSE = 2,
+    SHAPE_L_REV = 2,
     SHAPE_I = 3,
     SHAPE_S = 4,
-    SHAPE_S_REVERSE = 5,
+    SHAPE_S_REV = 5,
     SHAPE_T = 6,
     SHAPE_MAX,
 };
@@ -38,17 +38,25 @@ enum color {
     COLOR_MAX,
 };
 
+enum rotation {
+    ROT_0,
+    ROT_90,
+    ROT_180,
+    ROT_270,
+    ROT_MAX,
+};
+
 struct fall {
-    unsigned short shape      : 3;
-    unsigned short int x_pos  : 3;
+    unsigned short shape : 3;
+    unsigned short int x_pos : 3;
     unsigned short int y_stop : 6;
-    unsigned short int n_rot  : 2;
+    unsigned short int n_rot : 2;
 };
 
 static const enum color colors[] = {
-    [SHAPE_SQUARE] = COLOR_RED,     [SHAPE_L] = COLOR_CYAN,
-    [SHAPE_L_REVERSE] = COLOR_BLUE, [SHAPE_I] = COLOR_YELLOW,
-    [SHAPE_S] = COLOR_GREEN,        [SHAPE_S_REVERSE] = COLOR_ORANGE,
+    [SHAPE_SQUARE] = COLOR_RED, [SHAPE_L] = COLOR_CYAN,
+    [SHAPE_L_REV] = COLOR_BLUE, [SHAPE_I] = COLOR_YELLOW,
+    [SHAPE_S] = COLOR_GREEN,    [SHAPE_S_REV] = COLOR_ORANGE,
     [SHAPE_T] = COLOR_MAGENTA,
 };
 
@@ -56,120 +64,108 @@ static const enum color colors[] = {
 #define OFF(x1, y1, x2, y2, x3, y3, x4, y4)                                    \
     PAIR(x1, y1) << 24 | PAIR(x2, y2) << 16 | PAIR(x3, y3) << 8 | PAIR(x4, y4)
 
-static const unsigned int offs[SHAPE_MAX][4] = {
-    [SHAPE_SQUARE][0] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
-    [SHAPE_SQUARE][1] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
-    [SHAPE_SQUARE][2] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
-    [SHAPE_SQUARE][3] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
-    [SHAPE_L][0] = OFF(0, 0, 1, 0, 0, -1, 0, -2),
-    [SHAPE_L][1] = OFF(0, 0, 0, -1, 1, -1, 2, -1),
-    [SHAPE_L][2] = OFF(1, 0, 1, -1, 1, -2, 0, -2),
-    [SHAPE_L][3] = OFF(0, 0, 1, 0, 2, 0, 2, -1),
-    [SHAPE_L_REVERSE][0] = OFF(0, 0, 1, 0, 1, -1, 1, -2),
-    [SHAPE_L_REVERSE][1] = OFF(0, 0, 1, 0, 2, 0, 0, -1),
-    [SHAPE_L_REVERSE][2] = OFF(0, 0, 0, -1, 0, -2, 1, -2),
-    [SHAPE_L_REVERSE][3] = OFF(0, -1, 1, -1, 2, -1, 2, 0),
-    [SHAPE_I][0] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
-    [SHAPE_I][1] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
-    [SHAPE_I][2] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
-    [SHAPE_I][3] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
-    [SHAPE_S][0] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
-    [SHAPE_S][1] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
-    [SHAPE_S][2] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
-    [SHAPE_S][3] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
-    [SHAPE_S_REVERSE][0] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
-    [SHAPE_S_REVERSE][1] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
-    [SHAPE_S_REVERSE][2] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
-    [SHAPE_S_REVERSE][3] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
-    [SHAPE_T][0] = OFF(0, 0, 1, 0, 2, 0, 1, -1),
-    [SHAPE_T][1] = OFF(0, 0, 0, -1, 0, -2, 1, -1),
-    [SHAPE_T][2] = OFF(1, 0, 0, -1, 1, -1, 2, -1),
-    [SHAPE_T][3] = OFF(1, 0, 0, -1, 1, -1, 1, -2),
+static const unsigned int offs[SHAPE_MAX][ROT_MAX] = {
+    [SHAPE_SQUARE][ROT_0] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][ROT_90] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][ROT_180] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_SQUARE][ROT_270] = OFF(0, 0, 1, 0, 0, -1, 1, -1),
+    [SHAPE_L][ROT_0] = OFF(0, 0, 1, 0, 0, -1, 0, -2),
+    [SHAPE_L][ROT_90] = OFF(0, 0, 0, -1, 1, -1, 2, -1),
+    [SHAPE_L][ROT_180] = OFF(1, 0, 1, -1, 1, -2, 0, -2),
+    [SHAPE_L][ROT_270] = OFF(0, 0, 1, 0, 2, 0, 2, -1),
+    [SHAPE_L_REV][ROT_0] = OFF(0, 0, 1, 0, 1, -1, 1, -2),
+    [SHAPE_L_REV][ROT_90] = OFF(0, 0, 1, 0, 2, 0, 0, -1),
+    [SHAPE_L_REV][ROT_180] = OFF(0, 0, 0, -1, 0, -2, 1, -2),
+    [SHAPE_L_REV][ROT_270] = OFF(0, -1, 1, -1, 2, -1, 2, 0),
+    [SHAPE_I][ROT_0] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
+    [SHAPE_I][ROT_90] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
+    [SHAPE_I][ROT_180] = OFF(0, 0, 1, 0, 2, 0, 3, 0),
+    [SHAPE_I][ROT_270] = OFF(0, 0, 0, -1, 0, -2, 0, -3),
+    [SHAPE_S][ROT_0] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
+    [SHAPE_S][ROT_90] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
+    [SHAPE_S][ROT_180] = OFF(1, 0, 0, -1, 1, -1, 0, -2),
+    [SHAPE_S][ROT_270] = OFF(0, 0, 1, 0, 1, -1, 2, -1),
+    [SHAPE_S_REV][ROT_0] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
+    [SHAPE_S_REV][ROT_90] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
+    [SHAPE_S_REV][ROT_180] = OFF(0, 0, 0, -1, 1, -1, 1, -2),
+    [SHAPE_S_REV][ROT_270] = OFF(1, 0, 2, 0, 0, -1, 1, -1),
+    [SHAPE_T][ROT_0] = OFF(0, 0, 1, 0, 2, 0, 1, -1),
+    [SHAPE_T][ROT_90] = OFF(0, 0, 0, -1, 0, -2, 1, -1),
+    [SHAPE_T][ROT_180] = OFF(1, 0, 0, -1, 1, -1, 2, -1),
+    [SHAPE_T][ROT_270] = OFF(1, 0, 0, -1, 1, -1, 1, -2),
 };
 
 #undef PAIR
 #undef OFF
 
 static const struct fall fall0[] = {
-    {SHAPE_L_REVERSE, 4, 16, 0}, {SHAPE_S, 2, 16, 1},
-    {SHAPE_I, 0, 16, 1},         {SHAPE_T, 1, 16, 1},
-    {SHAPE_S_REVERSE, 4, 14, 0}, {SHAPE_T, 0, 13, 3},
-    {SHAPE_S_REVERSE, 4, 12, 0}, {SHAPE_S_REVERSE, 0, 11, 0},
-    {SHAPE_T, 4, 10, 1},         {SHAPE_T, 0, 9, 1},
-    {SHAPE_S_REVERSE, 1, 8, 1},  {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_L_REV, 4, 16, 0}, {SHAPE_S, 2, 16, 1},     {SHAPE_I, 0, 16, 1},
+    {SHAPE_T, 1, 16, 1},     {SHAPE_S_REV, 4, 14, 0}, {SHAPE_T, 0, 13, 3},
+    {SHAPE_S_REV, 4, 12, 0}, {SHAPE_S_REV, 0, 11, 0}, {SHAPE_T, 4, 10, 1},
+    {SHAPE_T, 0, 9, 1},      {SHAPE_S_REV, 1, 8, 1},  {SHAPE_L_REV, 3, 8, 3},
     {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall1[] = {
-    {SHAPE_L_REVERSE, 4, 16, 0}, {SHAPE_I, 4, 15, 1},     {SHAPE_I, 5, 13, 3},
-    {SHAPE_L_REVERSE, 4, 11, 2}, {SHAPE_SQUARE, 4, 8, 0}, {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_L_REV, 4, 16, 0}, {SHAPE_I, 4, 15, 1},     {SHAPE_I, 5, 13, 3},
+    {SHAPE_L_REV, 4, 11, 2}, {SHAPE_SQUARE, 4, 8, 0}, {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall2[] = {
-    {SHAPE_SQUARE, 4, 16, 0},    {SHAPE_I, 0, 16, 1},      {SHAPE_L, 1, 16, 3},
-    {SHAPE_L, 1, 15, 0},         {SHAPE_I, 1, 12, 2},      {SHAPE_L, 0, 12, 1},
-    {SHAPE_L_REVERSE, 3, 12, 3}, {SHAPE_SQUARE, 4, 10, 0}, {SHAPE_I, 1, 8, 0},
-    {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_L, 0, 8, 1},       {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 4, 16, 0}, {SHAPE_I, 0, 16, 1},      {SHAPE_L, 1, 16, 3},
+    {SHAPE_L, 1, 15, 0},      {SHAPE_I, 1, 12, 2},      {SHAPE_L, 0, 12, 1},
+    {SHAPE_L_REV, 3, 12, 3},  {SHAPE_SQUARE, 4, 10, 0}, {SHAPE_I, 1, 8, 0},
+    {SHAPE_L_REV, 3, 8, 3},   {SHAPE_L, 0, 8, 1},       {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall3[] = {
-    {SHAPE_L, 3, 16, 3},      {SHAPE_L_REVERSE, 0, 16, 1}, {SHAPE_I, 1, 15, 2},
-    {SHAPE_SQUARE, 4, 14, 0}, {SHAPE_I, 1, 12, 2},         {SHAPE_L, 0, 12, 1},
-    {SHAPE_I, 5, 12, 3},      {SHAPE_L_REVERSE, 3, 11, 0}, {SHAPE_I, 1, 8, 0},
-    {SHAPE_L, 0, 8, 1},       {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_L, 3, 16, 3},      {SHAPE_L_REV, 0, 16, 1}, {SHAPE_I, 1, 15, 2},
+    {SHAPE_SQUARE, 4, 14, 0}, {SHAPE_I, 1, 12, 2},     {SHAPE_L, 0, 12, 1},
+    {SHAPE_I, 5, 12, 3},      {SHAPE_L_REV, 3, 11, 0}, {SHAPE_I, 1, 8, 0},
+    {SHAPE_L, 0, 8, 1},       {SHAPE_L_REV, 3, 8, 3},  {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall4[] = {
-    {SHAPE_SQUARE, 4, 16, 0},    {SHAPE_SQUARE, 4, 14, 0},
-    {SHAPE_I, 1, 12, 0},         {SHAPE_L, 0, 12, 1},
-    {SHAPE_L_REVERSE, 0, 10, 0}, {SHAPE_L_REVERSE, 3, 12, 3},
-    {SHAPE_I, 4, 10, 3},         {SHAPE_L_REVERSE, 0, 9, 2},
-    {SHAPE_I, 5, 10, 1},         {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 4, 16, 0}, {SHAPE_SQUARE, 4, 14, 0}, {SHAPE_I, 1, 12, 0},
+    {SHAPE_L, 0, 12, 1},      {SHAPE_L_REV, 0, 10, 0},  {SHAPE_L_REV, 3, 12, 3},
+    {SHAPE_I, 4, 10, 3},      {SHAPE_L_REV, 0, 9, 2},   {SHAPE_I, 5, 10, 1},
+    {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall5[] = {
-    {SHAPE_SQUARE, 0, 16, 0},    {SHAPE_L_REVERSE, 2, 16, 1},
-    {SHAPE_L_REVERSE, 3, 15, 0}, {SHAPE_I, 5, 16, 1},
-    {SHAPE_I, 1, 12, 0},         {SHAPE_L, 0, 12, 1},
-    {SHAPE_L_REVERSE, 3, 12, 3}, {SHAPE_SQUARE, 0, 10, 0},
-    {SHAPE_I, 1, 8, 2},          {SHAPE_L, 0, 8, 1},
-    {SHAPE_L_REVERSE, 3, 8, 3},  {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_SQUARE, 0, 16, 0}, {SHAPE_L_REV, 2, 16, 1},  {SHAPE_L_REV, 3, 15, 0},
+    {SHAPE_I, 5, 16, 1},      {SHAPE_I, 1, 12, 0},      {SHAPE_L, 0, 12, 1},
+    {SHAPE_L_REV, 3, 12, 3},  {SHAPE_SQUARE, 0, 10, 0}, {SHAPE_I, 1, 8, 2},
+    {SHAPE_L, 0, 8, 1},       {SHAPE_L_REV, 3, 8, 3},   {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall6[] = {
-    {SHAPE_L_REVERSE, 0, 16, 1}, {SHAPE_S_REVERSE, 2, 16, 1},
-    {SHAPE_T, 0, 15, 3},         {SHAPE_T, 4, 16, 3},
-    {SHAPE_S_REVERSE, 4, 14, 0}, {SHAPE_I, 1, 12, 2},
-    {SHAPE_L_REVERSE, 0, 13, 2}, {SHAPE_I, 2, 11, 0},
-    {SHAPE_SQUARE, 0, 10, 0},    {SHAPE_I, 1, 8, 0},
-    {SHAPE_L, 0, 8, 1},          {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_L_REV, 0, 16, 1}, {SHAPE_S_REV, 2, 16, 1}, {SHAPE_T, 0, 15, 3},
+    {SHAPE_T, 4, 16, 3},     {SHAPE_S_REV, 4, 14, 0}, {SHAPE_I, 1, 12, 2},
+    {SHAPE_L_REV, 0, 13, 2}, {SHAPE_I, 2, 11, 0},     {SHAPE_SQUARE, 0, 10, 0},
+    {SHAPE_I, 1, 8, 0},      {SHAPE_L, 0, 8, 1},      {SHAPE_L_REV, 3, 8, 3},
     {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall7[] = {
-    {SHAPE_SQUARE, 4, 16, 0}, {SHAPE_L, 4, 14, 0},
-    {SHAPE_I, 5, 13, 1},      {SHAPE_L_REVERSE, 4, 11, 2},
-    {SHAPE_I, 1, 8, 2},       {SHAPE_L_REVERSE, 3, 8, 3},
+    {SHAPE_SQUARE, 4, 16, 0}, {SHAPE_L, 4, 14, 0},  {SHAPE_I, 5, 13, 1},
+    {SHAPE_L_REV, 4, 11, 2},  {SHAPE_I, 1, 8, 2},   {SHAPE_L_REV, 3, 8, 3},
     {SHAPE_L, 0, 8, 1},       {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall8[] = {
-    {SHAPE_I, 1, 16, 0},        {SHAPE_T, 0, 16, 1},
-    {SHAPE_I, 5, 16, 1},        {SHAPE_L, 2, 15, 3},
-    {SHAPE_S, 0, 14, 0},        {SHAPE_L, 1, 12, 3},
-    {SHAPE_T, 4, 13, 1},        {SHAPE_L_REVERSE, 0, 11, 1},
-    {SHAPE_S, 0, 10, 0},        {SHAPE_S, 4, 11, 0},
-    {SHAPE_S_REVERSE, 0, 8, 1}, {SHAPE_S_REVERSE, 2, 8, 1},
-    {SHAPE_L, 4, 9, 2},         {SHAPE_MAX, 0, 0, 0},
+    {SHAPE_I, 1, 16, 0}, {SHAPE_T, 0, 16, 1},     {SHAPE_I, 5, 16, 1},
+    {SHAPE_L, 2, 15, 3}, {SHAPE_S, 0, 14, 0},     {SHAPE_L, 1, 12, 3},
+    {SHAPE_T, 4, 13, 1}, {SHAPE_L_REV, 0, 11, 1}, {SHAPE_S, 0, 10, 0},
+    {SHAPE_S, 4, 11, 0}, {SHAPE_S_REV, 0, 8, 1},  {SHAPE_S_REV, 2, 8, 1},
+    {SHAPE_L, 4, 9, 2},  {SHAPE_MAX, 0, 0, 0},
 };
 
 static const struct fall fall9[] = {
-    {SHAPE_SQUARE, 0, 16, 0},    {SHAPE_I, 2, 16, 0},
-    {SHAPE_L, 2, 15, 3},         {SHAPE_L, 4, 15, 2},
-    {SHAPE_I, 1, 12, 2},         {SHAPE_I, 5, 12, 3},
-    {SHAPE_S_REVERSE, 0, 12, 0}, {SHAPE_L, 2, 11, 3},
-    {SHAPE_S_REVERSE, 4, 9, 0},  {SHAPE_T, 0, 10, 1},
-    {SHAPE_S_REVERSE, 0, 8, 1},  {SHAPE_T, 2, 8, 2},
+    {SHAPE_SQUARE, 0, 16, 0}, {SHAPE_I, 2, 16, 0},    {SHAPE_L, 2, 15, 3},
+    {SHAPE_L, 4, 15, 2},      {SHAPE_I, 1, 12, 2},    {SHAPE_I, 5, 12, 3},
+    {SHAPE_S_REV, 0, 12, 0},  {SHAPE_L, 2, 11, 3},    {SHAPE_S_REV, 4, 9, 0},
+    {SHAPE_T, 0, 10, 1},      {SHAPE_S_REV, 0, 8, 1}, {SHAPE_T, 2, 8, 2},
     {SHAPE_MAX, 0, 0, 0},
 };
 
@@ -197,15 +193,12 @@ static void draw_shape_full(enum shape shape,
                             int y,
                             int w,
                             int h,
-                            int rot,
+                            enum rotation rot,
                             unsigned char *buffer)
 {
-    unsigned int offset;
-    int area = w * h;
+    unsigned int offset = offs[shape][rot];
+    const int area = w * h;
 
-    assert(rot >= 0 && rot <= 3);
-
-    offset = offs[shape][rot];
     for (int i = 0; i < 4; i++) {
         int y_off, x_off, dx, dy, index;
 
@@ -223,8 +216,13 @@ static void draw_shape_full(enum shape shape,
     }
 }
 
-static void
-draw_shape(enum shape shape, int x, int y, int w, int h, int rot, unsigned char *buffer)
+static void draw_shape(enum shape shape,
+                       int x,
+                       int y,
+                       int w,
+                       int h,
+                       enum rotation rot,
+                       unsigned char *buffer)
 {
     draw_shape_full(shape, colors[shape], x, y, w, h, rot, buffer);
 }
@@ -266,26 +264,29 @@ uint64_t blocks_draw(struct blocks *blocks, bool odd_second)
             switch (rotations) {
             case 1:
                 if (state->fall_index < curr->y_stop / 2)
-                    rotations = 0;
+                    rotations = ROT_0;
                 break;
             case 2:
                 if (state->fall_index < curr->y_stop / 3)
-                    rotations = 0;
+                    rotations = ROT_0;
                 else if (state->fall_index < curr->y_stop / 3 * 2)
-                    rotations = 1;
+                    rotations = ROT_90;
                 break;
             case 3:
                 if (state->fall_index < curr->y_stop / 4)
-                    rotations = 0;
+                    rotations = ROT_0;
                 else if (state->fall_index < curr->y_stop / 4 * 2)
-                    rotations = 1;
+                    rotations = ROT_90;
                 else if (state->fall_index < curr->y_stop / 4 * 3)
-                    rotations = 2;
+                    rotations = ROT_180;
                 break;
             }
 
+            assert(rotations >= 0 && rotations < ROT_MAX);
+
             draw_shape(curr->shape, curr->x_pos + state->x_shift,
-                       state->fall_index - 1, w, h, rotations, frame);
+                       state->fall_index - 1, w, h,
+                       (enum rotation)rotations, frame);
             state->fall_index++;
 
             if (state->fall_index > curr->y_stop) {
@@ -307,8 +308,8 @@ uint64_t blocks_draw(struct blocks *blocks, bool odd_second)
     }
 
     if (odd_second) {
-        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 13, w, h, 0, frame);
-        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 9, w, h, 0, frame);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 13, w, h, ROT_0, frame);
+        draw_shape_full(SHAPE_SQUARE, COLOR_WHITE, 15, 9, w, h, ROT_0, frame);
     }
 
     return digits_fallen ? 100 : 500;
