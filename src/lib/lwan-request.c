@@ -487,105 +487,96 @@ identify_http_path(struct lwan_request *request, char *buffer,
     return end_of_line + 1;
 }
 
-#define MATCH_HEADER(hdr) \
-  do { \
-        p += sizeof(hdr) - 1; \
-        if (UNLIKELY(p >= buffer_end)) /* reached the end of header blocks */ \
-            return NULL; \
-        \
-        if (UNLIKELY(string_as_int16(p) != MULTICHAR_CONSTANT_SMALL(':', ' '))) \
-            goto did_not_match; \
-        p += 2; \
-        \
-        char *end = strchr(p, '\r'); \
-        if (UNLIKELY(!end)) \
-            goto did_not_match; \
-        \
-        *end = '\0'; \
-        value = p; \
-        length = (size_t)(end - value); \
-        \
-        p = end + 1; \
-        if (UNLIKELY(*p != '\n')) \
-            goto did_not_match; \
-  } while (0)
+#define HEADER(hdr)                                                            \
+    ({                                                                         \
+        p += sizeof(hdr) - 1;                                                  \
+        if (UNLIKELY(string_as_int16(p) !=                                     \
+                     MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
+            continue;                                                          \
+        char *value = p + sizeof(": ") - 1;                                    \
+        (struct lwan_value){.value = value, .len = (size_t)(end - value)};     \
+    })
 
-#define CASE_HEADER(hdr_const,hdr_name) \
-    case hdr_const: MATCH_HEADER(hdr_name);
-
-static char *
-parse_headers(struct request_parser_helper *helper, char *buffer, char *buffer_end)
+static char *parse_headers(struct request_parser_helper *helper,
+                           char *buffer,
+                           char *buffer_end)
 {
-    for (char *p = buffer; *p; buffer = ++p) {
-        char *value;
-        size_t length;
+    char *header_start[64];
+    size_t n_headers = 0;
 
-        if ((p + sizeof(int32_t)) >= buffer_end)
+    for (char *p = buffer; n_headers < N_ELEMENTS(header_start);) {
+        char *next_chr = p + 1;
+        char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
+
+        if (!next_hdr)
             break;
+
+        header_start[n_headers++] = next_chr;
+        header_start[n_headers++] = next_hdr;
+
+        if (next_hdr == next_chr)
+            break;
+
+        *next_hdr = '\0';
+        p = next_hdr + 1;
+    }
+
+    for (size_t i = 0; i < n_headers; i += 2) {
+        char *p = header_start[i];
+        char *end = header_start[i + 1];
 
         STRING_SWITCH_L(p) {
         case MULTICHAR_CONSTANT_L('A','c','c','e'):
             p += sizeof("Accept") - 1;
 
             STRING_SWITCH_L(p) {
-            CASE_HEADER(MULTICHAR_CONSTANT_L('-','E','n','c'), "-Encoding")
-                helper->accept_encoding.value = value;
-                helper->accept_encoding.len = length;
+            case MULTICHAR_CONSTANT_L('-','E','n','c'):
+                helper->accept_encoding = HEADER("-Encoding");
                 break;
             }
             break;
-        CASE_HEADER(MULTICHAR_CONSTANT_L('A','u','t','h'), "Authorization")
-            helper->authorization.value = value;
-            helper->authorization.len = length;
+        case MULTICHAR_CONSTANT_L('A','u','t','h'):
+            helper->authorization = HEADER("Authorization");
             break;
-        CASE_HEADER(MULTICHAR_CONSTANT_L('C','o','n','n'), "Connection")
-            helper->connection = (*value | 0x20);
+        case MULTICHAR_CONSTANT_L('C','o','n','n'): {
+            struct lwan_value conn = HEADER("Connection");
+            helper->connection = (*conn.value | 0x20);
             break;
+        }
         case MULTICHAR_CONSTANT_L('C','o','n','t'):
             p += sizeof("Content") - 1;
 
             STRING_SWITCH_L(p) {
-            CASE_HEADER(MULTICHAR_CONSTANT_L('-','T','y','p'), "-Type")
-                helper->content_type.value = value;
-                helper->content_type.len = length;
+            case MULTICHAR_CONSTANT_L('-','T','y','p'):
+                helper->content_type = HEADER("-Type");
                 break;
-            CASE_HEADER(MULTICHAR_CONSTANT_L('-','L','e','n'), "-Length")
-                helper->content_length.value = value;
-                helper->content_length.len = length;
+            case MULTICHAR_CONSTANT_L('-','L','e','n'):
+                helper->content_length = HEADER("-Length");
                 break;
             }
             break;
-        CASE_HEADER(MULTICHAR_CONSTANT_L('C','o','o','k'), "Cookie")
-            helper->cookie.value = value;
-            helper->cookie.len = length;
+        case MULTICHAR_CONSTANT_L('C','o','o','k'):
+            helper->cookie = HEADER("Cookie");
             break;
-        CASE_HEADER(MULTICHAR_CONSTANT_L('I','f','-','M'), "If-Modified-Since")
-            helper->if_modified_since.value = value;
-            helper->if_modified_since.len = length;
+        case MULTICHAR_CONSTANT_L('I','f','-','M'):
+            helper->if_modified_since = HEADER("If-Modified-Since");
             break;
-        CASE_HEADER(MULTICHAR_CONSTANT_L('R','a','n','g'), "Range")
-            helper->range.value = value;
-            helper->range.len = length;
+        case MULTICHAR_CONSTANT_L('R','a','n','g'):
+            helper->range = HEADER("Range");
             break;
         default:
             STRING_SWITCH_SMALL(p) {
             case MULTICHAR_CONSTANT_SMALL('\r','\n'):
-                *p = '\0';
                 helper->next_request = p + sizeof("\r\n") - 1;
                 return p;
             }
         }
-did_not_match:
-        p = memchr(p, '\n', (size_t)(buffer_end - p));
-        if (!p)
-            break;
     }
 
     return buffer;
 }
 
-#undef CASE_HEADER
-#undef MATCH_HEADER
+#undef HEADER
 
 static void
 parse_if_modified_since(struct lwan_request *request, struct request_parser_helper *helper)
