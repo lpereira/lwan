@@ -49,25 +49,25 @@ enum lwan_read_finalizer {
 };
 
 struct request_parser_helper {
-    struct lwan_value *buffer;
+    struct lwan_value *buffer;		/* The whole request buffer */
     char *next_request;			/* For pipelined requests */
-    struct lwan_value accept_encoding;
-    struct lwan_value if_modified_since;
-    struct lwan_value range;
-    struct lwan_value cookie;
+    struct lwan_value accept_encoding;	/* Accept-Encoding: */
+    struct lwan_value if_modified_since;/* If-Modified-Since: */
+    struct lwan_value range;		/* Range: */
+    struct lwan_value cookie;		/* Cookie: */
 
-    struct lwan_value query_string;
-    struct lwan_value fragment;
-    struct lwan_value content_length;
-    struct lwan_value authorization;
+    struct lwan_value query_string;	/* Stuff after ? and before # */
+    struct lwan_value fragment;		/* Stuff after # */
+    struct lwan_value content_length;	/* Content-Length: */
+    struct lwan_value authorization;	/* Authorization: */
 
-    struct lwan_value post_data;
-    struct lwan_value content_type;
+    struct lwan_value post_data;	/* Request body for POST */
+    struct lwan_value content_type;	/* Content-Type: for POST */
 
-    time_t error_when_time;
-    int error_when_n_packets;
-    int urls_rewritten;
-    char connection;
+    time_t error_when_time;		/* Time to abort request read */
+    int error_when_n_packets;		/* Max. number of packets */
+    int urls_rewritten;			/* Times URLs have been rewritten */
+    char connection;			/* k=keep-alive, c=close, u=upgrade */
 };
 
 struct proxy_header_v2 {
