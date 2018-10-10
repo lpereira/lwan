@@ -1,8 +1,7 @@
 Lwan Web Server
 ===============
 
-Lwan is a **high-performance** & **scalable** web server for glibc/Linux
-platforms.
+Lwan is a **high-performance** & **scalable** web server.
 
 The [project web site](https://lwan.ws/) contains more details.
 
