@@ -34,6 +34,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined(HAVE_SMMINTRIN_H) && defined(HAVE_XMMINTRIN_H) &&                  \
+    defined(HAVE_PMMINTRIN_H) && defined(__SSE__)
+#include <pmmintrin.h>
+#include <smmintrin.h>
+#include <xmmintrin.h>
+#define USE_SSE_INTRINSICS
+#endif
+
 #include "lwan-private.h"
 
 #include "lwan-config.h"
@@ -487,6 +495,113 @@ identify_http_path(struct lwan_request *request, char *buffer,
     return end_of_line + 1;
 }
 
+static size_t find_headers_fallback(char **headers_start,
+                                    size_t headers_start_len,
+                                    char *buffer,
+                                    char *buffer_end)
+{
+    size_t n_headers = 0;
+
+    for (char *p = buffer + 1; n_headers < headers_start_len;) {
+        char *next_chr = p;
+        char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
+
+        if (!next_hdr)
+            break;
+
+        headers_start[n_headers++] = next_chr;
+        headers_start[n_headers++] = next_hdr;
+
+        if (next_hdr == next_chr)
+            break;
+
+        p = next_hdr + 2;
+    }
+
+    return n_headers;
+}
+
+#if defined(USE_SSE_INTRINSICS)
+static const uint32_t unset_bit_masks[] = {
+#define M(v) (~(1u << (v)))
+#define MM(v) M((v) + 0), M((v) + 1), M((v) + 2), M((v) + 3),
+    MM(0) MM(4) MM(8) MM(12) MM(16) MM(20) MM(24) MM(28)
+#undef MM
+#undef M
+};
+
+static ALWAYS_INLINE size_t find_headers_sse(char **headers_start,
+                                             size_t n_headers,
+                                             char *buffer,
+                                             char *buffer_end)
+{
+    const __m128i cr = _mm_set1_epi8('\r');
+    char *start = buffer + 1;
+    char *p = buffer;
+    size_t ret = 0;
+
+    while (buffer_end - p >= 16) {
+        /* Even for pipelined requests, the memmove in
+         * read_from_request_socket() will guarantee that p is always kept
+         * aligned (it's already declared with the proper alignment). */
+        const __m128i xmm = _mm_load_si128((const __m128i *)p);
+        const __m128i cmp = _mm_cmpeq_epi8(cr, xmm);
+        uint32_t mask_cr = (uint32_t)_mm_movemask_epi8(cmp);
+
+        while (mask_cr) {
+            int bit = __builtin_ctz(mask_cr);
+            char *end = p + bit;
+
+            headers_start[ret++] = start;
+            headers_start[ret++] = end;
+
+            if (start == end || UNLIKELY(ret > n_headers))
+                goto out;
+
+            start = end + 2;
+            mask_cr &= unset_bit_masks[bit];
+        }
+
+        p += 16;
+    }
+
+    while (buffer < buffer_end) {
+        char *end = __builtin_memchr(p, '\r', (size_t)(buffer_end - p));
+
+        if (!end)
+            break;
+
+        start = p;
+        headers_start[ret++] = start;
+        headers_start[ret++] = end;
+
+        if (start == end)
+            break;
+
+        p = end + 2;
+    }
+
+out:
+    return ret;
+}
+#endif
+
+static size_t (*resolve_find_headers(void))(char **, size_t, char *, char *)
+{
+#if defined(USE_SSE_INTRINSICS)
+    __builtin_cpu_init();
+    if (__builtin_cpu_supports("sse3"))
+        return find_headers_sse;
+#endif
+    return find_headers_fallback;
+}
+
+static size_t find_headers(char **headers_start,
+                           size_t n_headers,
+                           char *buffer,
+                           char *buffer_end)
+    __attribute__((ifunc("resolve_find_headers")));
+
 #define HEADER_RAW(hdr)                                                        \
     ({                                                                         \
         p += sizeof(hdr) - 1;                                                  \
@@ -508,23 +623,10 @@ static char *parse_headers(struct request_parser_helper *helper,
                            char *buffer_end)
 {
     char *header_start[64];
-    size_t n_headers = 0;
+    size_t n_headers;
 
-    for (char *p = buffer + 1; n_headers < N_ELEMENTS(header_start);) {
-        char *next_chr = p;
-        char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
-
-        if (!next_hdr)
-            break;
-
-        header_start[n_headers++] = next_chr;
-        header_start[n_headers++] = next_hdr;
-
-        if (next_hdr == next_chr)
-            break;
-
-        p = next_hdr + 2;
-    }
+    n_headers = find_headers(header_start, N_ELEMENTS(header_start), buffer,
+                             buffer_end);
 
     for (size_t i = 0; i < n_headers; i += 2) {
         char *p = header_start[i];

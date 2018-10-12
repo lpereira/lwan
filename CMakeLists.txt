@@ -104,6 +104,9 @@ if (HAVE_SYS_AUXV)
 	)
 	check_function_exists(getauxval HAVE_GETAUXVAL)
 endif ()
+check_include_file(xmmintrin.h HAVE_XMMINTRIN_H)
+check_include_file(pmmintrin.h HAVE_PMMINTRIN_H)
+check_include_file(smmintrin.h HAVE_SMMINTRIN_H)
 
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
@@ -153,6 +156,13 @@ check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_add_overflow(0, 0, &p); }" HAVE_BUILTIN_ADD_OVERFLOW)
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
 
+enable_c_flag_if_avail(-msse4.2 CMAKE_C_FLAGS HAVE_SSE4_2)
+check_c_source_compiles("#include <pmmintrin.h>
+                         #include <smmintrin.h>
+			 int main(void) {
+                              __m128i a = _mm_setzero_si128();
+                              _mm_test_all_zeros(a, a);
+                         }" HAVE_SSE_TEST_ALL_ZEROS)
 
 #
 # Look for Valgrind header

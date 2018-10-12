@@ -42,6 +42,11 @@
 #cmakedefine HAVE_PTHREAD_SET_NAME_NP
 #cmakedefine HAVE_GETENTROPY
 
+/* SIMD intrinsics headers */
+#cmakedefine HAVE_XMMINTRIN_H
+#cmakedefine HAVE_PMMINTRIN_H
+#cmakedefine HAVE_SMMINTRIN_H
+
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL
 #cmakedefine HAVE_BUILTIN_CPU_INIT

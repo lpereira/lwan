@@ -151,7 +151,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     struct lwan_strbuf strbuf;
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
-    char request_buffer[DEFAULT_BUFFER_SIZE];
+    char request_buffer[DEFAULT_BUFFER_SIZE] __attribute__((aligned(16)));
     struct lwan_value buffer = {.value = request_buffer, .len = 0};
     char *next_request = NULL;
     enum lwan_request_flags flags = 0;
