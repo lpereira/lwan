@@ -493,6 +493,7 @@ identify_http_path(struct lwan_request *request, char *buffer,
         if (UNLIKELY(string_as_int16(p) !=                                     \
                      MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
             continue;                                                          \
+        *end = '\0';                                                           \
         p + sizeof(": ") - 1;                                                  \
     })
 
@@ -522,7 +523,6 @@ static char *parse_headers(struct request_parser_helper *helper,
         if (next_hdr == next_chr)
             break;
 
-        *next_hdr = '\0';
         p = next_hdr + 1;
     }
 
