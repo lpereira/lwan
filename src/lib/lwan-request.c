@@ -510,8 +510,8 @@ static char *parse_headers(struct request_parser_helper *helper,
     char *header_start[64];
     size_t n_headers = 0;
 
-    for (char *p = buffer; n_headers < N_ELEMENTS(header_start);) {
-        char *next_chr = p + 1;
+    for (char *p = buffer + 1; n_headers < N_ELEMENTS(header_start);) {
+        char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
         if (!next_hdr)
@@ -523,7 +523,7 @@ static char *parse_headers(struct request_parser_helper *helper,
         if (next_hdr == next_chr)
             break;
 
-        p = next_hdr + 1;
+        p = next_hdr + 2;
     }
 
     for (size_t i = 0; i < n_headers; i += 2) {
