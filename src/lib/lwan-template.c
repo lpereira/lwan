@@ -427,32 +427,42 @@ static void *lex_inside_action(struct lexer *lexer)
             return lex_right_meta;
 
         r = next(lexer);
-        if (r == EOF)
+        switch (r) {
+        case EOF:
             return lex_error(lexer, "unexpected EOF while scanning action");
-        if (r == '\n')
+        case '\n':
             return lex_error(lexer, "actions cannot span multiple lines");
-
-        if (isspace(r)) {
-            ignore(lexer);
-        } else if (r == '#') {
+        case '#':
             emit(lexer, LEXEME_HASH);
-        } else if (r == '?') {
+            break;
+        case '?':
             emit(lexer, LEXEME_QUESTION_MARK);
-        } else if (r == '^') {
+            break;
+        case '^':
             emit(lexer, LEXEME_HAT);
-        } else if (r == '>') {
+            break;
+        case '>':
             emit(lexer, LEXEME_GREATER_THAN);
             return lex_partial;
-        } else if (r == '{') {
+        case '{':
             return lex_quoted_identifier;
-        } else if (r == '/') {
+        case '/':
             emit(lexer, LEXEME_SLASH);
-        } else if (isident(r)) {
-            backup(lexer);
-            return lex_identifier;
-        } else {
+            break;
+        default:
+            if (isspace(r)) {
+                ignore(lexer);
+                continue;
+            }
+            if (isident(r)) {
+                backup(lexer);
+                return lex_identifier;
+            }
+
             return lex_error(lexer, "unexpected character: %c", r);
         }
+
+        return lex_inside_action;
     }
 }
 
