@@ -216,39 +216,39 @@ lwan_default_response(struct lwan_request *request, enum lwan_http_status status
     lwan_response(request, status);
 }
 
-#define RETURN_0_ON_OVERFLOW(len_) \
-    if (UNLIKELY(p_headers + (len_) >= p_headers_end)) return 0
+#define RETURN_0_ON_OVERFLOW(len_)                                             \
+    if (UNLIKELY(p_headers + (len_) >= p_headers_end))                         \
+    return 0
 
-#define APPEND_STRING_LEN(const_str_,len_) \
-    do { \
-        RETURN_0_ON_OVERFLOW(len_); \
-        p_headers = mempcpy(p_headers, (const_str_), (len_)); \
-    } while(0)
+#define APPEND_STRING_LEN(const_str_, len_)                                    \
+    do {                                                                       \
+        RETURN_0_ON_OVERFLOW(len_);                                            \
+        p_headers = mempcpy(p_headers, (const_str_), (len_));                  \
+    } while (0)
 
-#define APPEND_STRING(str_) \
-    do { \
-        size_t len = strlen(str_); \
-        APPEND_STRING_LEN((str_), len); \
-    } while(0)
+#define APPEND_STRING(str_)                                                    \
+    do {                                                                       \
+        size_t len = strlen(str_);                                             \
+        APPEND_STRING_LEN((str_), len);                                        \
+    } while (0)
 
-#define APPEND_CHAR(value_) \
-    do { \
-        RETURN_0_ON_OVERFLOW(1); \
-        *p_headers++ = (value_); \
-    } while(0)
+#define APPEND_CHAR(value_)                                                    \
+    do {                                                                       \
+        RETURN_0_ON_OVERFLOW(1);                                               \
+        *p_headers++ = (value_);                                               \
+    } while (0)
 
-#define APPEND_CHAR_NOCHECK(value_) \
-    *p_headers++ = (value_)
+#define APPEND_CHAR_NOCHECK(value_) *p_headers++ = (value_)
 
-#define APPEND_UINT(value_) \
-    do { \
-        size_t len; \
-        char *tmp = uint_to_string((value_), buffer, &len); \
-        RETURN_0_ON_OVERFLOW(len); \
-        APPEND_STRING_LEN(tmp, len); \
-    } while(0)
+#define APPEND_UINT(value_)                                                    \
+    do {                                                                       \
+        size_t len;                                                            \
+        char *tmp = uint_to_string((value_), buffer, &len);                    \
+        RETURN_0_ON_OVERFLOW(len);                                             \
+        APPEND_STRING_LEN(tmp, len);                                           \
+    } while (0)
 
-#define APPEND_CONSTANT(const_str_) \
+#define APPEND_CONSTANT(const_str_)                                            \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 size_t
