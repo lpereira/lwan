@@ -296,12 +296,20 @@ lwan_prepare_response_header_full(struct lwan_request *request,
         const struct lwan_key_value *header;
 
         for (header = additional_headers; header->key; header++) {
-            if (UNLIKELY(streq(header->key, "Server")))
-                continue;
-            if (UNLIKELY(streq(header->key, "Date")))
-                date_overridden = true;
-            if (UNLIKELY(streq(header->key, "Expires")))
-                expires_overridden = true;
+            STRING_SWITCH_L(header->key) {
+            case MULTICHAR_CONSTANT_L('S', 'e', 'r', 'v'):
+                if (LIKELY(streq(header->key + 4, "er")))
+                    continue;
+                break;
+            case MULTICHAR_CONSTANT_L('D', 'a', 't', 'e'):
+                if (LIKELY(*(header->key + 4) == '\0'))
+                    date_overridden = true;
+                break;
+            case MULTICHAR_CONSTANT_L('E', 'x', 'p', 'i'):
+                if (LIKELY(streq(header->key + 4, "res")))
+                    expires_overridden = true;
+                break;
+            }
 
             RETURN_0_ON_OVERFLOW(4);
             APPEND_CHAR_NOCHECK('\r');
