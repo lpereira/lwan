@@ -1100,8 +1100,7 @@ serve_files_handle_request(struct lwan_request *request,
 
     response->mime_type = fce->mime_type;
     response->stream.callback = fce->funcs->serve;
-    response->stream.data = ce;
-    response->stream.priv = priv;
+    response->stream.data = fce;
 
     return HTTP_OK;
 

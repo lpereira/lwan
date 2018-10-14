@@ -263,7 +263,6 @@ struct lwan_response {
     struct {
         enum lwan_http_status (*callback)(struct lwan_request *request, void *data);
         void *data;
-        void *priv;
     } stream;
 };
 
