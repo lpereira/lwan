@@ -1121,6 +1121,8 @@ serve_files_handle_request(struct lwan_request *request,
     response->stream.callback = fce->funcs->serve;
     response->stream.data = fce;
 
+    request->flags |= RESPONSE_STREAM;
+
     return HTTP_OK;
 
 out:

@@ -231,6 +231,8 @@ enum lwan_request_flags {
     RESPONSE_CHUNKED_ENCODING = 1 << 10,
     RESPONSE_NO_CONTENT_LENGTH = 1 << 11,
     RESPONSE_URL_REWRITTEN = 1 << 12,
+
+    RESPONSE_STREAM = 1 << 13,
 };
 
 enum lwan_connection_flags {
@@ -256,17 +258,23 @@ struct lwan_key_value {
 };
 
 struct lwan_request;
+
 struct lwan_response {
     struct lwan_strbuf *buffer;
     const char *mime_type;
     size_t content_length;
-    const struct lwan_key_value *headers;
 
-    struct {
-        enum lwan_http_status (*callback)(struct lwan_request *request,
-                                          void *data);
-        void *data;
-    } stream;
+    union {
+        struct {
+            const struct lwan_key_value *headers;
+        };
+
+        struct {
+            enum lwan_http_status (*callback)(struct lwan_request *request,
+                                              void *data);
+            void *data;
+        } stream;
+    };
 };
 
 struct lwan_value {

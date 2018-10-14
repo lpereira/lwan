@@ -136,11 +136,12 @@ static const bool has_response_body[REQUEST_METHOD_MASK] = {
 
 void lwan_response(struct lwan_request *request, enum lwan_http_status status)
 {
+    const struct lwan_response *response = &request->response;
     char headers[DEFAULT_HEADERS_SIZE];
 
     if (request->flags & RESPONSE_CHUNKED_ENCODING) {
         /* Send last, 0-sized chunk */
-        lwan_strbuf_reset(request->response.buffer);
+        lwan_strbuf_reset(response->buffer);
         lwan_response_send_chunk(request);
         log_request(request, status);
         return;
@@ -153,24 +154,21 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     /* Requests without a MIME Type are errors from handlers that
        should just be handled by lwan_default_response(). */
-    if (UNLIKELY(!request->response.mime_type)) {
+    if (UNLIKELY(!response->mime_type)) {
         lwan_default_response(request, status);
         return;
     }
 
     log_request(request, status);
 
-    if (request->response.stream.callback) {
-        enum lwan_http_status callback_status;
+    if (request->flags & RESPONSE_STREAM && response->stream.callback) {
+        status = response->stream.callback(request, response->stream.data);
 
-        callback_status = request->response.stream.callback(
-            request, request->response.stream.data);
-        /* Reset it after it has been called to avoid eternal recursion on
-         * errors */
-        request->response.stream.callback = NULL;
+        if (status >= HTTP_BAD_REQUEST) { /* Status < 400: success */
+            request->flags &= ~RESPONSE_STREAM;
+            lwan_default_response(request, status);
+        }
 
-        if (callback_status >= HTTP_BAD_REQUEST) /* Status < 400: success */
-            lwan_default_response(request, callback_status);
         return;
     }
 
@@ -188,8 +186,8 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
                 .iov_len = header_len,
             },
             {
-                .iov_base = lwan_strbuf_get_buffer(request->response.buffer),
-                .iov_len = lwan_strbuf_get_length(request->response.buffer),
+                .iov_base = lwan_strbuf_get_buffer(response->buffer),
+                .iov_len = lwan_strbuf_get_length(response->buffer),
             },
         };
 
@@ -276,7 +274,7 @@ size_t lwan_prepare_response_header_full(
         /* Do nothing. */
     } else {
         APPEND_CONSTANT("\r\nContent-Length: ");
-        if (request->response.stream.callback)
+        if (request->flags & RESPONSE_STREAM)
             APPEND_UINT(request->response.content_length);
         else
             APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
