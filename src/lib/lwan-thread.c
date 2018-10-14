@@ -133,6 +133,12 @@ static ALWAYS_INLINE void destroy_coro(struct death_queue *dq,
 
 static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
 
+#define REQUEST_FLAG(bool_, name_)                                             \
+    ((enum lwan_request_flags)(((uint32_t)lwan->config.bool_)                  \
+                               << REQUEST_##name_##_SHIFT))
+static_assert(sizeof(enum lwan_request_flags) == sizeof(uint32_t),
+              "lwan_request_flags has the same size as uint32_t");
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -157,8 +163,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     }
     coro_defer(coro, CORO_DEFER(lwan_strbuf_free), &strbuf);
 
-    flags |= lwan->config.proxy_protocol << REQUEST_ALLOW_PROXY_REQS_SHIFT |
-             lwan->config.allow_cors << REQUEST_ALLOW_CORS_SHIFT;
+    flags |= REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
+             REQUEST_FLAG(allow_cors, ALLOW_CORS);
 
     while (true) {
         struct lwan_request request = {.conn = conn,
@@ -180,6 +186,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         flags = request.flags & flags_filter;
     }
 }
+
+#undef REQUEST_FLAG
 
 static void update_epoll_flags(struct death_queue *dq,
                                struct lwan_connection *conn,
