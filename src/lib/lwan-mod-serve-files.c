@@ -32,12 +32,12 @@
 #include "lwan-private.h"
 
 #include "hash.h"
+#include "realpathat.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-mod-serve-files.h"
 #include "lwan-template.h"
-#include "realpathat.h"
 
 #include "auto-index-icons.h"
 
@@ -69,8 +69,10 @@ struct serve_files_priv {
 
 struct cache_funcs {
     enum lwan_http_status (*serve)(struct lwan_request *request, void *data);
-    bool (*init)(struct file_cache_entry *ce, struct serve_files_priv *priv,
-                 const char *full_path, struct stat *st);
+    bool (*init)(struct file_cache_entry *ce,
+                 struct serve_files_priv *priv,
+                 const char *full_path,
+                 struct stat *st);
     void (*free)(void *data);
     size_t struct_size;
 };
@@ -131,28 +133,32 @@ struct file_list {
 static int directory_list_generator(struct coro *coro, void *data);
 
 static bool mmap_init(struct file_cache_entry *ce,
-                      struct serve_files_priv *priv, const char *full_path,
+                      struct serve_files_priv *priv,
+                      const char *full_path,
                       struct stat *st);
 static void mmap_free(void *data);
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data);
 
 static bool sendfile_init(struct file_cache_entry *ce,
-                          struct serve_files_priv *priv, const char *full_path,
+                          struct serve_files_priv *priv,
+                          const char *full_path,
                           struct stat *st);
 static void sendfile_free(void *data);
 static enum lwan_http_status sendfile_serve(struct lwan_request *request,
                                             void *data);
 
 static bool dirlist_init(struct file_cache_entry *ce,
-                         struct serve_files_priv *priv, const char *full_path,
+                         struct serve_files_priv *priv,
+                         const char *full_path,
                          struct stat *st);
 static void dirlist_free(void *data);
 static enum lwan_http_status dirlist_serve(struct lwan_request *request,
                                            void *data);
 
 static bool redir_init(struct file_cache_entry *ce,
-                       struct serve_files_priv *priv, const char *full_path,
+                       struct serve_files_priv *priv,
+                       const char *full_path,
                        struct stat *st);
 static void redir_free(void *data);
 static enum lwan_http_status redir_serve(struct lwan_request *request,
@@ -346,7 +352,8 @@ error_zero_out:
 }
 
 static bool mmap_init(struct file_cache_entry *ce,
-                      struct serve_files_priv *priv, const char *full_path,
+                      struct serve_files_priv *priv,
+                      const char *full_path,
                       struct stat *st)
 {
     struct mmap_cache_data *md = (struct mmap_cache_data *)(ce + 1);
@@ -445,7 +452,8 @@ out:
 }
 
 static bool sendfile_init(struct file_cache_entry *ce,
-                          struct serve_files_priv *priv, const char *full_path,
+                          struct serve_files_priv *priv,
+                          const char *full_path,
                           struct stat *st)
 {
     struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(ce + 1);
@@ -506,7 +514,8 @@ static const char *get_rel_path(const char *full_path,
 }
 
 static bool dirlist_init(struct file_cache_entry *ce,
-                         struct serve_files_priv *priv, const char *full_path,
+                         struct serve_files_priv *priv,
+                         const char *full_path,
                          struct stat *st __attribute__((unused)))
 {
     struct dir_list_cache_data *dd = (struct dir_list_cache_data *)(ce + 1);
@@ -516,7 +525,8 @@ static bool dirlist_init(struct file_cache_entry *ce,
     if (!lwan_strbuf_init(&dd->rendered))
         return false;
 
-    if (!lwan_tpl_apply_with_buffer(priv->directory_list_tpl, &dd->rendered, &vars)) {
+    if (!lwan_tpl_apply_with_buffer(priv->directory_list_tpl, &dd->rendered,
+                                    &vars)) {
         lwan_strbuf_free(&dd->rendered);
         return false;
     }
@@ -527,7 +537,8 @@ static bool dirlist_init(struct file_cache_entry *ce,
 }
 
 static bool redir_init(struct file_cache_entry *ce,
-                       struct serve_files_priv *priv, const char *full_path,
+                       struct serve_files_priv *priv,
+                       const char *full_path,
                        struct stat *st __attribute__((unused)))
 {
     struct redir_cache_data *rd = (struct redir_cache_data *)(ce + 1);
@@ -540,7 +551,8 @@ static bool redir_init(struct file_cache_entry *ce,
 }
 
 static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
-                                           const char *key, char *full_path,
+                                           const char *key,
+                                           char *full_path,
                                            struct stat *st)
 {
     char index_html_path_buf[PATH_MAX];
@@ -611,7 +623,8 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
 
 static struct file_cache_entry *
 create_cache_entry_from_funcs(struct serve_files_priv *priv,
-                              const char *full_path, struct stat *st,
+                              const char *full_path,
+                              struct stat *st,
                               const struct cache_funcs *funcs)
 {
     struct file_cache_entry *fce;
@@ -792,7 +805,7 @@ out_realpath:
 }
 
 static void *serve_files_create_from_hash(const char *prefix,
-                                       const struct hash *hash)
+                                          const struct hash *hash)
 {
     struct lwan_serve_files_settings settings = {
         .root_path = hash_find(hash, "path"),
@@ -801,7 +814,8 @@ static void *serve_files_create_from_hash(const char *prefix,
             parse_bool(hash_find(hash, "serve_precompressed_files"), true),
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template"),
-        .read_ahead = (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
+        .read_ahead =
+            (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
     };
 
     return serve_files_create(prefix, &settings);
@@ -833,8 +847,10 @@ static ALWAYS_INLINE bool client_has_fresh_content(struct lwan_request *request,
 
 static size_t prepare_headers(struct lwan_request *request,
                               enum lwan_http_status return_status,
-                              struct file_cache_entry *fce, size_t size,
-                              const char *compression_type, char *header_buf,
+                              struct file_cache_entry *fce,
+                              size_t size,
+                              const char *compression_type,
+                              char *header_buf,
                               size_t header_buf_size)
 {
     struct lwan_key_value additional_headers[3] = {
@@ -844,9 +860,8 @@ static size_t prepare_headers(struct lwan_request *request,
     request->response.content_length = size;
 
     if (compression_type) {
-        additional_headers[1] = (struct lwan_key_value) {
-            .key = "Content-Encoding", .value = (char *)compression_type
-        };
+        additional_headers[1] = (struct lwan_key_value){
+            .key = "Content-Encoding", .value = (char *)compression_type};
     }
 
     return lwan_prepare_response_header_full(request, return_status, header_buf,
@@ -881,7 +896,7 @@ compute_range(struct lwan_request *request, off_t *from, off_t *to, off_t size)
 
     /* t < 0: ranges from f to the file size */
     if (t < 0) {
-	*to = size;
+        *to = size;
     } else {
         if (UNLIKELY(__builtin_sub_overflow(t, f, to)))
             return HTTP_RANGE_UNSATISFIABLE;
@@ -953,7 +968,8 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
 static enum lwan_http_status serve_buffer(struct lwan_request *request,
                                           struct file_cache_entry *fce,
                                           const char *compression_type,
-                                          const void *contents, size_t size,
+                                          const void *contents,
+                                          size_t size,
                                           enum lwan_http_status return_status)
 {
     char headers[DEFAULT_BUFFER_SIZE];
@@ -970,7 +986,8 @@ static enum lwan_http_status serve_buffer(struct lwan_request *request,
     } else {
         struct iovec response_vec[] = {
             {.iov_base = headers, .iov_len = header_len},
-            {.iov_base = (void *)contents, .iov_len = size}};
+            {.iov_base = (void *)contents, .iov_len = size},
+        };
 
         lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
     }
@@ -1044,7 +1061,8 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
         return HTTP_NOT_FOUND;
     }
 
-    return serve_buffer(request, fce, compression_none, contents, size, HTTP_OK);
+    return serve_buffer(request, fce, compression_none, contents, size,
+                        HTTP_OK);
 }
 
 static enum lwan_http_status redir_serve(struct lwan_request *request,
@@ -1078,7 +1096,8 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
 
 static enum lwan_http_status
 serve_files_handle_request(struct lwan_request *request,
-                           struct lwan_response *response, void *instance)
+                           struct lwan_response *response,
+                           void *instance)
 {
     struct serve_files_priv *priv = instance;
     enum lwan_http_status return_status;
@@ -1116,7 +1135,7 @@ static const struct lwan_module module = {
     .handle_request = serve_files_handle_request,
     .flags = HANDLER_REMOVE_LEADING_SLASH | HANDLER_PARSE_IF_MODIFIED_SINCE |
              HANDLER_PARSE_RANGE | HANDLER_PARSE_ACCEPT_ENCODING |
-             HANDLER_PARSE_QUERY_STRING
+             HANDLER_PARSE_QUERY_STRING,
 };
 
 LWAN_REGISTER_MODULE(serve_files, &module);
