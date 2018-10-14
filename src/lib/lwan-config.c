@@ -708,17 +708,10 @@ void config_close(struct config *config)
 
 bool config_read_line(struct config *conf, struct config_line *cl)
 {
-    struct config_line *ptr;
-    bool ret;
-
     if (conf->error_message)
         return false;
 
-    ret = parser_next(&conf->parser, &ptr);
-    if (ret)
-        *cl = *ptr;
-
-    return ret;
+    return parser_next(&conf->parser, &cl);
 }
 
 static bool find_section_end(struct config *config)
