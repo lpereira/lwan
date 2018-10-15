@@ -272,12 +272,9 @@ size_t lwan_prepare_response_header_full(
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
     } else if (request->flags & RESPONSE_NO_CONTENT_LENGTH) {
         /* Do nothing. */
-    } else {
+    } else if (!(request->flags & RESPONSE_STREAM)) {
         APPEND_CONSTANT("\r\nContent-Length: ");
-        if (request->flags & RESPONSE_STREAM)
-            APPEND_UINT(request->response.content_length);
-        else
-            APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
+        APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
     }
 
     APPEND_CONSTANT("\r\nContent-Type: ");

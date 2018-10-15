@@ -38,6 +38,7 @@
 #include "lwan-io-wrappers.h"
 #include "lwan-mod-serve-files.h"
 #include "lwan-template.h"
+#include "int-to-str.h"
 
 #include "auto-index-icons.h"
 
@@ -849,19 +850,29 @@ static size_t prepare_headers(struct lwan_request *request,
                               enum lwan_http_status return_status,
                               struct file_cache_entry *fce,
                               size_t size,
-                              const char *compression_type,
+                              const char *additional_header_name,
+                              const char *additional_header_value,
                               char *header_buf,
                               size_t header_buf_size)
 {
-    struct lwan_key_value additional_headers[3] = {
-        [0] = {.key = "Last-Modified", .value = fce->last_modified.string},
+    char content_length[3 * sizeof(size_t)];
+    size_t discard;
+    struct lwan_key_value additional_headers[4] = {
+        {
+            .key = "Last-Modified",
+            .value = fce->last_modified.string,
+        },
+        {
+            .key = "Content-Length",
+            .value = uint_to_string(size, content_length, &discard),
+        },
     };
 
-    request->response.content_length = size;
-
-    if (compression_type) {
-        additional_headers[1] = (struct lwan_key_value){
-            .key = "Content-Encoding", .value = (char *)compression_type};
+    if (additional_header_name && additional_header_value) {
+        additional_headers[2] = (struct lwan_key_value){
+            .key = (char *)additional_header_name,
+            .value = (char *)additional_header_value,
+        };
     }
 
     return lwan_prepare_response_header_full(request, return_status, header_buf,
@@ -951,8 +962,9 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         }
     }
 
-    header_len = prepare_headers(request, return_status, fce, size, compressed,
-                                 headers, DEFAULT_HEADERS_SIZE);
+    header_len =
+        prepare_headers(request, return_status, fce, size, "Content-Encoding",
+                        compressed, headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
@@ -965,19 +977,21 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     return return_status;
 }
 
-static enum lwan_http_status serve_buffer(struct lwan_request *request,
-                                          struct file_cache_entry *fce,
-                                          const char *compression_type,
-                                          const void *contents,
-                                          size_t size,
-                                          enum lwan_http_status return_status)
+static enum lwan_http_status
+serve_buffer_full(struct lwan_request *request,
+                  struct file_cache_entry *fce,
+                  const char *additional_header_name,
+                  const char *additional_header_val,
+                  const void *contents,
+                  size_t size,
+                  enum lwan_http_status return_status)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
 
-    header_len =
-        prepare_headers(request, return_status, fce, size, compression_type,
-                        headers, DEFAULT_HEADERS_SIZE);
+    header_len = prepare_headers(request, return_status, fce, size,
+                                 additional_header_name, additional_header_val,
+                                 headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
@@ -993,6 +1007,17 @@ static enum lwan_http_status serve_buffer(struct lwan_request *request,
     }
 
     return return_status;
+}
+
+static enum lwan_http_status serve_buffer(struct lwan_request *request,
+                                          struct file_cache_entry *fce,
+                                          const char *compression_type,
+                                          const void *contents,
+                                          size_t size,
+                                          enum lwan_http_status return_status)
+{
+    return serve_buffer_full(request, fce, "Content-Encoding", compression_type,
+                             contents, size, return_status);
 }
 
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
@@ -1070,28 +1095,10 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
 {
     struct file_cache_entry *fce = data;
     struct redir_cache_data *rd = (struct redir_cache_data *)(fce + 1);
-    char header_buf[DEFAULT_BUFFER_SIZE];
-    size_t header_buf_size;
-    struct lwan_key_value additional_headers[2] = {
-        [0] = {.key = "Location", .value = rd->redir_to},
-    };
 
-    request->response.content_length = strlen(rd->redir_to);
-
-    header_buf_size = lwan_prepare_response_header_full(
-        request, HTTP_MOVED_PERMANENTLY, header_buf, DEFAULT_BUFFER_SIZE,
-        additional_headers);
-    if (UNLIKELY(!header_buf_size))
-        return HTTP_INTERNAL_ERROR;
-
-    struct iovec response_vec[] = {
-        {.iov_base = header_buf, .iov_len = header_buf_size},
-        {.iov_base = rd->redir_to, .iov_len = request->response.content_length},
-    };
-
-    lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
-
-    return HTTP_MOVED_PERMANENTLY;
+    return serve_buffer_full(request, fce, "Location", rd->redir_to,
+                             rd->redir_to, strlen(rd->redir_to),
+                             HTTP_MOVED_PERMANENTLY);
 }
 
 static enum lwan_http_status

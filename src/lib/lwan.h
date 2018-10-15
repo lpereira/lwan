@@ -262,7 +262,6 @@ struct lwan_request;
 struct lwan_response {
     struct lwan_strbuf *buffer;
     const char *mime_type;
-    size_t content_length;
 
     union {
         struct {
