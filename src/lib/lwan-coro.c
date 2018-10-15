@@ -218,7 +218,9 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
      * 16-bytes boundary so SSE will work properly, but should be
      * aligned on an 8-byte boundary right after calling a function. */
     uintptr_t rsp = (uintptr_t) stack + CORO_STACK_MIN;
-    coro->context[9 /* RSP */] = (rsp & ~0xful) - 0x8ul;
+
+#define STACK_PTR 9
+    coro->context[STACK_PTR] = (rsp & ~0xful) - 0x8ul;
 #elif defined(__i386__)
     stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_MIN);
 
@@ -234,7 +236,9 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     *argp++ = (uintptr_t)data;
 
     coro->context[5 /* EIP */] = (uintptr_t) coro_entry_point;
-    coro->context[6 /* ESP */] = (uintptr_t) stack;
+
+#define STACK_PTR 6
+    coro->context[STACK_PTR] = (uintptr_t) stack;
 #else
     getcontext(&coro->context);
 
@@ -275,6 +279,12 @@ ALWAYS_INLINE int
 coro_resume(struct coro *coro)
 {
     assert(coro);
+
+#if defined(STACK_PTR)
+    assert(coro->context[STACK_PTR] >= (uintptr_t)coro->stack &&
+           coro->context[STACK_PTR] <=
+               (uintptr_t)(coro->stack + CORO_STACK_MIN));
+#endif
 
     coro_swapcontext(&coro->switcher->caller, &coro->context);
     memcpy(&coro->context, &coro->switcher->callee,
