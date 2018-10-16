@@ -789,33 +789,6 @@ out:
     close(l->epfd);
 }
 
-size_t
-lwan_nextpow2(size_t number)
-{
-#if defined(HAVE_BUILTIN_CLZLL)
-    static const int size_bits = (int)sizeof(number) * CHAR_BIT;
-
-    if (sizeof(size_t) == sizeof(unsigned int)) {
-        return (size_t)1 << (size_bits - __builtin_clz((unsigned int)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long)) {
-        return (size_t)1 << (size_bits - __builtin_clzl((unsigned long)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long long)) {
-        return (size_t)1 << (size_bits - __builtin_clzll((unsigned long long)number));
-    } else {
-        (void)size_bits;
-    }
-#endif
-
-    number--;
-    number |= number >> 1;
-    number |= number >> 2;
-    number |= number >> 4;
-    number |= number >> 8;
-    number |= number >> 16;
-
-    return number + 1;
-}
-
 #ifdef CLOCK_MONOTONIC_COARSE
 __attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
 {
