@@ -403,6 +403,13 @@ struct lwan_config {
     bool allow_post_temp_file;
 };
 
+struct lwan_fd_watch {
+    struct coro *coro;
+    int fd;
+};
+
+DEFINE_ARRAY_TYPE(lwan_fd_watch_array, struct lwan_fd_watch)
+
 struct lwan {
     struct lwan_trie url_map_trie;
     struct lwan_connection *conns;
@@ -418,8 +425,11 @@ struct lwan {
         unsigned short count;
     } thread;
 
+    struct lwan_fd_watch_array fd_watches;
     struct lwan_config config;
+    struct coro_switcher switcher;
     int main_socket;
+    int epfd;
 };
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);
