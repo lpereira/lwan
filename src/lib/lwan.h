@@ -81,6 +81,14 @@ extern "C" {
     LWAN_HANDLER_DECLARE(name_);                                               \
     LWAN_HANDLER_DEFINE(name_)
 
+#define LWAN_LUA_METHOD(name_)                                                 \
+    static int lwan_lua_method_##name_(lua_State *L);                          \
+    static const struct lwan_lua_method_info                                   \
+        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_method))))     \
+            lwan_lua_method_info_##name_ = {.name = #name_,                    \
+                                            .func = lwan_lua_method_##name_};  \
+    static int lwan_lua_method_##name_(lua_State *L)
+
 #ifdef DISABLE_INLINE_FUNCTIONS
 #define ALWAYS_INLINE
 #else
@@ -341,6 +349,11 @@ struct lwan_module {
 struct lwan_module_info {
     const char *name;
     const struct lwan_module *module;
+};
+
+struct lwan_lua_method_info {
+    const char *name;
+    int (*func)();
 };
 
 struct lwan_handler_info {

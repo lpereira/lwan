@@ -36,7 +36,7 @@ static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L)
     return *((struct lwan_request **)luaL_checkudata(L, 1, request_metatable_name));
 }
 
-static int req_say_cb(lua_State *L)
+LWAN_LUA_METHOD(say)
 {
     struct lwan_request *request = userdata_as_request(L);
     size_t response_str_len;
@@ -48,7 +48,7 @@ static int req_say_cb(lua_State *L)
     return 0;
 }
 
-static int req_send_event_cb(lua_State *L)
+LWAN_LUA_METHOD(send_event)
 {
     struct lwan_request *request = userdata_as_request(L);
     size_t event_str_len;
@@ -61,7 +61,7 @@ static int req_send_event_cb(lua_State *L)
     return 0;
 }
 
-static int req_set_response_cb(lua_State *L)
+LWAN_LUA_METHOD(set_response)
 {
     struct lwan_request *request = userdata_as_request(L);
     size_t response_str_len;
@@ -87,17 +87,17 @@ static int request_param_getter(lua_State *L,
     return 1;
 }
 
-static int req_query_param_cb(lua_State *L)
+LWAN_LUA_METHOD(query_param)
 {
     return request_param_getter(L, lwan_request_get_query_param);
 }
 
-static int req_post_param_cb(lua_State *L)
+LWAN_LUA_METHOD(post_param)
 {
     return request_param_getter(L, lwan_request_get_post_param);
 }
 
-static int req_cookie_cb(lua_State *L)
+LWAN_LUA_METHOD(cookie)
 {
     return request_param_getter(L, lwan_request_get_cookie);
 }
@@ -117,7 +117,7 @@ static bool append_key_value(lua_State *L, struct coro *coro,
     return kv->value != NULL;
 }
 
-static int req_set_headers_cb(lua_State *L)
+LWAN_LUA_METHOD(set_headers)
 {
     const int table_index = 2;
     const int key_index = 1 + table_index;
@@ -182,7 +182,7 @@ out:
     return 1;
 }
 
-static int req_sleep_cb(lua_State *L)
+LWAN_LUA_METHOD(sleep)
 {
     struct lwan_request *request = userdata_as_request(L);
     lua_Integer ms = lua_tointeger(L, -1);
@@ -192,17 +192,35 @@ static int req_sleep_cb(lua_State *L)
     return 0;
 }
 
-static const struct luaL_reg lwan_request_meta_regs[] = {
-    { "query_param", req_query_param_cb },
-    { "post_param", req_post_param_cb },
-    { "set_response", req_set_response_cb },
-    { "say", req_say_cb },
-    { "send_event", req_send_event_cb },
-    { "cookie", req_cookie_cb },
-    { "set_headers", req_set_headers_cb },
-    { "sleep", req_sleep_cb },
-    { NULL, NULL }
-};
+DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
+static struct lwan_lua_method_array lua_methods;
+
+__attribute__((constructor)) static void register_lua_methods(void)
+{
+    extern const struct lwan_lua_method_info SECTION_START(lwan_lua_method);
+    extern const struct lwan_lua_method_info SECTION_END(lwan_lua_method);
+    const struct lwan_lua_method_info *info;
+    luaL_reg *r;
+
+    for (info = __start_lwan_lua_method; info < __stop_lwan_lua_method;
+         info++) {
+        r = lwan_lua_method_array_append(&lua_methods);
+        if (!r) {
+            lwan_status_critical("Could not register Lua method `%s`",
+                                 info->name);
+        }
+
+        r->name = info->name;
+        r->func = info->func;
+    }
+
+    r = lwan_lua_method_array_append(&lua_methods);
+    if (!r)
+        lwan_status_critical("Could not add Lua method sentinel");
+
+    r->name = NULL;
+    r->func = NULL;
+}
 
 const char *lwan_lua_state_last_error(lua_State *L)
 {
@@ -220,7 +238,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
     luaL_openlibs(L);
 
     luaL_newmetatable(L, request_metatable_name);
-    luaL_register(L, NULL, lwan_request_meta_regs);
+    luaL_register(L, NULL, lua_methods.base.base);
     lua_setfield(L, -1, "__index");
 
     if (script_file) {
