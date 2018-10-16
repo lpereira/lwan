@@ -316,7 +316,10 @@ static void accept_nudge(int pipe_fd,
     uint64_t event;
     int new_fd;
 
-    if (read(pipe_fd, &event, sizeof(event)) < 0) {
+    while (read(pipe_fd, &event, sizeof(event)) < 0) {
+        if (errno == EINTR)
+            continue;
+
         return;
     }
 
