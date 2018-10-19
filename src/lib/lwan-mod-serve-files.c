@@ -842,8 +842,10 @@ static void serve_files_destroy(void *data)
 static ALWAYS_INLINE bool client_has_fresh_content(struct lwan_request *request,
                                                    time_t mtime)
 {
-    return request->header.if_modified_since &&
-           mtime <= request->header.if_modified_since;
+    time_t header;
+    int r = lwan_request_get_if_modified_since(request, &header);
+
+    return LIKELY(!r) ? mtime <= header : false;
 }
 
 static size_t prepare_headers(struct lwan_request *request,
@@ -884,12 +886,10 @@ static enum lwan_http_status
 compute_range(struct lwan_request *request, off_t *from, off_t *to, off_t size)
 {
     off_t f, t;
+    int r = lwan_request_get_range(request, &f, &t);
 
-    f = request->header.range.from;
-    t = request->header.range.to;
-
-    /* No Range: header present: both t and f are -1 */
-    if (LIKELY(t <= 0 && f <= 0)) {
+    /* No Range: header present */
+    if (LIKELY(r < 0 || (f < 0 && t < 0))) {
         *from = 0;
         *to = size;
 

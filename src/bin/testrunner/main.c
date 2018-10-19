@@ -105,27 +105,27 @@ LWAN_HANDLER(test_post_will_it_blend)
     static const char type[] = "application/json";
     static const char request_body[] = "{\"will-it-blend\": true}";
     static const char response_body[] = "{\"did-it-blend\": \"oh-hell-yeah\"}";
+    const struct lwan_value *content_type =
+        lwan_request_get_content_type(request);
+    const struct lwan_value *body = lwan_request_get_request_body(request);
 
-    if (!request->header.content_type)
+    if (!content_type->value)
         return HTTP_BAD_REQUEST;
-    if (!request->header.content_type->value)
+    if (content_type->len != sizeof(type) - 1)
         return HTTP_BAD_REQUEST;
-    if (request->header.content_type->len != sizeof(type) - 1)
-        return HTTP_BAD_REQUEST;
-    if (memcmp(request->header.content_type->value, type, sizeof(type) - 1) != 0)
+    if (memcmp(content_type->value, type, sizeof(type) - 1) != 0)
         return HTTP_BAD_REQUEST;
 
-    if (!request->header.body)
+    if (!body->value)
         return HTTP_BAD_REQUEST;
-    if (!request->header.body->value)
+    if (body->len != sizeof(request_body) - 1)
         return HTTP_BAD_REQUEST;
-    if (request->header.body->len != sizeof(request_body) - 1)
-        return HTTP_BAD_REQUEST;
-    if (memcmp(request->header.body->value, request_body, sizeof(request_body) - 1) != 0)
+    if (memcmp(body->value, request_body, sizeof(request_body) - 1) != 0)
         return HTTP_BAD_REQUEST;
 
     response->mime_type = type;
-    lwan_strbuf_set_static(response->buffer, response_body, sizeof(response_body) -1);
+    lwan_strbuf_set_static(response->buffer, response_body,
+                           sizeof(response_body) - 1);
 
     return HTTP_OK;
 }
@@ -134,22 +134,23 @@ LWAN_HANDLER(test_post_big)
 {
     static const char type[] = "x-test/trololo";
     size_t i, sum = 0;
+    const struct lwan_value *content_type =
+        lwan_request_get_content_type(request);
+    const struct lwan_value *body = lwan_request_get_request_body(request);
 
-    if (!request->header.content_type)
+    if (!content_type->value)
         return HTTP_BAD_REQUEST;
-    if (!request->header.content_type->value)
+    if (content_type->len != sizeof(type) - 1)
         return HTTP_BAD_REQUEST;
-    if (request->header.content_type->len != sizeof(type) - 1)
-        return HTTP_BAD_REQUEST;
-    if (memcmp(request->header.content_type->value, type, sizeof(type) - 1) != 0)
+    if (memcmp(content_type->value, type, sizeof(type) - 1) != 0)
         return HTTP_BAD_REQUEST;
 
-    for (i = 0; i < request->header.body->len; i++)
-        sum += (size_t)request->header.body->value[i];
+    for (i = 0; i < body->len; i++)
+        sum += (size_t)body->value[i];
 
     response->mime_type = "application/json";
     lwan_strbuf_printf(response->buffer, "{\"received\": %zu, \"sum\": %zu}",
-        request->header.body->len, sum);
+                       body->len, sum);
 
     return HTTP_OK;
 }

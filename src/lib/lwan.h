@@ -308,6 +308,8 @@ struct lwan_proxy {
 
 DEFINE_ARRAY_TYPE(lwan_key_value_array, struct lwan_key_value)
 
+struct lwan_request_parser_helper;
+
 struct lwan_request {
     enum lwan_request_flags flags;
     int fd;
@@ -320,15 +322,7 @@ struct lwan_request {
 
     struct timeout timeout;
 
-    struct {
-        time_t if_modified_since;
-        struct {
-            off_t from;
-            off_t to;
-        } range;
-        struct lwan_value *body;
-        struct lwan_value *content_type;
-    } header;
+    struct lwan_request_parser_helper *helper;
     struct lwan_response response;
 };
 
@@ -513,6 +507,11 @@ lwan_request_get_method(const struct lwan_request *request)
 {
     return (enum lwan_request_flags)(request->flags & REQUEST_METHOD_MASK);
 }
+
+int lwan_request_get_range(struct lwan_request *request, off_t *from, off_t *to);
+int lwan_request_get_if_modified_since(struct lwan_request *request, time_t *value);
+const struct lwan_value *lwan_request_get_request_body(struct lwan_request *request);
+const struct lwan_value *lwan_request_get_content_type(struct lwan_request *request);
 
 #if defined(__cplusplus)
 }
