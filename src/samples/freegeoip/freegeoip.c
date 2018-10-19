@@ -386,17 +386,18 @@ LWAN_HANDLER(templated_output)
     return HTTP_OK;
 }
 
-static struct template_mime
-compile_template(const char *template, const char *mime_type)
+static struct template_mime compile_template(const char *template,
+                                             const char *mime_type)
 {
-    struct lwan_tpl *tpl = lwan_tpl_compile_string(template, template_descriptor);
+    struct lwan_tpl *tpl = lwan_tpl_compile_string_full(
+        template, template_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
 
     if (!tpl) {
         lwan_status_critical("Could not compile template for mime-type %s",
-            mime_type);
+                             mime_type);
     }
 
-    return (struct template_mime) { .tpl = tpl, .mime_type = mime_type };
+    return (struct template_mime){.tpl = tpl, .mime_type = mime_type};
 }
 
 int
