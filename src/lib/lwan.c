@@ -711,24 +711,37 @@ struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
                                     void *data)
 {
     struct lwan_fd_watch *watch;
+    bool found_watch = false;
 
-    watch = lwan_fd_watch_array_append(&l->fd_watches);
-    if (!watch)
-        return NULL;
+    LWAN_ARRAY_FOREACH (&l->fd_watches, watch) {
+        if (watch->coro == NULL) {
+            found_watch = true;
+            break;
+        }
+    }
+
+    if (!found_watch) {
+        watch = lwan_fd_watch_array_append(&l->fd_watches);
+        if (!watch)
+            return NULL;
+    }
 
     watch->coro = coro_new(&l->switcher, coro_fn, data);
     if (!watch->coro)
         goto out;
 
     struct epoll_event ev = {.events = events, .data.ptr = watch->coro};
-    if (epoll_ctl(l->epfd, EPOLL_CTL_ADD, fd, &ev) < 0)
+    if (epoll_ctl(l->epfd, EPOLL_CTL_ADD, fd, &ev) < 0) {
+        coro_free(watch->coro);
         goto out;
+    }
 
     watch->fd = fd;
     return watch;
 
 out:
-    l->fd_watches.base.elements--;
+    watch->coro = NULL;
+    watch->fd = -1;
     return NULL;
 }
 
@@ -740,6 +753,8 @@ void lwan_unwatch_fd(struct lwan *l, struct lwan_fd_watch *w)
     }
 
     coro_free(w->coro);
+    w->coro = NULL;
+    w->fd = -1;
 }
 
 void lwan_main_loop(struct lwan *l)
