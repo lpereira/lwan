@@ -685,10 +685,17 @@ compute_keep_alive_flag(struct lwan_request *request, struct lwan_request_parser
         request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
-static enum lwan_http_status read_from_request_socket(struct lwan_request *request,
-    struct lwan_value *buffer, struct lwan_request_parser_helper *helper, const size_t buffer_size,
-    enum lwan_read_finalizer (*finalizer)(size_t total_read, size_t buffer_size, struct lwan_request_parser_helper *helper, int n_packets))
+static enum lwan_http_status
+read_from_request_socket(struct lwan_request *request,
+                         struct lwan_value *buffer,
+                         const size_t buffer_size,
+                         enum lwan_read_finalizer (*finalizer)(
+                             size_t total_read,
+                             size_t buffer_size,
+                             struct lwan_request_parser_helper *helper,
+                             int n_packets))
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     ssize_t n;
     size_t total_read = 0;
     int n_packets = 0;
@@ -702,9 +709,9 @@ static enum lwan_http_status read_from_request_socket(struct lwan_request *reque
         goto try_to_finalize;
     }
 
-    for (; ; n_packets++) {
+    for (;; n_packets++) {
         n = read(request->fd, buffer->value + total_read,
-                    (size_t)(buffer_size - total_read));
+                 (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
@@ -786,10 +793,11 @@ static enum lwan_read_finalizer read_request_finalizer(size_t total_read,
 }
 
 static ALWAYS_INLINE enum lwan_http_status
-read_request(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+read_request(struct lwan_request *request)
 {
-    return read_from_request_socket(request, helper->buffer, helper,
-                        DEFAULT_BUFFER_SIZE, read_request_finalizer);
+    return read_from_request_socket(request, request->helper->buffer,
+                                    DEFAULT_BUFFER_SIZE,
+                                    read_request_finalizer);
 }
 
 static enum lwan_read_finalizer post_data_finalizer(size_t total_read,
@@ -952,9 +960,9 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     return ptr;
 }
 
-static enum lwan_http_status
-read_post_data(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static enum lwan_http_status read_post_data(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     /* Holy indirection, Batman! */
     struct lwan_config *config = &request->conn->thread->lwan->config;
     const size_t max_post_data_size = config->max_post_data_size;
@@ -986,7 +994,7 @@ read_post_data(struct lwan_request *request, struct lwan_request_parser_helper *
     }
 
     new_buffer = alloc_post_buffer(request->conn->coro, post_data_size + 1,
-        config->allow_post_temp_file);
+                                   config->allow_post_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
 
@@ -999,9 +1007,10 @@ read_post_data(struct lwan_request *request, struct lwan_request_parser_helper *
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
     helper->error_when_n_packets = calculate_n_packets(post_data_size);
 
-    struct lwan_value buffer = { .value = new_buffer, .len = post_data_size - have };
-    return read_from_request_socket(request, &buffer, helper, buffer.len,
-        post_data_finalizer);
+    struct lwan_value buffer = {.value = new_buffer,
+                                .len = post_data_size - have};
+    return read_from_request_socket(request, &buffer, buffer.len,
+                                    post_data_finalizer);
 }
 
 static char *
@@ -1104,7 +1113,7 @@ prepare_for_response(struct lwan_url_map *url_map,
             return HTTP_NOT_ALLOWED;
         }
 
-        status = read_post_data(request, helper);
+        status = read_post_data(request);
         if (UNLIKELY(status != HTTP_OK))
             return status;
 
@@ -1143,7 +1152,9 @@ lwan_process_request(struct lwan *l, struct lwan_request *request,
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
 
-    status = read_request(request, &helper);
+    request->helper = &helper;
+
+    status = read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
         /* This request was bad, but maybe there's a good one in the
          * pipeline.  */
