@@ -195,18 +195,14 @@ enum lwan_http_status {
 };
 
 enum lwan_handler_flags {
-    HANDLER_PARSE_QUERY_STRING = 1 << 0,
-    HANDLER_PARSE_IF_MODIFIED_SINCE = 1 << 1,
-    HANDLER_PARSE_RANGE = 1 << 2,
-    HANDLER_PARSE_ACCEPT_ENCODING = 1 << 3,
-    HANDLER_PARSE_POST_DATA = 1 << 4,
-    HANDLER_MUST_AUTHORIZE = 1 << 5,
-    HANDLER_REMOVE_LEADING_SLASH = 1 << 6,
-    HANDLER_CAN_REWRITE_URL = 1 << 7,
-    HANDLER_PARSE_COOKIES = 1 << 8,
-    HANDLER_DATA_IS_HASH_TABLE = 1 << 9,
+    HANDLER_HAS_POST_DATA = 1 << 0,
+    HANDLER_MUST_AUTHORIZE = 1 << 1,
+    HANDLER_REMOVE_LEADING_SLASH = 1 << 2,
+    HANDLER_CAN_REWRITE_URL = 1 << 3,
+    HANDLER_DATA_IS_HASH_TABLE = 1 << 4,
+    HANDLER_PARSE_ACCEPT_ENCODING = 1 << 5,
 
-    HANDLER_PARSE_MASK = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3 | 1 << 4 | 1 << 8
+    HANDLER_PARSE_MASK = HANDLER_HAS_POST_DATA,
 };
 
 enum lwan_request_flags {
@@ -241,6 +237,13 @@ enum lwan_request_flags {
     RESPONSE_URL_REWRITTEN = 1 << 12,
 
     RESPONSE_STREAM = 1 << 13,
+
+    REQUEST_PARSED_QUERY_STRING = 1 << 14,
+    REQUEST_PARSED_IF_MODIFIED_SINCE = 1 << 15,
+    REQUEST_PARSED_RANGE = 1 << 16,
+    REQUEST_PARSED_POST_DATA = 1 << 17,
+    REQUEST_PARSED_COOKIES = 1 << 18,
+    REQUEST_PARSED_ACCEPT_ENCODING = 1 << 19,
 };
 
 enum lwan_connection_flags {
@@ -319,11 +322,10 @@ struct lwan_request {
     struct lwan_connection *conn;
     struct lwan_proxy *proxy;
 
-    struct lwan_key_value_array query_params, post_data, cookies;
-
     struct timeout timeout;
 
     struct lwan_request_parser_helper *helper;
+    struct lwan_key_value_array cookies, query_params, post_params;
     struct lwan_response response;
 };
 
@@ -504,10 +506,21 @@ lwan_request_get_method(const struct lwan_request *request)
     return (enum lwan_request_flags)(request->flags & REQUEST_METHOD_MASK);
 }
 
-int lwan_request_get_range(struct lwan_request *request, off_t *from, off_t *to);
-int lwan_request_get_if_modified_since(struct lwan_request *request, time_t *value);
-const struct lwan_value *lwan_request_get_request_body(struct lwan_request *request);
-const struct lwan_value *lwan_request_get_content_type(struct lwan_request *request);
+int lwan_request_get_range(struct lwan_request *request,
+                           off_t *from,
+                           off_t *to);
+int lwan_request_get_if_modified_since(struct lwan_request *request,
+                                       time_t *value);
+const struct lwan_value *
+lwan_request_get_request_body(struct lwan_request *request);
+const struct lwan_value *
+lwan_request_get_content_type(struct lwan_request *request);
+const struct lwan_key_value_array *
+lwan_request_get_cookies(struct lwan_request *request);
+const struct lwan_key_value_array *
+lwan_request_get_query_params(struct lwan_request *request);
+const struct lwan_key_value_array *
+lwan_request_get_post_params(struct lwan_request *request);
 
 #if defined(__cplusplus)
 }

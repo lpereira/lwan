@@ -64,14 +64,14 @@ struct lwan_request_parser_helper {
     } range;
 
     struct lwan_value cookie;		/* Cookie: */
-
     struct lwan_value query_string;	/* Stuff after ? and before # */
     struct lwan_value fragment;		/* Stuff after # */
-    struct lwan_value content_length;	/* Content-Length: */
+
     struct lwan_value authorization;	/* Authorization: */
 
     struct lwan_value post_data;	/* Request body for POST */
     struct lwan_value content_type;	/* Content-Type: for POST */
+    struct lwan_value content_length;	/* Content-Length: */
 
     time_t error_when_time;		/* Time to abort request read */
     int error_when_n_packets;		/* Max. number of packets */
@@ -339,10 +339,11 @@ reset_key_value_array(void *data)
     lwan_key_value_array_reset(array);
 }
 
-static void
-parse_key_values(struct lwan_request *request,
-    struct lwan_value *helper_value, struct lwan_key_value_array *array,
-    ssize_t (*decode_value)(char *value), const char separator)
+static void parse_key_values(struct lwan_request *request,
+                             struct lwan_value *helper_value,
+                             struct lwan_key_value_array *array,
+                             ssize_t (*decode_value)(char *value),
+                             const char separator)
 {
     struct lwan_key_value *kv;
     char *ptr = helper_value->value;
@@ -401,38 +402,38 @@ identity_decode(char *input __attribute__((unused)))
     return 1;
 }
 
-static void
-parse_cookies(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static void parse_cookies(struct lwan_request *request)
 {
-    parse_key_values(request, &helper->cookie, &request->cookies,
-        identity_decode, ';');
+    parse_key_values(request, &request->helper->cookie, &request->cookies,
+                     identity_decode, ';');
 }
 
-static void
-parse_query_string(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static void parse_query_string(struct lwan_request *request)
 {
-    parse_key_values(request, &helper->query_string, &request->query_params,
-        url_decode, '&');
+    parse_key_values(request, &request->helper->query_string,
+                     &request->query_params, url_decode, '&');
 }
 
-static void
-parse_post_data(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static void parse_post_data(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     static const char content_type[] = "application/x-www-form-urlencoded";
 
     if (helper->content_type.len < sizeof(content_type) - 1)
         return;
-    if (UNLIKELY(strncmp(helper->content_type.value, content_type, sizeof(content_type) - 1)))
+    if (UNLIKELY(strncmp(helper->content_type.value, content_type,
+                         sizeof(content_type) - 1)))
         return;
 
-    parse_key_values(request, &helper->post_data, &request->post_data,
-        url_decode, '&');
+    parse_key_values(request, &helper->post_data, &request->post_params,
+                     url_decode, '&');
 }
 
-static void
-parse_fragment_and_query(struct lwan_request *request,
-    struct lwan_request_parser_helper *helper, const char *space)
+static void parse_fragment_and_query(struct lwan_request *request,
+                                     const char *space)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     /* Most of the time, fragments are small -- so search backwards */
     char *fragment = memrchr(request->url.value, '#', request->url.len);
     if (fragment) {
@@ -448,15 +449,16 @@ parse_fragment_and_query(struct lwan_request *request,
     if (query_string) {
         *query_string = '\0';
         helper->query_string.value = query_string + 1;
-        helper->query_string.len = (size_t)((fragment ? fragment : space) - query_string - 1);
+        helper->query_string.len =
+            (size_t)((fragment ? fragment : space) - query_string - 1);
         request->url.len -= helper->query_string.len + 1;
     }
 }
 
 static char *
-identify_http_path(struct lwan_request *request, char *buffer,
-            struct lwan_request_parser_helper *helper)
+identify_http_path(struct lwan_request *request, char *buffer)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
     char *space, *end_of_line;
 
@@ -475,7 +477,7 @@ identify_http_path(struct lwan_request *request, char *buffer,
 
     request->url.value = buffer;
     request->url.len = (size_t)(space - buffer);
-    parse_fragment_and_query(request, helper, space);
+    parse_fragment_and_query(request, space);
     request->original_url = request->url;
 
     *space++ = '\0';
@@ -646,8 +648,10 @@ invalid_range:
 }
 
 static void
-parse_accept_encoding(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+parse_accept_encoding(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     if (!helper->accept_encoding.len)
         return;
 
@@ -676,14 +680,16 @@ ignore_leading_whitespace(char *buffer)
     return buffer;
 }
 
-static ALWAYS_INLINE void
-compute_keep_alive_flag(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static ALWAYS_INLINE void compute_keep_alive_flag(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     bool is_keep_alive;
+
     if (request->flags & REQUEST_IS_HTTP_1_0)
         is_keep_alive = (helper->connection == 'k');
     else
         is_keep_alive = (helper->connection != 'c');
+
     if (is_keep_alive)
         request->conn->flags |= CONN_KEEP_ALIVE;
     else
@@ -771,8 +777,11 @@ try_to_finalize:
     return HTTP_INTERNAL_ERROR;
 }
 
-static enum lwan_read_finalizer read_request_finalizer(size_t total_read,
-    size_t buffer_size, struct lwan_request_parser_helper *helper, int n_packets)
+static enum lwan_read_finalizer
+read_request_finalizer(size_t total_read,
+                       size_t buffer_size,
+                       struct lwan_request_parser_helper *helper,
+                       int n_packets)
 {
     /* 16 packets should be enough to read a request (without the body, as
      * is the case for POST requests).  This yields a timeout error to avoid
@@ -808,8 +817,11 @@ read_request(struct lwan_request *request)
                                     read_request_finalizer);
 }
 
-static enum lwan_read_finalizer post_data_finalizer(size_t total_read,
-    size_t buffer_size, struct lwan_request_parser_helper *helper, int n_packets)
+static enum lwan_read_finalizer
+post_data_finalizer(size_t total_read,
+                    size_t buffer_size,
+                    struct lwan_request_parser_helper *helper,
+                    int n_packets)
 {
     if (buffer_size == total_read)
         return FINALIZER_DONE;
@@ -1035,9 +1047,9 @@ parse_proxy_protocol(struct lwan_request *request, char *buffer)
 }
 
 static enum lwan_http_status
-parse_http_request(struct lwan_request *request,
-                   struct lwan_request_parser_helper *helper)
+parse_http_request(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
     char *buffer = helper->buffer->value;
 
     if (request->flags & REQUEST_ALLOW_PROXY_REQS) {
@@ -1054,7 +1066,7 @@ parse_http_request(struct lwan_request *request,
     if (UNLIKELY(!path))
         return HTTP_NOT_ALLOWED;
 
-    buffer = identify_http_path(request, path, helper);
+    buffer = identify_http_path(request, path);
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
@@ -1067,41 +1079,25 @@ parse_http_request(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
     request->original_url.len = request->url.len = (size_t)decoded_len;
 
-    compute_keep_alive_flag(request, helper);
+    compute_keep_alive_flag(request);
 
     return HTTP_OK;
 }
 
-static enum lwan_http_status
-prepare_for_response(struct lwan_url_map *url_map,
-                      struct lwan_request *request,
-                      struct lwan_request_parser_helper *helper)
+static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
+                                                  struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
-        if (!lwan_http_authorize(request,
-                        &helper->authorization,
-                        url_map->authorization.realm,
-                        url_map->authorization.password_file))
+        if (!lwan_http_authorize(request, &helper->authorization,
+                                 url_map->authorization.realm,
+                                 url_map->authorization.password_file))
             return HTTP_NOT_AUTHORIZED;
     }
-
-    if (url_map->flags & HANDLER_PARSE_QUERY_STRING)
-        parse_query_string(request, helper);
-
-    if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
-        parse_if_modified_since(helper);
-
-    if (url_map->flags & HANDLER_PARSE_RANGE)
-        parse_range(helper);
-
-    if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
-        parse_accept_encoding(request, helper);
-
-    if (url_map->flags & HANDLER_PARSE_COOKIES)
-        parse_cookies(request, helper);
 
     if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
         while (*request->url.value == '/' && request->url.len > 0) {
@@ -1110,10 +1106,13 @@ prepare_for_response(struct lwan_url_map *url_map,
         }
     }
 
+    if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
+        parse_accept_encoding(request);
+
     if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
         enum lwan_http_status status;
 
-        if (!(url_map->flags & HANDLER_PARSE_POST_DATA)) {
+        if (!(url_map->flags & HANDLER_HAS_POST_DATA)) {
             /* FIXME: Discard POST data here? If a POST request is sent
              * to a handler that is not supposed to handle a POST request,
              * the next request in the pipeline will fail because the
@@ -1125,20 +1124,18 @@ prepare_for_response(struct lwan_url_map *url_map,
         status = read_post_data(request);
         if (UNLIKELY(status != HTTP_OK))
             return status;
-
-        parse_post_data(request, helper);
     }
 
     return HTTP_OK;
 }
 
-static bool
-handle_rewrite(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+static bool handle_rewrite(struct lwan_request *request)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     request->flags &= ~RESPONSE_URL_REWRITTEN;
 
-    parse_fragment_and_query(request, helper,
-        request->url.value + request->url.len);
+    parse_fragment_and_query(request, request->url.value + request->url.len);
 
     helper->urls_rewritten++;
     if (UNLIKELY(helper->urls_rewritten > 4)) {
@@ -1149,14 +1146,15 @@ handle_rewrite(struct lwan_request *request, struct lwan_request_parser_helper *
     return true;
 }
 
-char *
-lwan_process_request(struct lwan *l, struct lwan_request *request,
-    struct lwan_value *buffer, char *next_request)
+char *lwan_process_request(struct lwan *l,
+                           struct lwan_request *request,
+                           struct lwan_value *buffer,
+                           char *next_request)
 {
     struct lwan_request_parser_helper helper = {
         .buffer = buffer,
         .next_request = next_request,
-        .error_when_n_packets = calculate_n_packets(DEFAULT_BUFFER_SIZE)
+        .error_when_n_packets = calculate_n_packets(DEFAULT_BUFFER_SIZE),
     };
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
@@ -1178,7 +1176,7 @@ lwan_process_request(struct lwan *l, struct lwan_request *request,
         __builtin_unreachable();
     }
 
-    status = parse_http_request(request, &helper);
+    status = parse_http_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
         goto out;
@@ -1191,7 +1189,7 @@ lookup_again:
         goto out;
     }
 
-    status = prepare_for_response(url_map, request, &helper);
+    status = prepare_for_response(url_map, request);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
         goto out;
@@ -1200,7 +1198,7 @@ lookup_again:
     status = url_map->handler(request, &request->response, url_map->data);
     if (UNLIKELY(url_map->flags & HANDLER_CAN_REWRITE_URL)) {
         if (request->flags & RESPONSE_URL_REWRITTEN) {
-            if (LIKELY(handle_rewrite(request, &helper)))
+            if (LIKELY(handle_rewrite(request)))
                 goto lookup_again;
             goto out;
         }
@@ -1232,18 +1230,33 @@ value_lookup(const struct lwan_key_value_array *array, const char *key)
 const char *
 lwan_request_get_query_param(struct lwan_request *request, const char *key)
 {
+    if (!(request->flags & REQUEST_PARSED_QUERY_STRING)) {
+        parse_query_string(request);
+        request->flags |= REQUEST_PARSED_QUERY_STRING;
+    }
+
     return value_lookup(&request->query_params, key);
 }
 
 const char *
 lwan_request_get_post_param(struct lwan_request *request, const char *key)
 {
-    return value_lookup(&request->post_data, key);
+    if (!(request->flags & REQUEST_PARSED_POST_DATA)) {
+        parse_post_data(request);
+        request->flags |= REQUEST_PARSED_POST_DATA;
+    }
+
+    return value_lookup(&request->post_params, key);
 }
 
 const char *
 lwan_request_get_cookie(struct lwan_request *request, const char *key)
 {
+    if (!(request->flags & REQUEST_PARSED_COOKIES)) {
+        parse_cookies(request);
+        request->flags |= REQUEST_PARSED_COOKIES;
+    }
+
     return value_lookup(&request->cookies, key);
 }
 
@@ -1317,7 +1330,12 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
 ALWAYS_INLINE int
 lwan_request_get_range(struct lwan_request *request, off_t *from, off_t *to)
 {
-    const struct lwan_request_parser_helper *helper = request->helper;
+    struct lwan_request_parser_helper *helper = request->helper;
+
+    if (!(request->flags & REQUEST_PARSED_RANGE)) {
+        parse_range(helper);
+        request->flags |= REQUEST_PARSED_RANGE;
+    }
 
     if (LIKELY(helper->range.raw.len)) {
         *from = helper->range.from;
@@ -1331,7 +1349,12 @@ lwan_request_get_range(struct lwan_request *request, off_t *from, off_t *to)
 ALWAYS_INLINE int
 lwan_request_get_if_modified_since(struct lwan_request *request, time_t *value)
 {
-    const struct lwan_request_parser_helper *helper = request->helper;
+    struct lwan_request_parser_helper *helper = request->helper;
+
+    if (!(request->flags & REQUEST_PARSED_IF_MODIFIED_SINCE)) {
+        parse_if_modified_since(helper);
+        request->flags |= REQUEST_PARSED_IF_MODIFIED_SINCE;
+    }
 
     if (LIKELY(helper->if_modified_since.raw.len)) {
         *value = helper->if_modified_since.parsed;
@@ -1351,4 +1374,37 @@ ALWAYS_INLINE const struct lwan_value *
 lwan_request_get_content_type(struct lwan_request *request)
 {
     return &request->helper->content_type;
+}
+
+ALWAYS_INLINE const struct lwan_key_value_array *
+lwan_request_get_cookies(struct lwan_request *request)
+{
+    if (!(request->flags & REQUEST_PARSED_COOKIES)) {
+        parse_cookies(request);
+        request->flags |= REQUEST_PARSED_COOKIES;
+    }
+
+    return &request->cookies;
+}
+
+ALWAYS_INLINE const struct lwan_key_value_array *
+lwan_request_get_query_params(struct lwan_request *request)
+{
+    if (!(request->flags & REQUEST_PARSED_QUERY_STRING)) {
+        parse_query_string(request);
+        request->flags |= REQUEST_PARSED_QUERY_STRING;
+    }
+
+    return &request->query_params;
+}
+
+ALWAYS_INLINE const struct lwan_key_value_array *
+lwan_request_get_post_params(struct lwan_request *request)
+{
+    if (!(request->flags & REQUEST_PARSED_POST_DATA)) {
+        parse_post_data(request);
+        request->flags |= REQUEST_PARSED_POST_DATA;
+    }
+
+    return &request->post_params;
 }

@@ -36,48 +36,12 @@ static void print_module_info(void)
 {
     extern const struct lwan_module_info SECTION_START(lwan_module);
     extern const struct lwan_module_info SECTION_END(lwan_module);
-    static const struct {
-        enum lwan_handler_flags flag;
-        const char *str;
-    } flag2str[] = {
-	{.flag = HANDLER_PARSE_QUERY_STRING, .str = "parse-query-string"},
-	{.flag = HANDLER_PARSE_IF_MODIFIED_SINCE, .str = "parse-if-modified-since"},
-	{.flag = HANDLER_PARSE_RANGE, .str = "parse-range"},
-	{.flag = HANDLER_PARSE_ACCEPT_ENCODING, .str = "parse-accept-encoding"},
-	{.flag = HANDLER_PARSE_POST_DATA, .str = "parse-post-data"},
-	{.flag = HANDLER_CAN_REWRITE_URL, .str = "can-rewrite"},
-	{.flag = HANDLER_PARSE_COOKIES, .str = "parse-cookies"},
-    };
     const struct lwan_module_info *module;
-    struct lwan_strbuf buf;
-
-    if (!lwan_strbuf_init(&buf))
-        return;
 
     printf("Available modules:\n");
     for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
-        size_t len;
-        size_t i;
-
-        for (i = 0; i < N_ELEMENTS(flag2str); i++) {
-            if (!(module->module->flags & flag2str[i].flag))
-                continue;
-            if (!lwan_strbuf_append_printf(&buf, "%s, ", flag2str[i].str))
-                goto next_module;
-        }
-
-        len = lwan_strbuf_get_length(&buf);
-        if (len) {
-            printf(" * %s (%.*s)\n", module->name, (int)(len - 2),
-                   lwan_strbuf_get_buffer(&buf));
-        } else {
-            printf(" * %s\n", module->name);
-        }
-next_module:
-        lwan_strbuf_reset(&buf);
+        printf(" * %s\n", module->name);
     }
-
-    lwan_strbuf_free(&buf);
 }
 
 static void

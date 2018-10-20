@@ -178,7 +178,7 @@ LWAN_HANDLER(hello_world)
     lwan_strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
     lwan_strbuf_append_str(response->buffer, "-------\n\n", 0);
 
-    LWAN_ARRAY_FOREACH(&request->cookies, iter) {
+    LWAN_ARRAY_FOREACH(lwan_request_get_cookies(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
     }
@@ -186,7 +186,7 @@ LWAN_HANDLER(hello_world)
     lwan_strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
     lwan_strbuf_append_str(response->buffer, "----------------------\n\n", 0);
 
-    LWAN_ARRAY_FOREACH(&request->query_params, iter) {
+    LWAN_ARRAY_FOREACH(lwan_request_get_query_params(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
     }
@@ -197,7 +197,7 @@ LWAN_HANDLER(hello_world)
     lwan_strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
     lwan_strbuf_append_str(response->buffer, "---------\n\n", 0);
 
-    LWAN_ARRAY_FOREACH(&request->post_data, iter) {
+    LWAN_ARRAY_FOREACH(lwan_request_get_post_params(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
     }
