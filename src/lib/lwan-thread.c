@@ -306,11 +306,10 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
 }
 
 static void accept_nudge(int pipe_fd,
-                         struct spsc_queue *pending_fds,
+                         struct lwan_thread *t,
                          struct lwan_connection *conns,
                          struct death_queue *dq,
                          struct coro_switcher *switcher,
-                         struct timeouts *wheel,
                          int epoll_fd)
 {
     uint64_t event;
@@ -323,14 +322,18 @@ static void accept_nudge(int pipe_fd,
         return;
     }
 
-    while (spsc_queue_pop(pending_fds, &new_fd)) {
+    while (spsc_queue_pop(&t->pending_fds, &new_fd)) {
         struct lwan_connection *conn = &conns[new_fd];
+        struct epoll_event ev = {.events = events_by_write_flag[1],
+                                 .data.ptr = conn};
 
-        spawn_coro(conn, switcher, dq);
-        update_epoll_flags(dq, conn, epoll_fd, CONN_CORO_MAY_RESUME);
+        if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev))) {
+            *conn = (struct lwan_connection){.thread = t};
+            spawn_coro(conn, switcher, dq);
+        }
     }
 
-    timeouts_add(wheel, &dq->timeout, 1000);
+    timeouts_add(t->wheel, &dq->timeout, 1000);
 }
 
 static bool process_pending_timers(struct death_queue *dq,
@@ -443,8 +446,8 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (UNLIKELY(!event->data.ptr)) {
-                accept_nudge(read_pipe_fd, &t->pending_fds, lwan->conns,
-                             &dq, &switcher, t->wheel, epoll_fd);
+                accept_nudge(read_pipe_fd, t, lwan->conns, &dq, &switcher,
+                             epoll_fd);
                 continue;
             }
 
@@ -532,17 +535,7 @@ void lwan_thread_nudge(struct lwan_thread *t)
 
 void lwan_thread_add_client(struct lwan_thread *t, int fd)
 {
-    struct epoll_event event = {.events = events_by_write_flag[1]};
-    int i = 0;
-
-    t->lwan->conns[fd] = (struct lwan_connection){.thread = t};
-
-    if (UNLIKELY(epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)) {
-        lwan_status_perror("EPOLL_CTL_ADD failed");
-        goto drop_connection;
-    }
-
-    do {
+    for (int i = 0; i < 10; i++) {
         bool pushed = spsc_queue_push(&t->pending_fds, fd);
 
         if (LIKELY(pushed))
@@ -550,9 +543,8 @@ void lwan_thread_add_client(struct lwan_thread *t, int fd)
 
         /* Queue is full; nudge the thread to consume it. */
         lwan_thread_nudge(t);
-    } while (i++ < 10);
+    }
 
-drop_connection:
     lwan_status_error("Dropping connection %d", fd);
     /* FIXME: send "busy" response now, even without receiving request? */
     close(fd);
