@@ -1137,16 +1137,7 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
         success = false;
     }
 
-    if (success)
-        success = post_process_template(parser);
-
-    if (!success) {
-        /* Emit a ACTION_LAST chunk so that lwan_tpl_free() knows when to stop
-         */
-        emit_chunk(parser, ACTION_LAST, 0, NULL);
-    }
-
-    return success;
+    return success && post_process_template(parser);
 }
 
 static bool parse_string(struct lwan_tpl *tpl,
