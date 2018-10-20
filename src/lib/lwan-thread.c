@@ -286,21 +286,23 @@ static void update_date_cache(struct lwan_thread *thread)
 }
 
 static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
+                                     struct lwan_thread *t,
                                      struct coro_switcher *switcher,
                                      struct death_queue *dq)
 {
     assert(!conn->coro);
     assert(!(conn->flags & CONN_IS_ALIVE));
-    assert(!(conn->flags & CONN_SHOULD_RESUME_CORO));
 
-    conn->coro = coro_new(switcher, process_request_coro, conn);
+    *conn = (struct lwan_connection) {
+        .coro = coro_new(switcher, process_request_coro, conn),
+        .flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO,
+        .time_to_die = dq->time + dq->keep_alive_timeout,
+        .thread = t,
+    };
     if (UNLIKELY(!conn->coro)) {
         lwan_status_error("Could not create coroutine");
         return;
     }
-
-    conn->flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO;
-    conn->time_to_die = dq->time + dq->keep_alive_timeout;
 
     death_queue_insert(dq, conn);
 }
@@ -327,10 +329,8 @@ static void accept_nudge(int pipe_fd,
         struct epoll_event ev = {.events = events_by_write_flag[1],
                                  .data.ptr = conn};
 
-        if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev))) {
-            *conn = (struct lwan_connection){.thread = t};
-            spawn_coro(conn, switcher, dq);
-        }
+        if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
+            spawn_coro(conn, t, switcher, dq);
     }
 
     timeouts_add(t->wheel, &dq->timeout, 1000);
