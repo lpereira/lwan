@@ -372,6 +372,11 @@ information from the request, or to set the response, as seen below:
    - `req:set_headers(tbl)` sets the response headers from the table `tbl`; a header may be specified multiple times by using a table, rather than a string, in the table value (`{'foo'={'bar', 'baz'}}`); must be called before sending any response with `say()` or `send_event()`
    - `req:sleep(ms)` pauses the current handler for the specified amount of milliseconds
 
+Handler functions may return either `nil` (in which case, a `200 OK` response
+is generated), or a number matching an HTTP status code.  Attempting to return
+an invalid HTTP status code or anything other than a number or `nil` will result
+in a `500 Internal Server Error` response being thrown.
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `default_type` | `str` | `text/plain` | Default MIME-Type for responses |

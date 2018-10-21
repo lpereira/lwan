@@ -209,7 +209,17 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
             n_arguments = 0;
             break;
         case 0:
-            return HTTP_OK;
+            if (lua_isnil(L, -1))
+                return HTTP_OK;
+
+            if (lua_isnumber(L, -1)) {
+                lua_Integer code = lua_tointeger(L, -1);
+
+                if (code >= 100 && code <= 999)
+                    return (enum lwan_http_status)code;
+            }
+
+            return HTTP_INTERNAL_ERROR;
         default:
             lwan_status_error("Error from Lua script: %s", lua_tostring(L, -1));
             return HTTP_INTERNAL_ERROR;

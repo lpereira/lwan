@@ -41,6 +41,14 @@ function handle_get_random(req)
     req:set_response("Random number: " .. math.random())
 end
 
+function handle_get_brew_coffee(req)
+    return 418
+end
+
+function handle_get_invalid_code(req)
+    return 42
+end
+
 function string.starts(String, Start)
    -- From http://lua-users.org/wiki/StringRecipes
    return string.sub(String, 1, string.len(Start)) == Start

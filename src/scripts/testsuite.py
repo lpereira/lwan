@@ -461,6 +461,16 @@ class TestChunkedEncoding(LwanTest):
       'Last chunk\n')
 
 class TestLua(LwanTest):
+  def test_brew_coffee(self):
+    r = requests.get('http://127.0.0.1:8080/lua/brew_coffee')
+
+    self.assertEqual(r.status_code, 418)
+
+  def test_invalid_Code(self):
+    r = requests.get('http://127.0.0.1:8080/lua/invalid_code')
+
+    self.assertEqual(r.status_code, 500)
+
   def test_inline(self):
     r = requests.get('http://localhost:8080/inline')
     self.assertResponseHtml(r)
@@ -758,6 +768,7 @@ Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q
       s = 'Hello, %s!' % name
       self.assertTrue(s in responses)
       responses = responses.replace(s, '')
+
 
 class TestArtificialResponse(LwanTest):
   def test_brew_coffee(self):
