@@ -237,6 +237,9 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
                                                 struct lwan_connection *conn,
                                                 int epoll_fd)
 {
+    const enum lwan_connection_flags update_mask =
+        CONN_FLIP_FLAGS | CONN_RESUMED_FROM_TIMER | CONN_SUSPENDED_BY_TIMER;
+
     assert(conn->coro);
 
     if (!(conn->flags & CONN_SHOULD_RESUME_CORO))
@@ -249,7 +252,7 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
         return;
     }
 
-    if (conn->flags & CONN_FLIP_FLAGS) {
+    if (conn->flags & update_mask) {
         conn->flags &= ~CONN_FLIP_FLAGS;
         update_epoll_flags(dq, conn, epoll_fd, yield_result);
     }
