@@ -167,17 +167,18 @@ LWAN_HANDLER(blocks)
     while (total_waited <= 3600000) {
         uint64_t timeout;
         time_t curtime;
-        char digits[5];
 
         curtime = time(NULL);
         if (curtime != last) {
+            char digits[5];
+
             strftime(digits, sizeof(digits), "%H%M", localtime(&curtime));
             last = curtime;
             odd_second = last & 1;
-        }
 
-        for (int i = 0; i < 4; i++)
-            blocks.states[i].num_to_draw = digits[i] - '0';
+            for (int i = 0; i < 4; i++)
+                blocks.states[i].num_to_draw = digits[i] - '0';
+        }
 
         timeout = blocks_draw(&blocks, odd_second);
         total_waited += timeout;
