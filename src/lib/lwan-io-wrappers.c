@@ -44,6 +44,8 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EINTR:
                 goto try_again;
             default:
@@ -85,6 +87,8 @@ lwan_send(struct lwan_request *request, const void *buf, size_t count, int flags
 
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EINTR:
                 goto try_again;
             default:
@@ -127,6 +131,8 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EINTR:
                 coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
                 continue;
@@ -175,6 +181,8 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         if (UNLIKELY(r < 0)) {
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EBUSY:
             case EINTR:
                 coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
@@ -207,6 +215,8 @@ try_pread(struct coro *coro, int fd, void *buffer, size_t len, off_t offset)
 
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EINTR:
                 goto try_again;
             default:

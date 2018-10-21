@@ -46,7 +46,7 @@ struct death_queue {
 
 static const uint32_t events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
-    EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLET
+    EPOLLIN | EPOLLRDHUP | EPOLLERR
 };
 
 static inline int death_queue_node_to_idx(struct death_queue *dq,
@@ -180,6 +180,9 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             lwan_process_request(lwan, &request, &buffer, next_request);
         coro_deferred_run(coro, generation);
 
+        if (next_request && *next_request)
+            conn->flags |= CONN_FLIP_FLAGS;
+
         coro_yield(coro, CONN_CORO_MAY_RESUME);
 
         lwan_strbuf_reset(&strbuf);
@@ -246,7 +249,10 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
         return;
     }
 
-    update_epoll_flags(dq, conn, epoll_fd, yield_result);
+    if (conn->flags & CONN_FLIP_FLAGS) {
+        conn->flags &= ~CONN_FLIP_FLAGS;
+        update_epoll_flags(dq, conn, epoll_fd, yield_result);
+    }
 }
 
 static void death_queue_kill_waiting(struct death_queue *dq)

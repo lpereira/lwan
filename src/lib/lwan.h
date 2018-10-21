@@ -252,6 +252,7 @@ enum lwan_connection_flags {
     CONN_MUST_READ = 1 << 4,
     CONN_SUSPENDED_BY_TIMER = 1 << 5,
     CONN_RESUMED_FROM_TIMER = 1 << 6,
+    CONN_FLIP_FLAGS = 1 << 7,
 };
 
 enum lwan_connection_coro_yield {

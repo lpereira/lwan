@@ -380,6 +380,7 @@ bool lwan_response_set_chunked(struct lwan_request *request,
         return false;
 
     request->flags |= RESPONSE_SENT_HEADERS;
+    request->conn->flags |= CONN_FLIP_FLAGS;
     lwan_send(request, buffer, buffer_len, MSG_MORE);
 
     return true;
@@ -439,6 +440,7 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
         return false;
 
     request->flags |= RESPONSE_SENT_HEADERS;
+    request->conn->flags |= CONN_FLIP_FLAGS;
     lwan_send(request, buffer, buffer_len, MSG_MORE);
 
     return true;
