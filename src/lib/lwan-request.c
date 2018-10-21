@@ -721,6 +721,8 @@ read_from_request_socket(struct lwan_request *request,
         if (UNLIKELY(n < 0)) {
             switch (errno) {
             case EAGAIN:
+                request->conn->flags |= CONN_FLIP_FLAGS;
+                /* fallthrough */
             case EINTR:
 yield_and_read_again:
                 request->conn->flags |= CONN_MUST_READ;
