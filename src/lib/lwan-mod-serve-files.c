@@ -857,7 +857,7 @@ static size_t prepare_headers(struct lwan_request *request,
                               char *header_buf,
                               size_t header_buf_size)
 {
-    char content_length[3 * sizeof(size_t)];
+    char content_length[INT_TO_STR_BUFFER_SIZE];
     size_t discard;
     struct lwan_key_value additional_headers[4] = {
         {
