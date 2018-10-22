@@ -722,6 +722,7 @@ read_from_request_socket(struct lwan_request *request,
             switch (errno) {
             case EAGAIN:
                 request->conn->flags |= CONN_FLIP_FLAGS;
+                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
                 /* fallthrough */
             case EINTR:
 yield_and_read_again:
