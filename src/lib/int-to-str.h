@@ -21,7 +21,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 
-#define INT_TO_STR_BUFFER_SIZE (3 * sizeof(size_t) + 1)
+#define INT_TO_STR_BUFFER_SIZE (3 * sizeof(size_t))
 
 char *int_to_string(ssize_t value,
                     char buffer[static INT_TO_STR_BUFFER_SIZE],
