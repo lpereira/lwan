@@ -305,6 +305,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
         .thread = t,
     };
     if (UNLIKELY(!conn->coro)) {
+        conn->flags = 0;
         lwan_status_error("Could not create coroutine");
         return;
     }
