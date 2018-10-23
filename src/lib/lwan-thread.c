@@ -570,6 +570,7 @@ void lwan_thread_init(struct lwan *l)
     for (short i = 0; i < l->thread.count; i++)
         create_thread(l, &l->thread.threads[i]);
 
+    const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 #ifdef __x86_64__
     static_assert(sizeof(struct lwan_connection) == 32,
                   "Two connections per cache line");
@@ -581,20 +582,20 @@ void lwan_thread_init(struct lwan *l)
      * them can fill up a cache line.  This formula will group two connections
      * per thread in a way that false-sharing is avoided.
      */
-    l->thread.fd_to_thread_mask =
-        (unsigned int)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
-    l->thread.fd_to_thread =
-        calloc(l->thread.fd_to_thread_mask, sizeof(unsigned int));
+    uint32_t n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
+    uint32_t *fd_to_thread = alloca(n_threads * sizeof(uint32_t));
 
-    if (!l->thread.fd_to_thread)
-        lwan_status_critical("Could not allocate fd_to_thread array");
-
-    for (unsigned int i = 0; i < l->thread.fd_to_thread_mask; i++) {
+    for (unsigned int i = 0; i < n_threads; i++) {
         /* TODO: do not assume the CPU topology */
-        l->thread.fd_to_thread[i] = (i / 2) % l->thread.count;
+        fd_to_thread[i] = (i / 2) % l->thread.count;
     }
+    n_threads--; /* Transform count into mask for AND below */
 
-    l->thread.fd_to_thread_mask--;
+    for (unsigned int i = 0; i < total_conns; i++)
+        l->conns[i].thread = &l->thread.threads[fd_to_thread[i & n_threads]];
+#else
+    for (unsigned int i = 0; i < total_conns; i++)
+        l->conns[i].thread = &l->thread.threads[i % l->thread.count];
 #endif
 
     pthread_barrier_wait(&l->thread.barrier);
@@ -630,8 +631,4 @@ void lwan_thread_shutdown(struct lwan *l)
     }
 
     free(l->thread.threads);
-
-#ifdef __x86_64__
-    free(l->thread.fd_to_thread);
-#endif
 }

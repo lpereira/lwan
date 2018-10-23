@@ -612,18 +612,11 @@ void lwan_shutdown(struct lwan *l)
 
 static ALWAYS_INLINE unsigned int schedule_client(struct lwan *l, int fd)
 {
-    unsigned int thread;
+    struct lwan_thread *thread = l->conns[fd].thread;
 
-#ifdef __x86_64__
-    thread = l->thread.fd_to_thread[(unsigned int)fd & l->thread.fd_to_thread_mask];
-#else
-    static unsigned int counter = 0;
-    thread = counter++ % l->thread.count;
-#endif
+    lwan_thread_add_client(thread, fd);
 
-    lwan_thread_add_client(&l->thread.threads[thread], fd);
-
-    return thread;
+    return (unsigned int)(thread - l->thread.threads);
 }
 
 static volatile sig_atomic_t main_socket = -1;

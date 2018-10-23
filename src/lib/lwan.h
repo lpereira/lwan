@@ -423,10 +423,6 @@ struct lwan {
     struct lwan_connection *conns;
 
     struct {
-#ifdef __x86_64__
-        unsigned int *fd_to_thread;
-        unsigned int fd_to_thread_mask;
-#endif
         pthread_barrier_t barrier;
         struct lwan_thread *threads;
         unsigned int max_fd;
