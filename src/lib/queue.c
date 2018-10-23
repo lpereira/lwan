@@ -3,49 +3,60 @@
  * Based on public domain C++ version by mstump[1]. Released under
  * the same license terms.
  *
- * [1] https://github.com/mstump/queues/blob/master/include/spsc-bounded-queue.hpp
+ * [1]
+ * https://github.com/mstump/queues/blob/master/include/spsc-bounded-queue.hpp
  */
 
-#include <string.h>
+#include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
+#include <string.h>
 
 #include "queue.h"
 #include "lwan-private.h"
 
 #if !defined(ATOMIC_RELAXED)
 
-#define ATOMIC_RELAXED		__ATOMIC_RELAXED
-#define ATOMIC_ACQUIRE		__ATOMIC_ACQUIRE
-#define ATOMIC_RELEASE		__ATOMIC_RELEASE
+#define ATOMIC_RELAXED __ATOMIC_RELAXED
+#define ATOMIC_ACQUIRE __ATOMIC_ACQUIRE
+#define ATOMIC_RELEASE __ATOMIC_RELEASE
 
 #endif
 
 #if defined(__GNUC__)
 
-# if (__GNUC__ * 100 + __GNUC_MINOR__ >= 470)
-#   define HAS_GCC_ATOMIC 1
-# else
-#   define HAS_SYNC_ATOMIC 1
+#if (__GNUC__ * 100 + __GNUC_MINOR__ >= 470)
+#define HAS_GCC_ATOMIC 1
+#else
+#define HAS_SYNC_ATOMIC 1
 #endif
 
 #endif
 
 #if HAS_GCC_ATOMIC
 
-#define ATOMIC_INIT(P, V)	do { (P) = (V); } while (0)
+#define ATOMIC_INIT(P, V)                                                      \
+    do {                                                                       \
+        (P) = (V);                                                             \
+    } while (0)
 
-#define ATOMIC_LOAD(P, O)	__atomic_load_n((P), (O))
-#define ATOMIC_STORE(P, V, O)	__atomic_store_n((P), (V), (O))
+#define ATOMIC_LOAD(P, O) __atomic_load_n((P), (O))
+#define ATOMIC_STORE(P, V, O) __atomic_store_n((P), (V), (O))
 
 #elif HAS_SYNC_ATOMIC
 
-#define ATOMIC_INIT(P, V)	do { (P) = (V); } while(0)
+#define ATOMIC_INIT(P, V)                                                      \
+    do {                                                                       \
+        (P) = (V);                                                             \
+    } while (0)
 
-#define ATOMIC_LOAD(P, O)	__sync_fetch_and_add((P), 0)
-#define ATOMIC_STORE(P, V, O)	({ __sync_synchronize(); __sync_lock_test_and_set((P), (V)); })
+#define ATOMIC_LOAD(P, O) __sync_fetch_and_add((P), 0)
+#define ATOMIC_STORE(P, V, O)                                                  \
+    ({                                                                         \
+        __sync_synchronize();                                                  \
+        __sync_lock_test_and_set((P), (V));                                    \
+    })
 
 #else
 
@@ -53,8 +64,7 @@
 
 #endif
 
-int
-spsc_queue_init(struct spsc_queue *q, size_t size)
+int spsc_queue_init(struct spsc_queue *q, size_t size)
 {
     if (size == 0)
         return -EINVAL;
@@ -73,14 +83,9 @@ spsc_queue_init(struct spsc_queue *q, size_t size)
     return 0;
 }
 
-void
-spsc_queue_free(struct spsc_queue *q)
-{
-    free(q->buffer);
-}
+void spsc_queue_free(struct spsc_queue *q) { free(q->buffer); }
 
-bool
-spsc_queue_push(struct spsc_queue *q, int input)
+bool spsc_queue_push(struct spsc_queue *q, int input)
 {
     const size_t head = ATOMIC_LOAD(&q->head, ATOMIC_RELAXED);
 
@@ -94,8 +99,7 @@ spsc_queue_push(struct spsc_queue *q, int input)
     return false;
 }
 
-bool
-spsc_queue_pop(struct spsc_queue *q, int *output)
+bool spsc_queue_pop(struct spsc_queue *q, int *output)
 {
     const size_t tail = ATOMIC_LOAD(&q->tail, ATOMIC_RELAXED);
 

@@ -3,13 +3,14 @@
  * Based on public domain C++ version by mstump[1]. Released under
  * the same license terms.
  *
- * [1] https://github.com/mstump/queues/blob/master/include/spsc-bounded-queue.hpp
+ * [1]
+ * https://github.com/mstump/queues/blob/master/include/spsc-bounded-queue.hpp
  */
 
 #pragma once
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 struct spsc_queue {
     size_t size;
@@ -21,7 +22,7 @@ struct spsc_queue {
     char cache_line_pad1[64 - sizeof(size_t)];
 
     size_t tail;
-    char cache_line_pad2[64 - sizeof(size_t)];    
+    char cache_line_pad2[64 - sizeof(size_t)];
 };
 
 int spsc_queue_init(struct spsc_queue *q, size_t size);
