@@ -323,12 +323,10 @@ static void accept_nudge(int pipe_fd,
     uint64_t event;
     int new_fd;
 
-    while (read(pipe_fd, &event, sizeof(event)) < 0) {
-        if (errno == EINTR)
-            continue;
-
-        return;
-    }
+    /* Errors are ignored here as pipe_fd serves just as a way to wake the
+     * thread from epoll_wait().  It's fine to consume the queue at this
+     * point, regardless of the error type. */
+    (void)read(pipe_fd, &event, sizeof(event));
 
     while (spsc_queue_pop(&t->pending_fds, &new_fd)) {
         struct lwan_connection *conn = &conns[new_fd];
