@@ -24,9 +24,9 @@
 #if defined(__linux__) && defined(HAVE_LINUX_CAPABILITY)
 
 #include_next <linux/capability.h>
+#include <stdio.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <stdio.h>
 
 static inline int capset(struct __user_cap_header_struct *header,
                          struct __user_cap_data_struct *data)

@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include_next <time.h>
@@ -26,18 +27,18 @@
 typedef int clockid_t;
 int clock_gettime(clockid_t clk_id, struct timespec *ts);
 
-# ifndef CLOCK_MONOTONIC_COARSE
-#  define CLOCK_MONOTONIC_COARSE 0
-# endif
+#ifndef CLOCK_MONOTONIC_COARSE
+#define CLOCK_MONOTONIC_COARSE 0
+#endif
 
-# ifndef CLOCK_MONOTONIC
-#  define CLOCK_MONOTONIC 1
-# endif
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
 
 #elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_FAST)
-# define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST /* FreeBSD */
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST /* FreeBSD */
 #elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_RAW_APPROX)
-# define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_RAW_APPROX /* macOS */
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_RAW_APPROX /* macOS */
 #endif
 
 #endif /* MISSING_TIME_H */

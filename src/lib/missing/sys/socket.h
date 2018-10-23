@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include_next <sys/socket.h>
@@ -23,15 +24,15 @@
 #define MISSING_SYS_SOCKET_H
 
 #ifndef MSG_MORE
-# define MSG_MORE 0
+#define MSG_MORE 0
 #endif
 
 #ifndef SOCK_CLOEXEC
-# define SOCK_CLOEXEC 0
+#define SOCK_CLOEXEC 0
 #endif
 
 #ifndef SOCK_NONBLOCK
-# define SOCK_NONBLOCK 00004000
+#define SOCK_NONBLOCK 00004000
 #endif
 
 #ifndef HAVE_ACCEPT4

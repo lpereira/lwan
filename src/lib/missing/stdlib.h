@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include_next <stdlib.h>
@@ -23,23 +24,20 @@
 #define MISSING_STDLIB_H
 
 #if defined(__GLIBC__)
-# include <features.h>
-# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
-#  define HAVE_SECURE_GETENV
-# endif
-# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 19)
-#  define HAVE_MKOSTEMPS
-# endif
-# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 7)
-#  define HAVE_CORRECT_UMASK_TMPFILE
-# endif
+#include <features.h>
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
+#define HAVE_SECURE_GETENV
+#endif
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 19)
+#define HAVE_MKOSTEMPS
+#endif
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 7)
+#define HAVE_CORRECT_UMASK_TMPFILE
+#endif
 #endif
 
 #if !defined(HAVE_SECURE_GETENV)
-static inline char *secure_getenv(const char *name)
-{
-    return getenv(name);
-}
+static inline char *secure_getenv(const char *name) { return getenv(name); }
 #endif
 
 #if !defined(HAVE_MKOSTEMP)
@@ -47,9 +45,13 @@ int mkostemp(char *tmpl, int flags);
 #endif
 
 #if defined(HAVE_CORRECT_UMASK_TMPFILE)
-# define umask_for_tmpfile(mask_) ({ (void)(mask_); 0U; })
+#define umask_for_tmpfile(mask_)                                               \
+    ({                                                                         \
+        (void)(mask_);                                                         \
+        0U;                                                                    \
+    })
 #else
-# define umask_for_tmpfile(mask_) umask(mask_)
+#define umask_for_tmpfile(mask_) umask(mask_)
 #endif
 
 #if !defined(HAVE_REALLOCARRAY)

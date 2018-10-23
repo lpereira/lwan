@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include_next <limits.h>
@@ -23,25 +24,24 @@
 #define MISSING_LIMITS_H
 
 #ifndef PATH_MAX
-# define PATH_MAX 4096
+#define PATH_MAX 4096
 #endif
-
 
 #ifndef OPEN_MAX
 
-# include <sys/param.h>
+#include <sys/param.h>
 
-# ifdef NOFILE
-#  define OPEN_MAX NOFILE
-# else
-#  define OPEN_MAX 65535
-# endif
+#ifdef NOFILE
+#define OPEN_MAX NOFILE
+#else
+#define OPEN_MAX 65535
+#endif
 
 #endif
 
 #ifndef OFF_MAX
 #include <sys/types.h>
-# define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
+#define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
 #endif
 
 #endif /* MISSING_LIMITS_H */

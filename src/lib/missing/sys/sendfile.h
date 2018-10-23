@@ -14,14 +14,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #if defined(__FreeBSD__) || defined(__APPLE__)
-# include <sys/uio.h>
+#include <sys/uio.h>
 #elif defined(__OpenBSD__)
 /* OpenBSD has no sendfile(); implement the Lwan wrapper directly in
  * lwan-io-wrappers.c */
 #else
-# include_next <sys/sendfile.h>
+#include_next <sys/sendfile.h>
 #endif

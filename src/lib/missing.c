@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include <errno.h>
@@ -33,8 +34,7 @@
 #include "lwan.h"
 
 #ifndef HAVE_MEMPCPY
-void *
-mempcpy(void *dest, const void *src, size_t len)
+void *mempcpy(void *dest, const void *src, size_t len)
 {
     char *p = memcpy(dest, src, len);
     return p + len;
@@ -42,8 +42,7 @@ mempcpy(void *dest, const void *src, size_t len)
 #endif
 
 #ifndef HAVE_MEMRCHR
-void *
-memrchr(const void *s, int c, size_t n)
+void *memrchr(const void *s, int c, size_t n)
 {
     const char *end = (const char *)s + n + 1;
     const char *prev = NULL;
@@ -59,98 +58,91 @@ memrchr(const void *s, int c, size_t n)
 #endif
 
 #ifndef HAVE_PIPE2
-int
-pipe2(int pipefd[2], int flags)
+int pipe2(int pipefd[2], int flags)
 {
-   int r;
+    int r;
 
-   r = pipe(pipefd);
-   if (r < 0)
-      return r;
+    r = pipe(pipefd);
+    if (r < 0)
+        return r;
 
-   if (fcntl(pipefd[0], F_SETFL, flags) < 0 || fcntl(pipefd[1], F_SETFL, flags) < 0) {
-      int saved_errno = errno;
+    if (fcntl(pipefd[0], F_SETFL, flags) < 0 ||
+        fcntl(pipefd[1], F_SETFL, flags) < 0) {
+        int saved_errno = errno;
 
-      close(pipefd[0]);
-      close(pipefd[1]);
+        close(pipefd[0]);
+        close(pipefd[1]);
 
-      errno = saved_errno;
-      return -1;
-   }
+        errno = saved_errno;
+        return -1;
+    }
 
-   return 0;
+    return 0;
 }
 #endif
 
 #ifndef HAVE_ACCEPT4
-int
-accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
+int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
-   int fd = accept(sock, addr, addrlen);
-   int newflags = 0;
+    int fd = accept(sock, addr, addrlen);
+    int newflags = 0;
 
-   if (fd < 0)
-       return fd;
+    if (fd < 0)
+        return fd;
 
-   if (flags & SOCK_NONBLOCK) {
-       newflags |= O_NONBLOCK;
-       flags &= ~SOCK_NONBLOCK;
-   }
-   if (flags & SOCK_CLOEXEC) {
-       newflags |= O_CLOEXEC;
-       flags &= ~SOCK_CLOEXEC;
-   }
-   if (flags) {
-       errno = -EINVAL;
-       return -1;
-   }
+    if (flags & SOCK_NONBLOCK) {
+        newflags |= O_NONBLOCK;
+        flags &= ~SOCK_NONBLOCK;
+    }
+    if (flags & SOCK_CLOEXEC) {
+        newflags |= O_CLOEXEC;
+        flags &= ~SOCK_CLOEXEC;
+    }
+    if (flags) {
+        errno = -EINVAL;
+        return -1;
+    }
 
-   if (fcntl(fd, F_SETFL, newflags) < 0) {
-       int saved_errno = errno;
+    if (fcntl(fd, F_SETFL, newflags) < 0) {
+        int saved_errno = errno;
 
-       close(fd);
+        close(fd);
 
-       errno = saved_errno;
-       return -1;
-   }
+        errno = saved_errno;
+        return -1;
+    }
 
-   return fd;
+    return fd;
 }
 #endif
 
 #ifndef HAVE_CLOCK_GETTIME
-int
-clock_gettime(clockid_t clk_id, struct timespec *ts)
+int clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
-   switch (clk_id) {
-   case CLOCK_MONOTONIC:
-   case CLOCK_MONOTONIC_COARSE:
-       /* FIXME: time() isn't monotonic */
-       ts->tv_sec = time(NULL);
-       ts->tv_nsec = 0;
-       return 0;
-   }
+    switch (clk_id) {
+    case CLOCK_MONOTONIC:
+    case CLOCK_MONOTONIC_COARSE:
+        /* FIXME: time() isn't monotonic */
+        ts->tv_sec = time(NULL);
+        ts->tv_nsec = 0;
+        return 0;
+    }
 
-   errno = EINVAL;
-   return -1;
+    errno = EINVAL;
+    return -1;
 }
 #endif
 
 #if !defined(HAVE_EPOLL) && defined(HAVE_KQUEUE)
-#include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
 #include "hash.h"
 
-int
-epoll_create1(int flags __attribute__((unused)))
-{
-    return kqueue();
-}
+int epoll_create1(int flags __attribute__((unused))) { return kqueue(); }
 
-int
-epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
     struct kevent ev;
 
@@ -193,8 +185,7 @@ epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
     return kevent(epfd, &ev, 1, NULL, 0, NULL);
 }
 
-static struct timespec *
-to_timespec(struct timespec *t, int ms)
+static struct timespec *to_timespec(struct timespec *t, int ms)
 {
     if (ms < 0)
         return NULL;
@@ -205,8 +196,7 @@ to_timespec(struct timespec *t, int ms)
     return t;
 }
 
-int
-epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
     struct epoll_event *ev = events;
     struct kevent evs[maxevents];
@@ -226,8 +216,8 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
-        uint32_t mask = (uint32_t)(uintptr_t)hash_find(coalesce,
-            (void*)(intptr_t)evs[i].ident);
+        uint32_t mask = (uint32_t)(uintptr_t)hash_find(
+            coalesce, (void *)(intptr_t)evs[i].ident);
 
         if (kev->flags & EV_ERROR)
             mask |= EPOLLERR;
@@ -239,13 +229,14 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         else if (kev->filter == EVFILT_WRITE && (uintptr_t)evs[i].udata != 1)
             mask |= EPOLLOUT;
 
-        hash_add(coalesce, (void*)(intptr_t)evs[i].ident, (void *)(uintptr_t)mask);
+        hash_add(coalesce, (void *)(intptr_t)evs[i].ident,
+                 (void *)(uintptr_t)mask);
     }
 
     for (i = 0; i < r; i++) {
         void *maskptr;
 
-        maskptr = hash_find(coalesce, (void*)(intptr_t)evs[i].ident);
+        maskptr = hash_find(coalesce, (void *)(intptr_t)evs[i].ident);
         if (maskptr) {
             struct kevent *kev = &evs[i];
 
@@ -267,8 +258,7 @@ epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 #include <sys/auxv.h>
 #endif
 
-int
-proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
     ssize_t path_len;
 
@@ -309,10 +299,9 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 #elif defined(__FreeBSD__)
 #include <sys/sysctl.h>
 
-int
-proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
-    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
     size_t path_len = buffersize;
 
     if (getpid() != pid) {
@@ -329,8 +318,7 @@ proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 #elif defined(HAVE_DLADDR) && !defined(__APPLE__)
 #include <dlfcn.h>
 
-int
-proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
+int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 {
     Dl_info info;
 
@@ -366,16 +354,11 @@ fallback:
 #if defined(__linux__)
 #include <sys/syscall.h>
 
-long
-gettid(void)
-{
-    return syscall(SYS_gettid);
-}
+long gettid(void) { return syscall(SYS_gettid); }
 #elif defined(__FreeBSD__)
 #include <sys/thr.h>
 
-long
-gettid(void)
+long gettid(void)
 {
     long ret;
 
@@ -386,17 +369,9 @@ gettid(void)
 #elif defined(__APPLE__) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
 #include <sys/syscall.h>
 
-long
-gettid(void)
-{
-    return syscall(SYS_thread_selfid);
-}
+long gettid(void) { return syscall(SYS_thread_selfid); }
 #else
-long
-gettid(void)
-{
-    return (long)pthread_self();
-}
+long gettid(void) { return (long)pthread_self(); }
 #endif
 
 #if defined(__APPLE__)
@@ -407,17 +382,15 @@ gettid(void)
 
 #include <sys/sysctl.h>
 
-static int
-get_current_proc_info(struct kinfo_proc *kp)
+static int get_current_proc_info(struct kinfo_proc *kp)
 {
-    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()};
     size_t len = sizeof(*kp);
 
     return sysctl(mib, N_ELEMENTS(mib), kp, &len, NULL, 0);
 }
 
-int
-getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
+int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
 {
     struct kinfo_proc kp;
 
@@ -432,20 +405,17 @@ getresuid(uid_t *ruid, uid_t *euid, uid_t *suid)
     return -1;
 }
 
-int
-setresuid(uid_t ruid, uid_t euid, uid_t suid __attribute__((unused)))
+int setresuid(uid_t ruid, uid_t euid, uid_t suid __attribute__((unused)))
 {
     return setreuid(ruid, euid);
 }
 
-int
-setresgid(gid_t rgid, gid_t egid, gid_t sgid __attribute__((unused)))
+int setresgid(gid_t rgid, gid_t egid, gid_t sgid __attribute__((unused)))
 {
     return setregid(rgid, egid);
 }
 
-int
-getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
+int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
 {
     struct kinfo_proc kp;
 
@@ -489,13 +459,10 @@ out:
 #endif
 
 #if !defined(HAVE_RAWMEMCHR)
-void *rawmemchr(const void *ptr, char c)
-{
-    return memchr(ptr, c, SIZE_MAX);
-}
+void *rawmemchr(const void *ptr, char c) { return memchr(ptr, c, SIZE_MAX); }
 #endif
 
-#if !defined (HAVE_REALLOCARRAY)
+#if !defined(HAVE_REALLOCARRAY)
 /*	$OpenBSD: reallocarray.c,v 1.2 2014/12/08 03:45:00 bcook Exp $	*/
 /*
  * Copyright (c) 2008 Otto Moerbeek <otto@drijf.net>
@@ -524,11 +491,12 @@ void *rawmemchr(const void *ptr, char c)
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
  */
-#define MUL_NO_OVERFLOW	((size_t)1 << (sizeof(size_t) * 4))
+#define MUL_NO_OVERFLOW ((size_t)1 << (sizeof(size_t) * 4))
 
 static inline bool umull_overflow(size_t a, size_t b, size_t *out)
 {
-    if ((a >= MUL_NO_OVERFLOW || b >= MUL_NO_OVERFLOW) && a > 0 && SIZE_MAX / a < b)
+    if ((a >= MUL_NO_OVERFLOW || b >= MUL_NO_OVERFLOW) && a > 0 &&
+        SIZE_MAX / a < b)
         return true;
     *out = a * b;
     return false;
