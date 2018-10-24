@@ -527,6 +527,18 @@ static char *dup_or_null(const char *s)
     return s ? strdup(s) : NULL;
 }
 
+static void lwan_fd_watch_init(struct lwan *l)
+{
+    l->epfd = epoll_create1(EPOLL_CLOEXEC);
+    if (l->epfd < 0)
+        lwan_status_critical_perror("epoll_create1");
+}
+
+static void lwan_fd_watch_shutdown(struct lwan *l)
+{
+    close(l->epfd);
+}
+
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
@@ -585,6 +597,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_thread_init(l);
     lwan_socket_init(l);
     lwan_http_authorize_init();
+    lwan_fd_watch_init(l);
 }
 
 void lwan_shutdown(struct lwan *l)
@@ -608,6 +621,7 @@ void lwan_shutdown(struct lwan *l)
     lwan_status_shutdown(l);
     lwan_http_authorize_shutdown();
     lwan_readahead_shutdown();
+    lwan_fd_watch_shutdown(l);
 }
 
 static ALWAYS_INLINE unsigned int schedule_client(struct lwan *l, int fd)
@@ -704,20 +718,10 @@ struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
                                     void *data)
 {
     struct lwan_fd_watch *watch;
-    bool found_watch = false;
 
-    LWAN_ARRAY_FOREACH (&l->fd_watches, watch) {
-        if (watch->coro == NULL) {
-            found_watch = true;
-            break;
-        }
-    }
-
-    if (!found_watch) {
-        watch = lwan_fd_watch_array_append(&l->fd_watches);
-        if (!watch)
-            return NULL;
-    }
+    watch = malloc(sizeof(*watch));
+    if (!watch)
+        return NULL;
 
     watch->coro = coro_new(&l->switcher, coro_fn, data);
     if (!watch->coro)
@@ -733,8 +737,7 @@ struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
     return watch;
 
 out:
-    watch->coro = NULL;
-    watch->fd = -1;
+    free(watch);
     return NULL;
 }
 
@@ -746,8 +749,7 @@ void lwan_unwatch_fd(struct lwan *l, struct lwan_fd_watch *w)
     }
 
     coro_free(w->coro);
-    w->coro = NULL;
-    w->fd = -1;
+    free(w);
 }
 
 void lwan_main_loop(struct lwan *l)
@@ -757,10 +759,6 @@ void lwan_main_loop(struct lwan *l)
 
     assert(main_socket == -1);
     main_socket = l->main_socket;
-
-    l->epfd = epoll_create1(EPOLL_CLOEXEC);
-    if (l->epfd < 0)
-        lwan_status_critical_perror("epoll_create1");
 
     if (signal(SIGINT, sigint_handler) == SIG_ERR)
         lwan_status_critical("Could not set signal handler");
@@ -777,24 +775,19 @@ void lwan_main_loop(struct lwan *l)
 
         if (UNLIKELY(n_evs < 0)) {
             if (main_socket < 0)
-                goto out;
+                break;
             if (errno == EINTR || errno == EAGAIN)
                 continue;
-            goto out;
+            break;
         }
 
         for (int i = 0; i < n_evs; i++) {
             if (!coro_resume_value(evs[i].data.ptr, (int)evs[i].events))
-                goto out;
+                break;
         }
     }
 
-out:
-    LWAN_ARRAY_FOREACH (&l->fd_watches, watch) {
-        lwan_unwatch_fd(l, watch);
-    }
-
-    close(l->epfd);
+    lwan_unwatch_fd(l, watch);
 }
 
 #ifdef CLOCK_MONOTONIC_COARSE
