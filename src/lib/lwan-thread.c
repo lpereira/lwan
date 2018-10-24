@@ -291,12 +291,17 @@ static void update_date_cache(struct lwan_thread *thread)
 }
 
 static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
-                                     struct lwan_thread *t,
                                      struct coro_switcher *switcher,
                                      struct death_queue *dq)
 {
+    struct lwan_thread *t = conn->thread;
+
     assert(!conn->coro);
     assert(!(conn->flags & CONN_IS_ALIVE));
+    assert(t);
+    assert((uintptr_t)t >= (uintptr_t)dq->lwan->thread.threads);
+    assert((uintptr_t)t <
+           (uintptr_t)(dq->lwan->thread.threads + dq->lwan->thread.count));
 
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
@@ -334,7 +339,7 @@ static void accept_nudge(int pipe_fd,
                                  .data.ptr = conn};
 
         if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
-            spawn_coro(conn, t, switcher, dq);
+            spawn_coro(conn, switcher, dq);
     }
 
     timeouts_add(t->wheel, &dq->timeout, 1000);
