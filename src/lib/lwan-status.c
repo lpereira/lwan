@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -31,12 +32,12 @@
 #include "lwan-private.h"
 
 enum lwan_status_type {
-    STATUS_INFO = 1<<0,
-    STATUS_WARNING = 1<<1,
-    STATUS_ERROR = 1<<2,
-    STATUS_PERROR = 1<<3,
-    STATUS_CRITICAL = 1<<4,
-    STATUS_DEBUG = 1<<5,
+    STATUS_INFO = 1 << 0,
+    STATUS_WARNING = 1 << 1,
+    STATUS_ERROR = 1 << 2,
+    STATUS_PERROR = 1 << 3,
+    STATUS_CRITICAL = 1 << 4,
+    STATUS_DEBUG = 1 << 5,
 };
 
 static volatile bool quiet = false;
@@ -45,25 +46,20 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static bool can_use_colors(void);
 
-void
-lwan_status_init(struct lwan *l)
+void lwan_status_init(struct lwan *l)
 {
 #ifdef NDEBUG
     quiet = l->config.quiet;
 #else
     quiet = false;
-    (void) l;
+    (void)l;
 #endif
     use_colors = can_use_colors();
 }
 
-void
-lwan_status_shutdown(struct lwan *l __attribute__((unused)))
-{
-}
+void lwan_status_shutdown(struct lwan *l __attribute__((unused))) {}
 
-static bool
-can_use_colors(void)
+static bool can_use_colors(void)
 {
     const char *term;
 
@@ -77,8 +73,8 @@ can_use_colors(void)
     return true;
 }
 
-static const char *
-get_color_start_for_type(enum lwan_status_type type, size_t *len_out)
+static const char *get_color_start_for_type(enum lwan_status_type type,
+                                            size_t *len_out)
 {
     const char *retval;
 
@@ -102,9 +98,9 @@ get_color_start_for_type(enum lwan_status_type type, size_t *len_out)
     return retval;
 }
 
-static const char *
-get_color_end_for_type(enum lwan_status_type type __attribute__((unused)),
-                        size_t *len_out)
+static const char *get_color_end_for_type(enum lwan_status_type type
+                                          __attribute__((unused)),
+                                          size_t *len_out)
 {
     static const char *retval = "\033[0m";
 
@@ -117,8 +113,7 @@ get_color_end_for_type(enum lwan_status_type type __attribute__((unused)),
     return retval;
 }
 
-static inline char *
-strerror_thunk_r(int error_number, char *buffer, size_t len)
+static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 {
 #ifdef __GLIBC__
     return strerror_r(error_number, buffer, len);
@@ -133,11 +128,16 @@ static void
 #ifdef NDEBUG
 status_out_msg(enum lwan_status_type type, const char *msg, size_t msg_len)
 #else
-status_out_msg(const char *file, const int line, const char *func,
-               enum lwan_status_type type, const char *msg, size_t msg_len)
+status_out_msg(const char *file,
+               const int line,
+               const char *func,
+               enum lwan_status_type type,
+               const char *msg,
+               size_t msg_len)
 #endif
 {
-    int error_number = errno; /* Make sure no library call below modifies errno */
+    int error_number =
+        errno; /* Make sure no library call below modifies errno */
     size_t start_len, end_len;
     const char *start_color = get_color_start_for_type(type, &start_len);
     const char *end_color = get_color_end_for_type(type, &end_len);
@@ -179,8 +179,12 @@ static void
 #ifdef NDEBUG
 status_out(enum lwan_status_type type, const char *fmt, va_list values)
 #else
-status_out(const char *file, const int line, const char *func,
-           enum lwan_status_type type, const char *fmt, va_list values)
+status_out(const char *file,
+           const int line,
+           const char *func,
+           enum lwan_status_type type,
+           const char *fmt,
+           va_list values)
 #endif
 {
     char output[2 * 80 /* 2 * ${COLUMNS} */];
@@ -197,32 +201,32 @@ status_out(const char *file, const int line, const char *func,
 }
 
 #ifdef NDEBUG
-#define IMPLEMENT_FUNCTION(fn_name_, type_)          \
-    void                                             \
-    lwan_status_##fn_name_(const char *fmt, ...)     \
-    {                                                \
-      if (!quiet) {                                  \
-         va_list values;                             \
-         va_start(values, fmt);                      \
-         status_out(type_, fmt, values);             \
-         va_end(values);                             \
-      }                                              \
-      if ((type_) & STATUS_CRITICAL) exit(1);        \
+#define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
+    void lwan_status_##fn_name_(const char *fmt, ...)                          \
+    {                                                                          \
+        if (!quiet) {                                                          \
+            va_list values;                                                    \
+            va_start(values, fmt);                                             \
+            status_out(type_, fmt, values);                                    \
+            va_end(values);                                                    \
+        }                                                                      \
+        if ((type_)&STATUS_CRITICAL)                                           \
+            exit(1);                                                           \
     }
 #else
-#define IMPLEMENT_FUNCTION(fn_name_, type_)                 \
-    void                                                    \
-    lwan_status_##fn_name_##_debug(const char *file,        \
-        const int line, const char *func,                   \
-        const char *fmt, ...)                               \
-    {                                                       \
-      if (!quiet) {                                         \
-         va_list values;                                    \
-         va_start(values, fmt);                             \
-         status_out(file, line, func, type_, fmt, values);  \
-         va_end(values);                                    \
-      }                                                     \
-      if ((type_) & STATUS_CRITICAL) abort();               \
+#define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
+    void lwan_status_##fn_name_##_debug(const char *file, const int line,      \
+                                        const char *func, const char *fmt,     \
+                                        ...)                                   \
+    {                                                                          \
+        if (!quiet) {                                                          \
+            va_list values;                                                    \
+            va_start(values, fmt);                                             \
+            status_out(file, line, func, type_, fmt, values);                  \
+            va_end(values);                                                    \
+        }                                                                      \
+        if ((type_)&STATUS_CRITICAL)                                           \
+            abort();                                                           \
     }
 
 IMPLEMENT_FUNCTION(debug, STATUS_DEBUG)
