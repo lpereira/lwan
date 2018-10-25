@@ -183,17 +183,16 @@ status_out(const char *file, const int line, const char *func,
            enum lwan_status_type type, const char *fmt, va_list values)
 #endif
 {
-    char *output;
+    char output[2 * 80 /* 2 * ${COLUMNS} */];
     int len;
 
-    len = vasprintf(&output, fmt, values);
+    len = vsnprintf(output, sizeof(output), fmt, values);
     if (len >= 0) {
 #ifdef NDEBUG
         status_out_msg(type, output, (size_t)len);
 #else
         status_out_msg(file, line, func, type, output, (size_t)len);
 #endif
-        free(output);
     }
 }
 
