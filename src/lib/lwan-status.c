@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
@@ -42,12 +43,13 @@ enum lwan_status_type {
 
 static volatile bool quiet = false;
 static bool use_colors;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_spinlock_t spinlock;
 
 static bool can_use_colors(void);
 
 void lwan_status_init(struct lwan *l)
 {
+    pthread_spin_init(&spinlock, PTHREAD_PROCESS_PRIVATE);
 #ifdef NDEBUG
     quiet = l->config.quiet;
 #else
@@ -124,6 +126,20 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 #endif
 }
 
+#define VEC_STR(s, l)                                                          \
+    (struct iovec) { .iov_base = (void *)s, .iov_len = (size_t)(l) }
+#define VEC_LITERAL(l) VEC_STR(l, sizeof(l) - 1)
+#define VEC_PRINTF(fmt, ...)                                                   \
+    ({                                                                         \
+        const size_t len = (size_t)(out - buffer) + sizeof(buffer);            \
+        int r = snprintf(out, len, fmt, __VA_ARGS__);                          \
+        if (UNLIKELY(r < 0 || r >= (int)len))                                  \
+            goto out;                                                          \
+        struct iovec v = VEC_STR(out, r);                                      \
+        out += r + 1;                                                          \
+        v;                                                                     \
+    })
+
 static void
 #ifdef NDEBUG
 status_out_msg(enum lwan_status_type type, const char *msg, size_t msg_len)
@@ -136,43 +152,51 @@ status_out_msg(const char *file,
                size_t msg_len)
 #endif
 {
-    int error_number =
-        errno; /* Make sure no library call below modifies errno */
     size_t start_len, end_len;
     const char *start_color = get_color_start_for_type(type, &start_len);
     const char *end_color = get_color_end_for_type(type, &end_len);
-
-    if (UNLIKELY(pthread_mutex_lock(&mutex) < 0))
-        perror("pthread_mutex_lock");
+    char buffer[3 * 80 /* 3 * ${COLUMNS} */];
+    int saved_errno = errno;
+    struct iovec vec[16];
+    char *out = buffer;
+    int last_vec = 0;
 
 #ifndef NDEBUG
+    char *base_name = basename(strdupa(file));
     if (use_colors) {
-        fprintf(stdout, "\033[32;1m%ld\033[0m", gettid());
-        fprintf(stdout, " \033[3m%s:%d\033[0m", basename(strdupa(file)), line);
-        fprintf(stdout, " \033[33m%s()\033[0m ", func);
+        vec[last_vec++] = VEC_PRINTF("\033[32;1m%ld\033[0m", gettid());
+        vec[last_vec++] = VEC_PRINTF(" \033[3m%s:%d\033[0m", base_name, line);
+        vec[last_vec++] = VEC_PRINTF(" \033[33m%s()\033[0m ", func);
     } else {
-        fprintf(stdout, "%ld: ", gettid());
-        fprintf(stdout, "%s:%d ", basename(strdupa(file)), line);
-        fprintf(stdout, "%s() ", func);
+        vec[last_vec++] = VEC_PRINTF("%ld: ", gettid());
+        vec[last_vec++] = VEC_PRINTF("%s:%d ", base_name, line);
+        vec[last_vec++] = VEC_PRINTF("%s() ", func);
     }
 #endif
 
-    fwrite(start_color, start_len, 1, stdout);
-    fwrite(msg, msg_len, 1, stdout);
+    vec[last_vec++] = VEC_STR(start_color, start_len);
+    vec[last_vec++] = VEC_STR(msg, msg_len);
 
     if (type & STATUS_PERROR) {
-        char buffer[512];
-        char *errmsg = strerror_thunk_r(error_number, buffer, sizeof(buffer) - 1);
+        char errbuf[64];
+        char *errmsg =
+            strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
 
-        fprintf(stdout, ": %s (error number %d)", errmsg, error_number);
+        vec[last_vec++] =
+            VEC_PRINTF(": %s (error number %d)", errmsg, saved_errno);
     }
 
-    fputc('.', stdout);
-    fwrite(end_color, end_len, 1, stdout);
-    fputc('\n', stdout);
+    vec[last_vec++] = VEC_LITERAL(".");
+    vec[last_vec++] = VEC_STR(end_color, end_len);
+    vec[last_vec++] = VEC_LITERAL("\n");
 
-    if (UNLIKELY(pthread_mutex_unlock(&mutex) < 0))
-        perror("pthread_mutex_unlock");
+out:
+    if (LIKELY(!pthread_spin_lock(&spinlock))) {
+        writev(fileno(stdout), vec, last_vec);
+        pthread_spin_unlock(&spinlock);
+    }
+
+    errno = saved_errno;
 }
 
 static void
