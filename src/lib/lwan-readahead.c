@@ -49,7 +49,7 @@ struct lwan_readahead_cmd {
     };
 } __attribute__((packed));
 
-static int readahead_pipe_fd[2];
+static int readahead_pipe_fd[2] = {-1, -1};
 static pthread_t readahead_self;
 
 void lwan_readahead_shutdown(void)
@@ -58,7 +58,8 @@ void lwan_readahead_shutdown(void)
         .cmd = SHUTDOWN,
     };
 
-    if (readahead_pipe_fd[0] == readahead_pipe_fd[1])
+    if (readahead_pipe_fd[0] == readahead_pipe_fd[1] &&
+        readahead_pipe_fd[0] == -1)
         return;
 
     lwan_status_debug("Shutting down readahead thread");
@@ -68,7 +69,7 @@ void lwan_readahead_shutdown(void)
 
     close(readahead_pipe_fd[0]);
     close(readahead_pipe_fd[1]);
-    readahead_pipe_fd[0] = readahead_pipe_fd[1] = 0;
+    readahead_pipe_fd[0] = readahead_pipe_fd[1] = -1;
 }
 
 void lwan_readahead_queue(int fd, off_t off, size_t size)
