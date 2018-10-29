@@ -27,10 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
+#include "lwan-vecbuf.h"
 
 enum lwan_status_type {
     STATUS_INFO = 1 << 0,
@@ -126,19 +126,7 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 #endif
 }
 
-#define VEC_STR(s, l)                                                          \
-    (struct iovec) { .iov_base = (void *)s, .iov_len = (size_t)(l) }
-#define VEC_LITERAL(l) VEC_STR(l, sizeof(l) - 1)
-#define VEC_PRINTF(fmt, ...)                                                   \
-    ({                                                                         \
-        const size_t len = (size_t)(out - buffer) + sizeof(buffer);            \
-        int r = snprintf(out, len, fmt, __VA_ARGS__);                          \
-        if (UNLIKELY(r < 0 || r >= (int)len))                                  \
-            goto out;                                                          \
-        struct iovec v = VEC_STR(out, r);                                      \
-        out += r + 1;                                                          \
-        v;                                                                     \
-    })
+DEFINE_VECBUF_TYPE(status_vb, 16, 80 * 3)
 
 static void
 #ifdef NDEBUG
@@ -155,44 +143,54 @@ status_out_msg(const char *file,
     size_t start_len, end_len;
     const char *start_color = get_color_start_for_type(type, &start_len);
     const char *end_color = get_color_end_for_type(type, &end_len);
-    char buffer[3 * 80 /* 3 * ${COLUMNS} */];
+    struct status_vb vb;
     int saved_errno = errno;
-    struct iovec vec[16];
-    char *out = buffer;
-    int last_vec = 0;
+
+    status_vb_init(&vb);
 
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
     if (use_colors) {
-        vec[last_vec++] = VEC_PRINTF("\033[32;1m%ld\033[0m", gettid());
-        vec[last_vec++] = VEC_PRINTF(" \033[3m%s:%d\033[0m", base_name, line);
-        vec[last_vec++] = VEC_PRINTF(" \033[33m%s()\033[0m ", func);
+        if (status_vb_append_printf(&vb, "\033[32;1m%ld\033[0m", gettid()) < 0)
+            goto out;
+        if (status_vb_append_printf(&vb, " \033[3m%s:%d\033[0m", base_name,
+                                    line) < 0)
+            goto out;
+        if (status_vb_append_printf(&vb, " \033[33m%s()\033[0m ", func) < 0)
+            goto out;
     } else {
-        vec[last_vec++] = VEC_PRINTF("%ld: ", gettid());
-        vec[last_vec++] = VEC_PRINTF("%s:%d ", base_name, line);
-        vec[last_vec++] = VEC_PRINTF("%s() ", func);
+        if (status_vb_append_printf(&vb, "%ld: ", gettid()) < 0)
+            goto out;
+        if (status_vb_append_printf(&vb, "%s:%d ", base_name, line) < 0)
+            goto out;
+        if (status_vb_append_printf(&vb, "%s() ", func) < 0)
+            goto out;
     }
 #endif
 
-    vec[last_vec++] = VEC_STR(start_color, start_len);
-    vec[last_vec++] = VEC_STR(msg, msg_len);
+    if (status_vb_append_str_len(&vb, start_color, start_len) < 0)
+        goto out;
+    if (status_vb_append_str_len(&vb, msg, msg_len) < 0)
+        goto out;
 
     if (type & STATUS_PERROR) {
         char errbuf[64];
         char *errmsg =
             strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
 
-        vec[last_vec++] =
-            VEC_PRINTF(": %s (error number %d)", errmsg, saved_errno);
+        if (status_vb_append_printf(&vb, ": %s (error number %d)", errmsg,
+                                    saved_errno) < 0)
+            goto out;
     }
 
-    vec[last_vec++] = VEC_LITERAL(".");
-    vec[last_vec++] = VEC_STR(end_color, end_len);
-    vec[last_vec++] = VEC_LITERAL("\n");
+    if (status_vb_append_str_len(&vb, end_color, end_len) < 0)
+        goto out;
+    if (status_vb_append_str_len(&vb, "\n", 1) < 0)
+        goto out;
 
 out:
     if (LIKELY(!pthread_spin_lock(&spinlock))) {
-        writev(fileno(stdout), vec, last_vec);
+        writev(fileno(stdout), vb.iovec, vb.n);
         pthread_spin_unlock(&spinlock);
     }
 
