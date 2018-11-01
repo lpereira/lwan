@@ -509,9 +509,9 @@ identify_http_path(struct lwan_request *request, char *buffer,
         (struct lwan_value){.value = value, .len = (size_t)(end - value)};     \
     })
 
-static char *parse_headers(struct lwan_request_parser_helper *helper,
-                           char *buffer,
-                           char *buffer_end)
+static bool parse_headers(struct lwan_request_parser_helper *helper,
+                          char *buffer,
+                          char *buffer_end)
 {
     char *header_start[64];
     size_t n_headers = 0;
@@ -521,17 +521,20 @@ static char *parse_headers(struct lwan_request_parser_helper *helper,
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
         if (!next_hdr)
-            break;
+            goto process;
 
         header_start[n_headers++] = next_chr;
         header_start[n_headers++] = next_hdr;
 
         if (next_hdr == next_chr)
-            break;
+            goto process;
 
         p = next_hdr + 2;
     }
 
+    return false; /* Header array isn't large enough */
+
+process:
     for (size_t i = 0; i < n_headers; i += 2) {
         char *p = header_start[i];
         char *end = header_start[i + 1];
@@ -575,14 +578,16 @@ static char *parse_headers(struct lwan_request_parser_helper *helper,
             break;
         default:
             STRING_SWITCH_SMALL(p) {
-            case MULTICHAR_CONSTANT_SMALL('\r','\n'):
-                helper->next_request = p + sizeof("\r\n") - 1;
-                return p;
+            case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
+                if (p[2] != '\0')
+                    helper->next_request = p + sizeof("\r\n") - 1;
+                goto out;
             }
         }
     }
 
-    return buffer;
+out:
+    return true;
 }
 
 #undef HEADER_RAW
@@ -1030,7 +1035,8 @@ parse_proxy_protocol(struct lwan_request *request, char *buffer)
 }
 
 static enum lwan_http_status
-parse_http_request(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+parse_http_request(struct lwan_request *request,
+                   struct lwan_request_parser_helper *helper)
 {
     char *buffer = helper->buffer->value;
 
@@ -1052,8 +1058,8 @@ parse_http_request(struct lwan_request *request, struct lwan_request_parser_help
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    buffer = parse_headers(helper, buffer, helper->buffer->value + helper->buffer->len);
-    if (UNLIKELY(!buffer))
+    if (UNLIKELY(!parse_headers(helper, buffer,
+                                helper->buffer->value + helper->buffer->len)))
         return HTTP_BAD_REQUEST;
 
     ssize_t decoded_len = url_decode(request->url.value);
