@@ -130,14 +130,14 @@ DEFINE_VECBUF_TYPE(status_vb, 16, 80 * 3)
 
 static void
 #ifdef NDEBUG
-status_out_msg(enum lwan_status_type type, const char *msg, size_t msg_len)
+status_out(enum lwan_status_type type, const char *fmt, va_list values)
 #else
-status_out_msg(const char *file,
-               const int line,
-               const char *func,
-               enum lwan_status_type type,
-               const char *msg,
-               size_t msg_len)
+status_out(const char *file,
+           const int line,
+           const char *func,
+           enum lwan_status_type type,
+           const char *fmt,
+           va_list values)
 #endif
 {
     size_t start_len, end_len;
@@ -170,7 +170,7 @@ status_out_msg(const char *file,
 
     if (status_vb_append_str_len(&vb, start_color, start_len) < 0)
         goto out;
-    if (status_vb_append_str_len(&vb, msg, msg_len) < 0)
+    if (status_vb_append_vprintf(&vb, fmt, values) < 0)
         goto out;
 
     if (type & STATUS_PERROR) {
@@ -195,31 +195,6 @@ out:
     }
 
     errno = saved_errno;
-}
-
-static void
-#ifdef NDEBUG
-status_out(enum lwan_status_type type, const char *fmt, va_list values)
-#else
-status_out(const char *file,
-           const int line,
-           const char *func,
-           enum lwan_status_type type,
-           const char *fmt,
-           va_list values)
-#endif
-{
-    char output[2 * 80 /* 2 * ${COLUMNS} */];
-    int len;
-
-    len = vsnprintf(output, sizeof(output), fmt, values);
-    if (len >= 0) {
-#ifdef NDEBUG
-        status_out_msg(type, output, (size_t)len);
-#else
-        status_out_msg(file, line, func, type, output, (size_t)len);
-#endif
-    }
 }
 
 #ifdef NDEBUG

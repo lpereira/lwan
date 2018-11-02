@@ -63,16 +63,11 @@
         return type_name_##_append_str_len(vb, s, strlen(s));                  \
     }                                                                          \
                                                                                \
-    static int type_name_##_append_printf(struct type_name_ *vb,               \
-                                          const char *fmt, ...)                \
+    static int type_name_##_append_vprintf(struct type_name_ *vb,              \
+                                           const char *fmt, va_list v)         \
     {                                                                          \
         size_t bl = type_name_##_buflen(vb);                                   \
-        va_list v;                                                             \
-        int len;                                                               \
-                                                                               \
-        va_start(v, fmt);                                                      \
-        len = vsnprintf(vb->ptr, bl, fmt, v);                                  \
-        va_end(v);                                                             \
+        int len = vsnprintf(vb->ptr, bl, fmt, v);                              \
                                                                                \
         if (UNLIKELY(len < 0))                                                 \
             return -errno;                                                     \
@@ -82,6 +77,19 @@
         int ret = type_name_##_append_str_len(vb, vb->ptr, (size_t)len);       \
         if (LIKELY(!ret))                                                      \
             vb->ptr += len; /* No +1 for \0: iov_len takes care of it */       \
+                                                                               \
+        return ret;                                                            \
+    }                                                                          \
+                                                                               \
+    static int type_name_##_append_printf(struct type_name_ *vb,               \
+                                          const char *fmt, ...)                \
+    {                                                                          \
+        va_list v;                                                             \
+        int ret;                                                               \
+                                                                               \
+        va_start(v, fmt);                                                      \
+        ret = type_name_##_append_vprintf(vb, fmt, v);                         \
+        va_end(v);                                                             \
                                                                                \
         return ret;                                                            \
     }
