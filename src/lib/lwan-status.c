@@ -30,7 +30,6 @@
 #include <unistd.h>
 
 #include "lwan-private.h"
-#include "lwan-vecbuf.h"
 
 enum lwan_status_type {
     STATUS_INFO = 0,
@@ -38,20 +37,18 @@ enum lwan_status_type {
     STATUS_ERROR = 2,
     STATUS_DEBUG = 3,
     STATUS_PERROR = 4,
-    /* [5..7] are unused so that CRITICAL can be ORed with previous items */
+    STATUS_NONE = 5,
+    /* [6,7] are unused so that CRITICAL can be ORed with previous items */
     STATUS_CRITICAL = 8,
-    STATUS_NONE = 9,
 };
 
 static volatile bool quiet = false;
 static bool use_colors;
-static pthread_spinlock_t spinlock;
 
 static bool can_use_colors(void);
 
 void lwan_status_init(struct lwan *l)
 {
-    pthread_spin_init(&spinlock, PTHREAD_PROCESS_PRIVATE);
 #ifdef NDEBUG
     quiet = l->config.quiet;
 #else
@@ -79,10 +76,7 @@ static bool can_use_colors(void)
 
 static int status_index(enum lwan_status_type type)
 {
-    if (!use_colors)
-        return STATUS_NONE;
-
-    return (int)type;
+    return use_colors ? (int)type : STATUS_NONE;
 }
 
 #define V(c) { .value = c, .len = sizeof(c) - 1 }
@@ -115,8 +109,6 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 #endif
 }
 
-DEFINE_VECBUF_TYPE(status_vb, 16, 80 * 3)
-
 static void
 #ifdef NDEBUG
 status_out(enum lwan_status_type type, const char *fmt, va_list values)
@@ -131,54 +123,35 @@ status_out(const char *file,
 {
     struct lwan_value start = start_color(type);
     struct lwan_value end = end_color(type);
-    struct status_vb vb;
     int saved_errno = errno;
 
-    status_vb_init(&vb);
+    flockfile(stdout);
 
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
     if (use_colors) {
-        if (status_vb_append_printf(&vb, "\033[32;1m%ld\033[0m", gettid()) < 0)
-            goto out;
-        if (status_vb_append_printf(&vb, " \033[3m%s:%d\033[0m", base_name,
-                                    line) < 0)
-            goto out;
-        if (status_vb_append_printf(&vb, " \033[33m%s()\033[0m ", func) < 0)
-            goto out;
+        printf("\033[32;1m%ld\033[0m", gettid());
+        printf(" \033[3m%s:%d\033[0m", base_name, line);
+        printf(" \033[33m%s()\033[0m ", func);
     } else {
-        if (status_vb_append_printf(&vb, "%ld: ", gettid()) < 0)
-            goto out;
-        if (status_vb_append_printf(&vb, "%s:%d ", base_name, line) < 0)
-            goto out;
-        if (status_vb_append_printf(&vb, "%s() ", func) < 0)
-            goto out;
+        printf("%ld %s:%d %s() ", gettid(), base_name, line, func);
     }
 #endif
 
-    if (status_vb_append_str_len(&vb, start.value, start.len) < 0)
-        goto out;
-    if (status_vb_append_vprintf(&vb, fmt, values) < 0)
-        goto out;
+    printf("%.*s", (int)start.len, start.value);
+    vprintf(fmt, values);
 
     if (type & STATUS_PERROR) {
         char errbuf[64];
         char *errmsg =
             strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
 
-        if (status_vb_append_printf(&vb, ": %s (error number %d)", errmsg,
-                                    saved_errno) < 0)
-            goto out;
+        printf(": %s (error number %d)", errmsg, saved_errno);
     }
 
-    if (status_vb_append_str_len(&vb, end.value, end.len) < 0)
-        goto out;
+    printf("%.*s", (int)end.len, end.value);
 
-out:
-    if (LIKELY(!pthread_spin_lock(&spinlock))) {
-        writev(fileno(stdout), vb.iovec, vb.n);
-        pthread_spin_unlock(&spinlock);
-    }
+    funlockfile(stdout);
 
     errno = saved_errno;
 }
