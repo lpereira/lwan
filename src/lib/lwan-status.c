@@ -33,12 +33,14 @@
 #include "lwan-vecbuf.h"
 
 enum lwan_status_type {
-    STATUS_INFO = 1 << 0,
-    STATUS_WARNING = 1 << 1,
-    STATUS_ERROR = 1 << 2,
-    STATUS_PERROR = 1 << 3,
-    STATUS_CRITICAL = 1 << 4,
-    STATUS_DEBUG = 1 << 5,
+    STATUS_INFO = 0,
+    STATUS_WARNING = 1,
+    STATUS_ERROR = 2,
+    STATUS_DEBUG = 3,
+    STATUS_PERROR = 4,
+    /* [5..7] are unused so that CRITICAL can be ORed with previous items */
+    STATUS_CRITICAL = 8,
+    STATUS_NONE = 9,
 };
 
 static volatile bool quiet = false;
@@ -75,45 +77,32 @@ static bool can_use_colors(void)
     return true;
 }
 
-static const char *get_color_start_for_type(enum lwan_status_type type,
-                                            size_t *len_out)
+static int status_index(enum lwan_status_type type)
 {
-    const char *retval;
-
     if (!use_colors)
-        retval = "";
-    else if (type & STATUS_INFO)
-        retval = "\033[36m";
-    else if (type & STATUS_WARNING)
-        retval = "\033[33m";
-    else if (type & STATUS_CRITICAL)
-        retval = "\033[31;1m";
-    else if (type & STATUS_DEBUG)
-        retval = "\033[37m";
-    else if (type & STATUS_PERROR)
-        retval = "\033[35m";
-    else
-        retval = "\033[32m";
+        return STATUS_NONE;
 
-    *len_out = strlen(retval);
-
-    return retval;
+    return (int)type;
 }
 
-static const char *get_color_end_for_type(enum lwan_status_type type
-                                          __attribute__((unused)),
-                                          size_t *len_out)
+#define V(c) { .value = c, .len = sizeof(c) - 1 }
+static const struct lwan_value start_colors[] = {
+    [STATUS_INFO] = V("\033[36m"),       [STATUS_WARNING] = V("\033[33m"),
+    [STATUS_DEBUG] = V("\033[37m"),      [STATUS_PERROR] = V("\033[35m"),
+    [STATUS_CRITICAL] = V("\033[31;1m"), [STATUS_NONE] = V(""),
+};
+
+static inline struct lwan_value start_color(enum lwan_status_type type)
 {
-    static const char *retval = "\033[0m";
-
-    if (!use_colors) {
-        *len_out = 0;
-        return "";
-    }
-
-    *len_out = strlen(retval);
-    return retval;
+    return start_colors[status_index(type)];
 }
+
+static inline struct lwan_value end_color(enum lwan_status_type type)
+{
+    return use_colors ? (struct lwan_value)V("\033[0m\n")
+                      : (struct lwan_value)V("\n");
+}
+#undef V
 
 static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 {
@@ -140,9 +129,8 @@ status_out(const char *file,
            va_list values)
 #endif
 {
-    size_t start_len, end_len;
-    const char *start_color = get_color_start_for_type(type, &start_len);
-    const char *end_color = get_color_end_for_type(type, &end_len);
+    struct lwan_value start = start_color(type);
+    struct lwan_value end = end_color(type);
     struct status_vb vb;
     int saved_errno = errno;
 
@@ -168,7 +156,7 @@ status_out(const char *file,
     }
 #endif
 
-    if (status_vb_append_str_len(&vb, start_color, start_len) < 0)
+    if (status_vb_append_str_len(&vb, start.value, start.len) < 0)
         goto out;
     if (status_vb_append_vprintf(&vb, fmt, values) < 0)
         goto out;
@@ -183,9 +171,7 @@ status_out(const char *file,
             goto out;
     }
 
-    if (status_vb_append_str_len(&vb, end_color, end_len) < 0)
-        goto out;
-    if (status_vb_append_str_len(&vb, "\n", 1) < 0)
+    if (status_vb_append_str_len(&vb, end.value, end.len) < 0)
         goto out;
 
 out:
