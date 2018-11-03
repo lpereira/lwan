@@ -91,7 +91,7 @@ static inline struct lwan_value start_color(enum lwan_status_type type)
     return start_colors[status_index(type)];
 }
 
-static inline struct lwan_value end_color(enum lwan_status_type type)
+static inline struct lwan_value end_color(void)
 {
     return use_colors ? (struct lwan_value)V("\033[0m\n")
                       : (struct lwan_value)V("\n");
@@ -122,7 +122,7 @@ status_out(const char *file,
 #endif
 {
     struct lwan_value start = start_color(type);
-    struct lwan_value end = end_color(type);
+    struct lwan_value end = end_color();
     int saved_errno = errno;
 
     flockfile(stdout);

@@ -594,7 +594,7 @@ out:
 #undef HEADER
 
 static void
-parse_if_modified_since(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+parse_if_modified_since(struct lwan_request_parser_helper *helper)
 {
     time_t parsed;
 
@@ -608,7 +608,7 @@ parse_if_modified_since(struct lwan_request *request, struct lwan_request_parser
 }
 
 static void
-parse_range(struct lwan_request *request, struct lwan_request_parser_helper *helper)
+parse_range(struct lwan_request_parser_helper *helper)
 {
     if (UNLIKELY(helper->range.raw.len <= (sizeof("bytes=") - 1)))
         return;
@@ -1092,10 +1092,10 @@ prepare_for_response(struct lwan_url_map *url_map,
         parse_query_string(request, helper);
 
     if (url_map->flags & HANDLER_PARSE_IF_MODIFIED_SINCE)
-        parse_if_modified_since(request, helper);
+        parse_if_modified_since(helper);
 
     if (url_map->flags & HANDLER_PARSE_RANGE)
-        parse_range(request, helper);
+        parse_range(helper);
 
     if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
         parse_accept_encoding(request, helper);
