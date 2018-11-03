@@ -598,52 +598,50 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 }
 
 static void
-siblings_to_schedtable(struct lwan *l, uint32_t input[], uint32_t output[])
+siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 {
     int *seen = alloca(l->n_cpus * sizeof(int));
-    int n_output = 0;
+    int n_schedtbl = 0;
 
     for (uint32_t i = 0; i < l->n_cpus; i++)
         seen[i] = -1;
 
     for (uint32_t i = 0; i < l->n_cpus; i++) {
-        if (seen[input[i]] < 0) {
-            seen[input[i]] = (int)i;
+        if (seen[siblings[i]] < 0) {
+            seen[siblings[i]] = (int)i;
         } else {
-            output[n_output++] = (uint32_t)seen[input[i]];
-            output[n_output++] = i;
+            schedtbl[n_schedtbl++] = (uint32_t)seen[siblings[i]];
+            schedtbl[n_schedtbl++] = i;
         }
     }
 
-    if (!n_output)
-        memcpy(output, seen, l->n_cpus * sizeof(int));
+    if (!n_schedtbl)
+        memcpy(schedtbl, seen, l->n_cpus * sizeof(int));
 }
 
-static void preschedule_by_topology(struct lwan *l,
-                                    uint32_t fd_to_thread[],
-                                    uint32_t n_threads)
+static void
+topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     uint32_t *siblings = alloca(l->n_cpus * sizeof(uint32_t));
 
     if (!read_cpu_topology(l, siblings)) {
         for (uint32_t i = 0; i < n_threads; i++)
-            fd_to_thread[i] = (i / 2) % l->thread.count;
+            schedtbl[i] = (i / 2) % l->thread.count;
     } else {
         uint32_t *affinity = alloca(l->n_cpus * sizeof(uint32_t));
 
-        siblings_to_schedtable(l, siblings, affinity);
+        siblings_to_schedtbl(l, siblings, affinity);
 
         for (uint32_t i = 0; i < n_threads; i++)
-            fd_to_thread[i] = affinity[i % l->n_cpus];
+            schedtbl[i] = affinity[i % l->n_cpus];
     }
 }
-#else
-static void preschedule_by_topology(struct lwan *l,
-                                    uint32_t fd_to_thread[],
-                                    uint32_t n_threads)
+#elif defined(__x86_64__)
+static void
+topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     for (uint32_t i = 0; i < n_threads; i++)
-        fd_to_thread[i] = (i / 2) % l->thread.count;
+        schedtbl[i] = (i / 2) % l->thread.count;
 }
 #endif
 
@@ -672,18 +670,19 @@ void lwan_thread_init(struct lwan *l)
      * fast path.
      *
      * Since struct lwan_connection is guaranteed to be 32-byte long, two of
-     * them can fill up a cache line.  This formula will group two connections
-     * per thread in a way that false-sharing is avoided.
+     * them can fill up a cache line.  Assume siblings share cache lines and
+     * use the CPU topology to group two connections per cache line in such
+     * a way that false sharing is avoided.
      */
     uint32_t n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
-    uint32_t *fd_to_thread = alloca(n_threads * sizeof(uint32_t));
+    uint32_t *schedtbl = alloca(n_threads * sizeof(uint32_t));
 
-    preschedule_by_topology(l, fd_to_thread, n_threads);
+    topology_to_schedtbl(l, schedtbl, n_threads);
 
     n_threads--; /* Transform count into mask for AND below */
 
     for (unsigned int i = 0; i < total_conns; i++)
-        l->conns[i].thread = &l->thread.threads[fd_to_thread[i & n_threads]];
+        l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[i % l->thread.count];
