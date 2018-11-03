@@ -431,6 +431,8 @@ struct lwan {
     struct coro_switcher switcher;
     int main_socket;
     int epfd;
+
+    unsigned short n_cpus;
 };
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);
