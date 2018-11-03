@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -636,12 +637,32 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
             schedtbl[i] = affinity[i % l->n_cpus];
     }
 }
+
+static void
+adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t mask)
+{
+    for (uint32_t i = 0; i < l->thread.count; i++) {
+        cpu_set_t set;
+
+        CPU_ZERO(&set);
+        CPU_SET(schedtbl[i & mask], &set);
+
+        if (pthread_setaffinity_np(l->thread.threads[i].self, sizeof(set),
+                                   &set))
+            lwan_status_warning("Could not set affinity for thread %d", i);
+    }
+}
 #elif defined(__x86_64__)
 static void
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     for (uint32_t i = 0; i < n_threads; i++)
         schedtbl[i] = (i / 2) % l->thread.count;
+}
+
+static void
+adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t n)
+{
 }
 #endif
 
@@ -680,7 +701,7 @@ void lwan_thread_init(struct lwan *l)
     topology_to_schedtbl(l, schedtbl, n_threads);
 
     n_threads--; /* Transform count into mask for AND below */
-
+    adjust_threads_affinity(l, schedtbl, n_threads);
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else
