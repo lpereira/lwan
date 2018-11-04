@@ -180,18 +180,26 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     }
 
     if (has_response_body[lwan_request_get_method(request)]) {
-        struct iovec response_vec[] = {
-            {
-                .iov_base = headers,
-                .iov_len = header_len,
-            },
-            {
-                .iov_base = lwan_strbuf_get_buffer(response->buffer),
-                .iov_len = lwan_strbuf_get_length(response->buffer),
-            },
-        };
+        char *resp_buf = lwan_strbuf_get_buffer(response->buffer);
+        size_t resp_len = lwan_strbuf_get_length(response->buffer);
 
-        lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
+        if (sizeof(headers) - header_len > resp_len) {
+            memcpy(headers + header_len, resp_buf, resp_len);
+            lwan_send(request, headers, header_len + resp_len, 0);
+        } else {
+            struct iovec response_vec[] = {
+                {
+                    .iov_base = headers,
+                    .iov_len = header_len,
+                },
+                {
+                    .iov_base = resp_buf,
+                    .iov_len = resp_len,
+                },
+            };
+
+            lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
+        }
     } else {
         lwan_send(request, headers, header_len, 0);
     }
