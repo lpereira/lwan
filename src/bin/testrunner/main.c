@@ -237,6 +237,23 @@ LWAN_HANDLER(sleep)
 
     return HTTP_OK;
 }
+
+LWAN_HANDLER(custom_header)
+{
+    const char *hdr = lwan_request_get_query_param(request, "hdr");
+
+    if (!hdr)
+        return HTTP_NOT_FOUND;
+
+    const char *val = lwan_request_get_header(request, hdr);
+    if (!val)
+        return HTTP_NOT_FOUND;
+
+    response->mime_type = "text/plain";
+    lwan_strbuf_printf(response->buffer, "Header value: '%s'", val);
+    return HTTP_OK;
+}
+
 int
 main()
 {

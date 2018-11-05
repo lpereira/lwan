@@ -521,6 +521,8 @@ const struct lwan_key_value_array *
 lwan_request_get_query_params(struct lwan_request *request);
 const struct lwan_key_value_array *
 lwan_request_get_post_params(struct lwan_request *request);
+const char *lwan_request_get_header(const struct lwan_request *request,
+                                    const char *header);
 
 #if defined(__cplusplus)
 }

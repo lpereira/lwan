@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -72,6 +73,9 @@ struct lwan_request_parser_helper {
     struct lwan_value post_data;	/* Request body for POST */
     struct lwan_value content_type;	/* Content-Type: for POST */
     struct lwan_value content_length;	/* Content-Length: */
+
+    char *header_start[64];		/* Headers: n: start, n+1: end */
+    size_t n_header_start;		/* len(header_start) */
 
     time_t error_when_time;		/* Time to abort request read */
     int error_when_n_packets;		/* Max. number of packets */
@@ -515,10 +519,11 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
                           char *buffer,
                           char *buffer_end)
 {
-    char *header_start[64];
+    char **header_start = helper->header_start;
     size_t n_headers = 0;
+    bool ret = false;
 
-    for (char *p = buffer + 1; n_headers < N_ELEMENTS(header_start);) {
+    for (char *p = buffer + 1; n_headers < N_ELEMENTS(helper->header_start);) {
         char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
@@ -534,9 +539,11 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         p = next_hdr + 2;
     }
 
-    return false; /* Header array isn't large enough */
+    goto out; /* Header array isn't large enough */
 
 process:
+    ret = true;
+
     for (size_t i = 0; i < n_headers; i += 2) {
         char *p = header_start[i];
         char *end = header_start[i + 1];
@@ -589,7 +596,8 @@ process:
     }
 
 out:
-    return true;
+    helper->n_header_start = n_headers;
+    return ret;
 }
 
 #undef HEADER_RAW
@@ -1258,6 +1266,32 @@ lwan_request_get_cookie(struct lwan_request *request, const char *key)
     }
 
     return value_lookup(&request->cookies, key);
+}
+
+const char *lwan_request_get_header(const struct lwan_request *request,
+                                    const char *header)
+{
+    char name[64];
+    int r;
+
+    r = snprintf(name, sizeof(name), "%s: ", header);
+    if (UNLIKELY(r < 0 || r >= (int)sizeof(name)))
+        return NULL;
+
+    for (size_t i = 0; i < request->helper->n_header_start; i += 2) {
+        const char *start = request->helper->header_start[i];
+        char *end = request->helper->header_start[i + 1];
+
+        if (UNLIKELY(end - start < r))
+            continue;
+
+        if (!strncasecmp(start, name, (size_t)r)) {
+            *end = '\0';
+            return start + r;
+        }
+    }
+
+    return NULL;
 }
 
 ALWAYS_INLINE int

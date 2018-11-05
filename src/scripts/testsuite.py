@@ -785,5 +785,20 @@ class TestSleep(LwanTest):
 
     self.assertTrue(1.450 < diff < 1.550)
 
+
+class TestRequest(LwanTest):
+  def test_custom_header_exists(self):
+    h = {'Marco': 'Polo'}
+    r = requests.get('http://127.0.0.1:8080/customhdr?hdr=Marco', headers = h)
+
+    self.assertEqual(r.text, "Header value: 'Polo'")
+
+  def test_custom_header_does_not_exist(self):
+    h = {'Marco': 'Polo'}
+    r = requests.get('http://127.0.0.1:8080/customhdr?hdr=Polo', headers = h)
+
+    self.assertEqual(r.status_code, 404)
+
+
 if __name__ == '__main__':
   unittest.main()
