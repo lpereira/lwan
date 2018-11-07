@@ -78,6 +78,8 @@ static void death_queue_remove(struct death_queue *dq,
     struct lwan_connection *next = death_queue_idx_to_node(dq, node->next);
     next->prev = node->prev;
     prev->next = node->next;
+
+    node->next = node->prev = -1;
 }
 
 static bool death_queue_empty(struct death_queue *dq)
