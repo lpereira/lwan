@@ -44,6 +44,8 @@
 #include "lwan-io-wrappers.h"
 #include "sha1.h"
 
+#define N_HEADER_START 64
+
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
@@ -79,7 +81,7 @@ struct lwan_request_parser_helper {
 
     struct lwan_value connection;	/* Connection: */
 
-    char *header_start[64];		/* Headers: n: start, n+1: end */
+    char **header_start;		/* Headers: n: start, n+1: end */
     size_t n_header_start;		/* len(header_start) */
 
     time_t error_when_time;		/* Time to abort request read */
@@ -522,7 +524,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     size_t n_headers = 0;
     bool ret = false;
 
-    for (char *p = buffer + 1; n_headers < N_ELEMENTS(helper->header_start);) {
+    for (char *p = buffer + 1; n_headers < N_HEADER_START;) {
         char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
@@ -1242,10 +1244,12 @@ char *lwan_process_request(struct lwan *l,
                            struct lwan_value *buffer,
                            char *next_request)
 {
+    char *header_start[N_HEADER_START];
     struct lwan_request_parser_helper helper = {
         .buffer = buffer,
         .next_request = next_request,
         .error_when_n_packets = calculate_n_packets(DEFAULT_BUFFER_SIZE),
+        .header_start = header_start,
     };
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
