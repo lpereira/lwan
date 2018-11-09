@@ -40,6 +40,7 @@ set(SOURCES
 	realpathat.c
 	sd-daemon.c
 	timeout.c
+	sha1.c
 )
 
 if (HAVE_LUA)
