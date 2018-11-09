@@ -32,3 +32,7 @@ void lwan_sendfile(struct lwan_request *request, int in_fd,
                     off_t offset, size_t count,
                     const char *header, size_t header_len);
 
+ssize_t lwan_recv(struct lwan_request *request,
+                  void *buf, size_t count, int flags);
+ssize_t lwan_readv(struct lwan_request *request,
+                   struct iovec *iov, int iov_count);
