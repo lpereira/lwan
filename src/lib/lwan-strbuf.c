@@ -249,6 +249,16 @@ bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size)
     return grow_buffer_if_needed(s, new_size + 1);
 }
 
+bool lwan_strbuf_grow_by(struct lwan_strbuf *s, size_t offset)
+{
+    size_t new_size;
+
+    if (__builtin_add_overflow(offset, s->used, &new_size))
+        return false;
+
+    return lwan_strbuf_grow_to(s, new_size);
+}
+
 void lwan_strbuf_reset(struct lwan_strbuf *s)
 {
     if (s->flags & STATIC) {
