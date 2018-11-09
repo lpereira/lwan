@@ -74,13 +74,14 @@ struct lwan_request_parser_helper {
     struct lwan_value content_type;	/* Content-Type: for POST */
     struct lwan_value content_length;	/* Content-Length: */
 
+    struct lwan_value connection;	/* Connection: */
+
     char *header_start[64];		/* Headers: n: start, n+1: end */
     size_t n_header_start;		/* len(header_start) */
 
     time_t error_when_time;		/* Time to abort request read */
     int error_when_n_packets;		/* Max. number of packets */
     int urls_rewritten;			/* Times URLs have been rewritten */
-    char connection;			/* k=keep-alive, c=close, u=upgrade */
 };
 
 struct proxy_header_v2 {
@@ -499,19 +500,14 @@ identify_http_path(struct lwan_request *request, char *buffer)
     return end_of_line + 1;
 }
 
-#define HEADER_RAW(hdr)                                                        \
+#define HEADER(hdr)                                                            \
     ({                                                                         \
         p += sizeof(hdr) - 1;                                                  \
         if (UNLIKELY(string_as_int16(p) !=                                     \
                      MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
             continue;                                                          \
         *end = '\0';                                                           \
-        p + sizeof(": ") - 1;                                                  \
-    })
-
-#define HEADER(hdr)                                                            \
-    ({                                                                         \
-        char *value = HEADER_RAW(hdr);                                         \
+        char *value = p + sizeof(": ") - 1;                                    \
         (struct lwan_value){.value = value, .len = (size_t)(end - value)};     \
     })
 
@@ -562,7 +558,7 @@ process:
             helper->authorization = HEADER("Authorization");
             break;
         case MULTICHAR_CONSTANT_L('C','o','n','n'):
-            helper->connection = *HEADER_RAW("Connection") | 0x20;
+            helper->connection = HEADER("Connection");
             break;
         case MULTICHAR_CONSTANT_L('C','o','n','t'):
             p += sizeof("Content") - 1;
@@ -688,17 +684,36 @@ ignore_leading_whitespace(char *buffer)
     return buffer;
 }
 
-static ALWAYS_INLINE void compute_keep_alive_flag(struct lwan_request *request)
+static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
-    bool is_keep_alive;
+    bool has_keep_alive = false;
+    bool has_close = false;
 
-    if (request->flags & REQUEST_IS_HTTP_1_0)
-        is_keep_alive = (helper->connection == 'k');
-    else
-        is_keep_alive = (helper->connection != 'c');
+    for (const char *p = helper->connection.value; *p; p++) {
+        STRING_SWITCH_L(p) {
+        case MULTICHAR_CONSTANT_L('k','e','e','p'):
+        case MULTICHAR_CONSTANT_L(' ', 'k','e','e'):
+            has_keep_alive = true;
+            break;
+        case MULTICHAR_CONSTANT_L('c','l','o','s'):
+        case MULTICHAR_CONSTANT_L(' ', 'c','l','o'):
+            has_close = true;
+            break;
+        case MULTICHAR_CONSTANT_L('u','p','g','r'):
+        case MULTICHAR_CONSTANT_L(' ', 'u','p','g'):
+            request->conn->flags |= CONN_IS_UPGRADE;
+            break;
+        }
 
-    if (is_keep_alive)
+        if (!(p = strchr(p, ',')))
+            break;
+    }
+
+    if (LIKELY(!(request->flags & REQUEST_IS_HTTP_1_0)))
+        has_keep_alive = !has_close;
+
+    if (has_keep_alive)
         request->conn->flags |= CONN_KEEP_ALIVE;
     else
         request->conn->flags &= ~CONN_KEEP_ALIVE;
@@ -1087,7 +1102,7 @@ parse_http_request(struct lwan_request *request)
         return HTTP_BAD_REQUEST;
     request->original_url.len = request->url.len = (size_t)decoded_len;
 
-    compute_keep_alive_flag(request);
+    parse_connection_header(request);
 
     return HTTP_OK;
 }
