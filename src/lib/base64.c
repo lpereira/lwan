@@ -115,9 +115,6 @@ base64_encode(const unsigned char *src, size_t len, size_t *out_len)
         line_len += 4;
     }
 
-    if (line_len)
-        *pos++ = '\n';
-
     *pos = '\0';
     if (out_len)
         *out_len = (size_t)(pos - out);
