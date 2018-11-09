@@ -45,6 +45,17 @@ static const unsigned char base64_decode_table[256] = {
     0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
     0x80, 0x80, 0x80, 0x80};
 
+bool
+base64_validate(const unsigned char *src, size_t len)
+{
+    for (size_t i = 0; i < len; i++) {
+        if (base64_decode_table[src[i]] == 0x80)
+            return false;
+    }
+
+    return true;
+}
+
 /**
  * base64_encode - Base64 encode
  * @src: Data to be encoded
