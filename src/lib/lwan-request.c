@@ -693,6 +693,9 @@ static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
     bool has_keep_alive = false;
     bool has_close = false;
 
+    if (!helper->connection.len)
+        goto out;
+
     for (const char *p = helper->connection.value; *p; p++) {
         STRING_SWITCH_L(p) {
         case MULTICHAR_CONSTANT_L('k','e','e','p'):
@@ -713,6 +716,7 @@ static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
             break;
     }
 
+out:
     if (LIKELY(!(request->flags & REQUEST_IS_HTTP_1_0)))
         has_keep_alive = !has_close;
 
