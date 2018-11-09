@@ -37,9 +37,12 @@
 
 #include "lwan-private.h"
 
+#include "base64.h"
+#include "list.h"
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
-#include "list.h"
+#include "lwan-io-wrappers.h"
+#include "sha1.h"
 
 enum lwan_read_finalizer {
     FINALIZER_DONE,
@@ -1105,6 +1108,67 @@ parse_http_request(struct lwan_request *request)
     parse_connection_header(request);
 
     return HTTP_OK;
+}
+
+enum lwan_http_status
+lwan_request_websocket_upgrade(struct lwan_request *request)
+{
+    static const unsigned char websocket_uuid[] =
+        "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    char header_buf[DEFAULT_HEADERS_SIZE];
+    size_t header_buf_len;
+    unsigned char digest[20];
+    sha1_context ctx;
+    char *encoded;
+
+    if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS))
+        return HTTP_INTERNAL_ERROR;
+
+    if (UNLIKELY(!(request->conn->flags & CONN_IS_UPGRADE)))
+        return HTTP_BAD_REQUEST;
+
+    const char *upgrade = lwan_request_get_header(request, "Upgrade");
+    if (UNLIKELY(!upgrade || !streq(upgrade, "websocket")))
+        return HTTP_BAD_REQUEST;
+
+    const char *sec_websocket_key =
+        lwan_request_get_header(request, "Sec-WebSocket-Key");
+    if (UNLIKELY(!sec_websocket_key))
+        return HTTP_BAD_REQUEST;
+    const size_t sec_websocket_key_len = strlen(sec_websocket_key);
+    if (UNLIKELY(!base64_validate((void *)sec_websocket_key, sec_websocket_key_len)))
+        return HTTP_BAD_REQUEST;
+
+    sha1_init(&ctx);
+    sha1_update(&ctx, (void *)sec_websocket_key, sec_websocket_key_len);
+    sha1_update(&ctx, websocket_uuid, sizeof(websocket_uuid) - 1);
+    sha1_finalize(&ctx, digest);
+
+    encoded = (char *)base64_encode(digest, sizeof(digest), NULL);
+    if (UNLIKELY(!encoded))
+        return HTTP_INTERNAL_ERROR;
+    coro_defer(request->conn->coro, CORO_DEFER(free), encoded);
+
+    request->flags |= RESPONSE_NO_CONTENT_LENGTH;
+    header_buf_len = lwan_prepare_response_header_full(
+        request, HTTP_SWITCHING_PROTOCOLS, header_buf, sizeof(header_buf),
+        (struct lwan_key_value[]){
+            /* Connection: Upgrade is implicit if conn->flags & CONN_IS_UPGRADE */
+            {.key = "Sec-WebSocket-Accept", .value = encoded},
+            {.key = "Upgrade", .value = "websocket"},
+            {},
+        });
+    if (LIKELY(header_buf_len)) {
+        request->conn->flags |= (CONN_FLIP_FLAGS | CONN_IS_WEBSOCKET);
+
+        lwan_send(request, header_buf, header_buf_len, 0);
+
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+
+        return HTTP_SWITCHING_PROTOCOLS;
+    }
+
+    return HTTP_INTERNAL_ERROR;
 }
 
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,

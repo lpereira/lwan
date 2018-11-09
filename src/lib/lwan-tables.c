@@ -115,6 +115,7 @@ static const struct {
     const char *status;
     const char *description;
 } status_table[] = {
+    STATUS(101, "Switching protcols", "Protocol is switching over from HTTP"),
     STATUS(200, "OK", "Success!"),
     STATUS(206, "Partial content", "Delivering part of requested resource."),
     STATUS(301, "Moved permanently", "This content has moved to another place."),

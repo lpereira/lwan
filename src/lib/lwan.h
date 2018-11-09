@@ -173,6 +173,7 @@ static ALWAYS_INLINE int16_t string_as_int16(const char *s)
 #endif
 
 enum lwan_http_status {
+    HTTP_SWITCHING_PROTOCOLS = 101,
     HTTP_OK = 200,
     HTTP_PARTIAL_CONTENT = 206,
     HTTP_MOVED_PERMANENTLY = 301,
@@ -256,6 +257,8 @@ enum lwan_connection_flags {
     CONN_SUSPENDED_BY_TIMER = 1 << 5,
     CONN_RESUMED_FROM_TIMER = 1 << 6,
     CONN_FLIP_FLAGS = 1 << 7,
+    CONN_IS_UPGRADE = 1 << 8,
+    CONN_IS_WEBSOCKET = 1 << 9,
 };
 
 enum lwan_connection_coro_yield {
@@ -469,6 +472,9 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
                                     enum lwan_http_status status);
 void lwan_response_send_event(struct lwan_request *request, const char *event);
 
+void lwan_response_websocket_write(struct lwan_request *request);
+bool lwan_response_websocket_read(struct lwan_request *request);
+
 const char *lwan_http_status_as_string(enum lwan_http_status status)
     __attribute__((const)) __attribute__((warn_unused_result));
 const char *lwan_http_status_as_string_with_code(enum lwan_http_status status)
@@ -523,6 +529,9 @@ const struct lwan_key_value_array *
 lwan_request_get_post_params(struct lwan_request *request);
 const char *lwan_request_get_header(const struct lwan_request *request,
                                     const char *header);
+
+enum lwan_http_status
+lwan_request_websocket_upgrade(struct lwan_request *request);
 
 #if defined(__cplusplus)
 }
