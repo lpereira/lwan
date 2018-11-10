@@ -73,7 +73,8 @@ LWAN_LUA_METHOD(set_response)
 }
 
 static int request_param_getter(lua_State *L,
-        const char *(*getter)(struct lwan_request *req, const char *key))
+                                const char *(*getter)(struct lwan_request *req,
+                                                      const char *key))
 {
     struct lwan_request *request = userdata_as_request(L);
     const char *key_str = lua_tostring(L, -1);
@@ -85,6 +86,11 @@ static int request_param_getter(lua_State *L,
         lua_pushstring(L, value);
 
     return 1;
+}
+
+LWAN_LUA_METHOD(header)
+{
+    return request_param_getter(L, lwan_request_get_header);
 }
 
 LWAN_LUA_METHOD(query_param)

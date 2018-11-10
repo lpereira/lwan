@@ -1322,8 +1322,8 @@ value_lookup(const struct lwan_key_value_array *array, const char *key)
     return NULL;
 }
 
-const char *
-lwan_request_get_query_param(struct lwan_request *request, const char *key)
+const char *lwan_request_get_query_param(struct lwan_request *request,
+                                         const char *key)
 {
     if (!(request->flags & REQUEST_PARSED_QUERY_STRING)) {
         parse_query_string(request);
@@ -1333,8 +1333,8 @@ lwan_request_get_query_param(struct lwan_request *request, const char *key)
     return value_lookup(&request->query_params, key);
 }
 
-const char *
-lwan_request_get_post_param(struct lwan_request *request, const char *key)
+const char *lwan_request_get_post_param(struct lwan_request *request,
+                                        const char *key)
 {
     if (!(request->flags & REQUEST_PARSED_POST_DATA)) {
         parse_post_data(request);
@@ -1344,8 +1344,8 @@ lwan_request_get_post_param(struct lwan_request *request, const char *key)
     return value_lookup(&request->post_params, key);
 }
 
-const char *
-lwan_request_get_cookie(struct lwan_request *request, const char *key)
+const char *lwan_request_get_cookie(struct lwan_request *request,
+                                    const char *key)
 {
     if (!(request->flags & REQUEST_PARSED_COOKIES)) {
         parse_cookies(request);
@@ -1355,7 +1355,7 @@ lwan_request_get_cookie(struct lwan_request *request, const char *key)
     return value_lookup(&request->cookies, key);
 }
 
-const char *lwan_request_get_header(const struct lwan_request *request,
+const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
 {
     char name[64];

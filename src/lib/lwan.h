@@ -461,6 +461,9 @@ const char *lwan_request_get_query_param(struct lwan_request *request,
 const char *lwan_request_get_cookie(struct lwan_request *request,
                                     const char *key)
     __attribute__((warn_unused_result, pure));
+const char *lwan_request_get_header(struct lwan_request *request,
+                                    const char *header)
+    __attribute__((warn_unused_result, pure));
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms);
 
@@ -527,8 +530,6 @@ const struct lwan_key_value_array *
 lwan_request_get_query_params(struct lwan_request *request);
 const struct lwan_key_value_array *
 lwan_request_get_post_params(struct lwan_request *request);
-const char *lwan_request_get_header(const struct lwan_request *request,
-                                    const char *header);
 
 enum lwan_http_status
 lwan_request_websocket_upgrade(struct lwan_request *request);
