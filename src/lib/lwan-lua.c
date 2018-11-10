@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -33,7 +34,9 @@ static const char *request_metatable_name = "Lwan.Request";
 
 static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L)
 {
-    return *((struct lwan_request **)luaL_checkudata(L, 1, request_metatable_name));
+    struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
+
+    return *r;
 }
 
 LWAN_LUA_METHOD(say)
@@ -42,7 +45,8 @@ LWAN_LUA_METHOD(say)
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
-    lwan_strbuf_set_static(request->response.buffer, response_str, response_str_len);
+    lwan_strbuf_set_static(request->response.buffer, response_str,
+                           response_str_len);
     lwan_response_send_chunk(request);
 
     return 0;
@@ -108,8 +112,11 @@ LWAN_LUA_METHOD(cookie)
     return request_param_getter(L, lwan_request_get_cookie);
 }
 
-static bool append_key_value(lua_State *L, struct coro *coro,
-    struct lwan_key_value_array *arr, char *key, int value_index)
+static bool append_key_value(lua_State *L,
+                             struct coro *coro,
+                             struct lwan_key_value_array *arr,
+                             char *key,
+                             int value_index)
 {
     struct lwan_key_value *kv;
 
@@ -166,7 +173,8 @@ LWAN_LUA_METHOD(set_headers)
             for (; lua_next(L, value_index) != 0; lua_pop(L, 1)) {
                 if (!lua_isstring(L, nested_value_index))
                     continue;
-                if (!append_key_value(L, coro, headers, key, nested_value_index))
+                if (!append_key_value(L, coro, headers, key,
+                                      nested_value_index))
                     goto out;
             }
         }
@@ -249,12 +257,13 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 
     if (script_file) {
         if (UNLIKELY(luaL_dofile(L, script_file) != 0)) {
-            lwan_status_error("Error opening Lua script %s: %s",
-                script_file, lua_tostring(L, -1));
+            lwan_status_error("Error opening Lua script %s: %s", script_file,
+                              lua_tostring(L, -1));
             goto close_lua_state;
         }
     } else if (UNLIKELY(luaL_dostring(L, script) != 0)) {
-        lwan_status_error("Error evaluating Lua script %s", lua_tostring(L, -1));
+        lwan_status_error("Error evaluating Lua script %s",
+                          lua_tostring(L, -1));
         goto close_lua_state;
     }
 
@@ -267,7 +276,8 @@ close_lua_state:
 
 void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request)
 {
-    struct lwan_request **userdata = lua_newuserdata(L, sizeof(struct lwan_request *));
+    struct lwan_request **userdata =
+        lua_newuserdata(L, sizeof(struct lwan_request *));
 
     *userdata = request;
     luaL_getmetatable(L, request_metatable_name);
