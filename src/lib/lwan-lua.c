@@ -112,6 +112,42 @@ LWAN_LUA_METHOD(cookie)
     return request_param_getter(L, lwan_request_get_cookie);
 }
 
+LWAN_LUA_METHOD(ws_upgrade)
+{
+    struct lwan_request *request = userdata_as_request(L);
+    enum lwan_http_status status = lwan_request_websocket_upgrade(request);
+
+    lua_pushinteger(L, status);
+
+    return 1;
+}
+
+LWAN_LUA_METHOD(ws_write)
+{
+    struct lwan_request *request = userdata_as_request(L);
+    size_t data_len;
+    const char *data_str = lua_tolstring(L, -1, &data_len);
+
+    lwan_strbuf_set_static(request->response.buffer, data_str, data_len);
+    lwan_response_websocket_write(request);
+
+    return 0;
+}
+
+LWAN_LUA_METHOD(ws_read)
+{
+    struct lwan_request *request = userdata_as_request(L);
+
+    if (lwan_response_websocket_read(request)) {
+        lua_pushlstring(L, lwan_strbuf_get_buffer(request->response.buffer),
+                        lwan_strbuf_get_length(request->response.buffer));
+    } else {
+        lua_pushnil(L);
+    }
+
+    return 1;
+}
+
 static bool append_key_value(lua_State *L,
                              struct coro *coro,
                              struct lwan_key_value_array *arr,
