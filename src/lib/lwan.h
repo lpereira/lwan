@@ -463,7 +463,7 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
     __attribute__((warn_unused_result, pure));
 const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
-    __attribute__((warn_unused_result, pure));
+    __attribute__((warn_unused_result));
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms);
 
