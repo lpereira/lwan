@@ -89,7 +89,7 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
 
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
+                request->conn->flags |= CONN_FLIP_FLAGS | CONN_MUST_READ;
                 /* fallthrough */
             case EINTR:
                 goto try_again;
@@ -168,7 +168,7 @@ lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
 
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
+                request->conn->flags |= CONN_FLIP_FLAGS | CONN_MUST_READ;
                 /* fallthrough */
             case EINTR:
                 goto try_again;
