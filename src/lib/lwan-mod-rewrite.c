@@ -101,13 +101,16 @@ static enum lwan_http_status module_rewrite_as(struct lwan_request *request,
     return HTTP_OK;
 }
 
-static bool append_str(struct str_builder *builder, const char *src,
-                       size_t src_len)
+static bool
+append_str(struct str_builder *builder, const char *src, size_t src_len)
 {
-    size_t total_size = builder->len + src_len;
+    size_t total_size;
     char *dest;
 
-    if (total_size >= builder->size)
+    if (UNLIKELY(__builtin_add_overflow(builder->len, src_len, &total_size)))
+        return false;
+
+    if (UNLIKELY(total_size >= builder->size))
         return false;
 
     dest = mempcpy(builder->buffer + builder->len, src, src_len);
