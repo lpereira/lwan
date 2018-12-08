@@ -131,9 +131,9 @@ int lwan_format_rfc_time(const time_t in, char out[static 30])
     weekday = weekdays + tm.tm_wday * 3;
     month = months + tm.tm_mon * 3;
 
-    r = snprintf(out, 30, "%.*s, %02d %.*s %04d %02d:%02d:%02d GMT",
-        3, weekday, tm.tm_mday, 3, month,
-        tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    r = snprintf(out, 30, "%.3s, %02d %.3s %04d %02d:%02d:%02d GMT", weekday,
+                 tm.tm_mday, month, tm.tm_year + 1900, tm.tm_hour, tm.tm_min,
+                 tm.tm_sec);
     if (UNLIKELY(r < 0 || r > 30))
         return -EINVAL;
 
