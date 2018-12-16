@@ -31,6 +31,7 @@
 #include "int-to-str.h"
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
+#include "portable_endian.h"
 
 static struct lwan_tpl *error_template = NULL;
 
