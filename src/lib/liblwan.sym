@@ -22,7 +22,6 @@ global:
 
     lwan_main_loop;
 
-    lwan_process_request;
     lwan_request_get_cookie;
     lwan_request_get_post_param;
     lwan_request_get_query_param;
@@ -62,6 +61,8 @@ global:
     lwan_writev;
     lwan_send;
     lwan_sendfile;
+    lwan_recv;
+    lwan_readv;
 
     lwan_strbuf_append_char;
     lwan_strbuf_append_printf;
