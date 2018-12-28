@@ -283,8 +283,11 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
 #else
 static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
 
-static off_t
-try_pread(struct coro *coro, int fd, void *buffer, size_t len, off_t offset)
+static off_t try_pread(struct lwan_request *request,
+                       int fd,
+                       void *buffer,
+                       size_t len,
+                       off_t offset)
 {
     ssize_t total_read = 0;
 
@@ -310,11 +313,11 @@ try_pread(struct coro *coro, int fd, void *buffer, size_t len, off_t offset)
         if ((size_t)total_read == len)
             return offset;
     try_again:
-        coro_yield(coro, CONN_CORO_MAY_RESUME);
+        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     }
 
 out:
-    coro_yield(coro, CONN_CORO_ABORT);
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
 
@@ -332,7 +335,7 @@ void lwan_sendfile(struct lwan_request *request,
     while (count) {
         size_t to_read = min_size(count, sizeof(buffer));
 
-        offset = try_pread(request->conn->coro, in_fd, buffer, to_read, offset);
+        offset = try_pread(request, in_fd, buffer, to_read, offset);
         lwan_send(request, buffer, to_read, 0);
         count -= to_read;
     }
