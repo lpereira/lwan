@@ -43,7 +43,8 @@ void lwan_strbuf_reset(struct lwan_strbuf *s);
 
 bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c);
 bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz);
-bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...);
+bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
 
 bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz);
 bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz);
