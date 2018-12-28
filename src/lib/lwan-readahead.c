@@ -104,8 +104,9 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
     lwan_set_thread_name("readahead");
 
     while (true) {
-        struct lwan_readahead_cmd cmd;
-        ssize_t n_bytes = read(readahead_pipe_fd[0], &cmd, sizeof(cmd));
+        struct lwan_readahead_cmd cmd[16];
+        ssize_t n_bytes = read(readahead_pipe_fd[0], cmd, sizeof(cmd));
+        ssize_t cmds;
 
         if (UNLIKELY(n_bytes < 0)) {
             if (errno == EAGAIN || errno == EINTR)
@@ -113,21 +114,27 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
             lwan_status_perror("Ignoring error while reading from pipe (%d)",
                                readahead_pipe_fd[0]);
             continue;
-        } else if (UNLIKELY(n_bytes != (ssize_t)sizeof(cmd))) {
-            lwan_status_debug(
-                "Ignoring incomplete command for readahead thread");
+        } else if (UNLIKELY(n_bytes % (ssize_t)sizeof(cmd[0]))) {
+            lwan_status_warning("Ignoring readahead packet read of %zd bytes",
+                                n_bytes);
             continue;
         }
 
-        switch (cmd.cmd) {
-        case READAHEAD:
-            readahead(cmd.readahead.fd, cmd.readahead.off, cmd.readahead.size);
-            break;
-        case MADVISE:
-            madvise(cmd.madvise.addr, cmd.madvise.length, MADV_WILLNEED);
-            break;
-        case SHUTDOWN:
-            goto out;
+        cmds = n_bytes / (ssize_t)sizeof(struct lwan_readahead_cmd);
+        for (ssize_t i = 0; i < cmds; i++) {
+            switch (cmd[i].cmd) {
+            case READAHEAD:
+                readahead(cmd[i].readahead.fd, cmd[i].readahead.off,
+                          cmd[i].readahead.size);
+                break;
+            case MADVISE:
+                madvise(cmd[i].madvise.addr, cmd[i].madvise.length,
+                        MADV_WILLNEED);
+                mlock(cmd[i].madvise.addr, cmd[i].madvise.length);
+                break;
+            case SHUTDOWN:
+                goto out;
+            }
         }
     }
 
