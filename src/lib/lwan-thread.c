@@ -34,101 +34,13 @@
 #endif
 
 #include "lwan-private.h"
+#include "lwan-dq.h"
 #include "list.h"
-
-struct death_queue {
-    const struct lwan *lwan;
-    struct lwan_connection *conns;
-    struct lwan_connection head;
-    struct timeout timeout;
-    unsigned time;
-    unsigned short keep_alive_timeout;
-};
 
 static const uint32_t events_by_write_flag[] = {
     EPOLLOUT | EPOLLRDHUP | EPOLLERR,
     EPOLLIN | EPOLLRDHUP | EPOLLERR
 };
-
-static inline int death_queue_node_to_idx(struct death_queue *dq,
-                                          struct lwan_connection *conn)
-{
-    return (conn == &dq->head) ? -1 : (int)(ptrdiff_t)(conn - dq->conns);
-}
-
-static inline struct lwan_connection *
-death_queue_idx_to_node(struct death_queue *dq, int idx)
-{
-    return (idx < 0) ? &dq->head : &dq->conns[idx];
-}
-
-static void death_queue_insert(struct death_queue *dq,
-                               struct lwan_connection *new_node)
-{
-    new_node->next = -1;
-    new_node->prev = dq->head.prev;
-    struct lwan_connection *prev = death_queue_idx_to_node(dq, dq->head.prev);
-    dq->head.prev = prev->next = death_queue_node_to_idx(dq, new_node);
-}
-
-static void death_queue_remove(struct death_queue *dq,
-                               struct lwan_connection *node)
-{
-    struct lwan_connection *prev = death_queue_idx_to_node(dq, node->prev);
-    struct lwan_connection *next = death_queue_idx_to_node(dq, node->next);
-    next->prev = node->prev;
-    prev->next = node->next;
-
-    node->next = node->prev = -1;
-}
-
-static bool death_queue_empty(struct death_queue *dq)
-{
-    return dq->head.next < 0;
-}
-
-static void death_queue_move_to_last(struct death_queue *dq,
-                                     struct lwan_connection *conn)
-{
-    /*
-     * If the connection isn't keep alive, it might have a coroutine that
-     * should be resumed.  If that's the case, schedule for this request to
-     * die according to the keep alive timeout.
-     *
-     * If it's not a keep alive connection, or the coroutine shouldn't be
-     * resumed -- then just mark it to be reaped right away.
-     */
-    conn->time_to_die = dq->time;
-    if (conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO))
-        conn->time_to_die += dq->keep_alive_timeout;
-
-    death_queue_remove(dq, conn);
-    death_queue_insert(dq, conn);
-}
-
-static void death_queue_init(struct death_queue *dq, const struct lwan *lwan)
-{
-    dq->lwan = lwan;
-    dq->conns = lwan->conns;
-    dq->time = 0;
-    dq->keep_alive_timeout = lwan->config.keep_alive_timeout;
-    dq->head.next = dq->head.prev = -1;
-    dq->timeout = (struct timeout) {};
-}
-
-static ALWAYS_INLINE void destroy_coro(struct death_queue *dq,
-                                       struct lwan_connection *conn)
-{
-    death_queue_remove(dq, conn);
-    if (LIKELY(conn->coro)) {
-        coro_free(conn->coro);
-        conn->coro = NULL;
-    }
-    if (conn->flags & CONN_IS_ALIVE) {
-        conn->flags &= ~CONN_IS_ALIVE;
-        close(lwan_connection_get_fd(dq->lwan, conn));
-    }
-}
 
 static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
 
@@ -247,40 +159,13 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
     /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
     if (UNLIKELY(yield_result < CONN_CORO_MAY_RESUME)) {
-        destroy_coro(dq, conn);
+        death_queue_kill(dq, conn);
         return;
     }
 
     if (conn->flags & update_mask) {
         conn->flags &= ~CONN_FLIP_FLAGS;
         update_epoll_flags(dq, conn, epoll_fd, yield_result);
-    }
-}
-
-static void death_queue_kill_waiting(struct death_queue *dq)
-{
-    dq->time++;
-
-    while (!death_queue_empty(dq)) {
-        struct lwan_connection *conn =
-            death_queue_idx_to_node(dq, dq->head.next);
-
-        if (conn->time_to_die > dq->time)
-            return;
-
-        destroy_coro(dq, conn);
-    }
-
-    /* Death queue exhausted: reset epoch */
-    dq->time = 0;
-}
-
-static void death_queue_kill_all(struct death_queue *dq)
-{
-    while (!death_queue_empty(dq)) {
-        struct lwan_connection *conn =
-            death_queue_idx_to_node(dq, dq->head.next);
-        destroy_coro(dq, conn);
     }
 }
 
@@ -466,7 +351,7 @@ static void *thread_io_loop(void *data)
             conn = event->data.ptr;
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                destroy_coro(&dq, conn);
+                death_queue_kill(&dq, conn);
                 continue;
             }
 
