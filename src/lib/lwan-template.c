@@ -1343,7 +1343,7 @@ static struct chunk *apply(struct lwan_tpl *tpl,
         [ACTION_APPLY_TPL] = &&action_apply_tpl,
         [ACTION_START_ITER] = &&action_start_iter,
         [ACTION_END_ITER] = &&action_end_iter,
-        [ACTION_LAST] = &&finalize
+        [ACTION_LAST] = &&finalize,
     };
     struct coro_switcher switcher;
     struct coro *coro = NULL;
@@ -1352,41 +1352,41 @@ static struct chunk *apply(struct lwan_tpl *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define DISPATCH()                                                             \
+#define DISPATCH_ACTION()                                                      \
     do {                                                                       \
         goto *dispatch_table[chunk->action];                                   \
     } while (false)
-#define NEXT_ACTION()                                                          \
+#define DISPATCH_NEXT_ACTION()                                                 \
     do {                                                                       \
         chunk++;                                                               \
-        DISPATCH();                                                            \
+        DISPATCH_ACTION();                                                     \
     } while (false)
 
-    DISPATCH();
+    DISPATCH_ACTION();
 
 action_append:
     lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(chunk->data),
                            lwan_strbuf_get_length(chunk->data));
-    NEXT_ACTION();
+    DISPATCH_NEXT_ACTION();
 
 action_append_char:
     lwan_strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
-    NEXT_ACTION();
+    DISPATCH_NEXT_ACTION();
 
 action_variable: {
         struct lwan_var_descriptor *descriptor = chunk->data;
         descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
-    NEXT_ACTION();
+    DISPATCH_NEXT_ACTION();
 
 action_variable_str_escape:
     lwan_append_str_escaped_to_strbuf(buf, (char *)variables +
-                                               (uintptr_t)chunk->data);
-    NEXT_ACTION();
+                                      (uintptr_t)chunk->data);
+    DISPATCH_NEXT_ACTION();
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
@@ -1399,26 +1399,26 @@ action_if_variable_not_empty: {
         } else {
             chunk = apply(tpl, chunk + 1, buf, variables, cd->chunk);
         }
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
 action_end_if_variable_not_empty:
     if (LIKELY(data == chunk))
         goto finalize;
-    NEXT_ACTION();
+    DISPATCH_NEXT_ACTION();
 
 action_apply_tpl: {
         struct lwan_strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
         lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(tmp),
                                lwan_strbuf_get_length(tmp));
         lwan_strbuf_free(tmp);
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
 action_start_iter:
     if (UNLIKELY(coro != NULL)) {
         lwan_status_warning("Coroutine is not NULL when starting iteration");
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
     struct chunk_descriptor *cd = chunk->data;
@@ -1438,12 +1438,12 @@ action_start_iter:
         coro = NULL;
 
         if (negate)
-            DISPATCH();
-        NEXT_ACTION();
+            DISPATCH_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
     chunk = apply(tpl, chunk + 1, buf, variables, chunk);
-    DISPATCH();
+    DISPATCH_ACTION();
 
 action_end_iter:
     if (data == chunk->data)
@@ -1452,23 +1452,23 @@ action_end_iter:
     if (UNLIKELY(!coro)) {
         if (!chunk->flags)
             lwan_status_warning("Coroutine is NULL when finishing iteration");
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
     if (!coro_resume_value(coro, 0)) {
         coro_free(coro);
         coro = NULL;
-        NEXT_ACTION();
+        DISPATCH_NEXT_ACTION();
     }
 
     chunk = apply(tpl, ((struct chunk *)chunk->data) + 1, buf, variables,
                   chunk->data);
-    DISPATCH();
+    DISPATCH_ACTION();
 
 finalize:
     return chunk;
-#undef DISPATCH
-#undef NEXT_ACTION
+#undef DISPATCH_ACTION
+#undef DISPATCH_NEXT_ACTION
 }
 
 bool lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl,
