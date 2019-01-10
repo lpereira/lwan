@@ -188,6 +188,8 @@ else ()
 		HAVE_READ_ONLY_GOT)
 	enable_c_flag_if_avail(-fno-plt CMAKE_C_FLAGS
 		HAVE_NO_PLT)
+	enable_c_flag_if_avail(-Wl,-z,noexecstack CMAKE_EXE_LINKER_FLAGS
+		HAVE_NOEXEC_STACK)
 endif ()
 
 
