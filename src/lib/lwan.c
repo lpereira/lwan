@@ -273,9 +273,6 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
     for (; map->prefix; map++) {
         struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
 
-        if (UNLIKELY(!copy))
-            continue;
-
         if (copy->module && copy->module->create) {
             copy->data = copy->module->create (map->prefix, copy->args);
             copy->flags = copy->module->flags;
