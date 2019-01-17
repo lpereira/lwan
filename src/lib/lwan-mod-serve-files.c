@@ -74,8 +74,7 @@ struct cache_funcs {
                  struct serve_files_priv *priv,
                  const char *full_path,
                  struct stat *st);
-    void (*free)(void *data);
-    size_t struct_size;
+    void (*free)(struct file_cache_entry *ce);
 };
 
 struct mmap_cache_data {
@@ -111,6 +110,13 @@ struct file_cache_entry {
 
     const char *mime_type;
     const struct cache_funcs *funcs;
+
+    union {
+        struct mmap_cache_data mmap_cache_data;
+        struct sendfile_cache_data sendfile_cache_data;
+        struct dir_list_cache_data dir_list_cache_data;
+        struct redir_cache_data redir_cache_data;
+    };
 };
 
 struct file_list {
@@ -137,7 +143,7 @@ static bool mmap_init(struct file_cache_entry *ce,
                       struct serve_files_priv *priv,
                       const char *full_path,
                       struct stat *st);
-static void mmap_free(void *data);
+static void mmap_free(struct file_cache_entry *ce);
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data);
 
@@ -145,7 +151,7 @@ static bool sendfile_init(struct file_cache_entry *ce,
                           struct serve_files_priv *priv,
                           const char *full_path,
                           struct stat *st);
-static void sendfile_free(void *data);
+static void sendfile_free(struct file_cache_entry *ce);
 static enum lwan_http_status sendfile_serve(struct lwan_request *request,
                                             void *data);
 
@@ -153,7 +159,7 @@ static bool dirlist_init(struct file_cache_entry *ce,
                          struct serve_files_priv *priv,
                          const char *full_path,
                          struct stat *st);
-static void dirlist_free(void *data);
+static void dirlist_free(struct file_cache_entry *ce);
 static enum lwan_http_status dirlist_serve(struct lwan_request *request,
                                            void *data);
 
@@ -161,7 +167,7 @@ static bool redir_init(struct file_cache_entry *ce,
                        struct serve_files_priv *priv,
                        const char *full_path,
                        struct stat *st);
-static void redir_free(void *data);
+static void redir_free(struct file_cache_entry *ce);
 static enum lwan_http_status redir_serve(struct lwan_request *request,
                                          void *data);
 
@@ -169,28 +175,24 @@ static const struct cache_funcs mmap_funcs = {
     .init = mmap_init,
     .free = mmap_free,
     .serve = mmap_serve,
-    .struct_size = sizeof(struct mmap_cache_data),
 };
 
 static const struct cache_funcs sendfile_funcs = {
     .init = sendfile_init,
     .free = sendfile_free,
     .serve = sendfile_serve,
-    .struct_size = sizeof(struct sendfile_cache_data),
 };
 
 static const struct cache_funcs dirlist_funcs = {
     .init = dirlist_init,
     .free = dirlist_free,
     .serve = dirlist_serve,
-    .struct_size = sizeof(struct dir_list_cache_data),
 };
 
 static const struct cache_funcs redir_funcs = {
     .init = redir_init,
     .free = redir_free,
     .serve = redir_serve,
-    .struct_size = sizeof(struct redir_cache_data),
 };
 
 static const struct lwan_var_descriptor file_list_desc[] = {
@@ -357,7 +359,7 @@ static bool mmap_init(struct file_cache_entry *ce,
                       const char *full_path,
                       struct stat *st)
 {
-    struct mmap_cache_data *md = (struct mmap_cache_data *)(ce + 1);
+    struct mmap_cache_data *md = &ce->mmap_cache_data;
     const char *path = full_path + priv->root_path_len;
     int file_fd;
     bool success;
@@ -457,7 +459,7 @@ static bool sendfile_init(struct file_cache_entry *ce,
                           const char *full_path,
                           struct stat *st)
 {
-    struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(ce + 1);
+    struct sendfile_cache_data *sd = &ce->sendfile_cache_data;
     const char *relpath = full_path + priv->root_path_len;
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
@@ -519,7 +521,7 @@ static bool dirlist_init(struct file_cache_entry *ce,
                          const char *full_path,
                          struct stat *st __attribute__((unused)))
 {
-    struct dir_list_cache_data *dd = (struct dir_list_cache_data *)(ce + 1);
+    struct dir_list_cache_data *dd = &ce->dir_list_cache_data;
     struct file_list vars = {.full_path = full_path,
                              .rel_path = get_rel_path(full_path, priv)};
 
@@ -542,7 +544,7 @@ static bool redir_init(struct file_cache_entry *ce,
                        const char *full_path,
                        struct stat *st __attribute__((unused)))
 {
-    struct redir_cache_data *rd = (struct redir_cache_data *)(ce + 1);
+    struct redir_cache_data *rd = &ce->redir_cache_data;
 
     if (asprintf(&rd->redir_to, "%s/", full_path + priv->root_path_len) < 0)
         return false;
@@ -630,7 +632,7 @@ create_cache_entry_from_funcs(struct serve_files_priv *priv,
 {
     struct file_cache_entry *fce;
 
-    fce = malloc(sizeof(*fce) + funcs->struct_size);
+    fce = malloc(sizeof(*fce));
     if (UNLIKELY(!fce))
         return NULL;
 
@@ -652,7 +654,7 @@ static void destroy_cache_entry(struct cache_entry *entry,
 {
     struct file_cache_entry *fce = (struct file_cache_entry *)entry;
 
-    fce->funcs->free(fce + 1);
+    fce->funcs->free(fce);
     free(fce);
 }
 
@@ -692,17 +694,17 @@ static struct cache_entry *create_cache_entry(const char *key, void *context)
     return (struct cache_entry *)fce;
 }
 
-static void mmap_free(void *data)
+static void mmap_free(struct file_cache_entry *fce)
 {
-    struct mmap_cache_data *md = data;
+    struct mmap_cache_data *md = &fce->mmap_cache_data;
 
     munmap(md->uncompressed.contents, md->uncompressed.size);
     free(md->compressed.contents);
 }
 
-static void sendfile_free(void *data)
+static void sendfile_free(struct file_cache_entry *fce)
 {
-    struct sendfile_cache_data *sd = data;
+    struct sendfile_cache_data *sd = &fce->sendfile_cache_data;
 
     if (sd->compressed.fd >= 0)
         close(sd->compressed.fd);
@@ -710,16 +712,16 @@ static void sendfile_free(void *data)
         close(sd->uncompressed.fd);
 }
 
-static void dirlist_free(void *data)
+static void dirlist_free(struct file_cache_entry *fce)
 {
-    struct dir_list_cache_data *dd = data;
+    struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
 
     lwan_strbuf_free(&dd->rendered);
 }
 
-static void redir_free(void *data)
+static void redir_free(struct file_cache_entry *fce)
 {
-    struct redir_cache_data *rd = data;
+    struct redir_cache_data *rd = &fce->redir_cache_data;
 
     free(rd->redir_to);
 }
@@ -922,7 +924,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
                                             void *data)
 {
     struct file_cache_entry *fce = data;
-    struct sendfile_cache_data *sd = (struct sendfile_cache_data *)(fce + 1);
+    struct sendfile_cache_data *sd = &fce->sendfile_cache_data;
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
     enum lwan_http_status return_status;
@@ -1024,7 +1026,7 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data)
 {
     struct file_cache_entry *fce = data;
-    struct mmap_cache_data *md = (struct mmap_cache_data *)(fce + 1);
+    struct mmap_cache_data *md = &fce->mmap_cache_data;
     void *contents;
     size_t size;
     const char *compressed;
@@ -1061,7 +1063,7 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
                                            void *data)
 {
     struct file_cache_entry *fce = data;
-    struct dir_list_cache_data *dd = (struct dir_list_cache_data *)(fce + 1);
+    struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
     const char *icon;
     const void *contents;
     size_t size;
@@ -1094,7 +1096,7 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
                                          void *data)
 {
     struct file_cache_entry *fce = data;
-    struct redir_cache_data *rd = (struct redir_cache_data *)(fce + 1);
+    struct redir_cache_data *rd = &fce->redir_cache_data;
 
     return serve_buffer_full(request, fce, "Location", rd->redir_to,
                              rd->redir_to, strlen(rd->redir_to),
