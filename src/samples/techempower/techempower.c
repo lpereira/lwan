@@ -56,16 +56,17 @@ static const char fortunes_template_str[] = "<!DOCTYPE html>" \
 
 static int fortune_list_generator(struct coro *coro, void *data);
 
+#undef TPL_STRUCT
+#define TPL_STRUCT struct Fortune
 static const struct lwan_var_descriptor fortune_item_desc[] = {
-    TPL_VAR_INT(struct Fortune, item.id),
-    TPL_VAR_STR_ESCAPE(struct Fortune, item.message),
-    TPL_VAR_SENTINEL
+    TPL_VAR_INT(item.id),
+    TPL_VAR_STR_ESCAPE(item.message),
+    TPL_VAR_SENTINEL,
 };
 
 static const struct lwan_var_descriptor fortune_desc[] = {
-    TPL_VAR_SEQUENCE(struct Fortune, item,
-                     fortune_list_generator, fortune_item_desc),
-    TPL_VAR_SENTINEL
+    TPL_VAR_SEQUENCE(item, fortune_list_generator, fortune_item_desc),
+    TPL_VAR_SENTINEL,
 };
 
 static struct db *database;

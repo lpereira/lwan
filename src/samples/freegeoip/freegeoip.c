@@ -58,19 +58,15 @@ struct template_mime {
     const char *mime_type;
 };
 
+#undef TPL_STRUCT
+#define TPL_STRUCT struct ip_info
 static const struct lwan_var_descriptor template_descriptor[] = {
-    TPL_VAR_STR(struct ip_info, country.code),
-    TPL_VAR_STR(struct ip_info, country.name),
-    TPL_VAR_STR(struct ip_info, region.code),
-    TPL_VAR_STR(struct ip_info, region.name),
-    TPL_VAR_STR(struct ip_info, city.name),
-    TPL_VAR_STR(struct ip_info, city.zip_code),
-    TPL_VAR_DOUBLE(struct ip_info, latitude),
-    TPL_VAR_DOUBLE(struct ip_info, longitude),
-    TPL_VAR_STR(struct ip_info, metro.code),
-    TPL_VAR_STR(struct ip_info, metro.area),
-    TPL_VAR_STR(struct ip_info, ip),
-    TPL_VAR_STR(struct ip_info, callback),
+    TPL_VAR_STR(country.code), TPL_VAR_STR(country.name),
+    TPL_VAR_STR(region.code),  TPL_VAR_STR(region.name),
+    TPL_VAR_STR(city.name),    TPL_VAR_STR(city.zip_code),
+    TPL_VAR_DOUBLE(latitude),  TPL_VAR_DOUBLE(longitude),
+    TPL_VAR_STR(metro.code),   TPL_VAR_STR(metro.area),
+    TPL_VAR_STR(ip),           TPL_VAR_STR(callback),
     TPL_VAR_SENTINEL,
 };
 

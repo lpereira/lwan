@@ -197,10 +197,12 @@ struct index {
     int width;
 };
 
+#undef TPL_STRUCT
+#define TPL_STRUCT struct index
 static const struct lwan_var_descriptor index_desc[] = {
-    TPL_VAR_STR_ESCAPE(struct index, title),
-    TPL_VAR_STR_ESCAPE(struct index, variant),
-    TPL_VAR_INT(struct index, width),
+    TPL_VAR_STR_ESCAPE(title),
+    TPL_VAR_STR_ESCAPE(variant),
+    TPL_VAR_INT(width),
     TPL_VAR_SENTINEL,
 };
 

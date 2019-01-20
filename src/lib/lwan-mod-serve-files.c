@@ -195,24 +195,26 @@ static const struct cache_funcs redir_funcs = {
     .serve = redir_serve,
 };
 
+#undef TPL_STRUCT
+#define TPL_STRUCT struct file_list
 static const struct lwan_var_descriptor file_list_desc[] = {
-    TPL_VAR_STR_ESCAPE(struct file_list, full_path),
-    TPL_VAR_STR_ESCAPE(struct file_list, rel_path),
-    TPL_VAR_SEQUENCE(struct file_list,
-                     file_list,
+    TPL_VAR_STR_ESCAPE(full_path),
+    TPL_VAR_STR_ESCAPE(rel_path),
+    TPL_VAR_SEQUENCE(file_list,
                      directory_list_generator,
                      ((const struct lwan_var_descriptor[]){
-                         TPL_VAR_STR(struct file_list, file_list.icon),
-                         TPL_VAR_STR(struct file_list, file_list.icon_alt),
-                         TPL_VAR_STR(struct file_list, file_list.name),
-                         TPL_VAR_STR(struct file_list, file_list.type),
-                         TPL_VAR_INT(struct file_list, file_list.size),
-                         TPL_VAR_STR(struct file_list, file_list.unit),
-                         TPL_VAR_STR(struct file_list, file_list.zebra_class),
+                         TPL_VAR_STR(file_list.icon),
+                         TPL_VAR_STR(file_list.icon_alt),
+                         TPL_VAR_STR(file_list.name),
+                         TPL_VAR_STR(file_list.type),
+                         TPL_VAR_INT(file_list.size),
+                         TPL_VAR_STR(file_list.unit),
+                         TPL_VAR_STR(file_list.zebra_class),
                          TPL_VAR_SENTINEL,
                      })),
     TPL_VAR_SENTINEL,
 };
+
 
 static const char *directory_list_tpl_str =
     "<html>\n"

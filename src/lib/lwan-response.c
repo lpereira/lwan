@@ -60,18 +60,18 @@ static const char *error_template_str = "<html><head><style>" \
     "</body>" \
     "</html>";
 
-struct error_template_t {
+struct error_template {
     const char *short_message;
     const char *long_message;
 };
 
 void lwan_response_init(struct lwan *l)
 {
-    static struct lwan_var_descriptor error_descriptor[] = {
-        TPL_VAR_STR(struct error_template_t, short_message),
-        TPL_VAR_STR(struct error_template_t, long_message),
-        TPL_VAR_SENTINEL,
-    };
+#undef TPL_STRUCT
+#define TPL_STRUCT struct error_template
+    static const struct lwan_var_descriptor error_descriptor[] = {
+        TPL_VAR_STR(short_message), TPL_VAR_STR(long_message),
+        TPL_VAR_SENTINEL};
 
     assert(!error_template);
 
@@ -84,6 +84,7 @@ void lwan_response_init(struct lwan *l)
         error_template = lwan_tpl_compile_string_full(
             error_template_str, error_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
+
     if (UNLIKELY(!error_template))
         lwan_status_critical_perror("lwan_tpl_compile_string");
 }
@@ -213,7 +214,7 @@ void lwan_default_response(struct lwan_request *request,
 
     lwan_tpl_apply_with_buffer(
         error_template, request->response.buffer,
-        &(struct error_template_t){
+        &(struct error_template){
             .short_message = lwan_http_status_as_string(status),
             .long_message = lwan_http_status_as_descriptive_string(status),
         });

@@ -37,36 +37,36 @@ struct lwan_var_descriptor {
     const struct lwan_var_descriptor *list_desc;
 };
 
-#define TPL_VAR_SIMPLE(struct_, var_, append_to_lwan_strbuf_, get_is_empty_) \
-    { \
-        .name = #var_, \
-        .offset = offsetof(struct_, var_), \
-        .append_to_strbuf = append_to_lwan_strbuf_, \
-        .get_is_empty = get_is_empty_ \
+#define TPL_VAR_SIMPLE(var_, append_to_lwan_strbuf_, get_is_empty_)            \
+    {                                                                          \
+        .name = #var_, .offset = offsetof(TPL_STRUCT, var_),                   \
+        .append_to_strbuf = append_to_lwan_strbuf_,                            \
+        .get_is_empty = get_is_empty_                                          \
     }
 
-#define TPL_VAR_SEQUENCE(struct_, var_, generator_, seqitem_desc_) \
-    { \
-        .name = #var_, \
-        .offset = offsetof(struct_, var_.generator), \
-        .generator = generator_, \
-        .list_desc = seqitem_desc_ \
+#define TPL_VAR_SEQUENCE(var_, generator_, seqitem_desc_)                      \
+    {                                                                          \
+        .name = #var_, .offset = offsetof(TPL_STRUCT, var_.generator),         \
+        .generator = generator_, .list_desc = seqitem_desc_                    \
     }
 
-#define TPL_VAR_INT(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, lwan_append_int_to_strbuf, lwan_tpl_int_is_empty)
+#define TPL_VAR_INT(var_)                                                      \
+    TPL_VAR_SIMPLE(var_, lwan_append_int_to_strbuf, lwan_tpl_int_is_empty)
 
-#define TPL_VAR_DOUBLE(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, lwan_append_double_to_strbuf, lwan_tpl_double_is_empty)
+#define TPL_VAR_DOUBLE(var_)                                                   \
+    TPL_VAR_SIMPLE(var_, lwan_append_double_to_strbuf, lwan_tpl_double_is_empty)
 
-#define TPL_VAR_STR(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, lwan_append_str_to_strbuf, lwan_tpl_str_is_empty)
+#define TPL_VAR_STR(var_)                                                      \
+    TPL_VAR_SIMPLE(var_, lwan_append_str_to_strbuf, lwan_tpl_str_is_empty)
 
-#define TPL_VAR_STR_ESCAPE(struct_, var_) \
-    TPL_VAR_SIMPLE(struct_, var_, lwan_append_str_escaped_to_strbuf, lwan_tpl_str_is_empty)
+#define TPL_VAR_STR_ESCAPE(var_)                                               \
+    TPL_VAR_SIMPLE(var_, lwan_append_str_escaped_to_strbuf,                    \
+                   lwan_tpl_str_is_empty)
 
-#define TPL_VAR_SENTINEL \
-    { NULL, 0, NULL, NULL, NULL, NULL }
+#define TPL_VAR_SENTINEL                                                       \
+    {                                                                          \
+        NULL, 0, NULL, NULL, NULL, NULL                                        \
+    }
 
 /*
  * These functions are not meant to be used directly. We do need a pointer to
