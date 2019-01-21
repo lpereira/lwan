@@ -12,10 +12,6 @@ A million repetitions of "a"
   34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
 */
 
-/* #define SHA1HANDSOFF * Copies data before messing with it. */
-
-#define SHA1HANDSOFF
-
 #include "sha1.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -58,17 +54,10 @@ static void sha1_transform(u_int32_t state[5], const unsigned char buffer[64])
         unsigned char c[64];
         u_int32_t l[16];
     } CHAR64LONG16;
-#ifdef SHA1HANDSOFF
     CHAR64LONG16 block[1]; /* use array to appear as a pointer */
+
     memcpy(block, buffer, 64);
-#else
-    /* The following had better never be used because it causes the
-     * pointer-to-const buffer to be cast into a pointer to non-const.
-     * And the result is written through.  I threw a "const" in, hoping
-     * this will cause a diagnostic.
-     */
-    CHAR64LONG16 *block = (const CHAR64LONG16 *)buffer;
-#endif
+
     /* Copy context->state[] to working vars */
     a = state[0];
     b = state[1];
@@ -96,6 +85,7 @@ static void sha1_transform(u_int32_t state[5], const unsigned char buffer[64])
     R1(d, e, a, b, c, 17);
     R1(c, d, e, a, b, 18);
     R1(b, c, d, e, a, 19);
+
     R2(a, b, c, d, e, 20);
     R2(e, a, b, c, d, 21);
     R2(d, e, a, b, c, 22);
@@ -170,10 +160,8 @@ static void sha1_transform(u_int32_t state[5], const unsigned char buffer[64])
                      : "g"(&a), "g"(&b), "g"(&c), "g"(&d), "g"(&e)
                      : "memory");
 
-#ifdef SHA1HANDSOFF
     memset(block, '\0', sizeof(block));
     __asm__ volatile("" : : "g"(block) : "memory");
-#endif
 }
 
 /* sha1_init - Initialize new context */
