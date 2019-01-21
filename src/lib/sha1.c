@@ -47,12 +47,12 @@ A million repetitions of "a"
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 
-static void sha1_transform(u_int32_t state[5], const unsigned char buffer[64])
+static void sha1_transform(uint32_t state[5], const unsigned char buffer[64])
 {
-    u_int32_t a, b, c, d, e;
+    uint32_t a, b, c, d, e;
     typedef union {
         unsigned char c[64];
-        u_int32_t l[16];
+        uint32_t l[16];
     } CHAR64LONG16;
     CHAR64LONG16 block[1]; /* use array to appear as a pointer */
 
