@@ -168,3 +168,40 @@ void sha1_finalize(sha1_context *context, unsigned char digest[20])
     memset(&finalcount, '\0', sizeof(finalcount));
     __asm__ volatile("" : : "g"(finalcount) : "memory");
 }
+
+
+#ifdef SHA1_TEST
+#include <unistd.h>
+
+int main(int argc, char *argv)
+{
+    sha1_context ctx;
+    unsigned char buffer[512];
+    unsigned char digest[20];
+
+    sha1_init(&ctx);
+
+    for (;;) {
+        ssize_t r = read(fileno(stdin), buffer, sizeof(buffer));
+
+        if (r < 0) {
+            perror("read");
+            return 1;
+        }
+
+        sha1_update(&ctx, buffer, (size_t)r);
+
+        if (r < (ssize_t)sizeof(buffer))
+            break;
+    }
+
+    sha1_finalize(&ctx, digest);
+
+    printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%"
+           "02x%02x%02x%02x\n",
+           digest[0], digest[1], digest[2], digest[3], digest[4], digest[5],
+           digest[6], digest[7], digest[8], digest[9], digest[10], digest[11],
+           digest[12], digest[13], digest[14], digest[15], digest[16],
+           digest[17], digest[18], digest[19]);
+}
+#endif
