@@ -618,10 +618,6 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
                             (int)lexeme->value.len, lexeme->value.value);
     }
 
-    if (!parser->chunks.base.elements)
-        return error_lexeme(lexeme,
-                            "No chunks were emitted but parsing end iter");
-
     LWAN_ARRAY_FOREACH_REVERSE(&parser->chunks, iter) {
         if (iter->action != ACTION_START_ITER)
             continue;
