@@ -684,7 +684,7 @@ parse_accept_encoding(struct lwan_request *request)
 static ALWAYS_INLINE char *
 ignore_leading_whitespace(char *buffer)
 {
-    while (*buffer && lwan_char_isspace(*buffer))
+    while (lwan_char_isspace(*buffer))
         buffer++;
     return buffer;
 }
