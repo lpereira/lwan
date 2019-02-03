@@ -207,15 +207,15 @@ static const uint8_t char_prop_tbl[256] = {
 
 ALWAYS_INLINE uint8_t lwan_char_isspace(char ch)
 {
-    return char_prop_tbl[(int)ch] & CHAR_PROP_SPACE;
+    return char_prop_tbl[(unsigned char)ch] & CHAR_PROP_SPACE;
 }
 
 ALWAYS_INLINE uint8_t lwan_char_isxdigit(char ch)
 {
-    return char_prop_tbl[(int)ch] & CHAR_PROP_HEX;
+    return char_prop_tbl[(unsigned char)ch] & CHAR_PROP_HEX;
 }
 
 ALWAYS_INLINE uint8_t lwan_char_isdigit(char ch)
 {
-    return char_prop_tbl[(int)ch] & CHAR_PROP_DIG;
+    return char_prop_tbl[(unsigned char)ch] & CHAR_PROP_DIG;
 }
