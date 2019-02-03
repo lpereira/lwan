@@ -35,6 +35,10 @@
 #define SOCK_NONBLOCK 00004000
 #endif
 
+#ifndef SOMAXCONN
+#define SOMAXCONN 128
+#endif
+
 #ifndef HAVE_ACCEPT4
 int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags);
 #endif

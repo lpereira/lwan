@@ -37,11 +37,7 @@
 
 static int get_backlog_size(void)
 {
-#ifdef SOMAXCONN
     int backlog = SOMAXCONN;
-#else
-    int backlog = 128;
-#endif
     FILE *somaxconn;
 
     somaxconn = fopen("/proc/sys/net/core/somaxconn", "re");
