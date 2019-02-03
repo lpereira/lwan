@@ -524,7 +524,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     size_t n_headers = 0;
     bool ret = false;
 
-    for (char *p = buffer + 1; n_headers < N_HEADER_START;) {
+    for (char *p = buffer + 1; n_headers < N_HEADER_START && buffer_end > p;) {
         char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
