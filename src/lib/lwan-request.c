@@ -471,12 +471,16 @@ identify_http_path(struct lwan_request *request, char *buffer)
     struct lwan_request_parser_helper *helper = request->helper;
     static const size_t minimal_request_line_len = sizeof("/ HTTP/1.0") - 1;
     char *space, *end_of_line;
+    ptrdiff_t end_len;
 
     if (UNLIKELY(*buffer != '/'))
         return NULL;
 
-    end_of_line = memchr(buffer, '\r',
-        (helper->buffer->len - (size_t)(buffer - helper->buffer->value)));
+    end_len = buffer - helper->buffer->value;
+    if (UNLIKELY((size_t)end_len >= helper->buffer->len))
+        return NULL;
+
+    end_of_line = memchr(buffer, '\r', helper->buffer->len - (size_t)end_len);
     if (UNLIKELY(!end_of_line))
         return NULL;
     if (UNLIKELY((size_t)(end_of_line - buffer) < minimal_request_line_len))
