@@ -702,6 +702,7 @@ Some talks mentioning Lwan:
 * [University seminar presentation](https://github.com/cu-data-engineering-s15/syllabus/blob/master/student_lectures/LWAN.pdf) about Lwan.
 * This [presentation about Sailor web framework](http://www.slideshare.net/EtieneDalcol/web-development-with-lua-bulgaria-web-summit) mentions Lwan.
 * [Performance and Scale @ Istio Service Mesh](https://www.youtube.com/watch?v=G4F5aRFEXnU), at around 7:30min, presented at KubeCon Europe 2018, mentions that Lwan is used on the server side for testing due to its performance and robustness.
+* [A multi-core Python HTTP server (much) faster than Go (spoiler: Cython)](https://www.youtube.com/watch?v=mZ9cXOH6NYk) presented at PyConFR 2018 by J.-P. Smets mentions [Nexedi's work](https://www.nexedi.com/NXD-Blog.Multicore.Python.HTTP.Server) on using Lwan as a backend for Python services with Cython.
 
 Not really third-party, but alas:
 
