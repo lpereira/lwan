@@ -1548,19 +1548,21 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     static struct coro *coro;
     static char *header_start[N_HEADER_START];
     static char data_copy[32767] = {0};
+
+    if (length > sizeof(data_copy))
+        length = sizeof(data_copy);
+    memcpy(data_copy, data, length);
+
+    if (!coro)
+        coro = coro_new(&switcher, useless_coro_for_fuzzing, NULL);
+
     struct lwan_request_parser_helper helper = {
         .buffer = &(struct lwan_value){.value = data_copy, .len = length},
         .header_start = header_start,
         .error_when_n_packets = 2,
     };
-
-    if (!coro)
-        coro = coro_new(&switcher, useless_coro_for_fuzzing, NULL);
-
     struct lwan_connection conn = {.coro = coro};
     struct lwan_request request = {.helper = &helper, .conn = &conn};
-
-    memcpy(data_copy, data, length);
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
