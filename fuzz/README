@@ -1,0 +1,3 @@
+This directory contains files that managed to crash something in Lwan
+after being fuzzed.  They have been committed alongside the fix, so
+it's easier to find them with git blame.
