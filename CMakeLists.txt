@@ -197,6 +197,20 @@ endif ()
 
 option(BUILD_FUZZER "Build fuzzers" OFF)
 if (BUILD_FUZZER)
+        set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+
+        set(SANITIZER_FLAG "-fsanitize=fuzzer-no-link")
+        set(CMAKE_REQUIRED_FLAGS "${SANITIZER_FLAG}")
+
+        check_c_compiler_flag(${SANITIZER_FLAG} SUPPORTS_FUZZER_SANITIZER)
+
+        set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+        unset(OLD_CMAKE_REQUIRED_FLAGS)
+
+	if (NOT SUPPORTS_FUZZER_SANITIZER)
+		message(FATAL_ERROR "Compiler does not support fuzzer sanitizer.  Please use Clang >= 6.0 instead.")
+	endif ()
+
 	set(CMAKE_BUILD_TYPE "Debug")
 	add_definitions("-DHAVE_FUZZER=1")
 else ()
