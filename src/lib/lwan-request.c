@@ -1533,3 +1533,55 @@ lwan_request_get_post_params(struct lwan_request *request)
 
     return &request->post_params;
 }
+
+#ifdef HAVE_FUZZER
+static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
+                                    void *data __attribute__((unused)))
+{
+    return 0;
+}
+
+__attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
+                                                  size_t length)
+{
+    static struct coro_switcher switcher;
+    static struct coro *coro;
+    static char *header_start[N_HEADER_START];
+    static char data_copy[32767] = {0};
+    struct lwan_request_parser_helper helper = {
+        .buffer = &(struct lwan_value){.value = data_copy, .len = length},
+        .header_start = header_start,
+        .error_when_n_packets = 2,
+    };
+
+    if (!coro)
+        coro = coro_new(&switcher, useless_coro_for_fuzzing, NULL);
+
+    struct lwan_connection conn = {.coro = coro};
+    struct lwan_request request = {.helper = &helper, .conn = &conn};
+
+    memcpy(data_copy, data, length);
+
+    /* If the finalizer isn't happy with a request, there's no point in
+     * going any further with parsing it. */
+    if (read_request_finalizer(length, sizeof(data_copy), &helper, 1) !=
+        FINALIZER_DONE)
+        return 0;
+
+    if (parse_http_request(&request) == HTTP_OK) {
+        size_t gen = coro_deferred_get_generation(coro);
+
+        /* Only pointers were set in helper struct; actually parse them here. */
+        parse_post_data(&request);
+        parse_query_string(&request);
+        parse_cookies(&request);
+        parse_accept_encoding(&request);
+        parse_if_modified_since(&helper);
+        parse_range(&helper);
+
+        coro_deferred_run(coro, gen);
+    }
+
+    return 0;
+}
+#endif

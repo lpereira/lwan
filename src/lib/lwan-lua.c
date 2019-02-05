@@ -245,6 +245,8 @@ LWAN_LUA_METHOD(sleep)
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
 static struct lwan_lua_method_array lua_methods;
 
+#ifndef HAVE_FUZZER
+/* Don't know why, but this crashes when using address sanitizer. */
 __attribute__((constructor)) static void register_lua_methods(void)
 {
     extern const struct lwan_lua_method_info SECTION_START(lwan_lua_method);
@@ -271,6 +273,7 @@ __attribute__((constructor)) static void register_lua_methods(void)
     r->name = NULL;
     r->func = NULL;
 }
+#endif
 
 const char *lwan_lua_state_last_error(lua_State *L)
 {

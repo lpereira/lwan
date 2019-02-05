@@ -53,6 +53,10 @@ set_target_properties(lwan-static PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
 
+if (BUILD_FUZZER)
+	set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,fuzzer")
+endif ()
+
 
 # Can't call add_library() without source files. Create an empty .c file,
 # then link with the static library just recently built.

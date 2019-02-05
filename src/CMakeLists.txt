@@ -1,3 +1,6 @@
 add_subdirectory(lib)
 add_subdirectory(bin)
-add_subdirectory(samples)
+
+if (NOT BUILD_FUZZER)
+	add_subdirectory(samples)
+endif ()
