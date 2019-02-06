@@ -7,7 +7,5 @@ add_executable(fuzz
 target_link_libraries(fuzz
 	${LWAN_COMMON_LIBS}
 	${ADDITIONAL_LIBRARIES}
-	-fsanitize=fuzzer,memory
-	-fprofile-instr-generate
-	-fcoverage-mapping 
+	-fsanitize=fuzzer,address
 )
