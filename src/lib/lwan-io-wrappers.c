@@ -230,6 +230,7 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
 
         chunk_size = min_size(to_be_written, 1<<19);
         lwan_readahead_queue(in_fd, offset, chunk_size);
+        request->conn->flags |= CONN_FLIP_FLAGS;
         coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
     }
 }
