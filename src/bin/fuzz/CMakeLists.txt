@@ -1,7 +1,7 @@
 include_directories(BEFORE ${CMAKE_BINARY_DIR})
 
 add_executable(fuzz
-	fuzz.c
+	fuzz.cc
 )
 
 target_link_libraries(fuzz

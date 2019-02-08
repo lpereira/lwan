@@ -70,7 +70,7 @@ static inline int streq(const char *a, const char *b)
 
 static inline void *mempmove(void *dest, const void *src, size_t len)
 {
-    unsigned char *d = memmove(dest, src, len);
+    char *d = (char *)memmove(dest, src, len);
     return d + len;
 }
 
