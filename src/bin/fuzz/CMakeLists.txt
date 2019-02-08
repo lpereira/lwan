@@ -7,5 +7,5 @@ add_executable(fuzz
 target_link_libraries(fuzz
 	${LWAN_COMMON_LIBS}
 	${ADDITIONAL_LIBRARIES}
-	-fsanitize=fuzzer,address
+	-fsanitize=fuzzer,${BUILD_FUZZER}
 )

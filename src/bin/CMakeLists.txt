@@ -1,6 +1,6 @@
 add_subdirectory(tools)
 
-if (BUILD_FUZZER)
+if (INSTRUMENT_FOR_FUZZING)
 	add_subdirectory(fuzz)
 else ()
 	if (NOT ${CMAKE_BUILD_TYPE} MATCHES "Coverage")

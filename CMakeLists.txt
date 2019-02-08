@@ -54,8 +54,6 @@ else ()
 	set(HAVE_LUA 1)
 endif ()
 
-option(BUILD_FUZZER "Build fuzzers" OFF)
-
 option(USE_ALTERNATIVE_MALLOC "Use alternative malloc implementations" OFF)
 if (USE_ALTERNATIVE_MALLOC)
 	find_library(TCMALLOC_LIBRARY NAMES tcmalloc_minimal tcmalloc)
@@ -195,8 +193,8 @@ else ()
 endif ()
 
 
-option(BUILD_FUZZER "Build fuzzers" OFF)
-if (BUILD_FUZZER)
+option(BUILD_FUZZER "Build fuzzers" "none")
+if (BUILD_FUZZER MATCHES "^(ON|address|memory|undefined)$")
         set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
 
         set(SANITIZER_FLAG "-fsanitize=fuzzer-no-link")
@@ -212,6 +210,12 @@ if (BUILD_FUZZER)
 	endif ()
 
 	set(CMAKE_BUILD_TYPE "Debug")
+	set(INSTRUMENT_FOR_FUZZING On)
+
+	if (BUILD_FUZZER MATCHES "^ON$")
+		set(BUILD_FUZZER "address")
+	endif ()
+
 	add_definitions("-DHAVE_FUZZER=1")
 else ()
 	if (${CMAKE_BUILD_TYPE} MATCHES "Rel")

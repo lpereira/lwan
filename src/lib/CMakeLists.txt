@@ -53,8 +53,9 @@ set_target_properties(lwan-static PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
 set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "-fPIC")
 
-if (BUILD_FUZZER)
-	set_target_properties(lwan-static PROPERTIES COMPILE_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address,fuzzer")
+if (INSTRUMENT_FOR_FUZZING)
+	set_target_properties(lwan-static PROPERTIES
+			      COMPILE_FLAGS "${CMAKE_C_FLAGS} -fsanitize=${BUILD_FUZZER},fuzzer")
 endif ()
 
 
