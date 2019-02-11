@@ -732,6 +732,39 @@ out:
         request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
+#if defined(INSTRUMENT_FOR_FUZZING)
+static void save_to_corpus_for_fuzzing(const struct lwan_value *buffer)
+{
+    char corpus_name[PATH_MAX];
+    int fd;
+
+try_another_file_name:
+    snprintf(corpus_name, sizeof(corpus_name), "corpus-request-%d", rand());
+
+    fd = open(corpus_name, O_WRONLY | O_CLOEXEC | O_CREAT, 0644);
+    if (fd < 0)
+        goto try_another_file_name;
+
+    for (ssize_t total_written = 0; total_written != (ssize_t)buffer->len; ) {
+        ssize_t r = write(fd, buffer->value, buffer->len);
+
+        if (r < 0) {
+            if (errno == EAGAIN || errno == EINTR)
+                continue;
+
+            close(fd);
+            unlink(corpus_name);
+            goto try_another_file_name;
+        }
+
+        total_written += r;
+    }
+
+    close(fd);
+    lwan_status_debug("Request saved to %s", corpus_name);
+}
+#endif
+
 static enum lwan_http_status
 read_from_request_socket(struct lwan_request *request,
                          struct lwan_value *buffer,
@@ -795,13 +828,22 @@ try_to_finalize:
         case FINALIZER_DONE:
             request->conn->flags &= ~CONN_MUST_READ;
             buffer->value[buffer->len] = '\0';
+
+#if defined(INSTRUMENT_FOR_FUZZING)
+            save_to_corpus_for_fuzzing(request);
+#endif
+
             return HTTP_OK;
+
         case FINALIZER_TRY_AGAIN:
             continue;
+
         case FINALIZER_YIELD_TRY_AGAIN:
             goto yield_and_read_again;
+
         case FINALIZER_ERROR_TOO_LARGE:
             return HTTP_TOO_LARGE;
+
         case FINALIZER_ERROR_TIMEOUT:
             return HTTP_TIMEOUT;
         }
