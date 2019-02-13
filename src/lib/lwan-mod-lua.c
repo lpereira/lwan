@@ -129,21 +129,27 @@ static bool get_handler_function(lua_State *L, struct lwan_request *request)
     size_t url_len;
     if (request->url.len) {
         url = strndupa(request->url.value, request->url.len);
+
         for (char *c = url; *c; c++) {
             if (*c == '/') {
                 *c = '\0';
                 break;
             }
+
             if (UNLIKELY(!isalnum(*c) && *c != '_'))
                 return false;
         }
+
         url_len = strlen(url);
     } else {
         url = "root";
         url_len = 4;
     }
 
-    if (UNLIKELY((handle_prefix.len + url_len + 1) > sizeof(handler_name)))
+    size_t total_len;
+    if (UNLIKELY(__builtin_add_overflow(handle_prefix.len, url_len, &total_len)))
+        return false;
+    if (UNLIKELY(total_len > sizeof(handler_name) - 1))
         return false;
 
     char *method_name = mempcpy(handler_name, handle_prefix.value, handle_prefix.len);
