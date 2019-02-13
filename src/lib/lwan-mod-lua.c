@@ -147,7 +147,7 @@ static bool get_handler_function(lua_State *L, struct lwan_request *request)
         return false;
 
     char *method_name = mempcpy(handler_name, handle_prefix.value, handle_prefix.len);
-    memcpy(method_name - 1, url, url_len + 1);
+    memcpy(method_name, url, url_len + 1);
 
     lua_getglobal(L, handler_name);
     return lua_isfunction(L, -1);
