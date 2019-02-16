@@ -102,15 +102,16 @@ static void unref_thread(void *data1, void *data2)
 static ALWAYS_INLINE struct lwan_value
 get_handle_prefix(struct lwan_request *request)
 {
+#define ENTRY(s) {.value = s, .len = sizeof(s) - 1}
+#define GEN_TABLE_ENTRY(upper, lower, mask, constant)                          \
+    [REQUEST_METHOD_##upper] = ENTRY("handle_" #lower "_"),
+
     static const struct lwan_value method2name[REQUEST_METHOD_MASK] = {
-#define M(s) {.value = s, .len = sizeof(s) - 1}
-        [REQUEST_METHOD_GET] = M("handle_get_"),
-        [REQUEST_METHOD_POST] = M("handle_post_"),
-        [REQUEST_METHOD_HEAD] = M("handle_head_"),
-        [REQUEST_METHOD_OPTIONS] = M("handle_options_"),
-        [REQUEST_METHOD_DELETE] = M("handle_delete_"),
-#undef M
+        FOR_EACH_REQUEST_METHOD(GEN_TABLE_ENTRY)
     };
+
+#undef GEN_TABLE_ENTRY
+#undef ENTRY
 
     return method2name[lwan_request_get_method(request)];
 }

@@ -276,26 +276,19 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     return buffer + size;
 }
 
-static ALWAYS_INLINE char *
-identify_http_method(struct lwan_request *request, char *buffer)
+static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
+                                                char *buffer)
 {
-    STRING_SWITCH(buffer) {
-    case MULTICHAR_CONSTANT('G','E','T',' '):
-        request->flags |= REQUEST_METHOD_GET;
-        return buffer + sizeof("GET ") - 1;
-    case MULTICHAR_CONSTANT('H','E','A','D'):
-        request->flags |= REQUEST_METHOD_HEAD;
-        return buffer + sizeof("HEAD ") - 1;
-    case MULTICHAR_CONSTANT('P','O','S','T'):
-        request->flags |= REQUEST_METHOD_POST;
-        return buffer + sizeof("POST ") - 1;
-    case MULTICHAR_CONSTANT('O','P','T','I'):
-        request->flags |= REQUEST_METHOD_OPTIONS;
-        return buffer + sizeof("OPTIONS ") - 1;
-    case MULTICHAR_CONSTANT('D','E','L','E'):
-        request->flags |= REQUEST_METHOD_DELETE;
-        return buffer + sizeof("DELETE ") - 1;
+#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
+    case constant:                                                             \
+        request->flags |= (mask);                                              \
+        return buffer + sizeof(#upper);
+
+    STRING_SWITCH (buffer) {
+        FOR_EACH_REQUEST_METHOD(GENERATE_CASE_STMT)
     }
+
+#undef GENERATE_CASE_STMT
 
     return NULL;
 }

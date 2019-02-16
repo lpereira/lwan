@@ -99,20 +99,17 @@ void lwan_response_shutdown(struct lwan *l __attribute__((unused)))
 #ifndef NDEBUG
 static const char *get_request_method(struct lwan_request *request)
 {
+#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
+    case REQUEST_METHOD_##upper:                                               \
+        return #upper;
+
     switch (lwan_request_get_method(request)) {
-    case REQUEST_METHOD_GET:
-        return "GET";
-    case REQUEST_METHOD_HEAD:
-        return "HEAD";
-    case REQUEST_METHOD_POST:
-        return "POST";
-    case REQUEST_METHOD_OPTIONS:
-        return "OPTIONS";
-    case REQUEST_METHOD_DELETE:
-        return "DELETE";
+        FOR_EACH_REQUEST_METHOD(GENERATE_CASE_STMT)
     default:
         return "UNKNOWN";
     }
+
+#undef GENERATE_CASE_STMT
 }
 
 static void log_request(struct lwan_request *request,

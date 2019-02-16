@@ -206,6 +206,16 @@ enum lwan_handler_flags {
     HANDLER_PARSE_MASK = HANDLER_HAS_POST_DATA,
 };
 
+#define FOR_EACH_REQUEST_METHOD(X)                                             \
+    X(GET, get, (1 << 0), MULTICHAR_CONSTANT('G', 'E', 'T', ' '))              \
+    X(POST, post, (1 << 1), MULTICHAR_CONSTANT('P', 'O', 'S', 'T'))            \
+    X(HEAD, head, (1 << 0 | 1 << 1), MULTICHAR_CONSTANT('H', 'E', 'A', 'D'))   \
+    X(OPTIONS, options, (1 << 2), MULTICHAR_CONSTANT('O', 'P', 'T', 'I'))      \
+    X(DELETE, delete, (1 << 2 | 1 << 0), MULTICHAR_CONSTANT('D', 'E', 'L', 'E'))
+
+#define SELECT_MASK(upper, lower, mask, constant) mask |
+#define GENERATE_ENUM_ITEM(upper, lower, mask, constant) REQUEST_METHOD_##upper = mask,
+
 enum lwan_request_flags {
     REQUEST_ALL_FLAGS = -1,
 
@@ -218,12 +228,8 @@ enum lwan_request_flags {
     REQUEST_ALLOW_PROXY_REQS_SHIFT = 6,
     REQUEST_ALLOW_CORS_SHIFT = 8,
 
-    REQUEST_METHOD_MASK = 1 << 0 | 1 << 1 | 1 << 2,
-    REQUEST_METHOD_GET = 1 << 0,
-    REQUEST_METHOD_POST = 1 << 1,
-    REQUEST_METHOD_HEAD = 1 << 0 | 1 << 1,
-    REQUEST_METHOD_OPTIONS = 1 << 2,
-    REQUEST_METHOD_DELETE = 1 << 2 | 1 << 0,
+    REQUEST_METHOD_MASK = FOR_EACH_REQUEST_METHOD(SELECT_MASK) 0,
+    FOR_EACH_REQUEST_METHOD(GENERATE_ENUM_ITEM)
 
     REQUEST_ACCEPT_DEFLATE = 1 << 3,
     REQUEST_ACCEPT_GZIP = 1 << 4,
@@ -246,6 +252,15 @@ enum lwan_request_flags {
     REQUEST_PARSED_COOKIES = 1 << 18,
     REQUEST_PARSED_ACCEPT_ENCODING = 1 << 19,
 };
+
+#undef SELECT_MASK
+#undef GENERATE_ENUM_ITEM
+
+/* Ideally, this would check if all items in enum lwan_request_flags,
+ * when bitwise-or'd together, would not have have any bit set that
+ * is also set in REQUEST_METHOD_MASK. */
+static_assert(REQUEST_ACCEPT_DEFLATE > REQUEST_METHOD_MASK,
+              "enough bits to store request methods");
 
 enum lwan_connection_flags {
     CONN_MASK = -1,
