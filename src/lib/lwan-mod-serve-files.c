@@ -42,9 +42,14 @@
 
 #include "auto-index-icons.h"
 
-static const char *compression_none = NULL;
-static const char *compression_gzip = "gzip";
-static const char *compression_deflate = "deflate";
+static const struct lwan_key_value deflate_compression_hdr = {
+    .key = "Content-Encoding",
+    .value = "deflate",
+};
+static const struct lwan_key_value gzip_compression_hdr = {
+    .key = "Content-Encoding",
+    .value = "gzip",
+};
 
 static const int open_mode = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
 
@@ -856,8 +861,7 @@ static size_t prepare_headers(struct lwan_request *request,
                               enum lwan_http_status return_status,
                               struct file_cache_entry *fce,
                               size_t size,
-                              const char *additional_header_name,
-                              const char *additional_header_value,
+                              const struct lwan_key_value *user_hdr,
                               char *header_buf,
                               size_t header_buf_size)
 {
@@ -874,12 +878,8 @@ static size_t prepare_headers(struct lwan_request *request,
         },
     };
 
-    if (additional_header_name && additional_header_value) {
-        additional_headers[2] = (struct lwan_key_value){
-            .key = (char *)additional_header_name,
-            .value = (char *)additional_header_value,
-        };
-    }
+    if (user_hdr)
+        additional_headers[2] = *user_hdr;
 
     return lwan_prepare_response_header_full(request, return_status, header_buf,
                                              header_buf_size,
@@ -925,13 +925,13 @@ compute_range(struct lwan_request *request, off_t *from, off_t *to, off_t size)
 static enum lwan_http_status sendfile_serve(struct lwan_request *request,
                                             void *data)
 {
+    const struct lwan_key_value *compression_hdr;
     struct file_cache_entry *fce = data;
     struct sendfile_cache_data *sd = &fce->sendfile_cache_data;
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
     enum lwan_http_status return_status;
     off_t from, to;
-    const char *compressed;
     size_t size;
     int fd;
 
@@ -939,7 +939,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         from = 0;
         to = (off_t)sd->compressed.size;
 
-        compressed = compression_gzip;
+        compression_hdr = &gzip_compression_hdr;
         fd = sd->compressed.fd;
         size = sd->compressed.size;
 
@@ -950,7 +950,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         if (UNLIKELY(return_status == HTTP_RANGE_UNSATISFIABLE))
             return HTTP_RANGE_UNSATISFIABLE;
 
-        compressed = compression_none;
+        compression_hdr = NULL;
         fd = sd->uncompressed.fd;
         size = (size_t)(to - from);
     }
@@ -967,8 +967,8 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     }
 
     header_len =
-        prepare_headers(request, return_status, fce, size, "Content-Encoding",
-                        compressed, headers, DEFAULT_HEADERS_SIZE);
+        prepare_headers(request, return_status, fce, size, compression_hdr,
+                        headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
@@ -982,20 +982,18 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
 }
 
 static enum lwan_http_status
-serve_buffer_full(struct lwan_request *request,
-                  struct file_cache_entry *fce,
-                  const char *additional_header_name,
-                  const char *additional_header_val,
-                  const void *contents,
-                  size_t size,
-                  enum lwan_http_status return_status)
+serve_buffer(struct lwan_request *request,
+             struct file_cache_entry *fce,
+             const struct lwan_key_value *additional_hdr,
+             const void *contents,
+             size_t size,
+             enum lwan_http_status return_status)
 {
     char headers[DEFAULT_BUFFER_SIZE];
     size_t header_len;
 
     header_len = prepare_headers(request, return_status, fce, size,
-                                 additional_header_name, additional_header_val,
-                                 headers, DEFAULT_HEADERS_SIZE);
+                                 additional_hdr, headers, DEFAULT_HEADERS_SIZE);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
@@ -1013,31 +1011,20 @@ serve_buffer_full(struct lwan_request *request,
     return return_status;
 }
 
-static enum lwan_http_status serve_buffer(struct lwan_request *request,
-                                          struct file_cache_entry *fce,
-                                          const char *compression_type,
-                                          const void *contents,
-                                          size_t size,
-                                          enum lwan_http_status return_status)
-{
-    return serve_buffer_full(request, fce, "Content-Encoding", compression_type,
-                             contents, size, return_status);
-}
-
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data)
 {
+    const struct lwan_key_value *compressed;
     struct file_cache_entry *fce = data;
     struct mmap_cache_data *md = &fce->mmap_cache_data;
     void *contents;
     size_t size;
-    const char *compressed;
     enum lwan_http_status status;
 
     if (md->compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
         contents = md->compressed.contents;
         size = md->compressed.size;
-        compressed = compression_deflate;
+        compressed = &deflate_compression_hdr;
 
         status = HTTP_OK;
     } else {
@@ -1050,7 +1037,7 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
         case HTTP_OK:
             contents = (char *)md->uncompressed.contents + from;
             size = (size_t)(to - from);
-            compressed = compression_none;
+            compressed = NULL;
             break;
 
         default:
@@ -1090,8 +1077,7 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
         return HTTP_NOT_FOUND;
     }
 
-    return serve_buffer(request, fce, compression_none, contents, size,
-                        HTTP_OK);
+    return serve_buffer(request, fce, NULL, contents, size, HTTP_OK);
 }
 
 static enum lwan_http_status redir_serve(struct lwan_request *request,
@@ -1099,10 +1085,11 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
 {
     struct file_cache_entry *fce = data;
     struct redir_cache_data *rd = &fce->redir_cache_data;
+    const struct lwan_key_value headers = {.key = "Location",
+                                           .value = rd->redir_to};
 
-    return serve_buffer_full(request, fce, "Location", rd->redir_to,
-                             rd->redir_to, strlen(rd->redir_to),
-                             HTTP_MOVED_PERMANENTLY);
+    return serve_buffer(request, fce, &headers, rd->redir_to,
+                        strlen(rd->redir_to), HTTP_MOVED_PERMANENTLY);
 }
 
 static enum lwan_http_status
