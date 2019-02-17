@@ -160,10 +160,14 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     log_request(request, status);
 
-    if (request->flags & RESPONSE_STREAM && response->stream.callback) {
-        status = response->stream.callback(request, response->stream.data);
+    if (request->flags & RESPONSE_STREAM) {
+        if (LIKELY(response->stream.callback)) {
+            status = response->stream.callback(request, response->stream.data);
+        } else {
+            status = HTTP_INTERNAL_ERROR;
+        }
 
-        if (status >= HTTP_BAD_REQUEST) { /* Status < 400: success */
+        if (status >= HTTP_CLASS__CLIENT_ERROR) {
             request->flags &= ~RESPONSE_STREAM;
             lwan_default_response(request, status);
         }
