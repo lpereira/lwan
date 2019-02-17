@@ -997,6 +997,10 @@ serve_buffer(struct lwan_request *request,
 
     if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD) {
         lwan_send(request, headers, header_len, 0);
+    } else if (sizeof(headers) - header_len > size) {
+        /* See comment in lwan_response() about avoiding writev(). */
+        memcpy(headers + header_len, contents, size);
+        lwan_send(request, headers, header_len + size, 0);
     } else {
         struct iovec response_vec[] = {
             {.iov_base = headers, .iov_len = header_len},
