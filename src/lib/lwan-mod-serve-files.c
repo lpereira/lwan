@@ -862,8 +862,7 @@ static size_t prepare_headers(struct lwan_request *request,
                               struct file_cache_entry *fce,
                               size_t size,
                               const struct lwan_key_value *user_hdr,
-                              char *header_buf,
-                              size_t header_buf_size)
+                              char header_buf[static DEFAULT_HEADERS_SIZE])
 {
     char content_length[INT_TO_STR_BUFFER_SIZE];
     size_t discard;
@@ -882,7 +881,7 @@ static size_t prepare_headers(struct lwan_request *request,
         additional_headers[2] = *user_hdr;
 
     return lwan_prepare_response_header_full(request, return_status, header_buf,
-                                             header_buf_size,
+                                             DEFAULT_HEADERS_SIZE,
                                              additional_headers);
 }
 
@@ -928,7 +927,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     const struct lwan_key_value *compression_hdr;
     struct file_cache_entry *fce = data;
     struct sendfile_cache_data *sd = &fce->sendfile_cache_data;
-    char headers[DEFAULT_BUFFER_SIZE];
+    char headers[DEFAULT_HEADERS_SIZE];
     size_t header_len;
     enum lwan_http_status return_status;
     off_t from, to;
@@ -966,9 +965,8 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         }
     }
 
-    header_len =
-        prepare_headers(request, return_status, fce, size, compression_hdr,
-                        headers, DEFAULT_HEADERS_SIZE);
+    header_len = prepare_headers(request, return_status, fce, size,
+                                 compression_hdr, headers);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
@@ -989,11 +987,11 @@ serve_buffer(struct lwan_request *request,
              size_t size,
              enum lwan_http_status return_status)
 {
-    char headers[DEFAULT_BUFFER_SIZE];
+    char headers[DEFAULT_HEADERS_SIZE];
     size_t header_len;
 
     header_len = prepare_headers(request, return_status, fce, size,
-                                 additional_hdr, headers, DEFAULT_HEADERS_SIZE);
+                                 additional_hdr, headers);
     if (UNLIKELY(!header_len))
         return HTTP_INTERNAL_ERROR;
 
