@@ -39,28 +39,24 @@
 
 #include "ringbuffer.h"
 
+#define FOR_EACH_LEXEME(X)                                                     \
+    X(ERROR) X(STRING) X(EQUAL) X(OPEN_BRACKET) X(CLOSE_BRACKET) X(LINEFEED)   \
+    X(VARIABLE) X(EOF)
+
+#define GENERATE_ENUM(id) LEXEME_ ## id,
+#define GENERATE_ARRAY_ITEM(id) [LEXEME_ ## id] = #id,
+
 enum lexeme_type {
-    LEXEME_ERROR,
-    LEXEME_STRING,
-    LEXEME_EQUAL,
-    LEXEME_OPEN_BRACKET,
-    LEXEME_CLOSE_BRACKET,
-    LEXEME_LINEFEED,
-    LEXEME_VARIABLE,
-    LEXEME_EOF,
+    FOR_EACH_LEXEME(GENERATE_ENUM)
     TOTAL_LEXEMES
 };
 
 static const char *lexeme_type_str[TOTAL_LEXEMES] = {
-    [LEXEME_ERROR] = "ERROR",
-    [LEXEME_STRING] = "STRING",
-    [LEXEME_EQUAL] = "EQUAL",
-    [LEXEME_OPEN_BRACKET] = "OPEN_BRACKET",
-    [LEXEME_CLOSE_BRACKET] = "CLOSE_BRACKET",
-    [LEXEME_LINEFEED] = "LINEFEED",
-    [LEXEME_EOF] = "EOF",
-    [LEXEME_VARIABLE] = "VARIABLE",
+    FOR_EACH_LEXEME(GENERATE_ARRAY_ITEM)
 };
+
+#undef GENERATE_ENUM
+#undef GENERATE_ARRAY_ITEM
 
 struct lexeme {
     enum lexeme_type type;
