@@ -51,6 +51,17 @@ struct lwan_readahead_cmd {
 
 static int readahead_pipe_fd[2] = {-1, -1};
 static pthread_t readahead_self;
+static long page_size = 4096;
+
+#if _SC_PAGESIZE > 0
+__attribute__((constructor)) static void get_page_size(void)
+{
+    long ps = sysconf(_SC_PAGESIZE);
+
+    if (ps >= 0)
+        page_size = ps;
+}
+#endif
 
 void lwan_readahead_shutdown(void)
 {
@@ -74,6 +85,9 @@ void lwan_readahead_shutdown(void)
 
 void lwan_readahead_queue(int fd, off_t off, size_t size)
 {
+    if (size < (size_t)page_size)
+        return;
+
     struct lwan_readahead_cmd cmd = {
         .readahead = {.size = size, .fd = fd, .off = off},
         .cmd = READAHEAD,
@@ -85,12 +99,15 @@ void lwan_readahead_queue(int fd, off_t off, size_t size)
 
 void lwan_madvise_queue(void *addr, size_t length)
 {
+    if (length < (size_t)page_size)
+        return;
+
     struct lwan_readahead_cmd cmd = {
         .madvise = {.addr = addr, .length = length},
         .cmd = MADVISE,
     };
 
-    /* Readahead is just a hint.  Failing to write is not an error. */
+    /* Madvise is just a hint.  Failing to write is not an error. */
     write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
 }
 
