@@ -930,6 +930,8 @@ get_abs_path_env(const char *var)
     return (ret && *ret == '/') ? ret : NULL;
 }
 
+static const char *temp_dir;
+
 static const char *
 get_temp_dir(void)
 {
@@ -957,26 +959,29 @@ get_temp_dir(void)
     return NULL;
 }
 
+__attribute__((constructor)) static void initialize_temp_dir(void)
+{
+    temp_dir = get_temp_dir();
+}
+
 static int
 create_temp_file(void)
 {
     char template[PATH_MAX];
-    const char *tmpdir;
     mode_t prev_mask;
     int ret;
 
-    tmpdir = get_temp_dir();
-    if (UNLIKELY(!tmpdir))
+    if (UNLIKELY(!temp_dir))
         return -ENOENT;
 
 #if defined(O_TMPFILE)
-    int fd = open(tmpdir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+    int fd = open(temp_dir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
         S_IRUSR | S_IWUSR);
     if (LIKELY(fd >= 0))
         return fd;
 #endif
 
-    ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", tmpdir);
+    ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", temp_dir);
     if (UNLIKELY(ret < 0 || ret >= (int)sizeof(template)))
         return -EOVERFLOW;
 
