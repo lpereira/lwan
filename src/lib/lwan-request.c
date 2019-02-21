@@ -924,10 +924,19 @@ static ALWAYS_INLINE int calculate_n_packets(size_t total)
 }
 
 static const char *
-get_abs_path_env(const char *var)
+is_dir(const char *v)
 {
-    const char *ret = secure_getenv(var);
-    return (ret && *ret == '/') ? ret : NULL;
+    struct stat st;
+
+    if (!v)
+        return NULL;
+    if (*v != '/')
+        return NULL;
+    if (stat(v, &st) < 0)
+        return NULL;
+    if (!S_ISDIR(st.st_mode))
+        return NULL;
+    return v;
 }
 
 static const char *temp_dir;
@@ -935,26 +944,27 @@ static const char *temp_dir;
 static const char *
 get_temp_dir(void)
 {
-    struct stat st;
     const char *tmpdir;
 
-    tmpdir = get_abs_path_env("TMPDIR");
+    tmpdir = is_dir(secure_getenv("TMPDIR"));
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = get_abs_path_env("TMP");
+    tmpdir = is_dir(secure_getenv("TMP"));
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = get_abs_path_env("TEMP");
+    tmpdir = is_dir(secure_getenv("TEMP"));
     if (tmpdir)
         return tmpdir;
 
-    if (!stat(P_tmpdir, &st) && S_ISDIR(st.st_mode))
-        return P_tmpdir;
+    tmpdir = is_dir(P_tmpdir);
+    if (tmpdir)
+        return tmpdir;
 
-    if (!stat("/var/tmp", &st) && S_ISDIR(st.st_mode))
-        return "/var/tmp";
+    tmpdir = is_dir("/var/tmp");
+    if (tmpdir)
+        return tmpdir;
 
     return NULL;
 }
