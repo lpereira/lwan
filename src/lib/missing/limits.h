@@ -24,24 +24,30 @@
 #define MISSING_LIMITS_H
 
 #ifndef PATH_MAX
-#define PATH_MAX 4096
+# define PATH_MAX 4096
 #endif
 
 #ifndef OPEN_MAX
-
-#include <sys/param.h>
-
-#ifdef NOFILE
-#define OPEN_MAX NOFILE
-#else
-#define OPEN_MAX 65535
-#endif
-
+# include <sys/param.h>
+# ifdef NOFILE
+#  define OPEN_MAX NOFILE
+# else
+#  define OPEN_MAX 65535
+# endif
 #endif
 
 #ifndef OFF_MAX
-#include <sys/types.h>
-#define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
+# include <sys/types.h>
+# define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
+#endif
+
+#ifndef PAGE_SIZE
+# include <sys/param.h>
+# ifdef EXEC_PAGESIZE
+#  define PAGE_SIZE EXEC_PAGESIZE
+# else
+#  define PAGE_SIZE 4096
+# endif
 #endif
 
 #endif /* MISSING_LIMITS_H */

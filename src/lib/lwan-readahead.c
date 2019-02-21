@@ -51,9 +51,9 @@ struct lwan_readahead_cmd {
 
 static int readahead_pipe_fd[2] = {-1, -1};
 static pthread_t readahead_self;
-static long page_size = 4096;
+static long page_size = PAGE_SIZE;
 
-#if _SC_PAGESIZE > 0
+#ifdef _SC_PAGESIZE
 __attribute__((constructor)) static void get_page_size(void)
 {
     long ps = sysconf(_SC_PAGESIZE);

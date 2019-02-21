@@ -47,12 +47,4 @@ char *get_current_dir_name(void);
 #include <sys/random.h>
 #endif
 
-#ifndef _SC_PAGESIZE
-# ifdef PAGESIZE
-#  define _SC_PAGESIZE PAGESIZE
-# else
-#  define _SC_PAGESIZE -1
-# endif
-#endif
-
 #endif /* MISSING_UNISTD_H */
