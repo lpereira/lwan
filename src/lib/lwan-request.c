@@ -958,11 +958,11 @@ get_temp_dir(void)
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir(P_tmpdir);
+    tmpdir = is_dir("/var/tmp");
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir("/var/tmp");
+    tmpdir = is_dir(P_tmpdir);
     if (tmpdir)
         return tmpdir;
 
