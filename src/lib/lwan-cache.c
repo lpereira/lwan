@@ -190,14 +190,12 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     }
 
     entry = cache->cb.create_entry(key, cache->cb.context);
-    if (!entry) {
+    if (UNLIKELY(!entry)) {
         free(key_copy);
         return NULL;
     }
 
-    memset(entry, 0, sizeof(*entry));
-    entry->key = key_copy;
-    entry->refs = 1;
+    *entry = (struct cache_entry) { .key =  key_copy, .refs = 1 };
 
     if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
         /* Couldn't obtain hash lock: instead of waiting, just return
