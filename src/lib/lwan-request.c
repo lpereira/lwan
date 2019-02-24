@@ -974,8 +974,7 @@ __attribute__((constructor)) static void initialize_temp_dir(void)
     temp_dir = get_temp_dir();
 }
 
-static int
-create_temp_file(void)
+static int create_temp_file(void)
 {
     char template[PATH_MAX];
     mode_t prev_mask;
@@ -985,8 +984,10 @@ create_temp_file(void)
         return -ENOENT;
 
 #if defined(O_TMPFILE)
-    int fd = open(temp_dir, O_TMPFILE | O_RDWR | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
-        S_IRUSR | S_IWUSR);
+    int fd = open(temp_dir,
+                  O_TMPFILE | O_CREAT | O_RDWR | O_EXCL | O_CLOEXEC |
+                      O_NOFOLLOW | O_NOATIME,
+                  S_IRUSR | S_IWUSR);
     if (LIKELY(fd >= 0))
         return fd;
 #endif
