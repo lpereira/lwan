@@ -734,11 +734,11 @@ static void save_to_corpus_for_fuzzing(const struct lwan_value *buffer)
 try_another_file_name:
     snprintf(corpus_name, sizeof(corpus_name), "corpus-request-%d", rand());
 
-    fd = open(corpus_name, O_WRONLY | O_CLOEXEC | O_CREAT, 0644);
+    fd = open(corpus_name, O_WRONLY | O_CLOEXEC | O_CREAT | O_EXCL, 0644);
     if (fd < 0)
         goto try_another_file_name;
 
-    for (ssize_t total_written = 0; total_written != (ssize_t)buffer->len; ) {
+    for (ssize_t total_written = 0; total_written != (ssize_t)buffer->len;) {
         ssize_t r = write(fd, buffer->value, buffer->len);
 
         if (r < 0) {
