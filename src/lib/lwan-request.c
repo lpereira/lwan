@@ -923,19 +923,29 @@ static ALWAYS_INLINE int calculate_n_packets(size_t total)
     return max(1, (int)(total / 740));
 }
 
-static const char *
-is_dir(const char *v)
+static const char *is_dir(const char *v)
 {
     struct stat st;
 
     if (!v)
         return NULL;
+
     if (*v != '/')
         return NULL;
+
     if (stat(v, &st) < 0)
         return NULL;
+
     if (!S_ISDIR(st.st_mode))
         return NULL;
+
+    if (!(st.st_mode & S_ISVTX)) {
+        lwan_status_warning(
+            "Using %s as temporary directory, but it doesn't have "
+            "the sticky bit set.",
+            v);
+    }
+
     return v;
 }
 
