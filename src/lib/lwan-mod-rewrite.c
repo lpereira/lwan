@@ -186,6 +186,12 @@ static const char *expand(struct lwan_request *request __attribute__((unused)),
 }
 
 #ifdef HAVE_LUA
+static void
+lua_close_defer(void *data)
+{
+    lua_close((lua_State *)data);
+}
+
 static const char *expand_lua(struct lwan_request *request,
                               struct pattern *pattern, const char *orig,
                               char buffer[static PATH_MAX],
@@ -199,7 +205,7 @@ static const char *expand_lua(struct lwan_request *request,
     L = lwan_lua_create_state(NULL, pattern->expand_pattern);
     if (UNLIKELY(!L))
         return NULL;
-    coro_defer(request->conn->coro, CORO_DEFER(lua_close), L);
+    coro_defer(request->conn->coro, lua_close_defer, L);
 
     lua_getglobal(L, "handle_rewrite");
     if (!lua_isfunction(L, -1)) {

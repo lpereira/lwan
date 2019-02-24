@@ -168,8 +168,7 @@ static lua_State *push_newthread(lua_State *L, struct coro *coro)
         return NULL;
 
     int thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    coro_defer2(coro, CORO_DEFER2(unref_thread), L,
-                (void *)(intptr_t)thread_ref);
+    coro_defer2(coro, unref_thread, L, (void *)(intptr_t)thread_ref);
 
     return L1;
 }

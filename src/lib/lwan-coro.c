@@ -44,12 +44,22 @@
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
     "Request buffer fits inside coroutine stack");
 
-typedef void (*defer_func)();
+typedef void (*defer1_func)(void *data);
+typedef void (*defer2_func)(void *data1, void *data2);
 
 struct coro_defer {
-    defer_func func;
-    void *data1;
-    void *data2;
+    union {
+        struct {
+            defer1_func func;
+            void *data;
+        } one;
+        struct {
+            defer2_func func;
+            void *data1;
+            void *data2;
+        } two;
+    };
+    bool has_two_args;
 };
 
 DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer)
@@ -182,7 +192,10 @@ coro_deferred_run(struct coro *coro, size_t generation)
     for (size_t i = array->elements; i != generation; i--) {
         struct coro_defer *defer = &defers[i - 1];
 
-        defer->func(defer->data1, defer->data2);
+        if (defer->has_two_args)
+            defer->two.func(defer->two.data1, defer->two.data2);
+        else
+            defer->one.func(defer->one.data);
     }
 
     array->elements = generation;
@@ -323,35 +336,35 @@ coro_free(struct coro *coro)
     free(coro);
 }
 
-static void
-coro_defer_any(struct coro *coro, defer_func func, void *data1, void *data2)
+ALWAYS_INLINE void
+coro_defer(struct coro *coro, defer1_func func, void *data)
 {
-    struct coro_defer *defer;
+    struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
-    assert(func);
-
-    defer = coro_defer_array_append(&coro->defer);
     if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p", coro);
         return;
     }
 
-    defer->func = func;
-    defer->data1 = data1;
-    defer->data2 = data2;
+    defer->one.func = func;
+    defer->one.data = data;
+    defer->has_two_args = false;
 }
 
 ALWAYS_INLINE void
-coro_defer(struct coro *coro, void (*func)(void *data), void *data)
+coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
 {
-    coro_defer_any(coro, func, data, NULL);
-}
+    struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
-ALWAYS_INLINE void
-coro_defer2(struct coro *coro, void (*func)(void *data1, void *data2),
-            void *data1, void *data2)
-{
-    coro_defer_any(coro, func, data1, data2);
+    if (UNLIKELY(!defer)) {
+        lwan_status_error("Could not add new deferred function for coro %p", coro);
+        return;
+    }
+
+    defer->two.func = func;
+    defer->two.data1 = data1;
+    defer->two.data2 = data2;
+    defer->has_two_args = true;
 }
 
 void *
@@ -404,6 +417,6 @@ coro_printf(struct coro *coro, const char *fmt, ...)
     if (UNLIKELY(len < 0))
         return NULL;
 
-    coro_defer(coro, CORO_DEFER(free), tmp_str);
+    coro_defer(coro, free, tmp_str);
     return tmp_str;
 }

@@ -357,7 +357,7 @@ static void parse_key_values(struct lwan_request *request,
     lwan_key_value_array_init(array);
     /* Calling lwan_key_value_array_reset() twice is fine, so even if 'goto
      * error' is executed in this function, nothing bad should happen.  */
-    coro_defer(request->conn->coro, CORO_DEFER(reset_key_value_array), array);
+    coro_defer(request->conn->coro, reset_key_value_array, array);
 
     do {
         char *key, *value;
@@ -1208,7 +1208,7 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
     encoded = (char *)base64_encode(digest, sizeof(digest), NULL);
     if (UNLIKELY(!encoded))
         return HTTP_INTERNAL_ERROR;
-    coro_defer(request->conn->coro, CORO_DEFER(free), encoded);
+    coro_defer(request->conn->coro, free, encoded);
 
     request->flags |= RESPONSE_NO_CONTENT_LENGTH;
     header_buf_len = lwan_prepare_response_header_full(

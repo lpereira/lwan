@@ -351,9 +351,14 @@ end:
     return evicted;
 }
 
-struct cache_entry*
-cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro,
-                             const char *key)
+static void cache_entry_unref_defer(void *data1, void *data2)
+{
+    cache_entry_unref((struct cache *)data1, (struct cache_entry *)data2);
+}
+
+struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
+                                                 struct coro *coro,
+                                                 const char *key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
@@ -365,7 +370,7 @@ cache_coro_get_and_ref_entry(struct cache *cache, struct coro *coro,
              * after it has been yielded, this cache entry is properly
              * freed.
              */
-            coro_defer2(coro, CORO_DEFER2(cache_entry_unref), cache, ce);
+            coro_defer2(coro, cache_entry_unref_defer, cache, ce);
             return ce;
         }
 
