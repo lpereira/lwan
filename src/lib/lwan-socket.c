@@ -165,15 +165,17 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
     return set_socket_flags(fd);
 }
 
-#define SET_SOCKET_OPTION(_domain, _option, _param, _size)                     \
+#define SET_SOCKET_OPTION(_domain, _option, _param)                            \
     do {                                                                       \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0)       \
+        const size_t _param_size_ = sizeof(*(_param));                         \
+        if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
             lwan_status_critical_perror("setsockopt");                         \
     } while (0)
 
-#define SET_SOCKET_OPTION_MAY_FAIL(_domain, _option, _param, _size)            \
+#define SET_SOCKET_OPTION_MAY_FAIL(_domain, _option, _param)                   \
     do {                                                                       \
-        if (setsockopt(fd, (_domain), (_option), (_param), (_size)) < 0)       \
+        const size_t _param_size_ = sizeof(*(_param));                         \
+        if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
             lwan_status_warning("%s not supported by the kernel", #_option);   \
     } while (0)
 
@@ -189,10 +191,10 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
         if (fd < 0)
             continue;
 
-        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){1}, sizeof(int));
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){1});
 #ifdef SO_REUSEPORT
         SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                   (int[]){reuse_port}, sizeof(int));
+                                   (int[]){reuse_port});
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
@@ -247,12 +249,11 @@ void lwan_socket_init(struct lwan *l)
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
-                      (&(struct linger){.l_onoff = 1, .l_linger = 1}),
-                      sizeof(struct linger));
+                      (&(struct linger){.l_onoff = 1, .l_linger = 1}));
 
 #ifdef __linux__
-    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5}, sizeof(int));
-    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0}, sizeof(int));
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5});
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
 #endif
 
     l->main_socket = fd;
