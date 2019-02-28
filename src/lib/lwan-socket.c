@@ -167,14 +167,14 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
 
 #define SET_SOCKET_OPTION(_domain, _option, _param)                            \
     do {                                                                       \
-        const size_t _param_size_ = sizeof(*(_param));                         \
+        const socklen_t _param_size_ = (socklen_t)sizeof(*(_param));           \
         if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
             lwan_status_critical_perror("setsockopt");                         \
     } while (0)
 
 #define SET_SOCKET_OPTION_MAY_FAIL(_domain, _option, _param)                   \
     do {                                                                       \
-        const size_t _param_size_ = sizeof(*(_param));                         \
+        const socklen_t _param_size_ = (socklen_t)sizeof(*(_param));           \
         if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
             lwan_status_warning("%s not supported by the kernel", #_option);   \
     } while (0)
