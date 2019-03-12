@@ -725,7 +725,7 @@ out:
         request->conn->flags &= ~CONN_KEEP_ALIVE;
 }
 
-#if defined(INSTRUMENT_FOR_FUZZING)
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 static void save_to_corpus_for_fuzzing(const struct lwan_value *buffer)
 {
     char corpus_name[PATH_MAX];
@@ -822,7 +822,7 @@ try_to_finalize:
             request->conn->flags &= ~CONN_MUST_READ;
             buffer->value[buffer->len] = '\0';
 
-#if defined(INSTRUMENT_FOR_FUZZING)
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
             save_to_corpus_for_fuzzing(request);
 #endif
 
@@ -1595,7 +1595,7 @@ lwan_request_get_post_params(struct lwan_request *request)
     return &request->post_params;
 }
 
-#ifdef HAVE_FUZZER
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
                                     void *data __attribute__((unused)))
 {
