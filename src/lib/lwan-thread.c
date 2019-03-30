@@ -99,7 +99,10 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         if (next_request && *next_request)
             conn->flags |= CONN_FLIP_FLAGS;
 
-        coro_yield(coro, CONN_CORO_MAY_RESUME);
+        if (conn->flags & CONN_KEEP_ALIVE)
+            coro_yield(coro, CONN_CORO_MAY_RESUME);
+        else
+            coro_yield(coro, CONN_CORO_ABORT);
 
         lwan_strbuf_reset(&strbuf);
         flags = request.flags & flags_filter;
