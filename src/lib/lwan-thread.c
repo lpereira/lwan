@@ -96,13 +96,15 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             lwan_process_request(lwan, &request, &buffer, next_request);
         coro_deferred_run(coro, generation);
 
-        if (next_request && *next_request)
-            conn->flags |= CONN_FLIP_FLAGS;
+        if (LIKELY(conn->flags & CONN_KEEP_ALIVE)) {
+            if (next_request && *next_request)
+                conn->flags |= CONN_FLIP_FLAGS;
 
-        if (conn->flags & CONN_KEEP_ALIVE)
             coro_yield(coro, CONN_CORO_MAY_RESUME);
-        else
+        } else {
+            shutdown(fd, SHUT_RDWR);
             coro_yield(coro, CONN_CORO_ABORT);
+        }
 
         lwan_strbuf_reset(&strbuf);
         flags = request.flags & flags_filter;
