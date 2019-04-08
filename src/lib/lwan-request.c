@@ -823,7 +823,7 @@ try_to_finalize:
             buffer->value[buffer->len] = '\0';
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-            save_to_corpus_for_fuzzing(request);
+            save_to_corpus_for_fuzzing(buffer);
 #endif
 
             return HTTP_OK;
