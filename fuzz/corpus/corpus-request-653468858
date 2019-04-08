@@ -1,0 +1,5 @@
+GET /hello?name=name0008 HTTP/1.1
+Host: localhost
+Connection: keep-alive
+Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q=0.8,*/*;q=0.7
+

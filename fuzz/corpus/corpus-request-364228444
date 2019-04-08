@@ -1,0 +1,8 @@
+GET /hello?dump_vars=1 HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: python-requests/2.21.0
+Accept-Encoding: gzip, deflate
+Accept: */*
+Connection: keep-alive
+Cookie: OTHERCOOKIE=some cookie value; SOMECOOKIE=1c330301-89e4-408a-bf6c-ce107efe8a27; foo=bar
+

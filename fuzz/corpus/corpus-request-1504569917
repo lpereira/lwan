@@ -1,0 +1,5 @@
+PROXY TCP4 192.168.242.221 192.168.242.242 56324 31337
+GET /proxy HTTP/1.1
+Connection: keep-alive
+Host: 192.168.0.11
+

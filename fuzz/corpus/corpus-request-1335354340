@@ -1,0 +1,7 @@
+GET /pattern/foo/1234x5678 HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: python-requests/2.21.0
+Accept-Encoding: gzip, deflate
+Accept: */*
+Connection: keep-alive
+

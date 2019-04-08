@@ -1,0 +1,7 @@
+GET /lua/hello HTTP/1.1
+Host: localhost:8080
+User-Agent: python-requests/2.21.0
+Accept-Encoding: gzip, deflate
+Accept: */*
+Connection: keep-alive
+
