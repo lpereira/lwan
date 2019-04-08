@@ -67,6 +67,7 @@ LWAN_HANDLER(brew_coffee)
     return HTTP_I_AM_A_TEAPOT;
 }
 
+__attribute__((no_sanitize_address))
 static void *find_handler(const char *name)
 {
     extern const struct lwan_handler_info SECTION_START(lwan_handler);
@@ -82,6 +83,7 @@ static void *find_handler(const char *name)
     return NULL;
 }
 
+__attribute__((no_sanitize_address))
 static const struct lwan_module *find_module(const char *name)
 {
     extern const struct lwan_module_info SECTION_START(lwan_module);
