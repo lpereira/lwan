@@ -726,10 +726,16 @@ out:
 }
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-static void save_to_corpus_for_fuzzing(const struct lwan_value *buffer)
+static void save_to_corpus_for_fuzzing(const struct lwan_value *orig_buffer)
 {
+    struct lwan_value buffer = *orig_buffer;
     char corpus_name[PATH_MAX];
+    const char *crlfcrlf;
     int fd;
+
+    if (!(crlfcrlf = memmem(buffer.value, buffer.len, "\r\n\r\n", 4)))
+        return;
+    buffer.len = (size_t)(crlfcrlf - buffer.value + 4);
 
 try_another_file_name:
     snprintf(corpus_name, sizeof(corpus_name), "corpus-request-%d", rand());
@@ -738,8 +744,8 @@ try_another_file_name:
     if (fd < 0)
         goto try_another_file_name;
 
-    for (ssize_t total_written = 0; total_written != (ssize_t)buffer->len;) {
-        ssize_t r = write(fd, buffer->value, buffer->len);
+    for (ssize_t total_written = 0; total_written != (ssize_t)buffer.len;) {
+        ssize_t r = write(fd, buffer.value, buffer.len);
 
         if (r < 0) {
             if (errno == EAGAIN || errno == EINTR)
