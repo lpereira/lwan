@@ -504,6 +504,8 @@ identify_http_path(struct lwan_request *request, char *buffer)
 
 #define HEADER(hdr)                                                            \
     ({                                                                         \
+        if (UNLIKELY(end - sizeof(hdr) + 1 < p))                               \
+            continue;                                                          \
         p += sizeof(hdr) - 1;                                                  \
         if (UNLIKELY(string_as_int16(p) !=                                     \
                      MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
@@ -518,21 +520,22 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
                           char *buffer_end)
 {
     char **header_start = helper->header_start;
+    char *p;
     size_t n_headers = 0;
     bool ret = false;
 
-    for (char *p = buffer + 1; n_headers < N_HEADER_START && buffer_end > p;) {
+    for (p = buffer + 1; n_headers < N_HEADER_START && buffer_end > p;) {
         char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
         if (!next_hdr)
             goto process;
 
+        if (buffer_end - next_chr == 2)
+            goto process;
+
         header_start[n_headers++] = next_chr;
         header_start[n_headers++] = next_hdr;
-
-        if (next_hdr == next_chr)
-            goto process;
 
         p = next_hdr + 2;
     }
@@ -543,8 +546,9 @@ process:
     ret = true;
 
     for (size_t i = 0; i < n_headers; i += 2) {
-        char *p = header_start[i];
         char *end = header_start[i + 1];
+
+        p = header_start[i];
 
         STRING_SWITCH_L(p) {
         case MULTICHAR_CONSTANT_L('A','c','c','e'):
@@ -583,14 +587,14 @@ process:
         case MULTICHAR_CONSTANT_L('R','a','n','g'):
             helper->range.raw = HEADER("Range");
             break;
-        default:
-            STRING_SWITCH_SMALL(p) {
-            case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
-                if (p[2] != '\0')
-                    helper->next_request = p + sizeof("\r\n") - 1;
-                goto out;
-            }
         }
+    }
+
+    STRING_SWITCH_SMALL(p) {
+    case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
+        if (p[2] != '\0')
+            helper->next_request = p + sizeof("\r\n") - 1;
+        goto out;
     }
 
 out:
