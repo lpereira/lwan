@@ -532,7 +532,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         if (!next_hdr)
             goto process;
 
-        if (buffer_end - next_chr == 2)
+        if (buffer_end - next_chr == sizeof("\r\n") - 1)
             goto process;
 
         header_start[n_headers++] = next_chr;
