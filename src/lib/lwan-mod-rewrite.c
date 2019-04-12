@@ -166,14 +166,13 @@ static const char *expand(struct lwan_request *request __attribute__((unused)),
                                 (size_t)(sf[index].sm_eo - sf[index].sm_so))))
                 return NULL;
 
-            ptr += index_len;
             expand_pattern += index_len;
         } else if (UNLIKELY(!append_str(&builder, "%", 1))) {
             return NULL;
         }
 
         expand_pattern++;
-    } while ((ptr = strchr(ptr + 1, '%')));
+    } while ((ptr = strchr(expand_pattern, '%')));
 
     if (*expand_pattern &&
         !append_str(&builder, expand_pattern, strlen(expand_pattern)))
