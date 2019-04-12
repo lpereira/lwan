@@ -595,7 +595,6 @@ process:
     case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
         if (p[2] != '\0')
             helper->next_request = p + sizeof("\r\n") - 1;
-        goto out;
     }
 
 out:
