@@ -57,17 +57,11 @@ enum lwan_read_finalizer {
 struct lwan_request_parser_helper {
     struct lwan_value *buffer;		/* The whole request buffer */
     char *next_request;			/* For pipelined requests */
+
+    char **header_start;		/* Headers: n: start, n+1: end */
+    size_t n_header_start;		/* len(header_start) */
+
     struct lwan_value accept_encoding;	/* Accept-Encoding: */
-
-    struct { /* If-Modified-Since: */
-        struct lwan_value raw;
-        time_t parsed;
-    } if_modified_since;
-
-    struct { /* Range: */
-        struct lwan_value raw;
-        off_t from, to;
-    } range;
 
     struct lwan_value cookie;		/* Cookie: */
     struct lwan_value query_string;	/* Stuff after ? and before # */
@@ -81,8 +75,15 @@ struct lwan_request_parser_helper {
 
     struct lwan_value connection;	/* Connection: */
 
-    char **header_start;		/* Headers: n: start, n+1: end */
-    size_t n_header_start;		/* len(header_start) */
+    struct { /* If-Modified-Since: */
+        struct lwan_value raw;
+        time_t parsed;
+    } if_modified_since;
+
+    struct { /* Range: */
+        struct lwan_value raw;
+        off_t from, to;
+    } range;
 
     time_t error_when_time;		/* Time to abort request read */
     int error_when_n_packets;		/* Max. number of packets */
