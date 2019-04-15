@@ -140,11 +140,6 @@ void cache_destroy(struct cache *cache)
     free(cache);
 }
 
-static ALWAYS_INLINE void convert_to_temporary(struct cache_entry *entry)
-{
-    entry->flags = TEMPORARY;
-}
-
 struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
                                               const char *key, int *error)
 {
@@ -203,7 +198,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
          * in starvation, though, so this might be changed back to
          * pthread_rwlock_wrlock() again someday if this proves to be
          * a problem. */
-        convert_to_temporary(entry);
+        entry->flags = TEMPORARY;
         return entry;
     }
 
@@ -219,7 +214,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
             list_add_tail(&cache->queue.list, &entry->entries);
             pthread_rwlock_unlock(&cache->queue.lock);
         } else {
-            convert_to_temporary(entry);
+            entry->flags = TEMPORARY;
 
             /* Ensure item is removed from the hash table; otherwise,
              * another thread could potentially get another reference
@@ -233,7 +228,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
          * time someone unrefs this entry. TEMPORARY entries are pretty much
          * like FLOATING entries, but unreffing them do not use atomic
          * operations. */
-        convert_to_temporary(entry);
+        entry->flags = TEMPORARY;
     }
 
     pthread_rwlock_unlock(&cache->hash.lock);
