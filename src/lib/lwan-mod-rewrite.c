@@ -138,7 +138,7 @@ static const char *expand(struct lwan_request *request __attribute__((unused)),
 {
     const char *expand_pattern = pattern->expand_pattern;
     struct str_builder builder = {.buffer = buffer, .size = PATH_MAX};
-    char *ptr;
+    const char *ptr;
 
     ptr = strchr(expand_pattern, '%');
     if (!ptr)
@@ -148,15 +148,16 @@ static const char *expand(struct lwan_request *request __attribute__((unused)),
         size_t index_len = strspn(ptr + 1, "0123456789");
 
         if (ptr > expand_pattern) {
-            if (UNLIKELY(!append_str(&builder, expand_pattern,
-                                     (size_t)(ptr - expand_pattern))))
+            const size_t len = (size_t)(ptr - expand_pattern);
+
+            if (UNLIKELY(!append_str(&builder, expand_pattern, len)))
                 return NULL;
 
-            expand_pattern += ptr - expand_pattern;
+            expand_pattern += len;
         }
 
         if (LIKELY(index_len > 0)) {
-            int index = parse_int_len(ptr + 1, index_len, -1);
+            const int index = parse_int_len(ptr + 1, index_len, -1);
 
             if (UNLIKELY(index < 0 || index > captures))
                 return NULL;
