@@ -233,7 +233,7 @@ static const char *expand_lua(struct lwan_request *request,
 
     output = lua_tolstring(L, -1, &output_len);
     if (output_len >= PATH_MAX) {
-        lwan_status_error("Rewritten URL exceeds %d bytes (got %ld bytes)",
+        lwan_status_error("Rewritten URL exceeds %d bytes (got %zu bytes)",
                           PATH_MAX, output_len);
         return NULL;
     }
