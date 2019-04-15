@@ -277,8 +277,8 @@ static bool cache_pruner_job(void *data)
         return false;
     }
 
-    /* There are things to do; assign cache queue to a local queue,
-     * initialize cache queue to an empty queue. Then unlock */
+    /* There are things to do; work on a local queue so the lock doesn't
+     * need to be held while items are being pruned. */
     list_head_init(&queue);
     list_append_list(&queue, &cache->queue.list);
     list_head_init(&cache->queue.list);
