@@ -503,11 +503,16 @@ identify_http_path(struct lwan_request *request, char *buffer)
     return end_of_line + 1;
 }
 
-#define HEADER(hdr)                                                            \
+#define HEADER_LENGTH(hdr)                                                     \
     ({                                                                         \
         if (UNLIKELY(end - sizeof(hdr) + 1 < p))                               \
             continue;                                                          \
-        p += sizeof(hdr) - 1;                                                  \
+        sizeof(hdr) - 1;                                                       \
+    })
+
+#define HEADER(hdr)                                                            \
+    ({                                                                         \
+        p += HEADER_LENGTH(hdr);                                               \
         if (UNLIKELY(string_as_int16(p) !=                                     \
                      MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
             continue;                                                          \
@@ -553,7 +558,7 @@ process:
 
         STRING_SWITCH_L(p) {
         case MULTICHAR_CONSTANT_L('A','c','c','e'):
-            p += sizeof("Accept") - 1;
+            p += HEADER_LENGTH("Accept");
 
             STRING_SWITCH_L(p) {
             case MULTICHAR_CONSTANT_L('-','E','n','c'):
@@ -568,7 +573,7 @@ process:
             helper->connection = HEADER("Connection");
             break;
         case MULTICHAR_CONSTANT_L('C','o','n','t'):
-            p += sizeof("Content") - 1;
+            p += HEADER_LENGTH("Content");
 
             STRING_SWITCH_L(p) {
             case MULTICHAR_CONSTANT_L('-','T','y','p'):
@@ -602,7 +607,7 @@ out:
     return ret;
 }
 
-#undef HEADER_RAW
+#undef HEADER_LENGTH
 #undef HEADER
 
 static void
