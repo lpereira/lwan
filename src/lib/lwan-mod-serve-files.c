@@ -517,7 +517,7 @@ static const char *get_rel_path(const char *full_path,
     if (*root_path)
         return root_path;
 
-    if (!strcmp(priv->prefix, "/"))
+    if (streq(priv->prefix, "/"))
         return "";
 
     return priv->prefix;
@@ -1063,15 +1063,15 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
     if (!icon) {
         contents = lwan_strbuf_get_buffer(&dd->rendered);
         size = lwan_strbuf_get_length(&dd->rendered);
-    } else if (!strcmp(icon, "back")) {
+    } else if (streq(icon, "back")) {
         contents = back_gif;
         size = sizeof(back_gif);
         request->response.mime_type = "image/gif";
-    } else if (!strcmp(icon, "file")) {
+    } else if (streq(icon, "file")) {
         contents = file_gif;
         size = sizeof(file_gif);
         request->response.mime_type = "image/gif";
-    } else if (!strcmp(icon, "folder")) {
+    } else if (streq(icon, "folder")) {
         contents = folder_gif;
         size = sizeof(folder_gif);
         request->response.mime_type = "image/gif";

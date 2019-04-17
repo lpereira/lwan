@@ -130,9 +130,9 @@ static void abort_on_open_directories(void)
         struct stat st;
         ssize_t len;
 
-        if (!strcmp(ent->d_name, own_fd))
+        if (streq(ent->d_name, own_fd))
             continue;
-        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+        if (streq(ent->d_name, ".") || streq(ent->d_name, ".."))
             continue;
 
         len = readlinkat(dirfd(dir), ent->d_name, path, sizeof(path));

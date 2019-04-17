@@ -76,7 +76,7 @@ static void *find_handler(const char *name)
 
     for (handler = __start_lwan_handler; handler < __stop_lwan_handler;
          handler++) {
-        if (!strcmp(handler->name, name))
+        if (streq(handler->name, name))
             return handler->handler;
     }
 
@@ -91,7 +91,7 @@ static const struct lwan_module *find_module(const char *name)
     const struct lwan_module_info *module;
 
     for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
-        if (!strcmp(module->name, name))
+        if (streq(module->name, name))
             return module->module;
     }
 
