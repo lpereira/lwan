@@ -610,15 +610,17 @@ out:
 #undef HEADER_LENGTH
 #undef HEADER
 
-static void
-parse_if_modified_since(struct lwan_request_parser_helper *helper)
+static void parse_if_modified_since(struct lwan_request_parser_helper *helper)
 {
+    static const size_t header_len =
+        sizeof("Wed, 17 Apr 2019 13:59:27 GMT") - 1;
     time_t parsed;
 
-    if (UNLIKELY(!helper->if_modified_since.raw.len))
+    if (UNLIKELY(helper->if_modified_since.raw.len != header_len))
         return;
 
-    if (UNLIKELY(lwan_parse_rfc_time(helper->if_modified_since.raw.value, &parsed) < 0))
+    if (UNLIKELY(lwan_parse_rfc_time(helper->if_modified_since.raw.value,
+                                     &parsed) < 0))
         return;
 
     helper->if_modified_since.parsed = parsed;
