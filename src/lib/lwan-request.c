@@ -1640,10 +1640,12 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         .error_when_n_packets = 2,
     };
     struct lwan_connection conn = {.coro = coro};
+    struct lwan_proxy proxy = {};
     struct lwan_request request = {
         .helper = &helper,
         .conn = &conn,
         .flags = REQUEST_ALLOW_PROXY_REQS,
+        .proxy = &proxy,
     };
 
     /* If the finalizer isn't happy with a request, there's no point in
