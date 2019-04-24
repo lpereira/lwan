@@ -56,6 +56,7 @@ enum lwan_read_finalizer {
 
 struct lwan_request_parser_helper {
     struct lwan_value *buffer;		/* The whole request buffer */
+    char *crlfcrlf;			/* Location of terminating \r\n\r\n */
     char *next_request;			/* For pipelined requests */
 
     char **header_start;		/* Headers: n: start, n+1: end */
@@ -599,13 +600,8 @@ process:
         }
     }
 
-    STRING_SWITCH_SMALL(p) {
-    case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
-        if (p[2] != '\0')
-            helper->next_request = p + sizeof("\r\n") - 1;
-    }
-
 out:
+    helper->next_request = buffer_end;
     helper->n_header_start = n_headers;
     return ret;
 }
@@ -886,16 +882,16 @@ read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read == buffer_size))
         return FINALIZER_ERROR_TOO_LARGE;
 
+    char *crlfcrlf = memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4);
+    if (LIKELY(crlfcrlf)) {
+        helper->crlfcrlf = crlfcrlf;
+        return FINALIZER_DONE;
+    }
+
     if (LIKELY(helper->next_request)) {
         helper->next_request = NULL;
         return FINALIZER_DONE;
     }
-
-    /* FIXME: Would saving the location of CRLFCRLF be useful? Maybe
-     * parse_headers() could benefit from this information?  How would it
-     * compare to helper->next_request?  */
-    if (LIKELY(memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4)))
-        return FINALIZER_DONE;
 
     return FINALIZER_TRY_AGAIN;
 }
@@ -1163,8 +1159,7 @@ parse_proxy_protocol(struct lwan_request *request, char *buffer)
     return buffer;
 }
 
-static enum lwan_http_status
-parse_http_request(struct lwan_request *request)
+static enum lwan_http_status parse_http_request(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
     char *buffer = helper->buffer->value;
@@ -1187,8 +1182,9 @@ parse_http_request(struct lwan_request *request)
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    if (UNLIKELY(!parse_headers(helper, buffer,
-                                helper->buffer->value + helper->buffer->len)))
+    char *end = helper->crlfcrlf ? helper->crlfcrlf + sizeof("\r\n\r\n") - 1
+                                 : helper->buffer->value + helper->buffer->len;
+    if (UNLIKELY(!parse_headers(helper, buffer, end)))
         return HTTP_BAD_REQUEST;
 
     ssize_t decoded_len = url_decode(request->url.value);
