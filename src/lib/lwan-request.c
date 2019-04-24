@@ -294,24 +294,27 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
-static ALWAYS_INLINE char
-decode_hex_digit(char ch)
+static ALWAYS_INLINE char decode_hex_digit(char ch)
 {
-    return (char)((ch <= '9') ? ch - '0' : (ch & 7) + 9);
+    static const char hex_digit_tbl[256] = {
+        ['0'] = 0,  ['1'] = 1,  ['2'] = 2,  ['3'] = 3,  ['4'] = 4,  ['5'] = 5,
+        ['6'] = 6,  ['7'] = 7,  ['8'] = 8,  ['9'] = 9,  ['a'] = 10, ['b'] = 11,
+        ['c'] = 12, ['d'] = 13, ['e'] = 14, ['f'] = 15, ['A'] = 10, ['B'] = 11,
+        ['C'] = 12, ['D'] = 13, ['E'] = 14, ['F'] = 15,
+    };
+    return hex_digit_tbl[(unsigned int)ch];
 }
 
-static ssize_t
-url_decode(char *str)
+static ssize_t url_decode(char *str)
 {
     if (UNLIKELY(!str))
         return -EINVAL;
 
     char *ch, *decoded;
     for (decoded = ch = str; *ch; ch++) {
-        if (*ch == '%' && LIKELY(lwan_char_isxdigit(ch[1]) && lwan_char_isxdigit(ch[2]))) {
-            char tmp;
-
-            tmp = (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
+        if (*ch == '%') {
+            char tmp =
+                (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
 
             if (UNLIKELY(!tmp))
                 return -EINVAL;
