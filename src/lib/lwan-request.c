@@ -220,20 +220,14 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
     return buffer + size;
 }
 
-static char *
-parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
+static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 {
-    struct proxy_header_v2 *hdr = (struct proxy_header_v2*)buffer;
+    struct proxy_header_v2 *hdr = (struct proxy_header_v2 *)buffer;
     const unsigned int proto_signature_length = 16;
     unsigned int size;
     struct lwan_proxy *const proxy = request->proxy;
 
-    enum {
-        LOCAL = 0x20,
-        PROXY = 0x21,
-        TCP4 = 0x11,
-        TCP6 = 0x21
-    };
+    enum { LOCAL = 0x20, PROXY = 0x21, TCP4 = 0x11, TCP6 = 0x21 };
 
     size = proto_signature_length + (unsigned int)ntohs(hdr->len);
     if (UNLIKELY(size > (unsigned int)sizeof(*hdr)))
@@ -275,7 +269,16 @@ parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     }
 
     request->flags |= REQUEST_PROXIED;
-    return buffer + size;
+
+    buffer += size;
+
+    /* helper->crlfcrlf might be pointing to hdr; adjust */
+    struct lwan_request_parser_helper *helper = request->helper;
+    const size_t adjusted_size =
+        (size_t)(helper->buffer->value + helper->buffer->len - buffer);
+    helper->crlfcrlf = memmem(buffer, adjusted_size, "\r\n\r\n", 4);
+
+    return buffer;
 }
 
 static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
