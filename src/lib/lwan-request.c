@@ -223,6 +223,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 {
     struct proxy_header_v2 *hdr = (struct proxy_header_v2 *)buffer;
+    struct lwan_request_parser_helper *helper = request->helper;
     const unsigned int proto_signature_length = 16;
     unsigned int size;
     struct lwan_proxy *const proxy = request->proxy;
@@ -231,6 +232,8 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 
     size = proto_signature_length + (unsigned int)ntohs(hdr->len);
     if (UNLIKELY(size > (unsigned int)sizeof(*hdr)))
+        return NULL;
+    if (UNLIKELY(size >= helper->buffer->len))
         return NULL;
 
     if (LIKELY(hdr->cmd_ver == PROXY)) {
@@ -273,7 +276,6 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     buffer += size;
 
     /* helper->crlfcrlf might be pointing to hdr; adjust */
-    struct lwan_request_parser_helper *helper = request->helper;
     const size_t adjusted_size =
         (size_t)(helper->buffer->value + helper->buffer->len - buffer);
     helper->crlfcrlf = memmem(buffer, adjusted_size, "\r\n\r\n", 4);
