@@ -746,7 +746,7 @@ Host: 192.168.0.11\r\n\r\n'''
 class TestPipelinedRequests(SocketTest):
   def test_pipelined_requests(self):
     response_separator = re.compile('\r\n\r\n')
-    names = ['name%04x' % x for x in range(16)]
+    names = ['name%04x' % x for x in range(256)]
     reqs = '\r\n\r\n'.join('''GET /hello?name=%s HTTP/1.1\r
 Host: localhost\r
 Connection: keep-alive\r
@@ -757,8 +757,8 @@ Accept: text/plain,text/html;q=0.9,application/xhtml+xml;q=0.9,application/xml;q
       sock.send(reqs)
 
       responses = ''
-      while len(response_separator.findall(responses)) != 16:
-        response = sock.recv(32)
+      while len(response_separator.findall(responses)) != len(names):
+        response = sock.recv(4096)
         if response:
           responses += response
         else:
