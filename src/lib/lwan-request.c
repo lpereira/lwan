@@ -56,7 +56,6 @@ enum lwan_read_finalizer {
 
 struct lwan_request_parser_helper {
     struct lwan_value *buffer;		/* The whole request buffer */
-    char *crlfcrlf;			/* Location of terminating \r\n\r\n */
     char *next_request;			/* For pipelined requests */
 
     char **header_start;		/* Headers: n: start, n+1: end */
@@ -272,15 +271,7 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     }
 
     request->flags |= REQUEST_PROXIED;
-
-    buffer += size;
-
-    /* helper->crlfcrlf might be pointing to hdr; adjust */
-    const size_t adjusted_size =
-        (size_t)(helper->buffer->value + helper->buffer->len - buffer);
-    helper->crlfcrlf = memmem(buffer, adjusted_size, "\r\n\r\n", 4);
-
-    return buffer;
+    return buffer + size;
 }
 
 static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
@@ -531,9 +522,9 @@ identify_http_path(struct lwan_request *request, char *buffer)
     })
 
 static bool parse_headers(struct lwan_request_parser_helper *helper,
-                          char *buffer,
-                          char *buffer_end)
+                          char *buffer)
 {
+    char *buffer_end = helper->buffer->value + helper->buffer->len;
     char **header_start = helper->header_start;
     char *p;
     size_t n_headers = 0;
@@ -546,8 +537,13 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         if (!next_hdr)
             goto process;
 
-        if (buffer_end - next_chr == sizeof("\r\n") - 1)
+        if (next_chr == next_hdr) {
+            STRING_SWITCH_SMALL(next_hdr) {
+            case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
+                helper->next_request = next_hdr + 2;
+            }
             goto process;
+        }
 
         header_start[n_headers++] = next_chr;
         header_start[n_headers++] = next_hdr;
@@ -565,52 +561,50 @@ process:
 
         p = header_start[i];
 
-        STRING_SWITCH_L(p) {
-        case MULTICHAR_CONSTANT_L('A','c','c','e'):
+        STRING_SWITCH_L (p) {
+        case MULTICHAR_CONSTANT_L('A', 'c', 'c', 'e'):
             p += HEADER_LENGTH("Accept");
 
-            STRING_SWITCH_L(p) {
-            case MULTICHAR_CONSTANT_L('-','E','n','c'):
+            STRING_SWITCH_L (p) {
+            case MULTICHAR_CONSTANT_L('-', 'E', 'n', 'c'):
                 helper->accept_encoding = HEADER("-Encoding");
                 break;
             }
             break;
-        case MULTICHAR_CONSTANT_L('A','u','t','h'):
+        case MULTICHAR_CONSTANT_L('A', 'u', 't', 'h'):
             helper->authorization = HEADER("Authorization");
             break;
-        case MULTICHAR_CONSTANT_L('C','o','n','n'):
+        case MULTICHAR_CONSTANT_L('C', 'o', 'n', 'n'):
             helper->connection = HEADER("Connection");
             break;
-        case MULTICHAR_CONSTANT_L('C','o','n','t'):
+        case MULTICHAR_CONSTANT_L('C', 'o', 'n', 't'):
             p += HEADER_LENGTH("Content");
 
-            STRING_SWITCH_L(p) {
-            case MULTICHAR_CONSTANT_L('-','T','y','p'):
+            STRING_SWITCH_L (p) {
+            case MULTICHAR_CONSTANT_L('-', 'T', 'y', 'p'):
                 helper->content_type = HEADER("-Type");
                 break;
-            case MULTICHAR_CONSTANT_L('-','L','e','n'):
+            case MULTICHAR_CONSTANT_L('-', 'L', 'e', 'n'):
                 helper->content_length = HEADER("-Length");
                 break;
             }
             break;
-        case MULTICHAR_CONSTANT_L('C','o','o','k'):
+        case MULTICHAR_CONSTANT_L('C', 'o', 'o', 'k'):
             helper->cookie = HEADER("Cookie");
             break;
-        case MULTICHAR_CONSTANT_L('I','f','-','M'):
+        case MULTICHAR_CONSTANT_L('I', 'f', '-', 'M'):
             helper->if_modified_since.raw = HEADER("If-Modified-Since");
             break;
-        case MULTICHAR_CONSTANT_L('R','a','n','g'):
+        case MULTICHAR_CONSTANT_L('R', 'a', 'n', 'g'):
             helper->range.raw = HEADER("Range");
             break;
         }
     }
 
 out:
-    helper->next_request = buffer_end;
     helper->n_header_start = n_headers;
     return ret;
 }
-
 #undef HEADER_LENGTH
 #undef HEADER
 
@@ -786,7 +780,7 @@ read_from_request_socket(struct lwan_request *request,
                          enum lwan_read_finalizer (*finalizer)(
                              size_t total_read,
                              size_t buffer_size,
-                             struct lwan_request_parser_helper *helper,
+                             struct lwan_request *request,
                              int n_packets))
 {
     struct lwan_request_parser_helper *helper = request->helper;
@@ -795,17 +789,24 @@ read_from_request_socket(struct lwan_request *request,
     int n_packets = 0;
 
     if (helper->next_request) {
-        buffer->len -= (size_t)(helper->next_request - buffer->value);
-        /* FIXME: This memmove() could be eventually removed if a better
-         * stucture were used for the request buffer. */
-        memmove(buffer->value, helper->next_request, buffer->len);
-        total_read = buffer->len;
-        goto try_to_finalize;
+        const size_t next_request_len = (size_t)(helper->next_request - buffer->value);
+        size_t new_len;
+
+        if (__builtin_sub_overflow(buffer->len, next_request_len, &new_len)) {
+            helper->next_request = NULL;
+        } else {
+            /* FIXME: This memmove() could be eventually removed if a better
+             * stucture were used for the request buffer. */
+            buffer->len = new_len;
+            memmove(buffer->value, helper->next_request, buffer->len);
+            total_read = buffer->len;
+            goto try_to_finalize;
+        }
     }
 
     for (;; n_packets++) {
         n = read(request->fd, buffer->value + total_read,
-                 (size_t)(buffer_size - total_read));
+                 (size_t)(buffer_size - total_read - 1));
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
@@ -838,7 +839,7 @@ yield_and_read_again:
         buffer->len = (size_t)total_read;
 
 try_to_finalize:
-        switch (finalizer(total_read, buffer_size, helper, n_packets)) {
+        switch (finalizer(total_read, buffer_size, request, n_packets)) {
         case FINALIZER_DONE:
             request->conn->flags &= ~CONN_MUST_READ;
             buffer->value[buffer->len] = '\0';
@@ -869,12 +870,19 @@ try_to_finalize:
     return HTTP_INTERNAL_ERROR;
 }
 
+static inline char *has_crlfcrlf(struct lwan_value *buffer)
+{
+    return memmem(buffer->value, buffer->len, "\r\n\r\n", 4);
+}
+
 static enum lwan_read_finalizer
 read_request_finalizer(size_t total_read,
                        size_t buffer_size,
-                       struct lwan_request_parser_helper *helper,
+                       struct lwan_request *request,
                        int n_packets)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     /* 16 packets should be enough to read a request (without the body, as
      * is the case for POST requests).  This yields a timeout error to avoid
      * clients being intentionally slow and hogging the server.  */
@@ -884,19 +892,29 @@ read_request_finalizer(size_t total_read,
     if (UNLIKELY(total_read < 4))
         return FINALIZER_YIELD_TRY_AGAIN;
 
-    if (UNLIKELY(total_read == buffer_size))
-        return FINALIZER_ERROR_TOO_LARGE;
-
-    char *crlfcrlf = memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4);
+    char *crlfcrlf = has_crlfcrlf(helper->buffer);
     if (LIKELY(crlfcrlf)) {
-        helper->crlfcrlf = crlfcrlf;
-        return FINALIZER_DONE;
+        if (LIKELY(helper->next_request)) {
+            helper->next_request = NULL;
+            return FINALIZER_DONE;
+        }
+
+        if (crlfcrlf != helper->buffer->value)
+            return FINALIZER_DONE;
+
+        if (total_read > 16 && request->flags & REQUEST_ALLOW_PROXY_REQS) {
+            /* FIXME: Checking for PROXYv2 protocol header here is a layering
+             * violation. */
+            STRING_SWITCH_LARGE (crlfcrlf + 4) {
+            case MULTICHAR_CONSTANT_LARGE(0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49,
+                                          0x54, 0x0a):
+                return FINALIZER_DONE;
+            }
+        }
     }
 
-    if (LIKELY(helper->next_request)) {
-        helper->next_request = NULL;
-        return FINALIZER_DONE;
-    }
+    if (UNLIKELY(total_read == buffer_size - 1))
+        return FINALIZER_ERROR_TOO_LARGE;
 
     return FINALIZER_TRY_AGAIN;
 }
@@ -912,9 +930,11 @@ read_request(struct lwan_request *request)
 static enum lwan_read_finalizer
 post_data_finalizer(size_t total_read,
                     size_t buffer_size,
-                    struct lwan_request_parser_helper *helper,
+                    struct lwan_request *request,
                     int n_packets)
 {
+    struct lwan_request_parser_helper *helper = request->helper;
+
     if (buffer_size == total_read)
         return FINALIZER_DONE;
 
@@ -1187,9 +1207,7 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     if (UNLIKELY(!buffer))
         return HTTP_BAD_REQUEST;
 
-    char *end = helper->crlfcrlf ? helper->crlfcrlf + sizeof("\r\n\r\n") - 1
-                                 : helper->buffer->value + helper->buffer->len;
-    if (UNLIKELY(!parse_headers(helper, buffer, end)))
+    if (UNLIKELY(!parse_headers(helper, buffer)))
         return HTTP_BAD_REQUEST;
 
     ssize_t decoded_len = url_decode(request->url.value);
