@@ -1672,7 +1672,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    if (read_request_finalizer(length, sizeof(data_copy), &helper, 1) !=
+    if (read_request_finalizer(length, sizeof(data_copy), &request, 1) !=
         FINALIZER_DONE)
         return 0;
 
