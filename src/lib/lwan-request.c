@@ -541,7 +541,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         if (!next_hdr)
             goto process;
 
-        if (next_chr == next_hdr) {
+        if (next_chr == next_hdr && buffer_end - next_chr > 2) {
             STRING_SWITCH_SMALL(next_hdr) {
             case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
                 helper->next_request = next_hdr + 2;
