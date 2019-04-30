@@ -138,7 +138,7 @@ parse_ascii_port(char *port, unsigned short *out)
 }
 
 static char *
-strsep_char(char *strp, char delim)
+strsep_char(char *strp, const char *end, char delim)
 {
     char *ptr;
 
@@ -147,6 +147,9 @@ strsep_char(char *strp, char delim)
 
     ptr = strchr(strp, delim);
     if (UNLIKELY(!ptr))
+        return NULL;
+
+    if (UNLIKELY(ptr > end))
         return NULL;
 
     *ptr = '\0';
@@ -168,10 +171,10 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
     size = (unsigned int) (end + 2 - buffer);
 
     protocol = buffer + sizeof("PROXY ") - 1;
-    src_addr = strsep_char(protocol, ' ');
-    dst_addr = strsep_char(src_addr, ' ');
-    src_port = strsep_char(dst_addr, ' ');
-    dst_port = strsep_char(src_port, ' ');
+    src_addr = strsep_char(protocol, end, ' ');
+    dst_addr = strsep_char(src_addr, end, ' ');
+    src_port = strsep_char(dst_addr, end, ' ');
+    dst_port = strsep_char(src_port, end, ' ');
 
     if (UNLIKELY(!dst_port))
         return NULL;
@@ -351,6 +354,7 @@ static void parse_key_values(struct lwan_request *request,
 {
     struct lwan_key_value *kv;
     char *ptr = helper_value->value;
+    const char *end = helper_value->value + helper_value->len;
 
     if (!helper_value->len)
         return;
@@ -369,9 +373,9 @@ static void parse_key_values(struct lwan_request *request,
             goto error;
 
         key = ptr;
-        ptr = strsep_char(key, separator);
+        ptr = strsep_char(key, end, separator);
 
-        value = strsep_char(key, '=');
+        value = strsep_char(key, end, '=');
         if (UNLIKELY(!value)) {
             value = "";
         } else if (UNLIKELY(decode_value(value) < 0)) {
