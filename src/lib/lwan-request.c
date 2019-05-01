@@ -145,11 +145,11 @@ strsep_char(char *strp, const char *end, char delim)
     if (UNLIKELY(!strp))
         return NULL;
 
-    ptr = strchr(strp, delim);
-    if (UNLIKELY(!ptr))
+    if (UNLIKELY(strp > end))
         return NULL;
 
-    if (UNLIKELY(ptr > end))
+    ptr = strchr(strp, delim);
+    if (UNLIKELY(!ptr))
         return NULL;
 
     *ptr = '\0';
