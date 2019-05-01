@@ -800,10 +800,11 @@ read_from_request_socket(struct lwan_request *request,
             helper->next_request = NULL;
         } else {
             /* FIXME: This memmove() could be eventually removed if a better
-             * stucture were used for the request buffer. */
-            buffer->len = new_len;
-            memmove(buffer->value, helper->next_request, buffer->len);
-            total_read = buffer->len;
+             * stucture (maybe a ringbuffer, reading with readv(), and each
+             * pointer is coro_strdup() if they wrap around?) were used for
+             * the request buffer.  */
+            total_read = buffer->len = new_len;
+            memmove(buffer->value, helper->next_request, new_len);
             goto try_to_finalize;
         }
     }
