@@ -555,7 +555,8 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         p = next_hdr + 2;
     }
 
-    goto out; /* Header array isn't large enough */
+    if (UNLIKELY(n_headers >= N_HEADER_START))
+        goto out;
 
 process:
     ret = true;
