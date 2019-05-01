@@ -530,36 +530,36 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 {
     char *buffer_end = helper->buffer->value + helper->buffer->len;
     char **header_start = helper->header_start;
-    char *p;
     size_t n_headers = 0;
-    bool ret = false;
+    char *p;
 
-    for (p = buffer + 1; n_headers < N_HEADER_START && buffer_end > p;) {
+    for (p = buffer + 1;;) {
         char *next_chr = p;
         char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
         if (!next_hdr)
-            goto process;
+            break;
 
-        if (next_chr == next_hdr && buffer_end - next_chr > 2) {
-            STRING_SWITCH_SMALL(next_hdr) {
-            case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
-                helper->next_request = next_hdr + 2;
+        if (next_chr == next_hdr) {
+            if (buffer_end - next_chr > 2) {
+                STRING_SWITCH_SMALL (next_hdr) {
+                case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
+                    helper->next_request = next_hdr + 2;
+                }
             }
-            goto process;
+            break;
         }
 
         header_start[n_headers++] = next_chr;
         header_start[n_headers++] = next_hdr;
 
         p = next_hdr + 2;
+
+        if (n_headers > N_HEADER_START || p >= buffer_end) {
+            helper->n_header_start = 0;
+            return false;
+        }
     }
-
-    if (UNLIKELY(n_headers >= N_HEADER_START))
-        goto out;
-
-process:
-    ret = true;
 
     for (size_t i = 0; i < n_headers; i += 2) {
         char *end = header_start[i + 1];
@@ -606,9 +606,8 @@ process:
         }
     }
 
-out:
     helper->n_header_start = n_headers;
-    return ret;
+    return true;
 }
 #undef HEADER_LENGTH
 #undef HEADER
