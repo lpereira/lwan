@@ -555,7 +555,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 
         p = next_hdr + 2;
 
-        if (n_headers > N_HEADER_START || p >= buffer_end) {
+        if (n_headers >= N_HEADER_START || p >= buffer_end) {
             helper->n_header_start = 0;
             return false;
         }
