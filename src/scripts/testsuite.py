@@ -804,16 +804,24 @@ class TestFuzzRegressionBase(SocketTest):
     new_environment["KEEP_ALIVE_TIMEOUT"] = "0"
     super(SocketTest, self).setUp(env=new_environment)
 
-  def run_fuzz_test(self, test_name):
+  def run_test(self, contents):
     with self.connect() as sock:
-      with open(os.path.join("fuzz", test_name), "rb") as contents:
-        contents = str(contents.read(), 'latin-1')
-        sock.send(contents)
+      sock.send(contents)
+      first_8 = sock.recv(8)
+      self.assertTrue(first_8 in ("HTTP/1.1", ""))
+
+  @staticmethod
+  def wrap(name):
+    with open(os.path.join("fuzz", name), "rb") as f:
+      contents = str(f.read(), "latin-1")
+    def run_test_wrapped(self):
+      return self.run_test(contents)
+    return run_test_wrapped
+
 TestFuzzRegression = type('TestFuzzRegression', (TestFuzzRegressionBase,), {
-  "test_" + test.replace("-", "_"): lambda self: self.run_fuzz_test(test)
-  for test in (
-    cf for cf in os.listdir("fuzz")
-    if (cf.startswith(("clusterfuzz-", "crash-")))
+  "test_" + name.replace("-", "_"): TestFuzzRegressionBase.wrap(name)
+  for name in (
+    cf for cf in os.listdir("fuzz") if cf.startswith(("clusterfuzz-", "crash-"))
   )
 })
 
