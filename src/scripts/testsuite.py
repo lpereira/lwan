@@ -22,12 +22,10 @@ for arg in sys.argv[1:]:
 print('Using', LWAN_PATH, 'for lwan')
 
 class LwanTest(unittest.TestCase):
-  def setUp(self):
+  def setUp(self, env=None):
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen(
-        [LWAN_PATH],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-      )
+      self.lwan=subprocess.Popen([LWAN_PATH], stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, env=env)
       for request_try in range(20):
         try:
           requests.get('http://127.0.0.1:8080/hello')
@@ -799,6 +797,25 @@ class TestRequest(LwanTest):
 
     self.assertEqual(r.status_code, 404)
 
+
+class TestFuzzRegressionBase(SocketTest):
+  def setUp(self):
+    new_environment = os.environ.copy()
+    new_environment["KEEP_ALIVE_TIMEOUT"] = "0"
+    super(SocketTest, self).setUp(env=new_environment)
+
+  def run_fuzz_test(self, test_name):
+    with self.connect() as sock:
+      with open(os.path.join("fuzz", test_name), "rb") as contents:
+        contents = str(contents.read(), 'latin-1')
+        sock.send(contents)
+TestFuzzRegression = type('TestFuzzRegression', (TestFuzzRegressionBase,), {
+  "test_" + test.replace("-", "_"): lambda self: self.run_fuzz_test(test)
+  for test in (
+    cf for cf in os.listdir("fuzz")
+    if (cf.startswith(("clusterfuzz-", "crash-")))
+  )
+})
 
 if __name__ == '__main__':
   unittest.main()
