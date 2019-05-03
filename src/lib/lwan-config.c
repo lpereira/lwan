@@ -41,7 +41,7 @@
 
 #define FOR_EACH_LEXEME(X)                                                     \
     X(ERROR) X(STRING) X(EQUAL) X(OPEN_BRACKET) X(CLOSE_BRACKET) X(LINEFEED)   \
-    X(VARIABLE) X(EOF)
+    X(VARIABLE) X(VARIABLE_DEFAULT) X(EOF)
 
 #define GENERATE_ENUM(id) LEXEME_ ## id,
 #define GENERATE_ARRAY_ITEM(id) [LEXEME_ ## id] = #id,
@@ -358,6 +358,18 @@ static bool isvariable(int chr)
     return isalpha(chr) || chr == '_';
 }
 
+static void *lex_variable_default(struct lexer *lexer)
+{
+    while (next(lexer) != '}')
+        ;
+    backup(lexer);
+    emit(lexer, LEXEME_STRING);
+
+    advance_n(lexer, strlen("}"));
+
+    return lex_config;
+}
+
 static void *lex_variable(struct lexer *lexer)
 {
     int chr;
@@ -366,6 +378,13 @@ static void *lex_variable(struct lexer *lexer)
 
     do {
         chr = next(lexer);
+
+        if (chr == ':') {
+            backup(lexer);
+            emit(lexer, LEXEME_VARIABLE_DEFAULT);
+            advance_n(lexer, strlen(":"));
+            return lex_variable_default;
+        }
 
         if (chr == '}') {
             backup(lexer);
@@ -476,12 +495,13 @@ static __attribute__((noinline)) const char *secure_getenv_len(const char *key, 
 
 static void *parse_key_value(struct parser *parser)
 {
-    struct config_line line = { .type = CONFIG_LINE_TYPE_LINE };
+    struct config_line line = {.type = CONFIG_LINE_TYPE_LINE};
     struct lexeme *lexeme;
     size_t key_size;
 
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
-        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                               lexeme->value.len);
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, '_');
@@ -491,17 +511,47 @@ static void *parse_key_value(struct parser *parser)
 
     while (lex_next(&parser->lexer, &lexeme)) {
         switch (lexeme->type) {
+        case LEXEME_VARIABLE_DEFAULT:
         case LEXEME_VARIABLE: {
             const char *value;
 
             value = secure_getenv_len(lexeme->value.value, lexeme->value.len);
-            if (!value) {
-                lwan_status_error("Variable '$%.*s' not defined in environment",
-                    (int)lexeme->value.len, lexeme->value.value);
-                return NULL;
+            if (lexeme->type == LEXEME_VARIABLE) {
+                if (!value) {
+                    lwan_status_error(
+                        "Variable '$%.*s' not defined in environment",
+                        (int)lexeme->value.len, lexeme->value.value);
+                    return NULL;
+                } else {
+                    lwan_strbuf_append_str(&parser->strbuf, value, 0);
+                }
+            } else {
+                struct lexeme *var_name = lexeme;
+
+                if (!lex_next(&parser->lexer, &lexeme)) {
+                    lwan_status_error(
+                        "Default value for variable '$%.*s' not given",
+                        (int)var_name->value.len, var_name->value.value);
+                    return NULL;
+                }
+
+                if (lexeme->type != LEXEME_STRING) {
+                    lwan_status_error("Wrong format for default value");
+                    return NULL;
+                }
+
+                if (!value) {
+                    lwan_status_debug(
+                        "Using default value of '%.*s' for variable '${%.*s}'",
+                        (int)lexeme->value.len, lexeme->value.value,
+                        (int)var_name->value.len, var_name->value.value);
+                    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                                           lexeme->value.len);
+                } else {
+                    lwan_strbuf_append_str(&parser->strbuf, value, 0);
+                }
             }
 
-            lwan_strbuf_append_str(&parser->strbuf, value, 0);
             break;
         }
 
@@ -510,7 +560,8 @@ static void *parse_key_value(struct parser *parser)
             break;
 
         case LEXEME_STRING:
-            lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+            lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                                   lexeme->value.len);
             break;
 
         case LEXEME_CLOSE_BRACKET:
@@ -527,7 +578,7 @@ static void *parse_key_value(struct parser *parser)
 
         default:
             lwan_status_error("Unexpected token while parsing key-value: %s",
-                lexeme_type_str[lexeme->type]);
+                              lexeme_type_str[lexeme->type]);
             return NULL;
         }
     }
