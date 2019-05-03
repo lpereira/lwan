@@ -67,8 +67,6 @@ struct lwan_request_parser_helper {
     struct lwan_value query_string;	/* Stuff after ? and before # */
     struct lwan_value fragment;		/* Stuff after # */
 
-    struct lwan_value authorization;	/* Authorization: */
-
     struct lwan_value post_data;	/* Request body for POST */
     struct lwan_value content_type;	/* Content-Type: for POST */
     struct lwan_value content_length;	/* Content-Length: */
@@ -581,9 +579,6 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
                 helper->accept_encoding = HEADER("-Encoding");
                 break;
             }
-            break;
-        case MULTICHAR_CONSTANT_L('A', 'u', 't', 'h'):
-            helper->authorization = HEADER("Authorization");
             break;
         case MULTICHAR_CONSTANT_L('C', 'o', 'n', 'n'):
             helper->connection = HEADER("Connection");
@@ -1295,13 +1290,18 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
                                                   struct lwan_request *request)
 {
-    struct lwan_request_parser_helper *helper = request->helper;
-
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
     if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
-        if (!lwan_http_authorize(request, &helper->authorization,
+        const char *authorization =
+            lwan_request_get_header(request, "Authorization");
+        struct lwan_value header = {
+            .value = (char*)authorization,
+            .len = authorization ? strlen(authorization) : 0,
+        };
+
+        if (!lwan_http_authorize(request, &header,
                                  url_map->authorization.realm,
                                  url_map->authorization.password_file))
             return HTTP_NOT_AUTHORIZED;
