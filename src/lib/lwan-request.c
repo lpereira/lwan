@@ -1192,8 +1192,12 @@ parse_proxy_protocol(struct lwan_request *request, char *buffer)
 
 static enum lwan_http_status parse_http_request(struct lwan_request *request)
 {
+    const size_t min_request_size = sizeof("GET / HTTP/1.1\r\n\r\n") - 1;
     struct lwan_request_parser_helper *helper = request->helper;
     char *buffer = helper->buffer->value;
+
+    if (UNLIKELY(helper->buffer->len < min_request_size))
+        return HTTP_BAD_REQUEST;
 
     if (request->flags & REQUEST_ALLOW_PROXY_REQS) {
         /* REQUEST_ALLOW_PROXY_REQS will be cleared in lwan_process_request() */
@@ -1204,6 +1208,10 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     }
 
     buffer = ignore_leading_whitespace(buffer);
+
+    if (UNLIKELY(buffer >= helper->buffer->value + helper->buffer->len -
+                               min_request_size))
+        return HTTP_BAD_REQUEST;
 
     char *path = identify_http_method(request, buffer);
     if (UNLIKELY(!path))
