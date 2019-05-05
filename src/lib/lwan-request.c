@@ -1687,6 +1687,9 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         FINALIZER_DONE)
         return 0;
 
+    /* read_from_request_socket() NUL-terminates the string */
+    data_copy[length - 1] = '\0';
+
     if (parse_http_request(&request) == HTTP_OK) {
         size_t gen = coro_deferred_get_generation(coro);
 
