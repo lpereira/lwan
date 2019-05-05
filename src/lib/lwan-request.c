@@ -44,6 +44,7 @@
 #include "lwan-io-wrappers.h"
 #include "sha1.h"
 
+#define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
 #define N_HEADER_START 64
 
 enum lwan_read_finalizer {
@@ -897,7 +898,7 @@ read_request_finalizer(size_t total_read,
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
 
-    if (UNLIKELY(total_read < 4))
+    if (UNLIKELY(total_read < MIN_REQUEST_SIZE))
         return FINALIZER_YIELD_TRY_AGAIN;
 
     char *crlfcrlf = has_crlfcrlf(helper->buffer);
@@ -1194,12 +1195,8 @@ parse_proxy_protocol(struct lwan_request *request, char *buffer)
 
 static enum lwan_http_status parse_http_request(struct lwan_request *request)
 {
-    const size_t min_request_size = sizeof("GET / HTTP/1.1\r\n\r\n") - 1;
     struct lwan_request_parser_helper *helper = request->helper;
     char *buffer = helper->buffer->value;
-
-    if (UNLIKELY(helper->buffer->len < min_request_size))
-        return HTTP_BAD_REQUEST;
 
     if (request->flags & REQUEST_ALLOW_PROXY_REQS) {
         /* REQUEST_ALLOW_PROXY_REQS will be cleared in lwan_process_request() */
@@ -1212,7 +1209,7 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     buffer = ignore_leading_whitespace(buffer);
 
     if (UNLIKELY(buffer >= helper->buffer->value + helper->buffer->len -
-                               min_request_size))
+                               MIN_REQUEST_SIZE))
         return HTTP_BAD_REQUEST;
 
     char *path = identify_http_method(request, buffer);
