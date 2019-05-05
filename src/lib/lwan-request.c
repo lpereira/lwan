@@ -63,7 +63,6 @@ struct lwan_request_parser_helper {
 
     struct lwan_value accept_encoding;	/* Accept-Encoding: */
 
-    struct lwan_value cookie;		/* Cookie: */
     struct lwan_value query_string;	/* Stuff after ? and before # */
     struct lwan_value fragment;		/* Stuff after # */
 
@@ -410,8 +409,14 @@ identity_decode(char *input __attribute__((unused)))
 
 static void parse_cookies(struct lwan_request *request)
 {
-    parse_key_values(request, &request->helper->cookie, &request->cookies,
-                     identity_decode, ';');
+    const char *cookies = lwan_request_get_header(request, "Cookie");
+
+    if (!cookies)
+        return;
+
+    struct lwan_value header = {.value = (char *)cookies,
+                                .len = strlen(cookies)};
+    parse_key_values(request, &header, &request->cookies, identity_decode, ';');
 }
 
 static void parse_query_string(struct lwan_request *request)
@@ -594,9 +599,6 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
                 helper->content_length = HEADER("-Length");
                 break;
             }
-            break;
-        case MULTICHAR_CONSTANT_L('C', 'o', 'o', 'k'):
-            helper->cookie = HEADER("Cookie");
             break;
         case MULTICHAR_CONSTANT_L('I', 'f', '-', 'M'):
             helper->if_modified_since.raw = HEADER("If-Modified-Since");
