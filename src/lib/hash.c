@@ -18,6 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#define _DEFAULT_SOURCE
 #define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>

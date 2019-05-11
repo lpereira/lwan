@@ -18,6 +18,7 @@
  * USA.
  */
 
+#define _DEFAULT_SOURCE
 #define _GNU_SOURCE
 #include <errno.h>
 #include <stdint.h>
