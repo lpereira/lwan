@@ -1698,15 +1698,36 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     data_copy[length - 1] = '\0';
 
     if (parse_http_request(&request) == HTTP_OK) {
+        const char *trash0;
+        off_t trash1;
+        time_t trash2;
         size_t gen = coro_deferred_get_generation(coro);
 
         /* Only pointers were set in helper struct; actually parse them here. */
-        parse_post_data(&request);
-        parse_query_string(&request);
-        parse_cookies(&request);
         parse_accept_encoding(&request);
-        parse_if_modified_since(&helper);
-        parse_range(&helper);
+
+        /* Requesting these items will force them to be parsed, and also exercise
+         * the lookup function. */
+        trash0 = lwan_request_get_header(&request, "Non-Existing-Header");
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        trash0 = lwan_request_get_header(&request, "Host"); /* Usually existing short header */
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        trash0 = lwan_request_get_cookie(&request, "Non-Existing-Cookie");
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        trash0 = lwan_request_get_cookie(&request, "FOO"); /* Set by some tests */
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        trash0 = lwan_request_get_query_param(&request, "Non-Existing-Query-Param");
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        trash0 = lwan_request_get_post_param(&request, "Non-Existing-Post-Param");
+        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+
+        lwan_request_get_range(&request, &trash1, &trash1);
+        lwan_request_get_if_modified_since(&request, &trash2);
 
         coro_deferred_run(coro, gen);
     }
