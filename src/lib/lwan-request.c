@@ -890,6 +890,8 @@ read_request_finalizer(size_t total_read,
                        struct lwan_request *request,
                        int n_packets)
 {
+    static const size_t min_proxied_request_size =
+        MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
 
     /* 16 packets should be enough to read a request (without the body, as
@@ -911,7 +913,8 @@ read_request_finalizer(size_t total_read,
         if (crlfcrlf != helper->buffer->value)
             return FINALIZER_DONE;
 
-        if (total_read > 16 && request->flags & REQUEST_ALLOW_PROXY_REQS) {
+        if (total_read > min_proxied_request_size &&
+            request->flags & REQUEST_ALLOW_PROXY_REQS) {
             /* FIXME: Checking for PROXYv2 protocol header here is a layering
              * violation. */
             STRING_SWITCH_LARGE (crlfcrlf + 4) {
