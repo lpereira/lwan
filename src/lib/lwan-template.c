@@ -1309,11 +1309,11 @@ end:
     return tpl;
 }
 
-static struct chunk *apply(struct lwan_tpl *tpl,
-                           struct chunk *chunks,
-                           struct lwan_strbuf *buf,
-                           void *variables,
-                           void *data)
+static const struct chunk *apply(struct lwan_tpl *tpl,
+                                 const struct chunk *chunks,
+                                 struct lwan_strbuf *buf,
+                                 void *variables,
+                                 const void *data)
 {
     static const void *const dispatch_table[] = {
         [ACTION_APPEND] = &&action_append,
@@ -1330,7 +1330,7 @@ static struct chunk *apply(struct lwan_tpl *tpl,
     };
     struct coro_switcher switcher;
     struct coro *coro = NULL;
-    struct chunk *chunk = chunks;
+    const struct chunk *chunk = chunks;
 
     if (UNLIKELY(!chunk))
         return NULL;
