@@ -187,8 +187,9 @@ can be empty; in this case, curly brackets are optional.
 an implementation detail, code reading configuration options will only be
 given the version with underscores).
 
-Values can contain environment variables. Use the syntax
-`${VARIABLE_NAME}`.
+Values can contain environment variables. Use the syntax `${VARIABLE_NAME}`.
+Default values can be specified with a colon (e.g.  `${VARIABLE_NAME:foo}`,
+which evaluates to `${VARIABLE_NAME}` if it's set, or `foo` otherwise).
 
 ```
 sound volume = 11 # This one is 1 louder
