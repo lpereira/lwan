@@ -165,7 +165,7 @@ static inline unsigned int hash_int_crc32(const void *keyptr)
 }
 #endif
 
-__attribute__((constructor)) static void initialize_odd_constant(void)
+__attribute__((constructor(65535))) static void initialize_odd_constant(void)
 {
     /* This constant is randomized in order to mitigate the DDoS attack
      * described by Crosby and Wallach in UsenixSec2003.  */
