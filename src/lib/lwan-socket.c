@@ -38,6 +38,8 @@
 static int get_backlog_size(void)
 {
     int backlog = SOMAXCONN;
+
+#ifdef __linux__
     FILE *somaxconn;
 
     somaxconn = fopen("/proc/sys/net/core/somaxconn", "re");
@@ -47,6 +49,7 @@ static int get_backlog_size(void)
             backlog = tmp;
         fclose(somaxconn);
     }
+#endif
 
     return backlog;
 }
