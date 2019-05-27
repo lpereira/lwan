@@ -109,6 +109,18 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 #endif
 }
 
+#ifndef NDEBUG
+static long gettid_cached(void)
+{
+    static __thread long tid;
+
+    if (!tid)
+        tid = gettid();
+
+    return tid;
+}
+#endif
+
 static void
 #ifdef NDEBUG
 status_out(enum lwan_status_type type, const char *fmt, va_list values)
@@ -130,11 +142,11 @@ status_out(const char *file,
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
     if (use_colors) {
-        printf("\033[32;1m%ld\033[0m", gettid());
+        printf("\033[32;1m%ld\033[0m", gettid_cached());
         printf(" \033[3m%s:%d\033[0m", base_name, line);
         printf(" \033[33m%s()\033[0m ", func);
     } else {
-        printf("%ld %s:%d %s() ", gettid(), base_name, line, func);
+        printf("%ld %s:%d %s() ", gettid_cached(), base_name, line, func);
     }
 #endif
 
