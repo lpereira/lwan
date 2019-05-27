@@ -988,9 +988,11 @@ static bool post_process_template(struct parser *parser)
 
     LWAN_ARRAY_FOREACH(&parser->chunks, chunk) {
         if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
-            for (prev_chunk = chunk; ; chunk++) {
-                if (chunk->action == ACTION_LAST)
-                    break;
+            for (prev_chunk = chunk;; chunk++) {
+                if (chunk->action == ACTION_LAST) {
+                    lwan_status_error("Internal error: Could not find the end var not empty chunk");
+                    return false;
+                }
                 if (chunk->action == ACTION_END_IF_VARIABLE_NOT_EMPTY &&
                     chunk->data == prev_chunk->data)
                     break;
@@ -1009,9 +1011,11 @@ static bool post_process_template(struct parser *parser)
         } else if (chunk->action == ACTION_START_ITER) {
             enum flags flags = chunk->flags;
 
-            for (prev_chunk = chunk; ; chunk++) {
-                if (chunk->action == ACTION_LAST)
-                    break;
+            for (prev_chunk = chunk;; chunk++) {
+                if (chunk->action == ACTION_LAST) {
+                    lwan_status_error("Internal error: Could not find the end iter chunk");
+                    return false;
+                }
                 if (chunk->action == ACTION_END_ITER) {
                     size_t start_index = (size_t)chunk->data;
                     size_t prev_index =
