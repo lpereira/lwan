@@ -294,6 +294,14 @@ class TestFileServing(LwanTest):
     assertHasImage('file')
     assertHasImage('folder')
 
+    with open('wwwroot/icons/README.TXT', 'r') as readme:
+      readme = readme.read()
+      readme = readme.replace('"', "&quot;")
+      readme = readme.replace('/', "&#x2f;")
+      readme = readme.replace("'", "&#x27;")
+
+      self.assertTrue(readme in r.text)
+
     self.assertTrue('</html>' in r.text)
 
 
