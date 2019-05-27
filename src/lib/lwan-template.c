@@ -609,8 +609,11 @@ static void *parser_end_iter(struct parser *parser, struct lexeme *lexeme)
         if (iter->action != ACTION_START_ITER)
             continue;
         if (iter->data == symbol) {
-            emit_chunk(parser, ACTION_END_ITER, 0, iter);
+            size_t index = chunk_array_get_elem_index(&parser->chunks, iter);
+
+            emit_chunk(parser, ACTION_END_ITER, 0, (void *)index);
             symtab_pop(parser);
+
             return parser_text;
         }
     }
@@ -1010,8 +1013,13 @@ static bool post_process_template(struct parser *parser)
                 if (chunk->action == ACTION_LAST)
                     break;
                 if (chunk->action == ACTION_END_ITER) {
-                    if (chunk->data == prev_chunk) {
+                    size_t start_index = (size_t)chunk->data;
+                    size_t prev_index =
+                        chunk_array_get_elem_index(&parser->chunks, prev_chunk);
+
+                    if (prev_index == start_index) {
                         chunk->flags |= flags;
+                        chunk->data = chunk_array_get_elem(&parser->chunks, start_index);
                         break;
                     }
                 }
@@ -1211,10 +1219,7 @@ static void dump_program(const struct lwan_tpl *tpl)
             break;
         }
         case ACTION_END_ITER: {
-            struct chunk_descriptor *descriptor = iter->data;
-
-            printf("%s [%s]", instr("END_ITER", instr_buf),
-                   descriptor->descriptor->name);
+            printf("%s ", instr("END_ITER", instr_buf));
             indent--;
             break;
         }

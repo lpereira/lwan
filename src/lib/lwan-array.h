@@ -89,4 +89,14 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
         *coro_##array_type_##_new(struct coro *coro)                           \
     {                                                                          \
         return (struct array_type_ *)coro_lwan_array_new(coro);                \
+    }                                                                          \
+    __attribute__((unused)) static inline size_t array_type_##_get_elem_index( \
+        struct array_type_ *array, element_type_ *elem)                        \
+    {                                                                          \
+        return (size_t)(elem - (element_type_ *)array->base.base);             \
+    }                                                                          \
+    __attribute__((unused)) static inline element_type_                        \
+        *array_type_##_get_elem(struct array_type_ *array, size_t index)       \
+    {                                                                          \
+        return &((element_type_ *)array->base.base)[index];                    \
     }
