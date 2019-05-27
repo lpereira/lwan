@@ -1181,6 +1181,8 @@ static void dump_program(const struct lwan_tpl *tpl)
     LWAN_ARRAY_FOREACH(&tpl->chunks, iter) {
         char instr_buf[32];
 
+        printf("%8zu ", iter - (struct chunk *)tpl->chunks.base.base);
+
         switch (iter->action) {
         default:
             for (int i = 0; i < indent; i++) {
@@ -1222,11 +1224,10 @@ static void dump_program(const struct lwan_tpl *tpl)
             indent++;
             break;
         }
-        case ACTION_END_ITER: {
-            printf("%s ", instr("END_ITER", instr_buf));
+        case ACTION_END_ITER:
+            printf("%s [%zu]", instr("END_ITER", instr_buf), (size_t)iter->data);
             indent--;
             break;
-        }
         case ACTION_IF_VARIABLE_NOT_EMPTY: {
             struct chunk_descriptor *cd = iter->data;
 
