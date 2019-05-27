@@ -71,6 +71,7 @@ struct serve_files_priv {
 
     bool serve_precompressed_files;
     bool auto_index;
+    bool auto_index_readme;
 };
 
 struct cache_funcs {
@@ -99,6 +100,7 @@ struct sendfile_cache_data {
 
 struct dir_list_cache_data {
     struct lwan_strbuf rendered;
+    struct lwan_strbuf readme;
 };
 
 struct redir_cache_data {
@@ -127,6 +129,7 @@ struct file_cache_entry {
 struct file_list {
     const char *full_path;
     const char *rel_path;
+    const char *readme;
     struct {
         coro_function_t generator;
 
@@ -205,6 +208,7 @@ static const struct cache_funcs redir_funcs = {
 static const struct lwan_var_descriptor file_list_desc[] = {
     TPL_VAR_STR_ESCAPE(full_path),
     TPL_VAR_STR_ESCAPE(rel_path),
+    TPL_VAR_STR_ESCAPE(readme),
     TPL_VAR_SEQUENCE(file_list,
                      directory_list_generator,
                      ((const struct lwan_var_descriptor[]){
@@ -233,8 +237,9 @@ static const char *directory_list_tpl_str =
     "</style>\n"
     "</head>\n"
     "<body>\n"
-    "{{rel_path?}}  <h1>Index of {{rel_path}}</h1>{{/rel_path?}}\n"
-    "{{^rel_path?}}  <h1>Index of /</h1>{{/rel_path?}}\n"
+    "{{rel_path?}}  <h1>Index of {{rel_path}}</h1>\n{{/rel_path?}}"
+    "{{^rel_path?}}  <h1>Index of /</h1>\n{{/rel_path?}}"
+    "{{readme?}}<pre>{{readme}}</pre>\n{{/readme?}}"
     "  <table>\n"
     "    <tr>\n"
     "      <td><img src=\"?icon=back\"></td>\n"
@@ -523,6 +528,57 @@ static const char *get_rel_path(const char *full_path,
     return priv->prefix;
 }
 
+static const char *dirlist_find_readme(struct dir_list_cache_data *dd,
+                                       struct serve_files_priv *priv,
+                                       const char *full_path)
+{
+    static const char *candidates[] = {"readme", "readme.txt", "read.me",
+                                       "README.TXT", "README"};
+    int fd = -1;
+
+    lwan_strbuf_init(&dd->readme);
+
+    if (!priv->auto_index_readme)
+        return NULL;
+
+    for (size_t i = 0; i < N_ELEMENTS(candidates); i++) {
+        char buffer[PATH_MAX];
+        int r;
+
+        r = snprintf(buffer, PATH_MAX, "%s/%s", full_path, candidates[i]);
+        if (r < 0 || r >= PATH_MAX)
+            continue;
+
+        fd = open(buffer, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
+            continue;
+
+        while (true) {
+            ssize_t n = read(fd, buffer, sizeof(buffer));
+
+            if (n < 0) {
+                if (errno == EINTR)
+                    continue;
+                goto error;
+            }
+            if (!n)
+                break;
+
+            if (!lwan_strbuf_append_str(&dd->readme, buffer, (size_t)n))
+                goto error;
+        }
+
+        close(fd);
+        return lwan_strbuf_get_buffer(&dd->readme);
+    }
+
+error:
+    lwan_strbuf_reset(&dd->readme);
+    if (fd >= 0)
+        close(fd);
+    return NULL;
+}
+
 static bool dirlist_init(struct file_cache_entry *ce,
                          struct serve_files_priv *priv,
                          const char *full_path,
@@ -530,7 +586,8 @@ static bool dirlist_init(struct file_cache_entry *ce,
 {
     struct dir_list_cache_data *dd = &ce->dir_list_cache_data;
     struct file_list vars = {.full_path = full_path,
-                             .rel_path = get_rel_path(full_path, priv)};
+                             .rel_path = get_rel_path(full_path, priv),
+                             .readme = dirlist_find_readme(dd, priv, full_path)};
 
     if (!lwan_strbuf_init(&dd->rendered))
         return false;
@@ -724,6 +781,7 @@ static void dirlist_free(struct file_cache_entry *fce)
     struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
 
     lwan_strbuf_free(&dd->rendered);
+    lwan_strbuf_free(&dd->readme);
 }
 
 static void redir_free(struct file_cache_entry *fce)
@@ -797,6 +855,7 @@ static void *serve_files_create(const char *prefix, void *args)
         settings->index_html ? settings->index_html : "index.html";
     priv->serve_precompressed_files = settings->serve_precompressed_files;
     priv->auto_index = settings->auto_index;
+    priv->auto_index_readme = settings->auto_index_readme;
     priv->read_ahead = settings->read_ahead;
 
     return priv;
@@ -826,6 +885,8 @@ static void *serve_files_create_from_hash(const char *prefix,
         .directory_list_template = hash_find(hash, "directory_list_template"),
         .read_ahead =
             (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
+        .auto_index_readme =
+            parse_bool(hash_find(hash, "auto_index_readme"), true),
     };
 
     return serve_files_create(prefix, &settings);

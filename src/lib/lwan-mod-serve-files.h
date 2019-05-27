@@ -34,6 +34,7 @@ struct lwan_serve_files_settings {
   size_t read_ahead;
   bool serve_precompressed_files;
   bool auto_index;
+  bool auto_index_readme;
 };
 
 LWAN_MODULE_FORWARD_DECL(serve_files);
@@ -46,7 +47,8 @@ LWAN_MODULE_FORWARD_DECL(serve_files);
     .index_html = index_html_, \
     .serve_precompressed_files = serve_precompressed_files_, \
     .directory_list_template = NULL, \
-    .auto_index = true \
+    .auto_index = true, \
+    .auto_index_readme = true, \
   }}), \
   .flags = (enum lwan_handler_flags)0
 
