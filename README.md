@@ -531,26 +531,14 @@ Some tests will only work on Linux, and won't be executed on other platforms.
 
 ### Fuzz-testing
 
-To enable, pass `-DBUILD_FUZZER=ON` in the CMake command line, and set the `CC`
-environment variable to `clang` (this requires clang >= 6.0).  No samples will
-be built, `liblwan` will be instrumented, and the driver will be available as
-`src/bin/fuzz/fuzz`.
-
-Right now this fuzzes only with address sanitizer, but there are plans to build
-a fuzzing binary for each sanitizer that makes sense.
+Lwan is automatically fuzz-tested by
+[OSS-Fuzz](https://github.com/google/oss-fuzz/).  To fuzz-test locally,
+though, one can [follow the instructions to test
+locally](https://github.com/google/oss-fuzz/blob/master/docs/new_project_guide.md#testing-locally).
 
 This fuzzes only the request parsing code.  There are plans to add fuzzing
 drivers for other parts of the code, including the rewriting engine,
 configuration file reader, template parser, and URL routing.
-
-A good dictionary and corpus to use are from the [H2O web
-server](https://github.com/h2o/h2o), available in its repository, `fuzz'
-directory.  A corpus specific to Lwan with requests obtained from its test
-suite should be added in the future, as it contains tests to exercise corner
-cases that have been fixed in the past.
-
-To learn how to use a binary instrumented with `libFuzzer`, please [read its
-documentation](https://llvm.org/docs/LibFuzzer.html).
 
 ### Exporting APIs
 
