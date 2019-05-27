@@ -334,6 +334,7 @@ best to serve files in the fastest way possible according to some heuristics.
 | `index_path`               | `str`  | `index.html` | File name to serve as an index for a directory |
 | `serve_precompressed_path` | `bool` | `true`       | If $FILE.gz exists, is smaller and newer than $FILE, and the client accepts `gzip` encoding, transfer it |
 | `auto_index`               | `bool` | `true`       | Generate a directory list automatically if no `index_path` file present.  Otherwise, yields 404 |
+| `auto_index_readme`        | `bool` | `true`       | Includes the contents of README files as part of the automatically generated directory index |
 | `directory_list_template`  | `str`  | `NULL`       | Path to a Mustache template for the directory list; by default, use an internal template |
 | `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
 
