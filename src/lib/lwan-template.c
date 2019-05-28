@@ -44,10 +44,10 @@
 #include "hash.h"
 #include "int-to-str.h"
 #include "list.h"
+#include "ringbuffer.h"
 #include "lwan-array.h"
 #include "lwan-strbuf.h"
 #include "lwan-template.h"
-#include "ringbuffer.h"
 
 /* Define this and build a debug version to have the template
  * chunks printed out after compilation. */
@@ -81,8 +81,8 @@ enum flags {
     X(SLASH) X(QUESTION_MARK) X(HAT) X(GREATER_THAN) X(OPEN_CURLY_BRACE)       \
     X(CLOSE_CURLY_BRACE)
 
-#define GENERATE_ENUM(id) LEXEME_ ##id,
-#define GENERATE_ARRAY_ITEM(id) [LEXEME_ ##id] = #id,
+#define GENERATE_ENUM(id) LEXEME_##id,
+#define GENERATE_ARRAY_ITEM(id) [LEXEME_##id] = #id,
 
 enum lexeme_type {
     FOR_EACH_LEXEME(GENERATE_ENUM)
@@ -990,7 +990,8 @@ static bool post_process_template(struct parser *parser)
         if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
             for (prev_chunk = chunk;; chunk++) {
                 if (chunk->action == ACTION_LAST) {
-                    lwan_status_error("Internal error: Could not find the end var not empty chunk");
+                    lwan_status_error("Internal error: Could not find the end "
+                                      "var not empty chunk");
                     return false;
                 }
                 if (chunk->action == ACTION_END_IF_VARIABLE_NOT_EMPTY &&
@@ -1013,7 +1014,8 @@ static bool post_process_template(struct parser *parser)
 
             for (prev_chunk = chunk;; chunk++) {
                 if (chunk->action == ACTION_LAST) {
-                    lwan_status_error("Internal error: Could not find the end iter chunk");
+                    lwan_status_error(
+                        "Internal error: Could not find the end iter chunk");
                     return false;
                 }
                 if (chunk->action == ACTION_END_ITER) {
@@ -1023,7 +1025,8 @@ static bool post_process_template(struct parser *parser)
 
                     if (prev_index == start_index) {
                         chunk->flags |= flags;
-                        chunk->data = chunk_array_get_elem(&parser->chunks, start_index);
+                        chunk->data =
+                            chunk_array_get_elem(&parser->chunks, start_index);
                         break;
                     }
                 }
@@ -1225,7 +1228,8 @@ static void dump_program(const struct lwan_tpl *tpl)
             break;
         }
         case ACTION_END_ITER:
-            printf("%s [%zu]", instr("END_ITER", instr_buf), (size_t)iter->data);
+            printf("%s [%zu]", instr("END_ITER", instr_buf),
+                   (size_t)iter->data);
             indent--;
             break;
         case ACTION_IF_VARIABLE_NOT_EMPTY: {
