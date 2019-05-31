@@ -100,7 +100,6 @@ struct sendfile_cache_data {
 
 struct dir_list_cache_data {
     struct lwan_strbuf rendered;
-    struct lwan_strbuf readme;
 };
 
 struct redir_cache_data {
@@ -528,15 +527,14 @@ static const char *get_rel_path(const char *full_path,
     return priv->prefix;
 }
 
-static const char *dirlist_find_readme(struct dir_list_cache_data *dd,
+static const char *dirlist_find_readme(struct lwan_strbuf *readme,
+                                       struct dir_list_cache_data *dd,
                                        struct serve_files_priv *priv,
                                        const char *full_path)
 {
     static const char *candidates[] = {"readme", "readme.txt", "read.me",
                                        "README.TXT", "README"};
     int fd = -1;
-
-    lwan_strbuf_init(&dd->readme);
 
     if (!priv->auto_index_readme)
         return NULL;
@@ -564,16 +562,15 @@ static const char *dirlist_find_readme(struct dir_list_cache_data *dd,
             if (!n)
                 break;
 
-            if (!lwan_strbuf_append_str(&dd->readme, buffer, (size_t)n))
+            if (!lwan_strbuf_append_str(readme, buffer, (size_t)n))
                 goto error;
         }
 
         close(fd);
-        return lwan_strbuf_get_buffer(&dd->readme);
+        return lwan_strbuf_get_buffer(readme);
     }
 
 error:
-    lwan_strbuf_reset(&dd->readme);
     if (fd >= 0)
         close(fd);
     return NULL;
@@ -585,22 +582,34 @@ static bool dirlist_init(struct file_cache_entry *ce,
                          struct stat *st __attribute__((unused)))
 {
     struct dir_list_cache_data *dd = &ce->dir_list_cache_data;
-    struct file_list vars = {.full_path = full_path,
-                             .rel_path = get_rel_path(full_path, priv),
-                             .readme = dirlist_find_readme(dd, priv, full_path)};
+    struct lwan_strbuf readme;
+    bool ret = false;
 
-    if (!lwan_strbuf_init(&dd->rendered))
+    if (!lwan_strbuf_init(&readme))
         return false;
+    if (!lwan_strbuf_init(&dd->rendered))
+        goto out_free_readme;
+
+    struct file_list vars = {
+        .full_path = full_path,
+        .rel_path = get_rel_path(full_path, priv),
+        .readme = dirlist_find_readme(&readme, dd, priv, full_path),
+    };
 
     if (!lwan_tpl_apply_with_buffer(priv->directory_list_tpl, &dd->rendered,
-                                    &vars)) {
-        lwan_strbuf_free(&dd->rendered);
-        return false;
-    }
+                                    &vars))
+        goto out_free_rendered;
 
     ce->mime_type = "text/html";
 
-    return true;
+    ret = true;
+    goto out_free_readme;
+
+out_free_rendered:
+    lwan_strbuf_free(&dd->rendered);
+out_free_readme:
+    lwan_strbuf_free(&readme);
+    return ret;
 }
 
 static bool redir_init(struct file_cache_entry *ce,
@@ -781,7 +790,6 @@ static void dirlist_free(struct file_cache_entry *fce)
     struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
 
     lwan_strbuf_free(&dd->rendered);
-    lwan_strbuf_free(&dd->readme);
 }
 
 static void redir_free(struct file_cache_entry *fce)
