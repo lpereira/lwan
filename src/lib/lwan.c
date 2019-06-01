@@ -171,12 +171,11 @@ static void parse_listener_prefix_authorization(struct config *c,
                 url_map->authorization.password_file = strdup("htpasswd");
 
             url_map->flags |= HANDLER_MUST_AUTHORIZE;
-            goto out;
+            return;
         }
     }
 
-out:
-    return;
+    config_error(c, "Could not find end of authorization section");
 
 error:
     free(url_map->authorization.realm);
