@@ -418,7 +418,7 @@ class TestMalformedRequests(SocketTest):
 
   def test_no_http_version_fails(self):
     with self.connect() as sock:
-      sock.send('GET /\r\n\r\n')
+      sock.send('GET /some-long-url-that-is-longer-than-version-string\r\n\r\n')
 
       self.assertHttpCode(sock, 400)
 
