@@ -825,13 +825,11 @@ read_from_request_socket(struct lwan_request *request,
         if (UNLIKELY(n < 0)) {
             switch (errno) {
             case EAGAIN:
-                request->conn->flags |= CONN_FLIP_FLAGS;
-                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
-                /* fallthrough */
+                coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+                continue;
             case EINTR:
 yield_and_read_again:
-                request->conn->flags |= CONN_MUST_READ;
-                coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+                coro_yield(request->conn->coro, CONN_CORO_YIELD);
                 continue;
             }
 
@@ -850,7 +848,6 @@ yield_and_read_again:
 try_to_finalize:
         switch (finalizer(total_read, buffer_size, request, n_packets)) {
         case FINALIZER_DONE:
-            request->conn->flags &= ~CONN_MUST_READ;
             buffer->value[buffer->len] = '\0';
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
@@ -1285,11 +1282,11 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
             {},
         });
     if (LIKELY(header_buf_len)) {
-        request->conn->flags |= (CONN_FLIP_FLAGS | CONN_IS_WEBSOCKET);
+        request->conn->flags |= CONN_IS_WEBSOCKET;
 
         lwan_send(request, header_buf, header_buf_len, 0);
 
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+        coro_yield(request->conn->coro, CONN_CORO_WANT_READ_WRITE);
 
         return HTTP_SWITCHING_PROTOCOLS;
     }
@@ -1552,8 +1549,10 @@ static void remove_sleep(void *data1, void *data2)
     struct lwan_request *request =
         container_of(timeout, struct lwan_request, timeout);
 
-    if (request->conn->flags & CONN_SUSPENDED_BY_TIMER)
+    if (request->conn->flags & CONN_SUSPENDED_TIMER) {
         timeouts_del(wheel, timeout);
+        request->conn->flags &= ~CONN_SUSPENDED_TIMER;
+    }
 }
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
@@ -1561,16 +1560,10 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
     struct lwan_connection *conn = request->conn;
     struct timeouts *wheel = conn->thread->wheel;
 
-    assert(!(conn->flags & CONN_SUSPENDED_BY_TIMER));
-    conn->flags |= CONN_SUSPENDED_BY_TIMER;
-
     request->timeout = (struct timeout) {};
     timeouts_add(wheel, &request->timeout, ms);
     coro_defer2(conn->coro, remove_sleep, wheel, &request->timeout);
-    coro_yield(conn->coro, CONN_CORO_MAY_RESUME);
-
-    assert(!(conn->flags & CONN_SUSPENDED_BY_TIMER));
-    assert(!(conn->flags & CONN_RESUMED_FROM_TIMER));
+    coro_yield(conn->coro, CONN_CORO_SUSPEND_TIMER);
 }
 
 ALWAYS_INLINE int

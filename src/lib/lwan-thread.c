@@ -38,11 +38,6 @@
 #include "lwan-dq.h"
 #include "list.h"
 
-static const uint32_t events_by_write_flag[] = {
-    EPOLLOUT | EPOLLRDHUP | EPOLLERR,
-    EPOLLIN | EPOLLRDHUP | EPOLLERR
-};
-
 static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
 
 #define REQUEST_FLAG(bool_, name_)                                             \
@@ -98,10 +93,11 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         coro_deferred_run(coro, generation);
 
         if (LIKELY(conn->flags & CONN_KEEP_ALIVE)) {
-            if (next_request && *next_request)
-                conn->flags |= CONN_FLIP_FLAGS;
-
-            coro_yield(coro, CONN_CORO_MAY_RESUME);
+            if (next_request && *next_request) {
+                coro_yield(coro, CONN_CORO_WANT_WRITE);
+            } else {
+                coro_yield(coro, CONN_CORO_WANT_READ);
+            }
         } else {
             shutdown(fd, SHUT_RDWR);
             coro_yield(coro, CONN_CORO_ABORT);
@@ -114,43 +110,61 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
 #undef REQUEST_FLAG
 
-static void update_epoll_flags(struct death_queue *dq,
+static ALWAYS_INLINE uint32_t
+conn_flags_to_epoll_events(enum lwan_connection_flags flags)
+{
+    static const uint32_t map[CONN_EVENTS_MASK + 1] = {
+        [0 /* Suspended by timer */] = EPOLLRDHUP,
+        [CONN_EVENTS_WRITE] = EPOLLOUT | EPOLLRDHUP,
+        [CONN_EVENTS_READ] = EPOLLIN | EPOLLRDHUP,
+        [CONN_EVENTS_READ_WRITE] = EPOLLIN | EPOLLOUT | EPOLLRDHUP,
+    };
+
+    return map[flags & CONN_EVENTS_MASK];
+}
+
+static void update_epoll_flags(int fd,
                                struct lwan_connection *conn,
                                int epoll_fd,
                                enum lwan_connection_coro_yield yield_result)
 {
-    uint32_t events = 0;
-    bool write_events;
+    static const enum lwan_connection_flags set_flags[CONN_CORO_MAX] = {
+        [CONN_CORO_WANT_READ_WRITE] = CONN_EVENTS_READ_WRITE,
+        [CONN_CORO_WANT_READ] = CONN_EVENTS_READ,
+        [CONN_CORO_WANT_WRITE] = CONN_EVENTS_WRITE,
 
-    if (UNLIKELY(conn->flags & CONN_RESUMED_FROM_TIMER)) {
-        conn->flags &= ~(CONN_RESUMED_FROM_TIMER | CONN_WRITE_EVENTS);
-        write_events = false;
-    } else if (UNLIKELY(conn->flags & CONN_SUSPENDED_BY_TIMER)) {
-        /* CONN_WRITE_EVENTS shouldn't be flipped in this case. */
-        events = EPOLLERR | EPOLLRDHUP;
-    } else if (conn->flags & CONN_MUST_READ) {
-        write_events = true;
-    } else {
-        bool should_resume_coro = (yield_result == CONN_CORO_MAY_RESUME);
+        /* While the coro is suspended, we're not interested in either EPOLLIN
+         * or EPOLLOUT events.  We still want to track this fd in epoll, though,
+         * so unset both so that only EPOLLRDHUP (plus the implicitly-set ones)
+         * are set. */
+        [CONN_CORO_SUSPEND_TIMER] = CONN_SUSPENDED_TIMER,
 
-        if (should_resume_coro)
-            conn->flags |= CONN_SHOULD_RESUME_CORO;
-        else
-            conn->flags &= ~CONN_SHOULD_RESUME_CORO;
+        /* Either EPOLLIN or EPOLLOUT have to be set here.  There's no need to
+         * know which event, because they were both cleared when the coro was
+         * suspended. So set both flags here. This works because EPOLLET isn't
+         * used. */
+        [CONN_CORO_RESUME_TIMER] = CONN_EVENTS_READ_WRITE,
+    };
+    static const enum lwan_connection_flags reset_flags[CONN_CORO_MAX] = {
+        [CONN_CORO_WANT_READ_WRITE] = ~0,
+        [CONN_CORO_WANT_READ] = ~CONN_EVENTS_WRITE,
+        [CONN_CORO_WANT_WRITE] = ~CONN_EVENTS_READ,
+        [CONN_CORO_SUSPEND_TIMER] = ~CONN_EVENTS_READ_WRITE,
+        [CONN_CORO_RESUME_TIMER] = ~CONN_SUSPENDED_TIMER,
+    };
+    enum lwan_connection_flags prev_flags = conn->flags;
 
-        write_events = (conn->flags & CONN_WRITE_EVENTS);
-        if (should_resume_coro == write_events)
-            return;
-    }
+    conn->flags |= set_flags[yield_result];
+    conn->flags &= reset_flags[yield_result];
 
-    if (LIKELY(!events)) {
-        events = events_by_write_flag[write_events];
-        conn->flags ^= CONN_WRITE_EVENTS;
-    }
+    if (conn->flags == prev_flags)
+        return;
 
-    struct epoll_event event = {.events = events, .data.ptr = conn};
+    struct epoll_event event = {
+        .events = conn_flags_to_epoll_events(conn->flags),
+        .data.ptr = conn,
+    };
 
-    int fd = lwan_connection_get_fd(dq->lwan, conn);
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
 }
@@ -159,24 +173,22 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
                                                 struct lwan_connection *conn,
                                                 int epoll_fd)
 {
-    const enum lwan_connection_flags update_mask =
-        CONN_FLIP_FLAGS | CONN_RESUMED_FROM_TIMER | CONN_SUSPENDED_BY_TIMER;
-
     assert(conn->coro);
 
     if (!(conn->flags & CONN_SHOULD_RESUME_CORO))
         return;
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
-    /* CONN_CORO_ABORT is -1, but comparing with 0 is cheaper */
-    if (UNLIKELY(yield_result < CONN_CORO_MAY_RESUME)) {
-        death_queue_kill(dq, conn);
-        return;
-    }
 
-    if (conn->flags & update_mask) {
-        conn->flags &= ~CONN_FLIP_FLAGS;
-        update_epoll_flags(dq, conn, epoll_fd, yield_result);
+    switch (yield_result) {
+    case CONN_CORO_ABORT:
+        death_queue_kill(dq, conn);
+        /* fallthrough */
+    case CONN_CORO_YIELD:
+        return;
+    default:
+        update_epoll_flags(lwan_connection_get_fd(dq->lwan, conn), conn,
+                           epoll_fd, yield_result);
     }
 }
 
@@ -204,7 +216,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
 
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
-        .flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO,
+        .flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO | CONN_EVENTS_READ,
         .time_to_die = dq->time + dq->keep_alive_timeout,
         .thread = t,
     };
@@ -234,7 +246,7 @@ static void accept_nudge(int pipe_fd,
 
     while (spsc_queue_pop(&t->pending_fds, &new_fd)) {
         struct lwan_connection *conn = &conns[new_fd];
-        struct epoll_event ev = {.events = events_by_write_flag[1],
+        struct epoll_event ev = {.events = EPOLLIN | EPOLLRDHUP,
                                  .data.ptr = conn};
 
         if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
@@ -262,9 +274,8 @@ static bool process_pending_timers(struct death_queue *dq,
 
         request = container_of(timeout, struct lwan_request, timeout);
 
-        request->conn->flags &= ~CONN_SUSPENDED_BY_TIMER;
-        request->conn->flags |= CONN_RESUMED_FROM_TIMER;
-        update_epoll_flags(dq, request->conn, epoll_fd, CONN_CORO_MAY_RESUME);
+        update_epoll_flags(request->fd, request->conn, epoll_fd,
+                           CONN_CORO_RESUME_TIMER);
     }
 
     if (processed_dq_timeout) {

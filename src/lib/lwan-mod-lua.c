@@ -202,7 +202,7 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     while (true) {
         switch (lua_resume(L, n_arguments)) {
         case LUA_YIELD:
-            coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+            coro_yield(request->conn->coro, CONN_CORO_YIELD);
             n_arguments = 0;
             break;
         case 0:

@@ -164,10 +164,9 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
         if (event->events & EPOLLONESHOT)
             flags |= EV_ONESHOT;
-        if (event->events & EPOLLRDHUP)
-            flags |= EV_EOF;
-        if (event->events & EPOLLERR)
-            flags |= EV_ERROR;
+
+        flags |= EV_ERROR; /* EPOLLERR is always set. */
+        flags |= EV_EOF;   /* EPOLLHUP is always set. */
 
         EV_SET(&ev, fd, events, flags, 0, 0, (void *)udata);
         break;

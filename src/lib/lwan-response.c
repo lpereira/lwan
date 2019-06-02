@@ -396,7 +396,6 @@ bool lwan_response_set_chunked(struct lwan_request *request,
         return false;
 
     request->flags |= RESPONSE_SENT_HEADERS;
-    request->conn->flags |= CONN_FLIP_FLAGS;
     lwan_send(request, buffer, buffer_len, MSG_MORE);
 
     return true;
@@ -436,7 +435,7 @@ void lwan_response_send_chunk(struct lwan_request *request)
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
     lwan_strbuf_reset(request->response.buffer);
-    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
 }
 
 bool lwan_response_set_event_stream(struct lwan_request *request,
@@ -456,7 +455,6 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
         return false;
 
     request->flags |= RESPONSE_SENT_HEADERS;
-    request->conn->flags |= CONN_FLIP_FLAGS;
     lwan_send(request, buffer, buffer_len, MSG_MORE);
 
     return true;
@@ -507,8 +505,7 @@ void lwan_response_send_event(struct lwan_request *request, const char *event)
     lwan_writev(request, vec, last);
 
     lwan_strbuf_reset(request->response.buffer);
-
-    coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+    coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
 }
 
 enum ws_opcode {
@@ -686,7 +683,7 @@ next_frame:
     }
 
     if (continuation && !fin) {
-        coro_yield(request->conn->coro, CONN_CORO_MAY_RESUME);
+        coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
         continuation = false;
 
         goto next_frame;

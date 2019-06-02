@@ -275,22 +275,32 @@ static_assert(REQUEST_ACCEPT_DEFLATE > REQUEST_METHOD_MASK,
 
 enum lwan_connection_flags {
     CONN_MASK = -1,
-    CONN_KEEP_ALIVE = 1 << 0,
-    CONN_IS_ALIVE = 1 << 1,
-    CONN_SHOULD_RESUME_CORO = 1 << 2,
-    CONN_WRITE_EVENTS = 1 << 3,
-    CONN_MUST_READ = 1 << 4,
-    CONN_SUSPENDED_BY_TIMER = 1 << 5,
-    CONN_RESUMED_FROM_TIMER = 1 << 6,
-    CONN_FLIP_FLAGS = 1 << 7,
-    CONN_IS_UPGRADE = 1 << 8,
-    CONN_IS_WEBSOCKET = 1 << 9,
+
+    /* These flags have smaller numbers so that the table to convert
+     * them to epoll events is smaller.  See conn_flags_to_epoll_events(). */
+    CONN_EVENTS_READ = 1 << 0,
+    CONN_EVENTS_WRITE = 1 << 1,
+    CONN_EVENTS_READ_WRITE = 1 << 0 | 1 << 1,
+    CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
+
+    CONN_KEEP_ALIVE = 1 << 2,
+    CONN_IS_ALIVE = 1 << 3,
+    CONN_SHOULD_RESUME_CORO = 1 << 4,
+    CONN_IS_UPGRADE = 1 << 5,
+    CONN_IS_WEBSOCKET = 1 << 6,
+
+    CONN_SUSPENDED_TIMER = 1 << 7,
 };
 
 enum lwan_connection_coro_yield {
-    CONN_CORO_ABORT = -1,
-    CONN_CORO_MAY_RESUME = 0,
-    CONN_CORO_FINISHED = 1
+    CONN_CORO_ABORT,
+    CONN_CORO_YIELD,
+    CONN_CORO_WANT_READ,
+    CONN_CORO_WANT_WRITE,
+    CONN_CORO_WANT_READ_WRITE,
+    CONN_CORO_SUSPEND_TIMER,
+    CONN_CORO_RESUME_TIMER,
+    CONN_CORO_MAX,
 };
 
 struct lwan_key_value {
