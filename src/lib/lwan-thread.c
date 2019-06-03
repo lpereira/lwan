@@ -101,6 +101,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         } else {
             shutdown(fd, SHUT_RDWR);
             coro_yield(coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
         }
 
         lwan_strbuf_reset(&strbuf);
