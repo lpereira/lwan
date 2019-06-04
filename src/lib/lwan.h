@@ -289,6 +289,8 @@ enum lwan_connection_flags {
     CONN_IS_UPGRADE = 1 << 5,
     CONN_IS_WEBSOCKET = 1 << 6,
 
+    /* This is only used to determine if timeout_del() is necessary when
+     * the connection coro ends. */
     CONN_SUSPENDED_TIMER = 1 << 7,
 };
 

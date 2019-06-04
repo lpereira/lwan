@@ -1549,10 +1549,8 @@ static void remove_sleep(void *data1, void *data2)
     struct lwan_request *request =
         container_of(timeout, struct lwan_request, timeout);
 
-    if (request->conn->flags & CONN_SUSPENDED_TIMER) {
+    if (request->conn->flags & CONN_SUSPENDED_TIMER)
         timeouts_del(wheel, timeout);
-        request->conn->flags &= ~CONN_SUSPENDED_TIMER;
-    }
 }
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
