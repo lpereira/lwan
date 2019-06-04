@@ -130,6 +130,7 @@ static void update_epoll_flags(int fd,
                                enum lwan_connection_coro_yield yield_result)
 {
     static const enum lwan_connection_flags or_mask[CONN_CORO_MAX] = {
+        [CONN_CORO_YIELD] = 0,
         [CONN_CORO_WANT_READ_WRITE] = CONN_EVENTS_READ_WRITE,
         [CONN_CORO_WANT_READ] = CONN_EVENTS_READ,
         [CONN_CORO_WANT_WRITE] = CONN_EVENTS_WRITE,
@@ -147,6 +148,7 @@ static void update_epoll_flags(int fd,
         [CONN_CORO_RESUME_TIMER] = CONN_EVENTS_READ_WRITE,
     };
     static const enum lwan_connection_flags and_mask[CONN_CORO_MAX] = {
+        [CONN_CORO_YIELD] = ~0,
         [CONN_CORO_WANT_READ_WRITE] = ~0,
         [CONN_CORO_WANT_READ] = ~CONN_EVENTS_WRITE,
         [CONN_CORO_WANT_WRITE] = ~CONN_EVENTS_READ,
@@ -180,17 +182,13 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
         return;
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
-
-    switch (yield_result) {
-    case CONN_CORO_ABORT:
+    if (yield_result == CONN_CORO_ABORT) {
         death_queue_kill(dq, conn);
-        /* fallthrough */
-    case CONN_CORO_YIELD:
         return;
-    default:
-        update_epoll_flags(lwan_connection_get_fd(dq->lwan, conn), conn,
-                           epoll_fd, yield_result);
     }
+
+    update_epoll_flags(lwan_connection_get_fd(dq->lwan, conn), conn, epoll_fd,
+                       yield_result);
 }
 
 static void update_date_cache(struct lwan_thread *thread)
