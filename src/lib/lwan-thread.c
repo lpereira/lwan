@@ -247,8 +247,13 @@ static void accept_nudge(int pipe_fd,
 
     while (spsc_queue_pop(&t->pending_fds, &new_fd)) {
         struct lwan_connection *conn = &conns[new_fd];
-        struct epoll_event ev = {.events = EPOLLIN | EPOLLRDHUP,
-                                 .data.ptr = conn};
+        struct epoll_event ev = {
+            .data.ptr = conn,
+
+            /* Actual connection flags will be set by spawn_coro(), but
+             * CONN_EVENTS_READ is the only thing needed here. */
+            .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
+        };
 
         if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
             spawn_coro(conn, switcher, dq);
