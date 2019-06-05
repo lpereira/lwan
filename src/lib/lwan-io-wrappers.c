@@ -14,19 +14,20 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/sendfile.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "lwan-private.h"
 #include "lwan-io-wrappers.h"
+#include "lwan-private.h"
 
 static const int MAX_FAILED_TRIES = 5;
 
@@ -37,7 +38,8 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
     int curr_iov = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t written = writev(request->fd, iov + curr_iov, iov_count - curr_iov);
+        ssize_t written =
+            writev(request->fd, iov + curr_iov, iov_count - curr_iov);
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
             tries--;
@@ -53,7 +55,8 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 
         total_written += written;
 
-        while (curr_iov < iov_count && written >= (ssize_t)iov[curr_iov].iov_len) {
+        while (curr_iov < iov_count &&
+               written >= (ssize_t)iov[curr_iov].iov_len) {
             written -= (ssize_t)iov[curr_iov].iov_len;
             curr_iov++;
         }
@@ -64,7 +67,7 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
         iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
         iov[curr_iov].iov_len -= (size_t)written;
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
     }
 
@@ -80,7 +83,8 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
     int curr_iov = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t bytes_read = readv(request->fd, iov + curr_iov, iov_count - curr_iov);
+        ssize_t bytes_read =
+            readv(request->fd, iov + curr_iov, iov_count - curr_iov);
         if (UNLIKELY(bytes_read < 0)) {
             /* FIXME: Consider short writes as another try as well? */
             tries--;
@@ -96,7 +100,8 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
 
         total_bytes_read += bytes_read;
 
-        while (curr_iov < iov_count && bytes_read >= (ssize_t)iov[curr_iov].iov_len) {
+        while (curr_iov < iov_count &&
+               bytes_read >= (ssize_t)iov[curr_iov].iov_len) {
             bytes_read -= (ssize_t)iov[curr_iov].iov_len;
             curr_iov++;
         }
@@ -107,7 +112,7 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
         iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + bytes_read;
         iov[curr_iov].iov_len -= (size_t)bytes_read;
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
     }
 
@@ -116,8 +121,10 @@ out:
     __builtin_unreachable();
 }
 
-ssize_t
-lwan_send(struct lwan_request *request, const void *buf, size_t count, int flags)
+ssize_t lwan_send(struct lwan_request *request,
+                  const void *buf,
+                  size_t count,
+                  int flags)
 {
     ssize_t total_sent = 0;
 
@@ -141,7 +148,7 @@ lwan_send(struct lwan_request *request, const void *buf, size_t count, int flags
         if ((size_t)total_sent < count)
             buf = (char *)buf + written;
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
     }
 
@@ -175,7 +182,7 @@ lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
         if ((size_t)total_recv < count)
             buf = (char *)buf + recvd;
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
     }
 
@@ -185,16 +192,16 @@ out:
 }
 
 #if defined(__linux__)
-static inline size_t min_size(size_t a, size_t b)
-{
-    return (a > b) ? b : a;
-}
+static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
 
-void
-lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t count,
-    const char *header, size_t header_len)
+void lwan_sendfile(struct lwan_request *request,
+                   int in_fd,
+                   off_t offset,
+                   size_t count,
+                   const char *header,
+                   size_t header_len)
 {
-    size_t chunk_size = min_size(count, 1<<17);
+    size_t chunk_size = min_size(count, 1 << 17);
     size_t to_be_written = count;
 
     lwan_send(request, header, header_len, MSG_MORE);
@@ -216,27 +223,25 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
         if (!to_be_written)
             break;
 
-        chunk_size = min_size(to_be_written, 1<<19);
+        chunk_size = min_size(to_be_written, 1 << 19);
         lwan_readahead_queue(in_fd, offset, chunk_size);
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
     }
 }
 #elif defined(__FreeBSD__) || defined(__APPLE__)
-void
-lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t count,
-    const char *header, size_t header_len)
+void lwan_sendfile(struct lwan_request *request,
+                   int in_fd,
+                   off_t offset,
+                   size_t count,
+                   const char *header,
+                   size_t header_len)
 {
-    struct sf_hdtr headers = {
-        .headers = (struct iovec[]) {
-            {
-                .iov_base = (void *)header,
-                .iov_len = header_len
-            }
-        },
-        .hdr_cnt = 1
-    };
+    struct sf_hdtr headers = {.headers =
+                                  (struct iovec[]){{.iov_base = (void *)header,
+                                                    .iov_len = header_len}},
+                              .hdr_cnt = 1};
     size_t total_written = 0;
     off_t sbytes = (off_t)count;
 
@@ -246,7 +251,8 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
 #ifdef __APPLE__
         r = sendfile(in_fd, request->fd, offset, &sbytes, &headers, 0);
 #else
-        r = sendfile(in_fd, request->fd, offset, count, &headers, &sbytes, SF_MNOWAIT);
+        r = sendfile(in_fd, request->fd, offset, count, &headers, &sbytes,
+                     SF_MNOWAIT);
 #endif
 
         if (UNLIKELY(r < 0)) {
@@ -263,7 +269,7 @@ lwan_sendfile(struct lwan_request *request, int in_fd, off_t offset, size_t coun
 
         total_written += (size_t)sbytes;
 
-try_again:
+    try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
     } while (total_written < count);
 }
@@ -298,7 +304,7 @@ static off_t try_pread(struct lwan_request *request,
         if ((size_t)total_read == len)
             return offset;
 
-try_again:
+    try_again:
         /* FIXME: is this correct?  fd being read here is a file, not
          * a socket, so a WANT_READ may actually lead to a coro never
          * being woken up */
