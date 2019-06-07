@@ -1447,34 +1447,19 @@ value_lookup(const struct lwan_key_value_array *array, const char *key)
 const char *lwan_request_get_query_param(struct lwan_request *request,
                                          const char *key)
 {
-    if (!(request->flags & REQUEST_PARSED_QUERY_STRING)) {
-        parse_query_string(request);
-        request->flags |= REQUEST_PARSED_QUERY_STRING;
-    }
-
-    return value_lookup(&request->query_params, key);
+    return value_lookup(lwan_request_get_query_params(request), key);
 }
 
 const char *lwan_request_get_post_param(struct lwan_request *request,
                                         const char *key)
 {
-    if (!(request->flags & REQUEST_PARSED_POST_DATA)) {
-        parse_post_data(request);
-        request->flags |= REQUEST_PARSED_POST_DATA;
-    }
-
-    return value_lookup(&request->post_params, key);
+    return value_lookup(lwan_request_get_post_params(request), key);
 }
 
 const char *lwan_request_get_cookie(struct lwan_request *request,
                                     const char *key)
 {
-    if (!(request->flags & REQUEST_PARSED_COOKIES)) {
-        parse_cookies(request);
-        request->flags |= REQUEST_PARSED_COOKIES;
-    }
-
-    return value_lookup(&request->cookies, key);
+    return value_lookup(lwan_request_get_cookies(request), key);
 }
 
 const char *lwan_request_get_header(struct lwan_request *request,
