@@ -178,7 +178,7 @@ static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
 {
     assert(conn->coro);
 
-    if (!(conn->flags & CONN_SHOULD_RESUME_CORO))
+    if (!(conn->flags & CONN_IS_ALIVE))
         return;
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
@@ -215,7 +215,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
 
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
-        .flags = CONN_IS_ALIVE | CONN_SHOULD_RESUME_CORO | CONN_EVENTS_READ,
+        .flags = CONN_IS_ALIVE | CONN_EVENTS_READ,
         .time_to_die = dq->time + dq->keep_alive_timeout,
         .thread = t,
     };

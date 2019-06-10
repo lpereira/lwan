@@ -70,7 +70,7 @@ void death_queue_move_to_last(struct death_queue *dq,
      * resumed -- then just mark it to be reaped right away.
      */
     conn->time_to_die = dq->time;
-    if (conn->flags & (CONN_KEEP_ALIVE | CONN_SHOULD_RESUME_CORO))
+    if (conn->flags & (CONN_KEEP_ALIVE | CONN_IS_ALIVE))
         conn->time_to_die += dq->keep_alive_timeout;
 
     death_queue_remove(dq, conn);
