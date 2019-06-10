@@ -85,14 +85,12 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                        .flags = flags,
                                        .proxy = &proxy};
 
-        assert(conn->flags & CONN_IS_ALIVE);
-
         size_t generation = coro_deferred_get_generation(coro);
         next_request =
             lwan_process_request(lwan, &request, &buffer, next_request);
         coro_deferred_run(coro, generation);
 
-        if (LIKELY(conn->flags & CONN_KEEP_ALIVE)) {
+        if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
             if (next_request && *next_request) {
                 coro_yield(coro, CONN_CORO_WANT_WRITE);
             } else {
@@ -172,14 +170,10 @@ static void update_epoll_flags(int fd,
         lwan_status_perror("epoll_ctl");
 }
 
-static ALWAYS_INLINE void resume_coro_if_needed(struct death_queue *dq,
-                                                struct lwan_connection *conn,
-                                                int epoll_fd)
+static ALWAYS_INLINE void
+resume_coro(struct death_queue *dq, struct lwan_connection *conn, int epoll_fd)
 {
     assert(conn->coro);
-
-    if (!(conn->flags & CONN_IS_ALIVE))
-        return;
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
     if (yield_result == CONN_CORO_ABORT) {
@@ -207,7 +201,6 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
     struct lwan_thread *t = conn->thread;
 
     assert(!conn->coro);
-    assert(!(conn->flags & CONN_IS_ALIVE));
     assert(t);
     assert((uintptr_t)t >= (uintptr_t)dq->lwan->thread.threads);
     assert((uintptr_t)t <
@@ -215,7 +208,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
 
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
-        .flags = CONN_IS_ALIVE | CONN_EVENTS_READ,
+        .flags = CONN_EVENTS_READ,
         .time_to_die = dq->time + dq->keep_alive_timeout,
         .thread = t,
     };
@@ -247,9 +240,6 @@ static void accept_nudge(int pipe_fd,
         struct lwan_connection *conn = &conns[new_fd];
         struct epoll_event ev = {
             .data.ptr = conn,
-
-            /* Actual connection flags will be set by spawn_coro(), but
-             * CONN_EVENTS_READ is the only thing needed here. */
             .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
         };
 
@@ -381,7 +371,7 @@ static void *thread_io_loop(void *data)
                 continue;
             }
 
-            resume_coro_if_needed(&dq, conn, epoll_fd);
+            resume_coro(&dq, conn, epoll_fd);
             death_queue_move_to_last(&dq, conn);
         }
     }

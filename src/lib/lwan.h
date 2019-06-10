@@ -283,14 +283,13 @@ enum lwan_connection_flags {
     CONN_EVENTS_READ_WRITE = 1 << 0 | 1 << 1,
     CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
 
-    CONN_KEEP_ALIVE = 1 << 2,
-    CONN_IS_ALIVE = 1 << 3,
-    CONN_IS_UPGRADE = 1 << 4,
-    CONN_IS_WEBSOCKET = 1 << 5,
+    CONN_IS_KEEP_ALIVE = 1 << 2,
+    CONN_IS_UPGRADE = 1 << 3,
+    CONN_IS_WEBSOCKET = 1 << 4,
 
     /* This is only used to determine if timeout_del() is necessary when
      * the connection coro ends. */
-    CONN_SUSPENDED_TIMER = 1 << 6,
+    CONN_SUSPENDED_TIMER = 1 << 5,
 };
 
 enum lwan_connection_coro_yield {

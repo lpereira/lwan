@@ -328,7 +328,7 @@ size_t lwan_prepare_response_header_full(
     if (request->conn->flags & CONN_IS_UPGRADE) {
         APPEND_CONSTANT("\r\nConnection: Upgrade");
     } else {
-        if (request->conn->flags & CONN_KEEP_ALIVE) {
+        if (request->conn->flags & CONN_IS_KEEP_ALIVE) {
             APPEND_CONSTANT("\r\nConnection: keep-alive");
         } else {
             APPEND_CONSTANT("\r\nConnection: close");

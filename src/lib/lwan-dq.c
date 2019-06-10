@@ -61,17 +61,10 @@ bool death_queue_empty(struct death_queue *dq) { return dq->head.next < 0; }
 void death_queue_move_to_last(struct death_queue *dq,
                               struct lwan_connection *conn)
 {
-    /*
-     * If the connection isn't keep alive, it might have a coroutine that
-     * should be resumed.  If that's the case, schedule for this request to
-     * die according to the keep alive timeout.
-     *
-     * If it's not a keep alive connection, or the coroutine shouldn't be
-     * resumed -- then just mark it to be reaped right away.
-     */
-    conn->time_to_die = dq->time;
-    if (conn->flags & (CONN_KEEP_ALIVE | CONN_IS_ALIVE))
-        conn->time_to_die += dq->keep_alive_timeout;
+    /* CONN_IS_KEEP_ALIVE isn't checked here because non-keep-alive connections
+     * are closed in the request processing coroutine after they have been
+     * served.  In practice, if this is called, it's a keep-alive connection. */
+    conn->time_to_die = dq->time + dq->keep_alive_timeout;
 
     death_queue_remove(dq, conn);
     death_queue_insert(dq, conn);
@@ -90,12 +83,11 @@ void death_queue_init(struct death_queue *dq, const struct lwan *lwan)
 void death_queue_kill(struct death_queue *dq, struct lwan_connection *conn)
 {
     death_queue_remove(dq, conn);
+
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
-    }
-    if (conn->flags & CONN_IS_ALIVE) {
-        conn->flags &= ~CONN_IS_ALIVE;
+
         close(lwan_connection_get_fd(dq->lwan, conn));
     }
 }

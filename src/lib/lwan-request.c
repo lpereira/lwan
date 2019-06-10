@@ -737,9 +737,9 @@ out:
         has_keep_alive = !has_close;
 
     if (has_keep_alive)
-        request->conn->flags |= CONN_KEEP_ALIVE;
+        request->conn->flags |= CONN_IS_KEEP_ALIVE;
     else
-        request->conn->flags &= ~CONN_KEEP_ALIVE;
+        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
 }
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
