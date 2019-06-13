@@ -290,6 +290,7 @@ enum lwan_connection_flags {
     /* This is only used to determine if timeout_del() is necessary when
      * the connection coro ends. */
     CONN_SUSPENDED_TIMER = 1 << 5,
+    CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
 };
 
 enum lwan_connection_coro_yield {
