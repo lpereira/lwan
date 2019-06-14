@@ -1536,6 +1536,8 @@ static void remove_sleep(void *data1, void *data2)
 
     if (request->conn->flags & CONN_SUSPENDED_TIMER)
         timeouts_del(wheel, timeout);
+
+    request->conn->flags &= ~CONN_HAS_REMOVE_SLEEP_DEFER;
 }
 
 void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
