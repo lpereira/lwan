@@ -893,17 +893,16 @@ read_request_finalizer(size_t total_read,
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
 
-    if (UNLIKELY(total_read < MIN_REQUEST_SIZE))
-        return FINALIZER_TRY_AGAIN;
-
     char *crlfcrlf = has_crlfcrlf(helper->buffer);
     if (LIKELY(crlfcrlf)) {
+        const size_t crlfcrlf_to_base = (size_t)(crlfcrlf - helper->buffer->value);
+
         if (LIKELY(helper->next_request)) {
             helper->next_request = NULL;
             return FINALIZER_DONE;
         }
 
-        if (crlfcrlf != helper->buffer->value)
+        if (crlfcrlf_to_base >= MIN_REQUEST_SIZE - 4)
             return FINALIZER_DONE;
 
         if (total_read > min_proxied_request_size &&
