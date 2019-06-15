@@ -50,7 +50,6 @@
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
-    FINALIZER_YIELD_TRY_AGAIN,
     FINALIZER_ERROR_TOO_LARGE,
     FINALIZER_ERROR_TIMEOUT
 };
@@ -857,9 +856,6 @@ try_to_finalize:
             return HTTP_OK;
 
         case FINALIZER_TRY_AGAIN:
-            continue;
-
-        case FINALIZER_YIELD_TRY_AGAIN:
             goto yield_and_read_again;
 
         case FINALIZER_ERROR_TOO_LARGE:
@@ -898,7 +894,7 @@ read_request_finalizer(size_t total_read,
         return FINALIZER_ERROR_TIMEOUT;
 
     if (UNLIKELY(total_read < MIN_REQUEST_SIZE))
-        return FINALIZER_YIELD_TRY_AGAIN;
+        return FINALIZER_TRY_AGAIN;
 
     char *crlfcrlf = has_crlfcrlf(helper->buffer);
     if (LIKELY(crlfcrlf)) {
