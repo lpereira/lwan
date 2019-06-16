@@ -69,10 +69,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     enum lwan_request_flags flags = 0;
     struct lwan_proxy proxy;
 
-    if (UNLIKELY(!lwan_strbuf_init(&strbuf))) {
-        coro_yield(coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-    }
+    if (UNLIKELY(!lwan_strbuf_init(&strbuf)))
+        goto abort;
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
     flags |= REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
@@ -97,14 +95,17 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                 coro_yield(coro, CONN_CORO_WANT_READ);
             }
         } else {
-            shutdown(fd, SHUT_RDWR);
-            coro_yield(coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
+            goto abort;
         }
 
         lwan_strbuf_reset(&strbuf);
         flags = request.flags & flags_filter;
     }
+
+abort:
+    shutdown(fd, SHUT_RDWR);
+    coro_yield(coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
 }
 
 #undef REQUEST_FLAG
