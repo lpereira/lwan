@@ -528,7 +528,6 @@ static const char *get_rel_path(const char *full_path,
 }
 
 static const char *dirlist_find_readme(struct lwan_strbuf *readme,
-                                       struct dir_list_cache_data *dd,
                                        struct serve_files_priv *priv,
                                        const char *full_path)
 {
@@ -593,7 +592,7 @@ static bool dirlist_init(struct file_cache_entry *ce,
     struct file_list vars = {
         .full_path = full_path,
         .rel_path = get_rel_path(full_path, priv),
-        .readme = dirlist_find_readme(&readme, dd, priv, full_path),
+        .readme = dirlist_find_readme(&readme, priv, full_path),
     };
 
     if (!lwan_tpl_apply_with_buffer(priv->directory_list_tpl, &dd->rendered,
