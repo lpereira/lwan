@@ -573,10 +573,10 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
         lwan_status_warning("%d threads requested, but only %d online CPUs; "
                             "capping to %d threads",
                             l->config.n_threads, l->n_cpus, 3 * l->n_cpus);
-    } else if (l->config.n_threads > 63) {
-        l->thread.count = 64;
+    } else if (l->config.n_threads > 255) {
+        l->thread.count = 256;
 
-        lwan_status_warning("%d threads requested, but max 64 supported",
+        lwan_status_warning("%d threads requested, but max 256 supported",
             l->config.n_threads);
     } else {
         l->thread.count = l->config.n_threads;
@@ -622,13 +622,13 @@ void lwan_shutdown(struct lwan *l)
     lwan_fd_watch_shutdown(l);
 }
 
-static ALWAYS_INLINE unsigned int schedule_client(struct lwan *l, int fd)
+static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
 {
     struct lwan_thread *thread = l->conns[fd].thread;
 
     lwan_thread_add_client(thread, fd);
 
-    return (unsigned int)(thread - l->thread.threads);
+    return (int)(thread - l->thread.threads);
 }
 
 static volatile sig_atomic_t main_socket = -1;
@@ -649,13 +649,19 @@ static void sigint_handler(int signal_number __attribute__((unused)))
 
 enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
 
+struct core_bitmap {
+    uint64_t bitmap[4];
+};
+
 static ALWAYS_INLINE enum herd_accept
-accept_one(struct lwan *l, uint64_t *cores)
+accept_one(struct lwan *l, struct core_bitmap *cores)
 {
     int fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
-        *cores |= UINT64_C(1)<<schedule_client(l, fd);
+        int core = schedule_client(l, fd);
+
+        cores->bitmap[core / 64] |= core % 64;
 
         return HERD_MORE;
     }
@@ -680,11 +686,10 @@ accept_one(struct lwan *l, uint64_t *cores)
     }
 }
 
-static int
-accept_connection_coro(struct coro *coro, void *data)
+static int accept_connection_coro(struct coro *coro, void *data)
 {
     struct lwan *l = data;
-    uint64_t cores = 0;
+    struct core_bitmap cores = {};
 
     while (coro_yield(coro, 1) & ~(EPOLLHUP | EPOLLRDHUP | EPOLLERR)) {
         enum herd_accept ha;
@@ -696,11 +701,18 @@ accept_connection_coro(struct coro *coro, void *data)
         if (UNLIKELY(ha > HERD_MORE))
             break;
 
-        while (cores) {
-            int core = __builtin_ctzl(cores);
-            lwan_thread_nudge(&l->thread.threads[core]);
-            cores ^= cores & -cores;
+        for (size_t i = 0; i < N_ELEMENTS(cores.bitmap); i++) {
+            uint64_t c = cores.bitmap[i];
+
+            while (c) {
+                size_t core = (size_t)__builtin_ctzl(c);
+
+                lwan_thread_nudge(&l->thread.threads[i * 64 + core]);
+
+                c ^= c & -c;
+            }
         }
+        memset(&cores, 0, sizeof(cores));
     }
 
     return 0;
