@@ -696,13 +696,10 @@ accept_connection_coro(struct coro *coro, void *data)
         if (UNLIKELY(ha > HERD_MORE))
             break;
 
-        if (LIKELY(cores)) {
-            for (unsigned short t = 0; t < l->thread.count; t++) {
-                if (cores & UINT64_C(1)<<t)
-                    lwan_thread_nudge(&l->thread.threads[t]);
-            }
-
-            cores = 0;
+        while (cores) {
+            int core = __builtin_ctzl(cores);
+            lwan_thread_nudge(&l->thread.threads[core]);
+            cores ^= cores & -cores;
         }
     }
 
