@@ -785,6 +785,7 @@ void lwan_main_loop(struct lwan *l)
                 break;
             if (errno == EINTR || errno == EAGAIN)
                 continue;
+            lwan_status_perror("epoll_wait");
             break;
         }
 
