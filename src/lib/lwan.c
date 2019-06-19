@@ -702,14 +702,9 @@ static int accept_connection_coro(struct coro *coro, void *data)
             break;
 
         for (size_t i = 0; i < N_ELEMENTS(cores.bitmap); i++) {
-            uint64_t c = cores.bitmap[i];
-
-            while (c) {
+            for (uint64_t c = cores.bitmap[i]; c; c ^= c & -c) {
                 size_t core = (size_t)__builtin_ctzl(c);
-
                 lwan_thread_nudge(&l->thread.threads[i * 64 + core]);
-
-                c ^= c & -c;
             }
         }
         memset(&cores, 0, sizeof(cores));
