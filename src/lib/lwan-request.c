@@ -1103,10 +1103,10 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
 
     if (MAP_HUGETLB) {
         ptr = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_HUGETLB, fd, 0);
+                   MAP_SHARED | MAP_HUGETLB, fd, 0);
     }
     if (UNLIKELY(ptr == MAP_FAILED))
-        ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+        ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
     if (UNLIKELY(ptr == MAP_FAILED))
         return NULL;
