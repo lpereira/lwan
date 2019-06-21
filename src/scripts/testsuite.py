@@ -402,6 +402,25 @@ class SocketTest(LwanTest):
     self.assertNotEqual(sock, None)
     return SocketTest.WrappedSock(sock)
 
+
+class TestMinimalRequests(SocketTest):
+  def assertHttpCode(self, sock, code):
+    contents = sock.recv(128)
+
+    self.assertRegex(contents, r'^HTTP/1\.[01] ' + str(code) + r' ')
+
+  def test_http1_0_request(self):
+    with self.connect() as sock:
+      sock.send("GET / HTTP/1.0\r\n\r\n")
+      self.assertHttpCode(sock, 200)
+
+
+  def test_http1_1_request(self):
+    with self.connect() as sock:
+      sock.send("GET / HTTP/1.1\r\n\r\n")
+      self.assertHttpCode(sock, 200)
+
+
 class TestMalformedRequests(SocketTest):
   def assertHttpCode(self, sock, code):
     contents = sock.recv(128)
