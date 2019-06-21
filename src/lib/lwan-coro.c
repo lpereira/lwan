@@ -368,7 +368,7 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
 }
 
 void *
-coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)())
+coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)(void *data))
 {
     void *ptr = malloc(size);
 

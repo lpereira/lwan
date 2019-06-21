@@ -59,7 +59,7 @@ size_t  coro_deferred_get_generation(const struct coro *coro)
 
 void   *coro_malloc(struct coro *coro, size_t sz)
             __attribute__((malloc));
-void   *coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)())
+void   *coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)(void *data))
             __attribute__((malloc));
 char   *coro_strdup(struct coro *coro, const char *str);
 char   *coro_strndup(struct coro *coro, const char *str, size_t len);
