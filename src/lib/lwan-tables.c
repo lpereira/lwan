@@ -37,7 +37,8 @@ lwan_tables_init(void)
     if (mime_entries_initialized)
         return;
 
-    lwan_status_debug("Uncompressing MIME type table");
+    lwan_status_debug("Uncompressing MIME type table: %u->%u bytes, %d entries",
+                      MIME_COMPRESSED_LEN, MIME_UNCOMPRESSED_LEN, MIME_ENTRIES);
     uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
     int ret = uncompress((Bytef*)uncompressed_mime_entries,
             &uncompressed_length, (const Bytef*)mime_entries_compressed,
