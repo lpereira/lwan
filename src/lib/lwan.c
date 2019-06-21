@@ -661,7 +661,7 @@ accept_one(struct lwan *l, struct core_bitmap *cores)
     if (LIKELY(fd >= 0)) {
         int core = schedule_client(l, fd);
 
-        cores->bitmap[core / 64] |= core % 64;
+        cores->bitmap[core / 64] |= UINT64_C(1)<<(core % 64);
 
         return HERD_MORE;
     }
