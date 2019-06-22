@@ -813,8 +813,12 @@ read_from_request_socket(struct lwan_request *request,
     }
 
     for (;; n_packets++) {
-        n = read(request->fd, buffer->value + total_read,
-                 (size_t)(buffer_size - total_read));
+        size_t to_read = (size_t)(buffer_size - total_read);
+
+        if (UNLIKELY(to_read == 0))
+            return HTTP_TOO_LARGE;
+
+        n = read(request->fd, buffer->value + total_read, to_read);
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
