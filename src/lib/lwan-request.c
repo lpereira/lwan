@@ -1207,7 +1207,7 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
 
     buffer = ignore_leading_whitespace(buffer);
 
-    if (UNLIKELY(buffer >= helper->buffer->value + helper->buffer->len -
+    if (UNLIKELY(buffer > helper->buffer->value + helper->buffer->len -
                                MIN_REQUEST_SIZE))
         return HTTP_BAD_REQUEST;
 
