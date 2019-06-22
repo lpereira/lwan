@@ -814,7 +814,7 @@ read_from_request_socket(struct lwan_request *request,
 
     for (;; n_packets++) {
         n = read(request->fd, buffer->value + total_read,
-                 (size_t)(buffer_size - total_read - 1));
+                 (size_t)(buffer_size - total_read));
         /* Client has shutdown orderly, nothing else to do; kill coro */
         if (UNLIKELY(n == 0)) {
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
@@ -1170,7 +1170,7 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     helper->error_when_n_packets = calculate_n_packets(post_data_size);
 
     struct lwan_value buffer = {.value = new_buffer,
-                                .len = post_data_size - have};
+                                .len = post_data_size};
     return read_from_request_socket(request, &buffer, buffer.len,
                                     post_data_finalizer);
 }
