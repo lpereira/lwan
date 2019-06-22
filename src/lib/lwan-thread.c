@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -51,6 +52,56 @@ static void lwan_strbuf_free_defer(void *data)
     lwan_strbuf_free((struct lwan_strbuf *)data);
 }
 
+static void graceful_close(struct lwan *l,
+                           struct lwan_connection *conn,
+                           char buffer[static DEFAULT_BUFFER_SIZE])
+{
+    int fd = lwan_connection_get_fd(l, conn);
+
+    while (TIOCOUTQ) {
+        /* This ioctl isn't probably doing what it says on the tin; the details
+         * are subtle, but it seems to do the trick to allow gracefully closing
+         * the connection in some cases with minimal system calls. */
+        int bytes_waiting;
+        int r = ioctl(fd, TIOCOUTQ, &bytes_waiting);
+
+        if (!r && !bytes_waiting) /* See note about close(2) below. */
+            return;
+        if (r < 0 && errno == EINTR)
+            continue;
+
+        break;
+    }
+
+    if (UNLIKELY(shutdown(fd, SHUT_WR) < 0)) {
+        if (UNLIKELY(errno == ENOTCONN))
+            return;
+    }
+
+    for (int tries = 0; tries < 20; tries++) {
+        ssize_t r = read(fd, buffer, DEFAULT_BUFFER_SIZE);
+
+        if (!r)
+            break;
+
+        if (r < 0) {
+            switch (errno) {
+            case EINTR:
+                continue;
+            case EAGAIN:
+                coro_yield(conn->coro, CONN_CORO_WANT_READ);
+                continue;
+            default:
+                return;
+            }
+        }
+
+        coro_yield(conn->coro, CONN_CORO_YIELD);
+    }
+
+    /* close(2) will be called when the coroutine yields with CONN_CORO_ABORT */
+}
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -70,7 +121,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     struct lwan_proxy proxy;
 
     if (UNLIKELY(!lwan_strbuf_init(&strbuf)))
-        goto abort;
+        goto out;
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
     flags |= REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
@@ -95,15 +146,15 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                 coro_yield(coro, CONN_CORO_WANT_READ);
             }
         } else {
-            goto abort;
+            graceful_close(lwan, conn, request_buffer);
+            goto out;
         }
 
         lwan_strbuf_reset(&strbuf);
         flags = request.flags & flags_filter;
     }
 
-abort:
-    shutdown(fd, SHUT_RDWR);
+out:
     coro_yield(coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
