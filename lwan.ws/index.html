@@ -4,7 +4,53 @@
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <title>Lwan Web Server</title>
 <link href="prism.css" rel="stylesheet" type="text/css">
-<style>#left,body{height:100%}#left,#right{top:0;position:absolute}#left,#right,blockquote:before{position:absolute}body{border:0;margin:0;padding:0;background:#627d4d;background:-moz-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-webkit-gradient(radial,center center,0,center center,100%,color-stop(15%,#627d4d),color-stop(100%,#1f3b08));background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-o-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-ms-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background-attachment:fixed}@font-face{font-family:LeagueGothicRegular;src:url(League_Gothic-webfont.eot);src:url(League_Gothic-webfont.woff) format('woff'),url(League_Gothic-webfont.ttf) format('truetype'),url(League_Gothic-webfont.svg) format('svg');font-weight:400;font-style:normal}#left{color:#ccc;text-shadow:0 1px 4px rgba(0,0,0,.68);font-family:LeagueGothicRegular,helvetica;left:0;text-align:center;float:left;padding-top:54px;width:300px;background:linear-gradient(135deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(225deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(315deg,rgba(1,1,1,.08) 25%,transparent 25%),linear-gradient(45deg,rgba(1,1,1,.08) 25%,transparent 25%);background-size:32px 32px;background-color:transparent;display:block}#left div{text-transform:uppercase}#left #logo{text-shadow:0 1px 0 #ccc,0 2px 0 #c9c9c9,0 3px 0 #bbb,0 4px 0 #b9b9b9,0 5px 0 #aaa,0 6px 1px rgba(0,0,0,.1),0 0 5px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.3),0 3px 5px rgba(0,0,0,.2),0 5px 10px rgba(0,0,0,.25),0 10px 10px rgba(0,0,0,.2),0 20px 20px rgba(0,0,0,.15)}#right{right:0;width:calc(100% - 300px - 108px);margin:0;padding:54px;color:#999;font-family:helvetica,sans-serif;font-size:15px;background:#111;min-height:100%}#right b{color:#aaa}#right a{color:#8F9D6A;font-weight:700}#left a{color:#aca;font-weight:700}#button-middle-text{display:none}@media all and (min-height:400px){#left{position:fixed}}@media all and (max-height:620px){#left .secondary{display:none}}@media all and (max-width:780px){#right{top:155px;left:0;width:calc(100% - 40px);padding:20px}#left{padding-top:4px;text-align:center;width:100%}#button-middle-text{display:block}}.btn,.btn span{display:inline-block;border-radius:8px}@media all and (max-width:940px) and (min-width:780px){#right{padding-left:30px;padding-right:30px;width:calc(100% - 240px - 60px)}#left{width:240px}}li,p{line-height:19.5px}.btn{box-shadow:0 8px 0 #221d2d,0 15px 20px rgba(0,0,0,.35);transition:box-shadow .2s ease-in-out}.btn span{color:#eee;font-family:Helvetica,Arial,sans-serif;line-height:1;text-shadow:0 -1px 1px rgba(19,65,88,.8);box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);transition:transform .2s ease-in-out;padding:10px 20px;background:#826d9d;background:linear-gradient(#826d9d,#321d4d)}.chartfloater p,.chartfloater table{color:#777;font-size:12px}.btn:active{box-shadow:0 8px 0 #0e1b08,0 12px 10px rgba(0,0,0,.3)}.btn:active span{transform:translate(0,4px)}.chartfloater{float:right;text-align:center;margin-left:6px;margin-bottom:6px;width:300px;padding:0 20px 10px}.chartfloater p{line-height:16px}h2{padding-top:54px}h3{padding-top:27px;margin-bottom:13.5px}.quote td{color:#999;padding-bottom:13.5px;padding-right:13.5px;font-size:15px}blockquote{font-size:14px;font-style:italic;width:calc(100% - 4em);max-width:400px;margin-left:auto;margin-right:auto;padding:1em 1em 1em 4em;line-height:1.45;position:relative;border-radius:.5em;border:1px solid #282A2B;box-shadow:1px 1px .5em #000 inset;background:#141414}blockquote:before{font-family:Georgia,serif;display:block;content:"\201C";font-size:70px;left:.2em;top:-12px;color:#555}blockquote cite{color:#999;font-size:90%;margin-right:1em;display:block}blockquote cite:before{content:"\2014 \2009"}</style>
+<style>
+#left,body{height:100%}
+#left,#right{top:0;position:absolute}
+#left,#right,blockquote:before{position:absolute}
+body{border:0;margin:0;padding:0;background:#627d4d;background:-moz-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-webkit-gradient(radial,center center,0,center center,100%,color-stop(15%,#627d4d),color-stop(100%,#1f3b08));background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-o-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:-ms-radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background:radial-gradient(center,ellipse cover,#627d4d 15%,#1f3b08 100%);background-attachment:fixed}
+@font-face{font-family:LeagueGothicRegular;src:url(League_Gothic-webfont.eot);src:url(League_Gothic-webfont.woff) format('woff'),url(League_Gothic-webfont.ttf) format('truetype'),url(League_Gothic-webfont.svg) format('svg');font-weight:400;font-style:normal}
+#left{color:#ccc;text-shadow:0 1px 4px rgba(0,0,0,.68);font-family:LeagueGothicRegular,helvetica;left:0;text-align:center;float:left;padding-top:54px;width:300px;background:linear-gradient(135deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(225deg,rgba(1,1,1,.08) 25%,transparent 25%) -50px 0,linear-gradient(315deg,rgba(1,1,1,.08) 25%,transparent 25%),linear-gradient(45deg,rgba(1,1,1,.08) 25%,transparent 25%);background-size:32px 32px;background-color:transparent;display:block}
+#left div{text-transform:uppercase}
+#left #logo{text-shadow:0 1px 0 #ccc,0 2px 0 #c9c9c9,0 3px 0 #bbb,0 4px 0 #b9b9b9,0 5px 0 #aaa,0 6px 1px rgba(0,0,0,.1),0 0 5px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.3),0 3px 5px rgba(0,0,0,.2),0 5px 10px rgba(0,0,0,.25),0 10px 10px rgba(0,0,0,.2),0 20px 20px rgba(0,0,0,.15)}
+#right{right:0;width:calc(100% - 300px - 108px);margin:0;padding:54px;color:#999;font-family:helvetica,sans-serif;font-size:15px;background:#111;min-height:100%}
+#right b{color:#aaa}
+#right a{color:#8F9D6A;font-weight:700}
+#left a{color:#aca;font-weight:700}
+#button-middle-text{display:none}
+@media all and (min-height:400px){
+	#left{position:fixed}
+}
+@media all and (max-height:620px){
+	#left .secondary{display:none}
+}
+@media all and (max-width:780px){
+	#right{top:155px;left:0;width:calc(100% - 40px);padding:20px}
+	#left{padding-top:4px;text-align:center;width:100%}
+	#button-middle-text{display:block}
+}
+.btn,.btn span{display:inline-block;border-radius:8px}
+@media all and (max-width:940px) and (min-width:780px){
+	#right{padding-left:30px;padding-right:30px;width:calc(100% - 240px - 60px)}
+	#left{width:240px}
+}
+li,p{line-height:19.5px}
+.btn{box-shadow:0 8px 0 #221d2d,0 15px 20px rgba(0,0,0,.35);transition:box-shadow .2s ease-in-out}
+.btn span{color:#eee;font-family:Helvetica,Arial,sans-serif;line-height:1;text-shadow:0 -1px 1px rgba(19,65,88,.8);box-shadow:inset 0 -1px 1px rgba(255,255,255,.15);transition:transform .2s ease-in-out;padding:10px 20px;background:#826d9d;background:linear-gradient(#826d9d,#321d4d)}
+.chartfloater p,.chartfloater table{color:#777;font-size:12px}
+.btn:active{box-shadow:0 8px 0 #0e1b08,0 12px 10px rgba(0,0,0,.3)}
+.btn:active span{transform:translate(0,4px)}
+.chartfloater{float:right;text-align:center;margin-left:6px;margin-bottom:6px;width:300px;padding:0 20px 10px}
+.chartfloater p{line-height:16px}
+.chartfloater td{text-align:left}
+h2{padding-top:54px}
+h3{padding-top:27px;margin-bottom:13.5px}
+.quote td{color:#999;padding-bottom:13.5px;padding-right:13.5px;font-size:15px}
+blockquote{font-size:14px;font-style:italic;width:calc(100% - 4em);max-width:400px;margin-left:auto;margin-right:auto;padding:1em 1em 1em 4em;line-height:1.45;position:relative;border-radius:.5em;border:1px solid #282A2B;box-shadow:1px 1px .5em #000 inset;background:#141414}
+blockquote:before{font-family:Georgia,serif;display:block;content:"\201C";font-size:70px;left:.2em;top:-12px;color:#555}
+blockquote cite{color:#999;font-size:90%;margin-right:1em;display:block}
+blockquote cite:before{content:"\2014 \2009"}
+</style>
 </head>
 <body>
     <div id="left">
