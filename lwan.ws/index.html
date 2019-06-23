@@ -208,6 +208,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   	</li>
   	<li>Test suite written in Python <b>tests the server</b> as a black box</li>
   	<li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers</li>
+  	<li>Request parser continuously fuzzed with <a href="https://ossfuzz.com">oss-fuzz</a></li>
   </ul>
   </li>
 </ul>
@@ -317,9 +318,9 @@ href="http://valgrind.org/">Valgrind Memcheck</a> (with debug builds:
 release builds disable some things that Memcheck relies on to keep sanity when
 coroutines switches stacks.)</li> <li><b>No warnings</b> are
 produced while building Lwan, even though options to enable extra warnings are always passed.</li>
-<li>It has been also fuzzed with Sulley,
-libFuzzer, and afl.  One bug has been found with libFuzzer and it has been
-fixed.</li><li>All tests are performed automatically, with both <b>Address
+<li>The request parser is continually fuzzed by <a href="http://www.ossfuzz.com">oss-fuzz</a> (thanks!).
+<a href="https://bugs.chromium.org/p/oss-fuzz/issues/list?can=1&q=lwan">Some bugs</a> have been found and were promptly fixed.</li>
+<li>All tests are performed automatically, with both <b>Address
 Sanitizer</b> and <b>Undefined Behavior Sanitizer</b>; <a
 href="https://buildbot.lwan.ws/lcov/">coverage</a> is still on
 the low side, though.</li></ul>
