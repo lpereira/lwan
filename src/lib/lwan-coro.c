@@ -400,7 +400,7 @@ coro_strndup(struct coro *coro, const char *str, size_t max_len)
 char *
 coro_strdup(struct coro *coro, const char *str)
 {
-    return coro_strndup(coro, str, SIZE_MAX - 1);
+    return coro_strndup(coro, str, SSIZE_MAX - 1);
 }
 
 char *
