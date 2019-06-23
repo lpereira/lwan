@@ -295,8 +295,20 @@ this handler.</p>
 
 <p>An in-depth view of the C API can be seen <a
 href="https://github.com/lpereira/lwan/wiki/Using-Lwan-as-a-Library">in this
-article</a>.</p>
+article</a>, but your best bet would be looking throughout the "samples" or
+"tests" directories.</p>
 
+<p>One of the samples shipped with Lwan is the "clock" sample, which renders
+the current time as a never-ending animated GIF file, streamed using
+chunked-encoding. The following
+<a href="https://www.jwz.org/xdaliclock/">Dali Clock</a>
+(<a href="https://time.lwan.ws">other styles available</a>) shows
+the current time in UTC, and is rendered completely in the server-side; no JavaScript
+is required in the client-side to display it:</p>
+
+<p style="text-align: center">
+<img style="width: 320px; image-rendering: pixelated; -moz-crisp-edges crisp-edges;" src="https://time.lwan.ws/dali.gif">
+</p>
 
 <h2>FAQ</h2>
 
