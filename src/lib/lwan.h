@@ -45,29 +45,24 @@ extern "C" {
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
-#define LWAN_MODULE_REF(name_) lwan_module_info_##name_.module
-
-#define LWAN_MODULE_FORWARD_DECL(name_)                                        \
-    extern const struct lwan_module_info lwan_module_info_##name_;
-
 #ifdef __APPLE__
 #define LWAN_SECTION_NAME(name_) "__DATA," #name_
 #else
 #define LWAN_SECTION_NAME(name_) #name_
 #endif
 
+#define LWAN_MODULE_REF(name_) lwan_module_info_##name_.module
+#define LWAN_MODULE_FORWARD_DECL(name_)                                        \
+    extern const struct lwan_module_info lwan_module_info_##name_;
 #define LWAN_REGISTER_MODULE(name_, module_)                                   \
     const struct lwan_module_info                                              \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_module))))         \
             lwan_module_info_##name_ = {.name = #name_, .module = module_}
 
 #define LWAN_HANDLER_REF(name_) lwan_handler_##name_
-
-#define LWAN_HANDLER_DECLARE(name_)                                            \
+#define LWAN_HANDLER(name_)                                                    \
     static enum lwan_http_status lwan_handler_##name_(                         \
-        struct lwan_request *, struct lwan_response *, void *)
-
-#define LWAN_HANDLER_DEFINE(name_)                                             \
+        struct lwan_request *, struct lwan_response *, void *);                \
     static const struct lwan_handler_info                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
             lwan_handler_info_##name_ = {.name = #name_,                       \
@@ -77,10 +72,6 @@ extern "C" {
         struct lwan_response *response __attribute__((unused)),                \
         void *data __attribute__((unused)))
 
-#define LWAN_HANDLER(name_)                                                    \
-    LWAN_HANDLER_DECLARE(name_);                                               \
-    LWAN_HANDLER_DEFINE(name_)
-
 #define LWAN_LUA_METHOD(name_)                                                 \
     static int lwan_lua_method_##name_(lua_State *L);                          \
     static const struct lwan_lua_method_info                                   \
@@ -89,17 +80,7 @@ extern "C" {
                                             .func = lwan_lua_method_##name_};  \
     static int lwan_lua_method_##name_(lua_State *L)
 
-#ifdef DISABLE_INLINE_FUNCTIONS
-#define ALWAYS_INLINE
-#else
 #define ALWAYS_INLINE inline __attribute__((always_inline))
-#endif
-
-#ifdef DISABLE_BRANCH_PREDICTION
-#define LIKELY_IS(x, y) (x)
-#else
-#define LIKELY_IS(x, y) __builtin_expect((x), (y))
-#endif
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define MULTICHAR_CONSTANT(a, b, c, d)                                         \
@@ -157,6 +138,7 @@ static ALWAYS_INLINE int16_t string_as_int16(const char *s)
 #define STRING_SWITCH_LARGE_L(s)                                               \
     switch (string_as_int64(s) | 0x2020202020202020)
 
+#define LIKELY_IS(x, y) __builtin_expect((x), (y))
 #define LIKELY(x) LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x) LIKELY_IS((x), 0)
 
