@@ -523,6 +523,7 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
     for (unsigned short i = 0; i < l->n_cpus; i++) {
         FILE *sib;
         uint32_t id, sibling;
+        char separator;
 
         snprintf(path, sizeof(path),
                  "/sys/devices/system/cpu/cpu%hd/topology/thread_siblings_list",
@@ -535,17 +536,23 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
             return false;
         }
 
-        switch (fscanf(sib, "%u-%u", &id, &sibling)) {
-        case 1: /* No SMT */
+        switch (fscanf(sib, "%u%c%u", &id, &separator, &sibling)) {
+        case 2: /* No SMT */
             siblings[i] = id;
             break;
-        case 2: /* SMT */
+        case 3: /* SMT */
+            if (!(separator == ',' || separator == '-')) {
+                lwan_status_critical("Expecting either ',' or '-' for sibling separator");
+                __builtin_unreachable();
+            }
+
             siblings[i] = sibling;
             break;
         default:
             lwan_status_critical("%s has invalid format", path);
             __builtin_unreachable();
         }
+
 
         fclose(sib);
     }
