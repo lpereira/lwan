@@ -893,11 +893,6 @@ try_to_finalize:
     return HTTP_INTERNAL_ERROR;
 }
 
-static inline char *has_crlfcrlf(struct lwan_value *buffer)
-{
-    return memmem(buffer->value, buffer->len, "\r\n\r\n", 4);
-}
-
 static enum lwan_read_finalizer
 read_request_finalizer(size_t total_read,
                        size_t buffer_size,
@@ -914,9 +909,11 @@ read_request_finalizer(size_t total_read,
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
 
-    char *crlfcrlf = has_crlfcrlf(helper->buffer);
+    char *crlfcrlf =
+        memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4);
     if (LIKELY(crlfcrlf)) {
-        const size_t crlfcrlf_to_base = (size_t)(crlfcrlf - helper->buffer->value);
+        const size_t crlfcrlf_to_base =
+            (size_t)(crlfcrlf - helper->buffer->value);
 
         if (LIKELY(helper->next_request)) {
             helper->next_request = NULL;
