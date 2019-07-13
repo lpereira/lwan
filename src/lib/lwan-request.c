@@ -694,6 +694,14 @@ parse_accept_encoding(struct lwan_request *request)
         case MULTICHAR_CONSTANT('g','z','i','p'):
             request->flags |= REQUEST_ACCEPT_GZIP;
             break;
+#if defined(HAVE_BROTLI)
+        default:
+            STRING_SWITCH_SMALL(p) {
+            case MULTICHAR_CONSTANT_SMALL('b', 'r'):
+                request->flags |= REQUEST_ACCEPT_BROTLI;
+                break;
+            }
+#endif
         }
 
         if (!(p = strchr(p, ',')))

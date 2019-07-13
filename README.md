@@ -34,6 +34,7 @@ The build system will look for these libraries and enable/link if available.
 
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
  - [Valgrind](http://valgrind.org)
+ - [Brotli](https://github.com/google/brotli)
  - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC=ON` to CMake:
     - [TCMalloc](https://github.com/gperftools/gperftools)
     - [jemalloc](http://jemalloc.net/)

@@ -54,6 +54,12 @@ else ()
 	set(HAVE_LUA 1)
 endif ()
 
+pkg_check_modules(BROTLI libbrotlienc libbrotlicommon)
+if (BROTLI_FOUND)
+	list(APPEND ADDITIONAL_LIBRARIES "${BROTLI_LDFLAGS}")
+	set(HAVE_BROTLI 1)
+endif ()
+
 option(USE_ALTERNATIVE_MALLOC "Use alternative malloc implementations" OFF)
 if (USE_ALTERNATIVE_MALLOC)
 	find_library(TCMALLOC_LIBRARY NAMES tcmalloc_minimal tcmalloc)

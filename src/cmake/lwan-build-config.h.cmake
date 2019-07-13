@@ -55,6 +55,7 @@
 
 /* Libraries */
 #cmakedefine HAVE_LUA
+#cmakedefine HAVE_BROTLI
 
 /* Valgrind support for coroutines */
 #cmakedefine HAVE_VALGRIND

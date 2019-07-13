@@ -42,6 +42,10 @@
 
 #include "auto-index-icons.h"
 
+#if defined(HAVE_BROTLI)
+#include <brotli/encode.h>
+#endif
+
 static const struct lwan_key_value deflate_compression_hdr = {
     .key = "Content-Encoding",
     .value = "deflate",
@@ -50,6 +54,12 @@ static const struct lwan_key_value gzip_compression_hdr = {
     .key = "Content-Encoding",
     .value = "gzip",
 };
+#if defined(HAVE_BROTLI)
+static const struct lwan_key_value br_compression_hdr = {
+    .key = "Content-Encoding",
+    .value = "br",
+};
+#endif
 
 static const int open_mode = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
 
@@ -88,7 +98,12 @@ struct mmap_cache_data {
         void *contents;
         /* zlib expects unsigned longs instead of size_t */
         unsigned long size;
-    } compressed, uncompressed;
+    } uncompressed
+    , deflate_compressed
+#if defined(HAVE_BROTLI)
+    , br_compressed
+#endif
+    ;
 };
 
 struct sendfile_cache_data {
@@ -343,27 +358,60 @@ static ALWAYS_INLINE bool is_compression_worthy(const size_t compressed_sz,
     return ((compressed_sz + deflated_header_size) < uncompressed_sz);
 }
 
-static void compress_cached_entry(struct mmap_cache_data *md)
+static void deflate_compress_cached_entry(struct mmap_cache_data *md)
 {
-    md->compressed.size = compressBound(md->uncompressed.size);
+    md->deflate_compressed.size = compressBound(md->uncompressed.size);
 
-    if (UNLIKELY(!(md->compressed.contents = malloc(md->compressed.size))))
+    if (UNLIKELY(!(md->deflate_compressed.contents =
+                       malloc(md->deflate_compressed.size))))
         goto error_zero_out;
 
-    if (UNLIKELY(compress(md->compressed.contents, &md->compressed.size,
+    if (UNLIKELY(compress(md->deflate_compressed.contents,
+                          &md->deflate_compressed.size,
                           md->uncompressed.contents,
                           md->uncompressed.size) != Z_OK))
         goto error_free_compressed;
 
-    if (is_compression_worthy(md->compressed.size, md->uncompressed.size))
+    if (is_compression_worthy(md->deflate_compressed.size,
+                              md->uncompressed.size))
         return;
 
 error_free_compressed:
-    free(md->compressed.contents);
-    md->compressed.contents = NULL;
+    free(md->deflate_compressed.contents);
+    md->deflate_compressed.contents = NULL;
 error_zero_out:
-    md->compressed.size = 0;
+    md->deflate_compressed.size = 0;
 }
+
+#if defined(HAVE_BROTLI)
+static void br_compress_cached_entry(struct mmap_cache_data *md)
+{
+    md->br_compressed.size =
+        BrotliEncoderMaxCompressedSize(md->uncompressed.size);
+
+    if (UNLIKELY(
+            !(md->br_compressed.contents = malloc(md->br_compressed.size))))
+        goto error_zero_out;
+
+    if (UNLIKELY(BrotliEncoderCompress(
+                     BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW,
+                     BROTLI_DEFAULT_MODE, md->uncompressed.size,
+                     md->uncompressed.contents, &md->br_compressed.size,
+                     md->br_compressed.contents) != BROTLI_TRUE))
+        goto error_free_compressed;
+
+    /* is_compression_worthy() is already called for deflate-compressed data,
+     * so only consider brotli-compressed data if it's worth it WRT deflate */
+    if (LIKELY(md->br_compressed.size < md->deflate_compressed.size))
+        return;
+
+error_free_compressed:
+    free(md->br_compressed.contents);
+    md->br_compressed.contents = NULL;
+error_zero_out:
+    md->br_compressed.size = 0;
+}
+#endif
 
 static bool mmap_init(struct file_cache_entry *ce,
                       struct serve_files_priv *priv,
@@ -391,7 +439,10 @@ static bool mmap_init(struct file_cache_entry *ce,
     lwan_madvise_queue(md->uncompressed.contents, (size_t)st->st_size);
 
     md->uncompressed.size = (size_t)st->st_size;
-    compress_cached_entry(md);
+    deflate_compress_cached_entry(md);
+#if defined(HAVE_BROTLI)
+    br_compress_cached_entry(md);
+#endif
 
     ce->mime_type =
         lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
@@ -771,7 +822,10 @@ static void mmap_free(struct file_cache_entry *fce)
     struct mmap_cache_data *md = &fce->mmap_cache_data;
 
     munmap(md->uncompressed.contents, md->uncompressed.size);
-    free(md->compressed.contents);
+    free(md->deflate_compressed.contents);
+#if defined(HAVE_BROTLI)
+    free(md->br_compressed.contents);
+#endif
 }
 
 static void sendfile_free(struct file_cache_entry *fce)
@@ -1091,9 +1145,18 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
     size_t size;
     enum lwan_http_status status;
 
-    if (md->compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
-        contents = md->compressed.contents;
-        size = md->compressed.size;
+#if defined(HAVE_BROTLI)
+    if (md->br_compressed.size && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+        contents = md->br_compressed.contents;
+        size = md->br_compressed.size;
+        compressed = &br_compression_hdr;
+
+        status = HTTP_OK;
+    } else
+#endif
+    if (md->deflate_compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
+        contents = md->deflate_compressed.contents;
+        size = md->deflate_compressed.size;
         compressed = &deflate_compression_hdr;
 
         status = HTTP_OK;
