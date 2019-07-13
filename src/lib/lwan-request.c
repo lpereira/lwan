@@ -511,6 +511,18 @@ identify_http_path(struct lwan_request *request, char *buffer)
     return end_of_line + 1;
 }
 
+__attribute__((noinline)) static void
+set_header_value(struct lwan_value *header, char *end, char *p)
+{
+    if (LIKELY(string_as_int16(p) == MULTICHAR_CONSTANT_SMALL(':', ' '))) {
+        *end = '\0';
+        char *value = p + sizeof(": ") - 1;
+
+        header->value = value;
+        header->len = (size_t)(end - value);
+    }
+}
+
 #define HEADER_LENGTH(hdr)                                                     \
     ({                                                                         \
         if (UNLIKELY(end - sizeof(hdr) + 1 < p))                               \
@@ -518,16 +530,8 @@ identify_http_path(struct lwan_request *request, char *buffer)
         sizeof(hdr) - 1;                                                       \
     })
 
-#define HEADER(hdr)                                                            \
-    ({                                                                         \
-        p += HEADER_LENGTH(hdr);                                               \
-        if (UNLIKELY(string_as_int16(p) !=                                     \
-                     MULTICHAR_CONSTANT_SMALL(':', ' ')))                      \
-            continue;                                                          \
-        *end = '\0';                                                           \
-        char *value = p + sizeof(": ") - 1;                                    \
-        (struct lwan_value){.value = value, .len = (size_t)(end - value)};     \
-    })
+#define SET_HEADER_VALUE(dest, hdr)                                            \
+    set_header_value(&(helper->dest), end, p += HEADER_LENGTH(hdr));
 
 static bool parse_headers(struct lwan_request_parser_helper *helper,
                           char *buffer)
@@ -586,30 +590,30 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 
             STRING_SWITCH_L (p) {
             case MULTICHAR_CONSTANT_L('-', 'E', 'n', 'c'):
-                helper->accept_encoding = HEADER("-Encoding");
+                SET_HEADER_VALUE(accept_encoding, "-Encoding");
                 break;
             }
             break;
         case MULTICHAR_CONSTANT_L('C', 'o', 'n', 'n'):
-            helper->connection = HEADER("Connection");
+            SET_HEADER_VALUE(connection, "Connection");
             break;
         case MULTICHAR_CONSTANT_L('C', 'o', 'n', 't'):
             p += HEADER_LENGTH("Content");
 
             STRING_SWITCH_L (p) {
             case MULTICHAR_CONSTANT_L('-', 'T', 'y', 'p'):
-                helper->content_type = HEADER("-Type");
+                SET_HEADER_VALUE(content_type, "-Type");
                 break;
             case MULTICHAR_CONSTANT_L('-', 'L', 'e', 'n'):
-                helper->content_length = HEADER("-Length");
+                SET_HEADER_VALUE(content_length, "-Length");
                 break;
             }
             break;
         case MULTICHAR_CONSTANT_L('I', 'f', '-', 'M'):
-            helper->if_modified_since.raw = HEADER("If-Modified-Since");
+            SET_HEADER_VALUE(if_modified_since.raw, "If-Modified-Since");
             break;
         case MULTICHAR_CONSTANT_L('R', 'a', 'n', 'g'):
-            helper->range.raw = HEADER("Range");
+            SET_HEADER_VALUE(range.raw, "Range");
             break;
         }
     }
@@ -618,7 +622,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     return true;
 }
 #undef HEADER_LENGTH
-#undef HEADER
+#undef SET_HEADER_VALUE
 
 static void parse_if_modified_since(struct lwan_request_parser_helper *helper)
 {
