@@ -44,6 +44,7 @@
 #include "lwan-io-wrappers.h"
 #include "sha1.h"
 
+#define HEADER_TERMINATOR_LEN (sizeof("\r\n") - 1)
 #define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
 #define N_HEADER_START 64
 
@@ -534,20 +535,22 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     char *buffer_end = helper->buffer->value + helper->buffer->len;
     char **header_start = helper->header_start;
     size_t n_headers = 0;
+    char *next_header;
     char *p;
 
     for (p = buffer + 1;;) {
         char *next_chr = p;
-        char *next_hdr = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
-        if (!next_hdr)
+        next_header = memchr(next_chr, '\r', (size_t)(buffer_end - p));
+
+        if (!next_header)
             break;
 
-        if (next_chr == next_hdr) {
-            if (buffer_end - next_chr > 2) {
-                STRING_SWITCH_SMALL (next_hdr) {
+        if (next_chr == next_header) {
+            if (buffer_end - next_chr > (ptrdiff_t)HEADER_TERMINATOR_LEN) {
+                STRING_SWITCH_SMALL (next_header) {
                 case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
-                    helper->next_request = next_hdr + 2;
+                    helper->next_request = next_header + HEADER_TERMINATOR_LEN;
                 }
             }
             break;
@@ -556,24 +559,26 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         /* Is there at least a space for a minimal (H)eader and a (V)alue? */
         if (LIKELY(next_hdr - next_chr > (ptrdiff_t)(sizeof("H: V") - 1))) {
             header_start[n_headers++] = next_chr;
-            header_start[n_headers++] = next_hdr;
         } else {
             /* Better to abort early if there's no space. */
             return false;
         }
 
-        p = next_hdr + 2;
+        p = next_header + HEADER_TERMINATOR_LEN;
 
-        if (n_headers >= N_HEADER_START || p >= buffer_end) {
+        if (UNLIKELY(n_headers >= (N_HEADER_START - 1) || p >= buffer_end)) {
             helper->n_header_start = 0;
             return false;
         }
     }
 
-    for (size_t i = 0; i < n_headers; i += 2) {
-        char *end = header_start[i + 1];
+    header_start[n_headers] = next_header;
+
+    for (size_t i = 0; i < n_headers; i++) {
+        char *end;
 
         p = header_start[i];
+        end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         STRING_SWITCH_L (p) {
         case MULTICHAR_CONSTANT_L('A', 'c', 'c', 'e'):
@@ -1471,9 +1476,9 @@ const char *lwan_request_get_header(struct lwan_request *request,
     if (UNLIKELY(r < 0 || r >= (int)sizeof(name)))
         return NULL;
 
-    for (size_t i = 0; i < request->helper->n_header_start; i += 2) {
+    for (size_t i = 0; i < request->helper->n_header_start; i++) {
         const char *start = request->helper->header_start[i];
-        char *end = request->helper->header_start[i + 1];
+        char *end = request->helper->header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         if (UNLIKELY(end - start < r))
             continue;
