@@ -21,7 +21,12 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+
+#if defined(HAVE_BROTLI)
+#include <brotli/decode.h>
+#else
 #include <zlib.h>
+#endif
 
 #include "lwan-private.h"
 
@@ -31,31 +36,44 @@ static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static struct mime_entry mime_entries[MIME_ENTRIES];
 static bool mime_entries_initialized = false;
 
-void
-lwan_tables_init(void)
+void lwan_tables_init(void)
 {
     if (mime_entries_initialized)
         return;
 
     lwan_status_debug("Uncompressing MIME type table: %u->%u bytes, %d entries",
                       MIME_COMPRESSED_LEN, MIME_UNCOMPRESSED_LEN, MIME_ENTRIES);
-    uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
-    int ret = uncompress((Bytef*)uncompressed_mime_entries,
-            &uncompressed_length, (const Bytef*)mime_entries_compressed,
-            MIME_COMPRESSED_LEN);
-    if (ret != Z_OK)
-        lwan_status_critical(
-            "Error while uncompressing table: zlib error %d", ret);
 
-    if (uncompressed_length != MIME_UNCOMPRESSED_LEN)
+#if defined(HAVE_BROTLI)
+    size_t uncompressed_length = MIME_UNCOMPRESSED_LEN;
+    BrotliDecoderResult ret;
+
+    ret = BrotliDecoderDecompress(MIME_COMPRESSED_LEN, mime_entries_compressed,
+                                  &uncompressed_length,
+                                  uncompressed_mime_entries);
+    if (ret != BROTLI_DECODER_RESULT_SUCCESS)
+        lwan_status_critical("Error while uncompressing table with Brotli");
+#else
+    uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
+    int ret =
+        uncompress((Bytef *)uncompressed_mime_entries, &uncompressed_length,
+                   (const Bytef *)mime_entries_compressed, MIME_COMPRESSED_LEN);
+    if (ret != Z_OK) {
+        lwan_status_critical("Error while uncompressing table: zlib error %d",
+                             ret);
+    }
+#endif
+
+    if (uncompressed_length != MIME_UNCOMPRESSED_LEN) {
         lwan_status_critical("Expected uncompressed length %d, got %ld",
-            MIME_UNCOMPRESSED_LEN, uncompressed_length);
+                             MIME_UNCOMPRESSED_LEN, uncompressed_length);
+    }
 
     unsigned char *ptr = uncompressed_mime_entries;
     for (size_t i = 0; i < MIME_ENTRIES; i++) {
-        mime_entries[i].extension = (char*)ptr;
+        mime_entries[i].extension = (char *)ptr;
         ptr = rawmemchr(ptr + 1, '\0') + 1;
-        mime_entries[i].type = (char*)ptr;
+        mime_entries[i].type = (char *)ptr;
         ptr = rawmemchr(ptr + 1, '\0') + 1;
     }
 

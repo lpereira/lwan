@@ -25,7 +25,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HAVE_ZOPFLI
+#if defined(HAVE_BROTLI)
+#include <brotli/encode.h>
+#elif defined(HAVE_ZOPFLI)
 #include <zopfli/zopfli.h>
 #else
 #include <zlib.h>
@@ -84,15 +86,31 @@ static char *compress_output(const struct output *output, size_t *outlen)
 {
     char *compressed;
 
-#ifdef HAVE_ZOPFLI
+#if defined(HAVE_BROTLI)
+    *outlen = BrotliEncoderMaxCompressedSize(output->used);
+
+    compressed = malloc(*outlen);
+    if (!compressed) {
+        fprintf(stderr, "Could not allocate memory for compressed data\n");
+        exit(1);
+    }
+
+    if (BrotliEncoderCompress(BROTLI_MAX_QUALITY, BROTLI_MAX_WINDOW_BITS,
+                              BROTLI_MODE_TEXT, output->used,
+                              (const unsigned char *)output->ptr, outlen,
+                              (unsigned char *)compressed) != BROTLI_TRUE) {
+        fprintf(stderr, "Could not compress mime type table with Brotli\n");
+        exit(1);
+    }
+#elif defined(HAVE_ZOPFLI)
     ZopfliOptions opts;
 
     *outlen = 0;
 
     ZopfliInitOptions(&opts);
     ZopfliCompress(&opts, ZOPFLI_FORMAT_ZLIB,
-        (const unsigned char *)output->ptr, output->used,
-        (unsigned char **)&compressed, outlen);
+                   (const unsigned char *)output->ptr, output->used,
+                   (unsigned char **)&compressed, outlen);
 #else
     *outlen = compressBound((uLong)output->used);
     compressed = malloc(*outlen);
@@ -100,8 +118,9 @@ static char *compress_output(const struct output *output, size_t *outlen)
         fprintf(stderr, "Could not allocate memory for compressed data\n");
         exit(1);
     }
-    if (compress2((Bytef *)compressed, outlen, (const Bytef *)output->ptr, output->used, 9) != Z_OK) {
-        fprintf(stderr, "Could not compress data\n");
+    if (compress2((Bytef *)compressed, outlen, (const Bytef *)output->ptr,
+                  output->used, 9) != Z_OK) {
+        fprintf(stderr, "Could not compress data with zlib\n");
         exit(1);
     }
 #endif

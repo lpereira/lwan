@@ -54,7 +54,7 @@ else ()
 	set(HAVE_LUA 1)
 endif ()
 
-pkg_check_modules(BROTLI libbrotlienc libbrotlicommon)
+pkg_check_modules(BROTLI libbrotlienc libbrotlidec libbrotlicommon)
 if (BROTLI_FOUND)
 	list(APPEND ADDITIONAL_LIBRARIES "${BROTLI_LDFLAGS}")
 	set(HAVE_BROTLI 1)
