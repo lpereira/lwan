@@ -156,7 +156,7 @@ status_out(const char *file,
     }
 #endif
 
-    printf("%.*s", (int)start.len, start.value);
+    fwrite_unlocked(start.value, start.len, 1, stdout);
     vprintf(fmt, values);
 
     if (type & STATUS_PERROR) {
@@ -167,7 +167,7 @@ status_out(const char *file,
         printf(": %s (error number %d)", errmsg, saved_errno);
     }
 
-    printf("%.*s", (int)end.len, end.value);
+    fwrite_unlocked(end.value, end.len, 1, stdout);
 
     funlockfile(stdout);
 
