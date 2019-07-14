@@ -128,10 +128,17 @@ static void log_request(struct lwan_request *request,
 #define log_request(...)
 #endif
 
-static const bool has_response_body[REQUEST_METHOD_MASK] = {
-    [REQUEST_METHOD_GET] = true,
-    [REQUEST_METHOD_POST] = true,
-};
+
+static inline bool has_response_body(enum lwan_request_flags method,
+                                     enum lwan_http_status status)
+{
+    static const bool method_has_body[REQUEST_METHOD_MASK] = {
+        [REQUEST_METHOD_GET] = true,
+        [REQUEST_METHOD_POST] = true,
+    };
+
+    return method_has_body[method] || status != HTTP_NOT_MODIFIED;
+}
 
 void lwan_response(struct lwan_request *request, enum lwan_http_status status)
 {
@@ -182,7 +189,7 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
         return;
     }
 
-    if (!has_response_body[lwan_request_get_method(request)]) {
+    if (!has_response_body(lwan_request_get_method(request), status)) {
         lwan_send(request, headers, header_len, 0);
         return;
     }
