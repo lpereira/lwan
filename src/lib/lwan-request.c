@@ -945,7 +945,7 @@ static ALWAYS_INLINE enum lwan_http_status
 read_request(struct lwan_request *request)
 {
     return read_from_request_socket(request, request->helper->buffer,
-                                    DEFAULT_BUFFER_SIZE,
+                                    DEFAULT_BUFFER_SIZE - 1 /* -1 for NUL byte */,
                                     read_request_finalizer);
 }
 
