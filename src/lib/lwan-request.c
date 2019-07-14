@@ -511,9 +511,11 @@ identify_http_path(struct lwan_request *request, char *buffer)
     return end_of_line + 1;
 }
 
-__attribute__((noinline)) static void
-set_header_value(struct lwan_value *header, char *end, char *p)
+__attribute__((noinline)) static void set_header_value(
+    struct lwan_value *header, char *end, char *p, size_t header_len)
 {
+    p += header_len;
+
     if (LIKELY(string_as_int16(p) == MULTICHAR_CONSTANT_SMALL(':', ' '))) {
         *end = '\0';
         char *value = p + sizeof(": ") - 1;
@@ -531,7 +533,10 @@ set_header_value(struct lwan_value *header, char *end, char *p)
     })
 
 #define SET_HEADER_VALUE(dest, hdr)                                            \
-    set_header_value(&(helper->dest), end, p += HEADER_LENGTH(hdr));
+    do {                                                                       \
+        const size_t header_len = HEADER_LENGTH(hdr);                          \
+        set_header_value(&(helper->dest), end, p, header_len);                 \
+    } while (0)
 
 static bool parse_headers(struct lwan_request_parser_helper *helper,
                           char *buffer)
