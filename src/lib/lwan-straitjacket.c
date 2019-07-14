@@ -37,14 +37,18 @@
 
 static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 {
-    struct passwd pwd = { };
+    struct passwd pwd = {};
     struct passwd *result;
     char *buf;
     long pw_size_max = sysconf(_SC_GETPW_R_SIZE_MAX);
     int r;
 
-    if (pw_size_max < 0)
-        pw_size_max = 16384;
+    if (pw_size_max < 0) {
+        /* This constant is returned for sysconf(_SC_GETPW_R_SIZE_MAX) in glibc,
+         * and it seems to be a reasonable size (1024).  Use it as a fallback in
+         * the (very unlikely) case where sysconf() fails. */
+        pw_size_max = NSS_BUFLEN_PASSWD;
+    }
 
     buf = malloc((size_t)pw_size_max);
     if (!buf) {
