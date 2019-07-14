@@ -835,7 +835,7 @@ class TestFuzzRegressionBase(SocketTest):
     with self.connect() as sock:
       sock.send(contents)
       first_8 = sock.recv(8)
-      self.assertTrue(first_8 in ("HTTP/1.1", ""))
+      self.assertTrue(first_8 in ("HTTP/1.1", "HTTP/1.0", ""))
 
   @staticmethod
   def wrap(name):
