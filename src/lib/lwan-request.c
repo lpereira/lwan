@@ -551,8 +551,8 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 
         next_header = memchr(next_chr, '\r', (size_t)(buffer_end - p));
 
-        if (!next_header)
-            break;
+        if (UNLIKELY(!next_header))
+            return false;
 
         if (next_chr == next_header) {
             if (buffer_end - next_chr > (ptrdiff_t)HEADER_TERMINATOR_LEN) {
