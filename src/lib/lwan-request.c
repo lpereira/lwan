@@ -545,9 +545,8 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     char **header_start = helper->header_start;
     size_t n_headers = 0;
     char *next_header;
-    char *p;
 
-    for (p = buffer + 1;;) {
+    for (char *p = buffer + 1;;) {
         char *next_chr = p;
 
         next_header = memchr(next_chr, '\r', (size_t)(buffer_end - p));
@@ -575,19 +574,15 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 
         p = next_header + HEADER_TERMINATOR_LEN;
 
-        if (UNLIKELY(n_headers >= (N_HEADER_START - 1) || p >= buffer_end)) {
-            helper->n_header_start = 0;
+        if (UNLIKELY(n_headers >= (N_HEADER_START - 1) || p >= buffer_end))
             return false;
-        }
     }
 
     header_start[n_headers] = next_header;
 
     for (size_t i = 0; i < n_headers; i++) {
-        char *end;
-
-        p = header_start[i];
-        end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
+        char *p = header_start[i];
+        char *end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         STRING_SWITCH_L (p) {
         case MULTICHAR_CONSTANT_L('A', 'c', 'c', 'e'):
