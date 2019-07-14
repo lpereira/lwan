@@ -1287,7 +1287,7 @@ static const struct lwan_module module = {
     .create_from_hash = serve_files_create_from_hash,
     .destroy = serve_files_destroy,
     .handle_request = serve_files_handle_request,
-    .flags = HANDLER_REMOVE_LEADING_SLASH | HANDLER_PARSE_ACCEPT_ENCODING,
+    .flags = HANDLER_PARSE_ACCEPT_ENCODING,
 };
 
 LWAN_REGISTER_MODULE(serve_files, &module);

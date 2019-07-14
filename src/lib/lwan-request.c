@@ -1327,11 +1327,9 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
             return HTTP_NOT_AUTHORIZED;
     }
 
-    if (url_map->flags & HANDLER_REMOVE_LEADING_SLASH) {
-        while (*request->url.value == '/' && request->url.len > 0) {
-            ++request->url.value;
-            --request->url.len;
-        }
+    while (*request->url.value == '/' && request->url.len > 0) {
+        request->url.value++;
+        request->url.len--;
     }
 
     if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
