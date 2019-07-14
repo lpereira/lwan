@@ -4,6 +4,7 @@
 #       considerably and make it possible to perform more low-level tests.
 
 import os
+import random
 import re
 import requests
 import signal
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import time
 import unittest
+import string
 
 LWAN_PATH = './build/src/bin/testrunner/testrunner'
 for arg in sys.argv[1:]:
@@ -72,7 +74,9 @@ class TestPost(LwanTest):
     self.assertEqual(r.json(), {'did-it-blend': 'oh-hell-yeah'})
 
   def make_request_with_size(self, size):
-    data = "tro" + "lo" * size
+    random.seed(size)
+
+    data = "".join(random.choice(string.printable) for c in range(size * 2))
 
     r = requests.post('http://127.0.0.1:8080/post/big', data=data,
       headers={'Content-Type': 'x-test/trololo'})
