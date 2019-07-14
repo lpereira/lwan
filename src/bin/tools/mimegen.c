@@ -273,7 +273,6 @@ int main(int argc, char *argv[])
     printf("#define MIME_UNCOMPRESSED_LEN %zu\n", output.used);
     printf("#define MIME_COMPRESSED_LEN %lu\n", compressed_size);
     printf("#define MIME_ENTRIES %d\n", hash_get_count(ext_mime));
-    printf("struct mime_entry { const char *extension; const char *type; };\n");
     printf("static const unsigned char mime_entries_compressed[] = {\n");
     for (i = 1; compressed_size; compressed_size--, i++)
         printf("0x%x,%c", compressed[i - 1] & 0xff, " \n"[i % 13 == 0]);
