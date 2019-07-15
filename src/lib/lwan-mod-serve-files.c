@@ -94,16 +94,11 @@ struct cache_funcs {
 };
 
 struct mmap_cache_data {
-    struct {
-        void *contents;
-        /* zlib expects unsigned longs instead of size_t */
-        unsigned long size;
-    } uncompressed
-    , deflate_compressed
+    struct lwan_value uncompressed;
+    struct lwan_value deflated;
 #if defined(HAVE_BROTLI)
-    , br_compressed
+    struct lwan_value brotli;
 #endif
-    ;
 };
 
 struct sendfile_cache_data {
@@ -359,10 +354,10 @@ static ALWAYS_INLINE bool is_compression_worthy(const size_t compressed_sz,
 }
 
 static void
-realloc_if_needed(size_t current_alloc_size, size_t needed_size, void **ptr)
+realloc_if_needed(size_t current_alloc_size, size_t needed_size, char **ptr)
 {
     if (needed_size < current_alloc_size) {
-        void *tmp = realloc(*ptr, needed_size);
+        char *tmp = realloc(*ptr, needed_size);
 
         if (tmp)
             *ptr = tmp;
@@ -371,64 +366,56 @@ realloc_if_needed(size_t current_alloc_size, size_t needed_size, void **ptr)
 
 static void deflate_compress_cached_entry(struct mmap_cache_data *md)
 {
-    const unsigned long bound = compressBound(md->uncompressed.size);
+    const unsigned long bound = compressBound(md->uncompressed.len);
 
-    md->deflate_compressed.size = bound;
+    md->deflated.len = bound;
 
-    if (UNLIKELY(!(md->deflate_compressed.contents =
-                       malloc(md->deflate_compressed.size))))
+    if (UNLIKELY(!(md->deflated.value = malloc(md->deflated.len))))
         goto error_zero_out;
 
-    if (UNLIKELY(compress(md->deflate_compressed.contents,
-                          &md->deflate_compressed.size,
-                          md->uncompressed.contents,
-                          md->uncompressed.size) != Z_OK))
+    if (UNLIKELY(compress((Bytef *)md->deflated.value, &md->deflated.len,
+                          (Bytef *)md->uncompressed.value,
+                          md->uncompressed.len) != Z_OK))
         goto error_free_compressed;
 
-    if (is_compression_worthy(md->deflate_compressed.size,
-                              md->uncompressed.size)) {
-        return realloc_if_needed(bound, md->deflate_compressed.size,
-                                 &md->deflate_compressed.contents);
-    }
+    if (is_compression_worthy(md->deflated.len, md->uncompressed.len))
+        return realloc_if_needed(bound, md->deflated.len, &md->deflated.value);
 
 error_free_compressed:
-    free(md->deflate_compressed.contents);
-    md->deflate_compressed.contents = NULL;
+    free(md->deflated.value);
+    md->deflated.value = NULL;
 error_zero_out:
-    md->deflate_compressed.size = 0;
+    md->deflated.len = 0;
 }
 
 #if defined(HAVE_BROTLI)
 static void br_compress_cached_entry(struct mmap_cache_data *md)
 {
     const unsigned long bound =
-        BrotliEncoderMaxCompressedSize(md->uncompressed.size);
+        BrotliEncoderMaxCompressedSize(md->uncompressed.len);
 
-    md->br_compressed.size = bound;
+    md->brotli.len = bound;
 
-    if (UNLIKELY(
-            !(md->br_compressed.contents = malloc(md->br_compressed.size))))
+    if (UNLIKELY(!(md->brotli.value = malloc(md->brotli.len))))
         goto error_zero_out;
 
     if (UNLIKELY(BrotliEncoderCompress(
                      BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW,
-                     BROTLI_DEFAULT_MODE, md->uncompressed.size,
-                     md->uncompressed.contents, &md->br_compressed.size,
-                     md->br_compressed.contents) != BROTLI_TRUE))
+                     BROTLI_DEFAULT_MODE, md->uncompressed.len,
+                     (uint8_t *)md->uncompressed.value, &md->brotli.len,
+                     (uint8_t *)md->brotli.value) != BROTLI_TRUE))
         goto error_free_compressed;
 
     /* is_compression_worthy() is already called for deflate-compressed data,
      * so only consider brotli-compressed data if it's worth it WRT deflate */
-    if (LIKELY(md->br_compressed.size < md->deflate_compressed.size)) {
-        return realloc_if_needed(bound, md->br_compressed.size,
-                                 &md->br_compressed.contents);
-    }
+    if (LIKELY(md->brotli.len < md->deflated.len))
+        return realloc_if_needed(bound, md->brotli.len, &md->brotli.value);
 
 error_free_compressed:
-    free(md->br_compressed.contents);
-    md->br_compressed.contents = NULL;
+    free(md->brotli.value);
+    md->brotli.value = NULL;
 error_zero_out:
-    md->br_compressed.size = 0;
+    md->brotli.len = 0;
 }
 #endif
 
@@ -448,16 +435,16 @@ static bool mmap_init(struct file_cache_entry *ce,
     if (UNLIKELY(file_fd < 0))
         return false;
 
-    md->uncompressed.contents =
+    md->uncompressed.value =
         mmap(NULL, (size_t)st->st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-    if (UNLIKELY(md->uncompressed.contents == MAP_FAILED)) {
+    if (UNLIKELY(md->uncompressed.value == MAP_FAILED)) {
         success = false;
         goto close_file;
     }
 
-    lwan_madvise_queue(md->uncompressed.contents, (size_t)st->st_size);
+    lwan_madvise_queue(md->uncompressed.value, (size_t)st->st_size);
 
-    md->uncompressed.size = (size_t)st->st_size;
+    md->uncompressed.len = (size_t)st->st_size;
     deflate_compress_cached_entry(md);
 #if defined(HAVE_BROTLI)
     br_compress_cached_entry(md);
@@ -840,10 +827,10 @@ static void mmap_free(struct file_cache_entry *fce)
 {
     struct mmap_cache_data *md = &fce->mmap_cache_data;
 
-    munmap(md->uncompressed.contents, md->uncompressed.size);
-    free(md->deflate_compressed.contents);
+    munmap(md->uncompressed.value, md->uncompressed.len);
+    free(md->deflated.value);
 #if defined(HAVE_BROTLI)
-    free(md->br_compressed.contents);
+    free(md->brotli.value);
 #endif
 }
 
@@ -1165,17 +1152,17 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
     enum lwan_http_status status;
 
 #if defined(HAVE_BROTLI)
-    if (md->br_compressed.size && (request->flags & REQUEST_ACCEPT_BROTLI)) {
-        contents = md->br_compressed.contents;
-        size = md->br_compressed.size;
+    if (md->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+        contents = md->brotli.value;
+        size = md->brotli.len;
         compressed = &br_compression_hdr;
 
         status = HTTP_OK;
     } else
 #endif
-    if (md->deflate_compressed.size && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
-        contents = md->deflate_compressed.contents;
-        size = md->deflate_compressed.size;
+    if (md->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
+        contents = md->deflated.value;
+        size = md->deflated.len;
         compressed = &deflate_compression_hdr;
 
         status = HTTP_OK;
@@ -1183,11 +1170,11 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
         off_t from, to;
 
         status =
-            compute_range(request, &from, &to, (off_t)md->uncompressed.size);
+            compute_range(request, &from, &to, (off_t)md->uncompressed.len);
         switch (status) {
         case HTTP_PARTIAL_CONTENT:
         case HTTP_OK:
-            contents = (char *)md->uncompressed.contents + from;
+            contents = (char *)md->uncompressed.value + from;
             size = (size_t)(to - from);
             compressed = NULL;
             break;
