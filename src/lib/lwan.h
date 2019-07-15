@@ -149,9 +149,9 @@ static ALWAYS_INLINE int16_t string_as_int16(const char *s)
 #define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 
 #if defined(__cplusplus)
-#define ENFORCE_STATIC_BUFFER_LENGTH
+#define LWAN_ARRAY_PARAM(length) [length]
 #else
-#define ENFORCE_STATIC_BUFFER_LENGTH static
+#define LWAN_ARRAY_PARAM(length) [static length]
 #endif
 
 #define FOR_EACH_HTTP_STATUS(X)                                                                                                             \
@@ -518,15 +518,13 @@ int lwan_connection_get_fd(const struct lwan *lwan,
                            const struct lwan_connection *conn)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
-const char *lwan_request_get_remote_address(
-    struct lwan_request *request,
-    char buffer[ENFORCE_STATIC_BUFFER_LENGTH INET6_ADDRSTRLEN])
+const char *
+lwan_request_get_remote_address(struct lwan_request *request,
+                                char buffer LWAN_ARRAY_PARAM(INET6_ADDRSTRLEN))
     __attribute__((warn_unused_result));
 
-int lwan_format_rfc_time(const time_t in,
-                         char out[ENFORCE_STATIC_BUFFER_LENGTH 30]);
-int lwan_parse_rfc_time(const char in[ENFORCE_STATIC_BUFFER_LENGTH 30],
-                        time_t *out);
+int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
+int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);
 
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)
