@@ -358,6 +358,17 @@ static ALWAYS_INLINE bool is_compression_worthy(const size_t compressed_sz,
     return ((compressed_sz + deflated_header_size) < uncompressed_sz);
 }
 
+static void
+realloc_if_needed(size_t current_alloc_size, size_t needed_size, void **ptr)
+{
+    if (needed_size < current_alloc_size) {
+        void *tmp = realloc(*ptr, needed_size);
+
+        if (tmp)
+            *ptr = tmp;
+    }
+}
+
 static void deflate_compress_cached_entry(struct mmap_cache_data *md)
 {
     const unsigned long bound = compressBound(md->uncompressed.size);
@@ -376,15 +387,8 @@ static void deflate_compress_cached_entry(struct mmap_cache_data *md)
 
     if (is_compression_worthy(md->deflate_compressed.size,
                               md->uncompressed.size)) {
-        if (bound > md->deflate_compressed.size) {
-            void *tmp;
-
-            tmp = realloc(md->deflate_compressed.contents,
-                          md->deflate_compressed.size);
-            if (tmp)
-                md->deflate_compressed.contents = tmp;
-        }
-        return;
+        return realloc_if_needed(bound, md->deflate_compressed.size,
+                                 &md->deflate_compressed.contents);
     }
 
 error_free_compressed:
@@ -397,7 +401,8 @@ error_zero_out:
 #if defined(HAVE_BROTLI)
 static void br_compress_cached_entry(struct mmap_cache_data *md)
 {
-    const unsigned long bound = BrotliEncoderMaxCompressedSize(md->uncompressed.size);
+    const unsigned long bound =
+        BrotliEncoderMaxCompressedSize(md->uncompressed.size);
 
     md->br_compressed.size = bound;
 
@@ -415,15 +420,8 @@ static void br_compress_cached_entry(struct mmap_cache_data *md)
     /* is_compression_worthy() is already called for deflate-compressed data,
      * so only consider brotli-compressed data if it's worth it WRT deflate */
     if (LIKELY(md->br_compressed.size < md->deflate_compressed.size)) {
-        if (bound > md->br_compressed.size) {
-            void *tmp;
-
-            tmp = realloc(md->br_compressed.contents,
-                          md->br_compressed.size);
-            if (tmp)
-                md->br_compressed.contents = tmp;
-        }
-        return;
+        return realloc_if_needed(bound, md->br_compressed.size,
+                                 &md->br_compressed.contents);
     }
 
 error_free_compressed:
