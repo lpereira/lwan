@@ -686,16 +686,21 @@ parse_accept_encoding(struct lwan_request *request)
     if (!helper->accept_encoding.len)
         return;
 
-    for (const char *p = helper->accept_encoding.value; *p;) {
+    for (const char *p = helper->accept_encoding.value; *p; p++) {
         STRING_SWITCH(p) {
         case MULTICHAR_CONSTANT('d','e','f','l'):
+        case MULTICHAR_CONSTANT(' ','d','e','f'):
             request->flags |= REQUEST_ACCEPT_DEFLATE;
             break;
         case MULTICHAR_CONSTANT('g','z','i','p'):
+        case MULTICHAR_CONSTANT(' ','g','z','i'):
             request->flags |= REQUEST_ACCEPT_GZIP;
             break;
 #if defined(HAVE_BROTLI)
         default:
+            while (lwan_char_isspace(*p))
+                p++;
+
             STRING_SWITCH_SMALL(p) {
             case MULTICHAR_CONSTANT_SMALL('b', 'r'):
                 request->flags |= REQUEST_ACCEPT_BROTLI;
@@ -706,8 +711,6 @@ parse_accept_encoding(struct lwan_request *request)
 
         if (!(p = strchr(p, ',')))
             break;
-
-        for (p++; lwan_char_isspace(*p); p++);
     }
 }
 
