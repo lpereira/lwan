@@ -273,6 +273,8 @@ enum lwan_connection_flags {
      * the connection coro ends. */
     CONN_SUSPENDED_TIMER = 1 << 5,
     CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
+
+    CONN_CORK = 1 << 7,
 };
 
 enum lwan_connection_coro_yield {

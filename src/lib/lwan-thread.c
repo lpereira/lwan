@@ -141,8 +141,10 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
         if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
             if (next_request && *next_request) {
+                conn->flags |= CONN_CORK;
                 coro_yield(coro, CONN_CORO_WANT_WRITE);
             } else {
+                conn->flags &= ~CONN_CORK;
                 coro_yield(coro, CONN_CORO_WANT_READ);
             }
         } else {

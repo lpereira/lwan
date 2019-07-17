@@ -470,7 +470,7 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
 void lwan_response_send_event(struct lwan_request *request, const char *event)
 {
     struct iovec vec[6];
-    int last = 0;
+    size_t last = 0;
 
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
         if (UNLIKELY(!lwan_response_set_event_stream(request, HTTP_OK)))
@@ -533,7 +533,7 @@ static void write_websocket_frame(struct lwan_request *request,
     uint8_t net_len_byte;
     uint16_t net_len_short;
     uint64_t net_len_long;
-    int last = 0;
+    size_t last = 0;
 
     vec[last++] = (struct iovec){.iov_base = &header_byte, .iov_len = 1};
 
