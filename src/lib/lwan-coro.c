@@ -39,7 +39,11 @@
 #  define SIGSTKSZ 16384
 #endif
 
-#define CORO_STACK_MIN (4 * SIGSTKSZ)
+#ifdef HAVE_BROTLI
+#  define CORO_STACK_MIN (8 * SIGSTKSZ)
+#else
+#  define CORO_STACK_MIN (4 * SIGSTKSZ)
+#endif
 
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
     "Request buffer fits inside coroutine stack");
