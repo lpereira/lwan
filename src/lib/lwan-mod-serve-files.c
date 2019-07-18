@@ -241,7 +241,7 @@ static const char *directory_list_tpl_str =
     "{{rel_path?}}  <title>Index of {{rel_path}}</title>{{/rel_path?}}\n"
     "{{^rel_path?}}  <title>Index of /</title>{{/rel_path?}}\n"
     "<style>\n"
-    "  body { background: fff }\n"
+    "  body { background: #fff }\n"
     "  tr.odd>td { background: #fff }\n"
     "  tr.even>td { background: #eee }\n"
     "</style>\n"
