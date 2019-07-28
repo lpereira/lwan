@@ -23,6 +23,7 @@
 #include <time.h>
 
 #include "lwan-private.h"
+#include "int-to-str.h"
 
 static int parse_2_digit_num(const char *str, const char end_chr, int min, int max)
 {
@@ -119,23 +120,34 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
 
 int lwan_format_rfc_time(const time_t in, char out[static 30])
 {
-    static const char *weekdays = "SunMonTueWedThuFriSat";
-    static const char *months = "JanFebMarAprMayJunJulAugSepOctNovDec";
-    const char *weekday, *month;
+    static const char *weekdays = "Sun,Mon,Tue,Wed,Thu,Fri,Sat,";
+    static const char *months = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec ";
     struct tm tm;
-    int r;
+    char *p;
 
     if (UNLIKELY(!gmtime_r(&in, &tm)))
         return -errno;
 
-    weekday = weekdays + tm.tm_wday * 3;
-    month = months + tm.tm_mon * 3;
+    p = mempcpy(out, weekdays + tm.tm_wday * 4, 4);
+    *p++ = ' ';
 
-    r = snprintf(out, 30, "%.3s, %02d %.3s %04d %02d:%02d:%02d GMT", weekday,
-                 tm.tm_mday, month, tm.tm_year + 1900, tm.tm_hour, tm.tm_min,
-                 tm.tm_sec);
-    if (UNLIKELY(r < 0 || r > 30))
-        return -EINVAL;
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_mday), 2);
+    *p++ = ' ';
+    p = mempcpy(p, months + tm.tm_mon * 4, 4);
+
+    tm.tm_year += 1900;
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_year / 100), 2);
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_year % 100), 2);
+
+    *p++ = ' ';
+
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_hour), 2);
+    *p++ = ':';
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_min), 2);
+    *p++ = ':';
+    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_sec), 2);
+
+    p = mempcpy(p, " GMT", 4);
 
     return 0;
 }
