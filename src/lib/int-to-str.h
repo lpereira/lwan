@@ -30,3 +30,4 @@ char *uint_to_string(size_t value,
                      char buffer[static INT_TO_STR_BUFFER_SIZE],
                      size_t *len);
 
+const char *uint_to_string_2_digits(size_t value) __attribute__((pure));

@@ -24,6 +24,19 @@
 
 #include "int-to-str.h"
 
+static const char digits[201] = "0001020304050607080910111213141516171819"
+                                "2021222324252627282930313233343536373839"
+                                "4041424344454647484950515253545556575859"
+                                "6061626364656667686970717273747576777879"
+                                "8081828384858687888990919293949596979899";
+
+ALWAYS_INLINE __attribute__((pure)) const char *
+uint_to_string_2_digits(size_t value)
+{
+    assert(value <= 99);
+    return &digits[2 * value];
+}
+
 ALWAYS_INLINE char *uint_to_string(size_t value,
                                    char dst[static INT_TO_STR_BUFFER_SIZE],
                                    size_t *length_out)
@@ -34,11 +47,6 @@ ALWAYS_INLINE char *uint_to_string(size_t value,
      */
     static const size_t length = INT_TO_STR_BUFFER_SIZE;
     size_t next = length - 1;
-    static const char digits[201] = "0001020304050607080910111213141516171819"
-                                    "2021222324252627282930313233343536373839"
-                                    "4041424344454647484950515253545556575859"
-                                    "6061626364656667686970717273747576777879"
-                                    "8081828384858687888990919293949596979899";
     dst[next--] = '\0';
     while (value >= 100) {
         const uint32_t i = (uint32_t)((value % 100) * 2);
