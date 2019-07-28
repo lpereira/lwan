@@ -111,6 +111,9 @@ struct sendfile_cache_data {
 struct dir_list_cache_data {
     struct lwan_strbuf rendered;
     struct lwan_value deflated;
+#if defined(HAVE_BROTLI)
+    struct lwan_value brotli;
+#endif
 };
 
 struct redir_cache_data {
@@ -666,6 +669,9 @@ static bool dirlist_init(struct file_cache_entry *ce,
         .len = lwan_strbuf_get_length(&dd->rendered),
     };
     deflate_value(&rendered, &dd->deflated);
+#if defined(HAVE_BROTLI)
+    brotli_value(&rendered, &dd->brotli, &dd->deflated);
+#endif
 
     ret = true;
     goto out_free_readme;
@@ -859,6 +865,9 @@ static void dirlist_free(struct file_cache_entry *fce)
 
     lwan_strbuf_free(&dd->rendered);
     free(dd->deflated.value);
+#if defined(HAVE_BROTLI)
+    free(dd->brotli.value);
+#endif
 }
 
 static void redir_free(struct file_cache_entry *fce)
@@ -1209,6 +1218,13 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
 
     icon = lwan_request_get_query_param(request, "icon");
     if (!icon) {
+#if defined(HAVE_BROTLI)
+        if (dd->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+            compressed = &br_compression_hdr;
+            contents = dd->brotli.value;
+            size = dd->brotli.len;
+        } else
+#endif
         if (dd->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
             compressed = &deflate_compression_hdr;
             contents = dd->deflated.value;
