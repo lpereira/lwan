@@ -466,7 +466,7 @@ static rlim_t setup_open_file_count_limits(void)
     if (r.rlim_max != r.rlim_cur) {
         const rlim_t current = r.rlim_cur;
 
-        if (r.rlim_max == RLIM_INFINITY) {
+        if (r.rlim_max == RLIM_INFINITY && r.rlim_cur < OPEN_MAX) {
             r.rlim_cur = OPEN_MAX;
         } else if (r.rlim_cur < r.rlim_max) {
             r.rlim_cur = r.rlim_max;
