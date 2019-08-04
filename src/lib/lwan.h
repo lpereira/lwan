@@ -192,12 +192,13 @@ enum lwan_handler_flags {
     HANDLER_PARSE_MASK = HANDLER_HAS_POST_DATA,
 };
 
+/* 1<<0 set: response has body; see has_response_body() in lwan-response.c */
 #define FOR_EACH_REQUEST_METHOD(X)                                             \
     X(GET, get, (1 << 0), STR4_INT('G', 'E', 'T', ' '))                        \
-    X(POST, post, (1 << 1), STR4_INT('P', 'O', 'S', 'T'))                      \
-    X(HEAD, head, (1 << 0 | 1 << 1), STR4_INT('H', 'E', 'A', 'D'))             \
+    X(POST, post, (1 << 1 | 1 << 0), STR4_INT('P', 'O', 'S', 'T'))             \
+    X(HEAD, head, (1 << 1), STR4_INT('H', 'E', 'A', 'D'))                      \
     X(OPTIONS, options, (1 << 2), STR4_INT('O', 'P', 'T', 'I'))                \
-    X(DELETE, delete, (1 << 2 | 1 << 0), STR4_INT('D', 'E', 'L', 'E'))
+    X(DELETE, delete, (1 << 1 | 1 << 2), STR4_INT('D', 'E', 'L', 'E'))
 
 #define SELECT_MASK(upper, lower, mask, constant) mask |
 #define GENERATE_ENUM_ITEM(upper, lower, mask, constant) REQUEST_METHOD_##upper = mask,
