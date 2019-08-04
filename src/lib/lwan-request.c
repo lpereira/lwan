@@ -178,7 +178,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
         return NULL;
 
     STRING_SWITCH(protocol) {
-    case MULTICHAR_CONSTANT('T', 'C', 'P', '4'): {
+    case STR4_INT('T', 'C', 'P', '4'): {
         struct sockaddr_in *from = &proxy->from.ipv4;
         struct sockaddr_in *to = &proxy->to.ipv4;
 
@@ -195,7 +195,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 
         break;
     }
-    case MULTICHAR_CONSTANT('T', 'C', 'P', '6'): {
+    case STR4_INT('T', 'C', 'P', '6'): {
         struct sockaddr_in6 *from = &proxy->from.ipv6;
         struct sockaddr_in6 *to = &proxy->to.ipv6;
 
@@ -499,10 +499,10 @@ identify_http_path(struct lwan_request *request, char *buffer)
     *space++ = '\0';
 
     STRING_SWITCH_LARGE(space) {
-    case MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','0'):
+    case STR8_INT('H','T','T','P','/','1','.','0'):
         request->flags |= REQUEST_IS_HTTP_1_0;
         break;
-    case MULTICHAR_CONSTANT_LARGE('H','T','T','P','/','1','.','1'):
+    case STR8_INT('H','T','T','P','/','1','.','1'):
         break;
     default:
         return NULL;
@@ -516,7 +516,7 @@ __attribute__((noinline)) static void set_header_value(
 {
     p += header_len;
 
-    if (LIKELY(string_as_int16(p) == MULTICHAR_CONSTANT_SMALL(':', ' '))) {
+    if (LIKELY(string_as_int16(p) == STR2_INT(':', ' '))) {
         *end = '\0';
         char *value = p + sizeof(": ") - 1;
 
@@ -557,7 +557,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         if (next_chr == next_header) {
             if (buffer_end - next_chr > (ptrdiff_t)HEADER_TERMINATOR_LEN) {
                 STRING_SWITCH_SMALL (next_header) {
-                case MULTICHAR_CONSTANT_SMALL('\r', '\n'):
+                case STR2_INT('\r', '\n'):
                     helper->next_request = next_header + HEADER_TERMINATOR_LEN;
                 }
             }
@@ -585,34 +585,34 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         char *end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         STRING_SWITCH_L (p) {
-        case MULTICHAR_CONSTANT_L('A', 'c', 'c', 'e'):
+        case STR4_INT_L('A', 'c', 'c', 'e'):
             p += HEADER_LENGTH("Accept");
 
             STRING_SWITCH_L (p) {
-            case MULTICHAR_CONSTANT_L('-', 'E', 'n', 'c'):
+            case STR4_INT_L('-', 'E', 'n', 'c'):
                 SET_HEADER_VALUE(accept_encoding, "-Encoding");
                 break;
             }
             break;
-        case MULTICHAR_CONSTANT_L('C', 'o', 'n', 'n'):
+        case STR4_INT_L('C', 'o', 'n', 'n'):
             SET_HEADER_VALUE(connection, "Connection");
             break;
-        case MULTICHAR_CONSTANT_L('C', 'o', 'n', 't'):
+        case STR4_INT_L('C', 'o', 'n', 't'):
             p += HEADER_LENGTH("Content");
 
             STRING_SWITCH_L (p) {
-            case MULTICHAR_CONSTANT_L('-', 'T', 'y', 'p'):
+            case STR4_INT_L('-', 'T', 'y', 'p'):
                 SET_HEADER_VALUE(content_type, "-Type");
                 break;
-            case MULTICHAR_CONSTANT_L('-', 'L', 'e', 'n'):
+            case STR4_INT_L('-', 'L', 'e', 'n'):
                 SET_HEADER_VALUE(content_length, "-Length");
                 break;
             }
             break;
-        case MULTICHAR_CONSTANT_L('I', 'f', '-', 'M'):
+        case STR4_INT_L('I', 'f', '-', 'M'):
             SET_HEADER_VALUE(if_modified_since.raw, "If-Modified-Since");
             break;
-        case MULTICHAR_CONSTANT_L('R', 'a', 'n', 'g'):
+        case STR4_INT_L('R', 'a', 'n', 'g'):
             SET_HEADER_VALUE(range.raw, "Range");
             break;
         }
@@ -688,12 +688,12 @@ parse_accept_encoding(struct lwan_request *request)
 
     for (const char *p = helper->accept_encoding.value; *p; p++) {
         STRING_SWITCH(p) {
-        case MULTICHAR_CONSTANT('d','e','f','l'):
-        case MULTICHAR_CONSTANT(' ','d','e','f'):
+        case STR4_INT('d','e','f','l'):
+        case STR4_INT(' ','d','e','f'):
             request->flags |= REQUEST_ACCEPT_DEFLATE;
             break;
-        case MULTICHAR_CONSTANT('g','z','i','p'):
-        case MULTICHAR_CONSTANT(' ','g','z','i'):
+        case STR4_INT('g','z','i','p'):
+        case STR4_INT(' ','g','z','i'):
             request->flags |= REQUEST_ACCEPT_GZIP;
             break;
 #if defined(HAVE_BROTLI)
@@ -702,7 +702,7 @@ parse_accept_encoding(struct lwan_request *request)
                 p++;
 
             STRING_SWITCH_SMALL(p) {
-            case MULTICHAR_CONSTANT_SMALL('b', 'r'):
+            case STR2_INT('b', 'r'):
                 request->flags |= REQUEST_ACCEPT_BROTLI;
                 break;
             }
@@ -733,16 +733,16 @@ static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
 
     for (const char *p = helper->connection.value; *p; p++) {
         STRING_SWITCH_L(p) {
-        case MULTICHAR_CONSTANT_L('k','e','e','p'):
-        case MULTICHAR_CONSTANT_L(' ', 'k','e','e'):
+        case STR4_INT_L('k','e','e','p'):
+        case STR4_INT_L(' ', 'k','e','e'):
             has_keep_alive = true;
             break;
-        case MULTICHAR_CONSTANT_L('c','l','o','s'):
-        case MULTICHAR_CONSTANT_L(' ', 'c','l','o'):
+        case STR4_INT_L('c','l','o','s'):
+        case STR4_INT_L(' ', 'c','l','o'):
             has_close = true;
             break;
-        case MULTICHAR_CONSTANT_L('u','p','g','r'):
-        case MULTICHAR_CONSTANT_L(' ', 'u','p','g'):
+        case STR4_INT_L('u','p','g','r'):
+        case STR4_INT_L(' ', 'u','p','g'):
             request->conn->flags |= CONN_IS_UPGRADE;
             break;
         }
@@ -931,7 +931,7 @@ read_request_finalizer(size_t total_read,
             /* FIXME: Checking for PROXYv2 protocol header here is a layering
              * violation. */
             STRING_SWITCH_LARGE (crlfcrlf + 4) {
-            case MULTICHAR_CONSTANT_LARGE(0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49,
+            case STR8_INT(0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49,
                                           0x54, 0x0a):
                 return FINALIZER_DONE;
             }
@@ -1200,9 +1200,9 @@ static char *
 parse_proxy_protocol(struct lwan_request *request, char *buffer)
 {
     STRING_SWITCH(buffer) {
-    case MULTICHAR_CONSTANT('P','R','O','X'):
+    case STR4_INT('P','R','O','X'):
         return parse_proxy_protocol_v1(request, buffer);
-    case MULTICHAR_CONSTANT('\x0D','\x0A','\x0D','\x0A'):
+    case STR4_INT('\x0D','\x0A','\x0D','\x0A'):
         return parse_proxy_protocol_v2(request, buffer);
     }
 

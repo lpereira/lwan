@@ -83,29 +83,23 @@ extern "C" {
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define MULTICHAR_CONSTANT(a, b, c, d)                                         \
-    ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
-#define MULTICHAR_CONSTANT_SMALL(a, b) ((int16_t)((a) | (b) << 8))
-#define MULTICHAR_CONSTANT_LARGE(a, b, c, d, e, f, g, h)                       \
-    ((int64_t)MULTICHAR_CONSTANT(a, b, c, d) |                                 \
-     (int64_t)MULTICHAR_CONSTANT(e, f, g, h) << 32)
+#define STR4_INT(a, b, c, d) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#define STR2_INT(a, b) ((int16_t)((a) | (b) << 8))
+#define STR8_INT(a, b, c, d, e, f, g, h)                                       \
+    ((int64_t)STR4_INT(a, b, c, d) | (int64_t)STR4_INT(e, f, g, h) << 32)
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define MULTICHAR_CONSTANT(d, c, b, a)                                         \
-    ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
-#define MULTICHAR_CONSTANT_SMALL(b, a) ((int16_t)((a) | (b) << 8))
-#define MULTICHAR_CONSTANT_LARGE(a, b, c, d, e, f, g, h)                       \
-    ((int64_t)MULTICHAR_CONSTANT(a, b, c, d) << 32 |                           \
-     (int64_t)MULTICHAR_CONSTANT(e, f, g, h))
+#define STR4_INT(d, c, b, a) ((int32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#define STR2_INT(b, a) ((int16_t)((a) | (b) << 8))
+#define STR8_INT(a, b, c, d, e, f, g, h)                                       \
+    ((int64_t)STR4_INT(a, b, c, d) << 32 | (int64_t)STR4_INT(e, f, g, h))
 #elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
 #error A PDP? Seriously?
 #endif
 
-#define MULTICHAR_CONSTANT_L(a, b, c, d)                                       \
-    (MULTICHAR_CONSTANT(a, b, c, d) | 0x20202020)
-#define MULTICHAR_CONSTANT_SMALL_L(a, b)                                       \
-    (MULTICHAR_CONSTANT_SMALL(a, b) | 0x2020)
-#define MULTICHAR_CONSTANT_LARGE_L(a, b, c, d, e, f, g, h)                     \
-    (MULTICHAR_CONSTANT_LARGE(a, b, c, d, e, f, g, h) | 0x2020202020202020)
+#define STR4_INT_L(a, b, c, d) (STR4_INT(a, b, c, d) | 0x20202020)
+#define STR2_INT_L(a, b) (STR2_INT(a, b) | 0x2020)
+#define STR8_INT_L(a, b, c, d, e, f, g, h)                                     \
+    (STR8_INT(a, b, c, d, e, f, g, h) | 0x2020202020202020)
 
 static ALWAYS_INLINE int64_t string_as_int64(const char *s)
 {
@@ -199,11 +193,11 @@ enum lwan_handler_flags {
 };
 
 #define FOR_EACH_REQUEST_METHOD(X)                                             \
-    X(GET, get, (1 << 0), MULTICHAR_CONSTANT('G', 'E', 'T', ' '))              \
-    X(POST, post, (1 << 1), MULTICHAR_CONSTANT('P', 'O', 'S', 'T'))            \
-    X(HEAD, head, (1 << 0 | 1 << 1), MULTICHAR_CONSTANT('H', 'E', 'A', 'D'))   \
-    X(OPTIONS, options, (1 << 2), MULTICHAR_CONSTANT('O', 'P', 'T', 'I'))      \
-    X(DELETE, delete, (1 << 2 | 1 << 0), MULTICHAR_CONSTANT('D', 'E', 'L', 'E'))
+    X(GET, get, (1 << 0), STR4_INT('G', 'E', 'T', ' '))                        \
+    X(POST, post, (1 << 1), STR4_INT('P', 'O', 'S', 'T'))                      \
+    X(HEAD, head, (1 << 0 | 1 << 1), STR4_INT('H', 'E', 'A', 'D'))             \
+    X(OPTIONS, options, (1 << 2), STR4_INT('O', 'P', 'T', 'I'))                \
+    X(DELETE, delete, (1 << 2 | 1 << 0), STR4_INT('D', 'E', 'L', 'E'))
 
 #define SELECT_MASK(upper, lower, mask, constant) mask |
 #define GENERATE_ENUM_ITEM(upper, lower, mask, constant) REQUEST_METHOD_##upper = mask,

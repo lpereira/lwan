@@ -54,13 +54,13 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     const char *str = in;
 
     STRING_SWITCH(str) {
-    case MULTICHAR_CONSTANT('S','u','n',','): tm.tm_wday = 0; break;
-    case MULTICHAR_CONSTANT('M','o','n',','): tm.tm_wday = 1; break;
-    case MULTICHAR_CONSTANT('T','u','e',','): tm.tm_wday = 2; break;
-    case MULTICHAR_CONSTANT('W','e','d',','): tm.tm_wday = 3; break;
-    case MULTICHAR_CONSTANT('T','h','u',','): tm.tm_wday = 4; break;
-    case MULTICHAR_CONSTANT('F','r','i',','): tm.tm_wday = 5; break;
-    case MULTICHAR_CONSTANT('S','a','t',','): tm.tm_wday = 6; break;
+    case STR4_INT('S','u','n',','): tm.tm_wday = 0; break;
+    case STR4_INT('M','o','n',','): tm.tm_wday = 1; break;
+    case STR4_INT('T','u','e',','): tm.tm_wday = 2; break;
+    case STR4_INT('W','e','d',','): tm.tm_wday = 3; break;
+    case STR4_INT('T','h','u',','): tm.tm_wday = 4; break;
+    case STR4_INT('F','r','i',','): tm.tm_wday = 5; break;
+    case STR4_INT('S','a','t',','): tm.tm_wday = 6; break;
     default: return -EINVAL;
     }
     str += 5;
@@ -71,18 +71,18 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     str += 3;
 
     STRING_SWITCH(str) {
-    case MULTICHAR_CONSTANT('J','a','n',' '): tm.tm_mon = 0; break;
-    case MULTICHAR_CONSTANT('F','e','b',' '): tm.tm_mon = 1; break;
-    case MULTICHAR_CONSTANT('M','a','r',' '): tm.tm_mon = 2; break;
-    case MULTICHAR_CONSTANT('A','p','r',' '): tm.tm_mon = 3; break;
-    case MULTICHAR_CONSTANT('M','a','y',' '): tm.tm_mon = 4; break;
-    case MULTICHAR_CONSTANT('J','u','n',' '): tm.tm_mon = 5; break;
-    case MULTICHAR_CONSTANT('J','u','l',' '): tm.tm_mon = 6; break;
-    case MULTICHAR_CONSTANT('A','u','g',' '): tm.tm_mon = 7; break;
-    case MULTICHAR_CONSTANT('S','e','p',' '): tm.tm_mon = 8; break;
-    case MULTICHAR_CONSTANT('O','c','t',' '): tm.tm_mon = 9; break;
-    case MULTICHAR_CONSTANT('N','o','v',' '): tm.tm_mon = 10; break;
-    case MULTICHAR_CONSTANT('D','e','c',' '): tm.tm_mon = 11; break;
+    case STR4_INT('J','a','n',' '): tm.tm_mon = 0; break;
+    case STR4_INT('F','e','b',' '): tm.tm_mon = 1; break;
+    case STR4_INT('M','a','r',' '): tm.tm_mon = 2; break;
+    case STR4_INT('A','p','r',' '): tm.tm_mon = 3; break;
+    case STR4_INT('M','a','y',' '): tm.tm_mon = 4; break;
+    case STR4_INT('J','u','n',' '): tm.tm_mon = 5; break;
+    case STR4_INT('J','u','l',' '): tm.tm_mon = 6; break;
+    case STR4_INT('A','u','g',' '): tm.tm_mon = 7; break;
+    case STR4_INT('S','e','p',' '): tm.tm_mon = 8; break;
+    case STR4_INT('O','c','t',' '): tm.tm_mon = 9; break;
+    case STR4_INT('N','o','v',' '): tm.tm_mon = 10; break;
+    case STR4_INT('D','e','c',' '): tm.tm_mon = 11; break;
     default: return -EINVAL;
     }
     str += 4;
@@ -103,7 +103,7 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     str += 3;
 
     STRING_SWITCH(str) {
-    case MULTICHAR_CONSTANT('G','M','T','\0'):
+    case STR4_INT('G','M','T','\0'):
         tm.tm_isdst = -1;
 
         *out = timegm(&tm);

@@ -103,17 +103,17 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         goto fallback;
 
     STRING_SWITCH_L(last_dot) {
-    case MULTICHAR_CONSTANT_L('.','j','p','g'):
+    case STR4_INT_L('.','j','p','g'):
         return "image/jpeg";
-    case MULTICHAR_CONSTANT_L('.','p','n','g'):
+    case STR4_INT_L('.','p','n','g'):
         return "image/png";
-    case MULTICHAR_CONSTANT_L('.','h','t','m'):
+    case STR4_INT_L('.','h','t','m'):
         return "text/html";
-    case MULTICHAR_CONSTANT_L('.','c','s','s'):
+    case STR4_INT_L('.','c','s','s'):
         return "text/css";
-    case MULTICHAR_CONSTANT_L('.','t','x','t'):
+    case STR4_INT_L('.','t','x','t'):
         return "text/plain";
-    case MULTICHAR_CONSTANT_L('.','j','s',0x20):
+    case STR4_INT_L('.','j','s',0x20):
         return "application/javascript";
     }
 
