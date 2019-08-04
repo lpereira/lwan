@@ -141,6 +141,8 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     const struct lwan_response *response = &request->response;
     char headers[DEFAULT_HEADERS_SIZE];
 
+    assert(!(request->flags & RESPONSE_SENT_HEADERS));
+
     if (UNLIKELY(request->flags & RESPONSE_CHUNKED_ENCODING)) {
         /* Send last, 0-sized chunk */
         lwan_strbuf_reset(response->buffer);
@@ -149,14 +151,9 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
         return;
     }
 
-    if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS)) {
-        lwan_status_debug("Headers already sent, ignoring call");
-        return;
-    }
-
     if (UNLIKELY(!response->mime_type)) {
-        /* Requests without a MIME Type are errors from handlers that
-           should just be handled by lwan_default_response(). */
+        /* Requests without a MIME Type are errors from handlers that should
+           just be handled by lwan_default_response().  */
         lwan_default_response(request, status);
         return;
     }
@@ -193,10 +190,9 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     char *resp_buf = lwan_strbuf_get_buffer(response->buffer);
     const size_t resp_len = lwan_strbuf_get_length(response->buffer);
     if (sizeof(headers) - header_len > resp_len) {
-        /* writev() has to allocate, copy, and validate the
-         * response vector, so use send() for responses small
-         * enough to fit the headers buffer.  On Linux, this
-         * is ~10% faster. */
+        /* writev() has to allocate, copy, and validate the response vector,
+         * so use send() for responses small enough to fit the headers
+         * buffer.  On Linux, this is ~10% faster.  */
         memcpy(headers + header_len, resp_buf, resp_len);
         lwan_send(request, headers, header_len + resp_len, 0);
     } else {
