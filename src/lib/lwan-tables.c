@@ -33,7 +33,6 @@
 #include "mime-types.h"
 
 static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
-static char *mime_extensions[MIME_ENTRIES];
 static char *mime_types[MIME_ENTRIES];
 static bool mime_entries_initialized = false;
 
@@ -70,10 +69,8 @@ void lwan_tables_init(void)
                              MIME_UNCOMPRESSED_LEN, uncompressed_length);
     }
 
-    unsigned char *ptr = uncompressed_mime_entries;
+    unsigned char *ptr = uncompressed_mime_entries + 8 * MIME_ENTRIES;
     for (size_t i = 0; i < MIME_ENTRIES; i++) {
-        mime_extensions[i] = (char *)ptr;
-        ptr = rawmemchr(ptr + 1, '\0') + 1;
         mime_types[i] = (char *)ptr;
         ptr = rawmemchr(ptr + 1, '\0') + 1;
     }
@@ -89,10 +86,10 @@ lwan_tables_shutdown(void)
 static int
 compare_mime_entry(const void *a, const void *b)
 {
-    const char **exta = (const char **)a;
-    const char **extb = (const char **)b;
+    const char *exta = (const char *)a;
+    const char *extb = (const char *)b;
 
-    return strcmp(*exta, *extb);
+    return strncmp(exta, extb, 8);
 }
 
 const char *
@@ -118,12 +115,12 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     }
 
     if (LIKELY(*last_dot)) {
-        char **extension, *key = last_dot + 1;
+        char *extension, *key = last_dot + 1;
 
-        extension = bsearch(&key, mime_extensions, MIME_ENTRIES, sizeof(char *),
+        extension = bsearch(key, uncompressed_mime_entries, MIME_ENTRIES, 8,
                             compare_mime_entry);
         if (LIKELY(extension))
-            return mime_types[extension - mime_extensions];
+            return mime_types[(extension - (char*)uncompressed_mime_entries) / 8];
     }
 
 fallback:

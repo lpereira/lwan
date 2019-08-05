@@ -40,9 +40,9 @@ struct output {
     size_t used, capacity;
 };
 
-static int output_append(struct output *output, const char *str)
+static int
+output_append_full(struct output *output, const char *str, size_t str_len)
 {
-    size_t str_len = strlen(str) + 1;
     size_t total_size = output->used + str_len;
 
     if (total_size >= output->capacity) {
@@ -62,6 +62,26 @@ static int output_append(struct output *output, const char *str)
     output->used = total_size;
 
     return 0;
+}
+
+static int output_append_padded(struct output *output, const char *str)
+{
+    size_t str_len = strlen(str);
+
+    if (str_len <= 8) {
+        int r = output_append_full(output, str, str_len);
+        if (r < 0)
+            return r;
+
+        return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
+    }
+
+    return -EINVAL;
+}
+
+static int output_append(struct output *output, const char *str)
+{
+    return output_append_full(output, str, strlen(str) + 1);
 }
 
 static int compare_ext(const void *a, const void *b)
@@ -212,6 +232,9 @@ int main(int argc, char *argv[])
                 end = strchr(ext, '\0'); /* If not found, find last extension. */
             *end = '\0';
 
+            if (end - ext > 8)
+                continue;
+
             k = strdup(ext);
             v = strdup(mime_type);
 
@@ -251,10 +274,12 @@ int main(int argc, char *argv[])
         return 1;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
-        if (output_append(&output, exts[i]) < 0) {
+        if (output_append_padded(&output, exts[i]) < 0) {
             fprintf(stderr, "Could not append to output\n");
             return 1;
         }
+    }
+    for (i = 0; i < hash_get_count(ext_mime); i++) {
         if (output_append(&output, hash_find(ext_mime, exts[i])) < 0) {
             fprintf(stderr, "Could not append to output\n");
             return 1;
