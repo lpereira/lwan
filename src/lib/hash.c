@@ -453,7 +453,7 @@ int hash_del(struct hash *hash, const void *key)
     unsigned int hashval = hash->hash_value(key);
     unsigned int pos = hashval & hash->n_buckets_mask;
     struct hash_bucket *bucket = hash->buckets + pos;
-    struct hash_entry *entry, *entry_end;
+    struct hash_entry *entry;
 
     entry = hash_find_entry(hash, key, hashval);
     if (entry == NULL)
@@ -462,9 +462,17 @@ int hash_del(struct hash *hash, const void *key)
     hash->free_value((void *)entry->value);
     hash->free_key((void *)entry->key);
 
-    entry_end = bucket->entries + bucket->used;
-    memmove(entry, entry + 1,
-            (size_t)(entry_end - entry) * sizeof(struct hash_entry));
+    if (bucket->used > 1) {
+        /* Instead of compacting the bucket array by moving elements, just copy
+         * over the last element on top of the element being removed.  This
+         * changes the ordering inside the bucket array, but it's much more
+         * efficient, as it always has to copy exactly at most 1 element instead
+         * of potentially bucket->used elements. */
+        struct hash_entry *entry_last = bucket->entries + bucket->used - 1;
+
+        if (entry != entry_last)
+            memcpy(entry, entry_last, sizeof(*entry));
+    }
 
     bucket->used--;
     hash->count--;
