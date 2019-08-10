@@ -51,7 +51,6 @@
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
-    FINALIZER_ERROR_TOO_LARGE,
     FINALIZER_ERROR_TIMEOUT
 };
 
@@ -882,9 +881,6 @@ try_to_finalize:
         case FINALIZER_TRY_AGAIN:
             goto yield_and_read_again;
 
-        case FINALIZER_ERROR_TOO_LARGE:
-            return HTTP_TOO_LARGE;
-
         case FINALIZER_ERROR_TIMEOUT:
             return HTTP_TIMEOUT;
         }
@@ -931,15 +927,11 @@ read_request_finalizer(size_t total_read,
             /* FIXME: Checking for PROXYv2 protocol header here is a layering
              * violation. */
             STRING_SWITCH_LARGE (crlfcrlf + 4) {
-            case STR8_INT(0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49,
-                                          0x54, 0x0a):
+            case STR8_INT(0x00, 0x0d, 0x0a, 0x51, 0x55, 0x49, 0x54, 0x0a):
                 return FINALIZER_DONE;
             }
         }
     }
-
-    if (UNLIKELY(total_read == buffer_size - 1))
-        return FINALIZER_ERROR_TOO_LARGE;
 
     return FINALIZER_TRY_AGAIN;
 }
