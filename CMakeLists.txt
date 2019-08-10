@@ -1,4 +1,4 @@
-project(lwan)
+project(lwan C)
 cmake_minimum_required(VERSION 2.8.10)
 set(PROJECT_DESCRIPTION "Scalable, high performance, experimental web server")
 message(STATUS "Running CMake for ${PROJECT_NAME} (${PROJECT_DESCRIPTION})")
