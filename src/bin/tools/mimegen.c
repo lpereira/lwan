@@ -232,8 +232,10 @@ int main(int argc, char *argv[])
                 end = strchr(ext, '\0'); /* If not found, find last extension. */
             *end = '\0';
 
-            if (end - ext > 8)
-                continue;
+            if (end - ext > 8) {
+                /* Truncate extensions over 8 characters.  See commit 2050759297. */
+                ext[8] = '\0';
+            }
 
             k = strdup(ext);
             v = strdup(mime_type);
