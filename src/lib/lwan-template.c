@@ -1415,7 +1415,7 @@ action_apply_tpl: {
 action_start_iter:
     if (UNLIKELY(coro != NULL)) {
         lwan_status_warning("Coroutine is not NULL when starting iteration");
-        DISPATCH_NEXT_ACTION();
+        return NULL;
     }
 
     struct chunk_descriptor *cd = chunk->data;
@@ -1447,8 +1447,10 @@ action_end_iter:
         goto finalize;
 
     if (UNLIKELY(!coro)) {
-        if (!chunk->flags)
+        if (!chunk->flags) {
             lwan_status_warning("Coroutine is NULL when finishing iteration");
+            return NULL;
+        }
         DISPATCH_NEXT_ACTION();
     }
 
@@ -1477,7 +1479,8 @@ bool lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl,
     if (UNLIKELY(!lwan_strbuf_grow_to(buf, tpl->minimum_size)))
         return false;
 
-    apply(tpl, tpl->chunks.base.base, buf, variables, NULL);
+    if (!apply(tpl, tpl->chunks.base.base, buf, variables, NULL))
+        return false;
 
     return true;
 }
