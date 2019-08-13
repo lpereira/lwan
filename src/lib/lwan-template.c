@@ -1405,10 +1405,19 @@ action_end_if_variable_not_empty:
     DISPATCH_NEXT_ACTION();
 
 action_apply_tpl: {
-        struct lwan_strbuf *tmp = lwan_tpl_apply(chunk->data, variables);
-        lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(tmp),
-                               lwan_strbuf_get_length(tmp));
-        lwan_strbuf_free(tmp);
+        struct lwan_tpl *inner_tpl = chunk->data;
+
+        if (LIKELY(lwan_strbuf_grow_by(buf, inner_tpl->minimum_size))) {
+            if (!apply(inner_tpl, inner_tpl->chunks.base.base, buf, variables, NULL)) {
+                lwan_status_warning("Could not apply subtemplate");
+                return NULL;
+            }
+        } else {
+            lwan_status_warning("Could not grow template by %zu bytes",
+                                inner_tpl->minimum_size);
+            return NULL;
+        }
+
         DISPATCH_NEXT_ACTION();
     }
 
