@@ -64,7 +64,6 @@ struct lwan_request_parser_helper {
     struct lwan_value accept_encoding;	/* Accept-Encoding: */
 
     struct lwan_value query_string;	/* Stuff after ? and before # */
-    struct lwan_value fragment;		/* Stuff after # */
 
     struct lwan_value post_data;	/* Request body for POST */
     struct lwan_value content_type;	/* Content-Type: for POST */
@@ -445,23 +444,20 @@ static void parse_fragment_and_query(struct lwan_request *request,
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
-    /* Most of the time, fragments are small -- so search backwards */
+    /* Fragments shouldn't be received by the server, but look for them anyway
+     * just in case. */
     char *fragment = memrchr(request->url.value, '#', request->url.len);
-    if (fragment) {
+    if (UNLIKELY(fragment != NULL)) {
         *fragment = '\0';
-        helper->fragment.value = fragment + 1;
-        helper->fragment.len = (size_t)(space - fragment - 1);
-        request->url.len -= helper->fragment.len + 1;
+        request->url.len = (size_t)(fragment - request->url.value);
+        space = fragment;
     }
 
-    /* Most of the time, query string values are larger than the URL, so
-       search from the beginning */
     char *query_string = memchr(request->url.value, '?', request->url.len);
     if (query_string) {
         *query_string = '\0';
         helper->query_string.value = query_string + 1;
-        helper->query_string.len =
-            (size_t)((fragment ? fragment : space) - query_string - 1);
+        helper->query_string.len = (size_t)(space - query_string - 1);
         request->url.len -= helper->query_string.len + 1;
     }
 }
