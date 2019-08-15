@@ -1354,10 +1354,8 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define DISPATCH_ACTION()                                                      \
-    do {                                                                       \
-        goto *dispatch_table[chunk->action];                                   \
-    } while (false)
+#define DISPATCH_ACTION() goto *dispatch_table[chunk->action]
+
 #define DISPATCH_NEXT_ACTION()                                                 \
     do {                                                                       \
         chunk++;                                                               \
