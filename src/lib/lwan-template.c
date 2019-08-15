@@ -57,7 +57,7 @@
 
 enum action {
     ACTION_APPEND,
-    ACTION_APPEND_CHAR,
+    ACTION_APPEND_SMALL,
     ACTION_VARIABLE,
     ACTION_VARIABLE_STR,
     ACTION_VARIABLE_STR_ESCAPE,
@@ -841,9 +841,11 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         return parser_meta;
 
     if (lexeme->type == LEXEME_TEXT) {
-        if (lexeme->value.len == 1) {
-            emit_chunk(parser, ACTION_APPEND_CHAR, 0,
-                       (void *)(uintptr_t)*lexeme->value.value);
+        if (lexeme->value.len <= sizeof(void *)) {
+            uintptr_t tmp = 0;
+
+            memcpy(&tmp, lexeme->value.value, lexeme->value.len);
+            emit_chunk(parser, ACTION_APPEND_SMALL, 0, (void*)tmp);
         } else {
             struct lwan_strbuf *buf = lwan_strbuf_from_lexeme(parser, lexeme);
             if (!buf)
@@ -943,7 +945,7 @@ static void free_chunk(struct chunk *chunk)
 
     switch (chunk->action) {
     case ACTION_LAST:
-    case ACTION_APPEND_CHAR:
+    case ACTION_APPEND_SMALL:
     case ACTION_VARIABLE:
     case ACTION_VARIABLE_STR:
     case ACTION_VARIABLE_STR_ESCAPE:
@@ -1203,10 +1205,13 @@ static void dump_program(const struct lwan_tpl *tpl)
                    (int)lwan_strbuf_get_length(iter->data),
                    lwan_strbuf_get_buffer(iter->data));
             break;
-        case ACTION_APPEND_CHAR:
-            printf("%s [%d]", instr("APPEND_CHAR", instr_buf),
-                   (char)(uintptr_t)iter->data);
+        case ACTION_APPEND_SMALL: {
+            uintptr_t val = (uintptr_t)iter->data;
+            size_t len = strnlen((char *)&val, 8);
+
+            printf("%s (%zu) [%.*s]", instr("APPEND_SMALL", instr_buf), len, (int)len, (char *)&val);
             break;
+        }
         case ACTION_VARIABLE: {
             struct lwan_var_descriptor *descriptor = iter->data;
 
@@ -1331,7 +1336,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
 {
     static const void *const dispatch_table[] = {
         [ACTION_APPEND] = &&action_append,
-        [ACTION_APPEND_CHAR] = &&action_append_char,
+        [ACTION_APPEND_SMALL] = &&action_append_small,
         [ACTION_VARIABLE] = &&action_variable,
         [ACTION_VARIABLE_STR] = &&action_variable_str,
         [ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
@@ -1366,9 +1371,14 @@ action_append:
                            lwan_strbuf_get_length(chunk->data));
     DISPATCH_NEXT_ACTION();
 
-action_append_char:
-    lwan_strbuf_append_char(buf, (char)(uintptr_t)chunk->data);
-    DISPATCH_NEXT_ACTION();
+action_append_small: {
+        uintptr_t val = (uintptr_t)chunk->data;
+        size_t len = strnlen((char *)&val, sizeof(val));
+
+        lwan_strbuf_append_str(buf, (char*)&val, len);
+
+        DISPATCH_NEXT_ACTION();
+    }
 
 action_variable: {
         struct lwan_var_descriptor *descriptor = chunk->data;
