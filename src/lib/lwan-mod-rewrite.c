@@ -131,8 +131,7 @@ static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
     return parse_int(strndupa(s, len), default_value);
 }
 
-static const char *expand(struct lwan_request *request __attribute__((unused)),
-                          struct pattern *pattern, const char *orig,
+static const char *expand(struct pattern *pattern, const char *orig,
                           char buffer[static PATH_MAX],
                           const struct str_find *sf, int captures)
 {
@@ -269,7 +268,7 @@ rewrite_handle_request(struct lwan_request *request,
             break;
 #endif
         case PATTERN_EXPAND_LWAN:
-            expanded = expand(request, p, url, final_url, sf, captures);
+            expanded = expand(p, url, final_url, sf, captures);
             break;
         }
 
