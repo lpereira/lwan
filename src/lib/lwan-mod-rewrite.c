@@ -174,8 +174,8 @@ static const char *expand(struct pattern *pattern, const char *orig,
         expand_pattern++;
     } while ((ptr = strchr(expand_pattern, '%')));
 
-    if (*expand_pattern &&
-        !append_str(&builder, expand_pattern, strlen(expand_pattern)))
+    const size_t remaining_len = strlen(expand_pattern);
+    if (remaining_len && !append_str(&builder, expand_pattern, remaining_len))
         return NULL;
 
     if (UNLIKELY(!builder.len))
