@@ -890,7 +890,7 @@ try_to_finalize:
 
 static enum lwan_read_finalizer
 read_request_finalizer(size_t total_read,
-                       size_t buffer_size,
+                       size_t buffer_size __attribute__((unused)),
                        struct lwan_request *request,
                        int n_packets)
 {
