@@ -129,6 +129,7 @@ check_function_exists(pthread_set_name_np HAVE_PTHREAD_SET_NAME_NP)
 check_function_exists(eventfd HAVE_EVENTFD)
 check_function_exists(posix_fadvise HAVE_POSIX_FADVISE)
 check_function_exists(getentropy HAVE_GETENTROPY)
+check_function_exists(fwrite_unlocked HAVE_FWRITE_UNLOCKED)
 
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,

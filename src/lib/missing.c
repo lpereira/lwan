@@ -563,3 +563,29 @@ int capset(struct __user_cap_header_struct *header,
     return 0;
 }
 #endif
+
+#if !defined(HAVE_FWRITE_UNLOCKED)
+size_t fwrite_unlocked(const void *ptr, size_t size, size_t n, FILE *stream)
+{
+    size_t to_write = size * n;
+    const size_t total_to_write = to_write;
+
+    if (!to_write)
+        return 0;
+
+    fflush/* _unlocked? */(stream);
+
+    while (to_write) {
+        ssize_t r = write(fileno(stream), ptr, to_write);
+        if (r < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+
+        to_write -= (size_t)r;
+    }
+
+    return (total_to_write - to_write) / size;
+}
+#endif
