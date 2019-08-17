@@ -562,14 +562,16 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         /* Is there at least a space for a minimal (H)eader and a (V)alue? */
         if (LIKELY(next_header - next_chr >= (ptrdiff_t)(sizeof("H: V") - 1))) {
             header_start[n_headers++] = next_chr;
+
+            if (UNLIKELY(n_headers >= N_HEADER_START - 1))
+                return false;
         } else {
             /* Better to abort early if there's no space. */
             return false;
         }
 
         p = next_header + HEADER_TERMINATOR_LEN;
-
-        if (UNLIKELY(n_headers >= (N_HEADER_START - 1) || p >= buffer_end))
+        if (UNLIKELY(p >= buffer_end))
             return false;
     }
 
