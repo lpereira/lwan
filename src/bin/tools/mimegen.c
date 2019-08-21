@@ -73,7 +73,10 @@ static int output_append_padded(struct output *output, const char *str)
         if (r < 0)
             return r;
 
-        return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
+        if (str_len != 8)
+            return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
+
+        return 0;
     }
 
     return -EINVAL;
