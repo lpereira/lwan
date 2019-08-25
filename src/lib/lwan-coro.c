@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -32,21 +33,21 @@
 #include "lwan-coro.h"
 
 #ifdef HAVE_VALGRIND
-#  include <valgrind.h>
+#include <valgrind.h>
 #endif
 
 #if !defined(SIGSTKSZ)
-#  define SIGSTKSZ 16384
+#define SIGSTKSZ 16384
 #endif
 
 #ifdef HAVE_BROTLI
-#  define CORO_STACK_MIN (8 * SIGSTKSZ)
+#define CORO_STACK_MIN (8 * SIGSTKSZ)
 #else
-#  define CORO_STACK_MIN (4 * SIGSTKSZ)
+#define CORO_STACK_MIN (4 * SIGSTKSZ)
 #endif
 
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
-    "Request buffer fits inside coroutine stack");
+              "Request buffer fits inside coroutine stack");
 
 typedef void (*defer1_func)(void *data);
 typedef void (*defer2_func)(void *data1, void *data2);
@@ -88,7 +89,8 @@ struct coro {
 #define ASM_SYMBOL(name_) #name_
 #endif
 
-#define ASM_ROUTINE(name_) ".globl " ASM_SYMBOL(name_) "\n\t" ASM_SYMBOL(name_) ":\n\t"
+#define ASM_ROUTINE(name_)                                                     \
+    ".globl " ASM_SYMBOL(name_) "\n\t" ASM_SYMBOL(name_) ":\n\t"
 
 /*
  * This swapcontext() implementation was obtained from glibc and modified
@@ -103,38 +105,36 @@ struct coro {
 #if defined(__x86_64__)
 void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
-    asm(
-    ".text\n\t"
+asm(".text\n\t"
     ".p2align 4\n\t"
     ASM_ROUTINE(coro_swapcontext)
-    "mov    %rbx,0(%rdi)\n\t"
-    "mov    %rbp,8(%rdi)\n\t"
-    "mov    %r12,16(%rdi)\n\t"
-    "mov    %r13,24(%rdi)\n\t"
-    "mov    %r14,32(%rdi)\n\t"
-    "mov    %r15,40(%rdi)\n\t"
-    "mov    %rdi,48(%rdi)\n\t"
-    "mov    %rsi,56(%rdi)\n\t"
-    "mov    (%rsp),%rcx\n\t"
-    "mov    %rcx,64(%rdi)\n\t"
-    "lea    0x8(%rsp),%rcx\n\t"
-    "mov    %rcx,72(%rdi)\n\t"
-    "mov    72(%rsi),%rsp\n\t"
-    "mov    0(%rsi),%rbx\n\t"
-    "mov    8(%rsi),%rbp\n\t"
-    "mov    16(%rsi),%r12\n\t"
-    "mov    24(%rsi),%r13\n\t"
-    "mov    32(%rsi),%r14\n\t"
-    "mov    40(%rsi),%r15\n\t"
-    "mov    48(%rsi),%rdi\n\t"
-    "mov    64(%rsi),%rcx\n\t"
-    "mov    56(%rsi),%rsi\n\t"
-    "jmp    *%rcx\n\t");
+    "movq   %rbx,0(%rdi)\n\t"
+    "movq   %rbp,8(%rdi)\n\t"
+    "movq   %r12,16(%rdi)\n\t"
+    "movq   %r13,24(%rdi)\n\t"
+    "movq   %r14,32(%rdi)\n\t"
+    "movq   %r15,40(%rdi)\n\t"
+    "movq   %rdi,48(%rdi)\n\t"
+    "movq   %rsi,56(%rdi)\n\t"
+    "movq   (%rsp),%rcx\n\t"
+    "movq   %rcx,64(%rdi)\n\t"
+    "leaq   0x8(%rsp),%rcx\n\t"
+    "movq   %rcx,72(%rdi)\n\t"
+    "movq   72(%rsi),%rsp\n\t"
+    "movq   0(%rsi),%rbx\n\t"
+    "movq   8(%rsi),%rbp\n\t"
+    "movq   16(%rsi),%r12\n\t"
+    "movq   24(%rsi),%r13\n\t"
+    "movq   32(%rsi),%r14\n\t"
+    "movq   40(%rsi),%r15\n\t"
+    "movq   48(%rsi),%rdi\n\t"
+    "movq   64(%rsi),%rcx\n\t"
+    "movq   56(%rsi),%rsi\n\t"
+    "jmpq   *%rcx\n\t");
 #elif defined(__i386__)
 void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
-    asm(
-    ".text\n\t"
+asm(".text\n\t"
     ".p2align 16\n\t"
     ASM_ROUTINE(coro_swapcontext)
     "movl   0x4(%esp),%eax\n\t"
@@ -158,7 +158,7 @@ coro_swapcontext(coro_context *current, coro_context *other);
     "movl   0x1c(%eax),%ecx\n\t" /* ECX */
     "ret\n\t");
 #else
-#define coro_swapcontext(cur,oth) swapcontext(cur, oth)
+#define coro_swapcontext(cur, oth) swapcontext(cur, oth)
 #endif
 
 #ifndef __x86_64__
@@ -171,24 +171,22 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 #else
 void __attribute__((noinline, visibility("internal")))
 coro_entry_point(struct coro *coro, coro_function_t func, void *data);
-    asm(
-    ".text\n\t"
+asm(".text\n\t"
     ".p2align 4\n\t"
     ASM_ROUTINE(coro_entry_point)
     "pushq %rbx\n\t"
-    "movq  %rdi, %rbx\n\t"		/* coro = rdi */
-    "movq  %rsi, %rdx\n\t"		/* func = rsi */
-    "movq  %r15, %rsi\n\t"		/* data = r15 */
-    "call  *%rdx\n\t"			/* eax = func(coro, data) */
+    "movq  %rdi, %rbx\n\t" /* coro = rdi */
+    "movq  %rsi, %rdx\n\t" /* func = rsi */
+    "movq  %r15, %rsi\n\t" /* data = r15 */
+    "call  *%rdx\n\t"      /* eax = func(coro, data) */
     "movq  (%rbx), %rsi\n\t"
-    "movl  %eax, 0x68(%rbx)\n\t"	/* coro->yield_value = eax */
+    "movl  %eax, 0x68(%rbx)\n\t" /* coro->yield_value eax */
     "popq  %rbx\n\t"
-    "leaq  0x50(%rsi), %rdi\n\t"	/* get coro context from coro */
+    "leaq  0x50(%rsi), %rdi\n\t" /* get coro context from coro */
     "jmp   " ASM_SYMBOL(coro_swapcontext) "\n\t");
 #endif
 
-void
-coro_deferred_run(struct coro *coro, size_t generation)
+void coro_deferred_run(struct coro *coro, size_t generation)
 {
     struct lwan_array *array = (struct lwan_array *)&coro->defer;
     struct coro_defer *defers = array->base;
@@ -205,16 +203,14 @@ coro_deferred_run(struct coro *coro, size_t generation)
     array->elements = generation;
 }
 
-size_t
-coro_deferred_get_generation(const struct coro *coro)
+size_t coro_deferred_get_generation(const struct coro *coro)
 {
     const struct lwan_array *array = (struct lwan_array *)&coro->defer;
 
     return array->elements;
 }
 
-void
-coro_reset(struct coro *coro, coro_function_t func, void *data)
+void coro_reset(struct coro *coro, coro_function_t func, void *data)
 {
     unsigned char *stack = coro->stack;
 
@@ -226,15 +222,15 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
      * stored.  Use R15 instead, and implement the trampoline
      * function in assembly in order to use this register when
      * calling the user function. */
-    coro->context[5 /* R15 */] = (uintptr_t) data;
-    coro->context[6 /* RDI */] = (uintptr_t) coro;
-    coro->context[7 /* RSI */] = (uintptr_t) func;
-    coro->context[8 /* RIP */] = (uintptr_t) coro_entry_point;
+    coro->context[5 /* R15 */] = (uintptr_t)data;
+    coro->context[6 /* RDI */] = (uintptr_t)coro;
+    coro->context[7 /* RSI */] = (uintptr_t)func;
+    coro->context[8 /* RIP */] = (uintptr_t)coro_entry_point;
 
     /* Ensure stack is properly aligned: it should be aligned to a
      * 16-bytes boundary so SSE will work properly, but should be
      * aligned on an 8-byte boundary right after calling a function. */
-    uintptr_t rsp = (uintptr_t) stack + CORO_STACK_MIN;
+    uintptr_t rsp = (uintptr_t)stack + CORO_STACK_MIN;
 
 #define STACK_PTR 9
     coro->context[STACK_PTR] = (rsp & ~0xful) - 0x8ul;
@@ -244,7 +240,7 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     /* Make room for 3 args */
     stack -= sizeof(uintptr_t) * 3;
     /* Ensure 4-byte alignment */
-    stack = (unsigned char*)((uintptr_t)stack & (uintptr_t)~0x3);
+    stack = (unsigned char *)((uintptr_t)stack & (uintptr_t)~0x3);
 
     uintptr_t *argp = (uintptr_t *)stack;
     *argp++ = 0;
@@ -252,10 +248,10 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     *argp++ = (uintptr_t)func;
     *argp++ = (uintptr_t)data;
 
-    coro->context[5 /* EIP */] = (uintptr_t) coro_entry_point;
+    coro->context[5 /* EIP */] = (uintptr_t)coro_entry_point;
 
 #define STACK_PTR 6
-    coro->context[STACK_PTR] = (uintptr_t) stack;
+    coro->context[STACK_PTR] = (uintptr_t)stack;
 #else
     getcontext(&coro->context);
 
@@ -264,8 +260,8 @@ coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
-    makecontext(&coro->context, (void (*)())coro_entry_point, 3,
-        coro, func, data);
+    makecontext(&coro->context, (void (*)())coro_entry_point, 3, coro, func,
+                data);
 #endif
 }
 
@@ -292,8 +288,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     return coro;
 }
 
-ALWAYS_INLINE int
-coro_resume(struct coro *coro)
+ALWAYS_INLINE int coro_resume(struct coro *coro)
 {
     assert(coro);
 
@@ -304,14 +299,12 @@ coro_resume(struct coro *coro)
 #endif
 
     coro_swapcontext(&coro->switcher->caller, &coro->context);
-    memcpy(&coro->context, &coro->switcher->callee,
-                sizeof(coro->context));
+    memcpy(&coro->context, &coro->switcher->callee, sizeof(coro->context));
 
     return coro->yield_value;
 }
 
-ALWAYS_INLINE int
-coro_resume_value(struct coro *coro, int value)
+ALWAYS_INLINE int coro_resume_value(struct coro *coro, int value)
 {
     assert(coro);
 
@@ -319,8 +312,7 @@ coro_resume_value(struct coro *coro, int value)
     return coro_resume(coro);
 }
 
-ALWAYS_INLINE int
-coro_yield(struct coro *coro, int value)
+ALWAYS_INLINE int coro_yield(struct coro *coro, int value)
 {
     assert(coro);
     coro->yield_value = value;
@@ -328,8 +320,7 @@ coro_yield(struct coro *coro, int value)
     return coro->yield_value;
 }
 
-void
-coro_free(struct coro *coro)
+void coro_free(struct coro *coro)
 {
     assert(coro);
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
@@ -340,13 +331,13 @@ coro_free(struct coro *coro)
     free(coro);
 }
 
-ALWAYS_INLINE void
-coro_defer(struct coro *coro, defer1_func func, void *data)
+ALWAYS_INLINE void coro_defer(struct coro *coro, defer1_func func, void *data)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
     if (UNLIKELY(!defer)) {
-        lwan_status_error("Could not add new deferred function for coro %p", coro);
+        lwan_status_error("Could not add new deferred function for coro %p",
+                          coro);
         return;
     }
 
@@ -361,7 +352,8 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
     if (UNLIKELY(!defer)) {
-        lwan_status_error("Could not add new deferred function for coro %p", coro);
+        lwan_status_error("Could not add new deferred function for coro %p",
+                          coro);
         return;
     }
 
@@ -371,8 +363,9 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     defer->has_two_args = true;
 }
 
-void *
-coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)(void *data))
+void *coro_malloc_full(struct coro *coro,
+                       size_t size,
+                       void (*destroy_func)(void *data))
 {
     void *ptr = malloc(size);
 
@@ -382,14 +375,12 @@ coro_malloc_full(struct coro *coro, size_t size, void (*destroy_func)(void *data
     return ptr;
 }
 
-inline void *
-coro_malloc(struct coro *coro, size_t size)
+inline void *coro_malloc(struct coro *coro, size_t size)
 {
     return coro_malloc_full(coro, size, free);
 }
 
-char *
-coro_strndup(struct coro *coro, const char *str, size_t max_len)
+char *coro_strndup(struct coro *coro, const char *str, size_t max_len)
 {
     const size_t len = strnlen(str, max_len) + 1;
     char *dup = coro_malloc(coro, len);
@@ -401,14 +392,12 @@ coro_strndup(struct coro *coro, const char *str, size_t max_len)
     return dup;
 }
 
-char *
-coro_strdup(struct coro *coro, const char *str)
+char *coro_strdup(struct coro *coro, const char *str)
 {
     return coro_strndup(coro, str, SSIZE_MAX - 1);
 }
 
-char *
-coro_printf(struct coro *coro, const char *fmt, ...)
+char *coro_printf(struct coro *coro, const char *fmt, ...)
 {
     va_list values;
     int len;
