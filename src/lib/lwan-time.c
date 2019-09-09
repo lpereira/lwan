@@ -147,7 +147,7 @@ int lwan_format_rfc_time(const time_t in, char out[static 30])
     *p++ = ':';
     p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_sec), 2);
 
-    p = mempcpy(p, " GMT", 5);
+    memcpy(p, " GMT", 5);
 
     return 0;
 }
