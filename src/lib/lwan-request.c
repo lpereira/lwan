@@ -900,9 +900,12 @@ read_request_finalizer(size_t total_read,
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
 
-    /* 16 packets should be enough to read a request (without the body, as
-     * is the case for POST requests).  This yields a timeout error to avoid
-     * clients being intentionally slow and hogging the server.  */
+    /* Yield a timeout error to avoid clients being intentionally slow and
+     * hogging the server.  (Clients can't only connect and do nothing, they
+     * need to send data, otherwise the DQ timer will kick in and close the
+     * connection.  Limit the number of packets to avoid them sending just
+     * a byte at a time.)
+     * See calculate_n_packets() to see how this is calculated. */
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
 
