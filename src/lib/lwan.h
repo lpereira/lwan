@@ -344,7 +344,6 @@ struct lwan_request {
     struct timeout timeout;
 
     struct lwan_request_parser_helper *helper;
-    struct lwan_key_value_array cookies, query_params, post_params;
     struct lwan_response response;
 };
 

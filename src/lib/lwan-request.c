@@ -71,6 +71,8 @@ struct lwan_request_parser_helper {
 
     struct lwan_value connection;	/* Connection: */
 
+    struct lwan_key_value_array cookies, query_params, post_params;
+
     struct { /* If-Modified-Since: */
         struct lwan_value raw;
         time_t parsed;
@@ -415,13 +417,16 @@ static void parse_cookies(struct lwan_request *request)
 
     struct lwan_value header = {.value = (char *)cookies,
                                 .len = strlen(cookies)};
-    parse_key_values(request, &header, &request->cookies, identity_decode, ';');
+    parse_key_values(request, &header, &request->helper->cookies,
+                     identity_decode, ';');
 }
 
 static void parse_query_string(struct lwan_request *request)
 {
-    parse_key_values(request, &request->helper->query_string,
-                     &request->query_params, url_decode, '&');
+    struct lwan_request_parser_helper *helper = request->helper;
+
+    parse_key_values(request, &helper->query_string, &helper->query_params,
+                     url_decode, '&');
 }
 
 static void parse_post_data(struct lwan_request *request)
@@ -435,7 +440,7 @@ static void parse_post_data(struct lwan_request *request)
                          sizeof(content_type) - 1)))
         return;
 
-    parse_key_values(request, &helper->post_data, &request->post_params,
+    parse_key_values(request, &helper->post_data, &helper->post_params,
                      url_decode, '&');
 }
 
@@ -1620,7 +1625,7 @@ lwan_request_get_cookies(struct lwan_request *request)
         request->flags |= REQUEST_PARSED_COOKIES;
     }
 
-    return &request->cookies;
+    return &request->helper->cookies;
 }
 
 ALWAYS_INLINE const struct lwan_key_value_array *
@@ -1631,7 +1636,7 @@ lwan_request_get_query_params(struct lwan_request *request)
         request->flags |= REQUEST_PARSED_QUERY_STRING;
     }
 
-    return &request->query_params;
+    return &request->helper->query_params;
 }
 
 ALWAYS_INLINE const struct lwan_key_value_array *
@@ -1642,7 +1647,7 @@ lwan_request_get_post_params(struct lwan_request *request)
         request->flags |= REQUEST_PARSED_POST_DATA;
     }
 
-    return &request->post_params;
+    return &request->helper->post_params;
 }
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
