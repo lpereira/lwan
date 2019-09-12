@@ -1207,7 +1207,7 @@ static void dump_program(const struct lwan_tpl *tpl)
             break;
         case ACTION_APPEND_SMALL: {
             uintptr_t val = (uintptr_t)iter->data;
-            size_t len = strnlen((char *)&val, 8);
+            size_t len = strnlen((char *)&val, sizeof(val));
 
             printf("%s (%zu) [%.*s]", instr("APPEND_SMALL", instr_buf), len, (int)len, (char *)&val);
             break;
