@@ -232,10 +232,6 @@ static int setup_socket_normally(struct lwan *l)
     return fd;
 }
 
-#ifndef TCP_FASTOPEN
-#define TCP_FASTOPEN 23
-#endif
-
 void lwan_socket_init(struct lwan *l)
 {
     int fd, n;
@@ -255,6 +251,11 @@ void lwan_socket_init(struct lwan *l)
                       (&(struct linger){.l_onoff = 1, .l_linger = 1}));
 
 #ifdef __linux__
+
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN 23
+#endif
+
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
 #endif
