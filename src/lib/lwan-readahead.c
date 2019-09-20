@@ -28,6 +28,12 @@
 
 #include "lwan-private.h"
 
+#if defined(__linux__) && defined(O_DIRECT) && O_DIRECT
+#define PIPE_DIRECT_FLAG O_DIRECT
+#else
+#define PIPE_DIRECT_FLAG 0
+#endif
+
 enum readahead_cmd {
     READAHEAD,
     MADVISE,
@@ -131,10 +137,12 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
             lwan_status_perror("Ignoring error while reading from pipe (%d)",
                                readahead_pipe_fd[0]);
             continue;
+#if PIPE_DIRECT_FLAG
         } else if (UNLIKELY(n_bytes % (ssize_t)sizeof(cmd[0]))) {
             lwan_status_warning("Ignoring readahead packet read of %zd bytes",
                                 n_bytes);
             continue;
+#endif
         }
 
         cmds = n_bytes / (ssize_t)sizeof(struct lwan_readahead_cmd);
@@ -168,7 +176,7 @@ void lwan_readahead_init(void)
 
     lwan_status_debug("Initializing low priority readahead thread");
 
-    if (pipe2(readahead_pipe_fd, O_CLOEXEC) < 0)
+    if (pipe2(readahead_pipe_fd, O_CLOEXEC | PIPE_DIRECT_FLAG) < 0)
         lwan_status_critical_perror("pipe2");
 
     /* Only write side should be non-blocking. */
