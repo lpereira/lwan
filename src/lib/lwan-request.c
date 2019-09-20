@@ -841,13 +841,11 @@ read_from_request_socket(struct lwan_request *request,
             return HTTP_TOO_LARGE;
 
         n = read(request->fd, buffer->value + total_read, to_read);
-        /* Client has shutdown orderly, nothing else to do; kill coro */
-        if (UNLIKELY(n == 0)) {
-            coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
-        }
+        if (UNLIKELY(n <= 0)) {
+            /* Client has shutdown orderly, nothing else to do; kill coro */
+            if (UNLIKELY(n == 0))
+                break;
 
-        if (UNLIKELY(n < 0)) {
             switch (errno) {
             case EAGAIN:
                 coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
@@ -863,8 +861,7 @@ yield_and_read_again:
                 return HTTP_BAD_REQUEST;
 
             /* Unexpected error, kill coro */
-            coro_yield(request->conn->coro, CONN_CORO_ABORT);
-            __builtin_unreachable();
+            break;
         }
 
         total_read += (size_t)n;
@@ -889,7 +886,6 @@ try_to_finalize:
         }
     }
 
-    /* Shouldn't reach here. */
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
     return HTTP_INTERNAL_ERROR;
