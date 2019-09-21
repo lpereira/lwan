@@ -1177,8 +1177,10 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
 
     helper->post_data.value = new_buffer;
     helper->post_data.len = post_data_size;
-    if (have)
+    if (have) {
         new_buffer = mempcpy(new_buffer, helper->next_request, have);
+        post_data_size -= have;
+    }
     helper->next_request = NULL;
 
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
