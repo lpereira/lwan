@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include <stdlib.h>
@@ -22,8 +23,7 @@
 
 #include "lwan.h"
 
-bool
-lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
+bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
 {
     if (!trie)
         return false;
@@ -51,18 +51,17 @@ find_leaf_with_key(struct lwan_trie_node *node, const char *key, size_t len)
     return NULL;
 }
 
-#define GET_NODE() \
-    do { \
-        if (!(node = *knode)) { \
-            *knode = node = calloc(1, sizeof(*node)); \
-            if (!node) \
-                goto oom; \
-        } \
-        ++node->ref_count; \
-    } while(0)
+#define GET_NODE()                                                             \
+    do {                                                                       \
+        if (!(node = *knode)) {                                                \
+            *knode = node = calloc(1, sizeof(*node));                          \
+            if (!node)                                                         \
+                goto oom;                                                      \
+        }                                                                      \
+        ++node->ref_count;                                                     \
+    } while (0)
 
-void
-lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
+void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
 {
     if (UNLIKELY(!trie || !key || !data))
         return;
@@ -77,7 +76,8 @@ lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
     /* Get the leaf node (allocate it if necessary) */
     GET_NODE();
 
-    struct lwan_trie_leaf *leaf = find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
+    struct lwan_trie_leaf *leaf =
+        find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf) {
         leaf = malloc(sizeof(*leaf));
@@ -139,14 +139,13 @@ ALWAYS_INLINE void *lwan_trie_lookup_prefix(struct lwan_trie *trie,
     return NULL;
 }
 
-ALWAYS_INLINE int32_t
-lwan_trie_entry_count(struct lwan_trie *trie)
+ALWAYS_INLINE int32_t lwan_trie_entry_count(struct lwan_trie *trie)
 {
     return (trie && trie->root) ? trie->root->ref_count : 0;
 }
 
-static void
-lwan_trie_node_destroy(struct lwan_trie *trie, struct lwan_trie_node *node)
+static void lwan_trie_node_destroy(struct lwan_trie *trie,
+                                   struct lwan_trie_node *node)
 {
     if (!node)
         return;
@@ -174,8 +173,7 @@ lwan_trie_node_destroy(struct lwan_trie *trie, struct lwan_trie_node *node)
     free(node);
 }
 
-void
-lwan_trie_destroy(struct lwan_trie *trie)
+void lwan_trie_destroy(struct lwan_trie *trie)
 {
     if (!trie || !trie->root)
         return;
