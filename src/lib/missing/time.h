@@ -27,18 +27,18 @@
 typedef int clockid_t;
 int clock_gettime(clockid_t clk_id, struct timespec *ts);
 
-#ifndef CLOCK_MONOTONIC_COARSE
-#define CLOCK_MONOTONIC_COARSE 0
-#endif
-
-#ifndef CLOCK_MONOTONIC
-#define CLOCK_MONOTONIC 1
-#endif
-
 #elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_FAST)
 #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST /* FreeBSD */
 #elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_RAW_APPROX)
 #define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_RAW_APPROX /* macOS */
+#elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC)
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#elif !defined(CLOCK_MONOTONIC_COARSE)
+#define CLOCK_MONOTONIC_COARSE 0
+#endif
+
+#if !defined(CLOCK_MONOTONIC)
+#define CLOCK_MONOTONIC 1
 #endif
 
 #endif /* MISSING_TIME_H */
