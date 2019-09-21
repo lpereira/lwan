@@ -39,11 +39,8 @@ struct lwan_trie {
     void (*free_node)(void *data);
 };
 
-bool		 lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data));
-void		 lwan_trie_destroy(struct lwan_trie *trie);
-void		 lwan_trie_add(struct lwan_trie *trie, const char *key, void *data);
-void 		*lwan_trie_lookup_full(struct lwan_trie *trie, const char *key, bool prefix);
-void 		*lwan_trie_lookup_prefix(struct lwan_trie *trie, const char *key);
-void		*lwan_trie_lookup_exact(struct lwan_trie *trie, const char *key);
-int32_t		 lwan_trie_entry_count(struct lwan_trie *trie);
-
+bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data));
+void lwan_trie_destroy(struct lwan_trie *trie);
+void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data);
+void *lwan_trie_lookup_prefix(struct lwan_trie *trie, const char *key);
+int32_t lwan_trie_entry_count(struct lwan_trie *trie);

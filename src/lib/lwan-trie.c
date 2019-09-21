@@ -102,7 +102,7 @@ oom:
 #undef GET_NODE
 
 static ALWAYS_INLINE struct lwan_trie_node *
-lookup_node(struct lwan_trie_node *root, const char *key, bool prefix, size_t *prefix_len)
+lookup_node(struct lwan_trie_node *root, const char *key, size_t *prefix_len)
 {
     struct lwan_trie_node *node, *previous_node = NULL;
     const char *orig_key = key;
@@ -113,38 +113,30 @@ lookup_node(struct lwan_trie_node *root, const char *key, bool prefix, size_t *p
     }
 
     *prefix_len = (size_t)(key - orig_key);
+
     if (node && node->leaf)
         return node;
-    if (prefix && previous_node)
-        return previous_node;
-    return NULL;
+
+    return previous_node;
 }
 
-
-ALWAYS_INLINE void *
-lwan_trie_lookup_full(struct lwan_trie *trie, const char *key, bool prefix)
+ALWAYS_INLINE void *lwan_trie_lookup_prefix(struct lwan_trie *trie,
+                                            const char *key)
 {
-    if (UNLIKELY(!trie))
-        return NULL;
+    assert(trie);
+    assert(key);
 
     size_t prefix_len;
-    struct lwan_trie_node *node = lookup_node(trie->root, key, prefix, &prefix_len);
-    if (!node)
-        return NULL;
-    struct lwan_trie_leaf *leaf = find_leaf_with_key(node, key, prefix_len);
-    return leaf ? leaf->data : NULL;
-}
+    struct lwan_trie_node *node = lookup_node(trie->root, key, &prefix_len);
 
-ALWAYS_INLINE void *
-lwan_trie_lookup_prefix(struct lwan_trie *trie, const char *key)
-{
-    return lwan_trie_lookup_full(trie, key, true);
-}
+    if (node) {
+        struct lwan_trie_leaf *leaf = find_leaf_with_key(node, key, prefix_len);
 
-ALWAYS_INLINE void *
-lwan_trie_lookup_exact(struct lwan_trie *trie, const char *key)
-{
-    return lwan_trie_lookup_full(trie, key, false);
+        if (leaf)
+            return leaf->data;
+    }
+
+    return NULL;
 }
 
 ALWAYS_INLINE int32_t
