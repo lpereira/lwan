@@ -842,25 +842,24 @@ read_from_request_socket(struct lwan_request *request,
 
         n = read(request->fd, buffer->value + total_read, to_read);
         if (UNLIKELY(n <= 0)) {
-            /* Client has shutdown orderly, nothing else to do; kill coro */
-            if (UNLIKELY(n == 0))
-                break;
-
-            switch (errno) {
-            case EAGAIN:
-                coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
-                continue;
-            case EINTR:
+            if (n < 0) {
+                switch (errno) {
+                case EAGAIN:
+                    coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+                    continue;
+                case EINTR:
 yield_and_read_again:
-                coro_yield(request->conn->coro, CONN_CORO_YIELD);
-                continue;
+                    coro_yield(request->conn->coro, CONN_CORO_YIELD);
+                    continue;
+                }
+
+                /* Unexpected error before reading anything */
+                if (UNLIKELY(!total_read))
+                    return HTTP_BAD_REQUEST;
             }
 
-            /* Unexpected error before reading anything */
-            if (UNLIKELY(!total_read))
-                return HTTP_BAD_REQUEST;
-
-            /* Unexpected error, kill coro */
+            /* Client shut down orderly (n = 0), or unrecoverable error (n < 0);
+             * shut down coro. */
             break;
         }
 
