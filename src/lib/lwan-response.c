@@ -525,7 +525,7 @@ static void write_websocket_frame(struct lwan_request *request,
                                   size_t len)
 {
     struct iovec vec[4];
-    uint8_t net_len_byte;
+    uint8_t net_len_byte, opcode_byte;
     uint16_t net_len_short;
     uint64_t net_len_long;
     size_t last = 0;
@@ -538,13 +538,15 @@ static void write_websocket_frame(struct lwan_request *request,
         vec[last++] = (struct iovec){.iov_base = &net_len_byte, .iov_len = 1};
     } else if (len <= 65535) {
         net_len_short = htons((uint16_t)len);
+        opcode_byte = 0x7e;
 
-        vec[last++] = (struct iovec){.iov_base = (char[]){0x7e}, .iov_len = 1};
+        vec[last++] = (struct iovec){.iov_base = &opcode_byte, .iov_len = 1};
         vec[last++] = (struct iovec){.iov_base = &net_len_short, .iov_len = 2};
     } else {
         net_len_long = htobe64((uint64_t)len);
+        opcode_byte = 0x7f;
 
-        vec[last++] = (struct iovec){.iov_base = (char[]){0x7f}, .iov_len = 1};
+        vec[last++] = (struct iovec){.iov_base = &opcode_byte, .iov_len = 1};
         vec[last++] = (struct iovec){.iov_base = &net_len_long, .iov_len = 8};
     }
 
