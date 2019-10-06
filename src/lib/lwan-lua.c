@@ -204,9 +204,7 @@ LWAN_LUA_METHOD(set_headers)
             if (!append_key_value(L, coro, headers, key, value_index))
                 goto out;
         } else if (lua_istable(L, value_index)) {
-            lua_pushnil(L);
-
-            for (; lua_next(L, value_index) != 0; lua_pop(L, 1)) {
+            for (lua_pushnil(L); lua_next(L, value_index) != 0; lua_pop(L, 1)) {
                 if (!lua_isstring(L, nested_value_index))
                     continue;
                 if (!append_key_value(L, coro, headers, key,
