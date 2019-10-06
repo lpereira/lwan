@@ -1703,23 +1703,21 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
         /* Requesting these items will force them to be parsed, and also exercise
          * the lookup function. */
-        trash0 = lwan_request_get_header(&request, "Non-Existing-Header");
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
 
-        trash0 = lwan_request_get_header(&request, "Host"); /* Usually existing short header */
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+#define NO_DISCARD(...)                                                        \
+    do {                                                                       \
+        const char *no_discard_ = __VA_ARGS__;                                 \
+        __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
+    } while (0)
 
-        trash0 = lwan_request_get_cookie(&request, "Non-Existing-Cookie");
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+        NO_DISCARD(lwan_request_get_header(&request, "Non-Existing-Header"));
+        NO_DISCARD(lwan_request_get_header(&request, "Host")); /* Usually existing short header */
+        NO_DISCARD(lwan_request_get_cookie(&request, "Non-Existing-Cookie"));
+        NO_DISCARD(lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
+        NO_DISCARD(lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
+        NO_DISCARD(lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
 
-        trash0 = lwan_request_get_cookie(&request, "FOO"); /* Set by some tests */
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
-
-        trash0 = lwan_request_get_query_param(&request, "Non-Existing-Query-Param");
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
-
-        trash0 = lwan_request_get_post_param(&request, "Non-Existing-Post-Param");
-        __asm__ __volatile__("" :: "g"(trash0) : "memory");
+#undef NO_DISCARD
 
         lwan_request_get_range(&request, &trash1, &trash1);
         lwan_request_get_if_modified_since(&request, &trash2);
