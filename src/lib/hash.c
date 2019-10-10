@@ -307,7 +307,7 @@ static struct hash_entry *hash_add_entry_hashed(struct hash *hash, const void *k
     return entry;
 }
 
-static int rehash(struct hash *hash, unsigned int new_bucket_size)
+static void rehash(struct hash *hash, unsigned int new_bucket_size)
 {
     struct hash_bucket *buckets = calloc(new_bucket_size, sizeof(*buckets));
     const struct hash_bucket *bucket_end = hash->buckets + hash_n_buckets(hash);
@@ -318,7 +318,7 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
     assert(hash_n_buckets(hash) != new_bucket_size);
 
     if (buckets == NULL)
-        return -errno;
+        return;
 
     hash_copy.count = 0;
     hash_copy.n_buckets_mask = new_bucket_size - 1;
@@ -352,7 +352,7 @@ static int rehash(struct hash *hash, unsigned int new_bucket_size)
 
     assert(hash_copy.count == hash->count);
 
-    return 0;
+    return;
 
 fail:
     for (bucket_end = bucket, bucket = hash->buckets; bucket < bucket_end;
@@ -360,7 +360,6 @@ fail:
         free(bucket->entries);
 
     free(buckets);
-    return -ENOMEM;
 }
 
 static struct hash_entry *hash_add_entry(struct hash *hash, const void *key)
@@ -389,10 +388,8 @@ int hash_add(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
-    if (hash->count > hash->n_buckets_mask) {
-        /* Not being able to resize the bucket array is not an error */
+    if (hash->count > hash->n_buckets_mask)
         rehash(hash, hash_n_buckets(hash) * 2);
-    }
 
     return 0;
 }
@@ -411,10 +408,8 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     entry->key = key;
     entry->value = value;
 
-    if (hash->count > hash->n_buckets_mask) {
-        /* Not being able to resize the bucket array is not an error */
+    if (hash->count > hash->n_buckets_mask)
         rehash(hash, hash_n_buckets(hash) * 2);
-    }
 
     return 0;
 }
@@ -478,7 +473,6 @@ int hash_del(struct hash *hash, const void *key)
     hash->count--;
 
     if (hash->n_buckets_mask > (MIN_BUCKETS - 1) && hash->count < hash->n_buckets_mask / 2) {
-        /* Not being able to trim the bucket array size isn't an error. */
         rehash(hash, hash_n_buckets(hash) / 2);
     } else {
         unsigned int steps_used = bucket->used / STEPS;
