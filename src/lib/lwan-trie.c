@@ -152,11 +152,6 @@ ALWAYS_INLINE void *lwan_trie_lookup_prefix(struct lwan_trie *trie,
     return NULL;
 }
 
-ALWAYS_INLINE int32_t lwan_trie_entry_count(struct lwan_trie *trie)
-{
-    return (trie && trie->root) ? trie->root->ref_count : 0;
-}
-
 static void lwan_trie_node_destroy(struct lwan_trie *trie,
                                    struct lwan_trie_node *node)
 {
