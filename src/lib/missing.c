@@ -351,9 +351,13 @@ fallback:
 #endif
 
 #if defined(__linux__)
+
+#if !defined(HAVE_GETTID)
 #include <sys/syscall.h>
 
-long gettid(void) { return syscall(SYS_gettid); }
+pid_t gettid(void) { return (pid_t)syscall(SYS_gettid); }
+#endif
+
 #elif defined(__FreeBSD__)
 #include <sys/thr.h>
 

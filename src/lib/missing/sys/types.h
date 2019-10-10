@@ -23,6 +23,8 @@
 #ifndef MISSING_SYS_TYPES_H
 #define MISSING_SYS_TYPES_H
 
-long gettid(void);
+#ifndef HAVE_GETTID
+pid_t gettid(void);
+#endif
 
 #endif
