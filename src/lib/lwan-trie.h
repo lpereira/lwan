@@ -23,17 +23,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct lwan_trie_node {
-    struct lwan_trie_node *next[8];
-    struct lwan_trie_leaf *leaf;
-    int ref_count;
-};
-
-struct lwan_trie_leaf {
-    char *key;
-    void *data;
-    struct lwan_trie_leaf *next;
-};
+struct lwan_trie_node;
 
 struct lwan_trie {
     struct lwan_trie_node *root;

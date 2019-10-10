@@ -21,7 +21,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
+
+struct lwan_trie_node {
+    struct lwan_trie_node *next[8];
+    struct lwan_trie_leaf *leaf;
+    int ref_count;
+};
+
+struct lwan_trie_leaf {
+    char *key;
+    void *data;
+    struct lwan_trie_leaf *next;
+};
 
 bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
 {
