@@ -51,10 +51,6 @@
 #define abstime_t timeout_t /* for documentation purposes */
 #define reltime_t timeout_t /* "" */
 
-#if !defined countof
-#define countof(a) (sizeof(a) / sizeof *(a))
-#endif
-
 #if !defined MIN
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -163,15 +159,15 @@ static struct timeouts *timeouts_init(struct timeouts *T)
 {
     unsigned i, j;
 
-    for (i = 0; i < countof(T->wheel); i++) {
-        for (j = 0; j < countof(T->wheel[i]); j++) {
+    for (i = 0; i < N_ELEMENTS(T->wheel); i++) {
+        for (j = 0; j < N_ELEMENTS(T->wheel[i]); j++) {
             list_head_init(&T->wheel[i][j]);
         }
     }
 
     list_head_init(&T->expired);
 
-    for (i = 0; i < countof(T->pending); i++) {
+    for (i = 0; i < N_ELEMENTS(T->pending); i++) {
         T->pending[i] = 0;
     }
 
@@ -200,8 +196,8 @@ static void timeouts_reset(struct timeouts *T)
 
     list_head_init(&reset);
 
-    for (i = 0; i < countof(T->wheel); i++) {
-        for (j = 0; j < countof(T->wheel[i]); j++) {
+    for (i = 0; i < N_ELEMENTS(T->wheel); i++) {
+        for (j = 0; j < N_ELEMENTS(T->wheel[i]); j++) {
             list_append_list(&reset, &T->wheel[i][j]);
             list_head_init(&T->wheel[i][j]);
         }
