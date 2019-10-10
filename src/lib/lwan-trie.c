@@ -54,9 +54,10 @@ find_leaf_with_key(struct lwan_trie_node *node, const char *key, size_t len)
 #define GET_NODE()                                                             \
     do {                                                                       \
         if (!(node = *knode)) {                                                \
-            *knode = node = calloc(1, sizeof(*node));                          \
+            *knode = node = lwan_aligned_alloc(sizeof(*node), 64);             \
             if (!node)                                                         \
                 goto oom;                                                      \
+            memset(node, 0, sizeof(*node));                                    \
         }                                                                      \
         ++node->ref_count;                                                     \
     } while (0)
@@ -80,7 +81,7 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
         find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf) {
-        leaf = malloc(sizeof(*leaf));
+        leaf = lwan_aligned_alloc(sizeof(*leaf), 64);
         if (!leaf)
             lwan_status_critical_perror("malloc");
     } else if (trie->free_node) {

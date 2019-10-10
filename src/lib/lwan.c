@@ -487,17 +487,13 @@ out:
     return r.rlim_cur;
 }
 
-static inline size_t align_to_size(size_t value, size_t alignment)
-{
-    return (value + alignment - 1) & ~(alignment - 1);
-}
-
 static void allocate_connections(struct lwan *l, size_t max_open_files)
 {
     const size_t sz = max_open_files * sizeof(struct lwan_connection);
 
-    if (posix_memalign((void **)&l->conns, 64, align_to_size(sz, 64)))
-        lwan_status_critical_perror("aligned_alloc");
+    l->conns = lwan_aligned_alloc(sz, 64);
+    if (UNLIKELY(!l->conns))
+        lwan_status_critical_perror("lwan_alloc_aligned");
 
     memset(l->conns, 0, sz);
 }

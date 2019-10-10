@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <limits.h>
 
 #include "lwan.h"
@@ -119,3 +120,17 @@ const char *lwan_lua_state_last_error(lua_State *L);
 #endif
 
 extern clockid_t monotonic_clock_id;
+
+static inline void *
+lwan_aligned_alloc(size_t n, size_t alignment)
+{
+    void *ret;
+
+    assert((alignment & (alignment - 1)) == 0);
+
+    n = (n + alignment - 1) & ~(alignment - 1);
+    if (UNLIKELY(posix_memalign(&ret, alignment, n)))
+        return NULL;
+
+    return ret;
+}

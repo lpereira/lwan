@@ -37,6 +37,8 @@
 
 #include <errno.h> /* errno */
 
+#include "lwan-private.h"
+
 #include "list.h"
 
 #include "timeout.h"
@@ -182,7 +184,7 @@ struct timeouts *timeouts_open(timeout_error_t *error)
 {
     struct timeouts *T;
 
-    if ((T = malloc(sizeof *T)))
+    if ((T = lwan_aligned_alloc(sizeof *T, 64)))
         return timeouts_init(T);
 
     *error = errno;

@@ -80,7 +80,7 @@ struct coro {
     unsigned int vg_stack_id;
 #endif
 
-    unsigned char stack[];
+    unsigned char stack[] __attribute__((aligned(64)));
 };
 
 #if defined(__APPLE__)
@@ -268,7 +268,8 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 ALWAYS_INLINE struct coro *
 coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 {
-    struct coro *coro = malloc(sizeof(*coro) + CORO_STACK_MIN);
+    struct coro *coro = lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_MIN, 64);
+
     if (UNLIKELY(!coro))
         return NULL;
 
