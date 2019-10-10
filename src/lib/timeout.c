@@ -152,7 +152,6 @@ struct timeouts {
     wheel_t pending[WHEEL_NUM];
 
     timeout_t curtime;
-    timeout_t hertz;
 };
 
 static struct timeouts *timeouts_init(struct timeouts *T)
