@@ -515,6 +515,10 @@ void *reallocarray(void *optr, size_t nmemb, size_t size)
         errno = ENOMEM;
         return NULL;
     }
+    if (UNLIKELY(total_size == 0)) {
+        free(optr);
+        return malloc(1);
+    }
     return realloc(optr, total_size);
 }
 #endif /* HAVE_REALLOCARRAY */
