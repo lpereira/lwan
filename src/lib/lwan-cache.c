@@ -237,10 +237,8 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
-    if (entry->flags & TEMPORARY) {
-        free(entry->key);
+    if (entry->flags & TEMPORARY)
         goto destroy_entry;
-    }
 
     if (ATOMIC_DEC(entry->refs))
         return;
@@ -253,6 +251,7 @@ destroy_entry:
          * while there are cache items floating around, this will dereference
          * deallocated memory. */
         cache->cb.destroy_entry(entry, cache->cb.context);
+        free(entry->key);
     }
 }
 
