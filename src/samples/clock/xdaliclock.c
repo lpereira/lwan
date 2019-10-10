@@ -254,19 +254,21 @@ static void draw_horizontal_line(struct xdaliclock *xdc,
 static void
 frame_render(struct xdaliclock *xdc, const struct frame *frame, int x)
 {
-    int px, py;
-
-    for (py = 0; py < char_height; py++) {
+    for (int py = 0; py < char_height; py++) {
         const struct scanline *line = &frame->scanlines[py];
         int last_right = 0;
+        int px = 0;
 
-        for (px = 0; px < MAX_SEGS_PER_LINE; px++) {
-            if (px > 0 && (line->left[px] == line->right[px] ||
-                           (line->left[px] == line->left[px - 1] &&
-                            line->right[px] == line->right[px - 1]))) {
+        goto first_iter;
+
+        for (; px < MAX_SEGS_PER_LINE; px++) {
+            if ((line->left[px] == line->right[px] ||
+                 (line->left[px] == line->left[px - 1] &&
+                  line->right[px] == line->right[px - 1]))) {
                 continue;
             }
 
+        first_iter:
             /* Erase the line between the last segment and this segment.
              */
             draw_horizontal_line(xdc, x + last_right, x + line->left[px], py,
