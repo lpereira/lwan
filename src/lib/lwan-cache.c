@@ -159,8 +159,6 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
         *error = EWOULDBLOCK;
         return NULL;
     }
-    /* Find the item in the hash table. If it's there, increment the reference
-     * and return it. */
     entry = hash_find(cache->hash.table, key);
     if (LIKELY(entry)) {
         ATOMIC_INC(entry->refs);
@@ -171,7 +169,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
         return entry;
     }
 
-    /* Unlock the cache so the item can be created. */
+    /* No need to keep the hash table lock locked while the item is being created. */
     pthread_rwlock_unlock(&cache->hash.lock);
 
 #ifndef NDEBUG
@@ -193,11 +191,11 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     *entry = (struct cache_entry) { .key =  key_copy, .refs = 1 };
 
     if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
-        /* Couldn't obtain hash lock: instead of waiting, just return
-         * the recently-created item as a temporary item. Might result
-         * in starvation, though, so this might be changed back to
-         * pthread_rwlock_wrlock() again someday if this proves to be
-         * a problem. */
+        /* Couldn't obtain hash write lock: instead of waiting, just return
+         * the recently-created item as a temporary item.  Might result in
+         * items not being added to the cache, though, so this might be
+         * changed back to pthread_rwlock_wrlock() again someday if this
+         * proves to be a problem.  */
         entry->flags = TEMPORARY;
         return entry;
     }
