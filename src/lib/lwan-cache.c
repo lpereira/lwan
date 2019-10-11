@@ -36,6 +36,7 @@ enum {
     /* Entry flags */
     FLOATING = 1 << 0,
     TEMPORARY = 1 << 1,
+    FREE_KEY_ON_DESTROY = 1 << 2,
 
     /* Cache flags */
     SHUTTING_DOWN = 1 << 0
@@ -196,7 +197,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
          * items not being added to the cache, though, so this might be
          * changed back to pthread_rwlock_wrlock() again someday if this
          * proves to be a problem.  */
-        entry->flags = TEMPORARY;
+        entry->flags = TEMPORARY | FREE_KEY_ON_DESTROY;
         return entry;
     }
 
@@ -212,6 +213,8 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
             list_add_tail(&cache->queue.list, &entry->entries);
             pthread_rwlock_unlock(&cache->queue.lock);
         } else {
+            /* Key is freed when this entry is removed from the hash
+             * table below. */
             entry->flags = TEMPORARY;
 
             /* Ensure item is removed from the hash table; otherwise,
@@ -226,7 +229,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
          * time someone unrefs this entry. TEMPORARY entries are pretty much
          * like FLOATING entries, but unreffing them do not use atomic
          * operations. */
-        entry->flags = TEMPORARY;
+        entry->flags = TEMPORARY | FREE_KEY_ON_DESTROY;
     }
 
     pthread_rwlock_unlock(&cache->hash.lock);
@@ -237,8 +240,14 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
-    if (entry->flags & TEMPORARY)
+    if (entry->flags & TEMPORARY) {
+        /* FREE_KEY_ON_DESTROY is set on elements that never got into the
+         * hash table, so their keys are never destroyed automatically. */
+        if (entry->flags & FREE_KEY_ON_DESTROY)
+            free(entry->key);
+
         goto destroy_entry;
+    }
 
     if (ATOMIC_DEC(entry->refs))
         return;
