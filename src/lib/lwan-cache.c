@@ -251,7 +251,6 @@ destroy_entry:
          * while there are cache items floating around, this will dereference
          * deallocated memory. */
         cache->cb.destroy_entry(entry, cache->cb.context);
-        free(entry->key);
     }
 }
 
