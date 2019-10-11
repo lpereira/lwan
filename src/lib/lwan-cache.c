@@ -233,6 +233,14 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     return entry;
 }
 
+static void destroy_entry(struct cache *cache, struct cache_entry *entry)
+{
+    char *key = entry->key;
+
+    cache->cb.destroy_entry(entry, cache->cb.context);
+    free(key);
+}
+
 void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
@@ -250,8 +258,7 @@ destroy_entry:
         /* FIXME: There's a race condition here: if the cache is destroyed
          * while there are cache items floating around, this will dereference
          * deallocated memory. */
-        cache->cb.destroy_entry(entry, cache->cb.context);
-        free(entry->key);
+        destroy_entry(cache, entry);
     }
 }
 
@@ -315,7 +322,7 @@ static bool cache_pruner_job(void *data)
             /* Decrement the reference and see if we were genuinely the last one
              * holding it.  If so, destroy the entry.  */
             if (!ATOMIC_DEC(node->refs))
-                cache->cb.destroy_entry(node, cache->cb.context);
+                destroy_entry(cache, node);
         }
 
         evicted++;
