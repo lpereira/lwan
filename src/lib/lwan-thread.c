@@ -674,7 +674,7 @@ void lwan_thread_init(struct lwan *l)
 
     pthread_barrier_wait(&l->thread.barrier);
 
-    lwan_status_debug("IO threads created and ready to serve");
+    lwan_status_debug("Worker threads created and ready to serve");
 }
 
 void lwan_thread_shutdown(struct lwan *l)
