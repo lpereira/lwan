@@ -297,9 +297,14 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
                               lua_tostring(L, -1));
             goto close_lua_state;
         }
-    } else if (UNLIKELY(luaL_dostring(L, script) != 0)) {
-        lwan_status_error("Error evaluating Lua script %s",
-                          lua_tostring(L, -1));
+    } else if (script) {
+        if (UNLIKELY(luaL_dostring(L, script) != 0)) {
+            lwan_status_error("Error evaluating Lua script %s",
+                              lua_tostring(L, -1));
+            goto close_lua_state;
+        }
+    } else {
+        lwan_status_error("Either file or inline script has to be provided");
         goto close_lua_state;
     }
 
