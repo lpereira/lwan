@@ -39,7 +39,7 @@ struct Fortune {
     } item;
 };
 
-DEFINE_ARRAY_TYPE(fortune_array, struct Fortune)
+DEFINE_ARRAY_TYPE_INLINEFIRST(fortune_array, struct Fortune)
 
 static const char fortunes_template_str[] = "<!DOCTYPE html>" \
 "<html>" \
