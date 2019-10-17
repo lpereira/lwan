@@ -32,7 +32,7 @@
 
 static const char *request_metatable_name = "Lwan.Request";
 
-static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L)
+ALWAYS_INLINE struct lwan_request *lwan_lua_get_request_from_userdata(lua_State *L)
 {
     struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
 
@@ -41,7 +41,7 @@ static ALWAYS_INLINE struct lwan_request *userdata_as_request(lua_State *L)
 
 LWAN_LUA_METHOD(say)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -54,7 +54,7 @@ LWAN_LUA_METHOD(say)
 
 LWAN_LUA_METHOD(send_event)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t event_str_len;
     const char *event_str = lua_tolstring(L, -1, &event_str_len);
     const char *event_name = lua_tostring(L, -2);
@@ -67,7 +67,7 @@ LWAN_LUA_METHOD(send_event)
 
 LWAN_LUA_METHOD(set_response)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -80,7 +80,7 @@ static int request_param_getter(lua_State *L,
                                 const char *(*getter)(struct lwan_request *req,
                                                       const char *key))
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     const char *key_str = lua_tostring(L, -1);
 
     const char *value = getter(request, key_str);
@@ -114,7 +114,7 @@ LWAN_LUA_METHOD(cookie)
 
 LWAN_LUA_METHOD(ws_upgrade)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     enum lwan_http_status status = lwan_request_websocket_upgrade(request);
 
     lua_pushinteger(L, status);
@@ -124,7 +124,7 @@ LWAN_LUA_METHOD(ws_upgrade)
 
 LWAN_LUA_METHOD(ws_write)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t data_len;
     const char *data_str = lua_tolstring(L, -1, &data_len);
 
@@ -136,7 +136,7 @@ LWAN_LUA_METHOD(ws_write)
 
 LWAN_LUA_METHOD(ws_read)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
 
     if (lwan_response_websocket_read(request)) {
         lua_pushlstring(L, lwan_strbuf_get_buffer(request->response.buffer),
@@ -173,7 +173,7 @@ LWAN_LUA_METHOD(set_headers)
     const int value_index = 2 + table_index;
     const int nested_value_index = value_index * 2 - table_index;
     struct lwan_key_value_array *headers;
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     struct coro *coro = request->conn->coro;
     struct lwan_key_value *kv;
 
@@ -232,7 +232,7 @@ out:
 
 LWAN_LUA_METHOD(sleep)
 {
-    struct lwan_request *request = userdata_as_request(L);
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_Integer ms = lua_tointeger(L, -1);
 
     lwan_request_sleep(request, (uint64_t)ms);

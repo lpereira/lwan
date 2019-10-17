@@ -25,3 +25,7 @@ const char *lwan_lua_state_last_error(lua_State *L);
 lua_State *lwan_lua_create_state(const char *script_file, const char *script);
 
 void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request);
+
+struct lwan_request;
+struct lwan_request *lwan_lua_get_request_from_userdata(lua_State *L);
+

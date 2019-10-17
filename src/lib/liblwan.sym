@@ -89,4 +89,5 @@ global:
     lwan_lua_create_state;
     lwan_lua_state_last_error;
     lwan_lua_state_push_request;
+    lwan_lua_get_request_from_userdata;
 } LIBLWAN_1;
