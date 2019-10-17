@@ -67,7 +67,7 @@ struct coro_defer {
     bool has_two_args;
 };
 
-DEFINE_ARRAY_TYPE(coro_defer_array, struct coro_defer)
+DEFINE_ARRAY_TYPE_INLINEFIRST(coro_defer_array, struct coro_defer)
 
 struct coro {
     struct coro_switcher *switcher;

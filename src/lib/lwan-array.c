@@ -27,8 +27,6 @@
 #include "lwan.h"
 #include "lwan-array.h"
 
-#define INCREMENT 16
-
 int lwan_array_init(struct lwan_array *a)
 {
     if (UNLIKELY(!a))
@@ -40,12 +38,14 @@ int lwan_array_init(struct lwan_array *a)
     return 0;
 }
 
-int lwan_array_reset(struct lwan_array *a)
+int lwan_array_reset(struct lwan_array *a, void *inline_storage)
 {
     if (UNLIKELY(!a))
         return -EINVAL;
 
-    free(a->base);
+    if (a->base != inline_storage)
+        free(a->base);
+
     a->base = NULL;
     a->elements = 0;
 
@@ -65,13 +65,14 @@ static inline bool add_overflow(size_t a, size_t b, size_t *out)
 #define add_overflow __builtin_add_overflow
 #endif
 
-void *lwan_array_append(struct lwan_array *a, size_t element_size)
+void *lwan_array_append_heap(struct lwan_array *a, size_t element_size)
 {
-    if (!(a->elements % INCREMENT)) {
+    if (!(a->elements % LWAN_ARRAY_INCREMENT)) {
         void *new_base;
         size_t new_cap;
 
-        if (UNLIKELY(add_overflow(a->elements, INCREMENT, &new_cap))) {
+        if (UNLIKELY(
+                add_overflow(a->elements, LWAN_ARRAY_INCREMENT, &new_cap))) {
             errno = EOVERFLOW;
             return NULL;
         }
@@ -86,6 +87,31 @@ void *lwan_array_append(struct lwan_array *a, size_t element_size)
     return ((unsigned char *)a->base) + a->elements++ * element_size;
 }
 
+void *lwan_array_append_stack(struct lwan_array *a,
+                              size_t element_size,
+                              void *inline_storage)
+{
+    if (!a->elements)
+        a->base = inline_storage;
+
+    if (a->elements < LWAN_ARRAY_INCREMENT)
+        return ((char *)a->base) + a->elements++ * element_size;
+
+    if (a->elements == LWAN_ARRAY_INCREMENT) {
+        void *new_base;
+
+        new_base = calloc(2 * LWAN_ARRAY_INCREMENT, element_size);
+        if (UNLIKELY(!new_base))
+            return NULL;
+
+        a->base = memcpy(new_base, inline_storage,
+                         LWAN_ARRAY_INCREMENT * element_size);
+        return ((char *)a->base) + a->elements++ * element_size;
+    }
+
+    return lwan_array_append_heap(a, element_size);
+}
+
 void lwan_array_sort(struct lwan_array *a,
                      size_t element_size,
                      int (*cmp)(const void *a, const void *b))
@@ -98,7 +124,7 @@ static void coro_lwan_array_free(void *data)
 {
     struct lwan_array *array = data;
 
-    lwan_array_reset(array);
+    lwan_array_reset(array, NULL);
     free(array);
 }
 
