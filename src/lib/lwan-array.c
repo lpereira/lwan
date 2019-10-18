@@ -91,25 +91,23 @@ void *lwan_array_append_inline(struct lwan_array *a,
                                size_t element_size,
                                void *inline_storage)
 {
-    if (!a->elements)
+    if (!a->base)
         a->base = inline_storage;
+    else if (UNLIKELY(a->base != inline_storage))
+        return lwan_array_append_heap(a, element_size);
 
-    if (a->elements < LWAN_ARRAY_INCREMENT)
-        return ((char *)a->base) + a->elements++ * element_size;
+    assert(a->elements <= LWAN_ARRAY_INCREMENT);
 
     if (a->elements == LWAN_ARRAY_INCREMENT) {
-        void *new_base;
-
-        new_base = calloc(2 * LWAN_ARRAY_INCREMENT, element_size);
+        void *new_base = calloc(2 * LWAN_ARRAY_INCREMENT, element_size);
         if (UNLIKELY(!new_base))
             return NULL;
 
         a->base = memcpy(new_base, inline_storage,
                          LWAN_ARRAY_INCREMENT * element_size);
-        return ((char *)a->base) + a->elements++ * element_size;
     }
 
-    return lwan_array_append_heap(a, element_size);
+    return ((char *)a->base) + a->elements++ * element_size;
 }
 
 void lwan_array_sort(struct lwan_array *a,
