@@ -176,6 +176,16 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
     return map[flags & CONN_EVENTS_MASK];
 }
 
+#if defined(__linux__)
+# define CONN_EVENTS_RESUME_TIMER CONN_EVENTS_READ_WRITE
+#else
+/* Kqueue doesn't like when you filter on both read and write, so
+ * wait only on write when resuming a coro suspended by a timer.
+ * The I/O wrappers should yield if trying to read without anything
+ * in the buffer, changing the filter to only read, so this is OK. */
+# define CONN_EVENTS_RESUME_TIMER CONN_EVENTS_WRITE
+#endif
+
 static void update_epoll_flags(int fd,
                                struct lwan_connection *conn,
                                int epoll_fd,
