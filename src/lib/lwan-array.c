@@ -118,7 +118,7 @@ void lwan_array_sort(struct lwan_array *a,
         qsort(a->base, a->elements, element_size, cmp);
 }
 
-static void coro_lwan_array_free(void *data)
+static void coro_lwan_array_free_heap(void *data)
 {
     struct lwan_array *array = data;
 
@@ -126,11 +126,21 @@ static void coro_lwan_array_free(void *data)
     free(array);
 }
 
-struct lwan_array *coro_lwan_array_new(struct coro *coro)
+static void coro_lwan_array_free_inline(void *data)
+{
+    struct lwan_array *array = data;
+
+    lwan_array_reset(array, array + 1);
+    free(array);
+}
+
+struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first)
 {
     struct lwan_array *array;
 
-    array = coro_malloc_full(coro, sizeof(*array), coro_lwan_array_free);
+    array = coro_malloc_full(coro, sizeof(*array),
+                             inline_first ? coro_lwan_array_free_inline
+                                          : coro_lwan_array_free_heap);
     if (LIKELY(array))
         lwan_array_init(array);
 

@@ -40,7 +40,7 @@ void *lwan_array_append_inline(struct lwan_array *a,
 void lwan_array_sort(struct lwan_array *a,
                      size_t element_size,
                      int (*cmp)(const void *a, const void *b));
-struct lwan_array *coro_lwan_array_new(struct coro *coro);
+struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
 
 #define LWAN_ARRAY_FOREACH(array_, iter_)                                      \
     for (iter_ = (array_)->base.base;                                          \
@@ -67,7 +67,7 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
     __attribute__((unused)) static inline struct array_type_                   \
         *coro_##array_type_##_new(struct coro *coro)                           \
     {                                                                          \
-        return (struct array_type_ *)coro_lwan_array_new(coro);                \
+        return (struct array_type_ *)coro_lwan_array_new(coro, false);         \
     }                                                                          \
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, NULL)
 
@@ -81,6 +81,11 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro);
     {                                                                          \
         return (element_type_ *)lwan_array_append_inline(                      \
             &array->base, sizeof(element_type_), &array->storage);             \
+    }                                                                          \
+    __attribute__((unused)) static inline struct array_type_                   \
+        *coro_##array_type_##_new(struct coro *coro)                           \
+    {                                                                          \
+        return (struct array_type_ *)coro_lwan_array_new(coro, true);          \
     }                                                                          \
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, &array->storage)
 
