@@ -142,6 +142,8 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 
 int epoll_create1(int flags __attribute__((unused))) { return kqueue(); }
 
+static int epoll_no_event_marker;
+
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
     struct kevent ev;
@@ -150,7 +152,7 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
     case EPOLL_CTL_ADD:
     case EPOLL_CTL_MOD: {
         int events = 0;
-        uintptr_t udata = (uintptr_t)event->data.ptr;
+        void *udata = event->data.ptr;
         int flags = EV_ADD;
 
         if (event->events & EPOLLIN) {
@@ -159,7 +161,7 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
             events = EVFILT_WRITE;
         } else {
             events = EVFILT_WRITE;
-            udata = 1;
+            udata = &epoll_no_event_marker;
         }
 
         if (event->events & EPOLLONESHOT)
@@ -168,7 +170,7 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
         flags |= EV_ERROR; /* EPOLLERR is always set. */
         flags |= EV_EOF;   /* EPOLLHUP is always set. */
 
-        EV_SET(&ev, fd, events, flags, 0, 0, (void *)udata);
+        EV_SET(&ev, fd, events, flags, 0, 0, udata);
         break;
     }
 
@@ -225,7 +227,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
         if (kev->filter == EVFILT_READ)
             mask |= EPOLLIN;
-        else if (kev->filter == EVFILT_WRITE && (uintptr_t)evs[i].udata != 1)
+        else if (kev->filter == EVFILT_WRITE && evs[i].udata != &epoll_no_event_marker)
             mask |= EPOLLOUT;
 
         hash_add(coalesce, (void *)(intptr_t)evs[i].ident,
@@ -238,6 +240,9 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         maskptr = hash_find(coalesce, (void *)(intptr_t)evs[i].ident);
         if (maskptr) {
             struct kevent *kev = &evs[i];
+
+            if (kev->udata == &epoll_no_event_marker)
+                continue;
 
             ev->data.ptr = kev->udata;
             ev->events = (uint32_t)(uintptr_t)maskptr;
