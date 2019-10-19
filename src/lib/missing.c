@@ -361,20 +361,20 @@ pid_t gettid(void) { return (pid_t)syscall(SYS_gettid); }
 #elif defined(__FreeBSD__)
 #include <sys/thr.h>
 
-long gettid(void)
+pid_t gettid(void)
 {
     long ret;
 
     thr_self(&ret);
 
-    return ret;
+    return (pid_t)ret;
 }
 #elif defined(__APPLE__) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
 #include <sys/syscall.h>
 
-long gettid(void) { return syscall(SYS_thread_selfid); }
+pid_t gettid(void) { return syscall(SYS_thread_selfid); }
 #else
-long gettid(void) { return (long)pthread_self(); }
+pid_t gettid(void) { return (pid_t)pthread_self(); }
 #endif
 
 #if defined(__APPLE__)

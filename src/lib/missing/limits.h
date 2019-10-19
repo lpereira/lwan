@@ -43,10 +43,12 @@
 
 #ifndef PAGE_SIZE
 # include <sys/param.h>
-# ifdef EXEC_PAGESIZE
-#  define PAGE_SIZE EXEC_PAGESIZE
-# else
-#  define PAGE_SIZE 4096
+# ifndef PAGE_SIZE
+#  ifdef EXEC_PAGESIZE
+#   define PAGE_SIZE EXEC_PAGESIZE
+#  else
+#   define PAGE_SIZE 4096
+#  endif
 # endif
 #endif
 
