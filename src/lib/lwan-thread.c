@@ -207,7 +207,7 @@ static void update_epoll_flags(int fd,
          * know which event, because they were both cleared when the coro was
          * suspended. So set both flags here. This works because EPOLLET isn't
          * used. */
-        [CONN_CORO_RESUME_TIMER] = CONN_EVENTS_READ_WRITE,
+        [CONN_CORO_RESUME_TIMER] = CONN_EVENTS_RESUME_TIMER,
     };
     static const enum lwan_connection_flags and_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = ~0,
