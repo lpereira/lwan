@@ -1244,16 +1244,13 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     return HTTP_OK;
 }
 
-enum lwan_http_status
-lwan_request_websocket_upgrade(struct lwan_request *request)
+static enum lwan_http_status
+prepare_websocket_handshake(struct lwan_request *request, char **encoded)
 {
     static const unsigned char websocket_uuid[] =
         "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    char header_buf[DEFAULT_HEADERS_SIZE];
-    size_t header_buf_len;
     unsigned char digest[20];
     sha1_context ctx;
-    char *encoded;
 
     if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS))
         return HTTP_INTERNAL_ERROR;
@@ -1278,10 +1275,24 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
     sha1_update(&ctx, websocket_uuid, sizeof(websocket_uuid) - 1);
     sha1_finalize(&ctx, digest);
 
-    encoded = (char *)base64_encode(digest, sizeof(digest), NULL);
-    if (UNLIKELY(!encoded))
+    *encoded = (char *)base64_encode(digest, sizeof(digest), NULL);
+    if (UNLIKELY(!*encoded))
         return HTTP_INTERNAL_ERROR;
-    coro_defer(request->conn->coro, free, encoded);
+    coro_defer(request->conn->coro, free, *encoded);
+
+    return HTTP_SWITCHING_PROTOCOLS;
+}
+
+enum lwan_http_status
+lwan_request_websocket_upgrade(struct lwan_request *request)
+{
+    char header_buf[DEFAULT_HEADERS_SIZE];
+    size_t header_buf_len;
+    char *encoded;
+
+    enum lwan_http_status r = prepare_websocket_handshake(request, &encoded);
+    if (r != HTTP_SWITCHING_PROTOCOLS)
+        return r;
 
     request->flags |= RESPONSE_NO_CONTENT_LENGTH;
     header_buf_len = lwan_prepare_response_header_full(
@@ -1292,17 +1303,14 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
             {.key = "Upgrade", .value = "websocket"},
             {},
         });
-    if (LIKELY(header_buf_len)) {
-        request->conn->flags |= CONN_IS_WEBSOCKET;
+    if (UNLIKELY(!header_buf_len))
+        return HTTP_INTERNAL_ERROR;
 
-        lwan_send(request, header_buf, header_buf_len, 0);
+    request->conn->flags |= CONN_IS_WEBSOCKET;
+    lwan_send(request, header_buf, header_buf_len, 0);
+    coro_yield(request->conn->coro, CONN_CORO_WANT_READ_WRITE);
 
-        coro_yield(request->conn->coro, CONN_CORO_WANT_READ_WRITE);
-
-        return HTTP_SWITCHING_PROTOCOLS;
-    }
-
-    return HTTP_INTERNAL_ERROR;
+    return HTTP_SWITCHING_PROTOCOLS;
 }
 
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
@@ -1654,6 +1662,16 @@ static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
     return 0;
 }
 
+static char *fuzz_websocket_handshake(struct lwan_request *r)
+{
+    char *encoded;
+
+    if (prepare_websocket_handshake(r, &encoded) == HTTP_SWITCHING_PROTOCOLS)
+        return encoded;
+
+    return NULL;
+}
+
 __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
                                                   size_t length)
 {
@@ -1716,6 +1734,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         NO_DISCARD(lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
         NO_DISCARD(lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
         NO_DISCARD(lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
+        NO_DISCARD(fuzz_websocket_handshake(&request));
 
 #undef NO_DISCARD
 
