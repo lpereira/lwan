@@ -86,11 +86,9 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
 
     memset(s, 0, sizeof(*s));
 
-    if (UNLIKELY(!grow_buffer_if_needed(s, size)))
-        return false;
-
     s->used = 0;
-    s->value.buffer[0] = '\0';
+    s->value.buffer = "";
+    s->flags = STATIC;
 
     return true;
 }
