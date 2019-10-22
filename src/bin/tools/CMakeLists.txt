@@ -32,8 +32,10 @@ else ()
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-config.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-strbuf.c
+		${CMAKE_SOURCE_DIR}/src/lib/hash.c
+		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c
+		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 
 	export(TARGETS configdump mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
-
 endif ()
