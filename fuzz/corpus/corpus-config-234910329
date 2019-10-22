@@ -1,0 +1,125 @@
+# Timeout in seconds to keep a connection alive.
+keep_alive_timeout = ${KEEP_ALIVE_TIMEOUT:15}
+
+# Set to true to not print any debugging messages. (Only effective in
+# release builds.)
+quiet = false
+
+# Set SO_REUSEPORT=1 in the master socket.
+reuse_port = false
+
+# Value of "Expires" header. Default is 1 month and 1 week.
+expires = 1M 1w
+
+# Number of I/O threads. Default (0) is number of online CPUs.
+threads = 0
+
+# This flag is enabled here so that the automated tests can be executed
+# properly, but should be disabled unless absolutely needed (an example
+# would be haproxy).
+proxy_protocol = true
+
+# Maximum post data size of slightly less than 1MiB. The default is too
+# small for testing purposes.
+max_post_data_size = 1000000
+
+# Enable straitjacket by default. The `drop_capabilities` option is `true`
+# by default.  Other options may require more privileges.
+straitjacket
+
+listener *:8080 {
+    &custom_header /customhdr
+
+    &sleep /sleep
+
+    &hello_world /hello
+
+    &quit_lwan /quit-lwan
+
+    &test_proxy /proxy
+
+    &test_chunked_encoding /chunked
+
+    &test_server_sent_event /sse
+
+    &gif_beacon /beacon
+
+    &gif_beacon /favicon.ico
+
+    &test_post_will_it_blend /post/blend
+
+    &test_post_big /post/big
+
+    redirect /elsewhere { to = http://lwan.ws }
+
+    redirect /redirect307 {
+	to = http://lwan.ws
+	code = 307
+    }
+
+    rewrite /read-env {
+	pattern user { rewrite as = /hello?name=${USER} }
+    }
+
+    response /brew-coffee { code = 418 }
+
+    &hello_world /admin {
+            authorization basic {
+	          realm = Administration Page
+                  password file = htpasswd
+	    }
+    }
+    lua /inline {
+            default type = text/html
+            cache period = 30s
+            script = '''function handle_get_root(req)
+		req:say('Hello')
+	end'''
+    }
+    lua /lua {
+            default type = text/html
+            script file = test.lua
+            cache period = 30s
+    }
+    lua /luawait {
+	    script='''function handle_get_root(req)
+                 local ms = req:query_param[[ms]]
+		 if not ms then ms = 1234 end
+                 req:say("sleeping "..ms.."ms")
+		 req:sleep(ms)
+		 req:say("slept")
+           end'''
+    }
+    rewrite /pattern {
+            pattern foo/(%d+)(%a)(%d+) {
+                    redirect to = /hello?name=pre%2middle%3othermiddle%1post
+            }
+            pattern bar/(%d+)/test {
+                    rewrite as = /hello?name=rewritten%1
+            }
+            pattern lua/redir/(%d+)x(%d+) {
+                    expand_with_lua = true
+                    redirect to = '''
+                        function handle_rewrite(req, captures)
+			    local r = captures[1] * captures[2]
+                            return '/hello?name=redirected' .. r
+                        end
+                    '''
+            }
+            pattern lua/rewrite/(%d+)x(%d+) {
+                    expand_with_lua = true
+                    rewrite as = """function handle_rewrite(req, captures)
+			    local r = captures[1] * captures[2]
+                            return '/hello?name=rewritten' .. r
+                        end"""
+            }
+    }
+    serve_files / {
+            path = ./wwwroot
+
+            # When requesting for file.ext, look for a smaller/newer file.ext.gz,
+            # and serve that instead if `Accept-Encoding: gzip` is in the
+            # request headers.
+            serve precompressed files = true
+    }
+}

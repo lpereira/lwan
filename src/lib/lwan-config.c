@@ -690,11 +690,12 @@ static bool parser_next(struct parser *parser, struct config_line **line)
     return config_buffer_consume(&parser->items, line);
 }
 
-struct config *config_open(const char *path)
+static struct config *
+config_open_path(const char *path, void **data, size_t *size)
 {
     struct config *config;
     struct stat st;
-    void *data;
+    void *mapped;
     int fd;
 
     fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -708,29 +709,37 @@ struct config *config_open(const char *path)
         return NULL;
     }
 
-    data = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
     close(fd);
-    if (data == MAP_FAILED)
+    if (mapped == MAP_FAILED)
         return NULL;
 
     config = malloc(sizeof(*config));
     if (!config) {
-        munmap(data, (size_t)st.st_size);
+        munmap(mapped, (size_t)st.st_size);
         return NULL;
     }
 
+    *data = config->mapped.addr = mapped;
+    *size = config->mapped.sz = (size_t)st.st_size;
+
+    return config;
+}
+
+static struct config *config_init_data(struct config *config,
+                                       void *data, size_t len)
+{
     config->parser = (struct parser) {
         .state = parse_config,
         .lexer = {
             .state = lex_config,
             .pos = data,
             .start = data,
-            .end = (char *)data + st.st_size,
+            .end = (char *)data + len,
             .cur_line = 1,
         }
     };
-    config->mapped.addr = data;
-    config->mapped.sz = (size_t)st.st_size;
+
     config->error_message = NULL;
 
     lwan_strbuf_init(&config->parser.strbuf);
@@ -740,13 +749,41 @@ struct config *config_open(const char *path)
     return config;
 }
 
+struct config *config_open(const char *path)
+{
+    struct config *config;
+    void *data;
+    size_t len;
+
+    config = config_open_path(path, &data, &len);
+    return config ? config_init_data(config, data, len) : NULL;
+}
+
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+struct config *config_open_for_fuzzing(void *data, size_t len)
+{
+    struct config *config = malloc(sizeof(*config));
+
+    if (config) {
+        config->mapped.addr = NULL;
+        config->mapped.sz = 0;
+
+        return config_init_data(config, data, len);
+    }
+
+    return NULL;
+}
+#endif
+
 void config_close(struct config *config)
 {
     if (!config)
         return;
 
+#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
     if (config->mapped.addr)
         munmap(config->mapped.addr, config->mapped.sz);
+#endif
 
     free(config->error_message);
     lwan_strbuf_free(&config->parser.strbuf);
