@@ -27,5 +27,13 @@ else ()
 		bin2hex.c
 	)
 
-	export(TARGETS mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+	add_executable(configdump
+		configdump.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-config.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-strbuf.c
+	)
+
+	export(TARGETS configdump mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+
 endif ()

@@ -105,6 +105,7 @@ This will generate a few binaries:
  - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a GIF file that always shows the local time.
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
+ - `src/bin/tools/configdump`: Dumps a configuration file using the configuration reader API.
 
 #### Remarks
 
