@@ -28,7 +28,6 @@
 
 static const unsigned int STATIC = 1 << 0;
 static const unsigned int DYNAMICALLY_ALLOCATED = 1 << 1;
-static const size_t DEFAULT_BUF_SIZE = 64;
 
 static inline size_t align_size(size_t unaligned_size)
 {
@@ -84,39 +83,47 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
     if (UNLIKELY(!s))
         return false;
 
-    memset(s, 0, sizeof(*s));
+    if (!size) {
+        *s = (struct lwan_strbuf) {
+            .used = 0,
+            .value.static_buffer = "",
+            .flags = STATIC,
+        };
+    } else {
+        memset(s, 0, sizeof(*s));
 
-    s->used = 0;
-    s->value.buffer = "";
-    s->flags = STATIC;
+        if (UNLIKELY(!grow_buffer_if_needed(s, size)))
+            return false;
+
+        s->value.buffer[0] = '\0';
+    }
 
     return true;
 }
 
 ALWAYS_INLINE bool lwan_strbuf_init(struct lwan_strbuf *s)
 {
-    return lwan_strbuf_init_with_size(s, DEFAULT_BUF_SIZE);
+    return lwan_strbuf_init_with_size(s, 0);
 }
 
 struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
 {
     struct lwan_strbuf *s = malloc(sizeof(*s));
 
-    if (UNLIKELY(!s))
-        return NULL;
-
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, size))) {
         free(s);
-        s = NULL;
-    } else {
-        s->flags |= DYNAMICALLY_ALLOCATED;
+
+        return NULL;
     }
+
+    s->flags |= DYNAMICALLY_ALLOCATED;
+
     return s;
 }
 
 ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new(void)
 {
-    return lwan_strbuf_new_with_size(DEFAULT_BUF_SIZE);
+    return lwan_strbuf_new_with_size(0);
 }
 
 ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new_static(const char *str,
@@ -124,12 +131,14 @@ ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new_static(const char *str,
 {
     struct lwan_strbuf *s = malloc(sizeof(*s));
 
-    if (!s)
+    if (UNLIKELY(!s))
         return NULL;
 
-    s->flags = STATIC | DYNAMICALLY_ALLOCATED;
-    s->value.static_buffer = str;
-    s->used = size;
+    *s = (struct lwan_strbuf) {
+        .flags = STATIC | DYNAMICALLY_ALLOCATED,
+        .value.static_buffer = str,
+        .used = size
+    };
 
     return s;
 }
@@ -260,7 +269,7 @@ bool lwan_strbuf_grow_by(struct lwan_strbuf *s, size_t offset)
 void lwan_strbuf_reset(struct lwan_strbuf *s)
 {
     if (s->flags & STATIC) {
-        s->value.buffer = "";
+        s->value.static_buffer = "";
     } else {
         s->value.buffer[0] = '\0';
     }
