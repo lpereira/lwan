@@ -771,7 +771,7 @@ struct config *config_open_for_fuzzing(void *data, size_t len)
         config->mapped.addr = NULL;
         config->mapped.sz = 0;
 
-        return config_init_data(config, data, len);
+        return config_init_data(config, data, len - 1);
     }
 
     return NULL;
