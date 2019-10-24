@@ -360,14 +360,22 @@ static bool isvariable(int chr)
 
 static void *lex_variable_default(struct lexer *lexer)
 {
-    while (next(lexer) != '}')
-        ;
-    backup(lexer);
-    emit(lexer, LEXEME_STRING);
+    int chr;
 
-    advance_n(lexer, strlen("}"));
+    do {
+        chr = next(lexer);
 
-    return lex_config;
+        if (chr == '}') {
+            backup(lexer);
+            emit(lexer, LEXEME_STRING);
+
+            advance_n(lexer, strlen("}"));
+
+            return lex_config;
+        }
+    } while (chr != '\0');
+
+    return lex_error(lexer, "EOF while scanning for end of variable");
 }
 
 static void *lex_variable(struct lexer *lexer)
