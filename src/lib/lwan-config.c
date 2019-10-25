@@ -606,6 +606,11 @@ static void *parse_section(struct parser *parser)
     if (!lexeme_buffer_consume(&parser->buffer, &lexeme))
         return NULL;
 
+    if (!lexeme->value.len) {
+        lwan_status_error("Section is empty");
+        return NULL;
+    }
+
     lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
     name_len = lexeme->value.len;
     lwan_strbuf_append_char(&parser->strbuf, '\0');
