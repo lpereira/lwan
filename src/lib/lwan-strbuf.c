@@ -166,9 +166,6 @@ bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
 
 bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (!sz)
-        sz = strlen(s2);
-
     if (UNLIKELY(!grow_buffer_if_needed(s1, s1->used + sz + 2)))
         return false;
 
@@ -181,9 +178,6 @@ bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
 
 bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (!sz)
-        sz = strlen(s2);
-
     if (!(s1->flags & STATIC))
         free(s1->value.buffer);
 
@@ -196,9 +190,6 @@ bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 
 bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (!sz)
-        sz = strlen(s2);
-
     if (UNLIKELY(!grow_buffer_if_needed(s1, sz + 1)))
         return false;
 

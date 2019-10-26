@@ -175,16 +175,16 @@ LWAN_HANDLER(hello_world)
     if (!dump_vars)
         goto end;
 
-    lwan_strbuf_append_str(response->buffer, "\n\nCookies\n", 0);
-    lwan_strbuf_append_str(response->buffer, "-------\n\n", 0);
+    lwan_strbuf_append_strz(response->buffer, "\n\nCookies\n");
+    lwan_strbuf_append_strz(response->buffer, "-------\n\n");
 
     LWAN_ARRAY_FOREACH(lwan_request_get_cookies(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
                     "Key = \"%s\"; Value = \"%s\"\n", iter->key, iter->value);
     }
 
-    lwan_strbuf_append_str(response->buffer, "\n\nQuery String Variables\n", 0);
-    lwan_strbuf_append_str(response->buffer, "----------------------\n\n", 0);
+    lwan_strbuf_append_strz(response->buffer, "\n\nQuery String Variables\n");
+    lwan_strbuf_append_strz(response->buffer, "----------------------\n\n");
 
     LWAN_ARRAY_FOREACH(lwan_request_get_query_params(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
@@ -194,8 +194,8 @@ LWAN_HANDLER(hello_world)
     if (lwan_request_get_method(request) != REQUEST_METHOD_POST)
         goto end;
 
-    lwan_strbuf_append_str(response->buffer, "\n\nPOST data\n", 0);
-    lwan_strbuf_append_str(response->buffer, "---------\n\n", 0);
+    lwan_strbuf_append_strz(response->buffer, "\n\nPOST data\n");
+    lwan_strbuf_append_strz(response->buffer, "---------\n\n");
 
     LWAN_ARRAY_FOREACH(lwan_request_get_post_params(request), iter) {
         lwan_strbuf_append_printf(response->buffer,
@@ -232,7 +232,7 @@ LWAN_HANDLER(sleep)
         lwan_strbuf_printf(response->buffer,
                            "Returned from sleep. diff_ms = %"PRIi64, diff_ms);
     } else {
-        lwan_strbuf_set_static(response->buffer, "Did not sleep", 0);
+        lwan_strbuf_set_staticz(response->buffer, "Did not sleep");
     }
 
     return HTTP_OK;

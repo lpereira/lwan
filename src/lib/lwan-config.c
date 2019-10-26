@@ -508,9 +508,6 @@ static void *parse_key_value(struct parser *parser)
     size_t key_size;
 
     while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
-        if (lexeme->value.len == 0)
-            continue;
-
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                lexeme->value.len);
 
@@ -534,7 +531,7 @@ static void *parse_key_value(struct parser *parser)
                         (int)lexeme->value.len, lexeme->value.value);
                     return NULL;
                 } else {
-                    lwan_strbuf_append_str(&parser->strbuf, value, 0);
+                    lwan_strbuf_append_strz(&parser->strbuf, value);
                 }
             } else {
                 struct lexeme *var_name = lexeme;
@@ -559,7 +556,7 @@ static void *parse_key_value(struct parser *parser)
                     lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                            lexeme->value.len);
                 } else {
-                    lwan_strbuf_append_str(&parser->strbuf, value, 0);
+                    lwan_strbuf_append_strz(&parser->strbuf, value);
                 }
             }
 
@@ -605,11 +602,6 @@ static void *parse_section(struct parser *parser)
 
     if (!lexeme_buffer_consume(&parser->buffer, &lexeme))
         return NULL;
-
-    if (!lexeme->value.len) {
-        lwan_status_error("Section is empty");
-        return NULL;
-    }
 
     lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
     name_len = lexeme->value.len;

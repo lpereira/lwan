@@ -897,7 +897,7 @@ void lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
     const char *str = *(char **)ptr;
 
     if (LIKELY(str))
-        lwan_strbuf_append_str(buf, str, 0);
+        lwan_strbuf_append_strz(buf, str);
 }
 
 void lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)

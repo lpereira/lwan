@@ -67,6 +67,7 @@ global:
     lwan_strbuf_append_char;
     lwan_strbuf_append_printf;
     lwan_strbuf_append_str;
+    lwan_strbuf_append_strz;
     lwan_strbuf_free;
     lwan_strbuf_init;
     lwan_strbuf_init_with_size;
@@ -77,6 +78,8 @@ global:
     lwan_strbuf_reset;
     lwan_strbuf_set;
     lwan_strbuf_set_static;
+    lwan_strbuf_setz;
+    lwan_strbuf_set_staticz;
 
     lwan_module_info_*;
 

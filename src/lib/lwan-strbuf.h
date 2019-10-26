@@ -21,6 +21,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <string.h>
 #include <stdio.h>
 
 struct lwan_strbuf {
@@ -42,12 +43,31 @@ void lwan_strbuf_free(struct lwan_strbuf *s);
 void lwan_strbuf_reset(struct lwan_strbuf *s);
 
 bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c);
+
 bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz);
+static inline bool lwan_strbuf_append_strz(struct lwan_strbuf *s1,
+                                           const char *s2)
+{
+    return lwan_strbuf_append_str(s1, s2, strlen(s2));
+}
+
+bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz);
+static inline bool lwan_strbuf_set_staticz(struct lwan_strbuf *s1,
+                                           const char *s2)
+{
+    return lwan_strbuf_set_static(s1, s2, strlen(s2));
+}
+
+bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz);
+static inline bool lwan_strbuf_setz(struct lwan_strbuf *s1, const char *s2)
+{
+    return lwan_strbuf_set(s1, s2, strlen(s2));
+}
+
+
 bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
 
-bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz);
-bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz);
 bool lwan_strbuf_printf(struct lwan_strbuf *s1, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
 
