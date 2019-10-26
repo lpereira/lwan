@@ -117,15 +117,15 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     char request_buffer[DEFAULT_BUFFER_SIZE];
     struct lwan_value buffer = {.value = request_buffer, .len = 0};
     char *next_request = NULL;
-    enum lwan_request_flags flags = 0;
     struct lwan_proxy proxy;
 
     if (UNLIKELY(!lwan_strbuf_init(&strbuf)))
         goto out;
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
-    flags |= REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
-             REQUEST_FLAG(allow_cors, ALLOW_CORS);
+    enum lwan_request_flags flags =
+            REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
+            REQUEST_FLAG(allow_cors, ALLOW_CORS);
 
     while (true) {
         struct lwan_request request = {.conn = conn,

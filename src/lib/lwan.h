@@ -210,7 +210,7 @@ enum lwan_request_flags {
      * request-processing coroutine.
      *
      * Allows this:  if (some_boolean) flags |= SOME_FLAG;
-     * To turn into: flags |= some_boolean << SOME_FLAG_SHIFT;
+     * To turn into: flags |= (uint32_t)some_boolean << SOME_FLAG_SHIFT;
      */
     REQUEST_ALLOW_PROXY_REQS_SHIFT = 7,
     REQUEST_ALLOW_CORS_SHIFT = 9,
