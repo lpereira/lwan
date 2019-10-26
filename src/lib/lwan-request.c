@@ -1711,7 +1711,6 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     data_copy[length - 1] = '\0';
 
     if (parse_http_request(&request) == HTTP_OK) {
-        const char *trash0;
         off_t trash1;
         time_t trash2;
         size_t gen = coro_deferred_get_generation(coro);
@@ -1724,7 +1723,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
 #define NO_DISCARD(...)                                                        \
     do {                                                                       \
-        const char *no_discard_ = __VA_ARGS__;                                 \
+        typeof(__VA_ARGS__) no_discard_ = __VA_ARGS__;                         \
         __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
     } while (0)
 
@@ -1736,10 +1735,13 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         NO_DISCARD(lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
         NO_DISCARD(fuzz_websocket_handshake(&request));
 
-#undef NO_DISCARD
-
         lwan_request_get_range(&request, &trash1, &trash1);
+        NO_DISCARD(trash1);
+
         lwan_request_get_if_modified_since(&request, &trash2);
+        NO_DISCARD(trash2);
+
+#undef NO_DISCARD
 
         coro_deferred_run(coro, gen);
     }
