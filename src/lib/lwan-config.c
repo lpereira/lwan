@@ -289,6 +289,11 @@ static int peek(struct lexer *lexer)
     return chr;
 }
 
+static size_t remaining(struct lexer *lexer)
+{
+    return (size_t)(lexer->end - lexer->pos);
+}
+
 static void *lex_config(struct lexer *lexer);
 static void *lex_variable(struct lexer *lexer);
 
@@ -337,11 +342,14 @@ static void *lex_error(struct lexer *lexer, const char *msg)
 
 static void *lex_multiline_string(struct lexer *lexer)
 {
-    char *end = (peek(lexer) == '"') ? "\"\"\"" : "'''";
+    const char *end = (peek(lexer) == '"') ? "\"\"\"" : "'''";
 
     advance_n(lexer, strlen("'''") - 1);
 
     do {
+        if (remaining(lexer) < 3)
+            break;
+
         if (!strncmp(lexer->pos, end, 3)) {
             emit(lexer, LEXEME_STRING);
             lexer->pos += 3;
