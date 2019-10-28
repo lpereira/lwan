@@ -1313,25 +1313,29 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
     return HTTP_SWITCHING_PROTOCOLS;
 }
 
+static bool authorize(struct lwan_request *request,
+                      const struct lwan_url_map *url_map)
+{
+    const char *authorization =
+        lwan_request_get_header(request, "Authorization");
+    struct lwan_value header = {
+        .value = (char *)authorization,
+        .len = authorization ? strlen(authorization) : 0,
+    };
+
+    return lwan_http_authorize(request, &header, url_map->authorization.realm,
+                               url_map->authorization.password_file);
+}
+
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
                                                   struct lwan_request *request)
 {
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
-    if (url_map->flags & HANDLER_MUST_AUTHORIZE) {
-        const char *authorization =
-            lwan_request_get_header(request, "Authorization");
-        struct lwan_value header = {
-            .value = (char*)authorization,
-            .len = authorization ? strlen(authorization) : 0,
-        };
-
-        if (!lwan_http_authorize(request, &header,
-                                 url_map->authorization.realm,
-                                 url_map->authorization.password_file))
-            return HTTP_NOT_AUTHORIZED;
-    }
+    if (UNLIKELY(url_map->flags & HANDLER_MUST_AUTHORIZE &&
+                 !authorize(request, url_map)))
+        return HTTP_NOT_AUTHORIZED;
 
     while (*request->url.value == '/' && request->url.len > 0) {
         request->url.value++;
@@ -1479,7 +1483,7 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
     return value_lookup(lwan_request_get_cookies(request), key);
 }
 
-const char *lwan_request_get_header(struct lwan_request *request,
+const char *lwan_request_get_header(const struct lwan_request *request,
                                     const char *header)
 {
     char name[64];
@@ -1740,6 +1744,15 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
         lwan_request_get_if_modified_since(&request, &trash2);
         NO_DISCARD(trash2);
+
+        /* FIXME: Write to a temporary file with bogus bug valid data? */
+        struct lwan_url_map url_map = {
+            .authorization = {
+                .realm = "Fuzzy Realm",
+                .password_file = "/dev/null",
+            },
+        };
+        NO_DISCARD(authorize(&request, &url_map));
 
 #undef NO_DISCARD
 
