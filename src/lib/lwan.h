@@ -476,7 +476,7 @@ const char *lwan_request_get_query_param(struct lwan_request *request,
 const char *lwan_request_get_cookie(struct lwan_request *request,
                                     const char *key)
     __attribute__((warn_unused_result, pure));
-const char *lwan_request_get_header(const struct lwan_request *request,
+const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
     __attribute__((warn_unused_result));
 

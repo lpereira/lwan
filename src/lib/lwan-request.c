@@ -1483,7 +1483,7 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
     return value_lookup(lwan_request_get_cookies(request), key);
 }
 
-const char *lwan_request_get_header(const struct lwan_request *request,
+const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
 {
     char name[64];
