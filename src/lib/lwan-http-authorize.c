@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include <errno.h>
@@ -40,14 +41,13 @@ static void fourty_two_and_free(void *str)
         char *s = str;
         while (*s)
             *s++ = 42;
-        __asm__ __volatile__("" :: "g"(s) : "memory");
+        __asm__ __volatile__("" ::"g"(s) : "memory");
         free(str);
     }
 }
 
-static struct cache_entry *create_realm_file(
-          const char *key,
-          void *context __attribute__((unused)))
+static struct cache_entry *
+create_realm_file(const char *key, void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
     struct config *f;
@@ -87,8 +87,7 @@ static struct cache_entry *create_realm_file(
 
             if (err == -EEXIST) {
                 lwan_status_warning(
-                    "Username entry already exists, ignoring: \"%s\"",
-                    l.key);
+                    "Username entry already exists, ignoring: \"%s\"", l.key);
                 continue;
             }
 
@@ -101,8 +100,8 @@ static struct cache_entry *create_realm_file(
     }
 
     if (config_last_error(f)) {
-        lwan_status_error("Error on password file \"%s\", line %d: %s",
-              key, config_cur_line(f), config_last_error(f));
+        lwan_status_error("Error on password file \"%s\", line %d: %s", key,
+                          config_cur_line(f), config_last_error(f));
         goto error;
     }
 
@@ -118,32 +117,26 @@ error_no_close:
 }
 
 static void destroy_realm_file(struct cache_entry *entry,
-                                void *context __attribute__((unused)))
+                               void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = (struct realm_password_file_t *)entry;
     hash_free(rpf->entries);
     free(rpf);
 }
 
-bool
-lwan_http_authorize_init(void)
+bool lwan_http_authorize_init(void)
 {
-    realm_password_cache = cache_create(create_realm_file,
-          destroy_realm_file, NULL, 60);
+    realm_password_cache =
+        cache_create(create_realm_file, destroy_realm_file, NULL, 60);
 
     return !!realm_password_cache;
 }
 
-void
-lwan_http_authorize_shutdown(void)
-{
-    cache_destroy(realm_password_cache);
-}
+void lwan_http_authorize_shutdown(void) { cache_destroy(realm_password_cache); }
 
-static bool
-authorize(struct coro *coro,
-    struct lwan_value *authorization,
-    const char *password_file)
+static bool authorize(struct coro *coro,
+                      struct lwan_value *authorization,
+                      const char *password_file)
 {
     struct realm_password_file_t *rpf;
     unsigned char *decoded;
@@ -154,7 +147,7 @@ authorize(struct coro *coro,
     bool password_ok = false;
 
     rpf = (struct realm_password_file_t *)cache_coro_get_and_ref_entry(
-            realm_password_cache, coro, password_file);
+        realm_password_cache, coro, password_file);
     if (UNLIKELY(!rpf))
         return false;
 
@@ -179,11 +172,10 @@ out:
     return password_ok;
 }
 
-bool
-lwan_http_authorize(struct lwan_request *request,
-                    struct lwan_value *authorization,
-                    const char *realm,
-                    const char *password_file)
+bool lwan_http_authorize(struct lwan_request *request,
+                         struct lwan_value *authorization,
+                         const char *realm,
+                         const char *password_file)
 {
     static const char authenticate_tmpl[] = "Basic realm=\"%s\"";
     static const size_t basic_len = sizeof("Basic ") - 1;
@@ -207,8 +199,8 @@ unauthorized:
         return false;
 
     headers[0].key = "WWW-Authenticate";
-    headers[0].value = coro_printf(request->conn->coro,
-                authenticate_tmpl, realm);
+    headers[0].value =
+        coro_printf(request->conn->coro, authenticate_tmpl, realm);
     headers[1].key = headers[1].value = NULL;
 
     request->response.headers = headers;

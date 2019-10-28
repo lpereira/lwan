@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #pragma once
@@ -24,8 +25,7 @@
 bool lwan_http_authorize_init(void);
 void lwan_http_authorize_shutdown(void);
 
-bool
-lwan_http_authorize(struct lwan_request *request,
-                    struct lwan_value *authorization,
-                    const char *realm,
-                    const char *password_file);
+bool lwan_http_authorize(struct lwan_request *request,
+                         struct lwan_value *authorization,
+                         const char *realm,
+                         const char *password_file);
