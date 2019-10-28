@@ -1737,6 +1737,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         NO_DISCARD(lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
         NO_DISCARD(lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
         NO_DISCARD(lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
+
         NO_DISCARD(fuzz_websocket_handshake(&request));
 
         lwan_request_get_range(&request, &trash1, &trash1);
@@ -1745,10 +1746,11 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         lwan_request_get_if_modified_since(&request, &trash2);
         NO_DISCARD(trash2);
 
-        /* FIXME: Write to a temporary file with bogus bug valid data? */
         struct lwan_url_map url_map = {
             .authorization = {
                 .realm = "Fuzzy Realm",
+                /* The file name doesn't matter here, a hardcoded user/password
+                 * list will be used instead if Lwan is built for fuzzing. */
                 .password_file = "/dev/null",
             },
         };
