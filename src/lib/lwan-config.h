@@ -69,7 +69,8 @@ int parse_int(const char *value, int default_value);
 unsigned int parse_time_period(const char *str, unsigned int default_value);
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-struct config *config_open_for_fuzzing(void *data, size_t len);
+#include <stdint.h>
+struct config *config_open_for_fuzzing(const uint8_t *data, size_t len);
 #endif
 
 #if defined(__cplusplus)

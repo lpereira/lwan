@@ -742,18 +742,19 @@ config_open_path(const char *path, void **data, size_t *size)
     return config;
 }
 
-static struct config *config_init_data(struct config *config,
-                                       void *data, size_t len)
+static struct config *
+config_init_data(struct config *config, const void *data, size_t len)
 {
-    config->parser = (struct parser) {
+    config->parser = (struct parser){
         .state = parse_config,
-        .lexer = {
-            .state = lex_config,
-            .pos = data,
-            .start = data,
-            .end = (char *)data + len,
-            .cur_line = 1,
-        }
+        .lexer =
+            {
+                .state = lex_config,
+                .pos = data,
+                .start = data,
+                .end = (char *)data + len,
+                .cur_line = 1,
+            },
     };
 
     config->error_message = NULL;
@@ -776,7 +777,7 @@ struct config *config_open(const char *path)
 }
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-struct config *config_open_for_fuzzing(void *data, size_t len)
+struct config *config_open_for_fuzzing(const uint8_t *data, size_t len)
 {
     struct config *config = malloc(sizeof(*config));
 

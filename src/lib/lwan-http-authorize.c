@@ -61,8 +61,8 @@ create_realm_file(const char *key, void *context __attribute__((unused)))
         goto error_no_close;
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-    static char hardcoded_user_config[] = "user=password\n"
-                                          "root=hunter2\n";
+    static const uint8_t hardcoded_user_config[] = "user=password\n"
+                                                   "root=hunter2\n";
     f = config_open_for_fuzzing(hardcoded_user_config,
                                 sizeof(hardcoded_user_config));
 #else

@@ -41,16 +41,11 @@ dump(struct config *config, struct config_line *line, int indent_level)
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-    static uint8_t static_data[32768];
     struct config *config;
     struct config_line line;
     int indent_level = 0;
 
-    if (size > sizeof(static_data))
-        size = sizeof(static_data);
-    memcpy(static_data, data, size);
-
-    config = config_open_for_fuzzing(static_data, size);
+    config = config_open_for_fuzzing(data, size);
     if (!config)
         return 1;
 
