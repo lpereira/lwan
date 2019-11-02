@@ -1688,8 +1688,11 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         length = sizeof(data_copy);
     memcpy(data_copy, data, length);
 
-    if (!coro)
+    if (!coro) {
         coro = coro_new(&switcher, useless_coro_for_fuzzing, NULL);
+
+        lwan_http_authorize_init();
+    }
 
     struct lwan_request_parser_helper helper = {
         .buffer = &(struct lwan_value){.value = data_copy, .len = length},
