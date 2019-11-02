@@ -340,6 +340,14 @@ static void *lex_error(struct lexer *lexer, const char *msg)
     return NULL;
 }
 
+static bool lex_streq(struct lexer *lexer, const char *str, size_t s)
+{
+    if (remaining(lexer) < s)
+        return false;
+
+    return !strncmp(lexer->pos, str, s);
+}
+
 static void *lex_multiline_string(struct lexer *lexer)
 {
     const char *end = (peek(lexer) == '"') ? "\"\"\"" : "'''";
@@ -347,10 +355,7 @@ static void *lex_multiline_string(struct lexer *lexer)
     advance_n(lexer, strlen("'''") - 1);
 
     do {
-        if (remaining(lexer) < 3)
-            break;
-
-        if (!strncmp(lexer->pos, end, 3)) {
+        if (lex_streq(lexer, end, 3)) {
             emit(lexer, LEXEME_STRING);
             lexer->pos += 3;
 
@@ -463,9 +468,9 @@ static void *lex_config(struct lexer *lexer)
         if (chr == '#')
             return lex_comment;
 
-        if (chr == '\'' && !strncmp(lexer->pos, "''", 2))
+        if (chr == '\'' && lex_streq(lexer, "''", 2))
             return lex_multiline_string;
-        if (chr == '"' && !strncmp(lexer->pos, "\"\"", 2))
+        if (chr == '"' && lex_streq(lexer, "\"\"", 2))
             return lex_multiline_string;
 
         if (chr == '$' && peek(lexer) == '{')
