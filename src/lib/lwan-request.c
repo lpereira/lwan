@@ -516,7 +516,7 @@ __attribute__((noinline)) static void set_header_value(
 {
     p += header_len;
 
-    if (LIKELY(string_as_int16(p) == STR2_INT(':', ' '))) {
+    if (LIKELY(string_as_uint16(p) == STR2_INT(':', ' '))) {
         *end = '\0';
         char *value = p + sizeof(": ") - 1;
 
