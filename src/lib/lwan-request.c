@@ -1691,6 +1691,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     if (!coro) {
         coro = coro_new(&switcher, useless_coro_for_fuzzing, NULL);
 
+        lwan_job_thread_init();
         lwan_http_authorize_init();
     }
 
