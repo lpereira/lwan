@@ -1354,12 +1354,26 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define DISPATCH_ACTION() goto *dispatch_table[chunk->action]
+#define RETURN_IF_NO_CHUNK()                                                   \
+    do {                                                                       \
+        if (UNLIKELY(!chunk)) {                                                \
+            lwan_status_error("Chunk is NULL while dispatching");              \
+            return NULL;                                                       \
+        }                                                                      \
+    } while (false)
+
+#define DISPATCH_ACTION()                                                      \
+    do {                                                                       \
+        RETURN_IF_NO_CHUNK();                                                  \
+        goto *dispatch_table[chunk->action];                                   \
+    } while (false)
 
 #define DISPATCH_NEXT_ACTION()                                                 \
     do {                                                                       \
+        RETURN_IF_NO_CHUNK();                                                  \
+                                                                               \
         chunk++;                                                               \
-        DISPATCH_ACTION();                                                     \
+        goto *dispatch_table[chunk->action];                                   \
     } while (false)
 
     DISPATCH_ACTION();
