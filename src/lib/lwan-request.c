@@ -1504,9 +1504,9 @@ lwan_connection_get_fd(const struct lwan *lwan, const struct lwan_connection *co
 
 const char *
 lwan_request_get_remote_address(struct lwan_request *request,
-            char buffer[static INET6_ADDRSTRLEN])
+                                char buffer[static INET6_ADDRSTRLEN])
 {
-    struct sockaddr_storage non_proxied_addr = { .ss_family = AF_UNSPEC };
+    struct sockaddr_storage non_proxied_addr = {.ss_family = AF_UNSPEC};
     struct sockaddr_storage *sock_addr;
 
     if (request->flags & REQUEST_PROXIED) {
@@ -1519,19 +1519,17 @@ lwan_request_get_remote_address(struct lwan_request *request,
 
         sock_addr = &non_proxied_addr;
 
-        if (UNLIKELY(getpeername(request->fd,
-                                 (struct sockaddr *) sock_addr,
+        if (UNLIKELY(getpeername(request->fd, (struct sockaddr *)sock_addr,
                                  &sock_len) < 0))
             return NULL;
     }
 
-    if (sock_addr->ss_family == AF_INET)
-        return inet_ntop(AF_INET,
-                         &((struct sockaddr_in *) sock_addr)->sin_addr,
+    if (sock_addr->ss_family == AF_INET) {
+        return inet_ntop(AF_INET, &((struct sockaddr_in *)sock_addr)->sin_addr,
                          buffer, INET6_ADDRSTRLEN);
+    }
 
-    return inet_ntop(AF_INET6,
-                     &((struct sockaddr_in6 *) sock_addr)->sin6_addr,
+    return inet_ntop(AF_INET6, &((struct sockaddr_in6 *)sock_addr)->sin6_addr,
                      buffer, INET6_ADDRSTRLEN);
 }
 
