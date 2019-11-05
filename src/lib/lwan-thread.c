@@ -41,12 +41,6 @@
 
 static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
 
-#define REQUEST_FLAG(bool_, name_)                                             \
-    ((enum lwan_request_flags)(((uint32_t)lwan->config.bool_)                  \
-                               << REQUEST_##name_##_SHIFT))
-static_assert(sizeof(enum lwan_request_flags) == sizeof(uint32_t),
-              "lwan_request_flags has the same size as uint32_t");
-
 static void lwan_strbuf_free_defer(void *data)
 {
     lwan_strbuf_free((struct lwan_strbuf *)data);
@@ -124,8 +118,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
     enum lwan_request_flags flags =
-            REQUEST_FLAG(proxy_protocol, ALLOW_PROXY_REQS) |
-            REQUEST_FLAG(allow_cors, ALLOW_CORS);
+            (lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
+            (lwan->config.allow_cors ? REQUEST_ALLOW_CORS : 0);
 
     while (true) {
         struct lwan_request request = {.conn = conn,

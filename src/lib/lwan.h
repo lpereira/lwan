@@ -212,15 +212,6 @@ enum lwan_handler_flags {
 enum lwan_request_flags {
     REQUEST_ALL_FLAGS = -1,
 
-    /* Shift values to make easier to build flags while booting a
-     * request-processing coroutine.
-     *
-     * Allows this:  if (some_boolean) flags |= SOME_FLAG;
-     * To turn into: flags |= (uint32_t)some_boolean << SOME_FLAG_SHIFT;
-     */
-    REQUEST_ALLOW_PROXY_REQS_SHIFT = 7,
-    REQUEST_ALLOW_CORS_SHIFT = 9,
-
     REQUEST_METHOD_MASK = FOR_EACH_REQUEST_METHOD(SELECT_MASK) 0,
     FOR_EACH_REQUEST_METHOD(GENERATE_ENUM_ITEM)
 
@@ -228,9 +219,9 @@ enum lwan_request_flags {
     REQUEST_ACCEPT_GZIP = 1 << 4,
     REQUEST_ACCEPT_BROTLI = 1 << 5,
     REQUEST_IS_HTTP_1_0 = 1 << 6,
-    REQUEST_ALLOW_PROXY_REQS = 1 << REQUEST_ALLOW_PROXY_REQS_SHIFT,
+    REQUEST_ALLOW_PROXY_REQS = 1 << 7,
     REQUEST_PROXIED = 1 << 8,
-    REQUEST_ALLOW_CORS = 1 << REQUEST_ALLOW_CORS_SHIFT,
+    REQUEST_ALLOW_CORS = 1 << 9,
 
     RESPONSE_SENT_HEADERS = 1 << 10,
     RESPONSE_CHUNKED_ENCODING = 1 << 11,
