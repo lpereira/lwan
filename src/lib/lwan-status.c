@@ -81,10 +81,14 @@ static int status_index(enum lwan_status_type type)
 
 #define V(c) { .value = c, .len = sizeof(c) - 1 }
 static const struct lwan_value start_colors[] = {
-    [STATUS_INFO] = V("\033[36m"),       [STATUS_WARNING] = V("\033[33m"),
-    [STATUS_DEBUG] = V("\033[37m"),      [STATUS_PERROR] = V("\033[35m"),
-    [STATUS_CRITICAL] = V("\033[31;1m"), [STATUS_NONE] = V(""),
+    [STATUS_INFO] = V("\033[36m"),
+    [STATUS_WARNING] = V("\033[33m"),
+    [STATUS_DEBUG] = V("\033[37m"),
+    [STATUS_PERROR] = V("\033[35m"),
+    [STATUS_CRITICAL] = V("\033[31;1m"),
+    [STATUS_NONE] = V(""),
     [STATUS_ERROR] = V("\033[35m"),
+    [STATUS_CRITICAL | STATUS_PERROR] = V("\033[31;1m"),
 };
 
 static inline struct lwan_value start_color(enum lwan_status_type type)
