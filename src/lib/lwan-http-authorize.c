@@ -180,24 +180,27 @@ out:
 }
 
 bool lwan_http_authorize(struct lwan_request *request,
-                         struct lwan_value *authorization,
                          const char *realm,
                          const char *password_file)
 {
     static const char authenticate_tmpl[] = "Basic realm=\"%s\"";
     static const size_t basic_len = sizeof("Basic ") - 1;
     struct lwan_key_value *headers;
+    const char *authorization =
+        lwan_request_get_header(request, "Authorization");
 
-    if (!authorization->value)
+    if (!authorization)
         goto unauthorized;
 
-    if (UNLIKELY(strncmp(authorization->value, "Basic ", basic_len)))
+    if (UNLIKELY(strncmp(authorization, "Basic ", basic_len)))
         goto unauthorized;
 
-    authorization->value += basic_len;
-    authorization->len -= basic_len;
+    struct lwan_value header = {
+        .value = (char *)(authorization + basic_len),
+        .len = strlen(authorization) - basic_len,
+    };
 
-    if (authorize(request->conn->coro, authorization, password_file))
+    if (authorize(request->conn->coro, &header, password_file))
         return true;
 
 unauthorized:

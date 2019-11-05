@@ -1313,20 +1313,6 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
     return HTTP_SWITCHING_PROTOCOLS;
 }
 
-static bool authorize(struct lwan_request *request,
-                      const struct lwan_url_map *url_map)
-{
-    const char *authorization =
-        lwan_request_get_header(request, "Authorization");
-    struct lwan_value header = {
-        .value = (char *)authorization,
-        .len = authorization ? strlen(authorization) : 0,
-    };
-
-    return lwan_http_authorize(request, &header, url_map->authorization.realm,
-                               url_map->authorization.password_file);
-}
-
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
                                                   struct lwan_request *request)
 {
@@ -1334,7 +1320,8 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
     request->url.len -= url_map->prefix_len;
 
     if (UNLIKELY(url_map->flags & HANDLER_MUST_AUTHORIZE &&
-                 !authorize(request, url_map)))
+                 !lwan_http_authorize(request, url_map->authorization.realm,
+                                      url_map->authorization.password_file)))
         return HTTP_NOT_AUTHORIZED;
 
     while (*request->url.value == '/' && request->url.len > 0) {
@@ -1750,15 +1737,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         lwan_request_get_if_modified_since(&request, &trash2);
         NO_DISCARD(trash2);
 
-        struct lwan_url_map url_map = {
-            .authorization = {
-                .realm = "Fuzzy Realm",
-                /* The file name doesn't matter here, a hardcoded user/password
-                 * list will be used instead if Lwan is built for fuzzing. */
-                .password_file = "/dev/null",
-            },
-        };
-        NO_DISCARD(authorize(&request, &url_map));
+        NO_DISCARD(lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
 
 #undef NO_DISCARD
 
