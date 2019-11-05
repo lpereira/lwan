@@ -32,15 +32,17 @@ static void indent(int level)
 }
 
 static void
-dump(struct config *config, struct config_line *line, int indent_level)
+dump(struct config *config, int indent_level)
 {
+    const struct config_line *line;
+
     if (indent_level > 64) {
         lwan_status_critical("Indent level %d above limit, aborting",
                              indent_level);
         return;
     }
 
-    while (config_read_line(config, line)) {
+    while ((line = config_read_line(config))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             indent(indent_level);
@@ -60,7 +62,7 @@ dump(struct config *config, struct config_line *line, int indent_level)
             indent(indent_level);
             printf("%s %s {\n", line->key, line->value);
 
-            dump(config, line, indent_level + 1);
+            dump(config, indent_level + 1);
 
             indent(indent_level);
             printf("}\n");
@@ -78,7 +80,6 @@ dump(struct config *config, struct config_line *line, int indent_level)
 int main(int argc, char *argv[])
 {
     struct config *config;
-    struct config_line line;
     int indent_level = 0;
 
     if (argc < 2) {
@@ -93,7 +94,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    dump(config, &line, indent_level);
+    dump(config, indent_level);
 
     config_close(config);
 

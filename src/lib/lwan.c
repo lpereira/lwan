@@ -138,7 +138,7 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
 }
 
 static void parse_listener_prefix_authorization(struct config *c,
-                                                struct config_line *l,
+                                                const struct config_line *l,
                                                 struct lwan_url_map *url_map)
 {
     if (!streq(l->value, "basic")) {
@@ -148,7 +148,7 @@ static void parse_listener_prefix_authorization(struct config *c,
 
     memset(&url_map->authorization, 0, sizeof(url_map->authorization));
 
-    while (config_read_line(c, l)) {
+    while ((l = config_read_line(c))) {
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(l->key, "realm")) {
@@ -183,7 +183,7 @@ error:
 }
 
 static void parse_listener_prefix(struct config *c,
-                                  struct config_line *l,
+                                  const struct config_line *l,
                                   struct lwan *lwan,
                                   const struct lwan_module *module,
                                   void *handler)
@@ -199,7 +199,7 @@ static void parse_listener_prefix(struct config *c,
         goto out;
     }
 
-    while (config_read_line(c, l)) {
+    while ((l = config_read_line(c))) {
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             hash_add(hash, strdup(l->key), strdup(l->value));
@@ -284,28 +284,27 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
     }
 }
 
-static void parse_listener(struct config *c, struct config_line *l,
+static void parse_listener(struct config *c,
+                           const struct config_line *l,
                            struct lwan *lwan)
 {
     free(lwan->config.listener);
     lwan->config.listener = strdup(l->value);
 
-    while (config_read_line(c, l)) {
+    while ((l = config_read_line(c))) {
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             config_error(c, "Expecting prefix section");
             return;
         case CONFIG_LINE_TYPE_SECTION:
             if (l->key[0] == '&') {
-                l->key++;
-
-                void *handler = find_handler(l->key);
+                void *handler = find_handler(l->key + 1);
                 if (handler) {
                     parse_listener_prefix(c, l, lwan, NULL, handler);
                     continue;
                 }
 
-                config_error(c, "Could not find handler name: %s", l->key);
+                config_error(c, "Could not find handler name: %s", l->key + 1);
                 return;
             }
 
@@ -347,8 +346,8 @@ out:
 
 static bool setup_from_config(struct lwan *lwan, const char *path)
 {
+    const struct config_line *line;
     struct config *conf;
-    struct config_line line;
     bool has_listener = false;
     char path_buf[PATH_MAX];
 
@@ -363,65 +362,65 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     if (!lwan_trie_init(&lwan->url_map_trie, destroy_urlmap))
         return false;
 
-    while (config_read_line(conf, &line)) {
-        switch (line.type) {
+    while ((line = config_read_line(conf))) {
+        switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
-            if (streq(line.key, "keep_alive_timeout")) {
+            if (streq(line->key, "keep_alive_timeout")) {
                 lwan->config.keep_alive_timeout = (unsigned short)parse_long(
-                    line.value, default_config.keep_alive_timeout);
-            } else if (streq(line.key, "quiet")) {
+                    line->value, default_config.keep_alive_timeout);
+            } else if (streq(line->key, "quiet")) {
                 lwan->config.quiet =
-                    parse_bool(line.value, default_config.quiet);
-            } else if (streq(line.key, "reuse_port")) {
+                    parse_bool(line->value, default_config.quiet);
+            } else if (streq(line->key, "reuse_port")) {
                 lwan->config.reuse_port =
-                    parse_bool(line.value, default_config.reuse_port);
-            } else if (streq(line.key, "proxy_protocol")) {
+                    parse_bool(line->value, default_config.reuse_port);
+            } else if (streq(line->key, "proxy_protocol")) {
                 lwan->config.proxy_protocol =
-                    parse_bool(line.value, default_config.proxy_protocol);
-            } else if (streq(line.key, "allow_cors")) {
+                    parse_bool(line->value, default_config.proxy_protocol);
+            } else if (streq(line->key, "allow_cors")) {
                 lwan->config.allow_cors =
-                    parse_bool(line.value, default_config.allow_cors);
-            } else if (streq(line.key, "expires")) {
+                    parse_bool(line->value, default_config.allow_cors);
+            } else if (streq(line->key, "expires")) {
                 lwan->config.expires =
-                    parse_time_period(line.value, default_config.expires);
-            } else if (streq(line.key, "error_template")) {
+                    parse_time_period(line->value, default_config.expires);
+            } else if (streq(line->key, "error_template")) {
                 free(lwan->config.error_template);
-                lwan->config.error_template = strdup(line.value);
-            } else if (streq(line.key, "threads")) {
+                lwan->config.error_template = strdup(line->value);
+            } else if (streq(line->key, "threads")) {
                 long n_threads =
-                    parse_long(line.value, default_config.n_threads);
+                    parse_long(line->value, default_config.n_threads);
                 if (n_threads < 0)
                     config_error(conf, "Invalid number of threads: %ld",
                                  n_threads);
                 lwan->config.n_threads = (unsigned short int)n_threads;
-            } else if (streq(line.key, "max_post_data_size")) {
+            } else if (streq(line->key, "max_post_data_size")) {
                 long max_post_data_size = parse_long(
-                    line.value, (long)default_config.max_post_data_size);
+                    line->value, (long)default_config.max_post_data_size);
                 if (max_post_data_size < 0)
                     config_error(conf, "Negative maximum post data size");
                 else if (max_post_data_size > 128 * (1 << 20))
                     config_error(conf,
                                  "Maximum post data can't be over 128MiB");
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
-            } else if (streq(line.key, "allow_temp_files")) {
+            } else if (streq(line->key, "allow_temp_files")) {
                 lwan->config.allow_post_temp_file =
-                    !!strstr(line.value, "post");
+                    !!strstr(line->value, "post");
             } else {
-                config_error(conf, "Unknown config key: %s", line.key);
+                config_error(conf, "Unknown config key: %s", line->key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line.key, "listener")) {
+            if (streq(line->key, "listener")) {
                 if (!has_listener) {
-                    parse_listener(conf, &line, lwan);
+                    parse_listener(conf, line, lwan);
                     has_listener = true;
                 } else {
                     config_error(conf, "Only one listener supported");
                 }
-            } else if (streq(line.key, "straitjacket")) {
+            } else if (streq(line->key, "straitjacket")) {
                 lwan_straitjacket_enforce_from_config(conf);
             } else {
-                config_error(conf, "Unknown section type: %s", line.key);
+                config_error(conf, "Unknown section type: %s", line->key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:

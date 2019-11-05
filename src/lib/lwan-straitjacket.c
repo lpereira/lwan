@@ -229,23 +229,23 @@ out:
 
 void lwan_straitjacket_enforce_from_config(struct config *c)
 {
-    struct config_line l;
+    const struct config_line *l;
     char *user_name = NULL;
     char *chroot_path = NULL;
     bool drop_capabilities = true;
 
-    while (config_read_line(c, &l)) {
-        switch (l.type) {
+    while ((l = config_read_line(c))) {
+        switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
             /* TODO: limit_syscalls */
-            if (streq(l.key, "user")) {
-                user_name = strdupa(l.value);
-            } else if (streq(l.key, "chroot")) {
-                chroot_path = strdupa(l.value);
-            } else if (streq(l.key, "drop_capabilities")) {
-                drop_capabilities = parse_bool(l.value, true);
+            if (streq(l->key, "user")) {
+                user_name = strdupa(l->value);
+            } else if (streq(l->key, "chroot")) {
+                chroot_path = strdupa(l->value);
+            } else if (streq(l->key, "drop_capabilities")) {
+                drop_capabilities = parse_bool(l->value, true);
             } else {
-                config_error(c, "Invalid key: %s", l.key);
+                config_error(c, "Invalid key: %s", l->key);
                 return;
             }
             break;

@@ -812,19 +812,16 @@ void config_close(struct config *config)
     free(config);
 }
 
-bool config_read_line(struct config *conf, struct config_line *cl)
+const struct config_line *config_read_line(struct config *conf)
 {
-    struct config_line *ptr;
-    bool ret;
+    if (!conf->error_message) {
+        struct config_line *ptr;
 
-    if (conf->error_message)
-        return false;
+        if (parser_next(&conf->parser, &ptr))
+            return ptr;
+    }
 
-    ret = parser_next(&conf->parser, &ptr);
-    if (ret)
-        *cl = *ptr;
-
-    return ret;
+    return NULL;
 }
 
 static bool find_section_end(struct config *config)
@@ -850,7 +847,7 @@ static bool find_section_end(struct config *config)
 }
 
 struct config *config_isolate_section(struct config *current_conf,
-    struct config_line *current_line)
+                                      const struct config_line *current_line)
 {
     struct lexer *lexer;
     struct config *isolated;
@@ -878,7 +875,7 @@ struct config *config_isolate_section(struct config *current_conf,
         free(isolated);
 
         config_error(current_conf,
-            "Could not find section end while trying to isolate");
+                     "Could not find section end while trying to isolate");
 
         return NULL;
     }
@@ -889,7 +886,7 @@ struct config *config_isolate_section(struct config *current_conf,
     return isolated;
 }
 
-bool config_skip_section(struct config *conf, struct config_line *line)
+bool config_skip_section(struct config *conf, const struct config_line *line)
 {
     if (line->type != CONFIG_LINE_TYPE_SECTION)
         return false;

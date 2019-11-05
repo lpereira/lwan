@@ -323,7 +323,7 @@ static void *rewrite_create_from_hash(const char *prefix,
 
 static bool rewrite_parse_conf_pattern(struct private_data *pd,
                                        struct config *config,
-                                       struct config_line *line)
+                                       const struct config_line *line)
 {
     struct pattern *pattern;
     char *redirect_to = NULL, *rewrite_as = NULL;
@@ -337,7 +337,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
     if (!pattern->pattern)
         goto out;
 
-    while (config_read_line(config, line)) {
+    while ((line = config_read_line(config))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(line->key, "redirect_to")) {
@@ -409,18 +409,18 @@ out_no_free:
 static bool rewrite_parse_conf(void *instance, struct config *config)
 {
     struct private_data *pd = instance;
-    struct config_line line;
+    const struct config_line *line;
 
-    while (config_read_line(config, &line)) {
-        switch (line.type) {
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
-            config_error(config, "Unknown option: %s", line.key);
+            config_error(config, "Unknown option: %s", line->key);
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line.key, "pattern")) {
-                rewrite_parse_conf_pattern(pd, config, &line);
+            if (streq(line->key, "pattern")) {
+                rewrite_parse_conf_pattern(pd, config, line);
             } else {
-                config_error(config, "Unknown section: %s", line.key);
+                config_error(config, "Unknown section: %s", line->key);
             }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:

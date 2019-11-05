@@ -50,8 +50,8 @@ static struct cache_entry *
 create_realm_file(const char *key, void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
+    const struct config_line *l;
     struct config *f;
-    struct config_line l;
 
     if (UNLIKELY(!rpf))
         return NULL;
@@ -71,15 +71,15 @@ create_realm_file(const char *key, void *context __attribute__((unused)))
     if (!f)
         goto error_no_close;
 
-    while (config_read_line(f, &l)) {
+    while ((l = config_read_line(f))) {
         /* FIXME: Storing plain-text passwords in memory isn't a good idea. */
-        switch (l.type) {
+        switch (l->type) {
         case CONFIG_LINE_TYPE_LINE: {
-            char *username = strdup(l.key);
+            char *username = strdup(l->key);
             if (!username)
                 goto error;
 
-            char *password = strdup(l.value);
+            char *password = strdup(l->value);
             if (!password) {
                 free(username);
                 goto error;
@@ -94,7 +94,7 @@ create_realm_file(const char *key, void *context __attribute__((unused)))
 
             if (err == -EEXIST) {
                 lwan_status_warning(
-                    "Username entry already exists, ignoring: \"%s\"", l.key);
+                    "Username entry already exists, ignoring: \"%s\"", l->key);
                 continue;
             }
 

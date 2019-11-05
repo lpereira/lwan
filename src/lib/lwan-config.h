@@ -54,14 +54,14 @@ struct config *config_open(const char *path);
 void config_close(struct config *conf);
 bool config_error(struct config *conf, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
-bool config_read_line(struct config *conf, struct config_line *l);
+const struct config_line *config_read_line(struct config *conf);
 
 const char *config_last_error(struct config *conf);
 int config_cur_line(struct config *conf);
 
 struct config *config_isolate_section(struct config *current_conf,
-    struct config_line *current_line);
-bool config_skip_section(struct config *conf, struct config_line *line);
+                                      const struct config_line *current_line);
+bool config_skip_section(struct config *conf, const struct config_line *line);
 
 bool parse_bool(const char *value, bool default_value);
 long parse_long(const char *value, long default_value);

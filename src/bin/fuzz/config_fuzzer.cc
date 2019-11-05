@@ -5,12 +5,14 @@
 #include "lwan-config.h"
 
 static bool
-dump(struct config *config, struct config_line *line, int indent_level)
+dump(struct config *config, int indent_level)
 {
+    const struct config_line *line;
+
     if (indent_level > 64)
         return false;
 
-    while (config_read_line(config, line)) {
+    while ((line = config_read_line(config))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             break;
@@ -22,34 +24,26 @@ dump(struct config *config, struct config_line *line, int indent_level)
             return true;
 
         case CONFIG_LINE_TYPE_SECTION:
-            if (!dump(config, line, indent_level + 1))
+            if (!dump(config, indent_level + 1))
                 return false;
 
             break;
         }
     }
 
-    if (config_last_error(config)) {
-        fprintf(stderr,
-                "Error while reading configuration file (line %d): %s\n",
-                config_cur_line(config), config_last_error(config));
-        return false;
-    }
-
-    return true;
+    return config_last_error(config);
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     struct config *config;
-    struct config_line line;
     int indent_level = 0;
 
     config = config_open_for_fuzzing(data, size);
     if (!config)
         return 1;
 
-    bool dumped = dump(config, &line, indent_level);
+    bool dumped = dump(config, indent_level);
 
     config_close(config);
 
