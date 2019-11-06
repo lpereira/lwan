@@ -1354,34 +1354,39 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-#define RETURN_IF_NO_CHUNK()                                                   \
+#define RETURN_IF_NO_CHUNK(force_)                                             \
     do {                                                                       \
-        if (UNLIKELY(!chunk)) {                                                \
+        if (force_ UNLIKELY(!chunk)) {                                         \
             lwan_status_error("Chunk is NULL while dispatching");              \
             return NULL;                                                       \
         }                                                                      \
     } while (false)
 
-#define DISPATCH_ACTION()                                                      \
+#define DISPATCH_ACTION(force_check_)                                          \
     do {                                                                       \
-        RETURN_IF_NO_CHUNK();                                                  \
+        RETURN_IF_NO_CHUNK(force_check_);                                      \
         goto *dispatch_table[chunk->action];                                   \
     } while (false)
 
-#define DISPATCH_NEXT_ACTION()                                                 \
+#define DISPATCH_NEXT_ACTION(force_check_)                                     \
     do {                                                                       \
-        RETURN_IF_NO_CHUNK();                                                  \
+        RETURN_IF_NO_CHUNK(force_check_);                                      \
                                                                                \
         chunk++;                                                               \
         goto *dispatch_table[chunk->action];                                   \
     } while (false)
 
-    DISPATCH_ACTION();
+#define DISPATCH_ACTION_FAST() DISPATCH_ACTION(0 &&)
+#define DISPATCH_ACTION_CHECK() DISPATCH_ACTION(1 &&)
+#define DISPATCH_NEXT_ACTION_FAST() DISPATCH_NEXT_ACTION(0 &&)
+#define DISPATCH_NEXT_ACTION_CHECK() DISPATCH_NEXT_ACTION(1 &&)
+
+    DISPATCH_ACTION_FAST();
 
 action_append:
     lwan_strbuf_append_str(buf, lwan_strbuf_get_buffer(chunk->data),
                            lwan_strbuf_get_length(chunk->data));
-    DISPATCH_NEXT_ACTION();
+    DISPATCH_NEXT_ACTION_FAST();
 
 action_append_small: {
         uintptr_t val = (uintptr_t)chunk->data;
@@ -1389,23 +1394,23 @@ action_append_small: {
 
         lwan_strbuf_append_str(buf, (char*)&val, len);
 
-        DISPATCH_NEXT_ACTION();
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
 action_variable: {
         struct lwan_var_descriptor *descriptor = chunk->data;
         descriptor->append_to_strbuf(buf, (char *)variables + descriptor->offset);
-        DISPATCH_NEXT_ACTION();
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
-    DISPATCH_NEXT_ACTION();
+    DISPATCH_NEXT_ACTION_FAST();
 
 action_variable_str_escape:
     lwan_append_str_escaped_to_strbuf(buf, (char *)variables +
                                       (uintptr_t)chunk->data);
-    DISPATCH_NEXT_ACTION();
+    DISPATCH_NEXT_ACTION_FAST();
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
@@ -1415,16 +1420,17 @@ action_if_variable_not_empty: {
             empty = !empty;
         if (empty) {
             chunk = cd->chunk;
+            DISPATCH_NEXT_ACTION_FAST();
         } else {
             chunk = apply(tpl, chunk + 1, buf, variables, cd->chunk);
+            DISPATCH_NEXT_ACTION_CHECK();
         }
-        DISPATCH_NEXT_ACTION();
     }
 
 action_end_if_variable_not_empty:
     if (LIKELY(data == chunk))
         goto finalize;
-    DISPATCH_NEXT_ACTION();
+    DISPATCH_NEXT_ACTION_FAST();
 
 action_apply_tpl: {
         struct lwan_tpl *inner_tpl = chunk->data;
@@ -1440,7 +1446,7 @@ action_apply_tpl: {
             return NULL;
         }
 
-        DISPATCH_NEXT_ACTION();
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
 action_start_iter:
@@ -1466,12 +1472,13 @@ action_start_iter:
         coro = NULL;
 
         if (negate)
-            DISPATCH_ACTION();
-        DISPATCH_NEXT_ACTION();
+            DISPATCH_ACTION_FAST();
+
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
     chunk = apply(tpl, chunk + 1, buf, variables, chunk);
-    DISPATCH_ACTION();
+    DISPATCH_ACTION_CHECK();
 
 action_end_iter:
     if (data == chunk->data)
@@ -1482,23 +1489,28 @@ action_end_iter:
             lwan_status_warning("Coroutine is NULL when finishing iteration");
             return NULL;
         }
-        DISPATCH_NEXT_ACTION();
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
     if (!coro_resume_value(coro, 0)) {
         coro_free(coro);
         coro = NULL;
-        DISPATCH_NEXT_ACTION();
+        DISPATCH_NEXT_ACTION_FAST();
     }
 
     chunk = apply(tpl, ((struct chunk *)chunk->data) + 1, buf, variables,
                   chunk->data);
-    DISPATCH_ACTION();
+    DISPATCH_ACTION_CHECK();
 
 finalize:
     return chunk;
 #undef DISPATCH_ACTION
 #undef DISPATCH_NEXT_ACTION
+#undef DISPATCH_ACTION_CHECK
+#undef DISPATCH_NEXT_ACTION_CHECK
+#undef DISPATCH_ACTION_FAST
+#undef DISPATCH_NEXT_ACTION_FAST
+#undef RETURN_IF_NO_CHUNK
 }
 
 bool lwan_tpl_apply_with_buffer(struct lwan_tpl *tpl,
