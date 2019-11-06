@@ -45,6 +45,12 @@ extern "C" {
 
 #define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
 
+#define LWAN_NO_DISCARD(...)                                                   \
+    do {                                                                       \
+        __typeof__(__VA_ARGS__) no_discard_ = __VA_ARGS__;                     \
+        __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
+    } while (0)
+
 #ifdef __APPLE__
 #define LWAN_SECTION_NAME(name_) "__DATA," #name_
 #else

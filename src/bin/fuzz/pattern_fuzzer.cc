@@ -24,20 +24,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     memcpy(static_data, data, size);
     static_data[size - 1] = '\0';
 
-#define NO_DISCARD(...)                                                        \
-    do {                                                                       \
-        __typeof__(__VA_ARGS__) no_discard_ = __VA_ARGS__;                         \
-        __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
-    } while (0)
-
-    NO_DISCARD(str_find((char *)static_data, "foo/(%d+)(%a)(%d+)", sf,
-                        N_ELEMENTS(sf), &errmsg));
-    NO_DISCARD(str_find((char *)static_data, "bar/(%d+)/test", sf,
-                        N_ELEMENTS(sf), &errmsg));
-    NO_DISCARD(str_find((char *)static_data, "lua/rewrite/(%d+)x(%d+)", sf,
-                        N_ELEMENTS(sf), &errmsg));
-
-#undef NO_DISCARD
+    LWAN_NO_DISCARD(str_find((char *)static_data, "foo/(%d+)(%a)(%d+)", sf,
+                             N_ELEMENTS(sf), &errmsg));
+    LWAN_NO_DISCARD(str_find((char *)static_data, "bar/(%d+)/test", sf,
+                             N_ELEMENTS(sf), &errmsg));
+    LWAN_NO_DISCARD(str_find((char *)static_data, "lua/rewrite/(%d+)x(%d+)", sf,
+                             N_ELEMENTS(sf), &errmsg));
 
     return 0;
 }

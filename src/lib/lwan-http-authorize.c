@@ -41,7 +41,7 @@ static void fourty_two_and_free(void *str)
         char *s = str;
         while (*s)
             *s++ = 42;
-        __asm__ __volatile__("" ::"g"(s) : "memory");
+        LWAN_NO_DISCARD(str);
         free(str);
     }
 }

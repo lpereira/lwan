@@ -1710,33 +1710,31 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         /* Only pointers were set in helper struct; actually parse them here. */
         parse_accept_encoding(&request);
 
-        /* Requesting these items will force them to be parsed, and also exercise
-         * the lookup function. */
+        /* Requesting these items will force them to be parsed, and also
+         * exercise the lookup function. */
+        LWAN_NO_DISCARD(
+            lwan_request_get_header(&request, "Non-Existing-Header"));
+        LWAN_NO_DISCARD(lwan_request_get_header(
+            &request, "Host")); /* Usually existing short header */
+        LWAN_NO_DISCARD(
+            lwan_request_get_cookie(&request, "Non-Existing-Cookie"));
+        LWAN_NO_DISCARD(
+            lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
+        LWAN_NO_DISCARD(
+            lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
+        LWAN_NO_DISCARD(
+            lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
 
-#define NO_DISCARD(...)                                                        \
-    do {                                                                       \
-        typeof(__VA_ARGS__) no_discard_ = __VA_ARGS__;                         \
-        __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
-    } while (0)
-
-        NO_DISCARD(lwan_request_get_header(&request, "Non-Existing-Header"));
-        NO_DISCARD(lwan_request_get_header(&request, "Host")); /* Usually existing short header */
-        NO_DISCARD(lwan_request_get_cookie(&request, "Non-Existing-Cookie"));
-        NO_DISCARD(lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
-        NO_DISCARD(lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
-        NO_DISCARD(lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
-
-        NO_DISCARD(fuzz_websocket_handshake(&request));
+        LWAN_NO_DISCARD(fuzz_websocket_handshake(&request));
 
         lwan_request_get_range(&request, &trash1, &trash1);
-        NO_DISCARD(trash1);
+        LWAN_NO_DISCARD(trash1);
 
         lwan_request_get_if_modified_since(&request, &trash2);
-        NO_DISCARD(trash2);
+        LWAN_NO_DISCARD(trash2);
 
-        NO_DISCARD(lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
-
-#undef NO_DISCARD
+        LWAN_NO_DISCARD(
+            lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
 
         coro_deferred_run(coro, gen);
     }
