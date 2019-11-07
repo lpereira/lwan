@@ -203,7 +203,7 @@ void coro_deferred_run(struct coro *coro, size_t generation)
     array->elements = generation;
 }
 
-size_t coro_deferred_get_generation(const struct coro *coro)
+ALWAYS_INLINE size_t coro_deferred_get_generation(const struct coro *coro)
 {
     const struct lwan_array *array = (struct lwan_array *)&coro->defer;
 

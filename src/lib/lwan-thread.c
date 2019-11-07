@@ -128,10 +128,16 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                        .flags = flags,
                                        .proxy = &proxy};
 
-        size_t generation = coro_deferred_get_generation(coro);
+        size_t prev_gen = coro_deferred_get_generation(coro);
+
         next_request =
             lwan_process_request(lwan, &request, &buffer, next_request);
-        coro_deferred_run(coro, generation);
+
+        if (coro_deferred_get_generation(coro) > (LWAN_ARRAY_INCREMENT - 1)) {
+            /* Batch execution of coro_defers() up to LWAN_ARRAY_INCREMENT-1 times,
+             * to avoid moving deferred array to heap in most cases. */
+            coro_deferred_run(coro, prev_gen);
+        }
 
         if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
             if (next_request && *next_request) {
