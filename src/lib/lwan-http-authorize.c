@@ -142,7 +142,8 @@ bool lwan_http_authorize_init(void)
 void lwan_http_authorize_shutdown(void) { cache_destroy(realm_password_cache); }
 
 static bool authorize(struct coro *coro,
-                      struct lwan_value *authorization,
+                      const char *header,
+                      size_t header_len,
                       const char *password_file)
 {
     struct realm_password_file_t *rpf;
@@ -158,8 +159,7 @@ static bool authorize(struct coro *coro,
     if (UNLIKELY(!rpf))
         return false;
 
-    decoded = base64_decode((unsigned char *)authorization->value,
-                            authorization->len, &decoded_len);
+    decoded = base64_decode((unsigned char *)header, header_len, &decoded_len);
     if (UNLIKELY(!decoded))
         return false;
 
@@ -189,21 +189,14 @@ bool lwan_http_authorize(struct lwan_request *request,
     const char *authorization =
         lwan_request_get_header(request, "Authorization");
 
-    if (!authorization)
-        goto unauthorized;
+    if (LIKELY(authorization && !strncmp(authorization, "Basic ", basic_len))) {
+        const char *header = authorization + basic_len;
+        size_t header_len = strlen(authorization) - basic_len;
 
-    if (UNLIKELY(strncmp(authorization, "Basic ", basic_len)))
-        goto unauthorized;
+        if (authorize(request->conn->coro, header, header_len, password_file))
+            return true;
+    }
 
-    struct lwan_value header = {
-        .value = (char *)(authorization + basic_len),
-        .len = strlen(authorization) - basic_len,
-    };
-
-    if (authorize(request->conn->coro, &header, password_file))
-        return true;
-
-unauthorized:
     headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
     if (UNLIKELY(!headers))
         return false;
