@@ -58,8 +58,7 @@ void coro_defer2(struct coro *coro,
                  void *data2);
 
 void coro_deferred_run(struct coro *coro, size_t generation);
-size_t coro_deferred_get_generation(const struct coro *coro)
-    __attribute__((pure));
+size_t coro_deferred_get_generation(const struct coro *coro);
 
 void *coro_malloc(struct coro *coro, size_t sz) __attribute__((malloc));
 void *coro_malloc_full(struct coro *coro,
