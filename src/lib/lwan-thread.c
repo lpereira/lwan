@@ -121,6 +121,9 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             (lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
             (lwan->config.allow_cors ? REQUEST_ALLOW_CORS : 0);
 
+    const size_t init_gen = 1; /* 1 call to coro_defer() */
+    assert(init_gen == coro_deferred_get_generation(coro));
+
     while (true) {
         struct lwan_request request = {.conn = conn,
                                        .fd = fd,
@@ -128,15 +131,13 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                        .flags = flags,
                                        .proxy = &proxy};
 
-        size_t prev_gen = coro_deferred_get_generation(coro);
-
         next_request =
             lwan_process_request(lwan, &request, &buffer, next_request);
 
         if (coro_deferred_get_generation(coro) > (LWAN_ARRAY_INCREMENT - 1)) {
             /* Batch execution of coro_defers() up to LWAN_ARRAY_INCREMENT-1 times,
              * to avoid moving deferred array to heap in most cases. */
-            coro_deferred_run(coro, prev_gen);
+            coro_deferred_run(coro, init_gen);
         }
 
         if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
