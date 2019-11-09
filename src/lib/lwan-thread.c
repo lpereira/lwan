@@ -134,9 +134,10 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         next_request =
             lwan_process_request(lwan, &request, &buffer, next_request);
 
-        if (coro_deferred_get_generation(coro) > (LWAN_ARRAY_INCREMENT - 1)) {
-            /* Batch execution of coro_defers() up to LWAN_ARRAY_INCREMENT-1 times,
-             * to avoid moving deferred array to heap in most cases. */
+        if (coro_deferred_get_generation(coro) > ((2 * LWAN_ARRAY_INCREMENT) / 3)) {
+            /* Batch execution of coro_defers() up to 2/3 LWAN_ARRAY_INCREMENT times,
+             * to avoid moving deferred array to heap in most cases.  (This is to give
+             * some slack to the next request being processed by this coro.) */
             coro_deferred_run(coro, init_gen);
         }
 
