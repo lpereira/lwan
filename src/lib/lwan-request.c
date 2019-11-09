@@ -1511,16 +1511,23 @@ lwan_request_get_remote_address(struct lwan_request *request,
     if (request->flags & REQUEST_PROXIED) {
         sock_addr = (struct sockaddr_storage *)&request->proxy->from;
 
-        if (UNLIKELY(sock_addr->ss_family == AF_UNSPEC))
-            return memcpy(buffer, "*unspecified*", sizeof("*unspecified*"));
+        if (UNLIKELY(sock_addr->ss_family == AF_UNSPEC)) {
+            static const char unspecified[] = "*unspecified*";
+
+            static_assert(sizeof(unspecified) <= INET6_ADDRSTRLEN,
+                          "Enough space for unspecified address family");
+
+            return memcpy(buffer, unspecified, sizeof(unspecified));
+        }
     } else {
         socklen_t sock_len = sizeof(non_proxied_addr);
 
         sock_addr = &non_proxied_addr;
 
         if (UNLIKELY(getpeername(request->fd, (struct sockaddr *)sock_addr,
-                                 &sock_len) < 0))
+                                 &sock_len) < 0)) {
             return NULL;
+        }
     }
 
     if (sock_addr->ss_family == AF_INET) {
