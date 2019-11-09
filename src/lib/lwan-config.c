@@ -185,18 +185,15 @@ bool config_error(struct config *conf, const char *fmt, ...)
     return false;
 }
 
-static bool config_buffer_consume(struct config_ring_buffer *buf,
-    struct config_line **line)
+static const struct config_line *
+config_buffer_consume(struct config_ring_buffer *buf)
 {
-    if (config_ring_buffer_empty(buf))
-        return false;
-
-    *line = config_ring_buffer_get_ptr(buf);
-    return true;
+    return config_ring_buffer_empty(buf) ? NULL
+                                         : config_ring_buffer_get_ptr(buf);
 }
 
 static bool config_buffer_emit(struct config_ring_buffer *buf,
-    struct config_line *line)
+                               const struct config_line *line)
 {
     if (config_ring_buffer_full(buf))
         return false;
@@ -205,18 +202,15 @@ static bool config_buffer_emit(struct config_ring_buffer *buf,
     return true;
 }
 
-static bool lexeme_buffer_consume(struct lexeme_ring_buffer *buf,
-    struct lexeme **lexeme)
+static const struct lexeme *
+lexeme_buffer_consume(struct lexeme_ring_buffer *buf)
 {
-    if (lexeme_ring_buffer_empty(buf))
-        return false;
-
-    *lexeme = lexeme_ring_buffer_get_ptr(buf);
-    return true;
+    return lexeme_ring_buffer_empty(buf) ? NULL
+                                         : lexeme_ring_buffer_get_ptr(buf);
 }
 
 static bool lexeme_buffer_emit(struct lexeme_ring_buffer *buf,
-    struct lexeme *lexeme)
+                               const struct lexeme *lexeme)
 {
     if (lexeme_ring_buffer_full(buf))
         return false;
@@ -488,16 +482,18 @@ static void *lex_config(struct lexer *lexer)
     return NULL;
 }
 
-static bool lex_next(struct lexer *lexer, struct lexeme **lexeme)
+static const struct lexeme *lex_next(struct lexer *lexer)
 {
     while (lexer->state) {
-        if (lexeme_buffer_consume(&lexer->buffer, lexeme))
-            return true;
+        const struct lexeme *lexeme;
+
+        if ((lexeme = lexeme_buffer_consume(&lexer->buffer)))
+            return lexeme;
 
         lexer->state = lexer->state(lexer);
     }
 
-    return lexeme_buffer_consume(&lexer->buffer, lexeme);
+    return lexeme_buffer_consume(&lexer->buffer);
 }
 
 static void *parse_config(struct parser *parser);
@@ -517,10 +513,10 @@ static __attribute__((noinline)) const char *secure_getenv_len(const char *key, 
 static void *parse_key_value(struct parser *parser)
 {
     struct config_line line = {.type = CONFIG_LINE_TYPE_LINE};
-    struct lexeme *lexeme;
+    const struct lexeme *lexeme;
     size_t key_size;
 
-    while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
+    while ((lexeme = lexeme_buffer_consume(&parser->buffer))) {
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                lexeme->value.len);
 
@@ -530,7 +526,7 @@ static void *parse_key_value(struct parser *parser)
     key_size = lwan_strbuf_get_length(&parser->strbuf);
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
-    while (lex_next(&parser->lexer, &lexeme)) {
+    while ((lexeme = lex_next(&parser->lexer))) {
         switch (lexeme->type) {
         case LEXEME_VARIABLE_DEFAULT:
         case LEXEME_VARIABLE: {
@@ -547,9 +543,9 @@ static void *parse_key_value(struct parser *parser)
                     lwan_strbuf_append_strz(&parser->strbuf, value);
                 }
             } else {
-                struct lexeme *var_name = lexeme;
+                const struct lexeme *var_name = lexeme;
 
-                if (!lex_next(&parser->lexer, &lexeme)) {
+                if (!(lexeme = lex_next(&parser->lexer))) {
                     lwan_status_error(
                         "Default value for variable '$%.*s' not given",
                         (int)var_name->value.len, var_name->value.value);
@@ -610,17 +606,17 @@ static void *parse_key_value(struct parser *parser)
 
 static void *parse_section(struct parser *parser)
 {
-    struct lexeme *lexeme;
+    const struct lexeme *lexeme;
     size_t name_len;
 
-    if (!lexeme_buffer_consume(&parser->buffer, &lexeme))
+    if (!(lexeme = lexeme_buffer_consume(&parser->buffer)))
         return NULL;
 
     lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
     name_len = lexeme->value.len;
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
-    while (lexeme_buffer_consume(&parser->buffer, &lexeme)) {
+    while ((lexeme = lexeme_buffer_consume(&parser->buffer))) {
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
@@ -656,9 +652,9 @@ static void *parse_section_shorthand(struct parser *parser)
 
 static void *parse_config(struct parser *parser)
 {
-    struct lexeme *lexeme;
+    const struct lexeme *lexeme;
 
-    if (!lex_next(&parser->lexer, &lexeme))
+    if (!(lexeme = lex_next(&parser->lexer)))
         return NULL;
 
     switch (lexeme->type) {
@@ -697,18 +693,20 @@ static void *parse_config(struct parser *parser)
     }
 }
 
-static bool parser_next(struct parser *parser, struct config_line **line)
+static const struct config_line *parser_next(struct parser *parser)
 {
     while (parser->state) {
-        if (config_buffer_consume(&parser->items, line))
-            return true;
+        const struct config_line *line;
+
+        if ((line = config_buffer_consume(&parser->items)))
+            return line;
 
         lwan_strbuf_reset(&parser->strbuf);
 
         parser->state = parser->state(parser);
     }
 
-    return config_buffer_consume(&parser->items, line);
+    return config_buffer_consume(&parser->items);
 }
 
 static struct config *
@@ -814,25 +812,18 @@ void config_close(struct config *config)
 
 const struct config_line *config_read_line(struct config *conf)
 {
-    if (!conf->error_message) {
-        struct config_line *ptr;
-
-        if (parser_next(&conf->parser, &ptr))
-            return ptr;
-    }
-
-    return NULL;
+    return conf->error_message ? NULL : parser_next(&conf->parser);
 }
 
 static bool find_section_end(struct config *config)
 {
-    struct config_line *line;
+    const struct config_line *line;
     int cur_level = 1;
 
     if (config->error_message)
         return false;
 
-    while (parser_next(&config->parser, &line)) {
+    while ((line = parser_next(&config->parser))) {
         if (line->type == CONFIG_LINE_TYPE_SECTION) {
             cur_level++;
         } else if (line->type == CONFIG_LINE_TYPE_SECTION_END) {
