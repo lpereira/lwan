@@ -420,6 +420,9 @@ struct lwan_straitjacket {
 };
 
 struct lwan_config {
+    /* Field will be overridden during initialization. */
+    enum lwan_request_flags request_flags;
+
     char *listener;
     char *error_template;
     char *config_file_path;

@@ -103,11 +103,10 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
      * instead.  This ensures the storage for `strbuf` is alive when the
      * coroutine ends and lwan_strbuf_free() is called. */
     struct lwan_connection *conn = data;
-    const enum lwan_request_flags flags_filter =
-        (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
-    struct lwan_strbuf strbuf;
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
+    enum lwan_request_flags flags = lwan->config.request_flags;
+    struct lwan_strbuf strbuf;
     char request_buffer[DEFAULT_BUFFER_SIZE];
     struct lwan_value buffer = {.value = request_buffer, .len = 0};
     char *next_request = NULL;
@@ -116,10 +115,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     if (UNLIKELY(!lwan_strbuf_init(&strbuf)))
         goto out;
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
-
-    enum lwan_request_flags flags =
-            (lwan->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
-            (lwan->config.allow_cors ? REQUEST_ALLOW_CORS : 0);
 
     const size_t init_gen = 1; /* 1 call to coro_defer() */
     assert(init_gen == coro_deferred_get_generation(coro));
@@ -155,7 +150,9 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         }
 
         lwan_strbuf_reset(&strbuf);
-        flags = request.flags & flags_filter;
+
+        /* Only allow flags from config. */
+        flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
     }
 
 out:

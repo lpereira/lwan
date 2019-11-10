@@ -438,7 +438,8 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     return true;
 }
 
-static void try_setup_from_config(struct lwan *l, const struct lwan_config *config)
+static void try_setup_from_config(struct lwan *l,
+                                  const struct lwan_config *config)
 {
     if (!setup_from_config(l, config->config_file_path)) {
         if (config->config_file_path) {
@@ -447,8 +448,11 @@ static void try_setup_from_config(struct lwan *l, const struct lwan_config *conf
         }
     }
 
-    /* `quiet` key might have changed value. */
-    lwan_status_init(l);
+    lwan_status_init(l); /* `quiet` key might have changed value. */
+
+    l->config.request_flags =
+        (l->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
+        (l->config.allow_cors ? REQUEST_ALLOW_CORS : 0);
 }
 
 static rlim_t setup_open_file_count_limits(void)
