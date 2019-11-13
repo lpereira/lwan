@@ -36,7 +36,7 @@
 #endif
 
 #include "lwan-private.h"
-#include "lwan-dq.h"
+#include "lwan-tq.h"
 #include "list.h"
 
 static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
@@ -234,17 +234,17 @@ static void update_epoll_flags(int fd,
 }
 
 static ALWAYS_INLINE void
-resume_coro(struct death_queue *dq, struct lwan_connection *conn, int epoll_fd)
+resume_coro(struct timeout_queue *tq, struct lwan_connection *conn, int epoll_fd)
 {
     assert(conn->coro);
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
     if (yield_result == CONN_CORO_ABORT) {
-        death_queue_kill(dq, conn);
+        timeout_queue_kill(tq, conn);
         return;
     }
 
-    update_epoll_flags(lwan_connection_get_fd(dq->lwan, conn), conn, epoll_fd,
+    update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn, epoll_fd,
                        yield_result);
 }
 
@@ -259,20 +259,20 @@ static void update_date_cache(struct lwan_thread *thread)
 
 static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
                                      struct coro_switcher *switcher,
-                                     struct death_queue *dq)
+                                     struct timeout_queue *tq)
 {
     struct lwan_thread *t = conn->thread;
 
     assert(!conn->coro);
     assert(t);
-    assert((uintptr_t)t >= (uintptr_t)dq->lwan->thread.threads);
+    assert((uintptr_t)t >= (uintptr_t)tq->lwan->thread.threads);
     assert((uintptr_t)t <
-           (uintptr_t)(dq->lwan->thread.threads + dq->lwan->thread.count));
+           (uintptr_t)(tq->lwan->thread.threads + tq->lwan->thread.count));
 
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
         .flags = CONN_EVENTS_READ,
-        .time_to_die = dq->time + dq->keep_alive_timeout,
+        .time_to_die = tq->time + tq->keep_alive_timeout,
         .thread = t,
     };
     if (UNLIKELY(!conn->coro)) {
@@ -281,13 +281,13 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
         return;
     }
 
-    death_queue_insert(dq, conn);
+    timeout_queue_insert(tq, conn);
 }
 
 static void accept_nudge(int pipe_fd,
                          struct lwan_thread *t,
                          struct lwan_connection *conns,
-                         struct death_queue *dq,
+                         struct timeout_queue *tq,
                          struct coro_switcher *switcher,
                          int epoll_fd)
 {
@@ -307,25 +307,25 @@ static void accept_nudge(int pipe_fd,
         };
 
         if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
-            spawn_coro(conn, switcher, dq);
+            spawn_coro(conn, switcher, tq);
     }
 
-    timeouts_add(t->wheel, &dq->timeout, 1000);
+    timeouts_add(t->wheel, &tq->timeout, 1000);
 }
 
-static bool process_pending_timers(struct death_queue *dq,
+static bool process_pending_timers(struct timeout_queue *tq,
                                    struct lwan_thread *t,
                                    int epoll_fd)
 {
     struct timeout *timeout;
-    bool processed_dq_timeout = false;
+    bool processed_tq_timeout = false;
 
     while ((timeout = timeouts_get(t->wheel))) {
         struct lwan_request *request;
 
-        if (timeout == &dq->timeout) {
-            death_queue_kill_waiting(dq);
-            processed_dq_timeout = true;
+        if (timeout == &tq->timeout) {
+            timeout_queue_kill_waiting(tq);
+            processed_tq_timeout = true;
             continue;
         }
 
@@ -335,24 +335,24 @@ static bool process_pending_timers(struct death_queue *dq,
                            CONN_CORO_RESUME_TIMER);
     }
 
-    if (processed_dq_timeout) {
-        /* dq timeout expires every 1000ms if there are connections, so
+    if (processed_tq_timeout) {
+        /* tq timeout expires every 1000ms if there are connections, so
          * update the date cache at this point as well.  */
         update_date_cache(t);
 
-        if (!death_queue_empty(dq)) {
-            timeouts_add(t->wheel, &dq->timeout, 1000);
+        if (!timeout_queue_empty(tq)) {
+            timeouts_add(t->wheel, &tq->timeout, 1000);
             return true;
         }
 
-        timeouts_del(t->wheel, &dq->timeout);
+        timeouts_del(t->wheel, &tq->timeout);
     }
 
     return false;
 }
 
 static int
-turn_timer_wheel(struct death_queue *dq, struct lwan_thread *t, int epoll_fd)
+turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 {
     timeout_t wheel_timeout;
     struct timespec now;
@@ -368,7 +368,7 @@ turn_timer_wheel(struct death_queue *dq, struct lwan_thread *t, int epoll_fd)
         goto infinite_timeout;
 
     if (wheel_timeout == 0) {
-        if (!process_pending_timers(dq, t, epoll_fd))
+        if (!process_pending_timers(tq, t, epoll_fd))
             goto infinite_timeout;
 
         wheel_timeout = timeouts_timeout(t->wheel);
@@ -391,7 +391,7 @@ static void *thread_io_loop(void *data)
     struct lwan *lwan = t->lwan;
     struct epoll_event *events;
     struct coro_switcher switcher;
-    struct death_queue dq;
+    struct timeout_queue tq;
 
     lwan_status_debug("Worker thread #%zd starting",
                       t - t->lwan->thread.threads + 1);
@@ -403,12 +403,12 @@ static void *thread_io_loop(void *data)
 
     update_date_cache(t);
 
-    death_queue_init(&dq, lwan);
+    timeout_queue_init(&tq, lwan);
 
     pthread_barrier_wait(&lwan->thread.barrier);
 
     for (;;) {
-        int timeout = turn_timer_wheel(&dq, t, epoll_fd);
+        int timeout = turn_timer_wheel(&tq, t, epoll_fd);
         int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
 
         if (UNLIKELY(n_fds < 0)) {
@@ -421,7 +421,7 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (UNLIKELY(!event->data.ptr)) {
-                accept_nudge(read_pipe_fd, t, lwan->conns, &dq, &switcher,
+                accept_nudge(read_pipe_fd, t, lwan->conns, &tq, &switcher,
                              epoll_fd);
                 continue;
             }
@@ -429,18 +429,18 @@ static void *thread_io_loop(void *data)
             conn = event->data.ptr;
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                death_queue_kill(&dq, conn);
+                timeout_queue_kill(&tq, conn);
                 continue;
             }
 
-            resume_coro(&dq, conn, epoll_fd);
-            death_queue_move_to_last(&dq, conn);
+            resume_coro(&tq, conn, epoll_fd);
+            timeout_queue_move_to_last(&tq, conn);
         }
     }
 
     pthread_barrier_wait(&lwan->thread.barrier);
 
-    death_queue_kill_all(&dq);
+    timeout_queue_kill_all(&tq);
     free(events);
 
     return NULL;

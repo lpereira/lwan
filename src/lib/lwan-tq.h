@@ -20,7 +20,7 @@
 
 #pragma once
 
-struct death_queue {
+struct timeout_queue {
     const struct lwan *lwan;
     struct lwan_connection *conns;
     struct lwan_connection head;
@@ -29,16 +29,15 @@ struct death_queue {
     unsigned short keep_alive_timeout;
 };
 
-void death_queue_init(struct death_queue *dq, const struct lwan *l);
+void timeout_queue_init(struct timeout_queue *tq, const struct lwan *l);
 
-void death_queue_insert(struct death_queue *dq,
-                        struct lwan_connection *new_node);
-void death_queue_kill(struct death_queue *dq, struct lwan_connection *node);
-void death_queue_move_to_last(struct death_queue *dq,
-                              struct lwan_connection *conn);
+void timeout_queue_insert(struct timeout_queue *tq,
+                          struct lwan_connection *new_node);
+void timeout_queue_kill(struct timeout_queue *tq, struct lwan_connection *node);
+void timeout_queue_move_to_last(struct timeout_queue *tq,
+                                struct lwan_connection *conn);
 
-void death_queue_kill_waiting(struct death_queue *dq);
-void death_queue_kill_all(struct death_queue *dq);
+void timeout_queue_kill_waiting(struct timeout_queue *tq);
+void timeout_queue_kill_all(struct timeout_queue *tq);
 
-bool death_queue_empty(struct death_queue *dq);
-
+bool timeout_queue_empty(struct timeout_queue *tq);

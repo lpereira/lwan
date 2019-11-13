@@ -41,7 +41,7 @@ set(SOURCES
 	sd-daemon.c
 	timeout.c
 	sha1.c
-	lwan-dq.c
+	lwan-tq.c
 )
 
 if (HAVE_LUA)
