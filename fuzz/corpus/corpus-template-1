@@ -1,0 +1,41 @@
+<html>
+<head>
+{{rel_path?}}  <title>Index of {{rel_path}}</title>{{/rel_path?}}
+{{^rel_path?}}  <title>Index of /</title>{{/rel_path?}}
+<style>
+  body { background: #fff }
+  tr.odd>td { background: #fff }
+  tr.even>td { background: #eee }
+</style>
+</head> 
+<body>  
+{{rel_path?}}  <h1>Index of {{rel_path}}</h1>{{/rel_path?}}
+{{^rel_path?}}  <h1>Index of /</h1>{{/rel_path?}}
+{{readme?}}<pre>{{readme}}</pre>{{/readme?}}
+  <table>
+    <tr> 
+      <td><img src="?icon=back"></td>
+      <td colspan="3"><a href="..">Parent directory</a></td>
+    </tr>
+    <tr> 
+      <td>&nbsp;</td>
+      <th>File name</th>
+      <th>Type</th>
+      <th>Size</th>
+    </tr>
+{{#file_list}}
+    <tr class="{{file_list.zebra_class}}">
+      <td><img src="?icon={{file_list.icon}}" alt="{{file_list.icon_alt}}"></td>
+      <td><a href="{{rel_path}}/{{{file_list.name}}}">{{{file_list.name}}}</a></td>
+      <td>{{file_list.type}}</td>
+      <td align="right"><tt>{{file_list.size}}{{file_list.unit}}</tt></td>
+    </tr>
+{{/file_list}}
+{{^#file_list}}
+    <tr>
+      <td colspan="4">Empty directory.</td>
+    </tr>
+{{/file_list}}
+  </table>  
+</body>     
+</html>
