@@ -300,20 +300,25 @@ static void backup(struct lexer *lexer) { lexer->pos--; }
 
 static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
 {
+    char *formatted;
+    size_t formatted_len;
     int r;
 
-    lexeme->type = LEXEME_ERROR;
+    *lexeme = (struct lexeme){.type = LEXEME_ERROR};
 
-    r = vasprintf((char **)&lexeme->value.value, msg, ap);
+    r = vasprintf(&formatted, msg, ap);
     if (r < 0) {
         lexeme->value.value = strdup(strerror(errno));
         if (!lexeme->value.value)
             return;
 
-        lexeme->value.len = strlen(lexeme->value.value);
+        formatted_len = strlen(lexeme->value.value);
     } else {
-        lexeme->value.len = (size_t)r;
+        formatted_len = (size_t)r;
     }
+
+    lwan_status_error("Error while parsing template: %.*s", (int)formatted_len, formatted);
+    free(formatted);
 }
 
 static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
@@ -494,7 +499,7 @@ static void *lex_text(struct lexer *lexer)
     return NULL;
 }
 
-static struct lexeme *lex_next(struct lexer *lexer)
+static struct lexeme *lex_next_fsm_loop(struct lexer *lexer)
 {
     struct lexeme *lexeme;
 
@@ -508,6 +513,18 @@ static struct lexeme *lex_next(struct lexer *lexer)
     return lexeme_ring_buffer_get_ptr_or_null(&lexer->ring_buffer);
 }
 
+static struct lexeme *lex_next(struct lexer *lexer)
+{
+    struct lexeme *lexeme = lex_next_fsm_loop(lexer);
+
+    if (lexeme) {
+        if (lexeme->type == LEXEME_ERROR || lexeme->type == LEXEME_EOF)
+            return NULL;
+    }
+
+    return lexeme;
+}
+
 static void lex_init(struct lexer *lexer, const char *input)
 {
     lexer->state = lex_text;
@@ -518,21 +535,12 @@ static void lex_init(struct lexer *lexer, const char *input)
 
 static void *unexpected_lexeme(struct lexeme *lexeme)
 {
+    if (lexeme->type == LEXEME_ERROR)
+        return NULL;
+
     return error_lexeme(lexeme, "unexpected lexeme: %s [%.*s]",
                         lexeme_type_str[lexeme->type], (int)lexeme->value.len,
                         lexeme->value.value);
-}
-
-static void *unexpected_lexeme_or_lex_error(struct lexeme *lexeme,
-                                            struct lexeme *lex_error)
-{
-    if (lex_error &&
-        (lex_error->type == LEXEME_ERROR || lex_error->type == LEXEME_EOF)) {
-        *lexeme = *lex_error;
-        return NULL;
-    }
-
-    return unexpected_lexeme(lexeme);
 }
 
 static void parser_push_lexeme(struct parser *parser, struct lexeme *lexeme)
@@ -674,9 +682,9 @@ static void *parser_slash(struct parser *parser, struct lexeme *lexeme)
 
             if (next->type == LEXEME_QUESTION_MARK)
                 return parser_end_var_not_empty(parser, lexeme);
-        }
 
-        return unexpected_lexeme_or_lex_error(lexeme, next);
+            return unexpected_lexeme(next);
+        }
     }
 
     return unexpected_lexeme(lexeme);
@@ -741,7 +749,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
         if (next->type != LEXEME_CLOSE_CURLY_BRACE)
             return error_lexeme(lexeme, "Expecting closing brace");
         if (!(next = lex_next(&parser->lexer)))
-            return unexpected_lexeme_or_lex_error(lexeme, next);
+            return unexpected_lexeme(lexeme);
     }
 
     if (next->type == LEXEME_RIGHT_META) {
@@ -756,6 +764,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
 
         parser->flags &= ~FLAGS_QUOTE;
         parser->tpl->minimum_size += lexeme->value.len + 1;
+
         return parser_text;
     }
 
@@ -776,7 +785,7 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
         return parser_right_meta;
     }
 
-    return unexpected_lexeme_or_lex_error(lexeme, next);
+    return unexpected_lexeme(next);
 }
 
 static void *parser_partial(struct parser *parser, struct lexeme *lexeme)
@@ -970,21 +979,21 @@ static void free_chunk(struct chunk *chunk)
     }
 }
 
+static void free_chunk_array(struct chunk_array *array)
+{
+    struct chunk *iter;
+
+    LWAN_ARRAY_FOREACH(array, iter)
+        free_chunk(iter);
+    chunk_array_reset(array);
+}
+
 void lwan_tpl_free(struct lwan_tpl *tpl)
 {
-    if (!tpl)
-        return;
-
-    if (tpl->chunks.base.elements) {
-        struct chunk *iter;
-
-        LWAN_ARRAY_FOREACH(&tpl->chunks, iter)
-            free_chunk(iter);
-
-        chunk_array_reset(&tpl->chunks);
+    if (tpl) {
+        free_chunk_array(&tpl->chunks);
+        free(tpl);
     }
-
-    free(tpl);
 }
 
 static bool post_process_template(struct parser *parser)
@@ -1099,7 +1108,7 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
 {
     bool success = true;
 
-    if (lexeme->type == LEXEME_ERROR && lexeme->value.value) {
+    if (lexeme && lexeme->type == LEXEME_ERROR && lexeme->value.value) {
         lwan_status_error("Parser error: %.*s", (int)lexeme->value.len,
                           lexeme->value.value);
         free((char *)lexeme->value.value);
@@ -1141,7 +1150,12 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
         success = false;
     }
 
-    return success && post_process_template(parser);
+    success = success && post_process_template(parser);
+
+    if (!success)
+        free_chunk_array(&parser->chunks);
+
+    return success;
 }
 
 static bool parse_string(struct lwan_tpl *tpl,
@@ -1162,9 +1176,7 @@ static bool parse_string(struct lwan_tpl *tpl,
         return false;
 
     while (state) {
-        lexeme = lex_next(&parser.lexer);
-
-        if (!lexeme || lexeme->type == LEXEME_ERROR)
+        if (!(lexeme = lex_next(&parser.lexer)))
             break;
 
         state = state(&parser, lexeme);
@@ -1293,9 +1305,10 @@ lwan_tpl_compile_string_full(const char *string,
 
             return tpl;
         }
+
+        lwan_tpl_free(tpl);
     }
 
-    lwan_tpl_free(tpl);
     return NULL;
 }
 
