@@ -281,6 +281,19 @@ static int next(struct lexer *lexer)
     return r;
 }
 
+static size_t remaining(struct lexer *lexer)
+{
+    return (size_t)(lexer->end - lexer->pos);
+}
+
+static bool lex_streq(struct lexer *lexer, const char *str, size_t s)
+{
+    if (remaining(lexer) < s)
+        return false;
+
+    return !strncmp(lexer->pos, str, s);
+}
+
 static void ignore(struct lexer *lexer) { lexer->start = lexer->pos; }
 
 static void backup(struct lexer *lexer) { lexer->pos--; }
@@ -401,7 +414,7 @@ static void *lex_inside_action(struct lexer *lexer)
     while (true) {
         int r;
 
-        if (!strncmp(lexer->pos, right_meta, strlen(right_meta)))
+        if (lex_streq(lexer, right_meta, strlen(right_meta)))
             return lex_right_meta;
 
         r = next(lexer);
@@ -466,12 +479,13 @@ static void *lex_right_meta(struct lexer *lexer)
 static void *lex_text(struct lexer *lexer)
 {
     do {
-        if (!strncmp(lexer->pos, left_meta, strlen(left_meta))) {
+        if (lex_streq(lexer, left_meta, strlen(left_meta))) {
             if (lexer->pos > lexer->start)
                 emit(lexer, LEXEME_TEXT);
             return lex_left_meta;
         }
-        if (!strncmp(lexer->pos, right_meta, strlen(right_meta)))
+
+        if (lex_streq(lexer, right_meta, strlen(right_meta)))
             return lex_error(lexer, "unexpected action close sequence");
     } while (next(lexer) != EOF);
     if (lexer->pos > lexer->start)
