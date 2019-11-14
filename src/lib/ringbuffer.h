@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 /*
@@ -25,6 +26,7 @@
 #pragma once
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -74,6 +76,16 @@
         memcpy(&rb->array[type_name_##_mask(rb->write++)], e, sizeof(*e));     \
     }                                                                          \
                                                                                \
+    __attribute__((unused)) static inline bool type_name_##_try_put(           \
+        struct type_name_ *rb, const element_type_ *e)                         \
+    {                                                                          \
+        if (type_name_##_full(rb))                                             \
+            return false;                                                      \
+                                                                               \
+        memcpy(&rb->array[type_name_##_mask(rb->write++)], e, sizeof(*e));     \
+        return true;                                                           \
+    }                                                                          \
+                                                                               \
     __attribute__((unused)) static inline element_type_ type_name_##_get(      \
         struct type_name_ *rb)                                                 \
     {                                                                          \
@@ -86,4 +98,12 @@
     {                                                                          \
         assert(!type_name_##_empty(rb));                                       \
         return &rb->array[type_name_##_mask(rb->read++)];                      \
+    }                                                                          \
+                                                                               \
+    __attribute__((unused)) static inline element_type_                        \
+        *type_name_##_get_ptr_or_null(struct type_name_ *rb)                   \
+    {                                                                          \
+        return type_name_##_empty(rb)                                          \
+                   ? NULL                                                      \
+                   : &rb->array[type_name_##_mask(rb->read++)];                \
     }

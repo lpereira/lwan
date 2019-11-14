@@ -185,46 +185,10 @@ bool config_error(struct config *conf, const char *fmt, ...)
     return false;
 }
 
-static const struct config_line *
-config_buffer_consume(struct config_ring_buffer *buf)
-{
-    return config_ring_buffer_empty(buf) ? NULL
-                                         : config_ring_buffer_get_ptr(buf);
-}
-
-static bool config_buffer_emit(struct config_ring_buffer *buf,
-                               const struct config_line *line)
-{
-    if (config_ring_buffer_full(buf))
-        return false;
-
-    config_ring_buffer_put(buf, line);
-    return true;
-}
-
-static const struct lexeme *
-lexeme_buffer_consume(struct lexeme_ring_buffer *buf)
-{
-    return lexeme_ring_buffer_empty(buf) ? NULL
-                                         : lexeme_ring_buffer_get_ptr(buf);
-}
-
-static bool lexeme_buffer_emit(struct lexeme_ring_buffer *buf,
-                               const struct lexeme *lexeme)
-{
-    if (lexeme_ring_buffer_full(buf))
-        return false;
-
-    lexeme_ring_buffer_put(buf, lexeme);
-    return true;
-}
-
 static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
 {
-    if (!lexeme_buffer_emit(&lexer->buffer, lexeme))
-        return;
-
-    lexer->start = lexer->pos;
+    if (lexeme_ring_buffer_try_put(&lexer->buffer, lexeme))
+        lexer->start = lexer->pos;
 }
 
 static void emit(struct lexer *lexer, enum lexeme_type type)
@@ -487,13 +451,13 @@ static const struct lexeme *lex_next(struct lexer *lexer)
     while (lexer->state) {
         const struct lexeme *lexeme;
 
-        if ((lexeme = lexeme_buffer_consume(&lexer->buffer)))
+        if ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&lexer->buffer)))
             return lexeme;
 
         lexer->state = lexer->state(lexer);
     }
 
-    return lexeme_buffer_consume(&lexer->buffer);
+    return lexeme_ring_buffer_get_ptr_or_null(&lexer->buffer);
 }
 
 static void *parse_config(struct parser *parser);
@@ -516,7 +480,7 @@ static void *parse_key_value(struct parser *parser)
     const struct lexeme *lexeme;
     size_t key_size;
 
-    while ((lexeme = lexeme_buffer_consume(&parser->buffer))) {
+    while ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer))) {
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                lexeme->value.len);
 
@@ -588,10 +552,9 @@ static void *parse_key_value(struct parser *parser)
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
-            if (!config_buffer_emit(&parser->items, &line))
-                return NULL;
-
-            return parse_config;
+            return config_ring_buffer_try_put(&parser->items, &line)
+                       ? parse_config
+                       : NULL;
 
         default:
             lwan_status_error("Unexpected token while parsing key-value: %s",
@@ -609,15 +572,17 @@ static void *parse_section(struct parser *parser)
     const struct lexeme *lexeme;
     size_t name_len;
 
-    if (!(lexeme = lexeme_buffer_consume(&parser->buffer)))
+    if (!(lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer)))
         return NULL;
 
-    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                           lexeme->value.len);
     name_len = lexeme->value.len;
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
-    while ((lexeme = lexeme_buffer_consume(&parser->buffer))) {
-        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value, lexeme->value.len);
+    while ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer))) {
+        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                               lexeme->value.len);
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, ' ');
@@ -626,12 +591,10 @@ static void *parse_section(struct parser *parser)
     struct config_line line = {
         .type = CONFIG_LINE_TYPE_SECTION,
         .key = lwan_strbuf_get_buffer(&parser->strbuf),
-        .value = lwan_strbuf_get_buffer(&parser->strbuf) + name_len + 1
+        .value = lwan_strbuf_get_buffer(&parser->strbuf) + name_len + 1,
     };
-    if (!config_buffer_emit(&parser->items, &line))
-        return NULL;
-
-    return parse_config;
+    return config_ring_buffer_try_put(&parser->items, &line) ? parse_config
+                                                             : NULL;
 }
 
 static void *parse_section_shorthand(struct parser *parser)
@@ -639,12 +602,10 @@ static void *parse_section_shorthand(struct parser *parser)
     void *next_state = parse_section(parser);
 
     if (next_state) {
-        struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
+        struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
 
-        if (!config_buffer_emit(&parser->items, &line))
-            return NULL;
-
-        return next_state;
+        if (config_ring_buffer_try_put(&parser->items, &line))
+            return next_state;
     }
 
     return NULL;
@@ -671,14 +632,14 @@ static void *parse_config(struct parser *parser)
         return parse_config;
 
     case LEXEME_STRING:
-        lexeme_buffer_emit(&parser->buffer, lexeme);
+        lexeme_ring_buffer_try_put(&parser->buffer, lexeme);
 
         return parse_config;
 
     case LEXEME_CLOSE_BRACKET: {
         struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
 
-        config_buffer_emit(&parser->items, &line);
+        config_ring_buffer_try_put(&parser->items, &line);
 
         return parse_config;
     }
@@ -698,7 +659,7 @@ static const struct config_line *parser_next(struct parser *parser)
     while (parser->state) {
         const struct config_line *line;
 
-        if ((line = config_buffer_consume(&parser->items)))
+        if ((line = config_ring_buffer_get_ptr_or_null(&parser->items)))
             return line;
 
         lwan_strbuf_reset(&parser->strbuf);
@@ -706,7 +667,7 @@ static const struct config_line *parser_next(struct parser *parser)
         parser->state = parser->state(parser);
     }
 
-    return config_buffer_consume(&parser->items);
+    return config_ring_buffer_get_ptr_or_null(&parser->items);
 }
 
 static struct config *

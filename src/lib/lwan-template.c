@@ -260,15 +260,6 @@ static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
     lexer->start = lexer->pos;
 }
 
-static bool consume_lexeme(struct lexer *lexer, struct lexeme **lexeme)
-{
-    if (lexeme_ring_buffer_empty(&lexer->ring_buffer))
-        return false;
-
-    *lexeme = lexeme_ring_buffer_get_ptr(&lexer->ring_buffer);
-    return true;
-}
-
 static void emit(struct lexer *lexer, enum lexeme_type lexeme_type)
 {
     struct lexeme lexeme = {
@@ -489,15 +480,18 @@ static void *lex_text(struct lexer *lexer)
     return NULL;
 }
 
-static bool lex_next(struct lexer *lexer, struct lexeme **lexeme)
+static struct lexeme *lex_next(struct lexer *lexer)
 {
+    struct lexeme *lexeme;
+
     while (lexer->state) {
-        if (consume_lexeme(lexer, lexeme))
-            return true;
+        if ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&lexer->ring_buffer)))
+            return lexeme;
+
         lexer->state = lexer->state(lexer);
     }
 
-    return consume_lexeme(lexer, lexeme);
+    return lexeme_ring_buffer_get_ptr_or_null(&lexer->ring_buffer);
 }
 
 static void lex_init(struct lexer *lexer, const char *input)
@@ -658,16 +652,15 @@ static void *parser_end_var_not_empty(struct parser *parser,
 static void *parser_slash(struct parser *parser, struct lexeme *lexeme)
 {
     if (lexeme->type == LEXEME_IDENTIFIER) {
-        struct lexeme *next = NULL;
+        struct lexeme *next;
 
-        if (!lex_next(&parser->lexer, &next))
-            return unexpected_lexeme_or_lex_error(lexeme, next);
+        if ((next = lex_next(&parser->lexer))) {
+            if (next->type == LEXEME_RIGHT_META)
+                return parser_end_iter(parser, lexeme);
 
-        if (next->type == LEXEME_RIGHT_META)
-            return parser_end_iter(parser, lexeme);
-
-        if (next->type == LEXEME_QUESTION_MARK)
-            return parser_end_var_not_empty(parser, lexeme);
+            if (next->type == LEXEME_QUESTION_MARK)
+                return parser_end_var_not_empty(parser, lexeme);
+        }
 
         return unexpected_lexeme_or_lex_error(lexeme, next);
     }
@@ -725,18 +718,15 @@ static void *parser_negate(struct parser *parser, struct lexeme *lexeme)
 
 static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
 {
-    struct lexeme *next = NULL;
+    struct lexeme *next;
 
-    if (!lex_next(&parser->lexer, &next)) {
-        if (next)
-            *lexeme = *next;
+    if (!(next = lex_next(&parser->lexer)))
         return NULL;
-    }
 
     if (parser->flags & FLAGS_QUOTE) {
         if (next->type != LEXEME_CLOSE_CURLY_BRACE)
             return error_lexeme(lexeme, "Expecting closing brace");
-        if (!lex_next(&parser->lexer, &next))
+        if (!(next = lex_next(&parser->lexer)))
             return unexpected_lexeme_or_lex_error(lexeme, next);
     }
 
@@ -1152,14 +1142,19 @@ static bool parse_string(struct lwan_tpl *tpl,
         .template_flags = flags
     };
     void *(*state)(struct parser *parser, struct lexeme *lexeme) = parser_text;
-    struct lexeme *lexeme = NULL;
+    struct lexeme *lexeme;
 
     if (!parser_init(&parser, descriptor, string))
         return false;
 
-    while (state && lex_next(&parser.lexer, &lexeme) &&
-           lexeme->type != LEXEME_ERROR)
+    while (state) {
+        lexeme = lex_next(&parser.lexer);
+
+        if (!lexeme || lexeme->type == LEXEME_ERROR)
+            break;
+
         state = state(&parser, lexeme);
+    }
 
     return parser_shutdown(&parser, lexeme);
 }
