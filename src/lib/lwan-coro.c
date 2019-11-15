@@ -169,6 +169,10 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
     coro_yield(coro, return_value);
 }
 #else
+static_assert(offsetof(struct coro, yield_value) == 616,
+              "yield_value at the correct offset (coro_defer array should be "
+              "inlinefirst)");
+
 void __attribute__((noinline, visibility("internal")))
 coro_entry_point(struct coro *coro, coro_function_t func, void *data);
 asm(".text\n\t"
@@ -180,7 +184,7 @@ asm(".text\n\t"
     "movq  %r15, %rsi\n\t" /* data = r15 */
     "call  *%rdx\n\t"      /* eax = func(coro, data) */
     "movq  (%rbx), %rsi\n\t"
-    "movl  %eax, 0x68(%rbx)\n\t" /* coro->yield_value eax */
+    "movl  %eax, 0x616(%rbx)\n\t" /* coro->yield_value = eax */
     "popq  %rbx\n\t"
     "leaq  0x50(%rsi), %rdi\n\t" /* get coro context from coro */
     "jmp   " ASM_SYMBOL(coro_swapcontext) "\n\t");
