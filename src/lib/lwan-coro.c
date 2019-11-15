@@ -184,7 +184,7 @@ asm(".text\n\t"
     "movq  %r15, %rsi\n\t" /* data = r15 */
     "call  *%rdx\n\t"      /* eax = func(coro, data) */
     "movq  (%rbx), %rsi\n\t"
-    "movl  %eax, 0x616(%rbx)\n\t" /* coro->yield_value = eax */
+    "movl  %eax, 616(%rbx)\n\t" /* coro->yield_value = eax */
     "popq  %rbx\n\t"
     "leaq  0x50(%rsi), %rdi\n\t" /* get coro context from coro */
     "jmp   " ASM_SYMBOL(coro_swapcontext) "\n\t");
