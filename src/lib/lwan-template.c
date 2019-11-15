@@ -517,10 +517,8 @@ static struct lexeme *lex_next(struct lexer *lexer)
 {
     struct lexeme *lexeme = lex_next_fsm_loop(lexer);
 
-    if (lexeme) {
-        if (lexeme->type == LEXEME_ERROR || lexeme->type == LEXEME_EOF)
-            return NULL;
-    }
+    if (lexeme && lexeme->type == LEXEME_ERROR)
+        return NULL;
 
     return lexeme;
 }
