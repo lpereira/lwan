@@ -492,8 +492,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
         lwan_status_critical_perror("pthread_attr_destroy");
 
     size_t n_queue_fds = thread->lwan->thread.max_fd;
-    if (n_queue_fds > 128)
-        n_queue_fds = 128;
     if (spsc_queue_init(&thread->pending_fds, n_queue_fds) < 0) {
         lwan_status_critical("Could not initialize pending fd "
                              "queue width %zu elements", n_queue_fds);
