@@ -61,6 +61,12 @@ if (BROTLI_FOUND)
 	set(HAVE_BROTLI 1)
 endif ()
 
+pkg_check_modules(ZSTD libzstd)
+if (ZSTD_FOUND)
+	list(APPEND ADDITIONAL_LIBRARIES "${ZSTD_LDFLAGS}")
+	set(HAVE_ZSTD 1)
+endif ()
+
 option(USE_ALTERNATIVE_MALLOC "Use alternative malloc implementations" "OFF")
 if (USE_ALTERNATIVE_MALLOC)
 	unset(ALTMALLOC_LIBS CACHE)

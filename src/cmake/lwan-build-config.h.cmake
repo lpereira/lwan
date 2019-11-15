@@ -58,6 +58,7 @@
 /* Libraries */
 #cmakedefine HAVE_LUA
 #cmakedefine HAVE_BROTLI
+#cmakedefine HAVE_ZSTD
 
 /* Valgrind support for coroutines */
 #cmakedefine HAVE_VALGRIND

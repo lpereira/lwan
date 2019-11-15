@@ -8,7 +8,10 @@ else ()
 		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
-	if (HAVE_BROTLI)
+	if (HAVE_ZSTD)
+		message(STATUS "Using Zstd for mimegen")
+		target_link_libraries(mimegen ${ZSTD_LDFLAGS})
+	elseif (HAVE_BROTLI)
 		message(STATUS "Using Brotli for mimegen")
 		target_link_libraries(mimegen ${BROTLI_LDFLAGS})
 	else ()

@@ -46,6 +46,10 @@
 #include <brotli/encode.h>
 #endif
 
+#if defined(HAVE_ZSTD)
+#include <zstd.h>
+#endif
+
 static const struct lwan_key_value deflate_compression_hdr = {
     .key = "Content-Encoding",
     .value = "deflate",
@@ -58,6 +62,12 @@ static const struct lwan_key_value gzip_compression_hdr = {
 static const struct lwan_key_value br_compression_hdr = {
     .key = "Content-Encoding",
     .value = "br",
+};
+#endif
+#if defined(HAVE_ZSTD)
+static const struct lwan_key_value zstd_compression_hdr = {
+    .key = "Content-Encoding",
+    .value = "zstd",
 };
 #endif
 
@@ -98,6 +108,9 @@ struct mmap_cache_data {
     struct lwan_value deflated;
 #if defined(HAVE_BROTLI)
     struct lwan_value brotli;
+#endif
+#if defined(HAVE_ZSTD)
+    struct lwan_value zstd;
 #endif
 };
 
@@ -425,6 +438,36 @@ error_zero_out:
 }
 #endif
 
+#if defined(HAVE_ZSTD)
+static void zstd_value(const struct lwan_value *uncompressed,
+                       struct lwan_value *zstd,
+                       const struct lwan_value *deflated)
+{
+    const size_t bound = ZSTD_compressBound(uncompressed->len);
+
+    zstd->len = bound;
+
+    if (UNLIKELY(!(zstd->value = malloc(zstd->len))))
+        goto error_zero_out;
+
+    zstd->len = ZSTD_compress(zstd->value, zstd->len, uncompressed->value,
+                              uncompressed->len, 1);
+    if (UNLIKELY(ZSTD_isError(zstd->len)))
+        goto error_free_compressed;
+
+    /* is_compression_worthy() is already called for deflate-compressed data,
+     * so only consider zstd-compressed data if it's worth it WRT deflate */
+    if (LIKELY(zstd->len < deflated->len))
+        return realloc_if_needed(zstd, bound);
+
+error_free_compressed:
+    free(zstd->value);
+    zstd->value = NULL;
+error_zero_out:
+    zstd->len = 0;
+}
+#endif
+
 static bool mmap_init(struct file_cache_entry *ce,
                       struct serve_files_priv *priv,
                       const char *full_path,
@@ -454,6 +497,9 @@ static bool mmap_init(struct file_cache_entry *ce,
     deflate_value(&md->uncompressed, &md->deflated);
 #if defined(HAVE_BROTLI)
     brotli_value(&md->uncompressed, &md->brotli, &md->deflated);
+#endif
+#if defined(HAVE_ZSTD)
+    zstd_value(&md->uncompressed, &md->zstd, &md->deflated);
 #endif
 
     ce->mime_type =
@@ -847,6 +893,9 @@ static void mmap_free(struct file_cache_entry *fce)
 #if defined(HAVE_BROTLI)
     free(md->brotli.value);
 #endif
+#if defined(HAVE_ZSTD)
+    free(md->zstd.value);
+#endif
 }
 
 static void sendfile_free(struct file_cache_entry *fce)
@@ -1170,7 +1219,15 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
     size_t size;
     enum lwan_http_status status;
 
-#if defined(HAVE_BROTLI)
+#if defined(HAVE_ZSTD)
+    if (md->zstd.len && (request->flags & REQUEST_ACCEPT_ZSTD)) {
+        contents = md->zstd.value;
+        size = md->zstd.len;
+        compressed = &zstd_compression_hdr;
+
+        status = HTTP_OK;
+    } else
+#elif defined(HAVE_BROTLI)
     if (md->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
         contents = md->brotli.value;
         size = md->brotli.len;

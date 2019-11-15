@@ -698,6 +698,12 @@ parse_accept_encoding(struct lwan_request *request)
         case STR4_INT(' ','g','z','i'):
             request->flags |= REQUEST_ACCEPT_GZIP;
             break;
+#if defined(HAVE_ZSTD)
+        case STR4_INT('z','s','t','d'):
+        case STR4_INT(' ','z','s','t'):
+            request->flags |= REQUEST_ACCEPT_ZSTD;
+            break;
+#endif
 #if defined(HAVE_BROTLI)
         default:
             while (lwan_char_isspace(*p))
