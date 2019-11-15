@@ -370,10 +370,10 @@ static ALWAYS_INLINE bool is_compression_worthy(const size_t compressed_sz,
     return ((compressed_sz + deflated_header_size) < uncompressed_sz);
 }
 
-static void realloc_if_needed(struct lwan_value *value, size_t needed_size)
+static void realloc_if_needed(struct lwan_value *value, size_t bound)
 {
-    if (needed_size < value->len) {
-        char *tmp = realloc(value->value, needed_size);
+    if (bound > value->len) {
+        char *tmp = realloc(value->value, value->len);
 
         if (tmp)
             value->value = tmp;
@@ -415,7 +415,7 @@ static void brotli_value(const struct lwan_value *uncompressed,
 
     brotli->len = bound;
 
-    if (UNLIKELY(!(brotli->value = malloc(brotli->len))))
+    if (UNLIKELY(!(brotli->value = malloc(bound))))
         goto error_zero_out;
 
     if (UNLIKELY(
