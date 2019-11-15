@@ -317,7 +317,7 @@ ALWAYS_INLINE int coro_resume_value(struct coro *coro, int value)
     return coro_resume(coro);
 }
 
-ALWAYS_INLINE int coro_yield(struct coro *coro, int value)
+inline int coro_yield(struct coro *coro, int value)
 {
     assert(coro);
     coro->yield_value = value;
