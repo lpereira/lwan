@@ -996,12 +996,16 @@ void lwan_tpl_free(struct lwan_tpl *tpl)
 
 static bool post_process_template(struct parser *parser)
 {
+    struct chunk *last_chunk =
+        chunk_array_get_elem(&parser->chunks, chunk_array_len(&parser->chunks));
     struct chunk *prev_chunk;
     struct chunk *chunk;
 
-    LWAN_ARRAY_FOREACH(&parser->chunks, chunk) {
+    LWAN_ARRAY_FOREACH (&parser->chunks, chunk) {
         if (chunk->action == ACTION_IF_VARIABLE_NOT_EMPTY) {
             for (prev_chunk = chunk;; chunk++) {
+                if (chunk > last_chunk)
+                    goto error;
                 if (chunk->action == ACTION_LAST) {
                     lwan_status_error("Internal error: Could not find the end "
                                       "var not empty chunk");
@@ -1026,6 +1030,8 @@ static bool post_process_template(struct parser *parser)
             enum flags flags = chunk->flags;
 
             for (prev_chunk = chunk;; chunk++) {
+                if (chunk > last_chunk)
+                    goto error;
                 if (chunk->action == ACTION_LAST) {
                     lwan_status_error(
                         "Internal error: Could not find the end iter chunk");
@@ -1084,6 +1090,10 @@ static bool post_process_template(struct parser *parser)
     parser->tpl->chunks = parser->chunks;
 
     return true;
+
+error:
+    lwan_status_error("Unknown error while parsing template; bug?");
+    return false;
 }
 
 static bool parser_init(struct parser *parser,
