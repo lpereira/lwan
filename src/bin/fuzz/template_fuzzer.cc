@@ -52,13 +52,14 @@ static const struct lwan_var_descriptor file_list_desc[] = {
     TPL_VAR_SENTINEL,
 };
 
+static size_t min(size_t a, size_t b) { return a > b ? b : a; }
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     static char copy[32768];
     struct lwan_tpl *tpl;
 
-    if (size > sizeof(copy))
-        size = sizeof(copy) - 1;
+    size = min(sizeof(copy) - 1, size);
     memcpy(copy, data, size);
     copy[size] = '\0';
 
