@@ -330,10 +330,10 @@ static ssize_t url_decode(char *str)
     return (ssize_t)(decoded - str);
 }
 
-static int
-key_value_compare(const void *a, const void *b)
+static int key_value_compare(const void *a, const void *b)
 {
-    return strcmp(((struct lwan_key_value *)a)->key, ((struct lwan_key_value *)b)->key);
+    return strcmp(((const struct lwan_key_value *)a)->key,
+                  ((const struct lwan_key_value *)b)->key);
 }
 
 static void
