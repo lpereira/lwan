@@ -46,6 +46,8 @@
 #define CORO_STACK_MIN (4 * SIGSTKSZ)
 #endif
 
+#define CORO_BUMP_PTR_ALLOC_SIZE 1024
+
 static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
               "Request buffer fits inside coroutine stack");
 
@@ -75,6 +77,17 @@ struct coro {
     struct coro_defer_array defer;
 
     int yield_value;
+
+#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+    /* The bump pointer allocator is disabled for fuzzing builds as that
+     * will make it more difficult to find overflows.
+     * See: https://blog.fuzzing-project.org/65-When-your-Memory-Allocator-hides-Security-Bugs.html
+     */
+    struct {
+        void *ptr;
+        size_t remaining;
+    } bump_ptr_alloc;
+#endif
 
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
     unsigned int vg_stack_id;
@@ -220,6 +233,9 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
+#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+    coro->bump_ptr_alloc.remaining = 0;
+#endif
 
 #if defined(__x86_64__)
     /* coro_entry_point() for x86-64 has 3 arguments, but RDX isn't
@@ -373,21 +389,81 @@ void *coro_malloc_full(struct coro *coro,
                        void (*destroy_func)(void *data))
 {
     void *ptr = malloc(size);
-
     if (LIKELY(ptr))
         coro_defer(coro, destroy_func, ptr);
 
     return ptr;
 }
 
-inline void *coro_malloc(struct coro *coro, size_t size)
+#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+static void perform_valgrind_malloc_freelike_block(void *ptr)
 {
+    VALGRIND_FREELIKE_BLOCK(ptr, 0);
+}
+#endif
+
+static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
+{
+    void *ptr = coro->bump_ptr_alloc.ptr;
+
+    coro->bump_ptr_alloc.remaining -= aligned_size;
+    coro->bump_ptr_alloc.ptr = (char *)ptr + aligned_size;
+
+    /* FIXME: Poison for ASAN too?
+     * https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
+     */
+
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+    VALGRIND_MALLOCLIKE_BLOCK(ptr, aligned_size, 0, 0);
+    coro_defer(coro, perform_valgrind_malloc_freelike_block, ptr);
+#endif
+
+    return ptr;
+}
+#endif
+
+void *coro_malloc(struct coro *coro, size_t size)
+{
+#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+    /* The bump pointer allocator can't be in the generic coro_malloc_full()
+     * since destroy_funcs are supposed to free the memory. In this function, we
+     * guarantee that the destroy_func is free(), so that if an allocation goes
+     * through the bump pointer allocator, there's nothing that needs to be done
+     * to free the memory (other than freeing the whole bump pointer arena with
+     * the defer call below). */
+
+    const size_t aligned_size =
+        (size + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
+
+    if (LIKELY(coro->bump_ptr_alloc.remaining >= aligned_size))
+        return coro_malloc_bump_ptr(coro, aligned_size);
+
+    /* This will allocate as many "bump pointer arenas" as necessary; the
+     * old ones will be freed automatically as each allocations coro_defers
+     * the free() call.   Just don't bother allocating an arena larger than
+     * CORO_BUMP_PTR_ALLOC.*/
+    if (LIKELY(aligned_size <= CORO_BUMP_PTR_ALLOC_SIZE)) {
+        coro->bump_ptr_alloc.ptr = malloc(CORO_BUMP_PTR_ALLOC_SIZE);
+        if (UNLIKELY(!coro->bump_ptr_alloc.ptr))
+            return NULL;
+
+        coro->bump_ptr_alloc.remaining = CORO_BUMP_PTR_ALLOC_SIZE;
+        coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
+
+        /* Avoid checking if there's still space in the arena again. */
+        return coro_malloc_bump_ptr(coro, aligned_size);
+    }
+#endif
+
     return coro_malloc_full(coro, size, free);
 }
 
 char *coro_strndup(struct coro *coro, const char *str, size_t max_len)
 {
     const size_t len = strnlen(str, max_len) + 1;
+    /* FIXME: Can we ask the bump ptr allocator to allocate without aligning
+     * this to 8-byte boundary? */
     char *dup = coro_malloc(coro, len);
 
     if (LIKELY(dup)) {
