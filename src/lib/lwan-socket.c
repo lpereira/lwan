@@ -106,6 +106,8 @@ static sa_family_t parse_listener_ipv4(char *listener, char **node, char **port)
         if (streq(*node, "*")) {
             /* *:8080 */
             *node = "0.0.0.0";
+
+            return AF_UNSPEC; /* IPv4 or IPv6 */
         }
     }
 
@@ -116,7 +118,7 @@ static sa_family_t parse_listener_ipv6(char *listener, char **node, char **port)
 {
     char *last_colon = strrchr(listener, ':');
     if (!last_colon)
-        return AF_UNSPEC;
+        return AF_MAX;
 
     if (*(last_colon - 1) == ']') {
         /* [::]:8080 */
@@ -139,7 +141,7 @@ static sa_family_t parse_listener(char *listener, char **node, char **port)
         lwan_status_critical(
             "Listener configured to use systemd socket activation, "
             "but started outside systemd.");
-        return AF_UNSPEC;
+        return AF_MAX;
     }
 
     if (*listener == '[')
@@ -214,9 +216,10 @@ static int setup_socket_normally(struct lwan *l)
     char *node, *port;
     char *listener = strdupa(l->config.listener);
     sa_family_t family = parse_listener(listener, &node, &port);
-    if (family == AF_UNSPEC)
+    if (family == AF_MAX) {
         lwan_status_critical("Could not parse listener: %s",
                              l->config.listener);
+    }
 
     struct addrinfo *addrs;
     struct addrinfo hints = {.ai_family = family,
