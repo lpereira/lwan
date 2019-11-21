@@ -123,7 +123,7 @@ static char *compress_output(const struct output *output, size_t *outlen)
     *outlen = ZSTD_compress(compressed, *outlen, output->ptr, output->used,
                             ZSTD_maxCLevel());
     if (ZSTD_isError(*outlen)) {
-        fprintf(stderr, "Could not compress mime type table with Brotli\n");
+        fprintf(stderr, "Could not compress mime type table with ZSTD\n");
         exit(1);
     }
 #elif defined(HAVE_BROTLI)
