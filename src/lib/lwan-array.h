@@ -49,7 +49,7 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
          iter_++)
 
 #define LWAN_ARRAY_FOREACH_REVERSE(array_, iter_)                              \
-    if ((typeof(iter_))(array_)->base.elements)                                \
+    if ((array_)->base.elements)                                               \
         for (iter_ = ((typeof(iter_))(array_)->base.base +                     \
                       (array_)->base.elements - 1);                            \
              iter_ >= (typeof(iter_))(array_)->base.base; iter_--)
