@@ -378,13 +378,12 @@ int main(void)
     srand((unsigned int)time(NULL));
 
     if (getenv("USE_MYSQL")) {
-        db_connection_params = (struct db_connection_params) {
+        db_connection_params = (struct db_connection_params){
             .type = DB_CONN_MYSQL,
             .mysql.user = getenv("MYSQL_USER"),
             .mysql.password = getenv("MYSQL_PASS"),
             .mysql.hostname = getenv("MYSQL_HOST"),
-            .mysql.database = getenv("MYSQL_DB")
-        };
+            .mysql.database = getenv("MYSQL_DB")};
 
         if (!db_connection_params.mysql.user)
             lwan_status_critical("No MySQL user provided");
@@ -395,10 +394,10 @@ int main(void)
         if (!db_connection_params.mysql.database)
             lwan_status_critical("No MySQL database provided");
     } else {
-        const char *pragmas[] = {"PRAGMA mmap_size=44040192",
-                                 "PRAGMA journal_mode=OFF",
-                                 "PRAGMA locking_mode=EXCLUSIVE", NULL};
-        db_connection_params = (struct db_connection_params) {
+        static const char *pragmas[] = {"PRAGMA mmap_size=44040192",
+                                        "PRAGMA journal_mode=OFF",
+                                        "PRAGMA locking_mode=EXCLUSIVE", NULL};
+        db_connection_params = (struct db_connection_params){
             .type = DB_CONN_SQLITE,
             .sqlite.path = "techempower.db",
             .sqlite.pragmas = pragmas,
