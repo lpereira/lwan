@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #define _GNU_SOURCE
@@ -79,8 +80,8 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
 
-    lwan_status_info("Dropping privileges to UID %d, GID %d (%s)",
-        uid, gid, username);
+    lwan_status_info("Dropping privileges to UID %d, GID %d (%s)", uid, gid,
+                     username);
 
     if (setresgid(gid, gid, gid) < 0)
         return false;
@@ -127,7 +128,7 @@ static void abort_on_open_directories(void)
     ret = snprintf(own_fd, sizeof(own_fd), "%d", dirfd(dir));
     if (ret < 0 || ret >= (int)sizeof(own_fd)) {
         lwan_status_critical("Could not get descriptor of /proc/self/fd");
-    }    
+    }
 
     while ((ent = readdir(dir))) {
         char path[PATH_MAX];
@@ -141,8 +142,8 @@ static void abort_on_open_directories(void)
 
         len = readlinkat(dirfd(dir), ent->d_name, path, sizeof(path));
         if (len < 0) {
-            lwan_status_critical_perror(
-                "Could not get information about fd %s", ent->d_name);
+            lwan_status_critical_perror("Could not get information about fd %s",
+                                        ent->d_name);
         }
         path[len] = '\0';
 
@@ -163,8 +164,8 @@ static void abort_on_open_directories(void)
             closedir(dir);
 
             lwan_status_critical(
-                "The directory '%s' is open (fd %s), can't chroot",
-                path, ent->d_name);
+                "The directory '%s' is open (fd %s), can't chroot", path,
+                ent->d_name);
             return;
         }
     }
@@ -172,9 +173,7 @@ static void abort_on_open_directories(void)
     closedir(dir);
 }
 #else
-static void abort_on_open_directories(void)
-{
-}
+static void abort_on_open_directories(void) {}
 #endif
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
@@ -209,16 +208,15 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
         lwan_status_info("Jailed to %s", sj->chroot_path);
     }
 
-    if (got_uid_gid) {
-        if (!switch_to_user(uid, gid, sj->user_name))
-            lwan_status_critical("Could not drop privileges to %s, aborting",
-                                 sj->user_name);
+    if (got_uid_gid && !switch_to_user(uid, gid, sj->user_name)) {
+        lwan_status_critical("Could not drop privileges to %s, aborting",
+                             sj->user_name);
     }
 
 out:
     if (sj->drop_capabilities) {
         struct __user_cap_header_struct header = {
-            .version = _LINUX_CAPABILITY_VERSION_1
+            .version = _LINUX_CAPABILITY_VERSION_1,
         };
         struct __user_cap_data_struct data = {};
 
@@ -253,7 +251,7 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
             config_error(c, "Straitjacket accepts no sections");
             return;
         case CONFIG_LINE_TYPE_SECTION_END:
-            lwan_straitjacket_enforce(&(struct lwan_straitjacket) {
+            lwan_straitjacket_enforce(&(struct lwan_straitjacket){
                 .user_name = user_name,
                 .chroot_path = chroot_path,
                 .drop_capabilities = drop_capabilities,
