@@ -819,6 +819,7 @@ read_from_request_socket(struct lwan_request *request,
 {
     struct lwan_request_parser_helper *helper = request->helper;
     size_t total_read = 0;
+    int n_packets = 0;
 
     if (helper->next_request) {
         const size_t next_request_len = (size_t)(helper->next_request - buffer->value);
@@ -837,7 +838,7 @@ read_from_request_socket(struct lwan_request *request,
         }
     }
 
-    for (int n_packets = 0;; n_packets++) {
+    for (;; n_packets++) {
         size_t to_read = (size_t)(buffer_size - total_read);
 
         if (UNLIKELY(to_read == 0))
