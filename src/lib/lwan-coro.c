@@ -32,8 +32,20 @@
 #include "lwan-array.h"
 #include "lwan-coro.h"
 
-#ifdef HAVE_VALGRIND
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#define INSTRUMENT_FOR_VALGRIND
 #include <valgrind.h>
+#endif
+
+#if defined(__clang__)
+# if defined(__has_feature) && __has_feature(address_sanitizer)
+#  #define __SANITIZE_ADDRESS
+# endif
+#endif
+#if defined(__SANITIZE_ADDRESS__)
+#define INSTRUMENT_FOR_ASAN
+void __asan_poison_memory_region(void const volatile *addr, size_t size);
+void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #if !defined(SIGSTKSZ)
@@ -78,7 +90,6 @@ struct coro {
 
     int yield_value;
 
-#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
     /* The bump pointer allocator is disabled for fuzzing builds as that
      * will make it more difficult to find overflows.
      * See: https://blog.fuzzing-project.org/65-When-your-Memory-Allocator-hides-Security-Bugs.html
@@ -87,9 +98,8 @@ struct coro {
         void *ptr;
         size_t remaining;
     } bump_ptr_alloc;
-#endif
 
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#if defined(INSTRUMENT_FOR_VALGRIND)
     unsigned int vg_stack_id;
 #endif
 
@@ -233,9 +243,7 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
-#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
     coro->bump_ptr_alloc.remaining = 0;
-#endif
 
 #if defined(__x86_64__)
     /* coro_entry_point() for x86-64 has 3 arguments, but RDX isn't
@@ -301,7 +309,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     coro->switcher = switcher;
     coro_reset(coro, function, data);
 
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#if defined(INSTRUMENT_FOR_VALGRIND)
     unsigned char *stack = coro->stack;
     coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
 #endif
@@ -344,7 +352,7 @@ inline int coro_yield(struct coro *coro, int value)
 void coro_free(struct coro *coro)
 {
     assert(coro);
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#if defined(INSTRUMENT_FOR_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
 #endif
     coro_deferred_run(coro, 0);
@@ -395,11 +403,16 @@ void *coro_malloc_full(struct coro *coro,
     return ptr;
 }
 
-#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
-static void perform_valgrind_malloc_freelike_block(void *ptr)
+#if defined(INSTRUMENT_FOR_VALGRIND) || defined(INSTRUMENT_FOR_ASAN)
+static void instrument_bpa_free(void *ptr, void *size)
 {
+#if defined(INSTRUMENT_FOR_VALGRIND)
     VALGRIND_FREELIKE_BLOCK(ptr, 0);
+#endif
+
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_poison_memory_region(ptr, (size_t)(uintptr_t)size);
+#endif
 }
 #endif
 
@@ -410,22 +423,22 @@ static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
     coro->bump_ptr_alloc.remaining -= aligned_size;
     coro->bump_ptr_alloc.ptr = (char *)ptr + aligned_size;
 
-    /* FIXME: Poison for ASAN too?
-     * https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
-     */
-
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#if defined(INSTRUMENT_FOR_VALGRIND)
     VALGRIND_MALLOCLIKE_BLOCK(ptr, aligned_size, 0, 0);
-    coro_defer(coro, perform_valgrind_malloc_freelike_block, ptr);
+#endif
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_unpoison_memory_region(ptr, aligned_size);
+#endif
+#if defined(INSTRUMENT_FOR_VALGRIND) || defined(INSTRUMENT_FOR_ASAN)
+    coro_defer2(coro, instrument_bpa_free, ptr,
+                (void *)(uintptr_t)aligned_size);
 #endif
 
     return ptr;
 }
-#endif
 
 void *coro_malloc(struct coro *coro, size_t size)
 {
-#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
     /* The bump pointer allocator can't be in the generic coro_malloc_full()
      * since destroy_funcs are supposed to free the memory. In this function, we
      * guarantee that the destroy_func is free(), so that if an allocation goes
@@ -448,13 +461,21 @@ void *coro_malloc(struct coro *coro, size_t size)
         if (UNLIKELY(!coro->bump_ptr_alloc.ptr))
             return NULL;
 
+#if defined(INSTRUMENT_FOR_ASAN)
+        /* There's apparently no way to poison the whole BPA arena with Valgrind
+         * like it's possible with ASAN (short of registering the BPA arena as
+         * a mempool, but that also doesn't really map 1:1 to how this works).
+         */
+        __asan_poison_memory_region(coro->bump_ptr_alloc.ptr,
+                                    CORO_BUMP_PTR_ALLOC_SIZE);
+#endif
+
         coro->bump_ptr_alloc.remaining = CORO_BUMP_PTR_ALLOC_SIZE;
         coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
 
         /* Avoid checking if there's still space in the arena again. */
         return coro_malloc_bump_ptr(coro, aligned_size);
     }
-#endif
 
     return coro_malloc_full(coro, size, free);
 }
