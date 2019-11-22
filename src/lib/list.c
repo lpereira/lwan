@@ -32,6 +32,7 @@
 
 #include "list.h"
 
+#ifndef NDEBUG
 static void *corrupt(const char *abortstr,
                      const struct list_node *head,
                      const struct list_node *node,
@@ -44,10 +45,12 @@ static void *corrupt(const char *abortstr,
     }
     return NULL;
 }
+#endif
 
 struct list_node *list_check_node(const struct list_node *node,
                                   const char *abortstr)
 {
+#ifndef NDEBUG
     const struct list_node *p, *n;
     unsigned int count = 0;
 
@@ -64,6 +67,7 @@ struct list_node *list_check_node(const struct list_node *node,
     /* Check prev on head node. */
     if (node->prev != p)
         return corrupt(abortstr, node, node, 0);
+#endif
 
     return (struct list_node *)node;
 }
