@@ -32,6 +32,16 @@
 #include <stddef.h>
 #include <assert.h>
 
+#ifndef NDEBUG
+# if __SIZEOF_SIZE_T__ == 8
+#  define LIST_POISON1 ((void *)0xdeadbeefdeadbeef)
+#  define LIST_POISON2 ((void *)0xbebacafebebacafe)
+# else
+#  define LIST_POISON1 ((void *)0xdeadbeef)
+#  define LIST_POISON2 ((void *)0xbebacafe)
+# endif
+#endif
+
 /**
  * check_type - issue a warning or build failure if type is not correct.
  * @expr: the expression whose type we should check (not evaluated).
@@ -257,7 +267,7 @@ struct list_head *list_check(const struct list_head *h, const char *abortstr);
 struct list_node *list_check_node(const struct list_node *n,
 				  const char *abortstr);
 
-#ifdef _LIST_DEBUG
+#ifndef NDEBUG
 #define list_debug(h) list_check((h), __func__)
 #define list_debug_node(n) list_check_node((n), __func__)
 #else
@@ -356,9 +366,10 @@ static inline void list_del(struct list_node *n)
 	(void)list_debug_node(n);
 	n->next->prev = n->prev;
 	n->prev->next = n->next;
-#ifdef _LIST_DEBUG
+#ifndef NDEBUG
 	/* Catch use-after-del. */
-	n->next = n->prev = NULL;
+	n->next = LIST_POISON1;
+	n->prev = LIST_POISON2;
 #endif
 }
 
@@ -378,7 +389,7 @@ static inline void list_del(struct list_node *n)
  */
 static inline void list_del_from(struct list_head *h, struct list_node *n)
 {
-#ifdef _LIST_DEBUG
+#ifndef NDEBUG
 	{
 		/* Thorough check: make sure it was in list! */
 		struct list_node *i;
@@ -387,7 +398,7 @@ static inline void list_del_from(struct list_head *h, struct list_node *n)
 	}
 #else
         (void)h;
-#endif /* _LIST_DEBUG */
+#endif /* NDEBUG */
 
 	/* Quick test that catches a surprising number of bugs. */
 	assert(!list_empty(h));

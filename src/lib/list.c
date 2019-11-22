@@ -51,6 +51,11 @@ struct list_node *list_check_node(const struct list_node *node,
     const struct list_node *p, *n;
     unsigned int count = 0;
 
+    if (node->prev == LIST_POISON1 || node->next == LIST_POISON1)
+        return corrupt(abortstr, node, node, 0);
+    if (node->prev == LIST_POISON2 || node->next == LIST_POISON2)
+        return corrupt(abortstr, node, node, 0);
+
     for (p = node, n = node->next; n != node; p = n, n = n->next) {
         count++;
         if (n->prev != p)
