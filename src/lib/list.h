@@ -34,11 +34,11 @@
 
 #ifndef NDEBUG
 # if __SIZEOF_SIZE_T__ == 8
-#  define LIST_POISON1 ((void *)0xdeadbeefdeadbeef)
-#  define LIST_POISON2 ((void *)0xbebacafebebacafe)
+#  define LIST_POISON1 ((struct list_node *)0xdeadbeefdeadbeef)
+#  define LIST_POISON2 ((struct list_node *)0xbebacafebebacafe)
 # else
-#  define LIST_POISON1 ((void *)0xdeadbeef)
-#  define LIST_POISON2 ((void *)0xbebacafe)
+#  define LIST_POISON1 ((struct list_node *)0xdeadbeef)
+#  define LIST_POISON2 ((struct list_node *)0xbebacafe)
 # endif
 #endif
 

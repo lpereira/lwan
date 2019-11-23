@@ -1138,15 +1138,21 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
         success = false;
     }
 
-    symtab_pop(parser);
-    if (parser->symtab) {
+    if (!parser->symtab) {
         lwan_status_error(
-            "Parser error: Symbol table not empty when finishing parser");
-
-        while (parser->symtab)
-            symtab_pop(parser);
-
+            "Parser error: No symbol table was found when finishing the parser");
         success = false;
+    } else {
+        symtab_pop(parser);
+        if (parser->symtab) {
+            lwan_status_error(
+                "Parser error: Symbol table not empty when finishing parser");
+
+            while (parser->symtab)
+                symtab_pop(parser);
+
+            success = false;
+        }
     }
 
     if (parser->flags & FLAGS_NEGATE) {
