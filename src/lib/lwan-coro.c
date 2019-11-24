@@ -39,7 +39,7 @@
 
 #if defined(__clang__)
 # if defined(__has_feature) && __has_feature(address_sanitizer)
-#  #define __SANITIZE_ADDRESS__
+#  define __SANITIZE_ADDRESS__
 # endif
 #endif
 #if defined(__SANITIZE_ADDRESS__)
