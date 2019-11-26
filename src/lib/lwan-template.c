@@ -911,8 +911,53 @@ void lwan_append_str_to_strbuf(struct lwan_strbuf *buf, void *ptr)
         lwan_strbuf_append_strz(buf, str);
 }
 
+#if __x86_64__
+#include <emmintrin.h>
+#endif
+
+static ALWAYS_INLINE int escaped_index(char ch)
+{
+#if __x86_64__
+    /* FIXME: instead of calling escaped_index() for each byte that needs to be
+     * escaped, use SIMD to leap through input string until an escapable character
+     * is found. */
+    const __m128i ch_mask = _mm_set1_epi8(ch);
+    const __m128i escapable =
+        _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '<', '>', '&', '"', '\'', '/');
+
+    return __builtin_ffs(_mm_movemask_epi8(_mm_cmpeq_epi8(ch_mask, escapable)));
+#else
+    switch (ch) {
+    default:
+        return 0;
+    case '/':
+        return 1;
+    case '\'':
+        return 2;
+    case '"':
+        return 3;
+    case '&':
+        return 4;
+    case '>':
+        return 5;
+    case '<':
+        return 6;
+    }
+#endif
+}
+
 void lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 {
+    static const struct lwan_value escaped[] = {
+        {},
+        { /* / */ "&#x2f;", 6 },
+        { /* ' */ "&#x27;", 6 },
+        { /* " */ "&quot;", 6 },
+        { /* & */ "&amp;", 5 },
+        { /* > */ "&gt;", 4 },
+        { /* < */ "&lt;", 4 },
+    };
+
     if (UNLIKELY(!ptr))
         return;
 
@@ -920,22 +965,20 @@ void lwan_append_str_escaped_to_strbuf(struct lwan_strbuf *buf, void *ptr)
     if (UNLIKELY(!str))
         return;
 
-    for (const char *p = str; *p; p++) {
-        if (*p == '<')
-            lwan_strbuf_append_str(buf, "&lt;", 4);
-        else if (*p == '>')
-            lwan_strbuf_append_str(buf, "&gt;", 4);
-        else if (*p == '&')
-            lwan_strbuf_append_str(buf, "&amp;", 5);
-        else if (*p == '"')
-            lwan_strbuf_append_str(buf, "&quot;", 6);
-        else if (*p == '\'')
-            lwan_strbuf_append_str(buf, "&#x27;", 6);
-        else if (*p == '/')
-            lwan_strbuf_append_str(buf, "&#x2f;", 6);
-        else
-            lwan_strbuf_append_char(buf, *p);
+    const char *last, *p;
+    for (last = p = str; *p; p++) {
+        int index = escaped_index(*p);
+
+        if (index) {
+            lwan_strbuf_append_str(buf, last, (size_t)(p - last));
+            last = p + 1;
+
+            lwan_strbuf_append_str(buf, escaped[index].value, escaped[index].len);
+        }
     }
+
+    if (last != p)
+        lwan_strbuf_append_str(buf, last, (size_t)(p - last));
 }
 
 bool lwan_tpl_str_is_empty(void *ptr)
