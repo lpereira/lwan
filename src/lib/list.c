@@ -33,6 +33,28 @@
 #include "list.h"
 
 #ifndef NDEBUG
+static struct list_node poison_node_1 = {.next = (void *)0xdeadbeef,
+                                         .prev = (void *)0xbebacafe};
+static struct list_node poison_node_2 = {.next = (void *)0xbebacafe,
+                                         .prev = (void *)0xdeadbeef};
+
+void list_poison_node(struct list_node *node)
+{
+    node->prev = &poison_node_1;
+    node->next = &poison_node_2;
+}
+
+static bool is_poisoned(const struct list_node *node)
+{
+    assert(poison_node_1.next == poison_node_2.prev);
+    assert(poison_node_1.prev == poison_node_2.next);
+    assert(poison_node_1.next == (void *)0xdeadbeef);
+    assert(poison_node_1.prev == (void *)0xbebacafe);
+
+    return (node->prev == &poison_node_1 || node->prev == &poison_node_2) ||
+           (node->next == &poison_node_1 || node->next == &poison_node_2);
+}
+
 static void *corrupt(const char *abortstr,
                      const struct list_node *head,
                      const struct list_node *node,
@@ -54,9 +76,7 @@ struct list_node *list_check_node(const struct list_node *node,
     const struct list_node *p, *n;
     unsigned int count = 0;
 
-    if (node->prev == LIST_POISON1 || node->next == LIST_POISON1)
-        return corrupt(abortstr, node, node, 0);
-    if (node->prev == LIST_POISON2 || node->next == LIST_POISON2)
+    if (is_poisoned(node))
         return corrupt(abortstr, node, node, 0);
 
     for (p = node, n = node->next; n != node; p = n, n = n->next) {

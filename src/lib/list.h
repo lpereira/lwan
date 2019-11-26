@@ -32,16 +32,6 @@
 #include <stddef.h>
 #include <assert.h>
 
-#ifndef NDEBUG
-# if __SIZEOF_SIZE_T__ == 8
-#  define LIST_POISON1 ((struct list_node *)0xdeadbeefdeadbeef)
-#  define LIST_POISON2 ((struct list_node *)0xbebacafebebacafe)
-# else
-#  define LIST_POISON1 ((struct list_node *)0xdeadbeef)
-#  define LIST_POISON2 ((struct list_node *)0xbebacafe)
-# endif
-#endif
-
 /**
  * check_type - issue a warning or build failure if type is not correct.
  * @expr: the expression whose type we should check (not evaluated).
@@ -268,9 +258,13 @@ struct list_node *list_check_node(const struct list_node *n,
 				  const char *abortstr);
 
 #ifndef NDEBUG
+void list_poison_node(struct list_node *node);
+
+#define list_poison(n) list_poison_node(n)
 #define list_debug(h) list_check((h), __func__)
 #define list_debug_node(n) list_check_node((n), __func__)
 #else
+#define list_poison(n)
 #define list_debug(h) (h)
 #define list_debug_node(n) (n)
 #endif
@@ -366,11 +360,9 @@ static inline void list_del(struct list_node *n)
 	(void)list_debug_node(n);
 	n->next->prev = n->prev;
 	n->prev->next = n->next;
-#ifndef NDEBUG
+
 	/* Catch use-after-del. */
-	n->next = LIST_POISON1;
-	n->prev = LIST_POISON2;
-#endif
+	list_poison(n);
 }
 
 /**
