@@ -22,10 +22,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#if defined(HAVE_ZSTD)
-#include <zstd.h>
-#elif defined(HAVE_BROTLI)
+#if defined(HAVE_BROTLI)
 #include <brotli/decode.h>
+#elif defined(HAVE_ZSTD)
+#include <zstd.h>
 #else
 #include <zlib.h>
 #endif
@@ -46,13 +46,7 @@ void lwan_tables_init(void)
     lwan_status_debug("Uncompressing MIME type table: %u->%u bytes, %d entries",
                       MIME_COMPRESSED_LEN, MIME_UNCOMPRESSED_LEN, MIME_ENTRIES);
 
-#if defined(HAVE_ZSTD)
-    size_t uncompressed_length =
-        ZSTD_decompress(uncompressed_mime_entries, MIME_UNCOMPRESSED_LEN,
-                        mime_entries_compressed, MIME_COMPRESSED_LEN);
-    if (ZSTD_isError(uncompressed_length))
-        lwan_status_critical("Error while uncompressing table with Zstd");
-#elif defined(HAVE_BROTLI)
+#if defined(HAVE_BROTLI)
     size_t uncompressed_length = MIME_UNCOMPRESSED_LEN;
     BrotliDecoderResult ret;
 
@@ -61,6 +55,12 @@ void lwan_tables_init(void)
                                   uncompressed_mime_entries);
     if (ret != BROTLI_DECODER_RESULT_SUCCESS)
         lwan_status_critical("Error while uncompressing table with Brotli");
+#elif defined(HAVE_ZSTD)
+    size_t uncompressed_length =
+        ZSTD_decompress(uncompressed_mime_entries, MIME_UNCOMPRESSED_LEN,
+                        mime_entries_compressed, MIME_COMPRESSED_LEN);
+    if (ZSTD_isError(uncompressed_length))
+        lwan_status_critical("Error while uncompressing table with Zstd");
 #else
     uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
     int ret =

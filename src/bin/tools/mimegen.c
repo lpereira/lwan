@@ -25,10 +25,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(HAVE_ZSTD)
-#include <zstd.h>
-#elif defined(HAVE_BROTLI)
+#if defined(HAVE_BROTLI)
 #include <brotli/encode.h>
+#elif defined(HAVE_ZSTD)
+#include <zstd.h>
 #elif defined(HAVE_ZOPFLI)
 #include <zopfli/zopfli.h>
 #else
@@ -111,22 +111,7 @@ static char *compress_output(const struct output *output, size_t *outlen)
 {
     char *compressed;
 
-#if defined(HAVE_ZSTD)
-    *outlen = ZSTD_compressBound(output->used);
-
-    compressed = malloc(*outlen);
-    if (!compressed) {
-        fprintf(stderr, "Could not allocate memory for compressed data\n");
-        exit(1);
-    }
-
-    *outlen = ZSTD_compress(compressed, *outlen, output->ptr, output->used,
-                            ZSTD_maxCLevel());
-    if (ZSTD_isError(*outlen)) {
-        fprintf(stderr, "Could not compress mime type table with ZSTD\n");
-        exit(1);
-    }
-#elif defined(HAVE_BROTLI)
+#if defined(HAVE_BROTLI)
     *outlen = BrotliEncoderMaxCompressedSize(output->used);
 
     compressed = malloc(*outlen);
@@ -140,6 +125,21 @@ static char *compress_output(const struct output *output, size_t *outlen)
                               (const unsigned char *)output->ptr, outlen,
                               (unsigned char *)compressed) != BROTLI_TRUE) {
         fprintf(stderr, "Could not compress mime type table with Brotli\n");
+        exit(1);
+    }
+#elif defined(HAVE_ZSTD)
+    *outlen = ZSTD_compressBound(output->used);
+
+    compressed = malloc(*outlen);
+    if (!compressed) {
+        fprintf(stderr, "Could not allocate memory for compressed data\n");
+        exit(1);
+    }
+
+    *outlen = ZSTD_compress(compressed, *outlen, output->ptr, output->used,
+                            ZSTD_maxCLevel());
+    if (ZSTD_isError(*outlen)) {
+        fprintf(stderr, "Could not compress mime type table with ZSTD\n");
         exit(1);
     }
 #elif defined(HAVE_ZOPFLI)
@@ -316,10 +316,10 @@ int main(int argc, char *argv[])
     }
 
     /* Print output. */
-#if defined(HAVE_ZSTD)
-    printf("/* Compressed with zstd */\n");
-#elif defined(HAVE_BROTLI)
+#if defined(HAVE_BROTLI)
     printf("/* Compressed with brotli */\n");
+#elif defined(HAVE_ZSTD)
+    printf("/* Compressed with zstd */\n");
 #elif defined(HAVE_ZOPFLI)
     printf("/* Compressed with zopfli (deflate) */\n");
 #else
