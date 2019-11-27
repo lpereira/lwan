@@ -160,6 +160,8 @@ static enum lwan_http_status json_response(struct lwan_response *response,
                                            size_t descr_len,
                                            const void *data)
 {
+    lwan_strbuf_grow_to(response->buffer, 128);
+
     if (json_obj_encode(descr, descr_len, data, append_to_strbuf,
                         response->buffer) < 0)
         return HTTP_INTERNAL_ERROR;
