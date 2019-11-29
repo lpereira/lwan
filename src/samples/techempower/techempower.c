@@ -355,6 +355,8 @@ LWAN_HANDLER(fortunes)
 {
     struct Fortune fortune;
 
+    lwan_strbuf_grow_to(response->buffer, 1500);
+
     if (UNLIKELY(!lwan_tpl_apply_with_buffer(fortune_tpl, response->buffer,
                                              &fortune)))
         return HTTP_INTERNAL_ERROR;
