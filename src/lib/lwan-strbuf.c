@@ -60,11 +60,12 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 
         s->flags &= ~STATIC;
         s->value.buffer = buffer;
+        s->capacity = aligned_size;
 
         return true;
     }
 
-    if (UNLIKELY(!s->used || lwan_nextpow2(s->used) < size)) {
+    if (UNLIKELY(s->capacity < size)) {
         const size_t aligned_size = align_size(size + 1);
         if (UNLIKELY(!aligned_size))
             return false;
@@ -72,7 +73,9 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
         char *buffer = realloc(s->value.buffer, aligned_size);
         if (UNLIKELY(!buffer))
             return false;
+
         s->value.buffer = buffer;
+        s->capacity = aligned_size;
     }
 
     return true;
@@ -86,6 +89,7 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
     if (!size) {
         *s = (struct lwan_strbuf) {
             .used = 0,
+            .capacity = 0,
             .value.static_buffer = "",
             .flags = STATIC,
         };
@@ -137,7 +141,8 @@ ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new_static(const char *str,
     *s = (struct lwan_strbuf) {
         .flags = STATIC | DYNAMICALLY_ALLOCATED,
         .value.static_buffer = str,
-        .used = size
+        .used = size,
+        .capacity = size,
     };
 
     return s;
@@ -182,7 +187,7 @@ bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
         free(s1->value.buffer);
 
     s1->value.static_buffer = s2;
-    s1->used = sz;
+    s1->used = s1->capacity = sz;
     s1->flags |= STATIC;
 
     return true;
@@ -261,6 +266,7 @@ void lwan_strbuf_reset(struct lwan_strbuf *s)
 {
     if (s->flags & STATIC) {
         s->value.static_buffer = "";
+        s->capacity = 0;
     } else {
         s->value.buffer[0] = '\0';
     }

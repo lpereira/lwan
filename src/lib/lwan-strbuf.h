@@ -29,7 +29,7 @@ struct lwan_strbuf {
         char *buffer;
         const char *static_buffer;
     } value;
-    size_t used;
+    size_t capacity, used;
     unsigned int flags;
 };
 
