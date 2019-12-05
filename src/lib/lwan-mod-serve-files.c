@@ -1283,22 +1283,17 @@ serve_files_handle_request(struct lwan_request *request,
                            void *instance)
 {
     struct serve_files_priv *priv = instance;
-    enum lwan_http_status return_status;
     struct file_cache_entry *fce;
     struct cache_entry *ce;
 
     ce = cache_coro_get_and_ref_entry(priv->cache, request->conn->coro,
                                       request->url.value);
-    if (UNLIKELY(!ce)) {
-        return_status = HTTP_NOT_FOUND;
-        goto out;
-    }
+    if (UNLIKELY(!ce))
+        return HTTP_NOT_FOUND;
 
     fce = (struct file_cache_entry *)ce;
-    if (client_has_fresh_content(request, fce->last_modified.integer)) {
-        return_status = HTTP_NOT_MODIFIED;
-        goto out;
-    }
+    if (client_has_fresh_content(request, fce->last_modified.integer))
+        return HTTP_NOT_MODIFIED;
 
     if (fce->funcs->serve == sendfile_serve) {
         response->mime_type = fce->mime_type;
@@ -1311,10 +1306,6 @@ serve_files_handle_request(struct lwan_request *request,
     }
 
     return fce->funcs->serve(request, fce);
-
-out:
-    response->stream.callback = NULL;
-    return return_status;
 }
 
 static const struct lwan_module module = {
