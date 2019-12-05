@@ -50,24 +50,20 @@
 #include <zstd.h>
 #endif
 
-static const struct lwan_key_value deflate_compression_hdr = {
-    .key = "Content-Encoding",
-    .value = "deflate",
+static const struct lwan_key_value deflate_compression_hdr[] = {
+    {"Content-Encoding", "deflate"}, {}
 };
-static const struct lwan_key_value gzip_compression_hdr = {
-    .key = "Content-Encoding",
-    .value = "gzip",
+static const struct lwan_key_value gzip_compression_hdr[] = {
+    {"Content-Encoding", "gzip"}, {}
 };
 #if defined(HAVE_BROTLI)
-static const struct lwan_key_value br_compression_hdr = {
-    .key = "Content-Encoding",
-    .value = "br",
+static const struct lwan_key_value br_compression_hdr[] = {
+    {"Content-Encoding", "br"}, {}
 };
 #endif
 #if defined(HAVE_ZSTD)
-static const struct lwan_key_value zstd_compression_hdr = {
-    .key = "Content-Encoding",
-    .value = "zstd",
+static const struct lwan_key_value zstd_compression_hdr[] = {
+    {"Content-Encoding", "zstd"}, {}
 };
 #endif
 
@@ -736,11 +732,7 @@ static bool redir_init(struct file_cache_entry *ce,
 {
     struct redir_cache_data *rd = &ce->redir_cache_data;
 
-    if (asprintf(&rd->redir_to, "%s/", full_path + priv->root_path_len) < 0)
-        return false;
-
-    ce->mime_type = "text/plain";
-    return true;
+    return asprintf(&rd->redir_to, "%s/", full_path + priv->root_path_len) >= 0;
 }
 
 static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
@@ -1134,7 +1126,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
         from = 0;
         to = (off_t)sd->compressed.size;
 
-        compression_hdr = &gzip_compression_hdr;
+        compression_hdr = gzip_compression_hdr;
         fd = sd->compressed.fd;
         size = sd->compressed.size;
 
@@ -1175,138 +1167,100 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     return return_status;
 }
 
-static enum lwan_http_status
-serve_buffer(struct lwan_request *request,
-             struct file_cache_entry *fce,
-             const struct lwan_key_value *additional_hdr,
-             const void *contents,
-             size_t size,
-             enum lwan_http_status return_status)
+static enum lwan_http_status serve_buffer(struct lwan_request *request,
+                                          const char *mime_type,
+                                          const void *buffer,
+                                          size_t buffer_len,
+                                          const struct lwan_key_value *headers,
+                                          enum lwan_http_status status_code)
 {
-    char headers[DEFAULT_HEADERS_SIZE];
-    size_t header_len;
+    request->response.mime_type = mime_type;
+    request->response.headers = headers;
 
-    header_len = prepare_headers(request, return_status, fce, size,
-                                 additional_hdr, headers);
-    if (UNLIKELY(!header_len))
-        return HTTP_INTERNAL_ERROR;
+    lwan_strbuf_set_static(request->response.buffer, buffer, buffer_len);
 
-    if (lwan_request_get_method(request) == REQUEST_METHOD_HEAD) {
-        lwan_send(request, headers, header_len, 0);
-    } else if (sizeof(headers) - header_len > size) {
-        /* See comment in lwan_response() about avoiding writev(). */
-        memcpy(headers + header_len, contents, size);
-        lwan_send(request, headers, header_len + size, 0);
-    } else {
-        struct iovec response_vec[] = {
-            {.iov_base = headers, .iov_len = header_len},
-            {.iov_base = (void *)contents, .iov_len = size},
-        };
-
-        lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
-    }
-
-    return return_status;
+    return status_code;
 }
 
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data)
 {
-    const struct lwan_key_value *compressed;
     struct file_cache_entry *fce = data;
     struct mmap_cache_data *md = &fce->mmap_cache_data;
-    void *contents;
-    size_t size;
-    enum lwan_http_status status;
 
 #if defined(HAVE_ZSTD)
     if (md->zstd.len && (request->flags & REQUEST_ACCEPT_ZSTD)) {
-        contents = md->zstd.value;
-        size = md->zstd.len;
-        compressed = &zstd_compression_hdr;
-
-        status = HTTP_OK;
-    } else
-#elif defined(HAVE_BROTLI)
-    if (md->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
-        contents = md->brotli.value;
-        size = md->brotli.len;
-        compressed = &br_compression_hdr;
-
-        status = HTTP_OK;
-    } else
+        return serve_buffer(request, fce->mime_type, md->zstd.value,
+                            md->zstd.len, zstd_compression_hdr, HTTP_OK);
+    }
 #endif
+
+#if defined(HAVE_BROTLI)
+    if (md->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+        return serve_buffer(request, fce->mime_type, md->brotli.value,
+                            md->brotli.len, br_compression_hdr, HTTP_OK);
+    }
+#endif
+
     if (md->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
-        contents = md->deflated.value;
-        size = md->deflated.len;
-        compressed = &deflate_compression_hdr;
-
-        status = HTTP_OK;
-    } else {
-        off_t from, to;
-
-        status =
-            compute_range(request, &from, &to, (off_t)md->uncompressed.len);
-        switch (status) {
-        case HTTP_PARTIAL_CONTENT:
-        case HTTP_OK:
-            contents = (char *)md->uncompressed.value + from;
-            size = (size_t)(to - from);
-            compressed = NULL;
-            break;
-
-        default:
-            return status;
-        }
+        return serve_buffer(request, fce->mime_type, md->deflated.value,
+                            md->deflated.len, deflate_compression_hdr, HTTP_OK);
     }
 
-    return serve_buffer(request, fce, compressed, contents, size, status);
+    off_t from, to;
+    enum lwan_http_status status =
+        compute_range(request, &from, &to, (off_t)md->uncompressed.len);
+    if (status == HTTP_OK || status == HTTP_PARTIAL_CONTENT) {
+        return serve_buffer(request, fce->mime_type,
+                            (char *)md->uncompressed.value + from,
+                            (size_t)(to - from), NULL, status);
+    }
+
+    return status;
 }
 
 static enum lwan_http_status dirlist_serve(struct lwan_request *request,
                                            void *data)
 {
-    const struct lwan_key_value *compressed = NULL;
     struct file_cache_entry *fce = data;
     struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
-    const char *icon;
-    const void *contents;
-    size_t size;
+    const char *icon = lwan_request_get_query_param(request, "icon");
 
-    icon = lwan_request_get_query_param(request, "icon");
     if (!icon) {
 #if defined(HAVE_BROTLI)
         if (dd->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
-            compressed = &br_compression_hdr;
-            contents = dd->brotli.value;
-            size = dd->brotli.len;
-        } else
-#endif
-        if (dd->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
-            compressed = &deflate_compression_hdr;
-            contents = dd->deflated.value;
-            size = dd->deflated.len;
-        } else {
-            contents = lwan_strbuf_get_buffer(&dd->rendered);
-            size = lwan_strbuf_get_length(&dd->rendered);
+            return serve_buffer(request, fce->mime_type, dd->brotli.value,
+                                dd->brotli.len, br_compression_hdr, HTTP_OK);
         }
-    } else if (streq(icon, "back")) {
-        contents = back_gif;
-        size = sizeof(back_gif);
-        request->response.mime_type = "image/gif";
-    } else if (streq(icon, "file")) {
-        contents = file_gif;
-        size = sizeof(file_gif);
-        request->response.mime_type = "image/gif";
-    } else if (streq(icon, "folder")) {
-        contents = folder_gif;
-        size = sizeof(folder_gif);
-        request->response.mime_type = "image/gif";
-    } else {
-        return HTTP_NOT_FOUND;
+#endif
+
+        if (dd->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
+            return serve_buffer(request, fce->mime_type, dd->deflated.value,
+                                dd->deflated.len, deflate_compression_hdr,
+                                HTTP_OK);
+        }
+
+        return serve_buffer(
+            request, fce->mime_type, lwan_strbuf_get_buffer(&dd->rendered),
+            lwan_strbuf_get_length(&dd->rendered), NULL, HTTP_OK);
     }
 
-    return serve_buffer(request, fce, compressed, contents, size, HTTP_OK);
+    if (streq(icon, "back")) {
+        return serve_buffer(request, "image/gif", back_gif, sizeof(back_gif),
+                            NULL, HTTP_OK);
+    }
+
+    if (streq(icon, "file")) {
+        return serve_buffer(request, "image/gif", file_gif, sizeof(file_gif),
+                            NULL, HTTP_OK);
+    }
+
+    if (streq(icon, "folder")) {
+        return serve_buffer(request, "image/gif", folder_gif,
+                            sizeof(folder_gif), NULL, HTTP_OK);
+    }
+
+    return HTTP_NOT_FOUND;
 }
 
 static enum lwan_http_status redir_serve(struct lwan_request *request,
@@ -1314,11 +1268,13 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
 {
     struct file_cache_entry *fce = data;
     struct redir_cache_data *rd = &fce->redir_cache_data;
-    const struct lwan_key_value headers = {.key = "Location",
-                                           .value = rd->redir_to};
+    const struct lwan_key_value headers[] = {{"Location", rd->redir_to}, {}};
 
-    return serve_buffer(request, fce, &headers, rd->redir_to,
-                        strlen(rd->redir_to), HTTP_MOVED_PERMANENTLY);
+    lwan_strbuf_set_staticz(request->response.buffer, rd->redir_to);
+    request->response.mime_type = "text/plain";
+    request->response.headers = headers;
+
+    return HTTP_MOVED_PERMANENTLY;
 }
 
 static enum lwan_http_status
@@ -1344,13 +1300,17 @@ serve_files_handle_request(struct lwan_request *request,
         goto out;
     }
 
-    response->mime_type = fce->mime_type;
-    response->stream.callback = fce->funcs->serve;
-    response->stream.data = fce;
+    if (fce->funcs->serve == sendfile_serve) {
+        response->mime_type = fce->mime_type;
+        response->stream.callback = fce->funcs->serve;
+        response->stream.data = fce;
 
-    request->flags |= RESPONSE_STREAM;
+        request->flags |= RESPONSE_STREAM;
 
-    return HTTP_OK;
+        return HTTP_OK;
+    }
+
+    return fce->funcs->serve(request, fce);
 
 out:
     response->stream.callback = NULL;
