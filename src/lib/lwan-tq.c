@@ -80,7 +80,7 @@ void timeout_queue_init(struct timeout_queue *tq, const struct lwan *lwan)
     tq->timeout = (struct timeout){};
 }
 
-void timeout_queue_kill(struct timeout_queue *tq, struct lwan_connection *conn)
+void timeout_queue_expire(struct timeout_queue *tq, struct lwan_connection *conn)
 {
     timeout_queue_remove(tq, conn);
 
@@ -92,7 +92,7 @@ void timeout_queue_kill(struct timeout_queue *tq, struct lwan_connection *conn)
     }
 }
 
-void timeout_queue_kill_waiting(struct timeout_queue *tq)
+void timeout_queue_expire_waiting(struct timeout_queue *tq)
 {
     tq->time++;
 
@@ -103,18 +103,18 @@ void timeout_queue_kill_waiting(struct timeout_queue *tq)
         if (conn->time_to_die > tq->time)
             return;
 
-        timeout_queue_kill(tq, conn);
+        timeout_queue_expire(tq, conn);
     }
 
-    /* Death queue exhausted: reset epoch */
+    /* Timeout queue exhausted: reset epoch */
     tq->time = 0;
 }
 
-void timeout_queue_kill_all(struct timeout_queue *tq)
+void timeout_queue_expire_all(struct timeout_queue *tq)
 {
     while (!timeout_queue_empty(tq)) {
         struct lwan_connection *conn =
             timeout_queue_idx_to_node(tq, tq->head.next);
-        timeout_queue_kill(tq, conn);
+        timeout_queue_expire(tq, conn);
     }
 }

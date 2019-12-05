@@ -240,7 +240,7 @@ resume_coro(struct timeout_queue *tq, struct lwan_connection *conn, int epoll_fd
 
     enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
     if (yield_result == CONN_CORO_ABORT) {
-        timeout_queue_kill(tq, conn);
+        timeout_queue_expire(tq, conn);
         return;
     }
 
@@ -318,14 +318,13 @@ static bool process_pending_timers(struct timeout_queue *tq,
                                    int epoll_fd)
 {
     struct timeout *timeout;
-    bool processed_tq_timeout = false;
+    bool should_expire_timers = false;
 
     while ((timeout = timeouts_get(t->wheel))) {
         struct lwan_request *request;
 
         if (timeout == &tq->timeout) {
-            timeout_queue_kill_waiting(tq);
-            processed_tq_timeout = true;
+            should_expire_timers = true;
             continue;
         }
 
@@ -335,7 +334,9 @@ static bool process_pending_timers(struct timeout_queue *tq,
                            CONN_CORO_RESUME_TIMER);
     }
 
-    if (processed_tq_timeout) {
+    if (should_expire_timers) {
+        timeout_queue_expire_waiting(tq);
+
         /* tq timeout expires every 1000ms if there are connections, so
          * update the date cache at this point as well.  */
         update_date_cache(t);
@@ -429,7 +430,7 @@ static void *thread_io_loop(void *data)
             conn = event->data.ptr;
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                timeout_queue_kill(&tq, conn);
+                timeout_queue_expire(&tq, conn);
                 continue;
             }
 
@@ -440,7 +441,7 @@ static void *thread_io_loop(void *data)
 
     pthread_barrier_wait(&lwan->thread.barrier);
 
-    timeout_queue_kill_all(&tq);
+    timeout_queue_expire_all(&tq);
     free(events);
 
     return NULL;

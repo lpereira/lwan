@@ -33,11 +33,11 @@ void timeout_queue_init(struct timeout_queue *tq, const struct lwan *l);
 
 void timeout_queue_insert(struct timeout_queue *tq,
                           struct lwan_connection *new_node);
-void timeout_queue_kill(struct timeout_queue *tq, struct lwan_connection *node);
+void timeout_queue_expire(struct timeout_queue *tq, struct lwan_connection *node);
 void timeout_queue_move_to_last(struct timeout_queue *tq,
                                 struct lwan_connection *conn);
 
-void timeout_queue_kill_waiting(struct timeout_queue *tq);
-void timeout_queue_kill_all(struct timeout_queue *tq);
+void timeout_queue_expire_waiting(struct timeout_queue *tq);
+void timeout_queue_expire_all(struct timeout_queue *tq);
 
 bool timeout_queue_empty(struct timeout_queue *tq);
