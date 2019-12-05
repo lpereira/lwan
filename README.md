@@ -679,6 +679,7 @@ Some other distribution channels were made available as well:
     * [Ubuntu](https://launchpad.net/lwan-unofficial)
     * [Alpine Linux](https://pkgs.alpinelinux.org/package/edge/testing/x86_64/lwan)
     * [NixOS](https://nixos.org/nixos/packages.html#lwan)
+* It's also available as a package for the [Nanos unikernel](https://github.com/nanovms/nanos).
 
 Lwan has been also used as a benchmark:
 
