@@ -413,6 +413,10 @@ int main(void)
         lwan_status_critical("Could not open database: %s", sqlite3_errmsg(db));
     cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
+    sqlite3_exec(db, "PRAGMA mmap_size=123217920", NULL, NULL, NULL);
+    sqlite3_exec(db, "PRAGMA journal_mode=OFF", NULL, NULL, NULL);
+    sqlite3_exec(db, "PRAGMA locking_mode=EXCLUSIVE", NULL, NULL, NULL);
+
 #if QUERIES_PER_HOUR != 0
     lwan_status_info("Limiting to %d queries per hour per client",
                      QUERIES_PER_HOUR);
