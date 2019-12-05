@@ -110,14 +110,28 @@ const char *lwan_lua_state_last_error(lua_State *L);
 #endif
 
 #ifdef __APPLE__
-#  define SECTION_START(name_) \
-        __start_ ## name_[] __asm("section$start$__DATA$" #name_)
-#  define SECTION_END(name_) \
-        __stop_ ## name_[] __asm("section$end$__DATA$" #name_)
+#define SECTION_START(name_) __start_##name_[] __asm("section$start$__DATA$" #name_)
+#define SECTION_END(name_)   __stop_##name_[] __asm("section$end$__DATA$" #name_)
 #else
-#  define SECTION_START(name_) __start_ ## name_[]
-#  define SECTION_END(name_) __stop_ ## name_[]
+#define SECTION_START(name_) __start_##name_[]
+#define SECTION_END(name_) __stop_##name_[]
 #endif
+
+#define SECTION_START_SYMBOL(section_name_, iter_)                             \
+    ({                                                                         \
+        extern const typeof(*iter_) SECTION_START(section_name_);              \
+        __start_##section_name_;                                               \
+    })
+
+#define SECTION_STOP_SYMBOL(section_name_, iter_)                              \
+    ({                                                                         \
+        extern const typeof(*iter_) SECTION_END(section_name_);                \
+        __stop_##section_name_;                                                \
+    })
+
+#define LWAN_SECTION_FOREACH(section_name_, iter_)                             \
+    for (iter_ = SECTION_START_SYMBOL(section_name_, iter_);                   \
+         iter_ < SECTION_STOP_SYMBOL(section_name_, iter_); (iter_)++)
 
 extern clockid_t monotonic_clock_id;
 

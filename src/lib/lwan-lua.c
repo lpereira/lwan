@@ -247,13 +247,10 @@ __attribute__((constructor))
 __attribute__((no_sanitize_address))
 static void register_lua_methods(void)
 {
-    extern const struct lwan_lua_method_info SECTION_START(lwan_lua_method);
-    extern const struct lwan_lua_method_info SECTION_END(lwan_lua_method);
     const struct lwan_lua_method_info *info;
     luaL_reg *r;
 
-    for (info = __start_lwan_lua_method; info < __stop_lwan_lua_method;
-         info++) {
+    LWAN_SECTION_FOREACH(lwan_lua_method, info) {
         r = lwan_lua_method_array_append(&lua_methods);
         if (!r) {
             lwan_status_critical("Could not register Lua method `%s`",

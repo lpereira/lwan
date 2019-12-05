@@ -70,12 +70,9 @@ LWAN_HANDLER(brew_coffee)
 __attribute__((no_sanitize_address))
 static void *find_handler(const char *name)
 {
-    extern const struct lwan_handler_info SECTION_START(lwan_handler);
-    extern const struct lwan_handler_info SECTION_END(lwan_handler);
     const struct lwan_handler_info *handler;
 
-    for (handler = __start_lwan_handler; handler < __stop_lwan_handler;
-         handler++) {
+    LWAN_SECTION_FOREACH(lwan_handler, handler) {
         if (streq(handler->name, name))
             return handler->handler;
     }
@@ -86,11 +83,9 @@ static void *find_handler(const char *name)
 __attribute__((no_sanitize_address))
 static const struct lwan_module *find_module(const char *name)
 {
-    extern const struct lwan_module_info SECTION_START(lwan_module);
-    extern const struct lwan_module_info SECTION_END(lwan_module);
     const struct lwan_module_info *module;
 
-    for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
+    LWAN_SECTION_FOREACH(lwan_module, module) {
         if (streq(module->name, name))
             return module->module;
     }
