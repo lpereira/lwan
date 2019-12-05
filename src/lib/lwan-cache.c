@@ -269,8 +269,10 @@ static bool cache_pruner_job(void *data)
     struct cache_entry *node, *next;
     struct timespec now;
     bool shutting_down = cache->flags & SHUTTING_DOWN;
-    unsigned evicted = 0;
     struct list_head queue;
+#ifndef NDEBUG
+    unsigned int evicted = 0;
+#endif
 
     if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
         return false;
@@ -326,7 +328,9 @@ static bool cache_pruner_job(void *data)
                 cache->cb.destroy_entry(node, cache->cb.context);
         }
 
+#ifndef NDEBUG
         evicted++;
+#endif
     }
 
     /* If local queue has been entirely processed, there's no need to
