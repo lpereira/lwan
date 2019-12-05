@@ -1662,16 +1662,6 @@ static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
     return 0;
 }
 
-static char *fuzz_websocket_handshake(struct lwan_request *r)
-{
-    char *encoded;
-
-    if (prepare_websocket_handshake(r, &encoded) == HTTP_SWITCHING_PROTOCOLS)
-        return encoded;
-
-    return NULL;
-}
-
 __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
                                                   size_t length)
 {
@@ -1717,6 +1707,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     if (parse_http_request(&request) == HTTP_OK) {
         off_t trash1;
         time_t trash2;
+        char *trash3;
         size_t gen = coro_deferred_get_generation(coro);
 
         /* Only pointers were set in helper struct; actually parse them here. */
@@ -1737,13 +1728,14 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         LWAN_NO_DISCARD(
             lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
 
-        LWAN_NO_DISCARD(fuzz_websocket_handshake(&request));
-
         lwan_request_get_range(&request, &trash1, &trash1);
         LWAN_NO_DISCARD(trash1);
 
         lwan_request_get_if_modified_since(&request, &trash2);
         LWAN_NO_DISCARD(trash2);
+
+        prepare_websocket_handshake(&request, &trash3);
+        LWAN_NO_DISCARD(trash3);
 
         LWAN_NO_DISCARD(
             lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
