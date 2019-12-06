@@ -1245,17 +1245,16 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
             lwan_strbuf_get_length(&dd->rendered), NULL, HTTP_OK);
     }
 
-    if (streq(icon, "back")) {
+    STRING_SWITCH(icon) {
+    case STR4_INT('b','a','c','k'):
         return serve_buffer(request, "image/gif", back_gif, sizeof(back_gif),
                             NULL, HTTP_OK);
-    }
 
-    if (streq(icon, "file")) {
+    case STR4_INT('f','i','l','e'):
         return serve_buffer(request, "image/gif", file_gif, sizeof(file_gif),
                             NULL, HTTP_OK);
-    }
 
-    if (streq(icon, "folder")) {
+    case STR4_INT('f','o','l','d'):
         return serve_buffer(request, "image/gif", folder_gif,
                             sizeof(folder_gif), NULL, HTTP_OK);
     }
