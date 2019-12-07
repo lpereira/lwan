@@ -320,10 +320,10 @@ struct lwan_connection {
     /* This structure is exactly 32-bytes on x86-64. If it is changed,
      * make sure the scheduler (lwan-thread.c) is updated as well. */
     enum lwan_connection_flags flags;
-    unsigned int time_to_die;
+    unsigned int time_to_expire;
     struct coro *coro;
     struct lwan_thread *thread;
-    int prev, next; /* for death queue */
+    int prev, next; /* for timeout queue */
 };
 
 struct lwan_proxy {

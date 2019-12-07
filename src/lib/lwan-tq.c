@@ -64,7 +64,7 @@ void timeout_queue_move_to_last(struct timeout_queue *tq,
     /* CONN_IS_KEEP_ALIVE isn't checked here because non-keep-alive connections
      * are closed in the request processing coroutine after they have been
      * served.  In practice, if this is called, it's a keep-alive connection. */
-    conn->time_to_die = tq->time + tq->keep_alive_timeout;
+    conn->time_to_expire = tq->time + tq->keep_alive_timeout;
 
     timeout_queue_remove(tq, conn);
     timeout_queue_insert(tq, conn);
@@ -100,7 +100,7 @@ void timeout_queue_expire_waiting(struct timeout_queue *tq)
         struct lwan_connection *conn =
             timeout_queue_idx_to_node(tq, tq->head.next);
 
-        if (conn->time_to_die > tq->time)
+        if (conn->time_to_expire > tq->time)
             return;
 
         timeout_queue_expire(tq, conn);

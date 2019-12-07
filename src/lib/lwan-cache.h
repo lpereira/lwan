@@ -29,7 +29,7 @@ struct cache_entry {
   char *key;
   int refs;
   unsigned flags;
-  time_t time_to_die;
+  time_t time_to_expire;
 };
 
 typedef struct cache_entry *(*cache_create_entry_cb)(

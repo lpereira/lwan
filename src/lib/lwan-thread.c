@@ -272,7 +272,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
         .flags = CONN_EVENTS_READ,
-        .time_to_die = tq->time + tq->keep_alive_timeout,
+        .time_to_expire = tq->time + tq->keep_alive_timeout,
         .thread = t,
     };
     if (UNLIKELY(!conn->coro)) {
