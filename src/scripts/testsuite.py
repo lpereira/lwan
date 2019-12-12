@@ -25,6 +25,7 @@ print('Using', LWAN_PATH, 'for lwan')
 
 class LwanTest(unittest.TestCase):
   def setUp(self, env=None):
+    open('htpasswd', 'w').close()
     for spawn_try in range(20):
       self.lwan=subprocess.Popen([LWAN_PATH], stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT, env=env)
@@ -51,6 +52,10 @@ class LwanTest(unittest.TestCase):
       with self.lwan as l:
         l.communicate(timeout=1.0)
         l.kill()
+    try:
+      os.remove('htpasswd')
+    except FileNotFoundError:
+      pass
 
   def assertHttpResponseValid(self, request, status_code, content_type):
     self.assertEqual(request.status_code, status_code)

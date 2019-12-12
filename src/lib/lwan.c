@@ -151,7 +151,9 @@ static void parse_listener_prefix_authorization(struct config *c,
                 url_map->authorization.realm = strdup(l->value);
             } else if (streq(l->key, "password_file")) {
                 free(url_map->authorization.password_file);
-                url_map->authorization.password_file = strdup(l->value);
+                url_map->authorization.password_file = realpath(l->value, NULL);
+                if (!url_map->authorization.password_file)
+                    config_error(c, "Could not determine full path for password file: %s", l->value);
             }
             break;
 
