@@ -55,8 +55,7 @@ enum json_tokens {
 struct json_obj_descr {
     const char *field_name;
 
-
-    uint32_t align_shift;
+    uint32_t align;
     uint32_t field_name_len;
     uint32_t type;
     uint32_t offset;
@@ -87,11 +86,6 @@ struct json_obj_descr {
  */
 typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 
-#define Z_ALIGN_SHIFT(type)                                                    \
-    (__alignof__(type) == 1                                                    \
-         ? 0                                                                   \
-         : __alignof__(type) == 2 ? 1 : __alignof__(type) == 4 ? 2 : 3)
-
 /**
  * @brief Helper macro to declare a descriptor for supported primitive
  * values.
@@ -116,7 +110,7 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
  */
 #define JSON_OBJ_DESCR_PRIM(struct_, field_name_, type_)                       \
     {                                                                          \
-        .field_name = (#field_name_), .align_shift = Z_ALIGN_SHIFT(struct_),   \
+        .field_name = (#field_name_), .align = __alignof__(struct_),           \
         .field_name_len = sizeof(#field_name_) - 1, .type = type_,             \
         .offset = offsetof(struct_, field_name_),                              \
     }
@@ -149,7 +143,7 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
  */
 #define JSON_OBJ_DESCR_OBJECT(struct_, field_name_, sub_descr_)                \
     {                                                                          \
-        .field_name = (#field_name_), .align_shift = Z_ALIGN_SHIFT(struct_),   \
+        .field_name = (#field_name_), .align = __alignof__(struct_),           \
         .field_name_len = (sizeof(#field_name_) - 1),                          \
         .type = JSON_TOK_OBJECT_START,                                         \
         .offset = offsetof(struct_, field_name_),                              \
@@ -188,13 +182,13 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 #define JSON_OBJ_DESCR_ARRAY(struct_, field_name_, max_len_, len_field_,       \
                              elem_type_)                                       \
     {                                                                          \
-        .field_name = (#field_name_), .align_shift = Z_ALIGN_SHIFT(struct_),   \
+        .field_name = (#field_name_), .align = __alignof__(struct_),           \
         .field_name_len = sizeof(#field_name_) - 1,                            \
         .type = JSON_TOK_LIST_START, .offset = offsetof(struct_, field_name_), \
         .array = {                                                             \
             .element_descr =                                                   \
                 &(struct json_obj_descr){                                      \
-                    .align_shift = Z_ALIGN_SHIFT(struct_),                     \
+                    .align = __alignof__(struct_),                             \
                     .type = elem_type_,                                        \
                     .offset = offsetof(struct_, len_field_),                   \
                 },                                                             \
@@ -244,13 +238,13 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 #define JSON_OBJ_DESCR_OBJ_ARRAY(struct_, field_name_, max_len_, len_field_,   \
                                  elem_descr_, elem_descr_len_)                 \
     {                                                                          \
-        .field_name = (#field_name_), .align_shift = Z_ALIGN_SHIFT(struct_),   \
+        .field_name = (#field_name_), .align = __alignof__(struct_),           \
         .field_name_len = sizeof(#field_name_) - 1,                            \
         .type = JSON_TOK_LIST_START, .offset = offsetof(struct_, field_name_), \
         .array = {                                                             \
             .element_descr =                                                   \
                 &(struct json_obj_descr){                                      \
-                    .align_shift = Z_ALIGN_SHIFT(struct_),                     \
+                    .align = __alignof__(struct_),                             \
                     .type = JSON_TOK_OBJECT_START,                             \
                     .offset = offsetof(struct_, len_field_),                   \
                     .object =                                                  \
@@ -314,13 +308,13 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 #define JSON_OBJ_DESCR_ARRAY_ARRAY(struct_, field_name_, max_len_, len_field_, \
                                    elem_descr_, elem_descr_len_)               \
     {                                                                          \
-        .field_name = (#field_name_), .align_shift = Z_ALIGN_SHIFT(struct_),   \
+        .field_name = (#field_name_), .align = __alignof__(struct_),           \
         .field_name_len = sizeof(#field_name_) - 1,                            \
         .type = JSON_TOK_LIST_START, .offset = offsetof(struct_, field_name_), \
         .array = {                                                             \
             .element_descr =                                                   \
                 &(struct json_obj_descr){                                      \
-                    .align_shift = Z_ALIGN_SHIFT(struct_),                     \
+                    .align = __alignof__(struct_),                             \
                     .type = JSON_TOK_LIST_START,                               \
                     .offset = offsetof(struct_, len_field_),                   \
                     .object =                                                  \
@@ -353,8 +347,7 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 #define JSON_OBJ_DESCR_PRIM_NAMED(struct_, json_field_name_,                   \
                                   struct_field_name_, type_)                   \
     {                                                                          \
-        .field_name = (json_field_name_),                                      \
-        .align_shift = Z_ALIGN_SHIFT(struct_),                                 \
+        .field_name = (json_field_name_), .align = __alignof__(struct_),       \
         .field_name_len = sizeof(json_field_name_) - 1, .type = type_,         \
         .offset = offsetof(struct_, struct_field_name_),                       \
     }
@@ -378,8 +371,7 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
 #define JSON_OBJ_DESCR_OBJECT_NAMED(struct_, json_field_name_,                 \
                                     struct_field_name_, sub_descr_)            \
     {                                                                          \
-        .field_name = (json_field_name_),                                      \
-        .align_shift = Z_ALIGN_SHIFT(struct_),                                 \
+        .field_name = (json_field_name_), .align = __alignof__(struct_),       \
         .field_name_len = (sizeof(json_field_name_) - 1),                      \
         .type = JSON_TOK_OBJECT_START,                                         \
         .offset = offsetof(struct_, struct_field_name_),                       \
@@ -414,15 +406,14 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
                                    struct_field_name_, max_len_, len_field_,   \
                                    elem_type_)                                 \
     {                                                                          \
-        .field_name = (json_field_name_),                                      \
-        .align_shift = Z_ALIGN_SHIFT(struct_),                                 \
+        .field_name = (json_field_name_), .align = __alignof__(struct_),       \
         .field_name_len = sizeof(json_field_name_) - 1,                        \
         .type = JSON_TOK_LIST_START,                                           \
         .offset = offsetof(struct_, struct_field_name_),                       \
         .array = {                                                             \
             .element_descr =                                                   \
                 &(struct json_obj_descr){                                      \
-                    .align_shift = Z_ALIGN_SHIFT(struct_),                     \
+                    .align = __alignof__(struct_),                             \
                     .type = elem_type_,                                        \
                     .offset = offsetof(struct_, len_field_),                   \
                 },                                                             \
@@ -480,13 +471,13 @@ typedef int (*json_append_bytes_t)(const char *bytes, size_t len, void *data);
     struct_, json_field_name_, struct_field_name_, max_len_, len_field_,       \
     elem_descr_, elem_descr_len_)                                              \
     {                                                                          \
-        .field_name = json_field_name_, .align_shift = Z_ALIGN_SHIFT(struct_), \
+        .field_name = json_field_name_, .align = __alignof__(struct_),         \
         .field_name_len = sizeof(json_field_name_) - 1,                        \
         .type = JSON_TOK_LIST_START,                                           \
         .offset = offsetof(struct_, struct_field_name_),                       \
         .element_descr =                                                       \
             &(struct json_obj_descr){                                          \
-                .align_shift = Z_ALIGN_SHIFT(struct_),                         \
+                .align = __alignof__(struct_),                                 \
                 .type = JSON_TOK_OBJECT_START,                                 \
                 .offset = offsetof(struct_, len_field_),                       \
                 .object =                                                      \

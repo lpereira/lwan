@@ -496,7 +496,7 @@ static ptrdiff_t get_elem_size(const struct json_obj_descr *descr)
         for (i = 0; i < descr->object.sub_descr_len; i++) {
             ptrdiff_t s = get_elem_size(&descr->object.sub_descr[i]);
 
-            total += (ptrdiff_t)ROUND_UP(s, 1 << descr->object.sub_descr[i].align_shift);
+            total += (ptrdiff_t)ROUND_UP(s, descr->object.sub_descr[i].align);
         }
 
         return total;
