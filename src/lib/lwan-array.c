@@ -84,7 +84,7 @@ void *lwan_array_append_heap(struct lwan_array *a, size_t element_size)
         a->base = new_base;
     }
 
-    return ((unsigned char *)a->base) + a->elements++ * element_size;
+    return ((char *)a->base) + a->elements++ * element_size;
 }
 
 void *lwan_array_append_inline(struct lwan_array *a,
