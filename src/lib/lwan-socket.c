@@ -35,7 +35,7 @@
 #include "int-to-str.h"
 #include "sd-daemon.h"
 
-static int get_backlog_size(void)
+int lwan_socket_get_backlog_size(void)
 {
     int backlog = SOMAXCONN;
 
@@ -152,7 +152,7 @@ static sa_family_t parse_listener(char *listener, char **node, char **port)
 
 static int listen_addrinfo(int fd, const struct addrinfo *addr)
 {
-    if (listen(fd, get_backlog_size()) < 0)
+    if (listen(fd, lwan_socket_get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
     char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];

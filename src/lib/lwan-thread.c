@@ -39,7 +39,12 @@
 #include "lwan-tq.h"
 #include "list.h"
 
-static ALWAYS_INLINE int min(const int a, const int b) { return a < b ? a : b; }
+#define LWAN_MIN(a_, b_)                                                       \
+    ({                                                                         \
+        __typeof__(a_) __a__ = (a_);                                           \
+        __typeof__(b_) __b__ = (b_);                                           \
+        __a__ > __b__ ? __b__ : __a__;                                         \
+    })
 
 static void lwan_strbuf_free_defer(void *data)
 {
@@ -388,7 +393,7 @@ static void *thread_io_loop(void *data)
     struct lwan_thread *t = data;
     int epoll_fd = t->epoll_fd;
     const int read_pipe_fd = t->pipe_fd[0];
-    const int max_events = min((int)t->lwan->thread.max_fd, 1024);
+    const int max_events = LWAN_MIN((int)t->lwan->thread.max_fd, 1024);
     struct lwan *lwan = t->lwan;
     struct epoll_event *events;
     struct coro_switcher switcher;
@@ -447,7 +452,8 @@ static void *thread_io_loop(void *data)
     return NULL;
 }
 
-static void create_thread(struct lwan *l, struct lwan_thread *thread)
+static void create_thread(struct lwan *l, struct lwan_thread *thread,
+                          const size_t n_queue_fds)
 {
     int ignore;
     pthread_attr_t attr;
@@ -492,7 +498,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
 
-    size_t n_queue_fds = thread->lwan->thread.max_fd;
     if (spsc_queue_init(&thread->pending_fds, n_queue_fds) < 0) {
         lwan_status_critical("Could not initialize pending fd "
                              "queue width %zu elements", n_queue_fds);
@@ -650,8 +655,11 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
+    const size_t n_queue_fds = LWAN_MIN(l->thread.max_fd / l->thread.count,
+                                        (size_t)(2 * lwan_socket_get_backlog_size()));
+    lwan_status_info("Pending client file descriptor queue has %zu items", n_queue_fds);
     for (short i = 0; i < l->thread.count; i++)
-        create_thread(l, &l->thread.threads[i]);
+        create_thread(l, &l->thread.threads[i], n_queue_fds);
 
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 #ifdef __x86_64__

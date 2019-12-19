@@ -24,6 +24,8 @@
 
 #include "lwan.h"
 
+int lwan_socket_get_backlog_size(void);
+
 struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
                                     int fd,
                                     uint32_t events,
