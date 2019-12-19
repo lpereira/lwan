@@ -187,37 +187,8 @@ struct timeouts *timeouts_open(timeout_error_t *error)
     return NULL;
 }
 
-static void timeouts_reset(struct timeouts *T)
-{
-    struct list_head reset;
-    struct timeout *to;
-    unsigned i, j;
-
-    list_head_init(&reset);
-
-    for (i = 0; i < N_ELEMENTS(T->wheel); i++) {
-        for (j = 0; j < N_ELEMENTS(T->wheel[i]); j++) {
-            list_append_list(&reset, &T->wheel[i][j]);
-            list_head_init(&T->wheel[i][j]);
-        }
-    }
-
-    list_append_list(&reset, &T->expired);
-    list_head_init(&T->expired);
-
-    list_for_each (&reset, to, tqe) {
-        to->pending = NULL;
-    }
-}
-
 void timeouts_close(struct timeouts *T)
 {
-    /*
-     * NOTE: Delete installed timeouts so timeout_pending() and
-     * timeout_expired() worked as expected.
-     */
-    timeouts_reset(T);
-
     free(T);
 }
 
