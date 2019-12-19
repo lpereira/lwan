@@ -199,7 +199,7 @@ asm(".text\n\t"
     ".p2align 4\n\t"
     ASM_ROUTINE(coro_entry_point_x86_64)
     "mov %r15, %rdx\n\t"
-    "jmp coro_entry_point\n\t"
+    "jmp " ASM_SYMBOL(coro_entry_point) "\n\t"
 );
 #endif
 
