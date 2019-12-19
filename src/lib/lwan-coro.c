@@ -188,8 +188,7 @@ __attribute__((used, visibility("internal")))
 void
 coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 {
-    int return_value = func(coro, data);
-    coro_yield(coro, return_value);
+    return (void)coro_yield(coro, func(coro, data));
 }
 
 #ifdef __x86_64__
