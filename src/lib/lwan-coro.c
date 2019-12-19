@@ -183,33 +183,23 @@ asm(".text\n\t"
 #define coro_swapcontext(cur, oth) swapcontext(cur, oth)
 #endif
 
-#ifndef __x86_64__
+__attribute__((used))
 static void
 coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 {
     int return_value = func(coro, data);
     coro_yield(coro, return_value);
 }
-#else
-static_assert(offsetof(struct coro, yield_value) == 616,
-              "yield_value at the correct offset (coro_defer array should be "
-              "inlinefirst)");
 
-void __attribute__((noinline, visibility("internal")))
-coro_entry_point(struct coro *coro, coro_function_t func, void *data);
+#ifdef __x86_64__
+void __attribute__((noinline, visibility("internal"))) coro_entry_point_x86_64();
+
 asm(".text\n\t"
     ".p2align 4\n\t"
-    ASM_ROUTINE(coro_entry_point)
-    "pushq %rbx\n\t"
-    "movq  %rdi, %rbx\n\t" /* coro = rdi */
-    "movq  %rsi, %rdx\n\t" /* func = rsi */
-    "movq  %r15, %rsi\n\t" /* data = r15 */
-    "call  *%rdx\n\t"      /* eax = func(coro, data) */
-    "movq  (%rbx), %rsi\n\t"
-    "movl  %eax, 616(%rbx)\n\t" /* coro->yield_value = eax */
-    "popq  %rbx\n\t"
-    "leaq  0x50(%rsi), %rdi\n\t" /* get coro context from coro */
-    "jmp   " ASM_SYMBOL(coro_swapcontext) "\n\t");
+    ASM_ROUTINE(coro_entry_point_x86_64)
+    "mov %r15, %rdx\n\t"
+    "jmp coro_entry_point\n\t"
+);
 #endif
 
 void coro_deferred_run(struct coro *coro, size_t generation)
@@ -252,7 +242,7 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
     coro->context[5 /* R15 */] = (uintptr_t)data;
     coro->context[6 /* RDI */] = (uintptr_t)coro;
     coro->context[7 /* RSI */] = (uintptr_t)func;
-    coro->context[8 /* RIP */] = (uintptr_t)coro_entry_point;
+    coro->context[8 /* RIP */] = (uintptr_t)coro_entry_point_x86_64;
 
     /* Ensure stack is properly aligned: it should be aligned to a
      * 16-bytes boundary so SSE will work properly, but should be
@@ -327,7 +317,6 @@ ALWAYS_INLINE int coro_resume(struct coro *coro)
 #endif
 
     coro_swapcontext(&coro->switcher->caller, &coro->context);
-    memcpy(&coro->context, &coro->switcher->callee, sizeof(coro->context));
 
     return coro->yield_value;
 }
@@ -343,8 +332,10 @@ ALWAYS_INLINE int coro_resume_value(struct coro *coro, int value)
 inline int coro_yield(struct coro *coro, int value)
 {
     assert(coro);
+
     coro->yield_value = value;
-    coro_swapcontext(&coro->switcher->callee, &coro->switcher->caller);
+    coro_swapcontext(&coro->context, &coro->switcher->caller);
+
     return coro->yield_value;
 }
 

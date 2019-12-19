@@ -38,7 +38,6 @@ typedef int (*coro_function_t)(struct coro *coro, void *data);
 
 struct coro_switcher {
     coro_context caller;
-    coro_context callee;
 };
 
 struct coro *
