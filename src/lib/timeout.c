@@ -222,11 +222,7 @@ static inline int timeout_wheel(timeout_t timeout)
 
 static inline int timeout_slot(int wheel, timeout_t expires)
 {
-    const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
-    const timeout_t slot =
-        wheel_mask & ((expires >> (wheel * WHEEL_BIT)) - !!wheel);
-
-    return (int)slot;
+    return (int)(WHEEL_MASK & ((expires >> (wheel * WHEEL_BIT)) - !!wheel));
 }
 
 static void
