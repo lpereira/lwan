@@ -200,6 +200,9 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
 #ifdef SO_REUSEPORT
         SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
                                    (int[]){reuse_port});
+#else
+        if (reuse_port)
+            lwan_status_warning("reuse_port not supported by the OS");
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
