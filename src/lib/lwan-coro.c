@@ -183,8 +183,8 @@ asm(".text\n\t"
 #define coro_swapcontext(cur, oth) swapcontext(cur, oth)
 #endif
 
-__attribute__((used))
-static void
+__attribute__((used, visibility("internal")))
+void
 coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 {
     int return_value = func(coro, data);
@@ -192,7 +192,7 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 }
 
 #ifdef __x86_64__
-void __attribute__((noinline, visibility("internal"))) coro_entry_point_x86_64();
+void __attribute__((visibility("internal"))) coro_entry_point_x86_64();
 
 asm(".text\n\t"
     ".p2align 4\n\t"
