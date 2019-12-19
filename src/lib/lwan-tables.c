@@ -84,6 +84,15 @@ void lwan_tables_init(void)
     }
 
     mime_entries_initialized = true;
+
+    assert(streq(lwan_determine_mime_type_for_file_name(".mkv"),
+                 "video/x-matroska"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".bz2"),
+                 "application/x-bzip2"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".xml"),
+                 "application/xml"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".nosuchext"),
+                 "application/octet-stream"));
 }
 
 void
