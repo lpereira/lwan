@@ -90,11 +90,9 @@ struct coro {
 
     int yield_value;
 
-    /* The bump pointer allocator is disabled for fuzzing builds as that
-     * will make it more difficult to find overflows.
-     * See: https://blog.fuzzing-project.org/65-When-your-Memory-Allocator-hides-Security-Bugs.html
-     */
     struct {
+        /* This allocator is instrumented on debug builds using asan and/or valgrind, if
+         * enabled during configuration time.  See coro_malloc_bump_ptr() for details. */
         void *ptr;
         size_t remaining;
     } bump_ptr_alloc;
@@ -192,6 +190,8 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 }
 
 #ifdef __x86_64__
+/* See comment in coro_reset() for an explanation of why this routine is
+ * necessary. */
 void __attribute__((visibility("internal"))) coro_entry_point_x86_64();
 
 asm(".text\n\t"
@@ -406,26 +406,46 @@ static void instrument_bpa_free(void *ptr, void *size)
 }
 #endif
 
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+static inline void *coro_malloc_bump_ptr(struct coro *coro,
+                                         size_t aligned_size,
+                                         size_t requested_size)
+#else
 static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
+#endif
 {
     void *ptr = coro->bump_ptr_alloc.ptr;
 
     coro->bump_ptr_alloc.remaining -= aligned_size;
     coro->bump_ptr_alloc.ptr = (char *)ptr + aligned_size;
 
+    /* This instrumentation is desirable to find buffer overflows, but it's not
+     * cheap. Enable it only in debug builds (for Valgrind) or when using
+     * address sanitizer (always the case when fuzz-testing on OSS-Fuzz). See:
+     * https://blog.fuzzing-project.org/65-When-your-Memory-Allocator-hides-Security-Bugs.html
+     */
+
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MALLOCLIKE_BLOCK(ptr, aligned_size, 0, 0);
+    VALGRIND_MALLOCLIKE_BLOCK(ptr, requested_size, 0, 0);
 #endif
 #if defined(INSTRUMENT_FOR_ASAN)
-    __asan_unpoison_memory_region(ptr, aligned_size);
+    __asan_unpoison_memory_region(ptr, requested_size);
 #endif
 #if defined(INSTRUMENT_FOR_VALGRIND) || defined(INSTRUMENT_FOR_ASAN)
     coro_defer2(coro, instrument_bpa_free, ptr,
-                (void *)(uintptr_t)aligned_size);
+                (void *)(uintptr_t)requested_size);
 #endif
 
     return ptr;
 }
+
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+#define CORO_MALLOC_BUMP_PTR(coro_, aligned_size_, requested_size_)            \
+    coro_malloc_bump_ptr(coro_, aligned_size_, requested_size_)
+#else
+#define CORO_MALLOC_BUMP_PTR(coro_, aligned_size_, requested_size_)            \
+    coro_malloc_bump_ptr(coro_, aligned_size_)
+#endif
 
 void *coro_malloc(struct coro *coro, size_t size)
 {
@@ -440,7 +460,7 @@ void *coro_malloc(struct coro *coro, size_t size)
         (size + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
 
     if (LIKELY(coro->bump_ptr_alloc.remaining >= aligned_size))
-        return coro_malloc_bump_ptr(coro, aligned_size);
+        return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
 
     /* This will allocate as many "bump pointer arenas" as necessary; the
      * old ones will be freed automatically as each allocations coro_defers
@@ -464,7 +484,7 @@ void *coro_malloc(struct coro *coro, size_t size)
         coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
 
         /* Avoid checking if there's still space in the arena again. */
-        return coro_malloc_bump_ptr(coro, aligned_size);
+        return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
     }
 
     return coro_malloc_full(coro, size, free);
