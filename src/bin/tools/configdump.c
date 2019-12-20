@@ -80,7 +80,6 @@ dump(struct config *config, int indent_level)
 int main(int argc, char *argv[])
 {
     struct config *config;
-    int indent_level = 0;
 
     if (argc < 2) {
         lwan_status_critical("Usage: %s /path/to/config/file.conf", argv[0]);
@@ -94,7 +93,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    dump(config, indent_level);
+    dump(config, 0);
 
     config_close(config);
 
