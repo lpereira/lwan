@@ -180,17 +180,21 @@ LWAN_HANDLER(json)
 
 static bool db_query(struct db_stmt *stmt,
                      struct db_row rows[],
+                     size_t n_rows,
                      struct db_row results[],
+                     size_t n_cols,
                      struct db_json *out)
 {
     int id = rand() % 10000;
 
+    assert(n_rows >= 1);
+
     rows[0].u.i = id;
 
-    if (UNLIKELY(!db_stmt_bind(stmt, rows, 1)))
+    if (UNLIKELY(!db_stmt_bind(stmt, rows, n_rows)))
         return false;
 
-    if (UNLIKELY(!db_stmt_step(stmt, results)))
+    if (UNLIKELY(!db_stmt_step(stmt, results, n_cols)))
         return false;
 
     out->id = id;
@@ -201,8 +205,8 @@ static bool db_query(struct db_stmt *stmt,
 
 LWAN_HANDLER(db)
 {
-    struct db_row rows[1] = {{.kind = 'i'}};
-    struct db_row results[] = {{.kind = 'i'}, {.kind = '\0'}};
+    struct db_row rows[] = {{.kind = 'i'}};
+    struct db_row results[] = {{.kind = 'i'}};
     struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
                                            sizeof(random_number_query) - 1);
     struct db_json db_json;
@@ -212,7 +216,8 @@ LWAN_HANDLER(db)
         return HTTP_INTERNAL_ERROR;
     }
 
-    bool queried = db_query(stmt, rows, results, &db_json);
+    bool queried = db_query(stmt, rows, N_ELEMENTS(rows), results,
+                            N_ELEMENTS(results), &db_json);
 
     db_stmt_finalize(stmt);
 
@@ -245,10 +250,11 @@ LWAN_HANDLER(queries)
         return HTTP_INTERNAL_ERROR;
 
     struct queries_json qj = {.queries_len = (size_t)queries};
-    struct db_row rows[1] = {{.kind = 'i'}};
-    struct db_row results[] = {{.kind = 'i'}, {.kind = '\0'}};
+    struct db_row rows[] = {{.kind = 'i'}};
+    struct db_row results[] = {{.kind = 'i'}};
     for (long i = 0; i < queries; i++) {
-        if (!db_query(stmt, rows, results, &qj.queries[i]))
+        if (!db_query(stmt, rows, N_ELEMENTS(rows), results,
+                      N_ELEMENTS(results), &qj.queries[i]))
             goto out;
     }
 
@@ -322,12 +328,13 @@ static int fortune_list_generator(struct coro *coro, void *data)
 
     fortune_array_init(&fortunes);
 
-    struct db_row results[] = {{.kind = 'i'},
-                               {.kind = 's',
-                                .u.s = fortune_buffer,
-                                .buffer_length = sizeof(fortune_buffer)},
-                               {.kind = '\0'}};
-    while (db_stmt_step(stmt, results)) {
+    struct db_row results[] = {
+        {.kind = 'i'},
+        {.kind = 's',
+         .u.s = fortune_buffer,
+         .buffer_length = sizeof(fortune_buffer)},
+    };
+    while (db_stmt_step(stmt, results, N_ELEMENTS(results))) {
         if (!append_fortune(coro, &fortunes, results[0].u.i, results[1].u.s))
             goto out;
     }

@@ -30,7 +30,7 @@ struct db_stmt {
     bool (*bind)(const struct db_stmt *stmt,
                  struct db_row *rows,
                  size_t n_rows);
-    bool (*step)(const struct db_stmt *stmt, struct db_row *row);
+    bool (*step)(const struct db_stmt *stmt, struct db_row *row, size_t n_cols);
     void (*finalize)(struct db_stmt *stmt);
 };
 
@@ -66,9 +66,8 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
 
     if (!stmt_mysql->param_bind) {
         stmt_mysql->param_bind = calloc(n_rows, sizeof(MYSQL_BIND));
-        if (!stmt_mysql->param_bind) {
+        if (!stmt_mysql->param_bind)
             return false;
-        }
     } else {
         mysql_stmt_reset(stmt_mysql->stmt);
     }
@@ -92,7 +91,9 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
     return !mysql_stmt_bind_param(stmt_mysql->stmt, stmt_mysql->param_bind);
 }
 
-static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
+static bool db_stmt_step_mysql(const struct db_stmt *stmt,
+                               struct db_row *row,
+                               size_t n_rows)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
@@ -103,10 +104,6 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
     }
 
     if (!stmt_mysql->result_bind) {
-        size_t n_rows = 0;
-        for (struct db_row *r = row; r->kind != '\0'; r++)
-            n_rows++;
-
         if (!n_rows)
             return false;
 
@@ -115,12 +112,8 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
         if (!stmt_mysql->result_bind)
             return false;
 
-        stmt_mysql->param_bind =
-            calloc(n_rows, sizeof(*stmt_mysql->param_bind));
-        if (!stmt_mysql->param_bind) {
-            free(stmt_mysql->result_bind);
-            return false;
-        }
+        free(stmt_mysql->param_bind);
+        stmt_mysql->param_bind = NULL;
 
         MYSQL_BIND *result = stmt_mysql->result_bind;
         for (size_t r = 0; r < n_rows; r++) {
@@ -131,7 +124,7 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
                 result[r].buffer_type = MYSQL_TYPE_LONG;
                 result[r].buffer = &row[r].u.i;
             } else {
-                return false;
+                goto out;
             }
 
             result[r].is_null = false;
@@ -139,10 +132,16 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt, struct db_row *row)
         }
 
         if (mysql_stmt_bind_result(stmt_mysql->stmt, result))
-            return false;
+            goto out;
     }
 
     return mysql_stmt_fetch(stmt_mysql->stmt) == 0;
+
+out:
+    free(stmt_mysql->result_bind);
+    stmt_mysql->result_bind = NULL;
+
+    return false;
 }
 
 static void db_stmt_finalize_mysql(struct db_stmt *stmt)
@@ -248,16 +247,13 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
-    const struct db_row *rows_1_based = rows - 1;
     int ret;
 
     sqlite3_reset(stmt_sqlite->sqlite);
     sqlite3_clear_bindings(stmt_sqlite->sqlite);
 
     for (size_t row = 1; row <= n_rows; row++) {
-        const struct db_row *r = &rows_1_based[row];
-        if (r->kind == '\0')
-            break;
+        const struct db_row *r = &rows[row - 1];
 
         if (r->kind == 's') {
             ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row, r->u.s, -1,
@@ -276,7 +272,9 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
     return true;
 }
 
-static bool db_stmt_step_sqlite(const struct db_stmt *stmt, struct db_row *row)
+static bool db_stmt_step_sqlite(const struct db_stmt *stmt,
+                                struct db_row *row,
+                                size_t n_cols)
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
@@ -284,8 +282,9 @@ static bool db_stmt_step_sqlite(const struct db_stmt *stmt, struct db_row *row)
     if (sqlite3_step(stmt_sqlite->sqlite) != SQLITE_ROW)
         return false;
 
-    int column_id = 0;
-    for (struct db_row *r = row; r->kind != '\0'; r++, column_id++) {
+    for (int column_id = 0; column_id < (int)n_cols; column_id++) {
+        struct db_row *r = &row[column_id];
+
         if (r->kind == 'i') {
             r->u.i = sqlite3_column_int(stmt_sqlite->sqlite, column_id);
         } else if (r->kind == 's') {
@@ -372,9 +371,10 @@ db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows)
     return stmt->bind(stmt, rows, n_rows);
 }
 
-inline bool db_stmt_step(const struct db_stmt *stmt, struct db_row *row)
+inline bool
+db_stmt_step(const struct db_stmt *stmt, struct db_row *row, size_t n_cols)
 {
-    return stmt->step(stmt, row);
+    return stmt->step(stmt, row, n_cols);
 }
 
 inline void db_stmt_finalize(struct db_stmt *stmt) { stmt->finalize(stmt); }
