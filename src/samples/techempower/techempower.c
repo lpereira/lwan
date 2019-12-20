@@ -185,7 +185,7 @@ static bool db_query(struct db_stmt *stmt,
                      size_t n_cols,
                      struct db_json *out)
 {
-    int id = rand() % 10000;
+    const int id = (rand() % 10000) + 1;
 
     assert(n_rows >= 1);
 
