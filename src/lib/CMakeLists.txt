@@ -31,7 +31,9 @@ set(SOURCES
 	lwan-template.c
 	lwan-thread.c
 	lwan-time.c
+	lwan-tq.c
 	lwan-trie.c
+	lwan-websocket.c
 	missing.c
 	missing-pthread.c
 	murmur3.c
@@ -39,9 +41,8 @@ set(SOURCES
 	queue.c
 	realpathat.c
 	sd-daemon.c
-	timeout.c
 	sha1.c
-	lwan-tq.c
+	timeout.c
 )
 
 if (HAVE_LUA)
