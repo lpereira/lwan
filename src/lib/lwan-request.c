@@ -1333,9 +1333,6 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
         request->url.len--;
     }
 
-    if (url_map->flags & HANDLER_PARSE_ACCEPT_ENCODING)
-        parse_accept_encoding(request);
-
     if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
         enum lwan_http_status status;
 
@@ -1653,6 +1650,17 @@ lwan_request_get_post_params(struct lwan_request *request)
     }
 
     return &request->helper->post_params;
+}
+
+ALWAYS_INLINE enum lwan_request_flags
+lwan_request_get_accept_encoding(struct lwan_request *request)
+{
+    if (!(request->flags & REQUEST_PARSED_ACCEPT_ENCODING)) {
+        parse_accept_encoding(request);
+        request->flags |= REQUEST_PARSED_ACCEPT_ENCODING;
+    }
+
+    return request->flags & REQUEST_ACCEPT_MASK;
 }
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION

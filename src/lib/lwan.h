@@ -199,7 +199,6 @@ enum lwan_handler_flags {
     HANDLER_MUST_AUTHORIZE = 1 << 1,
     HANDLER_CAN_REWRITE_URL = 1 << 2,
     HANDLER_DATA_IS_HASH_TABLE = 1 << 3,
-    HANDLER_PARSE_ACCEPT_ENCODING = 1 << 4,
 
     HANDLER_PARSE_MASK = HANDLER_HAS_POST_DATA,
 };
@@ -225,6 +224,8 @@ enum lwan_request_flags {
     REQUEST_ACCEPT_GZIP = 1 << 4,
     REQUEST_ACCEPT_BROTLI = 1 << 5,
     REQUEST_ACCEPT_ZSTD = 1 << 6,
+    REQUEST_ACCEPT_MASK = 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6,
+
     REQUEST_IS_HTTP_1_0 = 1 << 7,
     REQUEST_ALLOW_PROXY_REQS = 1 << 8,
     REQUEST_PROXIED = 1 << 9,
@@ -550,6 +551,8 @@ const struct lwan_key_value_array *
 lwan_request_get_query_params(struct lwan_request *request);
 const struct lwan_key_value_array *
 lwan_request_get_post_params(struct lwan_request *request);
+enum lwan_request_flags
+lwan_request_get_accept_encoding(struct lwan_request *request);
 
 enum lwan_http_status
 lwan_request_websocket_upgrade(struct lwan_request *request);

@@ -1109,6 +1109,12 @@ compute_range(struct lwan_request *request, off_t *from, off_t *to, off_t size)
     return HTTP_PARTIAL_CONTENT;
 }
 
+static inline bool accepts_encoding(struct lwan_request *request,
+                                    const enum lwan_request_flags encoding)
+{
+    return lwan_request_get_accept_encoding(request) & encoding;
+}
+
 static enum lwan_http_status sendfile_serve(struct lwan_request *request,
                                             void *data)
 {
@@ -1122,7 +1128,7 @@ static enum lwan_http_status sendfile_serve(struct lwan_request *request,
     size_t size;
     int fd;
 
-    if (sd->compressed.size && (request->flags & REQUEST_ACCEPT_GZIP)) {
+    if (sd->compressed.size && accepts_encoding(request, REQUEST_ACCEPT_GZIP)) {
         from = 0;
         to = (off_t)sd->compressed.size;
 
@@ -1189,20 +1195,20 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
     struct mmap_cache_data *md = &fce->mmap_cache_data;
 
 #if defined(HAVE_ZSTD)
-    if (md->zstd.len && (request->flags & REQUEST_ACCEPT_ZSTD)) {
+    if (md->zstd.len && accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
         return serve_buffer(request, fce->mime_type, md->zstd.value,
                             md->zstd.len, zstd_compression_hdr, HTTP_OK);
     }
 #endif
 
 #if defined(HAVE_BROTLI)
-    if (md->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+    if (md->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
         return serve_buffer(request, fce->mime_type, md->brotli.value,
                             md->brotli.len, br_compression_hdr, HTTP_OK);
     }
 #endif
 
-    if (md->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
+    if (md->deflated.len && accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
         return serve_buffer(request, fce->mime_type, md->deflated.value,
                             md->deflated.len, deflate_compression_hdr, HTTP_OK);
     }
@@ -1228,13 +1234,13 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
 
     if (!icon) {
 #if defined(HAVE_BROTLI)
-        if (dd->brotli.len && (request->flags & REQUEST_ACCEPT_BROTLI)) {
+        if (dd->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
             return serve_buffer(request, fce->mime_type, dd->brotli.value,
                                 dd->brotli.len, br_compression_hdr, HTTP_OK);
         }
 #endif
 
-        if (dd->deflated.len && (request->flags & REQUEST_ACCEPT_DEFLATE)) {
+        if (dd->deflated.len && accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
             return serve_buffer(request, fce->mime_type, dd->deflated.value,
                                 dd->deflated.len, deflate_compression_hdr,
                                 HTTP_OK);
@@ -1312,7 +1318,6 @@ static const struct lwan_module module = {
     .create_from_hash = serve_files_create_from_hash,
     .destroy = serve_files_destroy,
     .handle_request = serve_files_handle_request,
-    .flags = HANDLER_PARSE_ACCEPT_ENCODING,
 };
 
 LWAN_REGISTER_MODULE(serve_files, &module);
