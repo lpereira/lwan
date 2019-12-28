@@ -18,6 +18,8 @@
  * USA.
  */
 
+#include <endian.h>
+
 #include "lwan-private.h"
 #include "lwan-io-wrappers.h"
 
