@@ -35,6 +35,7 @@
 #if !defined(NDEBUG) && defined(HAVE_VALGRIND)
 #define INSTRUMENT_FOR_VALGRIND
 #include <valgrind.h>
+#include <memcheck.h>
 #endif
 
 #if defined(__clang__)
@@ -397,7 +398,7 @@ void *coro_malloc_full(struct coro *coro,
 static void instrument_bpa_free(void *ptr, void *size)
 {
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_FREELIKE_BLOCK(ptr, 0);
+    VALGRIND_MAKE_MEM_NOACCESS(ptr, (size_t)(uintptr_t)size);
 #endif
 
 #if defined(INSTRUMENT_FOR_ASAN)
@@ -426,7 +427,7 @@ static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
      */
 
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MALLOCLIKE_BLOCK(ptr, requested_size, 0, 0);
+    VALGRIND_MAKE_MEM_UNDEFINED(ptr, requested_size);
 #endif
 #if defined(INSTRUMENT_FOR_ASAN)
     __asan_unpoison_memory_region(ptr, requested_size);
@@ -471,16 +472,16 @@ void *coro_malloc(struct coro *coro, size_t size)
         if (UNLIKELY(!coro->bump_ptr_alloc.ptr))
             return NULL;
 
+        coro->bump_ptr_alloc.remaining = CORO_BUMP_PTR_ALLOC_SIZE;
+
 #if defined(INSTRUMENT_FOR_ASAN)
-        /* There's apparently no way to poison the whole BPA arena with Valgrind
-         * like it's possible with ASAN (short of registering the BPA arena as
-         * a mempool, but that also doesn't really map 1:1 to how this works).
-         */
         __asan_poison_memory_region(coro->bump_ptr_alloc.ptr,
                                     CORO_BUMP_PTR_ALLOC_SIZE);
 #endif
-
-        coro->bump_ptr_alloc.remaining = CORO_BUMP_PTR_ALLOC_SIZE;
+#if defined(INSTRUMENT_FOR_VALGRIND)
+        VALGRIND_MAKE_MEM_NOACCESS(coro->bump_ptr_alloc.ptr,
+                                   CORO_BUMP_PTR_ALLOC_SIZE);
+#endif
         coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
 
         /* Avoid checking if there's still space in the arena again. */
