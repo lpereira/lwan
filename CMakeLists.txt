@@ -220,6 +220,8 @@ else ()
 endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
+	enable_c_flag_if_avail(-falign-functions=32 C_FLAGS_REL HAVE_ALIGN_FNS)
+	enable_c_flag_if_avail(-fno-semantic-interposition C_FLAGS_REL HAVE_NO_SEMANTIC_INTERPOSITION)
 	enable_c_flag_if_avail(-malign-data=abi C_FLAGS_REL HAVE_ALIGN_DATA)
 	enable_c_flag_if_avail(-fno-asynchronous-unwind-tables C_FLAGS_REL HAVE_NO_ASYNC_UNWIND_TABLES)
 
