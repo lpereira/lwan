@@ -37,9 +37,9 @@ struct db_row {
 bool db_stmt_bind(const struct db_stmt *stmt,
                   struct db_row *rows,
                   size_t n_rows);
-bool db_stmt_step(const struct db_stmt *stmt,
-                  struct db_row *row,
-                  size_t n_cols);
+
+bool db_stmt_step(const struct db_stmt *stmt, const char *signature, ...);
+
 void db_stmt_finalize(struct db_stmt *stmt);
 void db_disconnect(struct db *db);
 struct db_stmt *

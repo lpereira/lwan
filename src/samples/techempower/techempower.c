@@ -195,8 +195,6 @@ LWAN_HANDLER(json)
 static bool db_query(struct db_stmt *stmt,
                      struct db_row rows[],
                      size_t n_rows,
-                     struct db_row results[],
-                     size_t n_cols,
                      struct db_json *out)
 {
     const int id = (rand() % 10000) + 1;
@@ -208,11 +206,12 @@ static bool db_query(struct db_stmt *stmt,
     if (UNLIKELY(!db_stmt_bind(stmt, rows, n_rows)))
         return false;
 
-    if (UNLIKELY(!db_stmt_step(stmt, results, n_cols)))
+    long random_number;
+    if (UNLIKELY(!db_stmt_step(stmt, "i", &random_number)))
         return false;
 
     out->id = id;
-    out->randomNumber = results[0].u.i;
+    out->randomNumber = (int)random_number;
 
     return true;
 }
@@ -220,7 +219,6 @@ static bool db_query(struct db_stmt *stmt,
 LWAN_HANDLER(db)
 {
     struct db_row rows[] = {{.kind = 'i'}};
-    struct db_row results[] = {{.kind = 'i'}};
     struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
                                            sizeof(random_number_query) - 1);
     struct db_json db_json;
@@ -230,8 +228,7 @@ LWAN_HANDLER(db)
         return HTTP_INTERNAL_ERROR;
     }
 
-    bool queried = db_query(stmt, rows, N_ELEMENTS(rows), results,
-                            N_ELEMENTS(results), &db_json);
+    bool queried = db_query(stmt, rows, N_ELEMENTS(rows), &db_json);
 
     db_stmt_finalize(stmt);
 
@@ -264,11 +261,9 @@ LWAN_HANDLER(queries)
         return HTTP_INTERNAL_ERROR;
 
     struct queries_json qj = {.queries_len = (size_t)queries};
-    struct db_row rows[] = {{.kind = 'i'}};
     struct db_row results[] = {{.kind = 'i'}};
     for (long i = 0; i < queries; i++) {
-        if (!db_query(stmt, rows, N_ELEMENTS(rows), results,
-                      N_ELEMENTS(results), &qj.queries[i]))
+        if (!db_query(stmt, results, N_ELEMENTS(results), &qj.queries[i]))
             goto out;
     }
 
@@ -330,7 +325,6 @@ static bool append_fortune(struct coro *coro,
 static int fortune_list_generator(struct coro *coro, void *data)
 {
     static const char fortune_query[] = "SELECT * FROM Fortune";
-    char fortune_buffer[256];
     struct Fortune *fortune = data;
     struct fortune_array fortunes;
     struct db_stmt *stmt;
@@ -341,14 +335,10 @@ static int fortune_list_generator(struct coro *coro, void *data)
 
     fortune_array_init(&fortunes);
 
-    struct db_row results[] = {
-        {.kind = 'i'},
-        {.kind = 's',
-         .u.s = fortune_buffer,
-         .buffer_length = sizeof(fortune_buffer)},
-    };
-    while (db_stmt_step(stmt, results, N_ELEMENTS(results))) {
-        if (!append_fortune(coro, &fortunes, results[0].u.i, results[1].u.s))
+    long id;
+    char fortune_buffer[256];
+    while (db_stmt_step(stmt, "is", &id, &fortune_buffer, sizeof(fortune_buffer))) {
+        if (!append_fortune(coro, &fortunes, (int)id, fortune_buffer))
             goto out;
     }
 
