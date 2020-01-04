@@ -25,10 +25,7 @@
 #include <string.h>
 
 struct lwan_strbuf {
-    union {
-        char *buffer;
-        const char *static_buffer;
-    } value;
+    char *buffer;
     size_t capacity, used;
     unsigned int flags;
 };
@@ -80,5 +77,5 @@ static inline size_t lwan_strbuf_get_length(const struct lwan_strbuf *s)
 
 static inline char *lwan_strbuf_get_buffer(const struct lwan_strbuf *s)
 {
-    return s->value.buffer;
+    return s->buffer;
 }
