@@ -153,8 +153,7 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     if (UNLIKELY(!response->mime_type)) {
         /* Requests without a MIME Type are errors from handlers that should
            just be handled by lwan_default_response().  */
-        lwan_default_response(request, status);
-        return;
+        return lwan_default_response(request, status);
     }
 
     log_request(request, status);
@@ -176,15 +175,11 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
 
     size_t header_len =
         lwan_prepare_response_header(request, status, headers, sizeof(headers));
-    if (UNLIKELY(!header_len)) {
-        lwan_default_response(request, HTTP_INTERNAL_ERROR);
-        return;
-    }
+    if (UNLIKELY(!header_len))
+        return lwan_default_response(request, HTTP_INTERNAL_ERROR);
 
-    if (!has_response_body(lwan_request_get_method(request), status)) {
-        lwan_send(request, headers, header_len, 0);
-        return;
-    }
+    if (!has_response_body(lwan_request_get_method(request), status))
+        return (void)lwan_send(request, headers, header_len, 0);
 
     char *resp_buf = lwan_strbuf_get_buffer(response->buffer);
     const size_t resp_len = lwan_strbuf_get_length(response->buffer);
@@ -193,15 +188,15 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
          * so use send() for responses small enough to fit the headers
          * buffer.  On Linux, this is ~10% faster.  */
         memcpy(headers + header_len, resp_buf, resp_len);
-        lwan_send(request, headers, header_len + resp_len, 0);
-    } else {
-        struct iovec response_vec[] = {
-            {.iov_base = headers, .iov_len = header_len},
-            {.iov_base = resp_buf, .iov_len = resp_len},
-        };
-
-        lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
+        return (void)lwan_send(request, headers, header_len + resp_len, 0);
     }
+
+    struct iovec response_vec[] = {
+        {.iov_base = headers, .iov_len = header_len},
+        {.iov_base = resp_buf, .iov_len = resp_len},
+    };
+
+    return (void)lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
 }
 
 void lwan_default_response(struct lwan_request *request,
