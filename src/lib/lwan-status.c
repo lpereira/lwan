@@ -166,7 +166,7 @@ status_out(const char *file,
     fwrite_unlocked(start.value, start.len, 1, stdout);
     vprintf(fmt, values);
 
-    if (type & STATUS_PERROR) {
+    if (UNLIKELY(type & STATUS_PERROR)) {
         char errbuf[64];
         char *errmsg =
             strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
@@ -187,13 +187,13 @@ status_out(const char *file,
 #define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
     void lwan_status_##fn_name_(const char *fmt, ...)                          \
     {                                                                          \
-        if (!quiet) {                                                          \
+        if (LIKELY(!quiet)) {                                                  \
             va_list values;                                                    \
             va_start(values, fmt);                                             \
             status_out(type_, fmt, values);                                    \
             va_end(values);                                                    \
         }                                                                      \
-        if ((type_)&STATUS_CRITICAL)                                           \
+        if (UNLIKELY((type_)&STATUS_CRITICAL))                                 \
             exit(1);                                                           \
     }
 #else
@@ -202,13 +202,13 @@ status_out(const char *file,
                                         const char *func, const char *fmt,     \
                                         ...)                                   \
     {                                                                          \
-        if (!quiet) {                                                          \
+        if (LIKELY(!quiet)) {                                                  \
             va_list values;                                                    \
             va_start(values, fmt);                                             \
             status_out(file, line, func, type_, fmt, values);                  \
             va_end(values);                                                    \
         }                                                                      \
-        if ((type_)&STATUS_CRITICAL)                                           \
+        if (UNLIKELY((type_)&STATUS_CRITICAL))                                 \
             abort();                                                           \
     }
 
