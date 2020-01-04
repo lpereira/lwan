@@ -974,16 +974,11 @@ post_data_finalizer(size_t total_read,
     return FINALIZER_TRY_AGAIN;
 }
 
-static ALWAYS_INLINE int max(int a, int b)
-{
-    return (a > b) ? a : b;
-}
-
 static ALWAYS_INLINE int calculate_n_packets(size_t total)
 {
     /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
      * after ~2x number of expected packets to fully read the request body.*/
-    return max(5, (int)(total / 740));
+    return LWAN_MAX(5, (int)(total / 740));
 }
 
 static const char *is_dir(const char *v)

@@ -39,13 +39,6 @@
 #include "lwan-tq.h"
 #include "list.h"
 
-#define LWAN_MIN(a_, b_)                                                       \
-    ({                                                                         \
-        __typeof__(a_) __a__ = (a_);                                           \
-        __typeof__(b_) __b__ = (b_);                                           \
-        __a__ > __b__ ? __b__ : __a__;                                         \
-    })
-
 static void lwan_strbuf_free_defer(void *data)
 {
     lwan_strbuf_free((struct lwan_strbuf *)data);

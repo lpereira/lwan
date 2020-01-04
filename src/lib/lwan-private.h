@@ -24,6 +24,20 @@
 
 #include "lwan.h"
 
+#define LWAN_MIN(a_, b_)                                                       \
+    ({                                                                         \
+        __typeof__(a_) __a__ = (a_);                                           \
+        __typeof__(b_) __b__ = (b_);                                           \
+        __a__ > __b__ ? __b__ : __a__;                                         \
+    })
+
+#define LWAN_MAX(a_, b_)                                                       \
+    ({                                                                         \
+        __typeof__(a_) __a__ = (a_);                                           \
+        __typeof__(b_) __b__ = (b_);                                           \
+        __a__ < __b__ ? __b__ : __a__;                                         \
+    })
+
 int lwan_socket_get_backlog_size(void);
 
 struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,

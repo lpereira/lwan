@@ -51,14 +51,6 @@
 #define abstime_t timeout_t /* for documentation purposes */
 #define reltime_t timeout_t /* "" */
 
-#if !defined MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-
-#if !defined MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
-
 /*
  * B I T  M A N I P U L A T I O N  R O U T I N E S
  *
@@ -217,7 +209,7 @@ static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to)
 static inline int timeout_wheel(timeout_t timeout)
 {
     /* must be called with timeout != 0, so fls input is nonzero */
-    return (fls(MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
+    return (fls(LWAN_MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
 }
 
 static inline int timeout_slot(int wheel, timeout_t expires)
@@ -330,7 +322,7 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
             break; /* break if we didn't wrap around end of wheel */
 
         /* if we're continuing, the next wheel must tick at least once */
-        elapsed = MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
+        elapsed = LWAN_MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
     }
 
     T->curtime = curtime;
@@ -386,7 +378,7 @@ static timeout_t timeouts_int(struct timeouts *T)
             _timeout -= relmask & T->curtime;
             /* reduce by how much lower wheels have progressed */
 
-            timeout = MIN(_timeout, timeout);
+            timeout = LWAN_MIN(_timeout, timeout);
         }
 
         relmask <<= WHEEL_BIT;

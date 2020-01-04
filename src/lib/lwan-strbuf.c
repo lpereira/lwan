@@ -39,15 +39,10 @@ static inline size_t align_size(size_t unaligned_size)
     return aligned_size;
 }
 
-static ALWAYS_INLINE size_t max(size_t one, size_t another)
-{
-    return (one > another) ? one : another;
-}
-
 static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 {
     if (s->flags & STATIC) {
-        const size_t aligned_size = align_size(max(size + 1, s->used));
+        const size_t aligned_size = align_size(LWAN_MAX(size + 1, s->used));
         if (UNLIKELY(!aligned_size))
             return false;
 
