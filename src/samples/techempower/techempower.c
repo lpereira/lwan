@@ -31,7 +31,7 @@
 
 enum db_connect_type { DB_CONN_MYSQL, DB_CONN_SQLITE };
 
-struct db_connection_params {
+static struct db_connection_params {
     enum db_connect_type type;
     union {
         struct {
@@ -45,9 +45,7 @@ struct db_connection_params {
             const char **pragmas;
         } sqlite;
     };
-};
-
-static struct db_connection_params db_connection_params;
+} db_connection_params;
 
 static const char hello_world[] = "Hello, World!";
 static const char random_number_query[] =
@@ -397,7 +395,8 @@ int main(void)
             .mysql.user = getenv("MYSQL_USER"),
             .mysql.password = getenv("MYSQL_PASS"),
             .mysql.hostname = getenv("MYSQL_HOST"),
-            .mysql.database = getenv("MYSQL_DB")};
+            .mysql.database = getenv("MYSQL_DB"),
+        };
 
         if (!db_connection_params.mysql.user)
             lwan_status_critical("No MySQL user provided");
