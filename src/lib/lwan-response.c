@@ -140,16 +140,13 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     const struct lwan_response *response = &request->response;
     char headers[DEFAULT_HEADERS_SIZE];
 
+    assert(!(request->flags & RESPONSE_SENT_HEADERS));
+
     if (UNLIKELY(request->flags & RESPONSE_CHUNKED_ENCODING)) {
         /* Send last, 0-sized chunk */
         lwan_strbuf_reset(response->buffer);
         lwan_response_send_chunk(request);
         log_request(request, status);
-        return;
-    }
-
-    if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS)) {
-        lwan_status_debug("Headers already sent, ignoring call");
         return;
     }
 
