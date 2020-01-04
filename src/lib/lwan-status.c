@@ -132,6 +132,8 @@ static long gettid_cached(void)
 }
 #endif
 
+#define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
+
 static void
 #ifdef NDEBUG
 status_out(enum lwan_status_type type, const char *fmt, va_list values)
@@ -152,10 +154,10 @@ status_out(const char *file,
 
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
-    if (use_colors) {
-        printf("\033[32;1m%ld\033[0m", gettid_cached());
-        printf(" \033[3m%s:%d\033[0m", base_name, line);
-        printf(" \033[33m%s()\033[0m ", func);
+    if (LIKELY(use_colors)) {
+        printf(FORMAT_WITH_COLOR("%ld ", "32;1"), gettid_cached());
+        printf(FORMAT_WITH_COLOR("%s:%d ", "3"), base_name, line);
+        printf(FORMAT_WITH_COLOR("%s() ", "33"), func);
     } else {
         printf("%ld %s:%d %s() ", gettid_cached(), base_name, line, func);
     }
@@ -178,6 +180,8 @@ status_out(const char *file,
 
     errno = saved_errno;
 }
+
+#undef FORMAT_WITH_COLOR
 
 #ifdef NDEBUG
 #define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
