@@ -415,11 +415,11 @@ example, where two patterns are specified:
 ```
 rewrite /some/base/endpoint {
     pattern posts/(%d+) {
-        # Matches /some/base/endpointposts/2600
+        # Matches /some/base/endpointposts/2600 and /some/base/endpoint/posts/2600
         rewrite_as = /cms/view-post?id=%1
     }
     pattern imgur/(%a+)/(%g+) {
-        # Matches /some/base/endpointimgur/gif/mpT94Ld
+        # Matches /some/base/endpointimgur/gif/mpT94Ld and /some/base/endpoint/imgur/gif/mpT94Ld
         redirect_to = https://i.imgur.com/%2.%1
     }
 }
