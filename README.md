@@ -84,7 +84,7 @@ optimizations, etc):
 
     ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=Release
 
-If you'd like to enable optimiations but still use a debugger, use this instead:
+If you'd like to enable optimizations but still use a debugger, use this instead:
 
     ~/lwan/build$ cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
@@ -101,7 +101,7 @@ This will generate a few binaries:
  - `src/bin/lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
  - `src/bin/testrunner/testrunner`: Contains code to execute the test suite.
  - `src/samples/freegeoip/freegeoip`: [FreeGeoIP sample implementation](https://freegeoip.lwan.ws). Requires SQLite.
- - `src/samples/techempower/techempower`: Code for the Techempower Web Framework benchmark. Requires SQLite and MySQL libraries.
+ - `src/samples/techempower/techempower`: Code for the TechEmpower Web Framework benchmark. Requires SQLite and MySQL libraries.
  - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a GIF file that always shows the local time.
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
@@ -360,7 +360,7 @@ threads, but the state will be available only for the amount of time
 specified in the `cache_period` configuration option.
 
 There's no need to have one instance of the Lua module for each endpoint; a
-single script, embeded in the configuration file or otherwise, can service
+single script, embedded in the configuration file or otherwise, can service
 many different endpoints.  Scripts are supposed to implement functions with
 the following signature: `handle_${METHOD}_${ENDPOINT}(req)`, where
 `${METHOD}` can be a HTTP method (i.e.  `get`, `post`, `head`, etc.), and
@@ -559,7 +559,7 @@ be exported to `liblwan.so`.
 
 Lwan tries to maintain a source history that's as flat as possible, devoid of
 merge commits.  This means that pull requests should be rebased on top of the
-current master before they can be merged; sometimes this can be made
+current master before they can be merged; sometimes this can be done
 automatically by the GitHub interface, sometimes they need some manual work to
 fix conflicts.  It is appreciated if the contributor fixes these conflicts when
 asked.
@@ -572,7 +572,7 @@ matter if it is your legal name or a nickname, but it should be enough to credit
 you) and a valid email address.  There's no need to add `Signed-off-by` lines,
 even though it's fine to send commits with them.
 
-If a change is requested in a pull request, you have three choices:
+If a change is requested in a pull request, you have two choices:
 
  - *Reply asking for clarification.*  Maybe the intentions were not clear enough,
 and whoever asked for changes didn't fully understand what you were trying to
@@ -583,17 +583,17 @@ squash or fixup commits; don't add your fixes on top of your tree.  Do not creat
 another pull request just to accomodate the changes. After rewriting
 the history locally, force-push to your PR branch; the PR will update automatically
 with your changes.  Rewriting the history of development branches is fine, and
-force-pushing them is normal and expected.
+force-pushing them is normal and expected
 
 It is not enforced, but it is recommended to create smaller commits. How
 commits are split in Lwan is pretty much arbitrary, so please take a look at
-the commit history to get the idea on how the division should be made.  Git
+the commit history to get an idea on how the division should be made.  Git
 offers a plethora of commands to achieve this result: the already mentioned
 interactive rebase, the `-p` option to `git add`, and `git commit --amend`
 are good examples.
 
 Commit messages should have one line of summary (~72 chars), followed by an
-empty line, followed by paragraphs of 80-lines explaining the change.  The
+empty line, followed by paragraphs of 80-char lines explaining the change.  The
 paragraphs explaining the changes are usually not necessary if the summary
 is good enough.  Try to [write good commit messages](https://chris.beams.io/posts/git-commit/).
 
