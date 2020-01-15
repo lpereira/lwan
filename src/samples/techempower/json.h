@@ -612,12 +612,22 @@ int json_obj_encode_buf(const struct json_obj_descr *descr,
  * @return 0 if object has been successfully encoded. A negative value
  * indicates an error.
  */
-int json_obj_encode(const struct json_obj_descr *descr,
-                    size_t descr_len,
-                    const void *val,
-                    json_append_bytes_t append_bytes,
-                    void *data);
+int json_obj_encode_full(const struct json_obj_descr *descr,
+                         size_t descr_len,
+                         const void *val,
+                         json_append_bytes_t append_bytes,
+                         void *data,
+                         bool encode_key);
+static inline int json_obj_encode(const struct json_obj_descr *descr,
+                                  size_t descr_len,
+                                  const void *val,
+                                  json_append_bytes_t append_bytes,
+                                  void *data)
+{
 
+    return json_obj_encode_full(descr, descr_len, val, append_bytes, data,
+                                true);
+}
 /**
  * @brief Encodes an array using an arbitrary writer function
  *
@@ -635,10 +645,18 @@ int json_obj_encode(const struct json_obj_descr *descr,
  * @return 0 if object has been successfully encoded. A negative value
  * indicates an error.
  */
-int json_arr_encode(const struct json_obj_descr *descr,
-                    const void *val,
-                    json_append_bytes_t append_bytes,
-                    void *data);
+int json_arr_encode_full(const struct json_obj_descr *descr,
+                         const void *val,
+                         json_append_bytes_t append_bytes,
+                         void *data,
+                         bool encode_key);
+static inline int json_arr_encode(const struct json_obj_descr *descr,
+                                  const void *val,
+                                  json_append_bytes_t append_bytes,
+                                  void *data)
+{
+    return json_arr_encode_full(descr, val, append_bytes, data, true);
+}
 
 #ifdef __cplusplus
 }

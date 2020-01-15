@@ -160,8 +160,8 @@ json_response_obj(struct lwan_response *response,
 {
     lwan_strbuf_grow_to(response->buffer, 128);
 
-    if (json_obj_encode(descr, descr_len, data, append_to_strbuf,
-                        response->buffer) < 0)
+    if (json_obj_encode_full(descr, descr_len, data, append_to_strbuf,
+                             response->buffer, false) < 0)
         return HTTP_INTERNAL_ERROR;
 
     response->mime_type = "application/json";
@@ -175,7 +175,8 @@ json_response_arr(struct lwan_response *response,
 {
     lwan_strbuf_grow_to(response->buffer, 128);
 
-    if (json_arr_encode(descr, data, append_to_strbuf, response->buffer) < 0)
+    if (json_arr_encode_full(descr, data, append_to_strbuf, response->buffer,
+                             false) < 0)
         return HTTP_INTERNAL_ERROR;
 
     response->mime_type = "application/json";
