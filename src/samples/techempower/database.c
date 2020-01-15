@@ -74,18 +74,22 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
         mysql_stmt_reset(stmt_mysql->stmt);
     }
 
-    for (size_t row = 0; row < n_rows; row++) {
-        if (rows[row].kind == '\0')
-            break;
-
+    for (size_t row = 0; row < n_rows && rows[row].kind; row++) {
         MYSQL_BIND *param = &stmt_mysql->param_bind[row];
-        if (rows[row].kind == 's') {
+
+        switch (rows[row].kind) {
+        case 's':
             param->buffer_type = MYSQL_TYPE_STRING;
             param->buffer = rows[row].u.s;
-        } else if (rows[row].kind == 'i') {
+            break;
+        case 'i':
             param->buffer_type = MYSQL_TYPE_LONG;
             param->buffer = &rows[row].u.i;
+            break;
+        default:
+            return false;
         }
+
         param->is_null = false;
         param->length = 0;
     }
@@ -253,26 +257,28 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
-    int ret;
 
     sqlite3_reset(stmt_sqlite->sqlite);
     sqlite3_clear_bindings(stmt_sqlite->sqlite);
 
     for (size_t row = 1; row <= n_rows; row++) {
         const struct db_row *r = &rows[row - 1];
+        int ret;
 
-        if (r->kind == 's') {
+        switch (r->kind) {
+        case 's':
             ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row, r->u.s, -1,
                                     NULL);
-            if (ret != SQLITE_OK)
-                return false;
-        } else if (r->kind == 'i') {
+            break;
+        case 'i':
             ret = sqlite3_bind_int(stmt_sqlite->sqlite, (int)row, r->u.i);
-            if (ret != SQLITE_OK)
-                return false;
-        } else {
+            break;
+        default:
             return false;
         }
+
+        if (ret != SQLITE_OK)
+            return false;
     }
 
     return true;
