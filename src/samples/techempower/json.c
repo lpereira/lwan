@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "json.h"
+#include "int-to-str.h"
 
 struct token {
     enum json_tokens type;
@@ -793,18 +794,11 @@ str_encode(const char **str, json_append_bytes_t append_bytes, void *data)
 static int
 num_encode(const int32_t *num, json_append_bytes_t append_bytes, void *data)
 {
-    char buf[3 * sizeof(int32_t)];
-    int ret;
+    char buf[INT_TO_STR_BUFFER_SIZE];
+    size_t len;
+    char *as_string = int_to_string(*num, buf, &len);
 
-    ret = snprintf(buf, sizeof(buf), "%d", *num);
-    if (ret < 0) {
-        return ret;
-    }
-    if (ret >= (int)sizeof(buf)) {
-        return -ENOMEM;
-    }
-
-    return append_bytes(buf, (size_t)ret, data);
+    return append_bytes(as_string, len, data);
 }
 
 static int
