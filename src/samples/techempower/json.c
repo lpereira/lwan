@@ -717,10 +717,10 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
 {
     ptrdiff_t elem_size = get_elem_size(elem_descr);
     /*
-     * NOTE: Since an element descriptor's offset isn't meaningful
-     * (array elements occur at multiple offsets in `val'), we use
-     * its space in elem_descr to store the offset to the field
-     * containing the number of elements.
+     * NOTE: Since an element descriptor's offset isn't meaningful (array
+     * elements occur at multiple offsets in `val'), we use its space in
+     * elem_descr to store the offset to the field containing the number of
+     * elements.
      */
     size_t n_elem = *(size_t *)((char *)val + elem_descr->offset);
     size_t i;
@@ -731,36 +731,42 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
         return ret;
     }
 
-    for (i = 0; i < n_elem; i++) {
-        /*
-         * Though "field" points at the next element in the
-         * array which we need to encode, the value in
-         * elem_descr->offset is actually the offset of the
-         * length field in the "parent" struct containing the
-         * array.
-         *
-         * To patch things up, we lie to encode() about where
-         * the field is by exactly the amount it will offset
-         * it. This is a size optimization for struct
-         * json_obj_descr: the alternative is to keep a
-         * separate field next to element_descr which is an
-         * offset to the length field in the parent struct,
-         * but that would add a size_t to every descriptor.
-         */
+    if (n_elem >= 1) {
+        n_elem--;
+
+        for (i = 0; i < n_elem; i++) {
+            /*
+             * Though "field" points at the next element in the array which
+             * we need to encode, the value in elem_descr->offset is
+             * actually the offset of the length field in the "parent"
+             * struct containing the array.
+             *
+             * To patch things up, we lie to encode() about where the field
+             * is by exactly the amount it will offset it.  This is a size
+             * optimization for struct json_obj_descr: the alternative is to
+             * keep a separate field next to element_descr which is an
+             * offset to the length field in the parent struct, but that
+             * would add a size_t to every descriptor.
+             */
+            ret = encode(elem_descr, (char *)field - elem_descr->offset,
+                         append_bytes, data);
+            if (ret < 0) {
+                return ret;
+            }
+
+            ret = append_bytes(",", 1, data);
+            if (ret < 0) {
+                return ret;
+            }
+
+            field = (char *)field + elem_size;
+        }
+
         ret = encode(elem_descr, (char *)field - elem_descr->offset,
                      append_bytes, data);
         if (ret < 0) {
             return ret;
         }
-
-        if (i < n_elem - 1) {
-            ret = append_bytes(",", 1, data);
-            if (ret < 0) {
-                return ret;
-            }
-        }
-
-        field = (char *)field + elem_size;
     }
 
     return append_bytes("]", 1, data);
@@ -848,6 +854,31 @@ static int encode(const struct json_obj_descr *descr,
     }
 }
 
+static int encode_key_value(const struct json_obj_descr *descr,
+                            const void *val,
+                            json_append_bytes_t append_bytes,
+                            void *data)
+{
+    int ret;
+
+    ret = str_encode((const char **)&descr->field_name, append_bytes, data);
+    if (ret < 0) {
+        return ret;
+    }
+
+    ret = append_bytes(":", 1, data);
+    if (ret < 0) {
+        return ret;
+    }
+
+    ret = encode(descr, val, append_bytes, data);
+    if (ret < 0) {
+        return ret;
+    }
+
+    return ret;
+}
+
 int json_obj_encode(const struct json_obj_descr *descr,
                     size_t descr_len,
                     const void *val,
@@ -862,28 +893,27 @@ int json_obj_encode(const struct json_obj_descr *descr,
         return ret;
     }
 
-    for (i = 0; i < descr_len; i++) {
-        ret =
-            str_encode((const char **)&descr[i].field_name, append_bytes, data);
+    /* To avoid checking if we're encoding the last element on each iteration of
+     * this loop, start at the second descriptor, and always write the comma.
+     * Then, after the loop, encode the first descriptor.  If the descriptor
+     * array has only 1 element, this loop won't run.  This is fine since order
+     * isn't important for objects, and we save some branches.  */
+    for (i = 1; i < descr_len; i++) {
+        ret = encode_key_value(&descr[i], val, append_bytes, data);
         if (ret < 0) {
             return ret;
         }
 
-        ret = append_bytes(":", 1, data);
+        ret = append_bytes(",", 1, data);
         if (ret < 0) {
             return ret;
         }
+    }
 
-        ret = encode(&descr[i], val, append_bytes, data);
+    if (descr_len) {
+        ret = encode_key_value(&descr[0], val, append_bytes, data);
         if (ret < 0) {
             return ret;
-        }
-
-        if (i < descr_len - 1) {
-            ret = append_bytes(",", 1, data);
-            if (ret < 0) {
-                return ret;
-            }
         }
     }
 
