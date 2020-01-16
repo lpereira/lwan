@@ -890,8 +890,13 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
     size_t i;
     int ret;
 
+    if (UNLIKELY(!descr_len)) {
+        /* Code below assumes at least one descr, so return early. */
+        return append_bytes("{}", 2, data);
+    }
+
     ret = append_bytes("{", 1, data);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
@@ -902,21 +907,19 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
      * isn't important for objects, and we save some branches.  */
     for (i = 1; i < descr_len; i++) {
         ret = encode_key_value(&descr[i], val, append_bytes, data, encode_key);
-        if (ret < 0) {
+        if (UNLIKELY(ret < 0)) {
             return ret;
         }
 
         ret = append_bytes(",", 1, data);
-        if (ret < 0) {
+        if (UNLIKELY(ret < 0)) {
             return ret;
         }
     }
 
-    if (descr_len) {
-        ret = encode_key_value(&descr[0], val, append_bytes, data, encode_key);
-        if (ret < 0) {
-            return ret;
-        }
+    ret = encode_key_value(&descr[0], val, append_bytes, data, encode_key);
+    if (UNLIKELY(ret < 0)) {
+        return ret;
     }
 
     return append_bytes("}", 1, data);
