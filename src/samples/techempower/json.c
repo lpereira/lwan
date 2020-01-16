@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "json.h"
+#include "lwan.h"
 #include "int-to-str.h"
 
 struct token {
@@ -109,7 +110,7 @@ static void *lexer_string(struct lexer *lexer)
     while (true) {
         int chr = next(lexer);
 
-        if (chr == '\0') {
+        if (UNLIKELY(chr == '\0')) {
             emit(lexer, JSON_TOK_ERROR);
             return NULL;
         }
@@ -126,19 +127,19 @@ static void *lexer_string(struct lexer *lexer)
             case 't':
                 continue;
             case 'u':
-                if (!isxdigit(next(lexer))) {
+                if (UNLIKELY(!isxdigit(next(lexer)))) {
                     goto error;
                 }
 
-                if (!isxdigit(next(lexer))) {
+                if (UNLIKELY(!isxdigit(next(lexer)))) {
                     goto error;
                 }
 
-                if (!isxdigit(next(lexer))) {
+                if (UNLIKELY(!isxdigit(next(lexer)))) {
                     goto error;
                 }
 
-                if (!isxdigit(next(lexer))) {
+                if (UNLIKELY(!isxdigit(next(lexer)))) {
                     goto error;
                 }
 
@@ -167,7 +168,7 @@ error:
 static int accept_run(struct lexer *lexer, const char *run)
 {
     for (; *run; run++) {
-        if (next(lexer) != *run) {
+        if (UNLIKELY(next(lexer) != *run)) {
             return -EINVAL;
         }
     }
@@ -200,7 +201,7 @@ static void *lexer_boolean(struct lexer *lexer)
 
 static void *lexer_null(struct lexer *lexer)
 {
-    if (accept_run(lexer, "ull") < 0) {
+    if (UNLIKELY(accept_run(lexer, "ull") < 0)) {
         emit(lexer, JSON_TOK_ERROR);
         return NULL;
     }
@@ -250,7 +251,7 @@ static void *lexer_json(struct lexer *lexer)
         case 'f':
             return lexer_boolean;
         case '-':
-            if (isdigit(peek(lexer))) {
+            if (LIKELY(isdigit(peek(lexer)))) {
                 return lexer_number;
             }
 
@@ -261,7 +262,7 @@ static void *lexer_json(struct lexer *lexer)
                 continue;
             }
 
-            if (isdigit(chr)) {
+            if (LIKELY(isdigit(chr))) {
                 return lexer_number;
             }
 
@@ -286,11 +287,11 @@ static int obj_init(struct json_obj *json, char *data, size_t len)
 
     lexer_init(&json->lexer, data, len);
 
-    if (!lexer_next(&json->lexer, &token)) {
+    if (UNLIKELY(!lexer_next(&json->lexer, &token))) {
         return -EINVAL;
     }
 
-    if (token.type != JSON_TOK_OBJECT_START) {
+    if (UNLIKELY(token.type != JSON_TOK_OBJECT_START)) {
         return -EINVAL;
     }
 
@@ -316,7 +317,7 @@ static int obj_next(struct json_obj *json, struct json_obj_key_value *kv)
 {
     struct token token;
 
-    if (!lexer_next(&json->lexer, &token)) {
+    if (UNLIKELY(!lexer_next(&json->lexer, &token))) {
         return -EINVAL;
     }
 
@@ -329,11 +330,11 @@ static int obj_next(struct json_obj *json, struct json_obj_key_value *kv)
 
         return 0;
     case JSON_TOK_COMMA:
-        if (!lexer_next(&json->lexer, &token)) {
+        if (UNLIKELY(!lexer_next(&json->lexer, &token))) {
             return -EINVAL;
         }
 
-        if (token.type != JSON_TOK_STRING) {
+        if (UNLIKELY(token.type != JSON_TOK_STRING)) {
             return -EINVAL;
         }
 
@@ -347,16 +348,16 @@ static int obj_next(struct json_obj *json, struct json_obj_key_value *kv)
     }
 
     /* Match : after key */
-    if (!lexer_next(&json->lexer, &token)) {
+    if (UNLIKELY(!lexer_next(&json->lexer, &token))) {
         return -EINVAL;
     }
 
-    if (token.type != JSON_TOK_COLON) {
+    if (UNLIKELY(token.type != JSON_TOK_COLON)) {
         return -EINVAL;
     }
 
     /* Match value */
-    if (!lexer_next(&json->lexer, &kv->value)) {
+    if (UNLIKELY(!lexer_next(&json->lexer, &kv->value))) {
         return -EINVAL;
     }
 
@@ -365,7 +366,7 @@ static int obj_next(struct json_obj *json, struct json_obj_key_value *kv)
 
 static int arr_next(struct json_obj *json, struct token *value)
 {
-    if (!lexer_next(&json->lexer, value)) {
+    if (UNLIKELY(!lexer_next(&json->lexer, value))) {
         return -EINVAL;
     }
 
@@ -374,7 +375,7 @@ static int arr_next(struct json_obj *json, struct token *value)
     }
 
     if (value->type == JSON_TOK_COMMA) {
-        if (!lexer_next(&json->lexer, value)) {
+        if (UNLIKELY(!lexer_next(&json->lexer, value))) {
             return -EINVAL;
         }
     }
@@ -527,11 +528,11 @@ static int arr_parse(struct json_obj *obj,
             return 0;
         }
 
-        if (field == last_elem) {
+        if (UNLIKELY(field == last_elem)) {
             return -ENOSPC;
         }
 
-        if (decode_value(obj, elem_descr, &value, field, val) < 0) {
+        if (UNLIKELY(decode_value(obj, elem_descr, &value, field, val) < 0)) {
             return -EINVAL;
         }
 
@@ -576,7 +577,7 @@ static int obj_parse(struct json_obj *obj,
 
             /* Store the decoded value */
             ret = decode_value(obj, &descr[i], &kv.value, decode_field, val);
-            if (ret < 0) {
+            if (UNLIKELY(UNLIKELY(ret < 0))) {
                 return ret;
             }
 
@@ -600,7 +601,7 @@ int json_obj_parse(char *payload,
     assert(descr_len < (sizeof(ret) * CHAR_BIT - 1));
 
     ret = obj_init(&obj, payload, len);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
@@ -678,7 +679,7 @@ ssize_t json_escape(char *str, size_t *len, size_t buf_size)
         return 0;
     }
 
-    if (escaped_len >= buf_size) {
+    if (UNLIKELY(escaped_len >= buf_size)) {
         return -ENOMEM;
     }
 
@@ -781,7 +782,7 @@ str_encode(const char **str, json_append_bytes_t append_bytes, void *data, bool 
     int ret;
 
     ret = append_bytes("\"", 1, data);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
@@ -935,7 +936,7 @@ static int append_bytes_to_buf(const char *bytes, size_t len, void *data)
 {
     struct appender *appender = data;
 
-    if (len > appender->size - appender->used) {
+    if (UNLIKELY(len > appender->size - appender->used)) {
         return -ENOMEM;
     }
 
@@ -976,7 +977,7 @@ ssize_t json_calc_encoded_len(const struct json_obj_descr *descr,
     int ret;
 
     ret = json_obj_encode(descr, descr_len, val, measure_bytes, &total);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
