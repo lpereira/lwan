@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017 Intel Corporation
+ * Copyright (c) 2020 Leandro A. F. Pereira <leandro@hardinfo.org>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -730,48 +731,46 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
     size_t i;
     int ret;
 
-    if (UNLIKELY(!n_elem)) {
-        return append_bytes("[]", 2, data);
-    }
-
     ret = append_bytes("[", 1, data);
     if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
-    n_elem--;
-    for (i = 0; i < n_elem; i++) {
-        /*
-         * Though "field" points at the next element in the array which we
-         * need to encode, the value in elem_descr->offset is actually the
-         * offset of the length field in the "parent" struct containing the
-         * array.
-         *
-         * To patch things up, we lie to encode() about where the field is
-         * by exactly the amount it will offset it.  This is a size
-         * optimization for struct json_obj_descr: the alternative is to
-         * keep a separate field next to element_descr which is an offset to
-         * the length field in the parent struct, but that would add a
-         * size_t to every descriptor.
-         */
+    if (LIKELY(n_elem)) {
+        n_elem--;
+        for (i = 0; i < n_elem; i++) {
+            /*
+             * Though "field" points at the next element in the array which we
+             * need to encode, the value in elem_descr->offset is actually the
+             * offset of the length field in the "parent" struct containing the
+             * array.
+             *
+             * To patch things up, we lie to encode() about where the field is
+             * by exactly the amount it will offset it.  This is a size
+             * optimization for struct json_obj_descr: the alternative is to
+             * keep a separate field next to element_descr which is an offset to
+             * the length field in the parent struct, but that would add a
+             * size_t to every descriptor.
+             */
+            ret = encode(elem_descr, (char *)field - elem_descr->offset,
+                         append_bytes, data, encode_key);
+            if (UNLIKELY(ret < 0)) {
+                return ret;
+            }
+
+            ret = append_bytes(",", 1, data);
+            if (UNLIKELY(ret < 0)) {
+                return ret;
+            }
+
+            field = (char *)field + elem_size;
+        }
+
         ret = encode(elem_descr, (char *)field - elem_descr->offset,
                      append_bytes, data, encode_key);
         if (UNLIKELY(ret < 0)) {
             return ret;
         }
-
-        ret = append_bytes(",", 1, data);
-        if (UNLIKELY(ret < 0)) {
-            return ret;
-        }
-
-        field = (char *)field + elem_size;
-    }
-
-    ret = encode(elem_descr, (char *)field - elem_descr->offset,
-                 append_bytes, data, encode_key);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
     }
 
     return append_bytes("]", 1, data);
@@ -867,7 +866,8 @@ static int encode_key_value(const struct json_obj_descr *descr,
 {
     int ret;
 
-    ret = str_encode((const char **)&descr->field_name, append_bytes, data, encode_key);
+    ret = str_encode((const char **)&descr->field_name, append_bytes, data,
+                     encode_key);
     if (UNLIKELY(ret < 0)) {
         return ret;
     }
@@ -887,39 +887,38 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
                          void *data,
                          bool encode_key)
 {
-    size_t i;
     int ret;
-
-    if (UNLIKELY(!descr_len)) {
-        /* Code below assumes at least one descr, so return early. */
-        return append_bytes("{}", 2, data);
-    }
 
     ret = append_bytes("{", 1, data);
     if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
-    /* To avoid checking if we're encoding the last element on each iteration of
-     * this loop, start at the second descriptor, and always write the comma.
-     * Then, after the loop, encode the first descriptor.  If the descriptor
-     * array has only 1 element, this loop won't run.  This is fine since order
-     * isn't important for objects, and we save some branches.  */
-    for (i = 1; i < descr_len; i++) {
-        ret = encode_key_value(&descr[i], val, append_bytes, data, encode_key);
+    if (LIKELY(descr_len)) {
+        /* To avoid checking if we're encoding the last element on each
+         * iteration of this loop, start at the second descriptor, and always
+         * write the comma. Then, after the loop, encode the first descriptor.
+         * If the descriptor array has only 1 element, this loop won't run. This
+         * is fine since order isn't important for objects, and we save some
+         * branches.  */
+
+        for (size_t i = 1; i < descr_len; i++) {
+            ret = encode_key_value(&descr[i], val, append_bytes, data,
+                                   encode_key);
+            if (UNLIKELY(ret < 0)) {
+                return ret;
+            }
+
+            ret = append_bytes(",", 1, data);
+            if (UNLIKELY(ret < 0)) {
+                return ret;
+            }
+        }
+
+        ret = encode_key_value(&descr[0], val, append_bytes, data, encode_key);
         if (UNLIKELY(ret < 0)) {
             return ret;
         }
-
-        ret = append_bytes(",", 1, data);
-        if (UNLIKELY(ret < 0)) {
-            return ret;
-        }
-    }
-
-    ret = encode_key_value(&descr[0], val, append_bytes, data, encode_key);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
     }
 
     return append_bytes("}", 1, data);
