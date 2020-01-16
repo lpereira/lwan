@@ -868,21 +868,16 @@ static int encode_key_value(const struct json_obj_descr *descr,
     int ret;
 
     ret = str_encode((const char **)&descr->field_name, append_bytes, data, encode_key);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
     ret = append_bytes(":", 1, data);
-    if (ret < 0) {
+    if (UNLIKELY(ret < 0)) {
         return ret;
     }
 
-    ret = encode(descr, val, append_bytes, data, encode_key);
-    if (ret < 0) {
-        return ret;
-    }
-
-    return ret;
+    return encode(descr, val, append_bytes, data, encode_key);
 }
 
 int json_obj_encode_full(const struct json_obj_descr *descr,
