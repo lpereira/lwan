@@ -178,17 +178,17 @@ static int accept_run(struct lexer *lexer, const char *run)
 
 static void *lexer_boolean(struct lexer *lexer)
 {
-    backup(lexer);
+    /* Already matched either `t' or `f' at this point */
 
     switch (next(lexer)) {
-    case 't':
-        if (!accept_run(lexer, "rue")) {
+    case 'r':
+        if (LIKELY(!accept_run(lexer, "ue"))) {
             emit(lexer, JSON_TOK_TRUE);
             return lexer_json;
         }
         break;
-    case 'f':
-        if (!accept_run(lexer, "alse")) {
+    case 'a':
+        if (LIKELY(!accept_run(lexer, "lse"))) {
             emit(lexer, JSON_TOK_FALSE);
             return lexer_json;
         }
