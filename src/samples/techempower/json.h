@@ -617,7 +617,7 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
                          const void *val,
                          json_append_bytes_t append_bytes,
                          void *data,
-                         bool encode_key);
+                         bool escape_key);
 static inline int json_obj_encode(const struct json_obj_descr *descr,
                                   size_t descr_len,
                                   const void *val,
@@ -649,7 +649,7 @@ int json_arr_encode_full(const struct json_obj_descr *descr,
                          const void *val,
                          json_append_bytes_t append_bytes,
                          void *data,
-                         bool encode_key);
+                         bool escape_key);
 static inline int json_arr_encode(const struct json_obj_descr *descr,
                                   const void *val,
                                   json_append_bytes_t append_bytes,
