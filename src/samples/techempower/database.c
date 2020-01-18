@@ -302,7 +302,11 @@ static bool db_stmt_step_sqlite(const struct db_stmt *stmt,
         case 's': {
             char *out = va_arg(ap, char *);
             size_t bufsize = va_arg(ap, size_t);
-            strncpy(out, sqlite3_column_text(stmt_sqlite->sqlite, r), bufsize);
+
+            strncpy(out,
+                    (const char *)sqlite3_column_text(stmt_sqlite->sqlite, r),
+                    bufsize);
+
             break;
         }
         default:
