@@ -41,13 +41,6 @@
 
 int lwan_socket_get_backlog_size(void);
 
-struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
-                                    int fd,
-                                    uint32_t events,
-                                    coro_function_t coro_fn,
-                                    void *data);
-void lwan_unwatch_fd(struct lwan *l, struct lwan_fd_watch *w);
-
 void lwan_set_thread_name(const char *name);
 
 void lwan_response_init(struct lwan *l);

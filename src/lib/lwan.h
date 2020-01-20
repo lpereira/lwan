@@ -439,11 +439,6 @@ struct lwan_config {
     bool allow_post_temp_file;
 };
 
-struct lwan_fd_watch {
-    struct coro *coro;
-    int fd;
-};
-
 struct lwan {
     struct lwan_trie url_map_trie;
     struct lwan_connection *conns;
@@ -458,7 +453,6 @@ struct lwan {
     struct lwan_config config;
     struct coro_switcher switcher;
     int main_socket;
-    int epfd;
 
     unsigned short n_cpus;
 };

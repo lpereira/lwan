@@ -23,6 +23,7 @@
 #include <ctype.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <libproc.h>
 #include <limits.h>
 #include <signal.h>
@@ -30,7 +31,6 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -521,18 +521,6 @@ static char *dup_or_null(const char *s)
     return s ? strdup(s) : NULL;
 }
 
-static void lwan_fd_watch_init(struct lwan *l)
-{
-    l->epfd = epoll_create1(EPOLL_CLOEXEC);
-    if (l->epfd < 0)
-        lwan_status_critical_perror("epoll_create1");
-}
-
-static void lwan_fd_watch_shutdown(struct lwan *l)
-{
-    close(l->epfd);
-}
-
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
@@ -591,7 +579,6 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_thread_init(l);
     lwan_socket_init(l);
     lwan_http_authorize_init();
-    lwan_fd_watch_init(l);
 }
 
 void lwan_shutdown(struct lwan *l)
@@ -615,7 +602,6 @@ void lwan_shutdown(struct lwan *l)
     lwan_status_shutdown(l);
     lwan_http_authorize_shutdown();
     lwan_readahead_shutdown();
-    lwan_fd_watch_shutdown(l);
 }
 
 static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
@@ -682,17 +668,30 @@ accept_one(struct lwan *l, struct core_bitmap *cores)
     }
 }
 
-static int accept_connection_coro(struct coro *coro, void *data)
+void lwan_main_loop(struct lwan *l)
 {
-    struct lwan *l = data;
     struct core_bitmap cores = {};
 
-    while (coro_yield(coro, 1) & ~(EPOLLHUP | EPOLLRDHUP | EPOLLERR)) {
+    assert(main_socket == -1);
+    main_socket = l->main_socket;
+
+    if (signal(SIGINT, sigint_handler) == SIG_ERR)
+        lwan_status_critical("Could not set signal handler");
+
+    lwan_status_info("Ready to serve");
+
+    while (true) {
         enum herd_accept ha;
 
-        do {
-            ha = accept_one(l, &cores);
-        } while (ha == HERD_MORE);
+        fcntl(l->main_socket, F_SETFL, 0);
+        ha = accept_one(l, &cores);
+        if (ha == HERD_MORE) {
+            fcntl(l->main_socket, F_SETFL, O_NONBLOCK);
+
+            do {
+                ha = accept_one(l, &cores);
+            } while (ha == HERD_MORE);
+        }
 
         if (UNLIKELY(ha > HERD_MORE))
             break;
@@ -703,90 +702,8 @@ static int accept_connection_coro(struct coro *coro, void *data)
                 lwan_thread_nudge(&l->thread.threads[i * 64 + core]);
             }
         }
-        memset(&cores, 0, sizeof(cores));
+        cores = (struct core_bitmap){};
     }
-
-    return 0;
-}
-
-struct lwan_fd_watch *lwan_watch_fd(struct lwan *l,
-                                    int fd,
-                                    uint32_t events,
-                                    coro_function_t coro_fn,
-                                    void *data)
-{
-    struct lwan_fd_watch *watch;
-
-    watch = malloc(sizeof(*watch));
-    if (!watch)
-        return NULL;
-
-    watch->coro = coro_new(&l->switcher, coro_fn, data);
-    if (!watch->coro)
-        goto out;
-
-    struct epoll_event ev = {.events = events, .data.ptr = watch->coro};
-    if (epoll_ctl(l->epfd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        coro_free(watch->coro);
-        goto out;
-    }
-
-    watch->fd = fd;
-    return watch;
-
-out:
-    free(watch);
-    return NULL;
-}
-
-void lwan_unwatch_fd(struct lwan *l, struct lwan_fd_watch *w)
-{
-    if (l->main_socket != w->fd) {
-        if (epoll_ctl(l->epfd, EPOLL_CTL_DEL, w->fd, NULL) < 0)
-            lwan_status_perror("Could not unwatch fd %d", w->fd);
-    }
-
-    coro_free(w->coro);
-    free(w);
-}
-
-void lwan_main_loop(struct lwan *l)
-{
-    struct epoll_event evs[16];
-    struct lwan_fd_watch *watch;
-
-    assert(main_socket == -1);
-    main_socket = l->main_socket;
-
-    if (signal(SIGINT, sigint_handler) == SIG_ERR)
-        lwan_status_critical("Could not set signal handler");
-
-    watch = lwan_watch_fd(l, l->main_socket, EPOLLIN | EPOLLHUP | EPOLLRDHUP,
-                          accept_connection_coro, l);
-    if (!watch)
-        lwan_status_critical("Could not watch main socket");
-
-    lwan_status_info("Ready to serve");
-
-    while (true) {
-        int n_evs = epoll_wait(l->epfd, evs, N_ELEMENTS(evs), -1);
-
-        if (UNLIKELY(n_evs < 0)) {
-            if (main_socket < 0)
-                break;
-            if (errno == EINTR || errno == EAGAIN)
-                continue;
-            lwan_status_perror("epoll_wait");
-            break;
-        }
-
-        for (int i = 0; i < n_evs; i++) {
-            if (!coro_resume_value(evs[i].data.ptr, (int)evs[i].events))
-                break;
-        }
-    }
-
-    lwan_unwatch_fd(l, watch);
 }
 
 #ifdef CLOCK_MONOTONIC_COARSE
