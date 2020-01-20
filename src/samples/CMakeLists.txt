@@ -4,6 +4,7 @@ if (NOT ${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 	add_subdirectory(hello-no-meta)
 	add_subdirectory(clock)
 	add_subdirectory(websocket)
+	add_subdirectory(asyncawait)
 endif()
 
 add_subdirectory(techempower)

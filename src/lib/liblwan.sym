@@ -9,9 +9,7 @@ global:
     lwan_get_config_path;
     lwan_get_default_config;
 
-    lwan_http_status_as_descriptive_string;
-    lwan_http_status_as_string;
-    lwan_http_status_as_string_with_code;
+    lwan_http_status_as_*;
 
     lwan_init;
     lwan_init_with_config;
@@ -22,10 +20,7 @@ global:
 
     lwan_main_loop;
 
-    lwan_request_get_cookie;
-    lwan_request_get_post_param;
-    lwan_request_get_query_param;
-    lwan_request_get_remote_address;
+    lwan_request_get_*;
     lwan_request_sleep;
 
     lwan_response;
@@ -82,6 +77,9 @@ global:
     lwan_strbuf_set_staticz;
 
     lwan_module_info_*;
+
+    lwan_request_await_*;
+    lwan_request_async_*;
 
 local:
     *;

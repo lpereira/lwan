@@ -161,23 +161,26 @@ static ALWAYS_INLINE uint32_t
 conn_flags_to_epoll_events(enum lwan_connection_flags flags)
 {
     static const uint32_t map[CONN_EVENTS_MASK + 1] = {
-        [0 /* Suspended by timer */] = EPOLLRDHUP,
+        [0 /* Suspended (timer or await) */] = EPOLLRDHUP,
         [CONN_EVENTS_WRITE] = EPOLLOUT | EPOLLRDHUP,
         [CONN_EVENTS_READ] = EPOLLIN | EPOLLRDHUP,
         [CONN_EVENTS_READ_WRITE] = EPOLLIN | EPOLLOUT | EPOLLRDHUP,
+        [CONN_EVENTS_ASYNC_READ] = EPOLLET | EPOLLIN | EPOLLRDHUP | EPOLLONESHOT,
+        [CONN_EVENTS_ASYNC_WRITE] = EPOLLET | EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT,
+        [CONN_EVENTS_ASYNC_READ_WRITE] = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT,
     };
 
     return map[flags & CONN_EVENTS_MASK];
 }
 
 #if defined(__linux__)
-# define CONN_EVENTS_RESUME_TIMER CONN_EVENTS_READ_WRITE
+# define CONN_EVENTS_RESUME CONN_EVENTS_READ_WRITE
 #else
 /* Kqueue doesn't like when you filter on both read and write, so
  * wait only on write when resuming a coro suspended by a timer.
  * The I/O wrappers should yield if trying to read without anything
  * in the buffer, changing the filter to only read, so this is OK. */
-# define CONN_EVENTS_RESUME_TIMER CONN_EVENTS_WRITE
+# define CONN_EVENTS_RESUME CONN_EVENTS_WRITE
 #endif
 
 static void update_epoll_flags(int fd,
@@ -187,6 +190,7 @@ static void update_epoll_flags(int fd,
 {
     static const enum lwan_connection_flags or_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = 0,
+
         [CONN_CORO_WANT_READ_WRITE] = CONN_EVENTS_READ_WRITE,
         [CONN_CORO_WANT_READ] = CONN_EVENTS_READ,
         [CONN_CORO_WANT_WRITE] = CONN_EVENTS_WRITE,
@@ -196,20 +200,32 @@ static void update_epoll_flags(int fd,
          * so unset both so that only EPOLLRDHUP (plus the implicitly-set ones)
          * are set. */
         [CONN_CORO_SUSPEND_TIMER] = CONN_SUSPENDED_TIMER,
+        [CONN_CORO_SUSPEND_ASYNC_AWAIT] = CONN_SUSPENDED_ASYNC_AWAIT,
 
         /* Either EPOLLIN or EPOLLOUT have to be set here.  There's no need to
          * know which event, because they were both cleared when the coro was
          * suspended. So set both flags here. This works because EPOLLET isn't
          * used. */
-        [CONN_CORO_RESUME_TIMER] = CONN_EVENTS_RESUME_TIMER,
+        [CONN_CORO_RESUME] = CONN_EVENTS_RESUME,
+
+        [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
+        [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
+        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
     };
     static const enum lwan_connection_flags and_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = ~0,
+
         [CONN_CORO_WANT_READ_WRITE] = ~0,
         [CONN_CORO_WANT_READ] = ~CONN_EVENTS_WRITE,
         [CONN_CORO_WANT_WRITE] = ~CONN_EVENTS_READ,
-        [CONN_CORO_SUSPEND_TIMER] = ~CONN_EVENTS_READ_WRITE,
-        [CONN_CORO_RESUME_TIMER] = ~CONN_SUSPENDED_TIMER,
+
+        [CONN_CORO_SUSPEND_TIMER] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_ASYNC_AWAIT),
+        [CONN_CORO_SUSPEND_ASYNC_AWAIT] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_TIMER),
+        [CONN_CORO_RESUME] = ~CONN_SUSPENDED,
+
+        [CONN_CORO_ASYNC_AWAIT_READ] = ~0,
+        [CONN_CORO_ASYNC_AWAIT_WRITE] = ~0,
+        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = ~0,
     };
     enum lwan_connection_flags prev_flags = conn->flags;
 
@@ -228,19 +244,53 @@ static void update_epoll_flags(int fd,
         lwan_status_perror("epoll_ctl");
 }
 
-static ALWAYS_INLINE void
-resume_coro(struct timeout_queue *tq, struct lwan_connection *conn, int epoll_fd)
+static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
+                                      struct lwan_connection *conn,
+                                      int epoll_fd)
 {
     assert(conn->coro);
 
-    enum lwan_connection_coro_yield yield_result = coro_resume(conn->coro);
-    if (yield_result == CONN_CORO_ABORT) {
-        timeout_queue_expire(tq, conn);
-        return;
+    int64_t from_coro = coro_resume(conn->coro);
+    enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
+
+    if (UNLIKELY(yield_result == CONN_CORO_ABORT))
+        return timeout_queue_expire(tq, conn);
+
+    if (UNLIKELY(yield_result >= CONN_CORO_ASYNC)) {
+        assert(yield_result >= CONN_CORO_ASYNC_AWAIT_READ &&
+               yield_result <= CONN_CORO_ASYNC_RESUME);
+
+        static const enum lwan_connection_flags to_connection_flags[] = {
+            [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
+            [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
+            [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
+            [CONN_CORO_ASYNC_RESUME] = 0,
+        };
+        struct epoll_event event = {
+            .events =
+                conn_flags_to_epoll_events(to_connection_flags[yield_result]),
+            .data.ptr = conn,
+        };
+        int await_fd = (int)((uint64_t)from_coro >> 32);
+        int op;
+
+        assert(event.events != 0);
+        assert(await_fd >= 0);
+
+        if (yield_result == CONN_CORO_ASYNC_RESUME) {
+            op = EPOLL_CTL_DEL;
+            yield_result = CONN_CORO_RESUME;
+        } else {
+            op = EPOLL_CTL_ADD;
+            yield_result = CONN_CORO_SUSPEND_ASYNC_AWAIT;
+        }
+
+        if (UNLIKELY(epoll_ctl(epoll_fd, op, await_fd, &event) < 0))
+            lwan_status_perror("epoll_ctl");
     }
 
-    update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn, epoll_fd,
-                       yield_result);
+    return update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn,
+                              epoll_fd, yield_result);
 }
 
 static void update_date_cache(struct lwan_thread *thread)
@@ -326,7 +376,7 @@ static bool process_pending_timers(struct timeout_queue *tq,
         request = container_of(timeout, struct lwan_request, timeout);
 
         update_epoll_flags(request->fd, request->conn, epoll_fd,
-                           CONN_CORO_RESUME_TIMER);
+                           CONN_CORO_RESUME);
     }
 
     if (should_expire_timers) {

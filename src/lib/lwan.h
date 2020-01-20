@@ -262,30 +262,52 @@ enum lwan_connection_flags {
      * them to epoll events is smaller.  See conn_flags_to_epoll_events(). */
     CONN_EVENTS_READ = 1 << 0,
     CONN_EVENTS_WRITE = 1 << 1,
-    CONN_EVENTS_READ_WRITE = 1 << 0 | 1 << 1,
-    CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
+    CONN_EVENTS_READ_WRITE = CONN_EVENTS_READ | CONN_EVENTS_WRITE,
+    CONN_EVENTS_ASYNC = 1 << 2,
+    CONN_EVENTS_ASYNC_READ = CONN_EVENTS_ASYNC | CONN_EVENTS_READ,
+    CONN_EVENTS_ASYNC_WRITE = CONN_EVENTS_ASYNC | CONN_EVENTS_WRITE,
+    CONN_EVENTS_ASYNC_READ_WRITE = CONN_EVENTS_ASYNC | CONN_EVENTS_READ_WRITE,
+    CONN_EVENTS_MASK = 1 << 0 | 1 << 1 | 1 << 2,
 
-    CONN_IS_KEEP_ALIVE = 1 << 2,
-    CONN_IS_UPGRADE = 1 << 3,
-    CONN_IS_WEBSOCKET = 1 << 4,
+    CONN_IS_KEEP_ALIVE = 1 << 3,
+    CONN_IS_UPGRADE = 1 << 4,
+    CONN_IS_WEBSOCKET = 1 << 5,
 
     /* This is only used to determine if timeout_del() is necessary when
      * the connection coro ends. */
-    CONN_SUSPENDED_TIMER = 1 << 5,
-    CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
+    CONN_SUSPENDED_TIMER = 1 << 6,
+    CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 7,
 
-    CONN_CORK = 1 << 7,
+    CONN_SUSPENDED_ASYNC_AWAIT = 1 << 8,
+
+    CONN_SUSPENDED = CONN_SUSPENDED_TIMER | CONN_SUSPENDED_ASYNC_AWAIT,
+
+    CONN_CORK = 1 << 9,
 };
 
 enum lwan_connection_coro_yield {
     CONN_CORO_ABORT,
+
     CONN_CORO_YIELD,
+
     CONN_CORO_WANT_READ,
     CONN_CORO_WANT_WRITE,
     CONN_CORO_WANT_READ_WRITE,
+
     CONN_CORO_SUSPEND_TIMER,
-    CONN_CORO_RESUME_TIMER,
+    CONN_CORO_SUSPEND_ASYNC_AWAIT,
+    CONN_CORO_RESUME,
+
+    /* Group async stuff together to make it easier to check if a connection
+     * coroutine is yielding because of async reasons. */
+    CONN_CORO_ASYNC_AWAIT_READ,
+    CONN_CORO_ASYNC_AWAIT_WRITE,
+    CONN_CORO_ASYNC_AWAIT_READ_WRITE,
+    CONN_CORO_ASYNC_RESUME,
+
     CONN_CORO_MAX,
+
+    CONN_CORO_ASYNC = CONN_CORO_ASYNC_AWAIT_READ,
 };
 
 struct lwan_key_value {
@@ -550,6 +572,12 @@ lwan_request_get_accept_encoding(struct lwan_request *request);
 
 enum lwan_http_status
 lwan_request_websocket_upgrade(struct lwan_request *request);
+
+void lwan_request_await_read(struct lwan_request *r, int fd);
+void lwan_request_await_write(struct lwan_request *r, int fd);
+void lwan_request_await_read_write(struct lwan_request *r, int fd);
+ssize_t lwan_request_async_read(struct lwan_request *r, int fd, void *buf, size_t len);
+ssize_t lwan_request_async_write(struct lwan_request *r, int fd, const void *buf, size_t len);
 
 #if defined(__cplusplus)
 }
