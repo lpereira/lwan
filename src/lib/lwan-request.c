@@ -546,10 +546,8 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
     size_t n_headers = 0;
     char *next_header;
 
-    for (char *p = buffer + 1;;) {
-        char *next_chr = p;
-
-        next_header = memchr(next_chr, '\r', (size_t)(buffer_end - p));
+    for (char *next_chr = buffer + 1;;) {
+        next_header = memchr(next_chr, '\r', (size_t)(buffer_end - next_chr));
 
         if (UNLIKELY(!next_header))
             return false;
@@ -575,8 +573,8 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
             return false;
         }
 
-        p = next_header + HEADER_TERMINATOR_LEN;
-        if (UNLIKELY(p >= buffer_end))
+        next_chr = next_header + HEADER_TERMINATOR_LEN;
+        if (UNLIKELY(next_chr >= buffer_end))
             return false;
     }
 
