@@ -21,11 +21,11 @@
 #pragma once
 
 #include <stddef.h>
-#if defined(__x86_64__)
 #include <stdint.h>
+
+#if defined(__x86_64__)
 typedef uintptr_t coro_context[10];
 #elif defined(__i386__)
-#include <stdint.h>
 typedef uintptr_t coro_context[7];
 #else
 #include <ucontext.h>
@@ -46,9 +46,9 @@ void coro_free(struct coro *coro);
 
 void coro_reset(struct coro *coro, coro_function_t func, void *data);
 
-int coro_resume(struct coro *coro);
-int coro_resume_value(struct coro *coro, int value);
-int coro_yield(struct coro *coro, int value);
+int64_t coro_resume(struct coro *coro);
+int64_t coro_resume_value(struct coro *coro, int64_t value);
+int64_t coro_yield(struct coro *coro, int64_t value);
 
 void coro_defer(struct coro *coro, void (*func)(void *data), void *data);
 void coro_defer2(struct coro *coro,

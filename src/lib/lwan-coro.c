@@ -89,7 +89,7 @@ struct coro {
     coro_context context;
     struct coro_defer_array defer;
 
-    int yield_value;
+    int64_t yield_value;
 
     struct {
         /* This allocator is instrumented on debug builds using asan and/or valgrind, if
@@ -307,7 +307,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     return coro;
 }
 
-ALWAYS_INLINE int coro_resume(struct coro *coro)
+ALWAYS_INLINE int64_t coro_resume(struct coro *coro)
 {
     assert(coro);
 
@@ -322,7 +322,7 @@ ALWAYS_INLINE int coro_resume(struct coro *coro)
     return coro->yield_value;
 }
 
-ALWAYS_INLINE int coro_resume_value(struct coro *coro, int value)
+ALWAYS_INLINE int64_t coro_resume_value(struct coro *coro, int64_t value)
 {
     assert(coro);
 
@@ -330,7 +330,7 @@ ALWAYS_INLINE int coro_resume_value(struct coro *coro, int value)
     return coro_resume(coro);
 }
 
-inline int coro_yield(struct coro *coro, int value)
+inline int64_t coro_yield(struct coro *coro, int64_t value)
 {
     assert(coro);
 
