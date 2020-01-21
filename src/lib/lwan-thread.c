@@ -647,7 +647,7 @@ void lwan_thread_init(struct lwan *l)
 
     const size_t n_queue_fds = LWAN_MIN(l->thread.max_fd / l->thread.count,
                                         (size_t)(2 * lwan_socket_get_backlog_size()));
-    lwan_status_info("Pending client file descriptor queue has %zu items", n_queue_fds);
+    lwan_status_debug("Pending client file descriptor queue has %zu items", n_queue_fds);
     for (short i = 0; i < l->thread.count; i++)
         create_thread(l, &l->thread.threads[i], n_queue_fds);
 
