@@ -182,6 +182,8 @@ static bool is_builtin_mime_type(const char *mime)
         return true;
     if (streq(mime, "image/jpeg"))
         return true;
+    if (streq(mime, "image/gif"))
+        return true;
     if (streq(mime, "image/png"))
         return true;
     if (streq(mime, "text/html"))
