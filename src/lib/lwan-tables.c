@@ -87,12 +87,16 @@ void lwan_tables_init(void)
 
     assert(streq(lwan_determine_mime_type_for_file_name(".mkv"),
                  "video/x-matroska"));
-    assert(streq(lwan_determine_mime_type_for_file_name(".bz2"),
-                 "application/x-bzip2"));
     assert(streq(lwan_determine_mime_type_for_file_name(".xml"),
                  "application/xml"));
     assert(streq(lwan_determine_mime_type_for_file_name(".nosuchext"),
                  "application/octet-stream"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".gif"),
+                 "image/gif"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".JS"),
+                 "application/javascript"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".BZ2"),
+                 "application/x-bzip2"));
 }
 
 void
@@ -106,7 +110,7 @@ compare_mime_entry(const void *a, const void *b)
     const char *exta = (const char *)a;
     const char *extb = (const char *)b;
 
-    return strncmp(exta, extb, 8);
+    return strncasecmp(exta, extb, 8);
 }
 
 const char *
