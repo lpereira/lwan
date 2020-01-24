@@ -494,20 +494,17 @@ void *coro_malloc(struct coro *coro, size_t size)
 char *coro_strndup(struct coro *coro, const char *str, size_t max_len)
 {
     const size_t len = strnlen(str, max_len) + 1;
-    /* FIXME: Can we ask the bump ptr allocator to allocate without aligning
-     * this to 8-byte boundary? */
-    char *dup = coro_malloc(coro, len);
+    char *dup = coro_memdup(coro, str, len);
 
-    if (LIKELY(dup)) {
-        memcpy(dup, str, len);
+    if (LIKELY(dup))
         dup[len - 1] = '\0';
-    }
+
     return dup;
 }
 
 char *coro_strdup(struct coro *coro, const char *str)
 {
-    return coro_strndup(coro, str, SSIZE_MAX - 1);
+    return coro_memdup(coro, str, strlen(str) + 1);
 }
 
 char *coro_printf(struct coro *coro, const char *fmt, ...)
