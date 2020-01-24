@@ -1278,13 +1278,15 @@ static enum lwan_http_status redir_serve(struct lwan_request *request,
 {
     struct file_cache_entry *fce = data;
     struct redir_cache_data *rd = &fce->redir_cache_data;
-    const struct lwan_key_value headers[] = {{"Location", rd->redir_to}, {}};
+    struct lwan_key_value headers[] = {{"Location", rd->redir_to}, {}};
 
     lwan_strbuf_set_staticz(request->response.buffer, rd->redir_to);
     request->response.mime_type = "text/plain";
-    request->response.headers = headers;
+    request->response.headers =
+        coro_memdup(request->conn->coro, headers, sizeof(headers));
 
-    return HTTP_MOVED_PERMANENTLY;
+    return request->response.headers ? HTTP_MOVED_PERMANENTLY
+                                     : HTTP_INTERNAL_ERROR;
 }
 
 static enum lwan_http_status

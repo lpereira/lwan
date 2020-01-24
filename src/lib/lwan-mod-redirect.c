@@ -35,20 +35,12 @@ redirect_handle_request(struct lwan_request *request,
                         void *instance)
 {
     struct redirect_priv *priv = instance;
-    struct lwan_key_value *headers;
+    struct lwan_key_value headers[] = {{"Location", priv->to}, {}};
 
-    headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);
-    if (UNLIKELY(!headers))
-        return HTTP_INTERNAL_ERROR;
+    response->headers =
+        coro_memdup(request->conn->coro, headers, sizeof(headers));
 
-    headers[0].key = "Location";
-    headers[0].value = priv->to;
-    headers[1].key = NULL;
-    headers[1].value = NULL;
-
-    response->headers = headers;
-
-    return priv->code;
+    return response->headers ? priv->code : HTTP_INTERNAL_ERROR;
 }
 
 static void *redirect_create(const char *prefix __attribute__((unused)),

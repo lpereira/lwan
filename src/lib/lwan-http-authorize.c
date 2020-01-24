@@ -185,7 +185,6 @@ bool lwan_http_authorize(struct lwan_request *request,
 {
     static const char authenticate_tmpl[] = "Basic realm=\"%s\"";
     static const size_t basic_len = sizeof("Basic ") - 1;
-    struct lwan_key_value *headers;
     const char *authorization =
         lwan_request_get_header(request, "Authorization");
 
@@ -197,15 +196,13 @@ bool lwan_http_authorize(struct lwan_request *request,
             return true;
     }
 
-    headers = coro_malloc(request->conn->coro, 2 * sizeof(*headers));
-    if (UNLIKELY(!headers))
-        return false;
+    const struct lwan_key_value headers[] = {
+        {"WWW-Authenticate",
+         coro_printf(request->conn->coro, authenticate_tmpl, realm)},
+        {},
+    };
+    request->response.headers =
+        coro_memdup(request->conn->coro, headers, sizeof(headers));
 
-    headers[0].key = "WWW-Authenticate";
-    headers[0].value =
-        coro_printf(request->conn->coro, authenticate_tmpl, realm);
-    headers[1].key = headers[1].value = NULL;
-
-    request->response.headers = headers;
     return false;
 }
