@@ -68,3 +68,4 @@ char *coro_strdup(struct coro *coro, const char *str);
 char *coro_strndup(struct coro *coro, const char *str, size_t len);
 char *coro_printf(struct coro *coro, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
+void *coro_memdup(struct coro *coro, const void *src, size_t len);

@@ -526,3 +526,10 @@ char *coro_printf(struct coro *coro, const char *fmt, ...)
     coro_defer(coro, free, tmp_str);
     return tmp_str;
 }
+
+void *coro_memdup(struct coro *coro, const void *src, size_t len)
+{
+    void *ptr = coro_malloc(coro, len);
+
+    return LIKELY(ptr) ? memcpy(ptr, src, len) : NULL;
+}
