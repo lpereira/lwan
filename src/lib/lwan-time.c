@@ -25,9 +25,10 @@
 #include "lwan-private.h"
 #include "int-to-str.h"
 
-static int parse_2_digit_num(const char *str, const char end_chr, int min, int max)
+static int
+parse_2_digit_num(const char *str, const char end_chr, unsigned int max)
 {
-    int val;
+    unsigned int val;
 
     if (UNLIKELY(!lwan_char_isdigit(*str)))
         return -EINVAL;
@@ -36,13 +37,13 @@ static int parse_2_digit_num(const char *str, const char end_chr, int min, int m
     if (UNLIKELY(*(str + 2) != end_chr))
         return -EINVAL;
 
-    val = (*str - '0') * 10;
-    val += *(str + 1) - '0';
+    val  = (unsigned int)((*str - '0') * 10);
+    val += (unsigned int)(*(str + 1) - '0');
 
-    if (UNLIKELY(val < min || val > max))
+    if (UNLIKELY(val > max))
         return -EINVAL;
 
-    return val;
+    return (int)val;
 }
 
 int lwan_parse_rfc_time(const char in[static 30], time_t *out)
@@ -65,8 +66,8 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     }
     str += 5;
 
-    tm.tm_mday = parse_2_digit_num(str, ' ', 1, 31);
-    if (UNLIKELY(tm.tm_mday < 0))
+    tm.tm_mday = parse_2_digit_num(str, ' ', 31);
+    if (UNLIKELY(tm.tm_mday <= 1))
         return -EINVAL;
     str += 3;
 
@@ -95,11 +96,11 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
         return -EINVAL;
     str += 5;
 
-    tm.tm_hour = parse_2_digit_num(str, ':', 0, 23);
+    tm.tm_hour = parse_2_digit_num(str, ':', 23);
     str += 3;
-    tm.tm_min = parse_2_digit_num(str, ':', 0, 59);
+    tm.tm_min = parse_2_digit_num(str, ':', 59);
     str += 3;
-    tm.tm_sec = parse_2_digit_num(str, ' ', 0, 59);
+    tm.tm_sec = parse_2_digit_num(str, ' ', 59);
     str += 3;
 
     STRING_SWITCH(str) {
@@ -108,11 +109,10 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
 
         *out = timegm(&tm);
 
-        if (UNLIKELY(*out == (time_t)-1))
-            return -EINVAL;
+        if (LIKELY(*out > 0))
+            return 0;
 
-        return 0;
-
+        /* Fallthrough */
     default:
         return -EINVAL;
     }
