@@ -164,6 +164,7 @@ struct file_list {
         const char *unit;
 
         const char *zebra_class;
+        const char *slash_if_dir;
     } file_list;
 };
 
@@ -241,6 +242,7 @@ static const struct lwan_var_descriptor file_list_desc[] = {
                          TPL_VAR_INT(file_list.size),
                          TPL_VAR_STR(file_list.unit),
                          TPL_VAR_STR(file_list.zebra_class),
+                         TPL_VAR_STR(file_list.slash_if_dir),
                          TPL_VAR_SENTINEL,
                      })),
     TPL_VAR_SENTINEL,
@@ -278,7 +280,7 @@ static const char *directory_list_tpl_str =
     "      <td><img src=\"?icon={{file_list.icon}}\" "
     "alt=\"{{file_list.icon_alt}}\"></td>\n"
     "      <td><a "
-    "href=\"{{rel_path}}/{{{file_list.name}}}\">{{{file_list.name}}}</a></td>\n"
+    "href=\"{{rel_path}}/{{{file_list.name}}}{{file_list.slash_if_dir}}\">{{{file_list.name}}}</a></td>\n"
     "      <td>{{file_list.type}}</td>\n"
     "      <td align=\"right\"><tt>{{file_list.size}}{{file_list.unit}}</tt></td>\n"
     "    </tr>\n"
@@ -322,11 +324,13 @@ static int directory_list_generator(struct coro *coro, void *data)
             fl->file_list.icon = "folder";
             fl->file_list.icon_alt = "DIR";
             fl->file_list.type = "directory";
+            fl->file_list.slash_if_dir = "/";
         } else if (S_ISREG(st.st_mode)) {
             fl->file_list.icon = "file";
             fl->file_list.icon_alt = "FILE";
             fl->file_list.type =
                 lwan_determine_mime_type_for_file_name(entry->d_name);
+            fl->file_list.slash_if_dir = "";
         } else {
             continue;
         }
