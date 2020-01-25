@@ -736,7 +736,7 @@ static bool redir_init(struct file_cache_entry *ce,
 {
     struct redir_cache_data *rd = &ce->redir_cache_data;
 
-    return asprintf(&rd->redir_to, "%s/", full_path + priv->root_path_len) >= 0;
+    return asprintf(&rd->redir_to, "%s/", get_rel_path(full_path, priv)) >= 0;
 }
 
 static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
