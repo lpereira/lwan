@@ -105,9 +105,9 @@ static inline struct lwan_value end_color(void)
 
 static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 {
-#ifdef __GLIBC__
+#if defined(__GLIBC__) && defined(_GNU_SOURCE)
     return strerror_r(error_number, buffer, len);
-#else
+#else /* XSI-compliant strerror_r() */
     if (!strerror_r(error_number, buffer, len))
         return buffer;
     return "Unknown";
