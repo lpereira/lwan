@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -70,18 +71,16 @@ static int output_append_padded(struct output *output, const char *str)
 {
     size_t str_len = strlen(str);
 
-    if (str_len <= 8) {
-        int r = output_append_full(output, str, str_len);
-        if (r < 0)
-            return r;
+    assert(str_len <= 8);
 
-        if (str_len != 8)
-            return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
+    int r = output_append_full(output, str, str_len);
+    if (r < 0)
+        return r;
 
-        return 0;
-    }
+    if (str_len != 8)
+        return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
 
-    return -EINVAL;
+    return 0;
 }
 
 static int output_append(struct output *output, const char *str)
@@ -94,7 +93,7 @@ static int compare_ext(const void *a, const void *b)
     const char **exta = (const char **)a;
     const char **extb = (const char **)b;
 
-    return strcmp(*exta, *extb);
+    return strcasecmp(*exta, *extb);
 }
 
 static char *strend(char *str, char ch)
@@ -298,7 +297,14 @@ int main(int argc, char *argv[])
         return 1;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
-        if (output_append_padded(&output, exts[i]) < 0) {
+        char ext_lower[9] = {0};
+
+        strncpy(ext_lower, exts[i], 8);
+
+        for (char *p = ext_copy; *p; p++)
+            *p |= 0x20;
+
+        if (output_append_padded(&output, ext_lower) < 0) {
             fprintf(stderr, "Could not append to output\n");
             return 1;
         }

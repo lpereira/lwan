@@ -110,7 +110,7 @@ compare_mime_entry(const void *a, const void *b)
     const char *exta = (const char *)a;
     const char *extb = (const char *)b;
 
-    return strncasecmp(exta, extb, 8);
+    return strncmp(exta, extb, 8);
 }
 
 const char *
@@ -131,7 +131,11 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     }
 
     if (LIKELY(*last_dot)) {
-        char *extension, *key = last_dot + 1;
+        char *key = strndupa(last_dot + 1, 8);
+        char *extension;
+
+        for (char *p = key; *p; p++)
+            *p |= 0x20;
 
         extension = bsearch(key, uncompressed_mime_entries, MIME_ENTRIES, 8,
                             compare_mime_entry);
