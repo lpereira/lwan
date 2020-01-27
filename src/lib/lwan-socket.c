@@ -264,6 +264,8 @@ void lwan_socket_init(struct lwan *l)
 
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_DEFER_ACCEPT,
+                               (int[]){l->config.keep_alive_timeout});
 #endif
 
     l->main_socket = fd;
