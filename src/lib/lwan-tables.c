@@ -131,9 +131,11 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     }
 
     if (LIKELY(*last_dot)) {
-        char *key = strndupa(last_dot + 1, 8);
+        char key[9];
         char *extension;
 
+        strncpy(key, last_dot + 1, 8);
+        key[8] = '\0';
         for (char *p = key; *p; p++)
             *p |= 0x20;
 
