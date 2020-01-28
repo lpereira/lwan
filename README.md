@@ -130,7 +130,8 @@ with, specify one of the following options to the CMake invocation line:
  - `-DSANITIZER=thread` selects the Thread Sanitizer.
 
 Alternative memory allocators can be selected as well.  Lwan currently
-supports [TCMalloc](https://github.com/gperftools/gperftools) and
+supports [TCMalloc](https://github.com/gperftools/gperftools),
+[mimalloc](https://github.com/microsoft/mimalloc), and
 [jemalloc](http://jemalloc.net/) out of the box.  To use either one of them,
 pass `-DALTERNATIVE_MALLOC=ON` to the CMake invocation line.
 
