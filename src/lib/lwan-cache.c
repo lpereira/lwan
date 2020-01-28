@@ -240,13 +240,18 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
+    /* FIXME: There's a race condition in this function: if the cache is
+     * destroyed while there are either temporary or floating entries,
+     * calling the destroy_entry callback function will dereference
+     * deallocated memory. */
+
     if (entry->flags & TEMPORARY) {
         /* FREE_KEY_ON_DESTROY is set on elements that never got into the
          * hash table, so their keys are never destroyed automatically. */
         if (entry->flags & FREE_KEY_ON_DESTROY)
             free(entry->key);
 
-        goto destroy_entry;
+        return cache->cb.destroy_entry(entry, cache->cb.context);
     }
 
     if (ATOMIC_DEC(entry->refs))
@@ -255,11 +260,7 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
     /* FLOATING entries without references won't be picked up by the pruner
      * job, so destroy them right here. */
     if (entry->flags & FLOATING) {
-destroy_entry:
-        /* FIXME: There's a race condition here: if the cache is destroyed
-         * while there are cache items floating around, this will dereference
-         * deallocated memory. */
-        cache->cb.destroy_entry(entry, cache->cb.context);
+        return cache->cb.destroy_entry(entry, cache->cb.context);
     }
 }
 
