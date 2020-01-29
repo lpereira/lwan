@@ -1203,28 +1203,38 @@ serve_value(struct lwan_request *request,
                         status_code);
 }
 
-static enum lwan_http_status mmap_serve(struct lwan_request *request, void *data)
+static ALWAYS_INLINE enum lwan_http_status
+serve_value_ok(struct lwan_request *request,
+               const char *mime_type,
+               const struct lwan_value *value,
+               const struct lwan_key_value *headers)
+{
+    return serve_value(request, mime_type, value, headers, HTTP_OK);
+}
+
+static enum lwan_http_status mmap_serve(struct lwan_request *request,
+                                        void *data)
 {
     struct file_cache_entry *fce = data;
     struct mmap_cache_data *md = &fce->mmap_cache_data;
 
 #if defined(HAVE_ZSTD)
     if (md->zstd.len && accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
-        return serve_value(request, fce->mime_type, &md->zstd, zstd_compression_hdr,
-                           HTTP_OK);
+        return serve_value_ok(request, fce->mime_type, &md->zstd,
+                              zstd_compression_hdr);
     }
 #endif
 
 #if defined(HAVE_BROTLI)
     if (md->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
-        return serve_value(request, fce->mime_type, &md->brotli, br_compression_hdr,
-                           HTTP_OK);
+        return serve_value_ok(request, fce->mime_type, &md->brotli,
+                              br_compression_hdr);
     }
 #endif
 
     if (md->deflated.len && accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
-        return serve_value(request, fce->mime_type, &md->deflated,
-                           deflate_compression_hdr, HTTP_OK);
+        return serve_value_ok(request, fce->mime_type, &md->deflated,
+                              deflate_compression_hdr);
     }
 
     off_t from, to;
@@ -1232,14 +1242,15 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request, void *data
         compute_range(request, &from, &to, (off_t)md->uncompressed.len);
     if (status == HTTP_OK || status == HTTP_PARTIAL_CONTENT) {
         return serve_buffer(request, fce->mime_type,
-                            (char *)md->uncompressed.value + from, (size_t)(to - from),
-                            NULL, status);
+                            (char *)md->uncompressed.value + from,
+                            (size_t)(to - from), NULL, status);
     }
 
     return status;
 }
 
-static enum lwan_http_status dirlist_serve(struct lwan_request *request, void *data)
+static enum lwan_http_status dirlist_serve(struct lwan_request *request,
+                                           void *data)
 {
     struct file_cache_entry *fce = data;
     struct dir_list_cache_data *dd = &fce->dir_list_cache_data;
@@ -1248,30 +1259,30 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request, void *d
     if (!icon) {
 #if defined(HAVE_BROTLI)
         if (dd->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
-            return serve_value(request, fce->mime_type, &dd->brotli, br_compression_hdr,
-                               HTTP_OK);
+            return serve_value_ok(request, fce->mime_type, &dd->brotli,
+                                  br_compression_hdr);
         }
 #endif
 
         if (dd->deflated.len && accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
-            return serve_value(request, fce->mime_type, &dd->deflated,
-                               deflate_compression_hdr, HTTP_OK);
+            return serve_value_ok(request, fce->mime_type, &dd->deflated,
+                                  deflate_compression_hdr);
         }
 
-        return serve_buffer(request, fce->mime_type,
-                            lwan_strbuf_get_buffer(&dd->rendered),
-                            lwan_strbuf_get_length(&dd->rendered), NULL, HTTP_OK);
+        return serve_buffer(
+            request, fce->mime_type, lwan_strbuf_get_buffer(&dd->rendered),
+            lwan_strbuf_get_length(&dd->rendered), NULL, HTTP_OK);
     }
 
     STRING_SWITCH (icon) {
     case STR4_INT('b', 'a', 'c', 'k'):
-        return serve_value(request, "image/gif", &back_gif_value, NULL, HTTP_OK);
+        return serve_value_ok(request, "image/gif", &back_gif_value, NULL);
 
     case STR4_INT('f', 'i', 'l', 'e'):
-        return serve_value(request, "image/gif", &file_gif_value, NULL, HTTP_OK);
+        return serve_value_ok(request, "image/gif", &file_gif_value, NULL);
 
     case STR4_INT('f', 'o', 'l', 'd'):
-        return serve_value(request, "image/gif", &folder_gif_value, NULL, HTTP_OK);
+        return serve_value_ok(request, "image/gif", &folder_gif_value, NULL);
     }
 
     return HTTP_NOT_FOUND;
