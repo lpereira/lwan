@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <assert.h>
 #include <stdint.h>
 
 #include "lwan-coro.h"
@@ -118,11 +119,16 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
     __attribute__((unused)) static inline size_t array_type_##_get_elem_index( \
         const struct array_type_ *array, element_type_ *elem)                  \
     {                                                                          \
+        assert(elem >= (element_type_ *)array->base.base);                     \
+        assert(elem <                                                          \
+               (element_type_ *)array->base.base + array->base.elements);      \
         return (size_t)(elem - (element_type_ *)array->base.base);             \
     }                                                                          \
     __attribute__((unused)) static inline element_type_                        \
         *array_type_##_get_elem(const struct array_type_ *array, size_t index) \
     {                                                                          \
+        assert(index <= /* Legal to have a ptr to 1 past end */                \
+               array->base.elements);                                          \
         return &((element_type_ *)array->base.base)[index];                    \
     }                                                                          \
     __attribute__((unused)) static inline size_t array_type_##_len(            \
