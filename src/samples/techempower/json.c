@@ -728,12 +728,11 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
      * elements.
      */
     size_t n_elem = *(size_t *)((char *)val + elem_descr->offset);
-    size_t i;
     int ret = append_bytes("[", 1, data);
 
     if (LIKELY(n_elem)) {
         n_elem--;
-        for (i = 0; i < n_elem; i++) {
+        for (size_t i = 0; i < n_elem; i++) {
             /*
              * Though "field" points at the next element in the array which we
              * need to encode, the value in elem_descr->offset is actually the
