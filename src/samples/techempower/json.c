@@ -729,12 +729,7 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
      */
     size_t n_elem = *(size_t *)((char *)val + elem_descr->offset);
     size_t i;
-    int ret;
-
-    ret = append_bytes("[", 1, data);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
-    }
+    int ret = append_bytes("[", 1, data);
 
     if (LIKELY(n_elem)) {
         n_elem--;
@@ -752,50 +747,33 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
              * the length field in the parent struct, but that would add a
              * size_t to every descriptor.
              */
-            ret = encode(elem_descr, (char *)field - elem_descr->offset,
-                         append_bytes, data, escape_key);
-            if (UNLIKELY(ret < 0)) {
-                return ret;
-            }
+            ret |= encode(elem_descr, (char *)field - elem_descr->offset,
+                          append_bytes, data, escape_key);
 
-            ret = append_bytes(",", 1, data);
-            if (UNLIKELY(ret < 0)) {
-                return ret;
-            }
+            ret |= append_bytes(",", 1, data);
 
             field = (char *)field + elem_size;
         }
 
-        ret = encode(elem_descr, (char *)field - elem_descr->offset,
-                     append_bytes, data, escape_key);
-        if (UNLIKELY(ret < 0)) {
-            return ret;
-        }
+        ret |= encode(elem_descr, (char *)field - elem_descr->offset,
+                      append_bytes, data, escape_key);
     }
 
-    return append_bytes("]", 1, data);
+    return ret | append_bytes("]", 1, data);
 }
 
 static int
 str_encode(const char **str, json_append_bytes_t append_bytes, void *data, bool escape)
 {
-    int ret;
-
-    ret = append_bytes("\"", 1, data);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
-    }
+    int ret = append_bytes("\"", 1, data);
 
     if (escape) {
-        ret = json_escape_internal(*str, append_bytes, data);
+        ret |= json_escape_internal(*str, append_bytes, data);
     } else {
-        ret = append_bytes(*str, strlen(*str), data);
-    }
-    if (!ret) {
-        return append_bytes("\"", 1, data);
+        ret |= append_bytes(*str, strlen(*str), data);
     }
 
-    return ret;
+    return ret | append_bytes("\"", 1, data);
 }
 
 static int
@@ -864,20 +842,12 @@ static int encode_key_value(const struct json_obj_descr *descr,
                             void *data,
                             bool escape_key)
 {
-    int ret;
+    int ret = str_encode((const char **)&descr->field_name, append_bytes, data,
+                         escape_key);
 
-    ret = str_encode((const char **)&descr->field_name, append_bytes, data,
-                     escape_key);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
-    }
+    ret |= append_bytes(":", 1, data);
 
-    ret = append_bytes(":", 1, data);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
-    }
-
-    return encode(descr, val, append_bytes, data, escape_key);
+    return ret | encode(descr, val, append_bytes, data, escape_key);
 }
 
 int json_obj_encode_full(const struct json_obj_descr *descr,
@@ -887,12 +857,7 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
                          void *data,
                          bool escape_key)
 {
-    int ret;
-
-    ret = append_bytes("{", 1, data);
-    if (UNLIKELY(ret < 0)) {
-        return ret;
-    }
+    int ret = append_bytes("{", 1, data);
 
     if (LIKELY(descr_len)) {
         /* To avoid checking if we're encoding the last element on each
@@ -903,25 +868,15 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
          * branches.  */
 
         for (size_t i = 1; i < descr_len; i++) {
-            ret = encode_key_value(&descr[i], val, append_bytes, data,
-                                   escape_key);
-            if (UNLIKELY(ret < 0)) {
-                return ret;
-            }
-
-            ret = append_bytes(",", 1, data);
-            if (UNLIKELY(ret < 0)) {
-                return ret;
-            }
+            ret |= encode_key_value(&descr[i], val, append_bytes, data,
+                                    escape_key);
+            ret |= append_bytes(",", 1, data);
         }
 
-        ret = encode_key_value(&descr[0], val, append_bytes, data, escape_key);
-        if (UNLIKELY(ret < 0)) {
-            return ret;
-        }
+        ret |= encode_key_value(&descr[0], val, append_bytes, data, escape_key);
     }
 
-    return append_bytes("}", 1, data);
+    return ret | append_bytes("}", 1, data);
 }
 
 struct appender {
