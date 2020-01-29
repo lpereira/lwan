@@ -118,6 +118,12 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     }
 }
 
+static inline char *
+append_two_digits(char *p, unsigned int digits)
+{
+    return mempcpy(p, uint_to_string_2_digits(digits), 2);
+}
+
 int lwan_format_rfc_time(const time_t in, char out[static 30])
 {
     static const char *weekdays = "Sun,Mon,Tue,Wed,Thu,Fri,Sat,";
@@ -131,21 +137,21 @@ int lwan_format_rfc_time(const time_t in, char out[static 30])
     p = mempcpy(out, weekdays + tm.tm_wday * 4, 4);
     *p++ = ' ';
 
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_mday), 2);
+    p = append_two_digits(p, (unsigned int)tm.tm_mday);
     *p++ = ' ';
     p = mempcpy(p, months + tm.tm_mon * 4, 4);
 
     tm.tm_year += 1900;
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_year / 100), 2);
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_year % 100), 2);
+    p = append_two_digits(p, (unsigned int)tm.tm_year / 100);
+    p = append_two_digits(p, (unsigned int)tm.tm_year % 100);
 
     *p++ = ' ';
 
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_hour), 2);
+    p = append_two_digits(p, (unsigned int)tm.tm_hour);
     *p++ = ':';
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_min), 2);
+    p = append_two_digits(p, (unsigned int)tm.tm_min);
     *p++ = ':';
-    p = mempcpy(p, uint_to_string_2_digits((unsigned int)tm.tm_sec), 2);
+    p = append_two_digits(p, (unsigned int)tm.tm_sec);
 
     memcpy(p, " GMT", 5);
 
