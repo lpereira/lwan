@@ -24,19 +24,27 @@
 
 #include "lwan.h"
 
-#define LWAN_MIN(a_, b_)                                                       \
+#define LWAN_CONCAT(a_, b_) a_ ## b_
+#define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)
+#define LWAN_TMP_ID LWAN_TMP_ID_DETAIL(__COUNTER__)
+
+#define LWAN_MIN_DETAIL(a_, b_, name_a_, name_b_)                              \
     ({                                                                         \
-        __typeof__(a_) __a__ = (a_);                                           \
-        __typeof__(b_) __b__ = (b_);                                           \
-        __a__ > __b__ ? __b__ : __a__;                                         \
+        __typeof__(a_) name_a_ = (a_);                                         \
+        __typeof__(b_) name_b_ = (b_);                                         \
+        name_a_ > name_b_ ? name_b_ : name_a_;                                 \
     })
 
-#define LWAN_MAX(a_, b_)                                                       \
+#define LWAN_MAX_DETAIL(a_, b_, name_a_, name_b_)                              \
     ({                                                                         \
-        __typeof__(a_) __a__ = (a_);                                           \
-        __typeof__(b_) __b__ = (b_);                                           \
-        __a__ < __b__ ? __b__ : __a__;                                         \
+        __typeof__(a_) name_a_ = (a_);                                         \
+        __typeof__(b_) name_b_ = (b_);                                         \
+        name_a_ < name_b_ ? name_b_ : name_a_;                                 \
     })
+
+#define LWAN_MIN(a_, b_) LWAN_MIN_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID)
+
+#define LWAN_MAX(a_, b_) LWAN_MAX_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID)
 
 int lwan_socket_get_backlog_size(void);
 
