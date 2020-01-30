@@ -16,19 +16,27 @@ import unittest
 import string
 import shutil
 
-LWAN_PATH = './build/src/bin/testrunner/testrunner'
+BUILD_DIR = './build'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
-    LWAN_PATH = arg
+    BUILD_DIR = arg
     sys.argv.remove(arg)
 
-print('Using', LWAN_PATH, 'for lwan')
+def get_harness_path(harness):
+  return {
+    'testrunner': os.path.join(BUILD_DIR, './src/bin/testrunner/testrunner'),
+    'techempower': os.path.join(BUILD_DIR, './src/samples/techempower/techempower'),
+  }[harness]
+
+print('Using paths:')
+print('  testrunner:', get_harness_path('testrunner'))
+print(' techempower:', get_harness_path('techempower'))
 
 class LwanTest(unittest.TestCase):
-  def setUp(self, env=None, alt_lwan_path=None):
+  def setUp(self, env=None, harness='testrunner'):
     open('htpasswd', 'w').close()
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen([LWAN_PATH if alt_lwan_path is None else alt_lwan_path],
+      self.lwan=subprocess.Popen([get_harness_path(harness)],
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
       for request_try in range(20):
         try:
@@ -75,12 +83,7 @@ class LwanTest(unittest.TestCase):
 
 class TestTWFB(LwanTest):
   def setUp(self, env=None):
-    harness_path = './build/src/samples/techempower/techempower'
-
-    if not os.path.exists(harness_path):
-      raise Exception('Could not find TWFB benchmark harness')
-
-    super().setUp(env, alt_lwan_path=harness_path)
+    super().setUp(env, harness='techempower')
     shutil.copyfile('./src/samples/techempower/techempower.db', './techempower.db')
 
   def tearDown(self):

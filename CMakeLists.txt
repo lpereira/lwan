@@ -324,8 +324,7 @@ find_package(PythonInterp 3)
 if (LUA_FOUND AND PYTHONINTERP_FOUND)
 	add_custom_target(testsuite
 		COMMAND ${PYTHON_EXECUTABLE}
-			${PROJECT_SOURCE_DIR}/src/scripts/testsuite.py -v
-			${CMAKE_BINARY_DIR}/src/bin/testrunner/testrunner
+			${PROJECT_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}
 		DEPENDS testrunner techempower
 		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 		COMMENT "Running test suite.")
