@@ -125,14 +125,19 @@ class TestTWFB(LwanTest):
     self.assertSingleQueryResultIsValid(r.json())
 
   def test_multiple_queries(self):
-    for queries in (1, 10, 100, 500, 1000, 0, -1):
-      r = requests.get('http://127.0.0.1:8080/queries?queries=%d' % queries)
-
+    def assertMultipleQueriesValid(r, queries):
       self.assertHttpResponseValid(r, 200, 'application/json')
       self.assertTrue(isinstance(r.json(), list))
       self.assertEqual(len(r.json()), min(500, max(queries, 1)))
       for query in r.json():
         self.assertSingleQueryResultIsValid(query)
+
+    for queries in (1, 10, 100, 500, 1000, 0, -1):
+      r = requests.get('http://127.0.0.1:8080/queries?queries=%d' % queries)
+      assertMultipleQueriesValid(r, queries)
+
+    r = requests.get('http://127.0.0.1:8080/queries')
+    assertMultipleQueriesValid(r, 1)
 
 class TestPost(LwanTest):
   def test_will_it_blend(self):
