@@ -3,18 +3,19 @@
 #       performs certain system calls. This should speed up the mmap tests
 #       considerably and make it possible to perform more low-level tests.
 
+import hashlib
 import os
 import random
 import re
 import requests
+import shutil
 import signal
 import socket
+import string
 import subprocess
 import sys
 import time
 import unittest
-import string
-import shutil
 
 BUILD_DIR = './build'
 for arg in sys.argv[1:]:
@@ -103,6 +104,13 @@ class TestTWFB(LwanTest):
     self.assertEqual(type(single['id']), type(0))
     self.assertTrue(0 <= single['randomNumber'] <= 9999)
     self.assertTrue(1 <= single['id'] <= 10000)
+
+  def test_fortunes(self):
+    r = requests.get('http://127.0.0.1:8080/fortunes')
+
+    self.assertHttpResponseValid(r, 200, 'text/html; charset=UTF-8')
+    self.assertEqual(hashlib.md5(bytes(r.text, 'utf-8')).hexdigest(),
+                     '352e66abf97b5a07c76a8b3c9e3e6339')
 
   def test_json(self):
     r = requests.get('http://127.0.0.1:8080/json')
