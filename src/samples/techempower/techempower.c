@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-config.h"
 #include "lwan-template.h"
 
@@ -244,15 +244,9 @@ LWAN_HANDLER(queries)
     const char *queries_str = lwan_request_get_query_param(request, "queries");
     long queries;
 
-    if (LIKELY(queries_str)) {
-        queries = parse_long(queries_str, -1);
-        if (UNLIKELY(queries <= 0))
-            queries = 1;
-        else if (UNLIKELY(queries > 500))
-            queries = 500;
-    } else {
-        queries = 1;
-    }
+    queries = LIKELY(queries_str)
+                  ? LWAN_MIN(500, LWAN_MAX(1, parse_long(queries_str, -1)))
+                  : 1;
 
     struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
                                            sizeof(random_number_query) - 1);
