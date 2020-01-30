@@ -374,14 +374,24 @@ LWAN_HANDLER(fortunes)
     return HTTP_OK;
 }
 
+LWAN_HANDLER(quit_lwan)
+{
+    exit(0);
+    return HTTP_OK;
+}
+
 int main(void)
 {
     static const struct lwan_url_map url_map[] = {
+        /* Routes for the TWFB benchmark: */
         {.prefix = "/json", .handler = LWAN_HANDLER_REF(json)},
         {.prefix = "/db", .handler = LWAN_HANDLER_REF(db)},
         {.prefix = "/queries", .handler = LWAN_HANDLER_REF(queries)},
         {.prefix = "/plaintext", .handler = LWAN_HANDLER_REF(plaintext)},
         {.prefix = "/fortunes", .handler = LWAN_HANDLER_REF(fortunes)},
+        /* Routes for the test harness: */
+        {.prefix = "/quit-lwan", .handler = LWAN_HANDLER_REF(quit_lwan)},
+        {.prefix = "/hello", .handler = LWAN_HANDLER_REF(plaintext)},
         {.prefix = NULL},
     };
     struct lwan l;

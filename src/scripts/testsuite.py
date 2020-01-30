@@ -14,6 +14,7 @@ import sys
 import time
 import unittest
 import string
+import shutil
 
 LWAN_PATH = './build/src/bin/testrunner/testrunner'
 for arg in sys.argv[1:]:
@@ -24,11 +25,11 @@ for arg in sys.argv[1:]:
 print('Using', LWAN_PATH, 'for lwan')
 
 class LwanTest(unittest.TestCase):
-  def setUp(self, env=None):
+  def setUp(self, env=None, alt_lwan_path=None):
     open('htpasswd', 'w').close()
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen([LWAN_PATH], stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT, env=env)
+      self.lwan=subprocess.Popen([LWAN_PATH if alt_lwan_path is None else alt_lwan_path],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
       for request_try in range(20):
         try:
           requests.get('http://127.0.0.1:8080/hello')
@@ -71,6 +72,56 @@ class LwanTest(unittest.TestCase):
   def assertResponsePlain(self, request, status_code=200):
     self.assertHttpResponseValid(request, status_code, 'text/plain')
 
+
+class TestTWFB(LwanTest):
+  def setUp(self, env=None):
+    harness_path = './build/src/samples/techempower/techempower'
+
+    if not os.path.exists(harness_path):
+      raise Exception('Could not find TWFB benchmark harness')
+
+    super().setUp(env, alt_lwan_path=harness_path)
+    shutil.copyfile('./src/samples/techempower/techempower.db', './techempower.db')
+
+  def tearDown(self):
+    super().tearDown()
+    os.remove('techempower.db')
+
+  def test_plaintext(self):
+    r = requests.get('http://127.0.0.1:8080/plaintext')
+
+    self.assertResponsePlain(r)
+    self.assertEqual(r.text, 'Hello, World!')
+
+  def assertSingleQueryResultIsValid(self, single):
+    self.assertTrue(isinstance(single, dict))
+    self.assertEqual({'randomNumber', 'id'}, set(single.keys()))
+    self.assertEqual(type(single['randomNumber']), type(0))
+    self.assertEqual(type(single['id']), type(0))
+    self.assertTrue(0 <= single['randomNumber'] <= 9999)
+    self.assertTrue(1 <= single['id'] <= 10000)
+
+  def test_json(self):
+    r = requests.get('http://127.0.0.1:8080/json')
+
+    self.assertHttpResponseValid(r, 200, 'application/json')
+    self.assertEqual(r.json(), {'message': 'Hello, World!'})
+
+  def test_single_query(self):
+    r = requests.get('http://127.0.0.1:8080/db')
+
+    self.assertHttpResponseValid(r, 200, 'application/json')
+    self.assertSingleQueryResultIsValid(r.json())
+
+  def test_multiple_queries(self):
+    for queries in (1, 10, 100, 500, 1000, 0, -1):
+      r = requests.get('http://127.0.0.1:8080/queries?queries=%d' % queries)
+
+      self.assertHttpResponseValid(r, 200, 'application/json')
+      self.assertTrue(isinstance(r.json(), list))
+      self.assertEqual(len(r.json()), min(500, max(queries, 1)))
+      for query in r.json():
+        self.assertSingleQueryResultIsValid(query)
 
 class TestPost(LwanTest):
   def test_will_it_blend(self):
