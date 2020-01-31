@@ -28,23 +28,16 @@
 #define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)
 #define LWAN_TMP_ID LWAN_TMP_ID_DETAIL(__COUNTER__)
 
-#define LWAN_MIN_DETAIL(a_, b_, name_a_, name_b_)                              \
+#define LWAN_MIN_MAX_DETAIL(a_, b_, name_a_, name_b_, op_)                     \
     ({                                                                         \
-        __typeof__(a_) name_a_ = (a_);                                         \
-        __typeof__(b_) name_b_ = (b_);                                         \
-        name_a_ > name_b_ ? name_b_ : name_a_;                                 \
+        const __typeof__((a_) + 0) name_a_ = (a_);                             \
+        const __typeof__((b_) + 0) name_b_ = (b_);                             \
+        name_a_ op_ name_b_ ? name_b_ : name_a_;                               \
     })
 
-#define LWAN_MAX_DETAIL(a_, b_, name_a_, name_b_)                              \
-    ({                                                                         \
-        __typeof__(a_) name_a_ = (a_);                                         \
-        __typeof__(b_) name_b_ = (b_);                                         \
-        name_a_ < name_b_ ? name_b_ : name_a_;                                 \
-    })
+#define LWAN_MIN(a_, b_) LWAN_MIN_MAX_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID, >)
 
-#define LWAN_MIN(a_, b_) LWAN_MIN_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID)
-
-#define LWAN_MAX(a_, b_) LWAN_MAX_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID)
+#define LWAN_MAX(a_, b_) LWAN_MIN_MAX_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID, <)
 
 int lwan_socket_get_backlog_size(void);
 
