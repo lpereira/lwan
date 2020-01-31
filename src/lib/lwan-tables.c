@@ -121,13 +121,13 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         goto fallback;
 
     STRING_SWITCH_L(last_dot) {
-    case STR4_INT_L('.','g','i','f'): return "image/gif";
-    case STR4_INT_L('.','j','p','g'): return "image/jpeg";
-    case STR4_INT_L('.','p','n','g'): return "image/png";
-    case STR4_INT_L('.','h','t','m'): return "text/html";
     case STR4_INT_L('.','c','s','s'): return "text/css";
-    case STR4_INT_L('.','t','x','t'): return "text/plain";
+    case STR4_INT_L('.','g','i','f'): return "image/gif";
+    case STR4_INT_L('.','h','t','m'): return "text/html";
+    case STR4_INT_L('.','j','p','g'): return "image/jpeg";
     case STR4_INT_L('.','j','s',' '): return "application/javascript";
+    case STR4_INT_L('.','p','n','g'): return "image/png";
+    case STR4_INT_L('.','t','x','t'): return "text/plain";
     }
 
     if (LIKELY(*last_dot)) {
