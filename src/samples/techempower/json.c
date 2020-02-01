@@ -761,15 +761,19 @@ static int arr_encode(const struct json_obj_descr *elem_descr,
     return ret | append_bytes("]", 1, data);
 }
 
-static int
-str_encode(const char **str, json_append_bytes_t append_bytes, void *data, bool escape)
+static int str_encode(const char **str,
+                      const size_t str_len,
+                      json_append_bytes_t append_bytes,
+                      void *data,
+                      bool escape)
 {
     int ret = append_bytes("\"", 1, data);
 
     if (escape) {
+        assert(str_len == 0);
         ret |= json_escape_internal(*str, append_bytes, data);
     } else {
-        ret |= append_bytes(*str, strlen(*str), data);
+        ret |= append_bytes(*str, str_len, data);
     }
 
     return ret | append_bytes("\"", 1, data);
@@ -820,7 +824,7 @@ static int encode(const struct json_obj_descr *descr,
     case JSON_TOK_TRUE:
         return bool_encode(ptr, append_bytes, data);
     case JSON_TOK_STRING:
-        return str_encode(ptr, append_bytes, data, true);
+        return str_encode(ptr, 0, append_bytes, data, true);
     case JSON_TOK_LIST_START:
         return arr_encode(descr->array.element_descr, ptr, val,
                           append_bytes, data, escape_key);
@@ -841,8 +845,8 @@ static int encode_key_value(const struct json_obj_descr *descr,
                             void *data,
                             bool escape_key)
 {
-    int ret = str_encode((const char **)&descr->field_name, append_bytes, data,
-                         escape_key);
+    int ret = str_encode((const char **)&descr->field_name,
+                         descr->field_name_len, append_bytes, data, escape_key);
 
     ret |= append_bytes(":", 1, data);
 
