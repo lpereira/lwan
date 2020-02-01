@@ -448,6 +448,19 @@ static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
     coro_malloc_bump_ptr(coro_, aligned_size_)
 #endif
 
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+static void unpoison_and_free(void *ptr)
+{
+#if defined(INSTRUMENT_FOR_VALGRIND)
+    VALGRIND_MAKE_MEM_UNDEFINED(ptr, CORO_BUMP_PTR_ALLOC_SIZE);
+#endif
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_unpoison_memory_region(ptr, CORO_BUMP_PTR_ALLOC_SIZE);
+#endif
+    free(ptr);
+}
+#endif
+
 void *coro_malloc(struct coro *coro, size_t size)
 {
     /* The bump pointer allocator can't be in the generic coro_malloc_full()
@@ -482,7 +495,12 @@ void *coro_malloc(struct coro *coro, size_t size)
         VALGRIND_MAKE_MEM_NOACCESS(coro->bump_ptr_alloc.ptr,
                                    CORO_BUMP_PTR_ALLOC_SIZE);
 #endif
+
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+        coro_defer(coro, unpoison_and_free, coro->bump_ptr_alloc.ptr);
+#else
         coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
+#endif
 
         /* Avoid checking if there's still space in the arena again. */
         return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
