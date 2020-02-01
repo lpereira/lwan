@@ -12,9 +12,10 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 
 	if (PYTHONINTERP_FOUND)
 		setup_target_for_coverage(generate-coverage
-			"${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py $<TARGET_FILE:testrunner> -v"
+			"${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}"
 			coverage
 		)
+		add_dependencies(generate-coverage testrunner)
 		message(STATUS "Python found; generate-coverage target enabled")
 	else ()
 		message(STATUS "Python not found; coverage report disabled")

@@ -34,6 +34,14 @@ if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
 		)
 		include_directories(${SQLITE_INCLUDE_DIRS})
 		include_directories(BEFORE ${CMAKE_BINARY_DIR})
+
+		if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
+		        find_package(PythonInterp 3)
+
+		        if (PYTHONINTERP_FOUND)
+                               add_dependencies(generate-coverage techempower)
+		        endif()
+		endif ()
 	endif ()
 endif ()
 
