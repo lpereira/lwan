@@ -191,18 +191,12 @@ LWAN_HANDLER(json)
                          N_ELEMENTS(hello_world_json_desc), &j);
 }
 
-static bool db_query(struct db_stmt *stmt,
-                     struct db_row rows[],
-                     size_t n_rows,
-                     struct db_json *out)
+static bool db_query(struct db_stmt *stmt, struct db_json *out)
 {
     const int id = (rand() % 10000) + 1;
 
-    assert(n_rows >= 1);
-
-    rows[0].u.i = id;
-
-    if (UNLIKELY(!db_stmt_bind(stmt, rows, n_rows)))
+    struct db_row row = { .kind = 'i', .u.i = id };
+    if (UNLIKELY(!db_stmt_bind(stmt, &row, 1)))
         return false;
 
     long random_number;
@@ -217,7 +211,6 @@ static bool db_query(struct db_stmt *stmt,
 
 LWAN_HANDLER(db)
 {
-    struct db_row rows[] = {{.kind = 'i'}};
     struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
                                            sizeof(random_number_query) - 1);
     struct db_json db_json;
@@ -227,7 +220,7 @@ LWAN_HANDLER(db)
         return HTTP_INTERNAL_ERROR;
     }
 
-    bool queried = db_query(stmt, rows, N_ELEMENTS(rows), &db_json);
+    bool queried = db_query(stmt, &db_json);
 
     db_stmt_finalize(stmt);
 
@@ -254,9 +247,8 @@ LWAN_HANDLER(queries)
         return HTTP_INTERNAL_ERROR;
 
     struct queries_json qj = {.queries_len = (size_t)queries};
-    struct db_row results[] = {{.kind = 'i'}};
     for (long i = 0; i < queries; i++) {
-        if (!db_query(stmt, results, N_ELEMENTS(results), &qj.queries[i]))
+        if (!db_query(stmt, &qj.queries[i]))
             goto out;
     }
 
