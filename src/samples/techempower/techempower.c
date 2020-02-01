@@ -281,16 +281,8 @@ static int fortune_compare(const void *a, const void *b)
 {
     const struct Fortune *fortune_a = (const struct Fortune *)a;
     const struct Fortune *fortune_b = (const struct Fortune *)b;
-    size_t a_len = strlen(fortune_a->item.message);
-    size_t b_len = strlen(fortune_b->item.message);
 
-    if (!a_len || !b_len)
-        return a_len > b_len;
-
-    size_t min_len = a_len < b_len ? a_len : b_len;
-
-    int cmp = memcmp(fortune_a->item.message, fortune_b->item.message, min_len);
-    return cmp == 0 ? -(int)(ssize_t)min_len : cmp;
+    return strcmp(fortune_a->item.message, fortune_b->item.message);
 }
 
 static bool append_fortune(struct coro *coro,
