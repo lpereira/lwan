@@ -149,7 +149,7 @@ static int append_to_strbuf(const char *bytes, size_t len, void *data)
 {
     struct lwan_strbuf *strbuf = data;
 
-    return lwan_strbuf_append_str(strbuf, bytes, len) ? 0 : -EINVAL;
+    return !lwan_strbuf_append_str(strbuf, bytes, len);
 }
 
 static enum lwan_http_status
@@ -161,7 +161,7 @@ json_response_obj(struct lwan_response *response,
     lwan_strbuf_grow_to(response->buffer, 128);
 
     if (json_obj_encode_full(descr, descr_len, data, append_to_strbuf,
-                             response->buffer, false) < 0)
+                             response->buffer, false) != 0)
         return HTTP_INTERNAL_ERROR;
 
     response->mime_type = "application/json";
@@ -176,7 +176,7 @@ json_response_arr(struct lwan_response *response,
     lwan_strbuf_grow_to(response->buffer, 128);
 
     if (json_arr_encode_full(descr, data, append_to_strbuf, response->buffer,
-                             false) < 0)
+                             false) != 0)
         return HTTP_INTERNAL_ERROR;
 
     response->mime_type = "application/json";
