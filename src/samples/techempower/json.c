@@ -636,19 +636,26 @@ static int json_escape_internal(const char *str,
                                 void *data)
 {
     const char *cur;
+    const char *unescaped;
     int ret = 0;
 
-    for (cur = str; *cur; cur++) {
+    for (cur = unescaped = str; *cur; cur++) {
         char escaped = escape_as(*cur);
 
         if (escaped) {
             char bytes[2] = {'\\', escaped};
 
+            if (unescaped - cur) {
+                ret |= append_bytes(unescaped, (size_t)(cur - unescaped), data);
+                unescaped = cur + 1;
+            }
+
             ret |= append_bytes(bytes, 2, data);
-        } else {
-            ret |= append_bytes(cur, 1, data);
         }
     }
+
+    if (unescaped - cur)
+        return ret | append_bytes(unescaped, (size_t)(cur - unescaped), data);
 
     return ret;
 }
