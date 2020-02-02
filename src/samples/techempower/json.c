@@ -638,15 +638,15 @@ static int json_escape_internal(const char *str,
     const char *cur;
     int ret = 0;
 
-    for (cur = str; ret == 0 && *cur; cur++) {
+    for (cur = str; *cur; cur++) {
         char escaped = escape_as(*cur);
 
         if (escaped) {
             char bytes[2] = {'\\', escaped};
 
-            ret = append_bytes(bytes, 2, data);
+            ret |= append_bytes(bytes, 2, data);
         } else {
-            ret = append_bytes(cur, 1, data);
+            ret |= append_bytes(cur, 1, data);
         }
     }
 
