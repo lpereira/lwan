@@ -158,8 +158,6 @@ json_response_obj(struct lwan_response *response,
                   size_t descr_len,
                   const void *data)
 {
-    lwan_strbuf_grow_to(response->buffer, 128);
-
     if (json_obj_encode_full(descr, descr_len, data, append_to_strbuf,
                              response->buffer, false) != 0)
         return HTTP_INTERNAL_ERROR;
@@ -173,8 +171,6 @@ json_response_arr(struct lwan_response *response,
                   const struct json_obj_descr *descr,
                   const void *data)
 {
-    lwan_strbuf_grow_to(response->buffer, 128);
-
     if (json_arr_encode_full(descr, data, append_to_strbuf, response->buffer,
                              false) != 0)
         return HTTP_INTERNAL_ERROR;
@@ -251,6 +247,11 @@ LWAN_HANDLER(queries)
         if (!db_query(stmt, &qj.queries[i]))
             goto out;
     }
+
+    /* Avoid reallocations/copies while building response.  Each response
+     * has ~32bytes.  500 queries (max) should be less than 16384 bytes,
+     * so this is a good approximation.  */
+    lwan_strbuf_grow_to(response->buffer, 32 * queries);
 
     ret = json_response_arr(response, &queries_array_desc, &qj);
 
