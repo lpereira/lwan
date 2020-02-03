@@ -184,14 +184,12 @@ LWAN_HANDLER(json)
     struct hello_world_json j = {.message = hello_world};
 
     return json_response_obj(response, hello_world_json_desc,
-                         N_ELEMENTS(hello_world_json_desc), &j);
+                             N_ELEMENTS(hello_world_json_desc), &j);
 }
 
 static bool db_query(struct db_stmt *stmt, struct db_json *out)
 {
-    const int id = (rand() % 10000) + 1;
-
-    struct db_row row = { .kind = 'i', .u.i = id };
+    struct db_row row = {.kind = 'i', .u.i = (rand() % 10000) + 1};
     if (UNLIKELY(!db_stmt_bind(stmt, &row, 1)))
         return false;
 
@@ -199,7 +197,7 @@ static bool db_query(struct db_stmt *stmt, struct db_json *out)
     if (UNLIKELY(!db_stmt_step(stmt, "i", &random_number)))
         return false;
 
-    out->id = id;
+    out->id = row.u.i;
     out->randomNumber = (int)random_number;
 
     return true;
