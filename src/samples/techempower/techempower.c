@@ -251,7 +251,7 @@ LWAN_HANDLER(queries)
     /* Avoid reallocations/copies while building response.  Each response
      * has ~32bytes.  500 queries (max) should be less than 16384 bytes,
      * so this is a good approximation.  */
-    lwan_strbuf_grow_to(response->buffer, 32 * queries);
+    lwan_strbuf_grow_to(response->buffer, (size_t)(32l * queries));
 
     ret = json_response_arr(response, &queries_array_desc, &qj);
 
