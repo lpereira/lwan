@@ -86,13 +86,23 @@ class TestTWFB(LwanTest):
   def setUp(self, env=None):
     super().setUp(env, harness='techempower')
     shutil.copyfile('./src/samples/techempower/techempower.db', './techempower.db')
+    shutil.copyfile('./src/samples/techempower/techempower.conf', './techempower.conf')
+    shutil.copyfile('./src/samples/techempower/json.lua', './json.lua')
 
   def tearDown(self):
     super().tearDown()
     os.remove('techempower.db')
+    os.remove('techempower.conf')
+    os.remove('json.lua')
 
   def test_plaintext(self):
     r = requests.get('http://127.0.0.1:8080/plaintext')
+
+    self.assertResponsePlain(r)
+    self.assertEqual(r.text, 'Hello, World!')
+
+  def test_plaintext_lua(self):
+    r = requests.get('http://127.0.0.1:8080/lua.plaintext')
 
     self.assertResponsePlain(r)
     self.assertEqual(r.text, 'Hello, World!')
@@ -114,6 +124,12 @@ class TestTWFB(LwanTest):
 
   def test_json(self):
     r = requests.get('http://127.0.0.1:8080/json')
+
+    self.assertHttpResponseValid(r, 200, 'application/json')
+    self.assertEqual(r.json(), {'message': 'Hello, World!'})
+
+  def test_json_lua(self):
+    r = requests.get('http://127.0.0.1:8080/lua.json')
 
     self.assertHttpResponseValid(r, 200, 'application/json')
     self.assertEqual(r.json(), {'message': 'Hello, World!'})

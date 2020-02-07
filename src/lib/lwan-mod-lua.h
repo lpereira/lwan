@@ -32,7 +32,7 @@ LWAN_MODULE_FORWARD_DECL(lua);
 
 #define LUA(default_type_) \
     .module = LWAN_MODULE_REF(lua), \
-    .args = ((struct lwan_lua[]) {{ \
+    .args = ((struct lwan_lua_settings[]) {{ \
         .default_type = default_type_ \
     }}), \
     .flags = 0
