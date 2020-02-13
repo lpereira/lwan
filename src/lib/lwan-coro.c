@@ -128,7 +128,7 @@ struct coro {
 void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
 asm(".text\n\t"
-    ".p2align 4\n\t"
+    ".p2align 5\n\t"
     ASM_ROUTINE(coro_swapcontext)
     "movq   %rbx,0(%rdi)\n\t"
     "movq   %rbp,8(%rdi)\n\t"
@@ -157,7 +157,7 @@ asm(".text\n\t"
 void __attribute__((noinline, visibility("internal")))
 coro_swapcontext(coro_context *current, coro_context *other);
 asm(".text\n\t"
-    ".p2align 16\n\t"
+    ".p2align 5\n\t"
     ASM_ROUTINE(coro_swapcontext)
     "movl   0x4(%esp),%eax\n\t"
     "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
@@ -196,7 +196,7 @@ coro_entry_point(struct coro *coro, coro_function_t func, void *data)
 void __attribute__((visibility("internal"))) coro_entry_point_x86_64();
 
 asm(".text\n\t"
-    ".p2align 4\n\t"
+    ".p2align 5\n\t"
     ASM_ROUTINE(coro_entry_point_x86_64)
     "mov %r15, %rdx\n\t"
     "jmp " ASM_SYMBOL(coro_entry_point) "\n\t"
