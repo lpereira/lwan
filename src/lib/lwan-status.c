@@ -134,17 +134,15 @@ static long gettid_cached(void)
 
 #define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
 
-static void
-#ifdef NDEBUG
-status_out(enum lwan_status_type type, const char *fmt, va_list values)
-#else
-status_out(const char *file,
-           const int line,
-           const char *func,
-           enum lwan_status_type type,
-           const char *fmt,
-           va_list values)
+static void status_out(
+#ifndef NDEBUG
+    const char *file,
+    const int line,
+    const char *func,
 #endif
+    enum lwan_status_type type,
+    const char *fmt,
+    va_list values)
 {
     struct lwan_value start = start_color(type);
     struct lwan_value end = end_color();
