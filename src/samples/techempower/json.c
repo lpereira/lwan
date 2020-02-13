@@ -848,6 +848,10 @@ static int encode_key_value(const struct json_obj_descr *descr,
     int ret;
 
     if (!escape_key) {
+        /* Keys are encoded twice in the descriptor; once without quotes and
+         * the trailing comma, and one with.  Doing it like so cuts some
+         * indirect calls to append_bytes(), which in turn also potentially
+         * cuts some branches in most implementations of it.  */
         ret = append_bytes(descr->field_name + descr->field_name_len,
                            descr->field_name_len + 3 /* 3=len('"":') */, data);
     } else {
