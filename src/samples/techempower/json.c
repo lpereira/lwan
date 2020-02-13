@@ -645,7 +645,7 @@ static int json_escape_internal(const char *str,
         if (escaped) {
             char bytes[2] = {'\\', escaped};
 
-            if (unescaped - cur) {
+            if (cur - unescaped) {
                 ret |= append_bytes(unescaped, (size_t)(cur - unescaped), data);
                 unescaped = cur + 1;
             }
@@ -654,8 +654,8 @@ static int json_escape_internal(const char *str,
         }
     }
 
-    if (unescaped - cur)
-        return ret | append_bytes(unescaped, (size_t)(cur - unescaped), data);
+    if (cur - unescaped)
+        ret |= append_bytes(unescaped, (size_t)(cur - unescaped), data);
 
     return ret;
 }
