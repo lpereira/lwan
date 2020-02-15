@@ -30,6 +30,9 @@ struct lwan_strbuf {
     unsigned int flags;
 };
 
+#define LWAN_STRBUF_STATIC_INIT                                                \
+    (struct lwan_strbuf) { .buffer = "", .flags = 1 << 0 }
+
 bool lwan_strbuf_init_with_size(struct lwan_strbuf *buf, size_t size);
 bool lwan_strbuf_init(struct lwan_strbuf *buf);
 struct lwan_strbuf *lwan_strbuf_new_static(const char *str, size_t size);

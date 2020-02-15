@@ -104,14 +104,12 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
     enum lwan_request_flags flags = lwan->config.request_flags;
-    struct lwan_strbuf strbuf;
+    struct lwan_strbuf strbuf = LWAN_STRBUF_STATIC_INIT;
     char request_buffer[DEFAULT_BUFFER_SIZE];
     struct lwan_value buffer = {.value = request_buffer, .len = 0};
     char *next_request = NULL;
     struct lwan_proxy proxy;
 
-    if (UNLIKELY(!lwan_strbuf_init(&strbuf)))
-        goto out;
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
     const size_t init_gen = 1; /* 1 call to coro_defer() */
@@ -144,7 +142,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             }
         } else {
             graceful_close(lwan, conn, request_buffer);
-            goto out;
+            break;
         }
 
         lwan_strbuf_reset(&strbuf);
@@ -153,7 +151,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
     }
 
-out:
     coro_yield(coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }

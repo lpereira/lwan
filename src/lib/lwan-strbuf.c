@@ -82,12 +82,7 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
         return false;
 
     if (!size) {
-        *s = (struct lwan_strbuf) {
-            .used = 0,
-            .capacity = 0,
-            .buffer = "",
-            .flags = STATIC,
-        };
+        *s = LWAN_STRBUF_STATIC_INIT;
     } else {
         memset(s, 0, sizeof(*s));
 
