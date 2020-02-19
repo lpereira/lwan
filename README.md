@@ -163,7 +163,10 @@ Running
 -------
 
 Set up the server by editing the provided `lwan.conf`; the format is
-explained in details below.
+explained in details below.  (Lwan will try to find a configuration file
+based in the executable name in the current directory; `testrunner.conf`
+will be used for the `testrunner` binary, `lwan.conf` for the `lwan` binary,
+and so on.)
 
 Configuration files are loaded from the current directory. If no changes
 are made to this file, running Lwan will serve static files located in
@@ -213,6 +216,8 @@ playlist chiptune {
    """
 }
 ```
+
+Some examples can be found in `lwan.conf` and `techempower.conf`.
 
 #### Value types
 
