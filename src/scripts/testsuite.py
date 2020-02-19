@@ -426,7 +426,8 @@ class TestFileServing(LwanTest):
 
       self.assertTrue(readme in r.text)
 
-    self.assertTrue('</html>' in r.text)
+    self.assertTrue(r.text.startswith('<html>'))
+    self.assertTrue(r.text.endswith('</html>\n'))
 
 
   def test_has_lwan_server_header(self):
@@ -884,8 +885,8 @@ Host: 192.168.0.11\r\n\r\n'''
       for request in range(5):
         sock.send(proxy + req if request == 0 else req)
         response = sock.recv(4096)
-        self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
-        self.assertTrue('X-Proxy: 192.168.242.221' in response, response)
+        self.assertTrue(response.startswith('HTTP/1.1 200 OK'))
+        self.assertTrue('X-Proxy: 192.168.242.221' in response)
 
   def test_proxy_version2(self):
     proxy = (
@@ -901,8 +902,8 @@ Host: 192.168.0.11\r\n\r\n'''
       for request in range(5):
         sock.send(proxy + req if request == 0 else req)
         response = sock.recv(4096)
-        self.assertTrue(response.startswith('HTTP/1.1 200 OK'), response)
-        self.assertTrue('X-Proxy: 1.2.3.4' in response, response)
+        self.assertTrue(response.startswith('HTTP/1.1 200 OK'))
+        self.assertTrue('X-Proxy: 1.2.3.4' in response)
 
 class TestPipelinedRequests(SocketTest):
   def test_pipelined_requests(self):
