@@ -26,12 +26,14 @@ extern "C" {
 #include "lwan.h"
 
 #define SERVE_FILES_READ_AHEAD_BYTES (128 * 1024)
+#define SERVE_FILES_CACHE_FOR 5
 
 struct lwan_serve_files_settings {
   const char *root_path;
   const char *index_html;
   const char *directory_list_template;
   size_t read_ahead;
+  time_t cache_for;
   bool serve_precompressed_files;
   bool auto_index;
   bool auto_index_readme;
@@ -49,6 +51,7 @@ LWAN_MODULE_FORWARD_DECL(serve_files);
     .directory_list_template = NULL, \
     .auto_index = true, \
     .auto_index_readme = true, \
+    .cache_for = SERVE_FILES_CACHE_FOR, \
   }}), \
   .flags = (enum lwan_handler_flags)0
 

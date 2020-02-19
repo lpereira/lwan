@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import unittest
+import logging
 
 BUILD_DIR = './build'
 for arg in sys.argv[1:]:
@@ -23,25 +24,61 @@ for arg in sys.argv[1:]:
     BUILD_DIR = arg
     sys.argv.remove(arg)
 
-def get_harness_path(harness):
-  return {
-    'testrunner': os.path.join(BUILD_DIR, './src/bin/testrunner/testrunner'),
-    'techempower': os.path.join(BUILD_DIR, './src/samples/techempower/techempower'),
-  }[harness]
-
-print('Using paths:')
-print('  testrunner:', get_harness_path('testrunner'))
-print(' techempower:', get_harness_path('techempower'))
+if os.getenv('REQUESTS_DEBUG'):
+  logging.basicConfig()
+  logging.getLogger().setLevel(logging.DEBUG)
+  requests_log = logging.getLogger("urllib3")
+  requests_log.setLevel(logging.DEBUG)
+  requests_log.propagate = True
 
 class LwanTest(unittest.TestCase):
+  harness_paths = {
+    'testrunner': os.path.join(BUILD_DIR, 'src/bin/testrunner/testrunner'),
+    'techempower': os.path.join(BUILD_DIR, 'src/samples/techempower/techempower'),
+  }
+  files_to_copy = {
+    'testrunner': ('src/bin/testrunner/testrunner.conf',
+                   'src/bin/testrunner/test.lua'),
+    'techempower': ('src/samples/techempower/techempower.db',
+                    'src/samples/techempower/techempower.conf',
+                    'src/samples/techempower/json.lua'),
+  }
+
+  def ensureHighlander(self):
+    def pgrep(process_name):
+      try:
+        out = subprocess.check_output(('pgrep', process_name), universal_newlines=True)
+        return (int(pid) for pid in str(out).rstrip().split('\n'))
+      except subprocess.CalledProcessError:
+        yield from ()
+
+    for typ in self.harness_paths.keys():
+      for pid in pgrep(typ):
+        os.kill(pid, 2)
+
   def setUp(self, env=None, harness='testrunner'):
+    self.ensureHighlander()
+
+    self.files_to_remove = []
+    for file_to_copy in self.files_to_copy[harness]:
+      base = os.path.basename(file_to_copy)
+      shutil.copyfile(file_to_copy, base)
+      self.files_to_remove.append(base)
+
     open('htpasswd', 'w').close()
+    self.files_to_remove.append('htpasswd')
+
     for spawn_try in range(20):
-      self.lwan=subprocess.Popen([get_harness_path(harness)],
-                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+      self.lwan = subprocess.Popen([self.harness_paths[harness]], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+      if self.lwan.poll() is not None:
+        raise Exception('It seems that %s is not starting up' % harness)
+
       for request_try in range(20):
         try:
-          requests.get('http://127.0.0.1:8080/hello')
+          r = requests.get('http://127.0.0.1:8080/hello')
+          self.assertEqual(r.status_code, 200)
           return
         except requests.ConnectionError:
           time.sleep(0.1)
@@ -62,10 +99,14 @@ class LwanTest(unittest.TestCase):
       with self.lwan as l:
         l.communicate(timeout=1.0)
         l.kill()
-    try:
-      os.remove('htpasswd')
-    except FileNotFoundError:
-      pass
+
+    self.ensureHighlander()
+
+    for file_to_remove in self.files_to_remove:
+      try:
+        os.remove(file_to_remove)
+      except FileNotFoundError:
+        pass
 
   def assertHttpResponseValid(self, request, status_code, content_type):
     self.assertEqual(request.status_code, status_code)
@@ -85,15 +126,6 @@ class LwanTest(unittest.TestCase):
 class TestTWFB(LwanTest):
   def setUp(self, env=None):
     super().setUp(env, harness='techempower')
-    shutil.copyfile('./src/samples/techempower/techempower.db', './techempower.db')
-    shutil.copyfile('./src/samples/techempower/techempower.conf', './techempower.conf')
-    shutil.copyfile('./src/samples/techempower/json.lua', './json.lua')
-
-  def tearDown(self):
-    super().tearDown()
-    os.remove('techempower.db')
-    os.remove('techempower.conf')
-    os.remove('json.lua')
 
   def test_plaintext(self):
     r = requests.get('http://127.0.0.1:8080/plaintext')
@@ -759,6 +791,17 @@ class TestHelloWorld(LwanTest):
     self.assertEqual(r.text, 'Hello, %s!' % os.getenv('USER'))
 
 class TestCache(LwanTest):
+  def setUp(self):
+    self._cache_for = 3
+
+    new_environment = os.environ.copy()
+    new_environment.update({
+      'KEEP_ALIVE_TIMEOUT': '3',
+      'CACHE_FOR': str(self._cache_for),
+    })
+
+    super().setUp(env=new_environment)
+
   @classmethod
   def setUpClass(cls):
     if os.uname().sysname != 'Linux':
@@ -780,8 +823,8 @@ class TestCache(LwanTest):
 
   def wait_munmap(self, f, timeout=20.0):
     while self.is_mmapped(f) and timeout >= 0:
-      time.sleep(0.1)
-      timeout -= 0.1
+      time.sleep(0.05)
+      timeout -= 0.05
 
 
   def test_cache_munmaps_conn_close(self):
@@ -824,7 +867,8 @@ class TestCache(LwanTest):
       requests.get('http://127.0.0.1:8080/100.html')
       self.assertEqual(self.count_mmaps('/100.html'), 1)
 
-    time.sleep(10)
+    # 10% over `cache_for` just to be conservative (job thread isn't that precise)
+    time.sleep(self._cache_for * 1.10)
 
     requests.get('http://127.0.0.1:8080/100.html')
     self.assertEqual(self.count_mmaps('/100.html'), 1)
@@ -920,7 +964,7 @@ class TestRequest(LwanTest):
 class TestFuzzRegressionBase(SocketTest):
   def setUp(self):
     new_environment = os.environ.copy()
-    new_environment["KEEP_ALIVE_TIMEOUT"] = "0"
+    new_environment.update({'KEEP_ALIVE_TIMEOUT': '0'})
     super(SocketTest, self).setUp(env=new_environment)
 
   def run_test(self, contents):

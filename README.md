@@ -342,6 +342,7 @@ best to serve files in the fastest way possible according to some heuristics.
 | `auto_index_readme`        | `bool` | `true`       | Includes the contents of README files as part of the automatically generated directory index |
 | `directory_list_template`  | `str`  | `NULL`       | Path to a Mustache template for the directory list; by default, use an internal template |
 | `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
+| `cache_for`                | `time` | `5s`         | Time to keep file metadata (size, compressed contents, open file descriptor, etc.) in cache |
 
 #### Lua
 

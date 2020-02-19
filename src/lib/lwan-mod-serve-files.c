@@ -953,8 +953,8 @@ static void *serve_files_create(const char *prefix, void *args)
         goto out_malloc;
     }
 
-    priv->cache =
-        cache_create(create_cache_entry, destroy_cache_entry, priv, 5);
+    priv->cache = cache_create(create_cache_entry, destroy_cache_entry, priv,
+                               settings->cache_for);
     if (!priv->cache) {
         lwan_status_error("Couldn't create cache");
         goto out_cache_create;
@@ -1018,6 +1018,8 @@ static void *serve_files_create_from_hash(const char *prefix,
             (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
         .auto_index_readme =
             parse_bool(hash_find(hash, "auto_index_readme"), true),
+        .cache_for = (time_t)parse_time_period(hash_find(hash, "cache_for"),
+                                               SERVE_FILES_CACHE_FOR),
     };
 
     return serve_files_create(prefix, &settings);
