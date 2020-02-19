@@ -148,20 +148,30 @@ LWAN_LUA_METHOD(ws_read)
     return 1;
 }
 
-static bool append_key_value(lua_State *L,
+static bool append_key_value(struct lwan_request *request,
+                             lua_State *L,
                              struct coro *coro,
                              struct lwan_key_value_array *arr,
                              char *key,
                              int value_index)
 {
     struct lwan_key_value *kv;
+    size_t len;
+    const char *lua_value = lua_tolstring(L, value_index, &len);
+    char *value = coro_memdup(coro, lua_value, len + 1);
+
+    if (!strcasecmp(key, "Content-Type")) {
+        request->response.mime_type = value;
+
+        return value != NULL;
+    }
 
     kv = lwan_key_value_array_append(arr);
     if (!kv)
         return false;
 
     kv->key = key;
-    kv->value = coro_strdup(coro, lua_tostring(L, value_index));
+    kv->value = value;
 
     return kv->value != NULL;
 }
@@ -201,13 +211,13 @@ LWAN_LUA_METHOD(set_headers)
             goto out;
 
         if (lua_isstring(L, value_index)) {
-            if (!append_key_value(L, coro, headers, key, value_index))
+            if (!append_key_value(request, L, coro, headers, key, value_index))
                 goto out;
         } else if (lua_istable(L, value_index)) {
             for (lua_pushnil(L); lua_next(L, value_index) != 0; lua_pop(L, 1)) {
                 if (!lua_isstring(L, nested_value_index))
                     continue;
-                if (!append_key_value(L, coro, headers, key,
+                if (!append_key_value(request, L, coro, headers, key,
                                       nested_value_index))
                     goto out;
             }
