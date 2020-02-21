@@ -128,16 +128,11 @@ class TestTWFB(LwanTest):
     super().setUp(env, harness='techempower')
 
   def test_plaintext(self):
-    r = requests.get('http://127.0.0.1:8080/plaintext')
+    for endpoint in ('lua.plaintext', 'plaintext'):
+      r = requests.get('http://127.0.0.1:8080/' + endpoint)
 
-    self.assertResponsePlain(r)
-    self.assertEqual(r.text, 'Hello, World!')
-
-  def test_plaintext_lua(self):
-    r = requests.get('http://127.0.0.1:8080/lua.plaintext')
-
-    self.assertResponsePlain(r)
-    self.assertEqual(r.text, 'Hello, World!')
+      self.assertResponsePlain(r)
+      self.assertEqual(r.text, 'Hello, World!')
 
   def assertSingleQueryResultIsValid(self, single):
     self.assertTrue(isinstance(single, dict))
@@ -155,16 +150,11 @@ class TestTWFB(LwanTest):
                      '352e66abf97b5a07c76a8b3c9e3e6339')
 
   def test_json(self):
-    r = requests.get('http://127.0.0.1:8080/json')
+    for endpoint in ('lua.json', 'json'):
+      r = requests.get('http://127.0.0.1:8080/' + endpoint)
 
-    self.assertHttpResponseValid(r, 200, 'application/json')
-    self.assertEqual(r.json(), {'message': 'Hello, World!'})
-
-  def test_json_lua(self):
-    r = requests.get('http://127.0.0.1:8080/lua.json')
-
-    self.assertHttpResponseValid(r, 200, 'application/json')
-    self.assertEqual(r.json(), {'message': 'Hello, World!'})
+      self.assertHttpResponseValid(r, 200, 'application/json')
+      self.assertEqual(r.json(), {'message': 'Hello, World!'})
 
   def test_single_query(self):
     r = requests.get('http://127.0.0.1:8080/db')
