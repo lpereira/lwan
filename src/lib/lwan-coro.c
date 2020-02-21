@@ -102,6 +102,9 @@ struct coro {
     unsigned int vg_stack_id;
 #endif
 
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+    unsigned char stack_poison[64];
+#endif
     unsigned char stack[] __attribute__((aligned(64)));
 };
 
@@ -286,7 +289,8 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 ALWAYS_INLINE struct coro *
 coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 {
-    struct coro *coro = lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_MIN, 64);
+    struct coro *coro =
+        lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_MIN, 64);
 
     if (UNLIKELY(!coro))
         return NULL;
@@ -299,9 +303,21 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     coro->switcher = switcher;
     coro_reset(coro, function, data);
 
+#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
+    memset(coro->stack_poison, 'X', sizeof(coro->stack_poison));
+#endif
+
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_poison_memory_region(coro->stack_poison,
+                                sizeof(coro->stack_poison));
+#endif
+
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    unsigned char *stack = coro->stack;
-    coro->vg_stack_id = VALGRIND_STACK_REGISTER(stack, stack + CORO_STACK_MIN);
+    VALGRIND_MAKE_MEM_NOACCESS(coro->stack_poison,
+                               sizeof(coro->stack_poison));
+
+    coro->vg_stack_id =
+        VALGRIND_STACK_REGISTER(coro->stack, (char *)coro->stack + CORO_STACK_MIN);
 #endif
 
     return coro;
@@ -343,11 +359,21 @@ inline int64_t coro_yield(struct coro *coro, int64_t value)
 void coro_free(struct coro *coro)
 {
     assert(coro);
-#if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
-#endif
+
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
+
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_unpoison_memory_region(coro->stack_poison,
+                                  sizeof(coro->stack_poison));
+#endif
+
+#if defined(INSTRUMENT_FOR_VALGRIND)
+    VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
+    VALGRIND_MAKE_MEM_UNDEFINED(coro->stack_poison,
+                                sizeof(coro->stack_poison));
+#endif
+
     free(coro);
 }
 
