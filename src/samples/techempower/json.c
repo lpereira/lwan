@@ -839,11 +839,10 @@ static int encode(const struct json_obj_descr *descr,
     }
 }
 
-static int encode_key_value(const struct json_obj_descr *descr,
-                            const void *val,
-                            json_append_bytes_t append_bytes,
-                            void *data,
-                            bool escape_key)
+static inline int encode_key(const struct json_obj_descr *descr,
+                             json_append_bytes_t append_bytes,
+                             void *data,
+                             bool escape_key)
 {
     int ret;
 
@@ -859,7 +858,7 @@ static int encode_key_value(const struct json_obj_descr *descr,
         ret |= append_bytes(":", 1, data);
     }
 
-    return ret | encode(descr, val, append_bytes, data, escape_key);
+    return ret;
 }
 
 int json_obj_encode_full(const struct json_obj_descr *descr,
@@ -880,12 +879,13 @@ int json_obj_encode_full(const struct json_obj_descr *descr,
          * branches.  */
 
         for (size_t i = 1; i < descr_len; i++) {
-            ret |= encode_key_value(&descr[i], val, append_bytes, data,
-                                    escape_key);
+            ret |= encode_key(&descr[i], append_bytes, data, escape_key);
+            ret |= encode(&descr[i], val, append_bytes, data, escape_key);
             ret |= append_bytes(",", 1, data);
         }
 
-        ret |= encode_key_value(&descr[0], val, append_bytes, data, escape_key);
+        ret |= encode_key(&descr[0], append_bytes, data, escape_key);
+        ret |= encode(&descr[0], val, append_bytes, data, escape_key);
     }
 
     return ret | append_bytes("}", 1, data);
