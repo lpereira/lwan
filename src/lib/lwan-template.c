@@ -97,7 +97,10 @@ static const char *lexeme_type_str[TOTAL_LEXEMES] = {
 #undef GENERATE_ARRAY_ITEM
 
 struct chunk {
-    enum action action;
+    union {
+        enum action action;
+        const void *instruction;
+    };
     void *data;
     enum flags flags;
 };
@@ -107,6 +110,7 @@ DEFINE_ARRAY_TYPE(chunk_array, struct chunk)
 struct lwan_tpl {
     struct chunk_array chunks;
     size_t minimum_size;
+    bool dispatch_table_direct;
 };
 
 struct symtab {
@@ -1407,31 +1411,52 @@ end:
     return tpl;
 }
 
+static void
+bake_direct_addresses(struct lwan_tpl *tpl,
+                      const void *const dispatch_table[static ACTION_LAST])
+{
+    struct chunk *iter;
+
+    LWAN_ARRAY_FOREACH(&tpl->chunks, iter) {
+        if (iter->action == ACTION_APPLY_TPL)
+            bake_direct_addresses(iter->data, dispatch_table);
+
+        iter->instruction = dispatch_table[iter->action];
+    }
+
+    tpl->dispatch_table_direct = true;
+}
+
 static const struct chunk *apply(struct lwan_tpl *tpl,
                                  const struct chunk *chunks,
                                  struct lwan_strbuf *buf,
                                  void *variables,
                                  const void *data)
 {
-    static const void *const dispatch_table[] = {
-        [ACTION_APPEND] = &&action_append,
-        [ACTION_APPEND_SMALL] = &&action_append_small,
-        [ACTION_VARIABLE] = &&action_variable,
-        [ACTION_VARIABLE_STR] = &&action_variable_str,
-        [ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
-        [ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
-        [ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
-        [ACTION_APPLY_TPL] = &&action_apply_tpl,
-        [ACTION_START_ITER] = &&action_start_iter,
-        [ACTION_END_ITER] = &&action_end_iter,
-        [ACTION_LAST] = &&finalize,
-    };
     struct coro_switcher switcher;
     struct coro *coro = NULL;
     const struct chunk *chunk = chunks;
 
     if (UNLIKELY(!chunk))
         return NULL;
+
+    if (!tpl->dispatch_table_direct) {
+        static const void *const dispatch_table[] = {
+            [ACTION_APPEND] = &&action_append,
+            [ACTION_APPEND_SMALL] = &&action_append_small,
+            [ACTION_VARIABLE] = &&action_variable,
+            [ACTION_VARIABLE_STR] = &&action_variable_str,
+            [ACTION_VARIABLE_STR_ESCAPE] = &&action_variable_str_escape,
+            [ACTION_IF_VARIABLE_NOT_EMPTY] = &&action_if_variable_not_empty,
+            [ACTION_END_IF_VARIABLE_NOT_EMPTY] = &&action_end_if_variable_not_empty,
+            [ACTION_APPLY_TPL] = &&action_apply_tpl,
+            [ACTION_START_ITER] = &&action_start_iter,
+            [ACTION_END_ITER] = &&action_end_iter,
+            [ACTION_LAST] = &&finalize,
+        };
+
+        bake_direct_addresses(tpl, dispatch_table);
+    }
 
 #define RETURN_IF_NO_CHUNK(force_)                                             \
     do {                                                                       \
@@ -1444,7 +1469,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
 #define DISPATCH_ACTION(force_check_)                                          \
     do {                                                                       \
         RETURN_IF_NO_CHUNK(force_check_);                                      \
-        goto *dispatch_table[chunk->action];                                   \
+        goto *chunk->instruction;                                              \
     } while (false)
 
 #define DISPATCH_NEXT_ACTION(force_check_)                                     \
@@ -1452,7 +1477,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
         RETURN_IF_NO_CHUNK(force_check_);                                      \
                                                                                \
         chunk++;                                                               \
-        goto *dispatch_table[chunk->action];                                   \
+        goto *chunk->instruction;                                              \
     } while (false)
 
 #define DISPATCH_ACTION_FAST() DISPATCH_ACTION(0 &&)
