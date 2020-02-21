@@ -97,12 +97,10 @@ static const char *lexeme_type_str[TOTAL_LEXEMES] = {
 #undef GENERATE_ARRAY_ITEM
 
 struct chunk {
-    union {
-        enum action action;
-        const void *instruction;
-    };
+    const void *instruction;
     void *data;
     enum flags flags;
+    enum action action;
 };
 
 DEFINE_ARRAY_TYPE(chunk_array, struct chunk)
@@ -1417,7 +1415,7 @@ bake_direct_addresses(struct lwan_tpl *tpl,
 {
     struct chunk *iter;
 
-    LWAN_ARRAY_FOREACH(&tpl->chunks, iter) {
+    LWAN_ARRAY_FOREACH (&tpl->chunks, iter) {
         if (iter->action == ACTION_APPLY_TPL)
             bake_direct_addresses(iter->data, dispatch_table);
 
