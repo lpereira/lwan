@@ -155,25 +155,24 @@ static bool append_key_value(struct lwan_request *request,
                              char *key,
                              int value_index)
 {
-    struct lwan_key_value *kv;
     size_t len;
     const char *lua_value = lua_tolstring(L, value_index, &len);
     char *value = coro_memdup(coro, lua_value, len + 1);
 
     if (!strcasecmp(key, "Content-Type")) {
         request->response.mime_type = value;
+    } else {
+        struct lwan_key_value *kv;
 
-        return value != NULL;
+        kv = lwan_key_value_array_append(arr);
+        if (!kv)
+            return false;
+
+        kv->key = key;
+        kv->value = value;
     }
 
-    kv = lwan_key_value_array_append(arr);
-    if (!kv)
-        return false;
-
-    kv->key = key;
-    kv->value = value;
-
-    return kv->value != NULL;
+    return value != NULL;
 }
 
 LWAN_LUA_METHOD(set_headers)
