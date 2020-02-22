@@ -37,35 +37,30 @@ static void write_websocket_frame(struct lwan_request *request,
                                   char *msg,
                                   size_t len)
 {
-    struct iovec vec[4];
-    uint8_t net_len_byte, opcode_byte;
-    uint16_t net_len_short;
-    uint64_t net_len_long;
-    size_t last = 0;
-
-    vec[last++] = (struct iovec){.iov_base = &header_byte, .iov_len = 1};
+    uint8_t frame[9];
+    size_t frame_len;
 
     if (len <= 125) {
-        net_len_byte = (uint8_t)len;
-
-        vec[last++] = (struct iovec){.iov_base = &net_len_byte, .iov_len = 1};
+        frame[0] = (uint8_t)len;
+        frame_len = 1;
     } else if (len <= 65535) {
-        net_len_short = htons((uint16_t)len);
-        opcode_byte = 0x7e;
-
-        vec[last++] = (struct iovec){.iov_base = &opcode_byte, .iov_len = 1};
-        vec[last++] = (struct iovec){.iov_base = &net_len_short, .iov_len = 2};
+        frame[0] = 0x7e;
+        memcpy(frame + 1, &(uint16_t){htons((uint16_t)len)}, sizeof(uint16_t));
+        frame_len = 3;
     } else {
-        net_len_long = htobe64((uint64_t)len);
-        opcode_byte = 0x7f;
-
-        vec[last++] = (struct iovec){.iov_base = &opcode_byte, .iov_len = 1};
-        vec[last++] = (struct iovec){.iov_base = &net_len_long, .iov_len = 8};
+        frame[0] = 0x7f;
+        memcpy(frame + 1, &(uint64_t){htobe64((uint64_t)len)},
+               sizeof(uint64_t));
+        frame_len = 9;
     }
 
-    vec[last++] = (struct iovec){.iov_base = msg, .iov_len = len};
+    struct iovec vec[] = {
+        {.iov_base = &header_byte, .iov_len = 1},
+        {.iov_base = frame, .iov_len = frame_len},
+        {.iov_base = msg, .iov_len = len},
+    };
 
-    lwan_writev(request, vec, last);
+    lwan_writev(request, vec, N_ELEMENTS(vec));
 }
 
 void lwan_response_websocket_write(struct lwan_request *request)
