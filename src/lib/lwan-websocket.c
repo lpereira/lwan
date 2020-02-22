@@ -175,20 +175,30 @@ next_frame:
     if (LIKELY(header & 0x80)) {
         /* Payload is masked; should always be true on Client->Server comms but
          * don't assume this is always the case. */
-        union {
-            char as_char[4];
-            uint32_t as_int;
-        } masks;
+        uint32_t mask;
         struct iovec vec[] = {
-            {.iov_base = masks.as_char, .iov_len = sizeof(masks.as_char)},
+            {.iov_base = &mask, .iov_len = sizeof(mask)},
             {.iov_base = msg, .iov_len = len_frame},
         };
 
         lwan_readv(request, vec, N_ELEMENTS(vec));
 
-        if (masks.as_int != 0x00000000) {
-            for (uint64_t i = 0; i < len_frame; i++)
-                msg[i] ^= masks.as_char[i % sizeof(masks)];
+        if (mask) {
+            uint64_t i;
+
+            for (i = 0; len_frame - i >= sizeof(mask); i += sizeof(mask)) {
+                uint32_t v;
+
+                memcpy(&v, &msg[i], sizeof(v));
+                v ^= mask;
+                memcpy(&msg[i], &v, sizeof(v));
+            }
+
+            switch (i & 3) {
+            case 3: msg[i + 2] ^= (char)((mask >> 16) & 0xff); /* fallthrough */
+            case 2: msg[i + 1] ^= (char)((mask >> 8) & 0xff); /* fallthrough */
+            case 1: msg[i + 0] ^= (char)(mask & 0xff);
+            }
         }
     } else {
         lwan_recv(request, msg, len_frame, 0);
