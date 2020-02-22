@@ -639,9 +639,11 @@ static void *parse_config(struct parser *parser)
     case LEXEME_CLOSE_BRACKET: {
         struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
 
-        config_ring_buffer_try_put(&parser->items, &line);
+        if (config_ring_buffer_try_put(&parser->items, &line))
+            return parse_config;
 
-        return parse_config;
+        lwan_status_error("Could not parse section end");
+        return NULL;
     }
 
     case LEXEME_EOF:
