@@ -37,13 +37,12 @@ dump(struct config *config, int indent_level)
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     struct config *config;
-    int indent_level = 0;
 
     config = config_open_for_fuzzing(data, size);
     if (!config)
         return 1;
 
-    bool dumped = dump(config, indent_level);
+    bool dumped = dump(config, 0);
 
     config_close(config);
 
