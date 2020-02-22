@@ -319,11 +319,16 @@ static bool cache_pruner_job(void *data)
             lwan_status_perror("pthread_rwlock_unlock");
 
         if (ATOMIC_INC(node->refs) == 1) {
+            /* If the refcount was 0, and turned 1 after the increment, it means the item can
+             * be destroyed here. */
             cache->cb.destroy_entry(node, cache->cb.context);
         } else {
+            /* If not, some other thread had references to this object. */
             ATOMIC_BITWISE(&node->flags, or, FLOATING);
-            /* Decrement the reference and see if we were genuinely the last one
-             * holding it.  If so, destroy the entry.  */
+            /* If in the time between the ref check above and setting the floating flag the
+             * thread holding the reference drops it, if our reference is 0 after dropping it,
+             * the pruner thread was the last thread holding the reference to this entry, so
+             * it's safe to destroy it at this point. */
             if (!ATOMIC_DEC(node->refs))
                 cache->cb.destroy_entry(node, cache->cb.context);
         }
