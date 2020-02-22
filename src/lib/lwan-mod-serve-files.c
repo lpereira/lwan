@@ -476,7 +476,6 @@ static bool mmap_init(struct file_cache_entry *ce,
     struct mmap_cache_data *md = &ce->mmap_cache_data;
     const char *path = full_path + priv->root_path_len;
     int file_fd;
-    bool success;
 
     path += *path == '/';
 
@@ -486,10 +485,9 @@ static bool mmap_init(struct file_cache_entry *ce,
 
     md->uncompressed.value =
         mmap(NULL, (size_t)st->st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-    if (UNLIKELY(md->uncompressed.value == MAP_FAILED)) {
-        success = false;
-        goto close_file;
-    }
+    close(file_fd);
+    if (UNLIKELY(md->uncompressed.value == MAP_FAILED))
+        return false;
 
     lwan_madvise_queue(md->uncompressed.value, (size_t)st->st_size);
 
@@ -505,12 +503,7 @@ static bool mmap_init(struct file_cache_entry *ce,
     ce->mime_type =
         lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
 
-    success = true;
-
-close_file:
-    close(file_fd);
-
-    return success;
+    return true;
 }
 
 static bool is_world_readable(mode_t mode)
