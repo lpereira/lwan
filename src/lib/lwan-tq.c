@@ -35,8 +35,8 @@ timeout_queue_idx_to_node(struct timeout_queue *tq, int idx)
     return (idx < 0) ? &tq->head : &tq->conns[idx];
 }
 
-void timeout_queue_insert(struct timeout_queue *tq,
-                          struct lwan_connection *new_node)
+inline void timeout_queue_insert(struct timeout_queue *tq,
+                                 struct lwan_connection *new_node)
 {
     new_node->next = -1;
     new_node->prev = tq->head.prev;
@@ -44,8 +44,8 @@ void timeout_queue_insert(struct timeout_queue *tq,
     tq->head.prev = prev->next = timeout_queue_node_to_idx(tq, new_node);
 }
 
-static void timeout_queue_remove(struct timeout_queue *tq,
-                                 struct lwan_connection *node)
+static inline void timeout_queue_remove(struct timeout_queue *tq,
+                                        struct lwan_connection *node)
 {
     struct lwan_connection *prev = timeout_queue_idx_to_node(tq, node->prev);
     struct lwan_connection *next = timeout_queue_idx_to_node(tq, node->next);
@@ -64,7 +64,7 @@ void timeout_queue_move_to_last(struct timeout_queue *tq,
     /* CONN_IS_KEEP_ALIVE isn't checked here because non-keep-alive connections
      * are closed in the request processing coroutine after they have been
      * served.  In practice, if this is called, it's a keep-alive connection. */
-    conn->time_to_expire = tq->time + tq->keep_alive_timeout;
+    conn->time_to_expire = tq->current_time + tq->move_to_last_bump;
 
     timeout_queue_remove(tq, conn);
     timeout_queue_insert(tq, conn);
@@ -72,15 +72,19 @@ void timeout_queue_move_to_last(struct timeout_queue *tq,
 
 void timeout_queue_init(struct timeout_queue *tq, const struct lwan *lwan)
 {
-    tq->lwan = lwan;
-    tq->conns = lwan->conns;
-    tq->time = 0;
-    tq->keep_alive_timeout = lwan->config.keep_alive_timeout;
-    tq->head.next = tq->head.prev = -1;
-    tq->timeout = (struct timeout){};
+    *tq = (struct timeout_queue){
+        .lwan = lwan,
+        .conns = lwan->conns,
+        .current_time = 0,
+        .move_to_last_bump = lwan->config.keep_alive_timeout,
+        .head.next = -1,
+        .head.prev = -1,
+        .timeout = (struct timeout){},
+    };
 }
 
-void timeout_queue_expire(struct timeout_queue *tq, struct lwan_connection *conn)
+void timeout_queue_expire(struct timeout_queue *tq,
+                          struct lwan_connection *conn)
 {
     timeout_queue_remove(tq, conn);
 
@@ -94,20 +98,20 @@ void timeout_queue_expire(struct timeout_queue *tq, struct lwan_connection *conn
 
 void timeout_queue_expire_waiting(struct timeout_queue *tq)
 {
-    tq->time++;
+    tq->current_time++;
 
     while (!timeout_queue_empty(tq)) {
         struct lwan_connection *conn =
             timeout_queue_idx_to_node(tq, tq->head.next);
 
-        if (conn->time_to_expire > tq->time)
+        if (conn->time_to_expire > tq->current_time)
             return;
 
         timeout_queue_expire(tq, conn);
     }
 
     /* Timeout queue exhausted: reset epoch */
-    tq->time = 0;
+    tq->current_time = 0;
 }
 
 void timeout_queue_expire_all(struct timeout_queue *tq)

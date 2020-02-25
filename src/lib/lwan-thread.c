@@ -317,7 +317,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
     *conn = (struct lwan_connection) {
         .coro = coro_new(switcher, process_request_coro, conn),
         .flags = CONN_EVENTS_READ,
-        .time_to_expire = tq->time + tq->keep_alive_timeout,
+        .time_to_expire = tq->current_time + tq->move_to_last_bump,
         .thread = t,
     };
     if (UNLIKELY(!conn->coro)) {
@@ -574,7 +574,7 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 {
     char path[PATH_MAX];
 
-    for (unsigned short i = 0; i < l->n_cpus; i++) {
+    for (unsigned int i = 0; i < l->n_cpus; i++) {
         FILE *sib;
         uint32_t id, sibling;
         char separator;
@@ -698,7 +698,7 @@ void lwan_thread_init(struct lwan *l)
     const size_t n_queue_fds = LWAN_MIN(l->thread.max_fd / l->thread.count,
                                         (size_t)(2 * lwan_socket_get_backlog_size()));
     lwan_status_debug("Pending client file descriptor queue has %zu items", n_queue_fds);
-    for (short i = 0; i < l->thread.count; i++)
+    for (unsigned int i = 0; i < l->thread.count; i++)
         create_thread(l, &l->thread.threads[i], n_queue_fds);
 
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
@@ -737,7 +737,7 @@ void lwan_thread_shutdown(struct lwan *l)
 {
     lwan_status_debug("Shutting down threads");
 
-    for (int i = 0; i < l->thread.count; i++) {
+    for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
 
         close(t->epoll_fd);
@@ -747,7 +747,7 @@ void lwan_thread_shutdown(struct lwan *l)
     pthread_barrier_wait(&l->thread.barrier);
     pthread_barrier_destroy(&l->thread.barrier);
 
-    for (int i = 0; i < l->thread.count; i++) {
+    for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
 
         close(t->pipe_fd[0]);

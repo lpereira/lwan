@@ -25,8 +25,8 @@ struct timeout_queue {
     struct lwan_connection *conns;
     struct lwan_connection head;
     struct timeout timeout;
-    unsigned time;
-    unsigned short keep_alive_timeout;
+    unsigned int current_time;
+    unsigned int move_to_last_bump;
 };
 
 void timeout_queue_init(struct timeout_queue *tq, const struct lwan *l);

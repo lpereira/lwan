@@ -363,7 +363,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
             if (streq(line->key, "keep_alive_timeout")) {
-                lwan->config.keep_alive_timeout = (unsigned short)parse_long(
+                lwan->config.keep_alive_timeout = (unsigned int)parse_long(
                     line->value, default_config.keep_alive_timeout);
             } else if (streq(line->key, "quiet")) {
                 lwan->config.quiet =
@@ -389,7 +389,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 if (n_threads < 0)
                     config_error(conf, "Invalid number of threads: %ld",
                                  n_threads);
-                lwan->config.n_threads = (unsigned short int)n_threads;
+                lwan->config.n_threads = (unsigned int)n_threads;
             } else if (streq(line->key, "max_post_data_size")) {
                 long max_post_data_size = parse_long(
                     line->value, (long)default_config.max_post_data_size);
@@ -498,15 +498,17 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
-static unsigned short int get_number_of_cpus(void)
+static unsigned int get_number_of_cpus(void)
 {
     long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+
     if (UNLIKELY(n_online_cpus < 0)) {
         lwan_status_warning(
             "Could not get number of online CPUs, assuming 1 CPU");
         return 1;
     }
-    return (unsigned short int)n_online_cpus;
+
+    return (unsigned int)n_online_cpus;
 }
 
 void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }
@@ -552,7 +554,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
         if (l->thread.count == 1)
             l->thread.count = 2;
     } else if (l->config.n_threads > 3 * l->n_cpus) {
-        l->thread.count = (short unsigned int)(l->n_cpus * 3);
+        l->thread.count = l->n_cpus * 3;
 
         lwan_status_warning("%d threads requested, but only %d online CPUs; "
                             "capping to %d threads",

@@ -450,10 +450,13 @@ struct lwan_config {
     char *listener;
     char *error_template;
     char *config_file_path;
+
     size_t max_post_data_size;
-    unsigned short keep_alive_timeout;
+
+    unsigned int keep_alive_timeout;
     unsigned int expires;
-    unsigned short n_threads;
+    unsigned int n_threads;
+
     bool quiet;
     bool reuse_port;
     bool proxy_protocol;
@@ -469,14 +472,15 @@ struct lwan {
         pthread_barrier_t barrier;
         struct lwan_thread *threads;
         unsigned int max_fd;
-        unsigned short count;
+        unsigned int count;
     } thread;
 
     struct lwan_config config;
     struct coro_switcher switcher;
+
     int main_socket;
 
-    unsigned short n_cpus;
+    unsigned int n_cpus;
 };
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);
