@@ -26,8 +26,8 @@
 
 #include "lwan-private.h"
 
-static const unsigned int STATIC = 1 << 0;
-static const unsigned int DYNAMICALLY_ALLOCATED = 1 << 1;
+static const unsigned int BUFFER_MALLOCD = 1 << 0;
+static const unsigned int STRBUF_MALLOCD = 1 << 1;
 
 static inline size_t align_size(size_t unaligned_size)
 {
@@ -41,7 +41,7 @@ static inline size_t align_size(size_t unaligned_size)
 
 static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 {
-    if (s->flags & STATIC) {
+    if (!(s->flags & BUFFER_MALLOCD)) {
         const size_t aligned_size = align_size(LWAN_MAX(size + 1, s->used));
         if (UNLIKELY(!aligned_size))
             return false;
@@ -53,7 +53,7 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
         memcpy(buffer, s->buffer, s->used);
         buffer[s->used + 1] = '\0';
 
-        s->flags &= ~STATIC;
+        s->flags |= BUFFER_MALLOCD;
         s->buffer = buffer;
         s->capacity = aligned_size;
 
@@ -110,7 +110,7 @@ struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
         return NULL;
     }
 
-    s->flags |= DYNAMICALLY_ALLOCATED;
+    s->flags |= STRBUF_MALLOCD;
 
     return s;
 }
@@ -129,7 +129,7 @@ ALWAYS_INLINE struct lwan_strbuf *lwan_strbuf_new_static(const char *str,
         return NULL;
 
     *s = (struct lwan_strbuf) {
-        .flags = STATIC | DYNAMICALLY_ALLOCATED,
+        .flags = STRBUF_MALLOCD,
         .buffer = (char *)str,
         .used = size,
         .capacity = size,
@@ -142,9 +142,9 @@ void lwan_strbuf_free(struct lwan_strbuf *s)
 {
     if (UNLIKELY(!s))
         return;
-    if (!(s->flags & STATIC))
+    if (s->flags & BUFFER_MALLOCD)
         free(s->buffer);
-    if (s->flags & DYNAMICALLY_ALLOCATED)
+    if (s->flags & STRBUF_MALLOCD)
         free(s);
 }
 
@@ -173,12 +173,12 @@ bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
 
 bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (!(s1->flags & STATIC))
+    if (s1->flags & BUFFER_MALLOCD)
         free(s1->buffer);
 
     s1->buffer = (char *)s2;
     s1->used = s1->capacity = sz;
-    s1->flags |= STATIC;
+    s1->flags &= ~BUFFER_MALLOCD;
 
     return true;
 }
@@ -254,11 +254,11 @@ bool lwan_strbuf_grow_by(struct lwan_strbuf *s, size_t offset)
 
 void lwan_strbuf_reset(struct lwan_strbuf *s)
 {
-    if (s->flags & STATIC) {
+    if (s->flags & BUFFER_MALLOCD) {
+        s->buffer[0] = '\0';
+    } else {
         s->buffer = "";
         s->capacity = 0;
-    } else {
-        s->buffer[0] = '\0';
     }
 
     s->used = 0;

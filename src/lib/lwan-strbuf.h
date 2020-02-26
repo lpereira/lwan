@@ -31,7 +31,7 @@ struct lwan_strbuf {
 };
 
 #define LWAN_STRBUF_STATIC_INIT                                                \
-    (struct lwan_strbuf) { .buffer = "", .flags = 1 << 0 }
+    (struct lwan_strbuf) { .buffer = "" }
 
 bool lwan_strbuf_init_with_size(struct lwan_strbuf *buf, size_t size);
 bool lwan_strbuf_init(struct lwan_strbuf *buf);
