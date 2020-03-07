@@ -138,7 +138,7 @@ pass `-DALTERNATIVE_MALLOC=ON` to the CMake invocation line.
 
 ### Tests
 
-    ~/lwan/build$ make teststuite
+    ~/lwan/build$ make testsuite
 
 This will compile the `testrunner` program and execute regression test suite
 in `src/scripts/testsuite.py`.
