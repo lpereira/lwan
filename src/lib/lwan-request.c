@@ -368,7 +368,7 @@ static void parse_key_values(struct lwan_request *request,
         while (*ptr == ' ' || *ptr == separator)
             ptr++;
         if (UNLIKELY(*ptr == '\0'))
-            goto error;
+            break;
 
         key = ptr;
         ptr = strsep_char(key, end, separator);
