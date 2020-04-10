@@ -87,6 +87,8 @@ struct list_node *list_check_node(const struct list_node *node,
     /* Check prev on head node. */
     if (node->prev != p)
         return corrupt(abortstr, node, node, 0);
+#else
+    (void)abortstr;
 #endif
 
     return (struct list_node *)node;
