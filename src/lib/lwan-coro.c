@@ -221,6 +221,13 @@ void coro_deferred_run(struct coro *coro, size_t generation)
     }
 
     array->elements = generation;
+
+    /* Even though we might not have executed all the deferred frees
+     * for all the arenas in this coro, force an allocation next time
+     * coro_malloc() is called.  Otherwise, if the coroutine is reused
+     * for another request, another handler might try to write to freed
+     * memory. */
+    coro->bump_ptr_alloc.remaining = 0;
 }
 
 ALWAYS_INLINE size_t coro_deferred_get_generation(const struct coro *coro)
