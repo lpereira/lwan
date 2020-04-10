@@ -178,9 +178,8 @@ static bool append_key_value(struct lwan_request *request,
 LWAN_LUA_METHOD(set_headers)
 {
     const int table_index = 2;
-    const int key_index = 1 + table_index;
-    const int value_index = 2 + table_index;
-    const int nested_value_index = value_index * 2 - table_index;
+    const int key_index = -2;
+    const int value_index = -1;
     struct lwan_key_value_array *headers;
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     struct coro *coro = request->conn->coro;
@@ -196,33 +195,31 @@ LWAN_LUA_METHOD(set_headers)
     if (!headers)
         goto out;
 
-    lua_pushnil(L);
-    while (lua_next(L, table_index) != 0) {
+    for (lua_pushnil(L); lua_next(L, table_index) != 0; lua_pop(L, 1)) {
         char *key;
 
-        if (!lua_isstring(L, key_index)) {
-            lua_pop(L, 1);
+        if (lua_type(L, key_index) != LUA_TSTRING)
             continue;
-        }
 
         key = coro_strdup(request->conn->coro, lua_tostring(L, key_index));
         if (!key)
             goto out;
 
-        if (lua_isstring(L, value_index)) {
+        switch (lua_type(L, value_index)) {
+        case LUA_TSTRING:
             if (!append_key_value(request, L, coro, headers, key, value_index))
                 goto out;
-        } else if (lua_istable(L, value_index)) {
-            for (lua_pushnil(L); lua_next(L, value_index) != 0; lua_pop(L, 1)) {
-                if (!lua_isstring(L, nested_value_index))
+            break;
+        case LUA_TTABLE:
+            for (lua_pushnil(L); lua_next(L, value_index - 1) != 0; lua_pop(L, 1)) {
+                if (!lua_isstring(L, value_index))
                     continue;
                 if (!append_key_value(request, L, coro, headers, key,
-                                      nested_value_index))
+                                      value_index))
                     goto out;
             }
+            break;
         }
-
-        lua_pop(L, 1);
     }
 
     kv = lwan_key_value_array_append(headers);
