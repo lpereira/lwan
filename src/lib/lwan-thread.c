@@ -580,7 +580,7 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
         char separator;
 
         snprintf(path, sizeof(path),
-                 "/sys/devices/system/cpu/cpu%hd/topology/thread_siblings_list",
+                 "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list",
                  i);
 
         sib = fopen(path, "re");
