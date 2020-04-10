@@ -233,7 +233,9 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 
 	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL HAVE_LTO_FAT_OBJS)
 	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL HAVE_BUILTIN_IA32_CRC32)
-else ()
+endif ()
+
+if (${CMAKE_BUILD_TYPE} MATCHES "Deb")
 	option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")
 
 	if (${SANITIZER} MATCHES "(undefined|ub|ubsan)")
