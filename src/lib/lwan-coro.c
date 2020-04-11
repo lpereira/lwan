@@ -221,13 +221,6 @@ void coro_deferred_run(struct coro *coro, size_t generation)
     }
 
     array->elements = generation;
-
-    /* Even though we might not have executed all the deferred frees
-     * for all the arenas in this coro, force an allocation next time
-     * coro_malloc() is called.  Otherwise, if the coroutine is reused
-     * for another request, another handler might try to write to freed
-     * memory. */
-    coro->bump_ptr_alloc.remaining = 0;
 }
 
 ALWAYS_INLINE size_t coro_deferred_get_generation(const struct coro *coro)
@@ -481,18 +474,25 @@ static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
     coro_malloc_bump_ptr(coro_, aligned_size_)
 #endif
 
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-static void unpoison_and_free(void *ptr)
+static void free_bump_ptr(void *arg1, void *arg2)
 {
+    struct coro *coro = arg1;
+
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MAKE_MEM_UNDEFINED(ptr, CORO_BUMP_PTR_ALLOC_SIZE);
+    VALGRIND_MAKE_MEM_UNDEFINED(arg2, CORO_BUMP_PTR_ALLOC_SIZE);
 #endif
 #if defined(INSTRUMENT_FOR_ASAN)
-    __asan_unpoison_memory_region(ptr, CORO_BUMP_PTR_ALLOC_SIZE);
+    __asan_unpoison_memory_region(arg2, CORO_BUMP_PTR_ALLOC_SIZE);
 #endif
-    free(ptr);
+
+    /* Instead of checking if bump_ptr_alloc.ptr is part of the allocation
+     * with base in arg2, just zero out the arena for this coroutine to
+     * prevent coro_malloc() from carving up this and any other
+     * (potentially) freed arenas.  */
+    coro->bump_ptr_alloc.remaining = 0;
+
+    return free(arg2);
 }
-#endif
 
 void *coro_malloc(struct coro *coro, size_t size)
 {
@@ -501,7 +501,7 @@ void *coro_malloc(struct coro *coro, size_t size)
      * guarantee that the destroy_func is free(), so that if an allocation goes
      * through the bump pointer allocator, there's nothing that needs to be done
      * to free the memory (other than freeing the whole bump pointer arena with
-     * the defer call below). */
+     * the defer call below).  */
 
     const size_t aligned_size =
         (size + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
@@ -512,7 +512,7 @@ void *coro_malloc(struct coro *coro, size_t size)
     /* This will allocate as many "bump pointer arenas" as necessary; the
      * old ones will be freed automatically as each allocations coro_defers
      * the free() call.   Just don't bother allocating an arena larger than
-     * CORO_BUMP_PTR_ALLOC.*/
+     * CORO_BUMP_PTR_ALLOC.  */
     if (LIKELY(aligned_size <= CORO_BUMP_PTR_ALLOC_SIZE)) {
         coro->bump_ptr_alloc.ptr = malloc(CORO_BUMP_PTR_ALLOC_SIZE);
         if (UNLIKELY(!coro->bump_ptr_alloc.ptr))
@@ -529,13 +529,8 @@ void *coro_malloc(struct coro *coro, size_t size)
                                    CORO_BUMP_PTR_ALLOC_SIZE);
 #endif
 
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-        coro_defer(coro, unpoison_and_free, coro->bump_ptr_alloc.ptr);
-#else
-        coro_defer(coro, free, coro->bump_ptr_alloc.ptr);
-#endif
+        coro_defer2(coro, free_bump_ptr, coro, coro->bump_ptr_alloc.ptr);
 
-        /* Avoid checking if there's still space in the arena again. */
         return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
     }
 
