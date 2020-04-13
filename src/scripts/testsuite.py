@@ -70,7 +70,7 @@ class LwanTest(unittest.TestCase):
 
     for spawn_try in range(20):
       self.lwan = subprocess.Popen([self.harness_paths[harness]], env=env,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
       if self.lwan.poll() is not None:
         raise Exception('It seems that %s is not starting up' % harness)
