@@ -286,13 +286,13 @@ void lwan_sendfile(struct lwan_request *request,
 #else
 static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
 
-static off_t try_pread(struct lwan_request *request,
-                       int fd,
-                       void *buffer,
-                       size_t len,
-                       off_t offset)
+static size_t try_pread_file(struct lwan_request *request,
+                             int fd,
+                             void *buffer,
+                             size_t len,
+                             off_t offset)
 {
-    ssize_t total_read = 0;
+    size_t total_read = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t r = pread(fd, buffer, len, offset);
@@ -309,16 +309,14 @@ static off_t try_pread(struct lwan_request *request,
             }
         }
 
-        total_read += r;
+        total_read += (size_t)r;
         offset += r;
-        if ((size_t)total_read == len)
-            return offset;
+        if (total_read == len || r == 0)
+            return total_read;
 
     try_again:
-        /* FIXME: is this correct?  fd being read here is a file, not
-         * a socket, so a WANT_READ may actually lead to a coro never
-         * being woken up */
-        coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+        /* fd is a file; just re-read */
+        (void)0;
     }
 
 out:
@@ -338,11 +336,11 @@ void lwan_sendfile(struct lwan_request *request,
     lwan_send(request, header, header_len, MSG_MORE);
 
     while (count) {
-        size_t to_read = min_size(count, sizeof(buffer));
-
-        offset = try_pread(request, in_fd, buffer, to_read, offset);
-        lwan_send(request, buffer, to_read, 0);
-        count -= to_read;
+        size_t bytes_read = try_pread_file(request, in_fd, buffer,
+            min_size(count, sizeof(buffer)), offset);
+        lwan_send(request, buffer, bytes_read, 0);
+        count -= bytes_read;
+        offset += bytes_read;
     }
 }
 #endif
