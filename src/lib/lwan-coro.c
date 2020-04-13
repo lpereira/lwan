@@ -27,6 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __OpenBSD__
+#include <sys/mman.h>
+#endif
+
 #include "lwan-private.h"
 
 #include "lwan-array.h"
@@ -289,11 +293,22 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 ALWAYS_INLINE struct coro *
 coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 {
+#ifndef __OpenBSD__
     struct coro *coro =
         lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_MIN, 64);
 
     if (UNLIKELY(!coro))
         return NULL;
+#else
+    /* As an exploit mitigation, OpenBSD requires any stacks to be allocated
+     * via mmap(... MAP_STACK ...). */
+    struct coro *coro =
+	mmap(NULL, sizeof(struct coro) + CORO_STACK_MIN,
+	    PROT_READ | PROT_WRITE, MAP_STACK | MAP_ANON | MAP_PRIVATE, -1, 0);
+
+    if (UNLIKELY(coro == MAP_FAILED))
+        return NULL;
+#endif
 
     if (UNLIKELY(coro_defer_array_init(&coro->defer) < 0)) {
         free(coro);
@@ -374,7 +389,12 @@ void coro_free(struct coro *coro)
                                 sizeof(coro->stack_poison));
 #endif
 
+#ifndef __OpenBSD__
     free(coro);
+#else
+    int result = munmap(coro, sizeof(*coro) + CORO_STACK_MIN);
+    assert(result == 0);  /* only fails if addr, len are invalid */
+#endif
 }
 
 ALWAYS_INLINE void coro_defer(struct coro *coro, defer1_func func, void *data)
