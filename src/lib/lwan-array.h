@@ -32,7 +32,6 @@ struct lwan_array {
     size_t elements;
 };
 
-int lwan_array_init(struct lwan_array *a);
 int lwan_array_reset(struct lwan_array *a, void *inline_storage);
 void *lwan_array_append_heap(struct lwan_array *a, size_t element_size);
 void *lwan_array_append_inline(struct lwan_array *a,
@@ -91,10 +90,11 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, &array->storage)
 
 #define DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, inline_storage_)   \
-    __attribute__((unused)) static inline int array_type_##_init(              \
-        struct array_type_ *array)                                             \
+    __attribute__((unused))                                                    \
+        __attribute__((nonnull(1))) static inline void array_type_##_init(     \
+            struct array_type_ *array)                                         \
     {                                                                          \
-        return lwan_array_init(&array->base);                                  \
+        array->base = (struct lwan_array){.base = NULL, .elements = 0};        \
     }                                                                          \
     __attribute__((unused)) static inline int array_type_##_reset(             \
         struct array_type_ *array)                                             \

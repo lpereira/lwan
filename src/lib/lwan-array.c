@@ -27,17 +27,6 @@
 #include "lwan.h"
 #include "lwan-array.h"
 
-int lwan_array_init(struct lwan_array *a)
-{
-    if (UNLIKELY(!a))
-        return -EINVAL;
-
-    a->base = NULL;
-    a->elements = 0;
-
-    return 0;
-}
-
 int lwan_array_reset(struct lwan_array *a, void *inline_storage)
 {
     if (UNLIKELY(!a))
@@ -142,7 +131,7 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first)
                              inline_first ? coro_lwan_array_free_inline
                                           : coro_lwan_array_free_heap);
     if (LIKELY(array))
-        lwan_array_init(array);
+        *array = (struct lwan_array){.base = NULL, .elements = 0};
 
     return array;
 }

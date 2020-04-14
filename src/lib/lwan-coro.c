@@ -310,10 +310,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
         return NULL;
 #endif
 
-    if (UNLIKELY(coro_defer_array_init(&coro->defer) < 0)) {
-        free(coro);
-        return NULL;
-    }
+    coro_defer_array_init(&coro->defer);
 
     coro->switcher = switcher;
     coro_reset(coro, function, data);
