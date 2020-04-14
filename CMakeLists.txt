@@ -134,7 +134,6 @@ endif ()
 
 set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
-check_function_exists(rawmemchr HAVE_RAWMEMCHR)
 check_function_exists(get_current_dir_name HAVE_GET_CURRENT_DIR_NAME)
 check_symbol_exists(reallocarray stdlib.h HAVE_REALLOCARRAY)
 check_function_exists(mempcpy HAVE_MEMPCPY)

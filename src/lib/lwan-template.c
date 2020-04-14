@@ -529,7 +529,7 @@ static void lex_init(struct lexer *lexer, const char *input)
 {
     lexer->state = lex_text;
     lexer->pos = lexer->start = input;
-    lexer->end = rawmemchr(input, '\0');
+    lexer->end = input + strlen(input);
     lexeme_ring_buffer_init(&lexer->ring_buffer);
 }
 

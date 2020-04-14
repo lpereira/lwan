@@ -51,10 +51,6 @@
 #endif
 #endif
 
-#ifndef HAVE_RAWMEMCHR
-void *rawmemchr(const void *ptr, char c);
-#endif
-
 #ifndef HAVE_MEMPCPY
 void *mempcpy(void *dest, const void *src, size_t len);
 #endif

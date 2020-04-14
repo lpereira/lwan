@@ -80,7 +80,7 @@ void lwan_tables_init(void)
     unsigned char *ptr = uncompressed_mime_entries + 8 * MIME_ENTRIES;
     for (size_t i = 0; i < MIME_ENTRIES; i++) {
         mime_types[i] = (char *)ptr;
-        ptr = rawmemchr(ptr + 1, '\0') + 1;
+        ptr += strlen((const char *)ptr) + 1;
     }
 
     mime_entries_initialized = true;
@@ -132,7 +132,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
 
     if (LIKELY(*last_dot)) {
         char key[9];
-        char *extension;
+        const unsigned char *extension;
 
         strncpy(key, last_dot + 1, 8);
         key[8] = '\0';
@@ -142,7 +142,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         extension = bsearch(key, uncompressed_mime_entries, MIME_ENTRIES, 8,
                             compare_mime_entry);
         if (LIKELY(extension))
-            return mime_types[(extension - (char*)uncompressed_mime_entries) / 8];
+            return mime_types[(extension - uncompressed_mime_entries) / 8];
     }
 
 fallback:

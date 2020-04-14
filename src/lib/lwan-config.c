@@ -116,7 +116,7 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
                         multiplier);
         }
 
-        str = (const char *)rawmemchr(str, multiplier) + 1;
+        str = strchr(str, multiplier) + 1;
     }
 
     return total ? total : default_value;

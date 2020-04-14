@@ -750,7 +750,7 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
             /* Redirect /path to /path/. This is to help cases where there's
              * something like <img src="../foo.png">, so that actually
              * /path/../foo.png is served instead of /path../foo.png.  */
-            const char *key_end = rawmemchr(key, '\0');
+            const char *key_end = key + strlen(key);
             if (*(key_end - 1) != '/')
                 return &redir_funcs;
 

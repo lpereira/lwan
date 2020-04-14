@@ -76,7 +76,7 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
     rpath_limit = rpath + PATH_MAX;
 
     strcpy(rpath, dirfdpath);
-    dest = rawmemchr(rpath, '\0');
+    dest = rpath + strlen(rpath);
     dirfdlen = dest - rpath;
 
     for (start = end = name; *start; start = end) {

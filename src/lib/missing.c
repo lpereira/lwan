@@ -466,10 +466,6 @@ out:
 }
 #endif
 
-#if !defined(HAVE_RAWMEMCHR)
-void *rawmemchr(const void *ptr, char c) { return memchr(ptr, c, SIZE_MAX); }
-#endif
-
 #if !defined(HAVE_REALLOCARRAY)
 /*	$OpenBSD: reallocarray.c,v 1.2 2014/12/08 03:45:00 bcook Exp $	*/
 /*
