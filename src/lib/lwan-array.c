@@ -88,7 +88,9 @@ void *lwan_array_append_inline(struct lwan_array *a,
     assert(a->elements <= LWAN_ARRAY_INCREMENT);
 
     if (a->elements == LWAN_ARRAY_INCREMENT) {
-        void *new_base = calloc(2 * LWAN_ARRAY_INCREMENT, element_size);
+        void *new_base =
+            reallocarray(NULL, 2 * LWAN_ARRAY_INCREMENT, element_size);
+
         if (UNLIKELY(!new_base))
             return NULL;
 
