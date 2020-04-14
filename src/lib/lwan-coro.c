@@ -125,7 +125,7 @@ struct coro {
  * This swapcontext() implementation was obtained from glibc and modified
  * slightly to not save/restore the floating point registers, unneeded
  * registers, and signal mask.  It is Copyright (C) 2001, 2002, 2003 Free
- * Software Foundation, Inc and are distributed under GNU LGPL version 2.1
+ * Software Foundation, Inc and is distributed under GNU LGPL version 2.1
  * (or later).  I'm not sure if I can distribute them inside a GPL program;
  * they're straightforward so I'm assuming there won't be any problem; if
  * there is, I'll just roll my own.
