@@ -26,10 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef __OpenBSD__
 #include <sys/mman.h>
-#endif
 
 #include "lwan-private.h"
 
@@ -58,15 +55,30 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #ifdef HAVE_BROTLI
-#define CORO_STACK_MIN (8 * SIGSTKSZ)
+#define CORO_STACK_SIZE (8 * SIGSTKSZ)
 #else
-#define CORO_STACK_MIN (4 * SIGSTKSZ)
+#define CORO_STACK_SIZE (4 * SIGSTKSZ)
 #endif
 
 #define CORO_BUMP_PTR_ALLOC_SIZE 1024
 
-static_assert(DEFAULT_BUFFER_SIZE < (CORO_STACK_MIN + SIGSTKSZ),
+static_assert(DEFAULT_BUFFER_SIZE < CORO_STACK_SIZE,
               "Request buffer fits inside coroutine stack");
+
+#if (!defined(NDEBUG) && defined(MAP_STACK)) || defined(__OpenBSD__)
+/* As an exploit mitigation, OpenBSD requires any stacks to be allocated via
+ * mmap(...  MAP_STACK ...).
+ *
+ * Also enable this on debug builds to catch stack overflows while testing
+ * (MAP_STACK exists in Linux, but it's a no-op).  */
+
+#define ALLOCATE_STACK_WITH_MMAP
+
+static_assert((CORO_STACK_SIZE % PAGE_SIZE) == 0,
+              "Coroutine stack size is a multiple of page size");
+static_assert((CORO_STACK_SIZE >= PAGE_SIZE),
+              "Coroutine stack size is at least a page long");
+#endif
 
 typedef void (*defer1_func)(void *data);
 typedef void (*defer2_func)(void *data1, void *data2);
@@ -106,10 +118,11 @@ struct coro {
     unsigned int vg_stack_id;
 #endif
 
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-    unsigned char stack_poison[64];
+#if defined(ALLOCATE_STACK_WITH_MMAP)
+    unsigned char *stack;
+#else
+    unsigned char stack[];
 #endif
-    unsigned char stack[] __attribute__((aligned(64)));
 };
 
 #if defined(__APPLE__)
@@ -255,12 +268,12 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
     /* Ensure stack is properly aligned: it should be aligned to a
      * 16-bytes boundary so SSE will work properly, but should be
      * aligned on an 8-byte boundary right after calling a function. */
-    uintptr_t rsp = (uintptr_t)stack + CORO_STACK_MIN;
+    uintptr_t rsp = (uintptr_t)stack + CORO_STACK_SIZE;
 
 #define STACK_PTR 9
     coro->context[STACK_PTR] = (rsp & ~0xful) - 0x8ul;
 #elif defined(__i386__)
-    stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_MIN);
+    stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_SIZE);
 
     /* Make room for 3 args */
     stack -= sizeof(uintptr_t) * 3;
@@ -281,7 +294,7 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
     getcontext(&coro->context);
 
     coro->context.uc_stack.ss_sp = stack;
-    coro->context.uc_stack.ss_size = CORO_STACK_MIN;
+    coro->context.uc_stack.ss_size = CORO_STACK_SIZE;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
@@ -293,20 +306,25 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 ALWAYS_INLINE struct coro *
 coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 {
-#ifndef __OpenBSD__
-    struct coro *coro =
-        lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_MIN, 64);
+    struct coro *coro;
+
+#if defined(ALLOCATE_STACK_WITH_MMAP)
+    void *stack = mmap(NULL, CORO_STACK_SIZE, PROT_READ | PROT_WRITE,
+                       MAP_STACK | MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (UNLIKELY(stack == MAP_FAILED))
+        return NULL;
+
+    coro = lwan_aligned_alloc(sizeof(*coro), 64);
+    if (UNLIKELY(!coro)) {
+        munmap(stack, CORO_STACK_SIZE);
+        return NULL;
+    }
+
+    coro->stack = stack;
+#else
+    coro = lwan_aligned_alloc(sizeof(struct coro) + CORO_STACK_SIZE, 64);
 
     if (UNLIKELY(!coro))
-        return NULL;
-#else
-    /* As an exploit mitigation, OpenBSD requires any stacks to be allocated
-     * via mmap(... MAP_STACK ...). */
-    struct coro *coro =
-	mmap(NULL, sizeof(struct coro) + CORO_STACK_MIN,
-	    PROT_READ | PROT_WRITE, MAP_STACK | MAP_ANON | MAP_PRIVATE, -1, 0);
-
-    if (UNLIKELY(coro == MAP_FAILED))
         return NULL;
 #endif
 
@@ -315,21 +333,9 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
     coro->switcher = switcher;
     coro_reset(coro, function, data);
 
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-    memset(coro->stack_poison, 'X', sizeof(coro->stack_poison));
-#endif
-
-#if defined(INSTRUMENT_FOR_ASAN)
-    __asan_poison_memory_region(coro->stack_poison,
-                                sizeof(coro->stack_poison));
-#endif
-
 #if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MAKE_MEM_NOACCESS(coro->stack_poison,
-                               sizeof(coro->stack_poison));
-
-    coro->vg_stack_id =
-        VALGRIND_STACK_REGISTER(coro->stack, (char *)coro->stack + CORO_STACK_MIN);
+    coro->vg_stack_id = VALGRIND_STACK_REGISTER(
+        coro->stack, (char *)coro->stack + CORO_STACK_SIZE);
 #endif
 
     return coro;
@@ -342,7 +348,7 @@ ALWAYS_INLINE int64_t coro_resume(struct coro *coro)
 #if defined(STACK_PTR)
     assert(coro->context[STACK_PTR] >= (uintptr_t)coro->stack &&
            coro->context[STACK_PTR] <=
-               (uintptr_t)(coro->stack + CORO_STACK_MIN));
+               (uintptr_t)(coro->stack + CORO_STACK_SIZE));
 #endif
 
     coro_swapcontext(&coro->switcher->caller, &coro->context);
@@ -375,23 +381,16 @@ void coro_free(struct coro *coro)
     coro_deferred_run(coro, 0);
     coro_defer_array_reset(&coro->defer);
 
-#if defined(INSTRUMENT_FOR_ASAN)
-    __asan_unpoison_memory_region(coro->stack_poison,
-                                  sizeof(coro->stack_poison));
-#endif
-
 #if defined(INSTRUMENT_FOR_VALGRIND)
     VALGRIND_STACK_DEREGISTER(coro->vg_stack_id);
-    VALGRIND_MAKE_MEM_UNDEFINED(coro->stack_poison,
-                                sizeof(coro->stack_poison));
 #endif
 
-#ifndef __OpenBSD__
-    free(coro);
-#else
-    int result = munmap(coro, sizeof(*coro) + CORO_STACK_MIN);
+#if defined(ALLOCATE_STACK_WITH_MMAP)
+    int result = munmap(coro->stack, CORO_STACK_SIZE);
     assert(result == 0);  /* only fails if addr, len are invalid */
 #endif
+
+    free(coro);
 }
 
 ALWAYS_INLINE void coro_defer(struct coro *coro, defer1_func func, void *data)
