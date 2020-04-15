@@ -43,7 +43,16 @@ extern "C" {
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
 
-#define N_ELEMENTS(array) (sizeof(array) / sizeof(array[0]))
+/* This macro expands to 0 if its parameter is an array, and generates a
+ * compilation error otherwise.  This is used by the N_ELEMENTS() macro to catch
+ * invalid usages of this macro (e.g. when using arrays decayed to pointers in
+ * function parameters). */
+#define ZERO_IF_IS_ARRAY(array)                                                \
+    (!sizeof(char[1 - 2 * __builtin_types_compatible_p(typeof(array),          \
+                                                       typeof(&(array)[0]))]))
+
+#define N_ELEMENTS(array)                                                      \
+    (ZERO_IF_IS_ARRAY(array) | sizeof(array) / sizeof(array[0]))
 
 #define LWAN_NO_DISCARD(...)                                                   \
     do {                                                                       \
