@@ -45,8 +45,8 @@ extern "C" {
  * invalid usages of this macro (e.g. when using arrays decayed to pointers in
  * function parameters). */
 #define ZERO_IF_IS_ARRAY(array)                                                \
-    (!sizeof(char[1 - 2 * __builtin_types_compatible_p(typeof(array),          \
-                                                       typeof(&(array)[0]))]))
+    (!sizeof(char[1 - 2 * __builtin_types_compatible_p(                        \
+                              __typeof__(array), __typeof__(&(array)[0]))]))
 
 #define N_ELEMENTS(array)                                                      \
     (ZERO_IF_IS_ARRAY(array) | sizeof(array) / sizeof(array[0]))
