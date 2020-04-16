@@ -40,9 +40,6 @@ extern "C" {
 #include "lwan-strbuf.h"
 #include "lwan-trie.h"
 
-#define DEFAULT_BUFFER_SIZE 4096
-#define DEFAULT_HEADERS_SIZE 512
-
 /* This macro expands to 0 if its parameter is an array, and generates a
  * compilation error otherwise.  This is used by the N_ELEMENTS() macro to catch
  * invalid usages of this macro (e.g. when using arrays decayed to pointers in

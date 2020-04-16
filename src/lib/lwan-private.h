@@ -24,6 +24,9 @@
 
 #include "lwan.h"
 
+#define DEFAULT_BUFFER_SIZE 4096
+#define DEFAULT_HEADERS_SIZE 512
+
 #define LWAN_CONCAT(a_, b_) a_ ## b_
 #define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)
 #define LWAN_TMP_ID LWAN_TMP_ID_DETAIL(__COUNTER__)
