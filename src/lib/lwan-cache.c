@@ -324,7 +324,7 @@ static bool cache_pruner_job(void *data)
             cache->cb.destroy_entry(node, cache->cb.context);
         } else {
             /* If not, some other thread had references to this object. */
-            ATOMIC_BITWISE(&node->flags, or, FLOATING);
+            ATOMIC_OP(&node->flags, or, FLOATING);
             /* If in the time between the ref check above and setting the floating flag the
              * thread holding the reference drops it, if our reference is 0 after dropping it,
              * the pruner thread was the last thread holding the reference to this entry, so

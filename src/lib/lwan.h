@@ -158,10 +158,11 @@ static ALWAYS_INLINE uint64_t string_as_uint64(const char *s)
 #define UNLIKELY(x) LIKELY_IS((x), 0)
 
 #define ATOMIC_READ(V) (*(volatile typeof(V) *)&(V))
-#define ATOMIC_AAF(P, V) (__sync_add_and_fetch((P), (V)))
+#define ATOMIC_OP(P, O, V) (__sync_##O##_and_fetch((P), (V)))
+#define ATOMIC_AAF(P, V) ATOMIC_OP((P), add, (V))
+#define ATOMIC_SAF(P, V) ATOMIC_OP((P), sub, (V))
 #define ATOMIC_INC(V) ATOMIC_AAF(&(V), 1)
-#define ATOMIC_DEC(V) ATOMIC_AAF(&(V), -1)
-#define ATOMIC_BITWISE(P, O, V) (__sync_##O##_and_fetch((P), (V)))
+#define ATOMIC_DEC(V) ATOMIC_SAF(&(V), 1)
 
 #if defined(__cplusplus)
 #define LWAN_ARRAY_PARAM(length) [length]
