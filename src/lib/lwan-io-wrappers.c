@@ -299,23 +299,22 @@ static size_t try_pread_file(struct lwan_request *request,
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                goto try_again;
+                /* fd is a file, re-read -- but give other coros some time, too */
+                coro_yield(request->conn->coro, CONN_CORO_YIELD);
+                continue;
             default:
-                goto out;
+                break;
             }
         }
 
         total_read += (size_t)r;
-        offset += r;
-        if (total_read == len || r == 0)
+
+        if (r == 0 || total_read == len)
             return total_read;
 
-    try_again:
-        /* fd is a file; just re-read */
-        (void)0;
+        offset += r;
     }
 
-out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
