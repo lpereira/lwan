@@ -202,8 +202,6 @@ out:
 }
 
 #if defined(__linux__)
-static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
-
 void lwan_sendfile(struct lwan_request *request,
                    int in_fd,
                    off_t offset,
@@ -211,7 +209,7 @@ void lwan_sendfile(struct lwan_request *request,
                    const char *header,
                    size_t header_len)
 {
-    size_t chunk_size = min_size(count, 1 << 17);
+    size_t chunk_size = LWAN_MIN(count, 1ul << 17);
     size_t to_be_written = count;
 
     lwan_send(request, header, header_len, MSG_MORE);
@@ -233,7 +231,7 @@ void lwan_sendfile(struct lwan_request *request,
         if (!to_be_written)
             break;
 
-        chunk_size = min_size(to_be_written, 1 << 19);
+        chunk_size = LWAN_MIN(to_be_written, 1ul << 19);
         lwan_readahead_queue(in_fd, offset, chunk_size);
 
     try_again:
@@ -284,8 +282,6 @@ void lwan_sendfile(struct lwan_request *request,
     } while (total_written < count);
 }
 #else
-static inline size_t min_size(size_t a, size_t b) { return (a > b) ? b : a; }
-
 static size_t try_pread_file(struct lwan_request *request,
                              int fd,
                              void *buffer,
@@ -336,8 +332,8 @@ void lwan_sendfile(struct lwan_request *request,
     lwan_send(request, header, header_len, MSG_MORE);
 
     while (count) {
-        size_t bytes_read = try_pread_file(request, in_fd, buffer,
-            min_size(count, sizeof(buffer)), offset);
+        size_t bytes_read = try_pread_file(
+            request, in_fd, buffer, LWAN_MIN(count, sizeof(buffer)), offset);
         lwan_send(request, buffer, bytes_read, 0);
         count -= bytes_read;
         offset += bytes_read;
