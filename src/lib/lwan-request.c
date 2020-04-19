@@ -847,10 +847,10 @@ read_from_request_socket(struct lwan_request *request,
             if (n < 0) {
                 switch (errno) {
                 case EAGAIN:
+yield_and_read_again:
                     coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
                     continue;
                 case EINTR:
-yield_and_read_again:
                     coro_yield(request->conn->coro, CONN_CORO_YIELD);
                     continue;
                 }
