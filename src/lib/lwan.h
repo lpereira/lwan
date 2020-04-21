@@ -40,6 +40,9 @@ extern "C" {
 #include "lwan-strbuf.h"
 #include "lwan-trie.h"
 
+#if defined(__cplusplus)
+#define ZERO_IF_IS_ARRAY(array) 0
+#else
 /* This macro expands to 0 if its parameter is an array, and generates a
  * compilation error otherwise.  This is used by the N_ELEMENTS() macro to catch
  * invalid usages of this macro (e.g. when using arrays decayed to pointers in
@@ -47,6 +50,7 @@ extern "C" {
 #define ZERO_IF_IS_ARRAY(array)                                                \
     (!sizeof(char[1 - 2 * __builtin_types_compatible_p(                        \
                               __typeof__(array), __typeof__(&(array)[0]))]))
+#endif
 
 #define N_ELEMENTS(array)                                                      \
     (ZERO_IF_IS_ARRAY(array) | sizeof(array) / sizeof(array[0]))
