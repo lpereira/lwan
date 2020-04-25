@@ -98,6 +98,19 @@ extern "C" {
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define STR4_INT(a, b, c, d) ((uint32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#define STR2_INT(a, b) ((uint16_t)((a) | (b) << 8))
+#define STR8_INT(a, b, c, d, e, f, g, h)                                       \
+    ((uint64_t)STR4_INT(a, b, c, d) | (uint64_t)STR4_INT(e, f, g, h) << 32)
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define STR4_INT(d, c, b, a) ((uint32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
+#define STR2_INT(b, a) ((uint16_t)((a) | (b) << 8))
+#define STR8_INT(a, b, c, d, e, f, g, h)                                       \
+    ((uint64_t)STR4_INT(a, b, c, d) << 32 | (uint64_t)STR4_INT(e, f, g, h))
+#elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
+#error A PDP? Seriously?
+#endif
 
 static ALWAYS_INLINE uint16_t string_as_uint16(const char *s)
 {
@@ -126,25 +139,20 @@ static ALWAYS_INLINE uint64_t string_as_uint64(const char *s)
     return u;
 }
 
-#define STR4_INT(a, b, c, d) ((uint32_t)((a) | (b) << 8 | (c) << 16 | (d) << 24))
-#define STR2_INT(a, b) ((uint16_t)((a) | (b) << 8))
-#define STR8_INT(a, b, c, d, e, f, g, h)                                       \
-    ((uint64_t)STR4_INT(a, b, c, d) | (uint64_t)STR4_INT(e, f, g, h) << 32)
+#define LOWER2(s) ((s) | (uint16_t)0x2020)
+#define LOWER4(s) ((s) | (uint32_t)0x20202020)
+#define LOWER8(s) ((s) | (uint64_t)0x2020202020202020)
 
-#define LOWER_CASE2(s) ((s) | (uint16_t)0x2020)
-#define LOWER_CASE4(s) ((s) | (uint32_t)0x20202020)
-#define LOWER_CASE8(s) ((s) | (uint64_t)0x2020202020202020)
-
-#define STR2_INT_L(a, b) LOWER_CASE2(STR2_INT(a, b))
-#define STR4_INT_L(a, b, c, d) LOWER_CASE4(STR4_INT(a, b, c, d))
-#define STR8_INT_L(a, b, c, d, e, f, g, h) LOWER_CASE8(STR8_INT(a, b, c, d, e, f, g, h))
+#define STR2_INT_L(a, b) LOWER2(STR2_INT(a, b))
+#define STR4_INT_L(a, b, c, d) LOWER4(STR4_INT(a, b, c, d))
+#define STR8_INT_L(a, b, c, d, e, f, g, h) LOWER8(STR8_INT(a, b, c, d, e, f, g, h))
 
 #define STRING_SWITCH_SMALL(s) switch (string_as_uint16(s))
-#define STRING_SWITCH_SMALL_L(s) switch (LOWER_CASE2(string_as_uint16(s)))
+#define STRING_SWITCH_SMALL_L(s) switch (LOWER2(string_as_uint16(s)))
 #define STRING_SWITCH(s) switch (string_as_uint32(s))
-#define STRING_SWITCH_L(s) switch (LOWER_CASE4(string_as_uint32(s)))
+#define STRING_SWITCH_L(s) switch (LOWER4(string_as_uint32(s)))
 #define STRING_SWITCH_LARGE(s) switch (string_as_uint64(s))
-#define STRING_SWITCH_LARGE_L(s) switch (LOWER_CASE8(string_as_uint64(s)))
+#define STRING_SWITCH_LARGE_L(s) switch (LOWER8(string_as_uint64(s)))
 
 #define LIKELY_IS(x, y) __builtin_expect((x), (y))
 #define LIKELY(x) LIKELY_IS(!!(x), 1)
