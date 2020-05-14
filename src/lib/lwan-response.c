@@ -168,7 +168,7 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
             status = HTTP_INTERNAL_ERROR;
         }
 
-        if (status >= HTTP_CLASS__CLIENT_ERROR) {
+        if (UNLIKELY(status >= HTTP_CLASS__CLIENT_ERROR)) {
             request->flags &= ~RESPONSE_STREAM;
             lwan_default_response(request, status);
         }
@@ -267,22 +267,22 @@ size_t lwan_prepare_response_header_full(
 
     p_headers = headers;
 
-    if (request->flags & REQUEST_IS_HTTP_1_0)
+    if (UNLIKELY(request->flags & REQUEST_IS_HTTP_1_0))
         APPEND_CONSTANT("HTTP/1.0 ");
     else
         APPEND_CONSTANT("HTTP/1.1 ");
     APPEND_STRING(lwan_http_status_as_string_with_code(status));
 
-    if (request->flags & RESPONSE_CHUNKED_ENCODING) {
+    if (UNLIKELY(request->flags & RESPONSE_CHUNKED_ENCODING)) {
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
-    } else if (request->flags & RESPONSE_NO_CONTENT_LENGTH) {
+    } else if (UNLIKELY(request->flags & RESPONSE_NO_CONTENT_LENGTH)) {
         /* Do nothing. */
     } else if (!(request->flags & RESPONSE_STREAM)) {
         APPEND_CONSTANT("\r\nContent-Length: ");
         APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
     }
 
-    if ((status < HTTP_BAD_REQUEST && additional_headers)) {
+    if (LIKELY((status < HTTP_BAD_REQUEST && additional_headers))) {
         const struct lwan_key_value *header;
 
         for (header = additional_headers; header->key; header++) {
@@ -309,7 +309,7 @@ size_t lwan_prepare_response_header_full(
             APPEND_CHAR_NOCHECK(' ');
             APPEND_STRING(header->value);
         }
-    } else if (status == HTTP_NOT_AUTHORIZED) {
+    } else if (UNLIKELY(status == HTTP_NOT_AUTHORIZED)) {
         const struct lwan_key_value *header;
 
         for (header = additional_headers; header->key; header++) {
@@ -321,10 +321,10 @@ size_t lwan_prepare_response_header_full(
         }
     }
 
-    if (request->conn->flags & CONN_IS_UPGRADE) {
+    if (UNLIKELY(request->conn->flags & CONN_IS_UPGRADE)) {
         APPEND_CONSTANT("\r\nConnection: Upgrade");
     } else {
-        if (request->conn->flags & CONN_IS_KEEP_ALIVE) {
+        if (LIKELY(request->conn->flags & CONN_IS_KEEP_ALIVE)) {
             APPEND_CONSTANT("\r\nConnection: keep-alive");
         } else {
             APPEND_CONSTANT("\r\nConnection: close");
@@ -346,7 +346,7 @@ size_t lwan_prepare_response_header_full(
         APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
     }
 
-    if (request->flags & REQUEST_ALLOW_CORS) {
+    if (UNLIKELY(request->flags & REQUEST_ALLOW_CORS)) {
         APPEND_CONSTANT(
             "\r\nAccess-Control-Allow-Origin: *"
             "\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS"
