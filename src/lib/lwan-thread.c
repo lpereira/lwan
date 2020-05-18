@@ -276,7 +276,7 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
 
         assert(event.events != 0);
         assert(await_fd >= 0);
-        assert(await_fd <= tq->lwan->thread.count * tq->lwan->thread.max_fd);
+        assert(await_fd <= (int)(tq->lwan->thread.count * tq->lwan->thread.max_fd));
 
         if (yield_result == CONN_CORO_ASYNC_RESUME) {
             op = EPOLL_CTL_DEL;
