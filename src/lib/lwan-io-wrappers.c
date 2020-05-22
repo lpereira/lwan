@@ -93,7 +93,7 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
         ssize_t bytes_read =
             readv(request->fd, iov + curr_iov, iov_count - curr_iov);
         if (UNLIKELY(bytes_read < 0)) {
-            /* FIXME: Consider short writes as another try as well? */
+            /* FIXME: Consider short reads as another try as well? */
             tries--;
 
             switch (errno) {
