@@ -32,21 +32,28 @@
 static const int MAX_FAILED_TRIES = 5;
 
 ssize_t
-lwan_writev(struct lwan_request *request, struct iovec *iov, size_t iov_count)
+lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 {
     ssize_t total_written = 0;
-    size_t curr_iov = 0;
+    int curr_iov = 0;
     int flags = 0;
 
     if (request->conn->flags & CONN_CORK)
         flags |= MSG_MORE;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        struct msghdr hdr = {
-            .msg_iov = iov + curr_iov,
-            .msg_iovlen = iov_count - curr_iov,
-        };
-        ssize_t written = sendmsg(request->fd, &hdr, flags);
+        ssize_t written;
+
+        if (flags) {
+            struct msghdr hdr = {
+                .msg_iov = iov + curr_iov,
+                .msg_iovlen = (size_t)(iov_count - curr_iov),
+            };
+            written = sendmsg(request->fd, &hdr, flags);
+        } else {
+            written = writev(request->fd, iov + curr_iov, iov_count - curr_iov);
+        }
+
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
             tries--;
