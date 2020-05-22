@@ -207,10 +207,6 @@ static void update_epoll_flags(int fd,
          * suspended. So set both flags here. This works because EPOLLET isn't
          * used. */
         [CONN_CORO_RESUME] = CONN_EVENTS_RESUME,
-
-        [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
-        [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
-        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
     };
     static const enum lwan_connection_flags and_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = ~0,
@@ -222,10 +218,6 @@ static void update_epoll_flags(int fd,
         [CONN_CORO_SUSPEND_TIMER] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_ASYNC_AWAIT),
         [CONN_CORO_SUSPEND_ASYNC_AWAIT] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_TIMER),
         [CONN_CORO_RESUME] = ~CONN_SUSPENDED,
-
-        [CONN_CORO_ASYNC_AWAIT_READ] = ~0,
-        [CONN_CORO_ASYNC_AWAIT_WRITE] = ~0,
-        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = ~0,
     };
     enum lwan_connection_flags prev_flags = conn->flags;
 
@@ -244,6 +236,41 @@ static void update_epoll_flags(int fd,
         lwan_status_perror("epoll_ctl");
 }
 
+static enum lwan_connection_coro_yield
+resume_async(enum lwan_connection_coro_yield yield_result,
+             int64_t from_coro,
+             struct lwan_connection *conn,
+             int epoll_fd)
+{
+    assert(yield_result >= CONN_CORO_ASYNC_AWAIT_READ &&
+           yield_result <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
+
+    static const enum lwan_connection_flags to_connection_flags[] = {
+        [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
+        [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
+        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
+    };
+    struct epoll_event event = {
+        .events = conn_flags_to_epoll_events(to_connection_flags[yield_result]),
+        .data.ptr = conn,
+    };
+    int await_fd = (int)((uint64_t)from_coro >> 32);
+
+    assert(event.events != 0);
+    assert(await_fd >= 0);
+
+    /* FIXME: maybe store the state in the lwan_connection array to avoid trying
+     * this syscall twice the first time? */
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, await_fd, &event) < 0) {
+        if (UNLIKELY(errno != ENOENT))
+            return CONN_CORO_ABORT;
+        if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event) < 0))
+            return CONN_CORO_ABORT;
+    }
+
+    return CONN_CORO_SUSPEND_ASYNC_AWAIT;
+}
+
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
                                       struct lwan_connection *conn,
                                       int epoll_fd)
@@ -253,42 +280,11 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     int64_t from_coro = coro_resume(conn->coro);
     enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
 
+    if (UNLIKELY(yield_result >= CONN_CORO_ASYNC))
+        yield_result = resume_async(yield_result, from_coro, conn, epoll_fd);
+
     if (UNLIKELY(yield_result == CONN_CORO_ABORT))
         return timeout_queue_expire(tq, conn);
-
-    if (UNLIKELY(yield_result >= CONN_CORO_ASYNC)) {
-        assert(yield_result >= CONN_CORO_ASYNC_AWAIT_READ &&
-               yield_result <= CONN_CORO_ASYNC_RESUME);
-
-        static const enum lwan_connection_flags to_connection_flags[] = {
-            [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
-            [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
-            [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
-            [CONN_CORO_ASYNC_RESUME] = 0,
-        };
-        struct epoll_event event = {
-            .events =
-                conn_flags_to_epoll_events(to_connection_flags[yield_result]),
-            .data.ptr = conn,
-        };
-        int await_fd = (int)((uint64_t)from_coro >> 32);
-        int op;
-
-        assert(event.events != 0);
-        assert(await_fd >= 0);
-        assert(await_fd <= (int)(tq->lwan->thread.count * tq->lwan->thread.max_fd));
-
-        if (yield_result == CONN_CORO_ASYNC_RESUME) {
-            op = EPOLL_CTL_DEL;
-            yield_result = CONN_CORO_RESUME;
-        } else {
-            op = EPOLL_CTL_ADD;
-            yield_result = CONN_CORO_SUSPEND_ASYNC_AWAIT;
-        }
-
-        if (UNLIKELY(epoll_ctl(epoll_fd, op, await_fd, &event) < 0))
-            lwan_status_perror("epoll_ctl");
-    }
 
     return update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn,
                               epoll_fd, yield_result);

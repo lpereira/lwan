@@ -1759,13 +1759,9 @@ static inline void async_await_fd(struct coro *coro,
                                   enum lwan_connection_coro_yield events)
 {
     assert(events >= CONN_CORO_ASYNC_AWAIT_READ &&
-           events <= CONN_CORO_ASYNC_RESUME);
+           events <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
 
-    coro_yield(coro, make_async_yield_value(fd, events));
-
-    /* FIXME: it should be possible to remove this second yield */
-    return (void)coro_yield(coro,
-                            make_async_yield_value(fd, CONN_CORO_ASYNC_RESUME));
+    return (void)coro_yield(coro, make_async_yield_value(fd, events));
 }
 
 void lwan_request_await_read(struct lwan_request *r, int fd)
