@@ -36,10 +36,7 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 {
     ssize_t total_written = 0;
     int curr_iov = 0;
-    int flags = 0;
-
-    if (request->conn->flags & CONN_CORK)
-        flags |= MSG_MORE;
+    int flags = (request->conn->flags & CONN_CORK) ? MSG_MORE : 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t written;
