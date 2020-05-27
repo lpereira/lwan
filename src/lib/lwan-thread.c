@@ -173,16 +173,6 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
     return map[flags & CONN_EVENTS_MASK];
 }
 
-#if defined(__linux__)
-# define CONN_EVENTS_RESUME CONN_EVENTS_READ_WRITE
-#else
-/* Kqueue doesn't like when you filter on both read and write, so
- * wait only on write when resuming a coro suspended by a timer.
- * The I/O wrappers should yield if trying to read without anything
- * in the buffer, changing the filter to only read, so this is OK. */
-# define CONN_EVENTS_RESUME CONN_EVENTS_WRITE
-#endif
-
 static void update_epoll_flags(int fd,
                                struct lwan_connection *conn,
                                int epoll_fd,
@@ -202,11 +192,14 @@ static void update_epoll_flags(int fd,
         [CONN_CORO_SUSPEND_TIMER] = CONN_SUSPENDED_TIMER,
         [CONN_CORO_SUSPEND_ASYNC_AWAIT] = CONN_SUSPENDED_ASYNC_AWAIT,
 
-        /* Either EPOLLIN or EPOLLOUT have to be set here.  There's no need to
-         * know which event, because they were both cleared when the coro was
-         * suspended. So set both flags here. This works because EPOLLET isn't
-         * used. */
-        [CONN_CORO_RESUME] = CONN_EVENTS_RESUME,
+        /* Ideally, when suspending a coroutine, the current flags&CONN_EVENTS_MASK
+         * would have to be stored and restored -- however, resuming as if the
+         * client coroutine is interested in a write event always guarantees that
+         * they'll be resumed as they're TCP sockets.  There's a good chance that
+         * trying to read from a socket after resuming a coroutine will succeed,
+         * but if it doesn't because read() returns -EAGAIN, the I/O wrappers will
+         * yield with CONN_CORO_WANT_READ anyway.  */
+        [CONN_CORO_RESUME] = CONN_EVENTS_WRITE,
     };
     static const enum lwan_connection_flags and_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = ~0,
