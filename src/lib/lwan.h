@@ -294,6 +294,11 @@ enum lwan_connection_flags {
     CONN_SUSPENDED = CONN_SUSPENDED_TIMER | CONN_SUSPENDED_ASYNC_AWAIT,
 
     CONN_CORK = 1 << 9,
+
+    /* Set only on file descriptors being watched by async/await to determine
+     * which epoll operation to use when suspending/resuming (ADD/MOD). Reset
+     * whenever associated client connection is closed. */
+    CONN_ASYNC_AWAIT = 1 << 10,
 };
 
 enum lwan_connection_coro_yield {

@@ -229,8 +229,16 @@ static void update_epoll_flags(int fd,
         lwan_status_perror("epoll_ctl");
 }
 
+static void clear_async_await_flag(void *data)
+{
+    struct lwan_connection *async_fd_conn = data;
+
+    async_fd_conn->flags &= ~CONN_ASYNC_AWAIT;
+}
+
 static enum lwan_connection_coro_yield
-resume_async(enum lwan_connection_coro_yield yield_result,
+resume_async(struct timeout_queue *tq,
+             enum lwan_connection_coro_yield yield_result,
              int64_t from_coro,
              struct lwan_connection *conn,
              int epoll_fd)
@@ -252,16 +260,18 @@ resume_async(enum lwan_connection_coro_yield yield_result,
     assert(event.events != 0);
     assert(await_fd >= 0);
 
-    /* FIXME: maybe store the state in the lwan_connection array to avoid trying
-     * this syscall twice the first time? */
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, await_fd, &event) < 0) {
-        if (UNLIKELY(errno != ENOENT))
-            return CONN_CORO_ABORT;
-        if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event) < 0))
-            return CONN_CORO_ABORT;
+    struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
+    int ret;
+    if (await_fd_conn->flags & CONN_ASYNC_AWAIT) {
+        ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, await_fd, &event);
+    } else {
+        ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event);
+        if (LIKELY(!ret)) {
+            await_fd_conn->flags |= CONN_ASYNC_AWAIT;
+            coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
+        }
     }
-
-    return CONN_CORO_SUSPEND_ASYNC_AWAIT;
+    return LIKELY(!ret) ? CONN_CORO_SUSPEND_ASYNC_AWAIT : CONN_CORO_ABORT;
 }
 
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
@@ -274,7 +284,7 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
 
     if (UNLIKELY(yield_result >= CONN_CORO_ASYNC))
-        yield_result = resume_async(yield_result, from_coro, conn, epoll_fd);
+        yield_result = resume_async(tq, yield_result, from_coro, conn, epoll_fd);
 
     if (UNLIKELY(yield_result == CONN_CORO_ABORT))
         return timeout_queue_expire(tq, conn);
