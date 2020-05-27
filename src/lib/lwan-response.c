@@ -431,7 +431,6 @@ void lwan_response_send_chunk(struct lwan_request *request)
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
     lwan_strbuf_reset(request->response.buffer);
-    coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
 }
 
 bool lwan_response_set_event_stream(struct lwan_request *request,
