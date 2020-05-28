@@ -19,6 +19,7 @@
  */
 
 #include <stdlib.h>
+#include <limits.h>
 
 #include "lwan.h"
 #include "lwan-template.h"
@@ -285,6 +286,23 @@ LWAN_HANDLER(templated_index)
     return HTTP_INTERNAL_ERROR;
 }
 
+static void setup_timezone(void)
+{
+    char tzpath_buf[PATH_MAX], *tzpath;
+
+    tzpath = realpath("/etc/localtime", tzpath_buf);
+    if (!tzpath)
+        return;
+
+    char *last_slash = strrchr(tzpath, '/');
+    if (last_slash && !strcmp(last_slash, "/UTC")) {
+        /* If this system is set up to use UTC, there's no need to
+         * stat(/etc/localtime) every time localtime() is called like
+         * Glibc likes to do. */
+        setenv("TZ", ":/etc/localtime", 1);
+    }
+}
+
 int main(void)
 {
     struct index sample_clock = {
@@ -337,6 +355,8 @@ int main(void)
         {},
     };
     struct lwan l;
+
+    setup_timezone();
 
     lwan_init(&l);
 
