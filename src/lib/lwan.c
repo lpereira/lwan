@@ -132,6 +132,91 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
     return copy;
 }
 
+static void lwan_headers_init(struct lwan *l, struct lwan_key_value *hdrs)
+{
+    assert(l);
+
+    struct lwan_strbuf * headers = &l->headers;
+    lwan_strbuf_init(headers);
+    bool set_server = false;
+    if (hdrs) {
+        for (struct lwan_key_value *kv = hdrs; kv->key; ++kv) {
+            if (!strcasecmp(kv->key, "server"))
+                set_server = true;
+
+            if (LIKELY(kv->value)) {
+                lwan_strbuf_append_printf(headers, "\r\n%s: %s", kv->key, kv->value);
+            }
+        }
+    }
+
+    if (LIKELY(!set_server)) {
+        lwan_strbuf_append_strz(headers, "\r\nServer: lwan");
+    }
+
+    lwan_strbuf_append_strz(headers, "\r\n\r\n");
+}
+
+static void parse_global_headers(struct config *c,
+                                 const struct config_line *l,
+                                 struct lwan *lwan)
+{
+    struct lwan_key_value *kv;
+    struct lwan_key_value_array hdrs;
+    lwan_key_value_array_init(&hdrs);
+
+    while ((l = config_read_line(c))) {
+        switch (l->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(
+                c, "No sections are supported under the 'headers' section");
+            goto cleanup;
+
+        case CONFIG_LINE_TYPE_LINE:
+            kv = lwan_key_value_array_append(&hdrs);
+            if (!kv) {
+                lwan_status_critical_perror(
+                    "Could not allocate memory for custom response header");
+            }
+
+            kv->key = strdup(l->key);
+            if (!kv->key) {
+                lwan_status_critical_perror(
+                    "Could not allocate memory for custom response header");
+            }
+
+            kv->value = strdup(l->value);
+            if (!kv->value) {
+                lwan_status_critical_perror(
+                    "Could not allocate memory for custom response header");
+            }
+            break;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            kv = lwan_key_value_array_append(&hdrs);
+            if (!kv) {
+                lwan_status_critical_perror(
+                    "Could not allocate memory for custom response header");
+            }
+
+            kv->key = NULL;
+            kv->value = NULL;
+
+            lwan_headers_init(lwan, lwan_key_value_array_get_array(&hdrs));
+            goto cleanup;
+        }
+    }
+
+    config_error(c, "EOF while looking for end of 'headers' section");
+
+cleanup:
+    LWAN_ARRAY_FOREACH (&hdrs, kv) {
+        free(kv->key);
+        free(kv->value);
+    }
+    lwan_key_value_array_reset(&hdrs);
+}
+
 static void parse_listener_prefix_authorization(struct config *c,
                                                 const struct config_line *l,
                                                 struct lwan_url_map *url_map)
@@ -416,6 +501,8 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 }
             } else if (streq(line->key, "straitjacket")) {
                 lwan_straitjacket_enforce_from_config(conf);
+            } else if (streq(line->key, "headers")) {
+                parse_global_headers(conf, line, lwan);
             } else {
                 config_error(conf, "Unknown section type: %s", line->key);
             }
@@ -543,6 +630,10 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     try_setup_from_config(l, config);
 
+    if (!lwan_strbuf_get_length(&l->headers)) {
+        lwan_headers_init(l, config->global_headers);
+    }
+
     lwan_response_init(l);
 
     /* Continue initialization as normal. */
@@ -597,6 +688,7 @@ void lwan_shutdown(struct lwan *l)
     lwan_status_debug("Shutting down URL handlers");
     lwan_trie_destroy(&l->url_map_trie);
 
+    lwan_strbuf_free(&l->headers);
     free(l->conns);
 
     lwan_response_shutdown(l);

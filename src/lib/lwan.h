@@ -377,6 +377,7 @@ struct lwan_request {
     struct lwan_value url;
     struct lwan_value original_url;
     struct lwan_connection *conn;
+    const struct lwan_strbuf *const global_response_headers;
     struct lwan_proxy *proxy;
 
     struct timeout timeout;
@@ -457,6 +458,7 @@ struct lwan_straitjacket {
 struct lwan_config {
     /* Field will be overridden during initialization. */
     enum lwan_request_flags request_flags;
+    struct lwan_key_value *global_headers;
 
     char *listener;
     char *error_template;
@@ -478,6 +480,7 @@ struct lwan_config {
 struct lwan {
     struct lwan_trie url_map_trie;
     struct lwan_connection *conns;
+    struct lwan_strbuf headers;
 
     struct {
         pthread_barrier_t barrier;

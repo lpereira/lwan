@@ -117,6 +117,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
     while (true) {
         struct lwan_request request = {.conn = conn,
+                                       .global_response_headers = &lwan->headers,
                                        .fd = fd,
                                        .response = {.buffer = &strbuf},
                                        .flags = flags,

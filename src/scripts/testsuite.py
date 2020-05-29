@@ -423,7 +423,7 @@ class TestFileServing(LwanTest):
   def test_has_lwan_server_header(self):
     r = requests.get('http://127.0.0.1:8080/100.html')
     self.assertTrue('server' in r.headers)
-    self.assertEqual(r.headers['server'], 'lwan')
+    self.assertEqual(r.headers['server'], 'lwan/testrunner')
 
 
   def test_directory_without_trailing_slash_redirects(self):
@@ -695,6 +695,12 @@ class TestHelloWorld(LwanTest):
     self.assertTrue('\n\nCookies\n' in r.text)
     for k, v in list(c.items()):
       self.assertTrue('Key = "%s"; Value = "%s"\n' % (k, v) in r.text)
+
+  def test_global_headers_are_present(self):
+    r = requests.get('http://127.0.0.1:8080/hello')
+
+    self.assertTrue('x-global-header' in r.headers)
+    self.assertEqual(r.headers['x-global-header'], 'present')
 
   def test_head_request_hello(self):
     r = requests.head('http://127.0.0.1:8080/hello',
