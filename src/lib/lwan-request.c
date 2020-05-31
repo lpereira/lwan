@@ -1784,18 +1784,16 @@ ssize_t lwan_request_async_read(struct lwan_request *request,
                                 void *buf,
                                 size_t len)
 {
-await:
-    lwan_request_await_read(request, fd);
-
     while (true) {
-        ssize_t r = read(fd, buf, len);
+        ssize_t r = recv(fd, buf, len, MSG_DONTWAIT);
 
         if (r < 0) {
             switch (errno) {
+            case EWOULDBLOCK:
+                lwan_request_await_read(request, fd);
+                /* Fallthrough */
             case EINTR:
                 continue;
-            case EWOULDBLOCK:
-                goto await;
             }
         }
 
@@ -1808,18 +1806,16 @@ ssize_t lwan_request_async_write(struct lwan_request *request,
                                  const void *buf,
                                  size_t len)
 {
-await:
-    lwan_request_await_write(request, fd);
-
     while (true) {
-        ssize_t r = write(fd, buf, len);
+        ssize_t r = send(fd, buf, len, MSG_DONTWAIT);
 
         if (r < 0) {
             switch (errno) {
+            case EWOULDBLOCK:
+                lwan_request_await_write(request, fd);
+                /* Fallthrough */
             case EINTR:
                 continue;
-            case EWOULDBLOCK:
-                goto await;
             }
         }
 

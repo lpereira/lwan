@@ -165,9 +165,9 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
         [CONN_EVENTS_WRITE] = EPOLLOUT | EPOLLRDHUP,
         [CONN_EVENTS_READ] = EPOLLIN | EPOLLRDHUP,
         [CONN_EVENTS_READ_WRITE] = EPOLLIN | EPOLLOUT | EPOLLRDHUP,
-        [CONN_EVENTS_ASYNC_READ] = EPOLLET | EPOLLIN | EPOLLRDHUP | EPOLLONESHOT,
-        [CONN_EVENTS_ASYNC_WRITE] = EPOLLET | EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT,
-        [CONN_EVENTS_ASYNC_READ_WRITE] = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT,
+        [CONN_EVENTS_ASYNC_READ] = EPOLLET | EPOLLIN | EPOLLRDHUP,
+        [CONN_EVENTS_ASYNC_WRITE] = EPOLLET | EPOLLOUT | EPOLLRDHUP,
+        [CONN_EVENTS_ASYNC_READ_WRITE] = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP,
     };
 
     return map[flags & CONN_EVENTS_MASK];
@@ -261,17 +261,17 @@ resume_async(struct timeout_queue *tq,
     assert(await_fd >= 0);
 
     struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
-    int ret;
-    if (await_fd_conn->flags & CONN_ASYNC_AWAIT) {
-        ret = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, await_fd, &event);
-    } else {
-        ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event);
-        if (LIKELY(!ret)) {
-            await_fd_conn->flags |= CONN_ASYNC_AWAIT;
-            coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
-        }
+    if (!(await_fd_conn->flags & CONN_ASYNC_AWAIT))
+        return CONN_CORO_SUSPEND_ASYNC_AWAIT;
+    if (!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event)) {
+
+        await_fd_conn->flags |= CONN_ASYNC_AWAIT;
+        coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
+
+        return CONN_CORO_SUSPEND_ASYNC_AWAIT;
     }
-    return LIKELY(!ret) ? CONN_CORO_SUSPEND_ASYNC_AWAIT : CONN_CORO_ABORT;
+
+    return CONN_CORO_ABORT;
 }
 
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
