@@ -243,31 +243,41 @@ resume_async(struct timeout_queue *tq,
              struct lwan_connection *conn,
              int epoll_fd)
 {
-    assert(yield_result >= CONN_CORO_ASYNC_AWAIT_READ &&
-           yield_result <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
-
     static const enum lwan_connection_flags to_connection_flags[] = {
         [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
         [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
         [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
     };
-    struct epoll_event event = {
-        .events = conn_flags_to_epoll_events(to_connection_flags[yield_result]),
-        .data.ptr = conn,
-    };
     int await_fd = (int)((uint64_t)from_coro >> 32);
+    enum lwan_connection_flags flags;
+    uint32_t events;
+    int op;
 
-    assert(event.events != 0);
     assert(await_fd >= 0);
+    assert(yield_result >= CONN_CORO_ASYNC_AWAIT_READ &&
+           yield_result <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
+
+    flags = to_connection_flags[yield_result];
+    events = conn_flags_to_epoll_events(flags);
+
+    assert(events != 0);
 
     struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
-    if (!(await_fd_conn->flags & CONN_ASYNC_AWAIT))
-        return CONN_CORO_SUSPEND_ASYNC_AWAIT;
-    if (!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, await_fd, &event)) {
+    if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
+        if (LIKELY((await_fd_conn->flags & CONN_EVENTS_MASK) == flags))
+            return CONN_CORO_SUSPEND_ASYNC_AWAIT;
 
-        await_fd_conn->flags |= CONN_ASYNC_AWAIT;
+        op = EPOLL_CTL_MOD;
+    } else {
+        op = EPOLL_CTL_ADD;
+        flags |= CONN_ASYNC_AWAIT;
         coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
+    }
 
+    struct epoll_event event = {.events = events, .data.ptr = conn};
+    if (LIKELY(!epoll_ctl(epoll_fd, op, await_fd, &event))) {
+        await_fd_conn->flags &= ~CONN_EVENTS_MASK;
+        await_fd_conn->flags |= flags;
         return CONN_CORO_SUSPEND_ASYNC_AWAIT;
     }
 
