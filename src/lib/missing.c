@@ -166,6 +166,8 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 
         if (event->events & EPOLLONESHOT)
             flags |= EV_ONESHOT;
+        if (event->events & EPOLLET)
+            flags |= EV_CLEAR;
 
         flags |= EV_ERROR; /* EPOLLERR is always set. */
         flags |= EV_EOF;   /* EPOLLHUP is always set. */
