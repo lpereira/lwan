@@ -274,31 +274,27 @@ enum lwan_connection_flags {
     CONN_EVENTS_READ = 1 << 0,
     CONN_EVENTS_WRITE = 1 << 1,
     CONN_EVENTS_READ_WRITE = CONN_EVENTS_READ | CONN_EVENTS_WRITE,
-    CONN_EVENTS_ASYNC = 1 << 2,
-    CONN_EVENTS_ASYNC_READ = CONN_EVENTS_ASYNC | CONN_EVENTS_READ,
-    CONN_EVENTS_ASYNC_WRITE = CONN_EVENTS_ASYNC | CONN_EVENTS_WRITE,
-    CONN_EVENTS_ASYNC_READ_WRITE = CONN_EVENTS_ASYNC | CONN_EVENTS_READ_WRITE,
-    CONN_EVENTS_MASK = 1 << 0 | 1 << 1 | 1 << 2,
+    CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
 
-    CONN_IS_KEEP_ALIVE = 1 << 3,
-    CONN_IS_UPGRADE = 1 << 4,
-    CONN_IS_WEBSOCKET = 1 << 5,
+    CONN_IS_KEEP_ALIVE = 1 << 2,
+    CONN_IS_UPGRADE = 1 << 3,
+    CONN_IS_WEBSOCKET = 1 << 4,
 
     /* This is only used to determine if timeout_del() is necessary when
      * the connection coro ends. */
-    CONN_SUSPENDED_TIMER = 1 << 6,
-    CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 7,
+    CONN_SUSPENDED_TIMER = 1 << 5,
+    CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
 
-    CONN_SUSPENDED_ASYNC_AWAIT = 1 << 8,
+    CONN_SUSPENDED_ASYNC_AWAIT = 1 << 7,
 
     CONN_SUSPENDED = CONN_SUSPENDED_TIMER | CONN_SUSPENDED_ASYNC_AWAIT,
 
-    CONN_CORK = 1 << 9,
+    CONN_CORK = 1 << 8,
 
     /* Set only on file descriptors being watched by async/await to determine
      * which epoll operation to use when suspending/resuming (ADD/MOD). Reset
      * whenever associated client connection is closed. */
-    CONN_ASYNC_AWAIT = 1 << 10,
+    CONN_ASYNC_AWAIT = 1 << 9,
 };
 
 enum lwan_connection_coro_yield {

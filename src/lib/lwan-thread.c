@@ -165,9 +165,6 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
         [CONN_EVENTS_WRITE] = EPOLLOUT | EPOLLRDHUP,
         [CONN_EVENTS_READ] = EPOLLIN | EPOLLRDHUP,
         [CONN_EVENTS_READ_WRITE] = EPOLLIN | EPOLLOUT | EPOLLRDHUP,
-        [CONN_EVENTS_ASYNC_READ] = EPOLLET | EPOLLIN | EPOLLRDHUP,
-        [CONN_EVENTS_ASYNC_WRITE] = EPOLLET | EPOLLOUT | EPOLLRDHUP,
-        [CONN_EVENTS_ASYNC_READ_WRITE] = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP,
     };
 
     return map[flags & CONN_EVENTS_MASK];
@@ -244,13 +241,12 @@ resume_async(struct timeout_queue *tq,
              int epoll_fd)
 {
     static const enum lwan_connection_flags to_connection_flags[] = {
-        [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_ASYNC_READ,
-        [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_ASYNC_WRITE,
-        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_ASYNC_READ_WRITE,
+        [CONN_CORO_ASYNC_AWAIT_READ] = CONN_EVENTS_READ,
+        [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_WRITE,
+        [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_READ_WRITE,
     };
     int await_fd = (int)((uint64_t)from_coro >> 32);
     enum lwan_connection_flags flags;
-    uint32_t events;
     int op;
 
     assert(await_fd >= 0);
@@ -258,9 +254,6 @@ resume_async(struct timeout_queue *tq,
            yield_result <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
 
     flags = to_connection_flags[yield_result];
-    events = conn_flags_to_epoll_events(flags);
-
-    assert(events != 0);
 
     struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
     if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
@@ -274,7 +267,8 @@ resume_async(struct timeout_queue *tq,
         coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
     }
 
-    struct epoll_event event = {.events = events, .data.ptr = conn};
+    struct epoll_event event = {.events = conn_flags_to_epoll_events(flags),
+                                .data.ptr = conn};
     if (LIKELY(!epoll_ctl(epoll_fd, op, await_fd, &event))) {
         await_fd_conn->flags &= ~CONN_EVENTS_MASK;
         await_fd_conn->flags |= flags;
