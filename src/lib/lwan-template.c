@@ -1538,7 +1538,8 @@ action_apply_tpl: {
         struct lwan_tpl *inner_tpl = chunk->data;
 
         if (LIKELY(lwan_strbuf_grow_by(buf, inner_tpl->minimum_size))) {
-            if (!apply(inner_tpl, inner_tpl->chunks.base.base, buf, variables, NULL)) {
+            if (!apply(inner_tpl, chunk_array_get_array(&inner_tpl->chunks),
+                       buf, variables, NULL)) {
                 lwan_status_warning("Could not apply subtemplate");
                 return NULL;
             }

@@ -227,7 +227,7 @@ LWAN_LUA_METHOD(set_headers)
         goto out;
     kv->key = kv->value = NULL;
 
-    request->response.headers = headers->base.base;
+    request->response.headers = lwan_key_value_array_get_array(headers);
     lua_pushinteger(L, (lua_Integer)headers->base.elements);
     return 1;
 
@@ -291,7 +291,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
     luaL_openlibs(L);
 
     luaL_newmetatable(L, request_metatable_name);
-    luaL_register(L, NULL, lua_methods.base.base);
+    luaL_register(L, NULL, lwan_lua_method_array_get_array(&lua_methods));
     lua_setfield(L, -1, "__index");
 
     if (script_file) {

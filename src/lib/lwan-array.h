@@ -90,6 +90,11 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, &array->storage)
 
 #define DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, inline_storage_)   \
+    __attribute__((unused)) static inline element_type_                        \
+        *array_type_##_get_array(struct array_type_ *array)                    \
+    {                                                                          \
+        return (element_type_ *)array->base.base;                              \
+    }                                                                          \
     __attribute__((unused))                                                    \
         __attribute__((nonnull(1))) static inline void array_type_##_init(     \
             struct array_type_ *array)                                         \
