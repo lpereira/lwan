@@ -478,6 +478,7 @@ static void *parse_key_value(struct parser *parser)
 {
     struct config_line line = {.type = CONFIG_LINE_TYPE_LINE};
     const struct lexeme *lexeme;
+    enum lexeme_type last_lexeme = TOTAL_LEXEMES;
     size_t key_size;
 
     while ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer))) {
@@ -541,8 +542,12 @@ static void *parse_key_value(struct parser *parser)
             break;
 
         case LEXEME_STRING:
+            if (last_lexeme == LEXEME_STRING)
+                lwan_strbuf_append_char(&parser->strbuf, ' ');
+
             lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                    lexeme->value.len);
+
             break;
 
         case LEXEME_CLOSE_BRACKET:
@@ -561,6 +566,8 @@ static void *parse_key_value(struct parser *parser)
                               lexeme_type_str[lexeme->type]);
             return NULL;
         }
+
+        last_lexeme = lexeme->type;
     }
 
     lwan_status_error("EOF while parsing key-value");
