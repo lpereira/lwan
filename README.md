@@ -296,6 +296,22 @@ malconfiguration.)
 | `chroot` | `str` | `NULL` | Path to `chroot()` |
 | `drop_capabilities` | `bool` | `true` | Drop all capabilities with capset(2) (under Linux), or pledge(2) (under OpenBSD). |
 
+### Headers
+
+If there's a need to specify custom headers for each response, one can declare
+a `headers` section in the global scope; for example:
+
+```
+headers {
+	Server = Apache/1.0.0 or nginx/1.0.0 (at your option)
+	Some-Custom-Header = ${WITH_THIS_ENVIRONMENT_VARIABLE}
+}
+```
+
+Will both override the `Server` header (`Server: lwan` won't be sent), and set
+`Some-Custom-Header` with the value obtained from the environment variable
+`$WITH_THIS_ENVIRONMENT_VARIABLE`.
+
 ### Listeners
 
 In order to specify which interfaces Lwan should listen on, a `listener` section
