@@ -78,10 +78,10 @@ static void graceful_close(struct lwan *l,
 
         if (r < 0) {
             switch (errno) {
-            case EINTR:
-                continue;
             case EAGAIN:
                 coro_yield(conn->coro, CONN_CORO_WANT_READ);
+                /* Fallthrough */
+            case EINTR:
                 continue;
             default:
                 return;
