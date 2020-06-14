@@ -1470,6 +1470,8 @@ const char *lwan_request_get_header(struct lwan_request *request,
     char name[64];
     int r;
 
+    assert(strchr(header, ':') == NULL);
+
     r = snprintf(name, sizeof(name), "%s: ", header);
     if (UNLIKELY(r < 0 || r >= (int)sizeof(name)))
         return NULL;
