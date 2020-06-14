@@ -80,6 +80,18 @@ static void emit(struct lexer *lexer, enum json_tokens token)
     lexer->start = lexer->pos;
 }
 
+static void* emit_cont(struct lexer *lexer, enum json_tokens token)
+{
+    emit(lexer, token);
+    return lexer_json;
+}
+
+static void* emit_end(struct lexer *lexer, enum json_tokens token)
+{
+    emit(lexer, token);
+    return NULL;
+}
+
 static int next(struct lexer *lexer)
 {
     if (lexer->pos >= lexer->end) {
@@ -112,8 +124,7 @@ static void *lexer_string(struct lexer *lexer)
         int chr = next(lexer);
 
         if (UNLIKELY(chr == '\0')) {
-            emit(lexer, JSON_TOK_ERROR);
-            return NULL;
+            return emit_end(lexer, JSON_TOK_ERROR);
         }
 
         if (chr == '\\') {
@@ -162,8 +173,7 @@ static void *lexer_string(struct lexer *lexer)
     }
 
 error:
-    emit(lexer, JSON_TOK_ERROR);
-    return NULL;
+    return emit_end(lexer, JSON_TOK_ERROR);
 }
 
 static int accept_run(struct lexer *lexer, const char *run)
@@ -184,31 +194,26 @@ static void *lexer_boolean(struct lexer *lexer)
     switch (next(lexer)) {
     case 'r':
         if (LIKELY(!accept_run(lexer, "ue"))) {
-            emit(lexer, JSON_TOK_TRUE);
-            return lexer_json;
+            return emit_cont(lexer, JSON_TOK_TRUE);
         }
         break;
     case 'a':
         if (LIKELY(!accept_run(lexer, "lse"))) {
-            emit(lexer, JSON_TOK_FALSE);
-            return lexer_json;
+            return emit_cont(lexer, JSON_TOK_FALSE);
         }
         break;
     }
 
-    emit(lexer, JSON_TOK_ERROR);
-    return NULL;
+    return emit_end(lexer, JSON_TOK_ERROR);
 }
 
 static void *lexer_null(struct lexer *lexer)
 {
     if (UNLIKELY(accept_run(lexer, "ull") < 0)) {
-        emit(lexer, JSON_TOK_ERROR);
-        return NULL;
+        return emit_end(lexer, JSON_TOK_ERROR);
     }
 
-    emit(lexer, JSON_TOK_NULL);
-    return lexer_json;
+    return emit_cont(lexer, JSON_TOK_NULL);
 }
 
 static void *lexer_number(struct lexer *lexer)
@@ -221,9 +226,7 @@ static void *lexer_number(struct lexer *lexer)
         }
 
         backup(lexer);
-        emit(lexer, JSON_TOK_NUMBER);
-
-        return lexer_json;
+        return emit_cont(lexer, JSON_TOK_NUMBER);
     }
 }
 
@@ -234,23 +237,26 @@ static void *lexer_json(struct lexer *lexer)
 
         switch (chr) {
         case '\0':
-            emit(lexer, JSON_TOK_EOF);
-            return NULL;
+            return emit_end(lexer, JSON_TOK_EOF);
+
         case '}':
         case '{':
         case '[':
         case ']':
         case ',':
         case ':':
-            emit(lexer, (enum json_tokens)chr);
-            return lexer_json;
+            return emit_cont(lexer, (enum json_tokens)chr);
+
         case '"':
             return lexer_string;
+
         case 'n':
             return lexer_null;
+
         case 't':
         case 'f':
             return lexer_boolean;
+
         case '-':
             if (LIKELY(isdigit(peek(lexer)))) {
                 return lexer_number;
@@ -267,8 +273,7 @@ static void *lexer_json(struct lexer *lexer)
                 return lexer_number;
             }
 
-            emit(lexer, JSON_TOK_ERROR);
-            return NULL;
+            return emit_end(lexer, JSON_TOK_ERROR);
         }
     }
 }
