@@ -254,10 +254,14 @@ void lwan_sendfile(struct lwan_request *request,
                                   (struct iovec[]){{.iov_base = (void *)header,
                                                     .iov_len = header_len}},
                               .hdr_cnt = 1};
-    size_t total_written = 0;
     off_t sbytes = (off_t)count;
 
-    do {
+    if (!count) {
+        /* FreeBSD's sendfile() won't send the headers when count is 0. Why? */
+        return (void)lwan_writev(request, headers.headers, headers.hdr_cnt);
+    }
+
+    while (true) {
         int r;
 
 #ifdef __APPLE__
@@ -279,11 +283,13 @@ void lwan_sendfile(struct lwan_request *request,
             }
         }
 
-        total_written += (size_t)sbytes;
+        count -= (size_t)sbytes;
+        if (!count)
+            break;
 
     try_again:
         coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
-    } while (total_written < count);
+    }
 }
 #else
 static size_t try_pread_file(struct lwan_request *request,
