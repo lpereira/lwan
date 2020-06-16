@@ -265,6 +265,8 @@ size_t lwan_prepare_response_header_full(
     bool date_overridden = false;
     bool expires_overridden = false;
 
+    assert(request->global_response_headers);
+
     p_headers = headers;
 
     if (UNLIKELY(request->flags & REQUEST_IS_HTTP_1_0))
@@ -354,10 +356,8 @@ size_t lwan_prepare_response_header_full(
             "\r\nAccess-Control-Allow-Headers: Origin, Accept, Content-Type");
     }
 
-    assert(request->global_response_headers);
-    assert(request->global_response_headers->buffer);
-    assert(request->global_response_headers->used);
-    APPEND_STRING_LEN(request->global_response_headers->buffer, request->global_response_headers->used);
+    APPEND_STRING_LEN(lwan_strbuf_get_buffer(request->global_response_headers),
+                      lwan_strbuf_get_length(request->global_response_headers));
 
     return (size_t)(p_headers - headers);
 }
