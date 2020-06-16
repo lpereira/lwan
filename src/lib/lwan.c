@@ -186,7 +186,7 @@ static void build_response_headers(struct lwan *l,
 static void parse_global_headers(struct config *c,
                                  struct lwan *lwan)
 {
-    struct lwan_key_value_array hdrs = LWAN_ARRAY_STATIC_INIT;
+    struct lwan_key_value_array hdrs = (struct lwan_key_value_array) LWAN_ARRAY_STATIC_INIT;
     const struct config_line *l;
     struct lwan_key_value *kv;
 

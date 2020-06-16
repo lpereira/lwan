@@ -103,7 +103,7 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
         __attribute__((nonnull(1))) static inline void array_type_##_init(     \
             struct array_type_ *array)                                         \
     {                                                                          \
-        array->base = LWAN_ARRAY_STATIC_INIT;                                  \
+        array->base = (struct lwan_array) LWAN_ARRAY_STATIC_INIT;              \
     }                                                                          \
     __attribute__((unused)) static inline int array_type_##_reset(             \
         struct array_type_ *array)                                             \
