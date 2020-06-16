@@ -195,7 +195,7 @@ main(int argc, char *argv[])
         lwan_init_with_config(&l, &c);
 
         const struct lwan_url_map map[] = {
-            { .prefix = "/", SERVE_FILES(root) },
+            { .prefix = "/", SERVE_FILES_SETTINGS(root, "index.html", true) },
             { }
         };
         lwan_set_url_map(&l, map);
