@@ -299,7 +299,10 @@ malconfiguration.)
 ### Headers
 
 If there's a need to specify custom headers for each response, one can declare
-a `headers` section in the global scope; for example:
+a `headers` section in the global scope.  The order which this section appears
+isn't important.
+
+For example, this declaration:
 
 ```
 headers {
@@ -311,6 +314,21 @@ headers {
 Will both override the `Server` header (`Server: lwan` won't be sent), and set
 `Some-Custom-Header` with the value obtained from the environment variable
 `$WITH_THIS_ENVIRONMENT_VARIABLE`.
+
+Some headers can't be overridden, as that would cause issues when sending their
+actual values while servicing requests.  These include but is not limited to:
+
+  - `Date`
+  - `Expires`
+  - `WWW-Authenticate`
+  - `Connection`
+  - `Content-Type`
+  - `Transfer-Encoding`
+  - All `Access-Control-Allow-` headers
+
+Header names are also case-insensitive (and case-preserving).  Overriding
+`SeRVeR` will override the `Server` header, but send it the way it was
+written in the configuration file.
 
 ### Listeners
 

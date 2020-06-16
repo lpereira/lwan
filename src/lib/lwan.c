@@ -132,38 +132,63 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
     return copy;
 }
 
-static void lwan_headers_init(struct lwan *l, struct lwan_key_value *hdrs)
+static bool can_override_header(const char *name)
 {
+    /* NOTE: Update lwan_prepare_response_header_full() in lwan-response.c
+     *       if new headers are added here. */
+
+    if (!strcasecmp(name, "Date"))
+        return false;
+    if (!strcasecmp(name, "Expires"))
+        return false;
+    if (!strcasecmp(name, "WWW-Authenticate"))
+        return false;
+    if (!strcasecmp(name, "Connection"))
+        return false;
+    if (!strcasecmp(name, "Content-Type"))
+        return false;
+    if (!strcasecmp(name, "Transfer-Encoding"))
+        return false;
+    if (!strncasecmp(name, "Access-Control-Allow-",
+                     sizeof("Access-Control-Allow-") - 1))
+        return false;
+
+    return true;
+}
+
+static void build_response_headers(struct lwan *l,
+                                   const struct lwan_key_value *kv)
+{
+    bool set_server = false;
+
     assert(l);
 
-    struct lwan_strbuf * headers = &l->headers;
-    lwan_strbuf_init(headers);
-    bool set_server = false;
-    if (hdrs) {
-        for (struct lwan_key_value *kv = hdrs; kv->key; ++kv) {
-            if (!strcasecmp(kv->key, "server"))
+    lwan_strbuf_init(&l->headers);
+
+    for (; kv && kv->key; kv++) {
+        if (!can_override_header(kv->key)) {
+            lwan_status_warning("Cannot override header '%s'", kv->key);
+        } else {
+            if (!strcasecmp(kv->key, "Server"))
                 set_server = true;
 
-            if (LIKELY(kv->value)) {
-                lwan_strbuf_append_printf(headers, "\r\n%s: %s", kv->key, kv->value);
-            }
+            lwan_strbuf_append_printf(&l->headers, "\r\n%s: %s", kv->key,
+                                      kv->value);
         }
     }
 
-    if (LIKELY(!set_server)) {
-        lwan_strbuf_append_strz(headers, "\r\nServer: lwan");
-    }
+    if (!set_server)
+        lwan_strbuf_append_strz(&l->headers, "\r\nServer: lwan");
 
-    lwan_strbuf_append_strz(headers, "\r\n\r\n");
+    lwan_strbuf_append_strz(&l->headers, "\r\n\r\n");
 }
 
 static void parse_global_headers(struct config *c,
-                                 const struct config_line *l,
                                  struct lwan *lwan)
 {
+    struct lwan_key_value_array hdrs = LWAN_ARRAY_STATIC_INIT;
+    const struct config_line *l;
     struct lwan_key_value *kv;
-    struct lwan_key_value_array hdrs;
-    lwan_key_value_array_init(&hdrs);
 
     while ((l = config_read_line(c))) {
         switch (l->type) {
@@ -202,7 +227,7 @@ static void parse_global_headers(struct config *c,
             kv->key = NULL;
             kv->value = NULL;
 
-            lwan_headers_init(lwan, lwan_key_value_array_get_array(&hdrs));
+            build_response_headers(lwan, lwan_key_value_array_get_array(&hdrs));
             goto cleanup;
         }
     }
@@ -502,7 +527,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             } else if (streq(line->key, "straitjacket")) {
                 lwan_straitjacket_enforce_from_config(conf);
             } else if (streq(line->key, "headers")) {
-                parse_global_headers(conf, line, lwan);
+                parse_global_headers(conf, lwan);
             } else {
                 config_error(conf, "Unknown section type: %s", line->key);
             }
@@ -630,9 +655,8 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     try_setup_from_config(l, config);
 
-    if (!lwan_strbuf_get_length(&l->headers)) {
-        lwan_headers_init(l, config->global_headers);
-    }
+    if (!lwan_strbuf_get_length(&l->headers))
+        build_response_headers(l, config->global_headers);
 
     lwan_response_init(l);
 

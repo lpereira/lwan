@@ -259,6 +259,9 @@ size_t lwan_prepare_response_header_full(
     size_t headers_buf_size,
     const struct lwan_key_value *additional_headers)
 {
+    /* NOTE: If new response headers are added here, update can_override_header()
+     *       in lwan.c */
+
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
     char buffer[INT_TO_STR_BUFFER_SIZE];
