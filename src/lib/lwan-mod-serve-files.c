@@ -101,6 +101,7 @@ struct cache_funcs {
 
 struct mmap_cache_data {
     struct lwan_value uncompressed;
+    struct lwan_value gzip;
     struct lwan_value deflated;
 #if defined(HAVE_BROTLI)
     struct lwan_value brotli;
@@ -468,51 +469,6 @@ error_zero_out:
 }
 #endif
 
-static bool mmap_init(struct file_cache_entry *ce,
-                      struct serve_files_priv *priv,
-                      const char *full_path,
-                      struct stat *st)
-{
-    struct mmap_cache_data *md = &ce->mmap_cache_data;
-    const char *path = full_path + priv->root_path_len;
-    int file_fd;
-
-    path += *path == '/';
-
-    file_fd = openat(priv->root_fd, path, open_mode);
-    if (UNLIKELY(file_fd < 0))
-        return false;
-
-    md->uncompressed.value =
-        mmap(NULL, (size_t)st->st_size, PROT_READ, MAP_SHARED, file_fd, 0);
-    close(file_fd);
-    if (UNLIKELY(md->uncompressed.value == MAP_FAILED))
-        return false;
-
-    lwan_madvise_queue(md->uncompressed.value, (size_t)st->st_size);
-
-    md->uncompressed.len = (size_t)st->st_size;
-    deflate_value(&md->uncompressed, &md->deflated);
-#if defined(HAVE_BROTLI)
-    brotli_value(&md->uncompressed, &md->brotli, &md->deflated);
-#endif
-#if defined(HAVE_ZSTD)
-    zstd_value(&md->uncompressed, &md->zstd, &md->deflated);
-#endif
-
-    ce->mime_type =
-        lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
-
-    return true;
-}
-
-static bool is_world_readable(mode_t mode)
-{
-    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
-
-    return (mode & world_readable) == world_readable;
-}
-
 static void
 try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
 {
@@ -521,6 +477,13 @@ try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
 
     if (LIKELY(size))
         lwan_readahead_queue(fd, 0, size);
+}
+
+static bool is_world_readable(mode_t mode)
+{
+    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
+
+    return (mode & world_readable) == world_readable;
 }
 
 static int try_open_compressed(const char *relpath,
@@ -565,6 +528,69 @@ close_and_out:
 out:
     *compressed_sz = 0;
     return -ENOENT;
+}
+
+static bool mmap_fd(const struct serve_files_priv *priv,
+                    int fd,
+                    const size_t size,
+                    struct lwan_value *value)
+{
+    void *ptr;
+
+    if (UNLIKELY(fd < 0))
+        goto fail;
+
+    ptr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    if (UNLIKELY(ptr == MAP_FAILED))
+        goto fail;
+
+    *value = (struct lwan_value){.value = ptr, .len = size};
+    return true;
+
+fail:
+    *value = (struct lwan_value){};
+    return false;
+}
+
+static bool mmap_init(struct file_cache_entry *ce,
+                      struct serve_files_priv *priv,
+                      const char *full_path,
+                      struct stat *st)
+{
+    struct mmap_cache_data *md = &ce->mmap_cache_data;
+    const char *path = full_path + priv->root_path_len;
+    int file_fd;
+
+    file_fd = openat(priv->root_fd, path + (*path == '/'), open_mode);
+    if (UNLIKELY(file_fd < 0))
+        return false;
+    if (!mmap_fd(priv, file_fd, (size_t)st->st_size, &md->uncompressed))
+        return false;
+    lwan_madvise_queue(md->uncompressed.value, md->uncompressed.len);
+
+    if (LIKELY(priv->serve_precompressed_files)) {
+        size_t compressed_size;
+
+        file_fd = try_open_compressed(path, priv, st, &compressed_size);
+        mmap_fd(priv, file_fd, compressed_size, &md->gzip);
+    } else {
+        md->gzip = (struct lwan_value){};
+    }
+
+    md->uncompressed.len = (size_t)st->st_size;
+    deflate_value(&md->uncompressed, &md->deflated);
+#if defined(HAVE_BROTLI)
+    brotli_value(&md->uncompressed, &md->brotli, &md->deflated);
+#endif
+#if defined(HAVE_ZSTD)
+    zstd_value(&md->uncompressed, &md->zstd, &md->deflated);
+#endif
+
+    ce->mime_type =
+        lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
+
+    return true;
 }
 
 static bool sendfile_init(struct file_cache_entry *ce,
@@ -878,6 +904,8 @@ static void mmap_free(struct file_cache_entry *fce)
     struct mmap_cache_data *md = &fce->mmap_cache_data;
 
     munmap(md->uncompressed.value, md->uncompressed.len);
+    if (md->gzip.value)
+        munmap(md->gzip.value, md->gzip.len);
     free(md->deflated.value);
 #if defined(HAVE_BROTLI)
     free(md->brotli.value);
@@ -1207,41 +1235,67 @@ serve_value_ok(struct lwan_request *request,
     return serve_value(request, mime_type, value, headers, HTTP_OK);
 }
 
+static const struct lwan_value *
+mmap_best_data(struct lwan_request *request,
+               struct mmap_cache_data *md,
+               const struct lwan_key_value **header)
+{
+    const struct lwan_value *best = &md->uncompressed;
+
+    *header = NULL;
+
+#if defined(HAVE_ZSTD)
+    if (md->zstd.len && md->zstd.len < best->len &&
+        accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
+        best = &md->zstd;
+        *header = zstd_compression_hdr;
+    }
+#endif
+
+#if defined(HAVE_BROTLI)
+    if (md->brotli.len && md->brotli.len < best->len &&
+        accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
+        best = &md->brotli;
+        *header = br_compression_hdr;
+    }
+#endif
+
+    if (md->gzip.len && md->gzip.len < best->len &&
+        accepts_encoding(request, REQUEST_ACCEPT_GZIP)) {
+        best = &md->gzip;
+        *header = gzip_compression_hdr;
+    }
+
+    if (md->deflated.len && md->deflated.len < best->len &&
+        accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
+        best = &md->deflated;
+        *header = deflate_compression_hdr;
+    }
+
+    return best;
+}
+
 static enum lwan_http_status mmap_serve(struct lwan_request *request,
                                         void *data)
 {
     struct file_cache_entry *fce = data;
     struct mmap_cache_data *md = &fce->mmap_cache_data;
+    const struct lwan_key_value *compression_hdr;
+    const struct lwan_value *to_serve =
+        mmap_best_data(request, md, &compression_hdr);
 
-#if defined(HAVE_ZSTD)
-    if (md->zstd.len && accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
-        return serve_value_ok(request, fce->mime_type, &md->zstd,
-                              zstd_compression_hdr);
-    }
-#endif
-
-#if defined(HAVE_BROTLI)
-    if (md->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
-        return serve_value_ok(request, fce->mime_type, &md->brotli,
-                              br_compression_hdr);
-    }
-#endif
-
-    if (md->deflated.len && accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
-        return serve_value_ok(request, fce->mime_type, &md->deflated,
-                              deflate_compression_hdr);
-    }
+    if (compression_hdr)
+        return serve_value_ok(request, fce->mime_type, to_serve,
+                              compression_hdr);
 
     off_t from, to;
     enum lwan_http_status status =
-        compute_range(request, &from, &to, (off_t)md->uncompressed.len);
-    if (status == HTTP_OK || status == HTTP_PARTIAL_CONTENT) {
-        return serve_buffer(request, fce->mime_type,
-                            (char *)md->uncompressed.value + from,
-                            (size_t)(to - from), NULL, status);
-    }
+        compute_range(request, &from, &to, (off_t)to_serve->len);
+    if (status != HTTP_OK && status != HTTP_PARTIAL_CONTENT)
+        return status;
 
-    return status;
+    return serve_buffer(request, fce->mime_type, (char *)to_serve->value + from,
+                        (size_t)(to - from), NULL, status);
 }
 
 static enum lwan_http_status dirlist_serve(struct lwan_request *request,
