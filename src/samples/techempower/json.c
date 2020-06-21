@@ -614,26 +614,25 @@ int json_obj_parse(char *payload,
     return obj_parse(&obj, descr, descr_len, val);
 }
 
+/*
+ * Routines has_zero() and has_value() are from
+ * https://graphics.stanford.edu/~seander/bithacks.html#ZeroInWord
+ */
+static ALWAYS_INLINE uint64_t has_zero(uint64_t v)
+{
+    return (v - 0x0101010101010101UL) & ~v & 0x8080808080808080UL;
+}
+
+static ALWAYS_INLINE uint64_t has_value(uint64_t x, char n)
+{
+    return has_zero(x ^ (~0UL / 255 * (uint64_t)n));
+}
+
 static char escape_as(char chr)
 {
-    switch (chr) {
-    case '"':
-        return '"';
-    case '\\':
-        return '\\';
-    case '\b':
-        return 'b';
-    case '\f':
-        return 'f';
-    case '\n':
-        return 'n';
-    case '\r':
-        return 'r';
-    case '\t':
-        return 't';
-    }
-
-    return 0;
+    static const char escaped[] = {'"', '\\', 'b', 'f', 'n', 'r', 't', 't'};
+    uint64_t mask = has_value(0x225c080c0a0d0909UL, chr);
+    return mask == 0 ? 0 : escaped[__builtin_clzl(mask) / 8];
 }
 
 static int json_escape_internal(const char *str,
