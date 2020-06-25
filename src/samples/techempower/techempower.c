@@ -53,6 +53,8 @@ static struct db_connection_params {
 static const char hello_world[] = "Hello, World!";
 static const char random_number_query[] =
     "SELECT randomNumber FROM world WHERE id=?";
+static const char cached_random_number_query[] =
+    "SELECT randomNumber FROM cachedworld WHERE id=?";
 
 struct Fortune {
     struct {
@@ -282,8 +284,8 @@ static struct cache_entry *cached_queries_new(const char *key, void *context)
     if (UNLIKELY(!entry))
         return NULL;
 
-    stmt = db_prepare_stmt(get_db(), random_number_query,
-                           sizeof(random_number_query) - 1);
+    stmt = db_prepare_stmt(get_db(), cached_random_number_query,
+                           sizeof(cached_random_number_query) - 1);
     if (UNLIKELY(!stmt)) {
         free(entry);
         return NULL;
@@ -304,9 +306,9 @@ static void cached_queries_free(struct cache_entry *entry, void *context)
     free(entry);
 }
 
-LWAN_HANDLER(cached_queries)
+LWAN_HANDLER(cached_world)
 {
-    const char *queries_str = lwan_request_get_query_param(request, "queries");
+    const char *queries_str = lwan_request_get_query_param(request, "count");
     long queries;
 
     queries = LIKELY(queries_str)
