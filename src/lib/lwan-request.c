@@ -1305,7 +1305,6 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
 
     request->conn->flags |= CONN_IS_WEBSOCKET;
     lwan_send(request, header_buf, header_buf_len, 0);
-    coro_yield(request->conn->coro, CONN_CORO_WANT_READ_WRITE);
 
     return HTTP_SWITCHING_PROTOCOLS;
 }
