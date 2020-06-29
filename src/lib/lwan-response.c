@@ -328,6 +328,10 @@ size_t lwan_prepare_response_header_full(
 
     if (UNLIKELY(request->conn->flags & CONN_IS_UPGRADE)) {
         APPEND_CONSTANT("\r\nConnection: Upgrade");
+
+        /* Lie that the Expires header has ben overriden just so that we
+         * don't send them when performing a websockets handhsake.  */
+        expires_overridden = true;
     } else {
         if (LIKELY(request->conn->flags & CONN_IS_KEEP_ALIVE)) {
             APPEND_CONSTANT("\r\nConnection: keep-alive");
