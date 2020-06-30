@@ -1035,8 +1035,8 @@ static void *serve_files_create_from_hash(const char *prefix,
             parse_bool(hash_find(hash, "serve_precompressed_files"), true),
         .auto_index = parse_bool(hash_find(hash, "auto_index"), true),
         .directory_list_template = hash_find(hash, "directory_list_template"),
-        .read_ahead =
-            (size_t)parse_long("read_ahead", SERVE_FILES_READ_AHEAD_BYTES),
+        .read_ahead = (size_t)parse_long(hash_find(hash, "read_ahead"),
+                                         SERVE_FILES_READ_AHEAD_BYTES),
         .auto_index_readme =
             parse_bool(hash_find(hash, "auto_index_readme"), true),
         .cache_for = (time_t)parse_time_period(hash_find(hash, "cache_for"),
