@@ -685,11 +685,12 @@ static const char *dirlist_find_readme(struct lwan_strbuf *readme,
                     continue;
                 goto error;
             }
-            if (!n)
-                break;
 
             if (!lwan_strbuf_append_str(readme, buffer, (size_t)n))
                 goto error;
+
+            if ((size_t)n < sizeof(buffer))
+                break;
         }
 
         close(fd);
