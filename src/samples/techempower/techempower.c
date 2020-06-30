@@ -54,7 +54,7 @@ static const char hello_world[] = "Hello, World!";
 static const char random_number_query[] =
     "SELECT randomNumber FROM world WHERE id=?";
 static const char cached_random_number_query[] =
-    "SELECT randomNumber FROM cachedworld WHERE id=?";
+    "SELECT randomNumber FROM world WHERE id=?";
 
 struct Fortune {
     struct {
