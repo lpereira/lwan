@@ -180,17 +180,6 @@ static int sync_map_add(struct sync_map *sync_map, const char *key, const void *
     return ret;
 }
 
-static const void *sync_map_find(struct sync_map *sync_map, const char *key)
-{
-    void *ret;
-
-    pthread_mutex_lock(&sync_map->mutex);
-    ret = hash_find(sync_map->table, key);
-    pthread_mutex_unlock(&sync_map->mutex);
-
-    return ret;
-}
-
 static void
 sync_map_range(struct sync_map *sync_map,
                bool (*iter_func)(const char *key, void *value, void *data),
@@ -305,7 +294,7 @@ static int send_json(struct lwan_response *request,
 static bool send_error(struct lwan_request *request, const char *error)
 {
     lwan_strbuf_set_printf(request->response->buffer,
-                           "{\"error\":\"%s\"}\u001e", error);
+                           "{\"error\":\"%s\"}\x1e", error);
     lwan_response_websocket_send(request);
     return false;
 }
@@ -331,7 +320,7 @@ static bool process_handshake(struct lwan_request *request,
     if (!streq(handshake.protocol, "json"))
         return send_error(request, "Only `json' protocol supported");
 
-    lwan_strbuf_set_static(response->buffer, "{}\u001e", 3);
+    lwan_strbuf_set_static(response->buffer, "{}\x1e", 3);
     lwan_response_websocket_send(request);
 
     return true;
@@ -339,7 +328,7 @@ static bool process_handshake(struct lwan_request *request,
 
 static void handle_ping(struct lwan_request *request)
 {
-    lwan_strbuf_set_staticz("{\"type\":6}\u001e");
+    lwan_strbuf_set_staticz("{\"type\":6}\x1e");
     lwan_response_websocket_send(request);
 }
 
@@ -347,10 +336,8 @@ static bool broadcast_msg(const void *key, void *value, void *data)
 {
     struct msg_ring *messages = value;
 
-    if (message->numArguments == 1) {
-        msg_ring_append(messages, message->arguments[0]);
-        return true;
-    }
+    if (message->numArguments == 1)
+        return msg_ring_try_put(messages, message->arguments[0]);
 
     return false;
 }
@@ -426,6 +413,25 @@ static bool hub_msg_ring_send_message(char *msg, void *data)
                      ARRAY_SIZE(invocation_message_descr), &invocation) == 0;
 }
 
+static void parse_hub_msg(struct lwan_request *request,
+                          struct sync_map *clients)
+{
+    struct message message;
+    int ret = parse_json(response, message_descr,
+                         ARRAY_SIZE(message_descr), &message);
+    if (ret < 0)
+        return;
+    if (!(ret & 1 << 0)) /* `type` not present, ignore */
+        return;
+
+    switch (message.type) {
+    case 1:
+        return handle_invocation(request, clients);
+    case 6:
+        return handle_ping(request);
+    }
+}
+
 static enum lwan_http_status
 hub_connection_handler(struct lwan_request *request,
                        struct lwan_response *response,
@@ -444,37 +450,26 @@ hub_connection_handler(struct lwan_request *request,
     coro_defer(request->conn->coro, msg_ring_free, messages);
 
     while (true) {
-        /* FIXME: there's no way to specify that we want to either read from
-         * the websocket *or* get a message in the message ring buffer. */
-        if (!lwan_response_websocket_read(request)) {
-            send_error(request, "Could not read from WebSocket");
+        switch (lwan_response_websocket_read(request)) {
+        case ENOTCONN:
+            /* Shouldn't happen because if we get here, this connection
+             * has been upgraded to a websocket. */
             return HTTP_INTERNAL_ERROR;
-        }
 
-        /* Big FIXMES:
-         *
-         * Ideally, messages would be refcounted to avoid duplication of
-         * messages lingering around.  But this is fine for a sample app.
-         *
-         * Also, this is in the wrong "layer"; shouldn't be in the hub main
-         * loop.  But the WebSockets API in Lwan isn't that great and lacks
-         * the facilities to perform this correctly. */
-        msg_ring_consume(&msg_ring, hub_msg_ring_send_message, request);
+        case ECONNRESET:
+            /* Connection has been closed by the peer. */
+            return HTTP_UNAVAILABLE;
 
-        struct message message;
-        int ret = parse_json(response, message_descr, ARRAY_SIZE(message_descr),
-                             &message);
-        if (ret < 0)
-            continue;
-        if (!(ret & 1 << 0)) /* `type` not present, ignore */
-            continue;
+        case EAGAIN:
+            msg_ring_consume(&msg_ring, hub_msg_ring_send_message, request);
 
-        switch (message.type) {
-        case 1:
-            handle_invocation(request, clients);
+            /* FIXME: ideally, websocket_read() should have a timeout; this is
+             * just a workaround */
+            lwan_request_sleep(1000);
             break;
-        case 6:
-            handle_ping(request);
+
+        case 0:
+            parse_hub_msg(request, clients);
             break;
         }
     }
@@ -482,7 +477,7 @@ hub_connection_handler(struct lwan_request *request,
 
 LWAN_HANDLER(chat)
 {
-    static const char handshake_response[] = "{}\u001e";
+    static const char handshake_response[] = "{}\x1e";
     const char *connection_id;
 
     if (lwan_request_websocket_upgrade(request) != HTTP_SWITCHING_PROTOCOLS)
