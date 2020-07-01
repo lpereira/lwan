@@ -422,7 +422,7 @@ information from the request, or to set the response, as seen below:
    - `req:sleep(ms)` pauses the current handler for the specified amount of milliseconds
    - `req:ws_upgrade()` returns `1` if the connection could be upgraded to a WebSocket; `0` otherwise
    - `req:ws_write(str)` sends `str` through the WebSocket-upgraded connection
-   - `req:ws_read()` returns a string obtained from the WebSocket, or `nil` on error
+   - `req:ws_read()` returns a string with the contents of the last WebSocket frame, or a number indicating an status (ENOTCONN/107 on Linux if it has been disconnected; EAGAIN/11 on Linux if nothing was available; ENOMSG/42 on Linux otherwise).  The return value here might change in the future for something more Lua-like.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return

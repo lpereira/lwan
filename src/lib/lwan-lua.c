@@ -19,6 +19,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <ctype.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -137,12 +138,23 @@ LWAN_LUA_METHOD(ws_write)
 LWAN_LUA_METHOD(ws_read)
 {
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    int r;
 
-    if (lwan_response_websocket_read(request)) {
+    /* FIXME: maybe return a table {status=r, content=buf}? */
+
+    r = lwan_response_websocket_read(request);
+    switch (r) {
+    case 0:
         lua_pushlstring(L, lwan_strbuf_get_buffer(request->response.buffer),
                         lwan_strbuf_get_length(request->response.buffer));
-    } else {
-        lua_pushnil(L);
+        break;
+    case ENOTCONN:
+    case EAGAIN:
+        lua_pushinteger(L, r);
+        break;
+    default:
+        lua_pushinteger(L, ENOMSG);
+        break;
     }
 
     return 1;
