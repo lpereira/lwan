@@ -95,7 +95,7 @@ LWAN_HANDLER(ws_read)
 out:
     /* We abort the coroutine here because there's not much we can do at this
      * point as this isn't a HTTP connection anymore.  */
-    coro_yield(request->conn->coro, CORO_ABORT);
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
 
