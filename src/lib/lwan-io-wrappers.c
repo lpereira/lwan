@@ -183,6 +183,9 @@ lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
 
             switch (errno) {
             case EAGAIN:
+                if (flags & MSG_DONTWAIT)
+                    return total_recv;
+                /* Fallthrough */
             case EINTR:
                 goto try_again;
             default:
