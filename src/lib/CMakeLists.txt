@@ -34,6 +34,7 @@ set(SOURCES
 	lwan-tq.c
 	lwan-trie.c
 	lwan-websocket.c
+	lwan-pubsub.c
 	missing.c
 	missing-pthread.c
 	murmur3.c
