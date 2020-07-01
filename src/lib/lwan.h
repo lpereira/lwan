@@ -532,8 +532,6 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
                                     enum lwan_http_status status);
 void lwan_response_send_event(struct lwan_request *request, const char *event);
 
-void lwan_response_websocket_write(struct lwan_request *request);
-bool lwan_response_websocket_read(struct lwan_request *request);
 
 const char *lwan_http_status_as_string(enum lwan_http_status status)
     __attribute__((const)) __attribute__((warn_unused_result));
@@ -590,6 +588,8 @@ lwan_request_get_accept_encoding(struct lwan_request *request);
 
 enum lwan_http_status
 lwan_request_websocket_upgrade(struct lwan_request *request);
+void lwan_response_websocket_write(struct lwan_request *request);
+int lwan_response_websocket_read(struct lwan_request *request);
 
 void lwan_request_await_read(struct lwan_request *r, int fd);
 void lwan_request_await_write(struct lwan_request *r, int fd);

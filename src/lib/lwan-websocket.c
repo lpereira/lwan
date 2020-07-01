@@ -18,6 +18,7 @@
  * USA.
  */
 
+#include <errno.h>
 #include <endian.h>
 
 #include "lwan-private.h"
@@ -30,6 +31,18 @@ enum ws_opcode {
     WS_OPCODE_CLOSE = 8,
     WS_OPCODE_PING = 9,
     WS_OPCODE_PONG = 10,
+
+    WS_OPCODE_RSVD_1 = 3,
+    WS_OPCODE_RSVD_2 = 4,
+    WS_OPCODE_RSVD_3 = 5,
+    WS_OPCODE_RSVD_4 = 6,
+    WS_OPCODE_RSVD_5 = 7,
+
+    WS_OPCODE_RSVD_CONTROL_1 = 11,
+    WS_OPCODE_RSVD_CONTROL_2 = 12,
+    WS_OPCODE_RSVD_CONTROL_3 = 13,
+    WS_OPCODE_RSVD_CONTROL_4 = 14,
+    WS_OPCODE_RSVD_CONTROL_5 = 15,
 };
 
 static void write_websocket_frame(struct lwan_request *request,
@@ -80,136 +93,139 @@ void lwan_response_websocket_write(struct lwan_request *request)
 
 static void send_websocket_pong(struct lwan_request *request, size_t len)
 {
-    size_t generation;
-    char *temp;
+    char temp[128];
 
     if (UNLIKELY(len > 125)) {
         lwan_status_debug("Received PING opcode with length %zu."
                           "Max is 125. Aborting connection.",
                           len);
-        goto abort;
-    }
-
-    generation = coro_deferred_get_generation(request->conn->coro);
-
-    temp = coro_malloc(request->conn->coro, len);
-    if (UNLIKELY(!temp))
-        goto abort;
-
-    lwan_recv(request, temp, len, 0);
-    write_websocket_frame(request, WS_OPCODE_PONG, temp, len);
-
-    coro_deferred_run(request->conn->coro, generation);
-
-    return;
-
-abort:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
-}
-
-bool lwan_response_websocket_read(struct lwan_request *request)
-{
-    uint16_t header;
-    uint64_t len_frame;
-    char *msg;
-    bool continuation = false;
-    bool fin;
-
-    if (!(request->conn->flags & CONN_IS_WEBSOCKET))
-        return false;
-
-    lwan_strbuf_reset(request->response.buffer);
-
-next_frame:
-    lwan_recv(request, &header, sizeof(header), 0);
-
-    fin = (header & 0x8000);
-
-    switch ((enum ws_opcode)((header & 0xf00) >> 8)) {
-    case WS_OPCODE_CONTINUATION:
-        continuation = true;
-        break;
-    case WS_OPCODE_TEXT:
-    case WS_OPCODE_BINARY:
-        break;
-    case WS_OPCODE_CLOSE:
-        request->conn->flags &= ~CONN_IS_WEBSOCKET;
-        break;
-    case WS_OPCODE_PING:
-        /* FIXME: handling PING packets here doesn't seem ideal; they won't be
-         * handled, for instance, if the user never receives data from the
-         * websocket. */
-        send_websocket_pong(request, header & 0x7f);
-        goto next_frame;
-    default:
-        lwan_status_debug(
-            "Received unexpected WebSockets opcode: 0x%x, ignoring",
-            (header & 0xf00) >> 8);
-        goto next_frame;
-    }
-
-    switch (header & 0x7f) {
-    default:
-        len_frame = (uint64_t)(header & 0x7f);
-        break;
-    case 0x7e:
-        lwan_recv(request, &len_frame, 2, 0);
-        len_frame = (uint64_t)ntohs((uint16_t)len_frame);
-        break;
-    case 0x7f:
-        lwan_recv(request, &len_frame, 8, 0);
-        len_frame = be64toh(len_frame);
-        break;
-    }
-
-    size_t cur_len = lwan_strbuf_get_length(request->response.buffer);
-
-    if (UNLIKELY(!lwan_strbuf_grow_by(request->response.buffer, len_frame))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
 
-    msg = lwan_strbuf_get_buffer(request->response.buffer) + cur_len;
+    lwan_recv(request, temp, len, 0);
+    write_websocket_frame(request, WS_OPCODE_PONG, temp, len);
+}
 
+static uint64_t get_frame_length(struct lwan_request *request, uint16_t header)
+{
+    uint64_t len;
+
+    switch (header & 0x7f) {
+    case 0x7e:
+        lwan_recv(request, &len, 2, 0);
+        return (uint64_t)ntohs((uint16_t)len);
+    case 0x7f:
+        lwan_recv(request, &len, 8, 0);
+        return (uint64_t)be64toh(len);
+    default:
+        return (uint64_t)(header & 0x7f);
+    }
+}
+
+static void discard_frame(struct lwan_request *request, uint16_t header)
+{
+    uint64_t len = get_frame_length(request, header);
+
+    for (char buffer[128]; len;)
+        len -= (size_t)lwan_recv(request, buffer, sizeof(buffer), 0);
+}
+
+int lwan_response_websocket_read(struct lwan_request *request)
+{
+    uint16_t header;
+    uint64_t frame_len;
+    char *msg;
+    bool continuation = false;
+
+    if (!(request->conn->flags & CONN_IS_WEBSOCKET))
+        return ENOTCONN;
+
+    lwan_strbuf_reset(request->response.buffer);
+
+next_frame:
+    if (!lwan_recv(request, &header, sizeof(header), continuation ? 0 : MSG_DONTWAIT))
+        return EAGAIN;
+    header = htons(header);
+
+    if (UNLIKELY(header & 0x7000)) {
+        lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting", header & 0x7000);
+        /* No extensions are supported yet, so fail connection per RFC6455. */
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+
+    switch ((enum ws_opcode)((header & 0x0f00) >> 8)) {
+    case WS_OPCODE_CONTINUATION:
+        continuation = true;
+        break;
+
+    case WS_OPCODE_TEXT:
+    case WS_OPCODE_BINARY:
+        break;
+
+    case WS_OPCODE_CLOSE:
+        request->conn->flags &= ~CONN_IS_WEBSOCKET;
+        break;
+
+    case WS_OPCODE_PING:
+        send_websocket_pong(request, header & 0x7f);
+        goto next_frame;
+
+    case WS_OPCODE_PONG:
+        lwan_status_debug("Received unsolicited PONG frame, discarding frame");
+        discard_frame(request, header);
+        goto next_frame;
+
+    case WS_OPCODE_RSVD_1 ... WS_OPCODE_RSVD_5:
+        lwan_status_debug("Received reserved non-control frame opcode: 0x%x, aborting",
+            (header & 0x0f00) >> 8);
+        /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+
+    case WS_OPCODE_RSVD_CONTROL_1 ... WS_OPCODE_RSVD_CONTROL_5:
+        lwan_status_debug("Received reserved control frame opcode: 0x%x, aborting",
+            (header & 0x0f00) >> 8);
+        /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+
+    size_t cur_buf_len = lwan_strbuf_get_length(request->response.buffer);
+
+    frame_len = get_frame_length(request, header);
+    if (UNLIKELY(!lwan_strbuf_grow_by(request->response.buffer, frame_len))) {
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+    /* FIXME: API to update used size, too, not just capacity!   Also, this can't
+     * overflow if adding frame_len, as this is checked by grow_by() already. */
+    request->response.buffer->used += frame_len;
+
+    msg = lwan_strbuf_get_buffer(request->response.buffer) + cur_buf_len;
     if (LIKELY(header & 0x80)) {
         /* Payload is masked; should always be true on Client->Server comms but
          * don't assume this is always the case. */
-        uint32_t mask;
+        char mask[4];
         struct iovec vec[] = {
-            {.iov_base = &mask, .iov_len = sizeof(mask)},
-            {.iov_base = msg, .iov_len = len_frame},
+            {.iov_base = mask, .iov_len = sizeof(mask)},
+            {.iov_base = msg, .iov_len = frame_len},
         };
 
         lwan_readv(request, vec, N_ELEMENTS(vec));
 
-        if (mask) {
-            uint64_t i;
-
-            for (i = 0; len_frame - i >= sizeof(mask); i += sizeof(mask)) {
-                uint32_t v;
-
-                memcpy(&v, &msg[i], sizeof(v));
-                v ^= mask;
-                memcpy(&msg[i], &v, sizeof(v));
-            }
-
-            switch (i & 3) {
-            case 3: msg[i + 2] ^= (char)((mask >> 16) & 0xff); /* fallthrough */
-            case 2: msg[i + 1] ^= (char)((mask >> 8) & 0xff); /* fallthrough */
-            case 1: msg[i + 0] ^= (char)(mask & 0xff);
-            }
-        }
+        /* FIXME: try to do more bytes at a time! */
+        for (uint64_t i = 0; i < frame_len; i++)
+            msg[i] ^= mask[i & 3];
     } else {
-        lwan_recv(request, msg, len_frame, 0);
+        lwan_recv(request, msg, frame_len, 0);
     }
 
-    if (continuation && !fin) {
-        coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+    if (continuation && !(header & 0x8000)) {
         continuation = false;
-
         goto next_frame;
     }
 
-    return request->conn->flags & CONN_IS_WEBSOCKET;
+    return (request->conn->flags & CONN_IS_WEBSOCKET) ? 0 : ECONNRESET;
 }
