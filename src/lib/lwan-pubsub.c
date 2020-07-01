@@ -177,7 +177,6 @@ static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
                                              bool take_topic_lock)
 {
     struct lwan_pubsub_sub_msg *iter, *next;
-    struct list_head to_free;
 
     if (take_topic_lock)
         pthread_mutex_lock(&topic->lock);
@@ -185,24 +184,15 @@ static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
     if (take_topic_lock)
         pthread_mutex_unlock(&topic->lock);
 
-    list_head_init(&to_free);
-
     pthread_mutex_lock(&sub->lock);
     list_for_each_safe (&sub->messages, iter, next, message) {
         list_del(&iter->message);
-
-        if (!ATOMIC_DEC(iter->msg->refcount))
-            list_add(&to_free, &iter->message);
-    }
-    pthread_mutex_unlock(&sub->lock);
-    pthread_mutex_destroy(&sub->lock);
-
-    list_for_each_safe (&to_free, iter, next, message) {
-        free(iter->msg->value.value);
-        free(iter->msg);
+        lwan_pubsub_msg_done(iter->msg);
         free(iter);
     }
+    pthread_mutex_unlock(&sub->lock);
 
+    pthread_mutex_destroy(&sub->lock);
     free(sub);
 }
 
