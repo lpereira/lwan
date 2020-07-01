@@ -22,6 +22,9 @@
 #include <stdlib.h>
 
 #include "lwan.h"
+#include "lwan-pubsub.h"
+
+static struct lwan_pubsub_topic *chat;
 
 /* This is a write-only sample of the API: it just sends random integers
  * over a WebSockets connection. */
@@ -99,6 +102,89 @@ out:
     __builtin_unreachable();
 }
 
+static void unsub_chat(void *data1, void *data2)
+{
+    lwan_pubsub_unsubscribe((struct lwan_pubsub_topic *)data1,
+                            (struct lwan_pubsub_subscriber *)data2);
+}
+
+static void pub_depart_message(void *data1, void *data2)
+{
+    char buffer[128];
+    int r;
+
+    r = snprintf(buffer, sizeof(buffer), "*** User%d has departed the chat!\n",
+                 (int)(intptr_t)data2);
+    if (r < 0 || (size_t)r >= sizeof(buffer))
+        return;
+
+    lwan_pubsub_publish((struct lwan_pubsub_topic *)data1, buffer, (size_t)r);
+}
+
+LWAN_HANDLER(ws_chat)
+{
+    struct lwan_pubsub_subscriber *sub;
+    struct lwan_pubsub_msg *msg;
+    struct lwan_strbuf tmp_msg = LWAN_STRBUF_STATIC_INIT;
+    enum lwan_http_status status;
+    static int total_user_count;
+    int user_id;
+
+    sub = lwan_pubsub_subscribe(chat);
+    if (!sub)
+        return HTTP_INTERNAL_ERROR;
+    coro_defer2(request->conn->coro, unsub_chat, chat, sub);
+
+    status = lwan_request_websocket_upgrade(request);
+    if (status != HTTP_SWITCHING_PROTOCOLS)
+        return status;
+
+    user_id = ATOMIC_INC(total_user_count);
+
+    lwan_strbuf_printf(response->buffer, "*** Welcome to the chat, User%d!\n", user_id);
+    lwan_response_websocket_write(request);
+
+    coro_defer2(request->conn->coro, pub_depart_message, chat, (void *)(intptr_t)user_id);
+    lwan_strbuf_printf(&tmp_msg, "*** User%d has joined the chat!\n", user_id);
+    lwan_pubsub_publish(chat, lwan_strbuf_get_buffer(&tmp_msg),
+                        lwan_strbuf_get_length(&tmp_msg));
+
+    while (true) {
+        switch (lwan_response_websocket_read(request)) {
+        case ENOTCONN:   /* read() called before connection is websocket */
+        case ECONNRESET: /* Client closed the connection */
+            goto out;
+
+        case EAGAIN: /* Nothing is available from other clients */
+            while ((msg = lwan_pubsub_consume(sub))) {
+                const struct lwan_value *value = lwan_pubsub_msg_value(msg);
+
+                lwan_strbuf_set(response->buffer, value->value, value->len);
+                lwan_response_websocket_write(request);
+
+                lwan_pubsub_msg_done(msg);
+            }
+
+            lwan_request_sleep(request, 1000);
+            break;
+
+        case 0: /* We got something! Copy it to echo it back */
+            lwan_strbuf_printf(&tmp_msg, "User%d: %.*s\n",
+                               user_id,
+                               (int)lwan_strbuf_get_length(response->buffer),
+                               lwan_strbuf_get_buffer(response->buffer));
+            lwan_pubsub_publish(chat, lwan_strbuf_get_buffer(&tmp_msg),
+                                lwan_strbuf_get_length(&tmp_msg));
+            break;
+        }
+    }
+
+out:
+    /* We abort the coroutine here because there's not much we can do at this
+     * point as this isn't a HTTP connection anymore.  */
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
+}
 LWAN_HANDLER(index)
 {
     static const char message[] =
@@ -135,6 +221,26 @@ LWAN_HANDLER(index)
         "            send_to_read_sock = function() {\n"
         "              read_sock.send(document.getElementById(\"read-input\").value);\n"
         "            }\n"
+        "            chat_sock = new WebSocket(\"ws://localhost:8080/ws-chat\")\n"
+        "            chat_sock.onopen = function(event) {\n"
+        "              document.getElementById(\"chat-button\").disabled = false;\n"
+        "              document.getElementById(\"chat-input\").disabled = false;\n"
+        "              document.getElementById(\"chat-textarea\").style.background = \"blue\";\n"
+        "              document.getElementById(\"chat-input\").innerText = \"\";\n"
+        "            }\n"
+        "            chat_sock.onerror = function(event) {\n"
+        "              document.getElementById(\"chat-button\").disabled = true;\n"
+        "              document.getElementById(\"chat-input\").disabled = true;\n"
+        "              document.getElementById(\"chat-input\").innerText = \"Disconnected\";\n"
+        "              document.getElementById(\"chat-textarea\").style.background = \"red\";\n"
+        "            }\n"
+        "            chat_sock.onmessage = function (event) {\n"
+        "              document.getElementById(\"chat-textarea\").value += event.data;\n"
+        "            }\n"
+        "            send_chat_msg = function() {\n"
+        "              chat_sock.send(document.getElementById(\"chat-input\").value);\n"
+        "              document.getElementById(\"chat-input\").value = \"\";\n"
+        "            }\n"
         "        </script>\n"
         "    </head>\n"
         "    <body>\n"
@@ -144,6 +250,9 @@ LWAN_HANDLER(index)
         "       <h2>Echo server sample:</h2>\n"
         "       <p><input id=\"read-input\" disabled><button disabled id=\"read-button\" onclick=\"send_to_read_sock()\">Send</button></p>\n"
         "       <p>Server said this: <div id=\"read-output\" style=\"background: red; color: yellow\">Disconnected</div></p>\n"
+        "       <h3>Chat sample:</h3>\n"
+        "       Send message: <input id=\"chat-input\" disabled><button disabled id=\"chat-button\" onclick=\"send_chat_msg()\">Send</button></p>\n"
+        "       <textarea id=\"chat-textarea\" rows=\"20\" cols=\"120\" style=\"color: yellow; background-color: red\"></textarea>\n"
         "    </body>\n"
         "</html>";
 
@@ -158,6 +267,7 @@ int main(void)
     const struct lwan_url_map default_map[] = {
         {.prefix = "/ws-write", .handler = LWAN_HANDLER_REF(ws_write)},
         {.prefix = "/ws-read", .handler = LWAN_HANDLER_REF(ws_read)},
+        {.prefix = "/ws-chat", .handler = LWAN_HANDLER_REF(ws_chat)},
         {.prefix = "/", .handler = LWAN_HANDLER_REF(index)},
         {},
     };
@@ -165,10 +275,13 @@ int main(void)
 
     lwan_init(&l);
 
+    chat = lwan_pubsub_new_topic();
+
     lwan_set_url_map(&l, default_map);
     lwan_main_loop(&l);
 
     lwan_shutdown(&l);
+    lwan_pubsub_free_topic(chat);
 
     return 0;
 }
