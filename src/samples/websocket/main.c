@@ -160,9 +160,13 @@ LWAN_HANDLER(ws_chat)
                 const struct lwan_value *value = lwan_pubsub_msg_value(msg);
 
                 lwan_strbuf_set(response->buffer, value->value, value->len);
-                lwan_response_websocket_write(request);
 
+                /* Mark as done before writing: websocket_write() can abort the
+                 * coroutine and we want to drop the reference before this
+                 * happens. */
                 lwan_pubsub_msg_done(msg);
+
+                lwan_response_websocket_write(request);
             }
 
             lwan_request_sleep(request, 1000);
@@ -185,6 +189,7 @@ out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
+
 LWAN_HANDLER(index)
 {
     static const char message[] =
