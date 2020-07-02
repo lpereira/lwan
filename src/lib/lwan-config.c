@@ -127,6 +127,9 @@ long parse_long(const char *value, long default_value)
     char *endptr;
     long parsed;
 
+    if (!value)
+        return default_value;
+
     errno = 0;
     parsed = strtol(value, &endptr, 0);
 
