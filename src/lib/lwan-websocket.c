@@ -18,11 +18,12 @@
  * USA.
  */
 
-#include <errno.h>
 #include <endian.h>
+#include <errno.h>
+#include <sys/socket.h>
 
-#include "lwan-private.h"
 #include "lwan-io-wrappers.h"
+#include "lwan-private.h"
 
 enum ws_opcode {
     WS_OPCODE_CONTINUATION = 0,
