@@ -90,13 +90,44 @@ lwan_pubsub_queue_get(struct lwan_pubsub_sub_queue *queue)
     struct lwan_pubsub_sub_queue_rb *rb, *next;
 
     list_for_each_safe (&queue->rbs, rb, next, rb) {
+        struct lwan_pubsub_msg *msg;
+
         if (lwan_pubsub_msg_ref_empty(&rb->ref)) {
             list_del(&rb->rb);
             free(rb);
             continue;
         }
 
-        return lwan_pubsub_msg_ref_get(&rb->ref);
+        msg = lwan_pubsub_msg_ref_get(&rb->ref);
+
+        if (rb->rb.next != rb->rb.prev) {
+            /* If this segment isn't the last one, try pulling in just one
+             * element from the next segment, as there's space in the
+             * current segment now.
+             *
+             * This might lead to an empty ring buffer segment in the middle
+             * of the linked list.  This is by design, to introduce some
+             * hysteresis and avoid the pathological case where malloc churn
+             * will happen when subscribers consume at the same rate as
+             * publishers are able to publish.
+             *
+             * The condition above will take care of these empty segments
+             * once they're dealt with, eventually compacting the queue
+             * completely (and ultimately reducing it to an empty list
+             * without any ring buffers).
+             */
+            struct lwan_pubsub_sub_queue_rb *next_rb;
+
+            next_rb = container_of(rb->rb.next, struct lwan_pubsub_sub_queue_rb, rb);
+            if (!lwan_pubsub_msg_ref_empty(&next_rb->ref)) {
+                const struct lwan_pubsub_msg *next_msg;
+
+                next_msg = lwan_pubsub_msg_ref_get(&next_rb->ref);
+                lwan_pubsub_msg_ref_put(&rb->ref, &next_msg);
+            }
+        }
+
+        return msg;
     }
 
     return NULL;
