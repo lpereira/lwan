@@ -72,9 +72,15 @@ static bool lwan_pubsub_queue_put(struct lwan_pubsub_sub_queue *queue,
 {
     struct lwan_pubsub_sub_queue_rb *rb;
 
-    list_for_each (&queue->rbs, rb, rb) {
+    /* Try putting the message in the last ringbuffer in this queue: if it's
+     * full, will need to allocate a new ring buffer, even if others might
+     * have space in them:  the FIFO order must be preserved, and short of
+     * compacting the queue at this point -- which will eventually happen
+     * as it is consumed -- this is the only option. */
+    list_for_each_rev (&queue->rbs, rb, rb) {
         if (lwan_pubsub_msg_ref_try_put(&rb->ref, &msg))
             return true;
+        break;
     }
 
     rb = malloc(sizeof(*rb));
