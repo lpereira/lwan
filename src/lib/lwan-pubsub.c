@@ -159,15 +159,16 @@ lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic)
 struct lwan_pubsub_msg *lwan_pubsub_consume(struct lwan_pubsub_subscriber *sub)
 {
     struct lwan_pubsub_sub_msg *sub_msg;
-    struct lwan_pubsub_msg *msg;
 
     pthread_mutex_lock(&sub->lock);
     sub_msg = list_pop(&sub->messages, struct lwan_pubsub_sub_msg, message);
     pthread_mutex_unlock(&sub->lock);
 
     if (sub_msg) {
-        msg = sub_msg->msg;
+        struct lwan_pubsub_msg *msg = sub_msg->msg;
+
         free(sub_msg);
+
         return msg;
     }
 
