@@ -83,16 +83,28 @@ static void *my_memdup(const void *src, size_t len)
     return dup ? memcpy(dup, src, len) : NULL;
 }
 
+void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
+{
+    if (!ATOMIC_DEC(msg->refcount)) {
+        free(msg->value.value);
+        free(msg);
+    }
+}
+
 bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
                          const void *contents,
                          size_t len)
 {
     struct lwan_pubsub_msg *msg = calloc(1, sizeof(*msg));
     struct lwan_pubsub_subscriber *sub;
-    bool published = false;
 
     if (!msg)
         return false;
+
+    /* Initialize refcount to 1, so we can drop one ref after publishing to
+     * all subscribers.  If it drops to 0, it means we didn't publish the
+     * message and we can free it. */
+    msg->refcount = 1;
 
     msg->value = (struct lwan_value){
         .value = my_memdup(contents, len),
@@ -112,18 +124,16 @@ bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
             continue;
         }
 
-        published = true;
         sub_msg->msg = msg;
+        ATOMIC_INC(msg->refcount);
 
         pthread_mutex_lock(&sub->lock);
-        msg->refcount++;
         list_add_tail(&sub->messages, &sub_msg->message);
         pthread_mutex_unlock(&sub->lock);
     }
     pthread_mutex_unlock(&topic->lock);
 
-    if (!published)
-        free(msg);
+    lwan_pubsub_msg_done(msg);
 
     return true;
 }
@@ -162,14 +172,6 @@ struct lwan_pubsub_msg *lwan_pubsub_consume(struct lwan_pubsub_subscriber *sub)
     }
 
     return NULL;
-}
-
-void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
-{
-    if (!ATOMIC_DEC(msg->refcount)) {
-        free(msg->value.value);
-        free(msg);
-    }
 }
 
 static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
