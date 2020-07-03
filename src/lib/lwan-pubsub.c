@@ -21,6 +21,7 @@
 #include <pthread.h>
 
 #include "list.h"
+#include "ringbuffer.h"
 #include "lwan-private.h"
 
 struct lwan_pubsub_topic {
@@ -33,17 +34,77 @@ struct lwan_pubsub_msg {
     int refcount;
 };
 
-struct lwan_pubsub_sub_msg {
-    struct list_node message;
-    struct lwan_pubsub_msg *msg;
+DEFINE_RING_BUFFER_TYPE(lwan_pubsub_msg_ref, struct lwan_pubsub_msg *, 16)
+
+struct lwan_pubsub_sub_queue_rb {
+    struct list_node rb;
+    struct lwan_pubsub_msg_ref ref;
+};
+
+struct lwan_pubsub_sub_queue {
+    struct list_head rbs;
 };
 
 struct lwan_pubsub_subscriber {
     struct list_node subscriber;
 
-    struct list_head messages;
     pthread_mutex_t lock;
+    struct lwan_pubsub_sub_queue queue;
 };
+
+static bool lwan_pubsub_queue_init(struct lwan_pubsub_sub_queue *queue)
+{
+    struct lwan_pubsub_sub_queue_rb *rb;
+
+    rb = malloc(sizeof(*rb));
+    if (!rb)
+        return false;
+
+    lwan_pubsub_msg_ref_init(&rb->ref);
+    list_head_init(&queue->rbs);
+    list_add(&queue->rbs, &rb->rb);
+
+    return true;
+}
+
+static bool lwan_pubsub_queue_put(struct lwan_pubsub_sub_queue *queue,
+                                  const struct lwan_pubsub_msg *msg)
+{
+    struct lwan_pubsub_sub_queue_rb *rb;
+
+    list_for_each (&queue->rbs, rb, rb) {
+        if (lwan_pubsub_msg_ref_try_put(&rb->ref, &msg))
+            return true;
+    }
+
+    rb = malloc(sizeof(*rb));
+    if (!rb)
+        return false;
+
+    lwan_pubsub_msg_ref_init(&rb->ref);
+    lwan_pubsub_msg_ref_put(&rb->ref, &msg);
+    list_add_tail(&queue->rbs, &rb->rb);
+
+    return true;
+}
+
+static struct lwan_pubsub_msg *
+lwan_pubsub_queue_get(struct lwan_pubsub_sub_queue *queue)
+{
+    struct lwan_pubsub_sub_queue_rb *rb, *next;
+
+    list_for_each_safe (&queue->rbs, rb, next, rb) {
+        if (lwan_pubsub_msg_ref_empty(&rb->ref)) {
+            list_del(&rb->rb);
+            free(rb);
+            continue;
+        }
+
+        return lwan_pubsub_msg_ref_get(&rb->ref);
+    }
+
+    return NULL;
+}
 
 static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
                                              struct lwan_pubsub_subscriber *sub,
@@ -117,18 +178,13 @@ bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
 
     pthread_mutex_lock(&topic->lock);
     list_for_each (&topic->subscribers, sub, subscriber) {
-        struct lwan_pubsub_sub_msg *sub_msg = malloc(sizeof(*sub_msg));
-
-        if (!sub_msg) {
-            lwan_status_warning("Dropping message: couldn't allocate memory");
-            continue;
-        }
-
-        sub_msg->msg = msg;
         ATOMIC_INC(msg->refcount);
 
         pthread_mutex_lock(&sub->lock);
-        list_add_tail(&sub->messages, &sub_msg->message);
+        if (!lwan_pubsub_queue_put(&sub->queue, msg)) {
+            lwan_status_warning("Couldn't enqueue message, dropping");
+            ATOMIC_DEC(msg->refcount);
+        }
         pthread_mutex_unlock(&sub->lock);
     }
     pthread_mutex_unlock(&topic->lock);
@@ -147,7 +203,7 @@ lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic)
         return NULL;
 
     pthread_mutex_init(&sub->lock, NULL);
-    list_head_init(&sub->messages);
+    lwan_pubsub_queue_init(&sub->queue);
 
     pthread_mutex_lock(&topic->lock);
     list_add(&topic->subscribers, &sub->subscriber);
@@ -158,28 +214,20 @@ lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic)
 
 struct lwan_pubsub_msg *lwan_pubsub_consume(struct lwan_pubsub_subscriber *sub)
 {
-    struct lwan_pubsub_sub_msg *sub_msg;
+    struct lwan_pubsub_msg *msg;
 
     pthread_mutex_lock(&sub->lock);
-    sub_msg = list_pop(&sub->messages, struct lwan_pubsub_sub_msg, message);
+    msg = lwan_pubsub_queue_get(&sub->queue);
     pthread_mutex_unlock(&sub->lock);
 
-    if (sub_msg) {
-        struct lwan_pubsub_msg *msg = sub_msg->msg;
-
-        free(sub_msg);
-
-        return msg;
-    }
-
-    return NULL;
+    return msg;
 }
 
 static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
                                              struct lwan_pubsub_subscriber *sub,
                                              bool take_topic_lock)
 {
-    struct lwan_pubsub_sub_msg *iter, *next;
+    struct lwan_pubsub_msg *iter;
 
     if (take_topic_lock)
         pthread_mutex_lock(&topic->lock);
@@ -188,11 +236,8 @@ static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
         pthread_mutex_unlock(&topic->lock);
 
     pthread_mutex_lock(&sub->lock);
-    list_for_each_safe (&sub->messages, iter, next, message) {
-        list_del(&iter->message);
-        lwan_pubsub_msg_done(iter->msg);
-        free(iter);
-    }
+    while ((iter = lwan_pubsub_queue_get(&sub->queue)))
+        lwan_pubsub_msg_done(iter);
     pthread_mutex_unlock(&sub->lock);
 
     pthread_mutex_destroy(&sub->lock);
