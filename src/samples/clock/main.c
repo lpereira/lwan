@@ -27,9 +27,10 @@
 #include "gifenc.h"
 #include "xdaliclock.h"
 #include "blocks.h"
+#include "pong.h"
 
 /* Font stolen from https://github.com/def-/time.gif */
-static const uint8_t font[10][5] = {
+const uint8_t digital_clock_font[10][5] = {
     [0] = {7, 5, 5, 5, 7}, [1] = {2, 2, 2, 2, 2}, [2] = {7, 1, 7, 4, 7},
     [3] = {7, 1, 3, 1, 7}, [4] = {5, 5, 7, 1, 1}, [5] = {7, 4, 7, 1, 7},
     [6] = {7, 4, 7, 5, 7}, [7] = {7, 1, 1, 1, 1}, [8] = {7, 5, 7, 5, 7},
@@ -85,10 +86,9 @@ LWAN_HANDLER(clock)
             uint8_t off = base_offsets[digit];
 
             for (line = 0, base = digit * 4; line < 5; line++, base += width) {
-                gif->frame[base + 0 + off] = !!(font[dig][line] & 1<<2);
-                gif->frame[base + 1 + off] = !!(font[dig][line] & 1<<1);
-                gif->frame[base + 2 + off] = !!(font[dig][line] & 1<<0);
-
+                gif->frame[base + 0 + off] = !!(digital_clock_font[dig][line] & 1<<2);
+                gif->frame[base + 1 + off] = !!(digital_clock_font[dig][line] & 1<<1);
+                gif->frame[base + 2 + off] = !!(digital_clock_font[dig][line] & 1<<0);
             }
         }
 
@@ -192,6 +192,36 @@ LWAN_HANDLER(blocks)
     return HTTP_OK;
 }
 
+LWAN_HANDLER(pong)
+{
+    ge_GIF *gif = ge_new_gif(response->buffer, 64, 32, NULL, 4, -1);
+    struct pong pong;
+    uint64_t total_waited = 0;
+
+    if (!gif)
+        return HTTP_INTERNAL_ERROR;
+
+    coro_defer(request->conn->coro, destroy_gif, gif);
+
+    pong_init(&pong, gif);
+
+    response->mime_type = "image/gif";
+    response->headers = seriously_do_not_cache;
+
+    while (total_waited <= 3600000) {
+        uint64_t timeout;
+
+        timeout = pong_draw(&pong);
+        total_waited += timeout;
+
+        ge_add_frame(gif, 0);
+        lwan_response_send_chunk(request);
+        lwan_request_sleep(request, timeout);
+    }
+
+    return HTTP_OK;
+}
+
 struct index {
     const char *title;
     const char *variant;
@@ -235,7 +265,7 @@ __attribute__((constructor)) static void initialize_template(void)
         "   position: absolute;\n"
         "   padding: 16px;\n"
         "   left: calc(50% - 100px - 16px);\n"
-        "   width: 250px;\n"
+        "   width: 300px;\n"
         "}\n"
         "#styles a, #styles a:visited, #lwan a, #lwan a:visited { color: #666; }\n"
         "#lwan {\n"
@@ -265,6 +295,7 @@ __attribute__((constructor)) static void initialize_template(void)
         "    Styles: "
         "<a href=\"/clock\">Digital</a> &middot; "
         "<a href=\"/dali\">Dali</a> &middot; "
+        "<a href=\"/pong\">Pong</a> &middot; "
         "<a href=\"/blocks\">Blocks</a>\n"
         "  </div>\n"
         "</body>\n"
@@ -320,6 +351,11 @@ int main(void)
         .variant = "blocks",
         .width = 320,
     };
+    struct index pong_clock = {
+        .title = "Lwan Pong Clock",
+        .variant = "pong",
+        .width = 320,
+    };
     const struct lwan_url_map default_map[] = {
         {
             .prefix = "/clock.gif",
@@ -332,6 +368,10 @@ int main(void)
         {
             .prefix = "/blocks.gif",
             .handler = LWAN_HANDLER_REF(blocks),
+        },
+        {
+            .prefix = "/pong.gif",
+            .handler = LWAN_HANDLER_REF(pong),
         },
         {
             .prefix = "/clock",
@@ -347,6 +387,11 @@ int main(void)
             .prefix = "/blocks",
             .handler = LWAN_HANDLER_REF(templated_index),
             .data = &blocks_clock,
+        },
+        {
+            .prefix = "/pong",
+            .handler = LWAN_HANDLER_REF(templated_index),
+            .data = &pong_clock,
         },
         {
             .prefix = "/",

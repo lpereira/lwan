@@ -4,9 +4,11 @@ add_executable(clock
 	xdaliclock.c
 	numbers.c
 	blocks.c
+	pong.c
 )
 
 target_link_libraries(clock
 	${LWAN_COMMON_LIBS}
 	${ADDITIONAL_LIBRARIES}
+	m
 )
