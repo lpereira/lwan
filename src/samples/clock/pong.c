@@ -142,138 +142,133 @@ static float pong_calculate_end_point(const struct pong *pong, bool hit)
     }
 }
 
+static void pong_clamp_player_pos(struct pong *pong, bool left, bool right)
+{
+    if (left) {
+        if (pong->player_left.target_y < 0.0f)
+            pong->player_left.target_y = 0.0f;
+        else if (pong->player_left.target_y > 24.0f)
+            pong->player_left.target_y = 24.0f;
+    }
+
+    if (right) {
+        if (pong->player_right.target_y < 0.0f)
+            pong->player_right.target_y = 0.0f;
+        else if (pong->player_right.target_y > 24.0f)
+            pong->player_right.target_y = 24.0f;
+    }
+}
+
 uint64_t pong_draw(struct pong *pong)
 {
     if (pong->game_stopped < 20) {
         pong->game_stopped++;
-    } else {
-        pong->ball_x.pos += pong->ball_x.vel;
-        pong->ball_y.pos += pong->ball_y.vel;
-
-        if ((pong->ball_x.pos >= 60.0f && pong->player_loss != 1) ||
-            (pong->ball_x.pos <= 2.0f && pong->player_loss != -1)) {
-            pong->ball_x.vel = -pong->ball_x.vel;
-            if (rand() % 4 > 0) {
-                if (rand() % 2 == 0) {
-                    if (pong->ball_y.vel > 0.0f && pong->ball_y.vel < 2.5f)
-                        pong->ball_y.vel += 0.2f;
-                    else if (pong->ball_y.vel < 0.0f &&
-                             pong->ball_y.vel > -2.5f)
-                        pong->ball_y.vel -= 0.2f;
-
-                    if (pong->ball_x.pos >= 60.0f)
-                        pong->player_right.target_y += 1.0f + rand_float(3);
-                    else
-                        pong->player_left.target_y += 1.0f + rand_float(3);
-                } else {
-                    if (pong->ball_y.vel > 0.5f)
-                        pong->ball_y.vel -= 0.2f;
-                    else if (pong->ball_y.vel < -0.5f)
-                        pong->ball_y.vel += 0.2f;
-
-                    if (pong->ball_x.pos >= 60.0f)
-                        pong->player_right.target_y -= 1.0f + rand_float(3);
-                    else
-                        pong->player_left.target_y -= 1.0f + rand_float(3);
-                }
-
-                if (pong->player_left.target_y < 0.0f)
-                    pong->player_left.target_y = 0.0f;
-                else if (pong->player_left.target_y > 24.0f)
-                    pong->player_left.target_y = 24.0f;
-
-                if (pong->player_right.target_y < 0.0f)
-                    pong->player_right.target_y = 0.0f;
-                else if (pong->player_right.target_y > 24.0f)
-                    pong->player_right.target_y = 24.0f;
-            }
-        } else if ((pong->ball_x.pos > 62.0f && pong->player_loss == 1) ||
-                   (pong->ball_x.pos < 0.0f && pong->player_loss == -1)) {
-            pong_init(pong, pong->gif);
-        }
-
-        if (pong->ball_y.pos >= 30.0f || pong->ball_y.pos <= 0.0f)
-            pong->ball_y.vel = -pong->ball_y.vel;
-
-        if (roundf(pong->ball_x.pos) == 40.0f + rand_float(13)) {
-            pong->player_left.target_y = pong->ball_y.pos - 3.0f;
-
-            if (pong->player_left.target_y < 0.0f)
-                pong->player_left.target_y = 0.0f;
-            else if (pong->player_left.target_y > 24.0f)
-                pong->player_left.target_y = 24.0f;
-        }
-        if (roundf(pong->ball_x.pos) == 8 + rand_float(13)) {
-            pong->player_right.target_y = pong->ball_y.pos - 3;
-
-            if (pong->player_right.target_y < 0)
-                pong->player_right.target_y = 0;
-            else if (pong->player_right.target_y > 24)
-                pong->player_right.target_y = 24;
-        }
-
-        if (pong->player_left.target_y > pong->player_left.y)
-            pong->player_left.y++;
-        else if (pong->player_left.target_y < pong->player_left.y)
-            pong->player_left.y--;
-
-        if (pong->player_right.target_y > pong->player_right.y)
-            pong->player_right.y++;
-        else if (pong->player_right.target_y < pong->player_right.y)
-            pong->player_right.y--;
-
-        /* If the ball is in the middle, check if we need to lose and calculate
-         * the endpoint to avoid/hit the ball */
-        if (roundf(pong->ball_x.pos) == 32.0f) {
-            struct pong_time cur_time;
-
-            pong_time_update(&cur_time);
-
-            if (cur_time.minute != pong->time.minute && pong->player_loss == 0) {
-                /* Need to change one or the other */
-                if (cur_time.minute == 0) /* Need to change the hour */
-                    pong->player_loss = 1;
-                else /* Need to change the minute */
-                    pong->player_loss = -1;
-            }
-
-            if (pong->ball_x.vel < 0) { /* Moving to the left */
-                pong->player_left.target_y =
-                    pong_calculate_end_point(pong, pong->player_loss != -1) - 3;
-                if (pong->player_loss == -1) { /* We need to lose */
-                    if (pong->player_left.target_y < 16)
-                        pong->player_left.target_y = 19 + rand_float(5);
-                    else
-                        pong->player_left.target_y = 5 + rand_float(2);
-                }
-
-                if (pong->player_left.target_y < 0)
-                    pong->player_left.target_y = 0;
-                else if (pong->player_left.target_y > 24)
-                    pong->player_left.target_y = 24;
-            } else if (pong->ball_x.vel > 0) { /* Moving to the right */
-                pong->player_right.target_y =
-                    pong_calculate_end_point(pong, pong->player_loss != 1) - 3;
-                if (pong->player_loss == -1) { /* We need to lose */
-                    if (pong->player_right.target_y < 16)
-                        pong->player_right.target_y = 19 + rand_float(5);
-                    else
-                        pong->player_right.target_y = 5 + rand_float(2);
-                }
-
-                if (pong->player_right.target_y < 0)
-                    pong->player_right.target_y = 0;
-                else if (pong->player_right.target_y > 24)
-                    pong->player_right.target_y = 24;
-            }
-
-            if (pong->ball_y.pos < 0)
-                pong->ball_y.pos = 0;
-            else if (pong->ball_y.pos > 30)
-                pong->ball_y.pos = 30;
-        }
+        goto draw;
     }
 
+    pong->ball_x.pos += pong->ball_x.vel;
+    pong->ball_y.pos += pong->ball_y.vel;
+
+    if ((pong->ball_x.pos >= 60.0f && pong->player_loss != 1) ||
+        (pong->ball_x.pos <= 2.0f && pong->player_loss != -1)) {
+        pong->ball_x.vel = -pong->ball_x.vel;
+        if (rand() % 4 > 0) {
+            if (rand() % 2 == 0) {
+                if (pong->ball_y.vel > 0.0f && pong->ball_y.vel < 2.5f)
+                    pong->ball_y.vel += 0.2f;
+                else if (pong->ball_y.vel < 0.0f && pong->ball_y.vel > -2.5f)
+                    pong->ball_y.vel -= 0.2f;
+
+                if (pong->ball_x.pos >= 60.0f)
+                    pong->player_right.target_y += 1.0f + rand_float(3);
+                else
+                    pong->player_left.target_y += 1.0f + rand_float(3);
+            } else {
+                if (pong->ball_y.vel > 0.5f)
+                    pong->ball_y.vel -= 0.2f;
+                else if (pong->ball_y.vel < -0.5f)
+                    pong->ball_y.vel += 0.2f;
+
+                if (pong->ball_x.pos >= 60.0f)
+                    pong->player_right.target_y -= 1.0f + rand_float(3);
+                else
+                    pong->player_left.target_y -= 1.0f + rand_float(3);
+            }
+
+            pong_clamp_player_pos(pong, true, true);
+        }
+    } else if ((pong->ball_x.pos > 62.0f && pong->player_loss == 1) ||
+               (pong->ball_x.pos < 0.0f && pong->player_loss == -1)) {
+        pong_init(pong, pong->gif);
+    }
+
+    if (pong->ball_y.pos >= 30.0f || pong->ball_y.pos <= 0.0f)
+        pong->ball_y.vel = -pong->ball_y.vel;
+
+    if (roundf(pong->ball_x.pos) == 40.0f + rand_float(13)) {
+        pong->player_left.target_y = pong->ball_y.pos - 3.0f;
+        pong_clamp_player_pos(pong, true, false);
+    } else if (roundf(pong->ball_x.pos) == 8 + rand_float(13)) {
+        pong->player_right.target_y = pong->ball_y.pos - 3.0f;
+        pong_clamp_player_pos(pong, false, true);
+    }
+
+    if (pong->player_left.target_y > pong->player_left.y)
+        pong->player_left.y++;
+    else if (pong->player_left.target_y < pong->player_left.y)
+        pong->player_left.y--;
+
+    if (pong->player_right.target_y > pong->player_right.y)
+        pong->player_right.y++;
+    else if (pong->player_right.target_y < pong->player_right.y)
+        pong->player_right.y--;
+
+    /* If the ball is in the middle, check if we need to lose and calculate
+     * the endpoint to avoid/hit the ball */
+    if (roundf(pong->ball_x.pos) == 32.0f) {
+        struct pong_time cur_time;
+
+        pong_time_update(&cur_time);
+
+        if (cur_time.minute != pong->time.minute && pong->player_loss == 0) {
+            /* Need to change one or the other */
+            if (cur_time.minute == 0) /* Need to change the hour */
+                pong->player_loss = 1;
+            else /* Need to change the minute */
+                pong->player_loss = -1;
+        }
+
+        if (pong->ball_x.vel < 0) { /* Moving to the left */
+            pong->player_left.target_y =
+                pong_calculate_end_point(pong, pong->player_loss != -1) - 3;
+            if (pong->player_loss == -1) { /* We need to lose */
+                if (pong->player_left.target_y < 16)
+                    pong->player_left.target_y = 19 + rand_float(5);
+                else
+                    pong->player_left.target_y = 5 + rand_float(2);
+            }
+
+            pong_clamp_player_pos(pong, true, false);
+        } else if (pong->ball_x.vel > 0) { /* Moving to the right */
+            pong->player_right.target_y =
+                pong_calculate_end_point(pong, pong->player_loss != 1) - 3;
+            if (pong->player_loss == -1) { /* We need to lose */
+                if (pong->player_right.target_y < 16)
+                    pong->player_right.target_y = 19 + rand_float(5);
+                else
+                    pong->player_right.target_y = 5 + rand_float(2);
+            }
+
+            pong_clamp_player_pos(pong, false, true);
+        }
+
+        if (pong->ball_y.pos < 0)
+            pong->ball_y.pos = 0;
+        else if (pong->ball_y.pos > 30)
+            pong->ball_y.pos = 30;
+    }
+
+draw:
     memset(pong->gif->frame, 0, 64 * 32);
     pong_draw_net(pong);
     pong_draw_time(pong);
