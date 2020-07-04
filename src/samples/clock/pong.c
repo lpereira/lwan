@@ -23,8 +23,8 @@
  */
 
 #include <limits.h>
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include "pong.h"
 
@@ -47,8 +47,8 @@ static void pong_time_update(struct pong_time *pong_time)
         for (int i = 0; i < 4; i++)
             pong_time->time[i] = digits[i] - '0';
 
-        pong_time->hour = (digits[0] - '0') * 10 + digits[1] - '0';
-        pong_time->minute = (digits[2] - '0') * 10 + digits[3] - '0';
+        pong_time->hour = pong_time->time[0] * 10 + pong_time->time[1];
+        pong_time->minute = pong_time->time[2] * 10 + pong_time->time[3];
 
         pong_time->last_time = cur_time;
     }
