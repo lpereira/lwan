@@ -281,5 +281,5 @@ uint64_t pong_draw(struct pong *pong)
     pong_draw_player(pong, 62, pong->player_right.y);
     pong_draw_ball(pong);
 
-    return 100;
+    return 8;
 }

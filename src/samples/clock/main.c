@@ -214,7 +214,7 @@ LWAN_HANDLER(pong)
         timeout = pong_draw(&pong);
         total_waited += timeout;
 
-        ge_add_frame(gif, 0);
+        ge_add_frame(gif, (uint16_t)timeout);
         lwan_response_send_chunk(request);
         lwan_request_sleep(request, timeout);
     }
