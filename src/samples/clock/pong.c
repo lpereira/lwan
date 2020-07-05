@@ -151,14 +151,6 @@ static void clamp(float *val, float min, float max)
     }
 }
 
-static void pong_clamp_player_pos(struct pong *pong, bool left, bool right)
-{
-    if (left)
-        clamp(&pong->player_left.target_y, 0.0f, 24.0f);
-    if (right)
-        clamp(&pong->player_right.target_y, 0.0f, 24.0f);
-}
-
 uint64_t pong_draw(struct pong *pong)
 {
     if (pong->game_stopped < 20) {
@@ -195,7 +187,8 @@ uint64_t pong_draw(struct pong *pong)
                     pong->player_left.target_y -= 1.0f + rand_float(3);
             }
 
-            pong_clamp_player_pos(pong, true, true);
+            clamp(&pong->player_left.target_y, 0.0f, 24.0f);
+            clamp(&pong->player_right.target_y, 0.0f, 24.0f);
         }
     } else if ((pong->ball_x.pos > 62.0f && pong->player_loss == 1) ||
                (pong->ball_x.pos < 0.0f && pong->player_loss == -1)) {
@@ -207,10 +200,10 @@ uint64_t pong_draw(struct pong *pong)
 
     if (roundf(pong->ball_x.pos) == 40.0f + rand_float(13)) {
         pong->player_left.target_y = pong->ball_y.pos - 3.0f;
-        pong_clamp_player_pos(pong, true, false);
+        clamp(&pong->player_left.target_y, 0.0f, 24.0f);
     } else if (roundf(pong->ball_x.pos) == 8 + rand_float(13)) {
         pong->player_right.target_y = pong->ball_y.pos - 3.0f;
-        pong_clamp_player_pos(pong, false, true);
+        clamp(&pong->player_right.target_y, 0.0f, 24.0f);
     }
 
     if (pong->player_left.target_y > pong->player_left.y)
@@ -248,7 +241,7 @@ uint64_t pong_draw(struct pong *pong)
                     pong->player_left.target_y = 5 + rand_float(2);
             }
 
-            pong_clamp_player_pos(pong, true, false);
+            clamp(&pong->player_left.target_y, 0.0f, 24.0f);
         } else if (pong->ball_x.vel > 0) { /* Moving to the right */
             pong->player_right.target_y =
                 pong_calculate_end_point(pong, pong->player_loss != 1) - 3;
@@ -259,7 +252,7 @@ uint64_t pong_draw(struct pong *pong)
                     pong->player_right.target_y = 5 + rand_float(2);
             }
 
-            pong_clamp_player_pos(pong, false, true);
+            clamp(&pong->player_right.target_y, 0.0f, 24.0f);
         }
 
         clamp(&pong->ball_y.pos, 0.0f, 30.0f);
