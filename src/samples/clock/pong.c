@@ -238,7 +238,7 @@ uint64_t pong_draw(struct pong *pong)
                 if (pong->player_left.target_y < 16)
                     pong->player_left.target_y = 19 + rand_float(5);
                 else
-                    pong->player_left.target_y = 5 + rand_float(2);
+                    pong->player_left.target_y = rand_float(5);
             }
 
             clamp(&pong->player_left.target_y, 0.0f, 24.0f);
@@ -249,7 +249,7 @@ uint64_t pong_draw(struct pong *pong)
                 if (pong->player_right.target_y < 16)
                     pong->player_right.target_y = 19 + rand_float(5);
                 else
-                    pong->player_right.target_y = 5 + rand_float(2);
+                    pong->player_right.target_y = rand_float(5);
             }
 
             clamp(&pong->player_right.target_y, 0.0f, 24.0f);
