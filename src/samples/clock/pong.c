@@ -252,7 +252,7 @@ uint64_t pong_draw(struct pong *pong)
         } else if (pong->ball_x.vel > 0) { /* Moving to the right */
             pong->player_right.target_y =
                 pong_calculate_end_point(pong, pong->player_loss != 1) - 3;
-            if (pong->player_loss == -1) { /* We need to lose */
+            if (pong->player_loss == 1) { /* We need to lose */
                 if (pong->player_right.target_y < 16)
                     pong->player_right.target_y = 19 + rand_float(5);
                 else
