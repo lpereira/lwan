@@ -226,7 +226,7 @@ uint64_t pong_draw(struct pong *pong)
     /* If the ball is in the middle, check if we need to lose and calculate
      * the endpoint to avoid/hit the ball */
     if (roundf(pong->ball_x.pos) == 32.0f) {
-        struct pong_time cur_time;
+        struct pong_time cur_time = {};
 
         pong_time_update(&cur_time);
 
