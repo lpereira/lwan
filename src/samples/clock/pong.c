@@ -142,21 +142,21 @@ static float pong_calculate_end_point(const struct pong *pong, bool hit)
     }
 }
 
+static void clamp(float *val, float min, float max)
+{
+    if (*val < min) {
+        *val = min;
+    } else if (*val > max) {
+        *val = max;
+    }
+}
+
 static void pong_clamp_player_pos(struct pong *pong, bool left, bool right)
 {
-    if (left) {
-        if (pong->player_left.target_y < 0.0f)
-            pong->player_left.target_y = 0.0f;
-        else if (pong->player_left.target_y > 24.0f)
-            pong->player_left.target_y = 24.0f;
-    }
-
-    if (right) {
-        if (pong->player_right.target_y < 0.0f)
-            pong->player_right.target_y = 0.0f;
-        else if (pong->player_right.target_y > 24.0f)
-            pong->player_right.target_y = 24.0f;
-    }
+    if (left)
+        clamp(&pong->player_left.target_y, 0.0f, 24.0f);
+    if (right)
+        clamp(&pong->player_right.target_y, 0.0f, 24.0f);
 }
 
 uint64_t pong_draw(struct pong *pong)
@@ -262,10 +262,7 @@ uint64_t pong_draw(struct pong *pong)
             pong_clamp_player_pos(pong, false, true);
         }
 
-        if (pong->ball_y.pos < 0)
-            pong->ball_y.pos = 0;
-        else if (pong->ball_y.pos > 30)
-            pong->ball_y.pos = 30;
+        clamp(&pong->ball_y.pos, 0.0f, 30.0f);
     }
 
 draw:
