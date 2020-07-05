@@ -215,12 +215,12 @@ uint64_t pong_draw(struct pong *pong)
 
     if (pong->player_left.target_y > pong->player_left.y)
         pong->player_left.y++;
-    else if (pong->player_left.target_y < pong->player_left.y)
+    if (pong->player_left.target_y < pong->player_left.y)
         pong->player_left.y--;
 
     if (pong->player_right.target_y > pong->player_right.y)
         pong->player_right.y++;
-    else if (pong->player_right.target_y < pong->player_right.y)
+    if (pong->player_right.target_y < pong->player_right.y)
         pong->player_right.y--;
 
     /* If the ball is in the middle, check if we need to lose and calculate
