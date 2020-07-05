@@ -54,14 +54,25 @@ static void pong_time_update(struct pong_time *pong_time)
     }
 }
 
-void pong_init(struct pong *pong, ge_GIF *gif)
+static void pong_init_internal(struct pong *pong, ge_GIF *gif, bool reset)
 {
     float ball_y = rand_float(16.0f) + 8.0f;
+    struct {
+        float y, target_y;
+    } left, right;
+
+    if (reset) {
+        memcpy(&left, &pong->player_left, sizeof(left));
+        memcpy(&right, &pong->player_right, sizeof(right));
+    } else {
+        left.y = right.y = 8;
+        left.target_y = right.target_y = ball_y;
+    }
 
     *pong = (struct pong){
         .gif = gif,
         .ball_x = {.pos = 31.0f, .vel = 1.0f},
-        .ball_y = {.pos = ball_y, .vel = rand() % 2 ? -0.5f : 0.5f},
+        .ball_y = {.pos = ball_y, .vel = rand() % 2 ? 0.5f : -0.5f},
         .player_left = {.y = 8, .target_y = ball_y},
         .player_right = {.y = 18, .target_y = ball_y},
         .player_loss = 0,
@@ -69,6 +80,11 @@ void pong_init(struct pong *pong, ge_GIF *gif)
     };
 
     pong_time_update(&pong->time);
+}
+
+void pong_init(struct pong *pong, ge_GIF *gif)
+{
+    return pong_init_internal(pong, gif, false);
 }
 
 static void draw_pixel(unsigned char *frame, int x, int y, unsigned char color)
@@ -191,8 +207,8 @@ uint64_t pong_draw(struct pong *pong)
             clamp(&pong->player_right.target_y, 0.0f, 24.0f);
         }
     } else if ((pong->ball_x.pos > 62.0f && pong->player_loss == 1) ||
-               (pong->ball_x.pos < 0.0f && pong->player_loss == -1)) {
-        pong_init(pong, pong->gif);
+               (pong->ball_x.pos < 1.0f && pong->player_loss == -1)) {
+        pong_init_internal(pong, pong->gif, true);
     }
 
     if (pong->ball_y.pos >= 30.0f || pong->ball_y.pos <= 0.0f)
