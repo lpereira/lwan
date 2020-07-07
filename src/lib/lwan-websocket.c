@@ -50,6 +50,8 @@ enum ws_opcode {
     WS_OPCODE_RSVD_CONTROL_3 = 13,
     WS_OPCODE_RSVD_CONTROL_4 = 14,
     WS_OPCODE_RSVD_CONTROL_5 = 15,
+
+    WS_OPCODE_INVALID = 16,
 };
 
 static void write_websocket_frame(struct lwan_request *request,
@@ -184,6 +186,8 @@ static void unmask(char *msg, uint64_t msg_len, char mask[static 4])
 
 int lwan_response_websocket_read(struct lwan_request *request)
 {
+    enum ws_opcode opcode = WS_OPCODE_INVALID;
+    enum ws_opcode last_opcode;
     uint16_t header;
     uint64_t frame_len;
     bool continuation = false;
@@ -194,6 +198,8 @@ int lwan_response_websocket_read(struct lwan_request *request)
     lwan_strbuf_reset(request->response.buffer);
 
 next_frame:
+    last_opcode = opcode;
+
     if (!lwan_recv(request, &header, sizeof(header), continuation ? 0 : MSG_DONTWAIT))
         return EAGAIN;
     header = htons(header);
@@ -210,8 +216,15 @@ next_frame:
         __builtin_unreachable();
     }
 
-    switch ((enum ws_opcode)((header & 0x0f00) >> 8)) {
+    opcode = (header & 0x0f00) >> 8;
+    switch (opcode) {
     case WS_OPCODE_CONTINUATION:
+        if (UNLIKELY(last_opcode > WS_OPCODE_BINARY)) {
+            /* Continuation frames are only available for opcodes [0..2] */
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
         continuation = true;
         break;
 
@@ -244,6 +257,9 @@ next_frame:
             (header & 0x0f00) >> 8);
         /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+
+    case WS_OPCODE_INVALID:
         __builtin_unreachable();
     }
 
