@@ -18,9 +18,15 @@
  * USA.
  */
 
+#define _GNU_SOURCE
 #include <endian.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/socket.h>
+
+#if defined(__x86_64__)
+#include <emmintrin.h>
+#endif
 
 #include "lwan-io-wrappers.h"
 #include "lwan-private.h"
@@ -132,11 +138,54 @@ static void discard_frame(struct lwan_request *request, uint16_t header)
         len -= (size_t)lwan_recv(request, buffer, sizeof(buffer), 0);
 }
 
+static void unmask(char *msg, uint64_t msg_len, char mask[static 4])
+{
+    const uint32_t mask32 = string_as_uint32(mask);
+    char *msg_end = msg + msg_len;
+
+    if (sizeof(void *) == 8) {
+        const uint64_t mask64 = (uint64_t)mask32 << 32 | mask32;
+
+#if defined(__x86_64__)
+        if (msg_end - msg >= 16) {
+            const __m128i mask128 =
+                _mm_setr_epi64((__m64)mask64, (__m64)mask64);
+
+            do {
+                __m128i v = _mm_loadu_si128((__m128i *)msg);
+                _mm_storeu_si128((__m128i *)msg, _mm_xor_si128(v, mask128));
+                msg += 16;
+            } while (msg_end - msg >= 16);
+        }
+#endif
+
+        if (msg_end - msg >= 8) {
+            uint64_t v = string_as_uint64(msg);
+            v ^= mask64;
+            msg = mempcpy(msg, &v, sizeof(v));
+        }
+    }
+
+    while (msg_end - msg >= 4) {
+        uint32_t v = string_as_uint32(msg);
+        v ^= mask32;
+        msg = mempcpy(msg, &v, sizeof(v));
+    }
+
+    switch (msg_end - msg) {
+    case 3:
+        msg[2] ^= mask[2]; /* fallthrough */
+    case 2:
+        msg[1] ^= mask[1]; /* fallthrough */
+    case 1:
+        msg[0] ^= mask[0];
+    }
+}
+
 int lwan_response_websocket_read(struct lwan_request *request)
 {
     uint16_t header;
     uint64_t frame_len;
-    char *msg;
     bool continuation = false;
 
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
@@ -152,6 +201,11 @@ next_frame:
     if (UNLIKELY(header & 0x7000)) {
         lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting", header & 0x7000);
         /* No extensions are supported yet, so fail connection per RFC6455. */
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
+    if (UNLIKELY(!(header & 0x80))) {
+        lwan_status_debug("Client sent an unmasked WebSockets frame, aborting");
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -204,24 +258,14 @@ next_frame:
      * overflow if adding frame_len, as this is checked by grow_by() already. */
     request->response.buffer->used += frame_len;
 
-    msg = lwan_strbuf_get_buffer(request->response.buffer) + cur_buf_len;
-    if (LIKELY(header & 0x80)) {
-        /* Payload is masked; should always be true on Client->Server comms but
-         * don't assume this is always the case. */
-        char mask[4];
-        struct iovec vec[] = {
-            {.iov_base = mask, .iov_len = sizeof(mask)},
-            {.iov_base = msg, .iov_len = frame_len},
-        };
-
-        lwan_readv(request, vec, N_ELEMENTS(vec));
-
-        /* FIXME: try to do more bytes at a time! */
-        for (uint64_t i = 0; i < frame_len; i++)
-            msg[i] ^= mask[i & 3];
-    } else {
-        lwan_recv(request, msg, frame_len, 0);
-    }
+    char *msg = lwan_strbuf_get_buffer(request->response.buffer) + cur_buf_len;
+    char mask[4];
+    struct iovec vec[] = {
+        {.iov_base = mask, .iov_len = sizeof(mask)},
+        {.iov_base = msg, .iov_len = frame_len},
+    };
+    lwan_readv(request, vec, N_ELEMENTS(vec));
+    unmask(msg, frame_len, mask);
 
     if (continuation && !(header & 0x8000)) {
         continuation = false;
