@@ -149,26 +149,27 @@ static void unmask(char *msg, uint64_t msg_len, char mask[static 4])
         const uint64_t mask64 = (uint64_t)mask32 << 32 | mask32;
 
 #if defined(__x86_64__)
-        if (msg_end - msg >= 16) {
-            const __m128i mask128 =
-                _mm_setr_epi64((__m64)mask64, (__m64)mask64);
-
-            do {
+        const size_t len128 = msg_len / 16;
+        if (len128) {
+            const __m128i mask128 = _mm_setr_epi64((__m64)mask64, (__m64)mask64);
+            for (size_t i = 0; i < len128; i++) {
                 __m128i v = _mm_loadu_si128((__m128i *)msg);
                 _mm_storeu_si128((__m128i *)msg, _mm_xor_si128(v, mask128));
                 msg += 16;
-            } while (msg_end - msg >= 16);
+            }
         }
 #endif
 
-        while (msg_end - msg >= 8) {
+        const size_t len64 = (size_t)((msg_end - msg) / 8);
+        for (size_t i = 0; i < len64; i++) {
             uint64_t v = string_as_uint64(msg);
             v ^= mask64;
             msg = mempcpy(msg, &v, sizeof(v));
         }
     }
 
-    while (msg_end - msg >= 4) {
+    const size_t len32 = (size_t)((msg_end - msg) / 4);
+    for (size_t i = 0; i < len32; i++) {
         uint32_t v = string_as_uint32(msg);
         v ^= mask32;
         msg = mempcpy(msg, &v, sizeof(v));
