@@ -249,20 +249,10 @@ next_frame:
         goto next_frame;
 
     case WS_OPCODE_RSVD_1 ... WS_OPCODE_RSVD_5:
-        lwan_status_debug("Received reserved non-control frame opcode: 0x%x, aborting",
-            (header & 0x0f00) >> 8);
-        /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
-        coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-
     case WS_OPCODE_RSVD_CONTROL_1 ... WS_OPCODE_RSVD_CONTROL_5:
-        lwan_status_debug("Received reserved control frame opcode: 0x%x, aborting",
-            (header & 0x0f00) >> 8);
+    case WS_OPCODE_INVALID:
         /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-
-    case WS_OPCODE_INVALID:
         __builtin_unreachable();
     }
 
