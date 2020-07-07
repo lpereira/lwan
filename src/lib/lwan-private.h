@@ -73,6 +73,8 @@ void lwan_readahead_shutdown(void);
 void lwan_readahead_queue(int fd, off_t off, size_t size);
 void lwan_madvise_queue(void *addr, size_t size);
 
+char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by);
+
 char *lwan_process_request(struct lwan *l, struct lwan_request *request,
                            struct lwan_value *buffer, char *next_request);
 size_t lwan_prepare_response_header_full(struct lwan_request *request,

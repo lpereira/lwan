@@ -263,3 +263,15 @@ void lwan_strbuf_reset(struct lwan_strbuf *s)
 
     s->used = 0;
 }
+
+/* This function is quite dangerous, so the prototype is only in lwan-private.h */
+char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by)
+{
+    if (!lwan_strbuf_grow_by(s, by))
+        return NULL;
+
+    size_t prev_used = s->used;
+    s->used += by;
+
+    return s->buffer + prev_used;
+}
