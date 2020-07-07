@@ -161,7 +161,7 @@ static void unmask(char *msg, uint64_t msg_len, char mask[static 4])
         }
 #endif
 
-        if (msg_end - msg >= 8) {
+        while (msg_end - msg >= 8) {
             uint64_t v = string_as_uint64(msg);
             v ^= mask64;
             msg = mempcpy(msg, &v, sizeof(v));
