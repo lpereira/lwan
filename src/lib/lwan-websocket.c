@@ -19,6 +19,7 @@
  */
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <endian.h>
 #include <errno.h>
 #include <string.h>
@@ -116,19 +117,21 @@ static void send_websocket_pong(struct lwan_request *request, size_t len)
     write_websocket_frame(request, WS_OPCODE_PONG, temp, len);
 }
 
-static uint64_t get_frame_length(struct lwan_request *request, uint16_t header)
+static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 {
-    uint64_t len;
+    size_t len;
+
+    static_assert(sizeof(size_t) == sizeof(uint64_t), "size_t has a sane size");
 
     switch (header & 0x7f) {
     case 0x7e:
         lwan_recv(request, &len, 2, 0);
-        return (uint64_t)ntohs((uint16_t)len);
+        return (size_t)ntohs((uint16_t)len);
     case 0x7f:
         lwan_recv(request, &len, 8, 0);
-        return (uint64_t)be64toh(len);
+        return (size_t)be64toh(len);
     default:
-        return (uint64_t)(header & 0x7f);
+        return (size_t)(header & 0x7f);
     }
 }
 
@@ -190,7 +193,6 @@ int lwan_response_websocket_read(struct lwan_request *request)
     enum ws_opcode opcode = WS_OPCODE_INVALID;
     enum ws_opcode last_opcode;
     uint16_t header;
-    uint64_t frame_len;
     bool continuation = false;
 
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
@@ -264,18 +266,13 @@ next_frame:
         __builtin_unreachable();
     }
 
-    size_t cur_buf_len = lwan_strbuf_get_length(request->response.buffer);
-
-    frame_len = get_frame_length(request, header);
-    if (UNLIKELY(!lwan_strbuf_grow_by(request->response.buffer, frame_len))) {
+    size_t frame_len = get_frame_length(request, header);
+    char *msg = lwan_strbuf_extend_unsafe(request->response.buffer, frame_len);
+    if (UNLIKELY(!msg)) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
-    /* FIXME: API to update used size, too, not just capacity!   Also, this can't
-     * overflow if adding frame_len, as this is checked by grow_by() already. */
-    request->response.buffer->used += frame_len;
 
-    char *msg = lwan_strbuf_get_buffer(request->response.buffer) + cur_buf_len;
     char mask[4];
     struct iovec vec[] = {
         {.iov_base = mask, .iov_len = sizeof(mask)},
