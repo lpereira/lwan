@@ -495,7 +495,7 @@ static int try_open_compressed(const char *relpath,
     int ret, fd;
 
     /* Try to serve a compressed file using sendfile() if $FILENAME.gz exists */
-    ret = snprintf(gzpath, PATH_MAX, "%s.gz", relpath + 1);
+    ret = snprintf(gzpath, PATH_MAX, "%s.gz", relpath);
     if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
         goto out;
 
@@ -561,7 +561,7 @@ static bool mmap_init(struct file_cache_entry *ce,
     const char *path = full_path + priv->root_path_len;
     int file_fd;
 
-    file_fd = openat(priv->root_fd, path + (*path == '/'), open_mode);
+    file_fd = openat(priv->root_fd, path, open_mode);
     if (UNLIKELY(file_fd < 0))
         return false;
     if (!mmap_fd(priv, file_fd, (size_t)st->st_size, &md->uncompressed))
@@ -602,7 +602,7 @@ static bool sendfile_init(struct file_cache_entry *ce,
 
     ce->mime_type = lwan_determine_mime_type_for_file_name(relpath);
 
-    sd->uncompressed.fd = openat(priv->root_fd, relpath + 1, open_mode);
+    sd->uncompressed.fd = openat(priv->root_fd, relpath, open_mode);
     if (UNLIKELY(sd->uncompressed.fd < 0)) {
         switch (errno) {
         case ENFILE:
@@ -805,16 +805,14 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
             return NULL;
 
         /* If it does, we want its full path. */
-
         /* FIXME: Use strlcpy() here instead of calling strlen()? */
-        if (UNLIKELY(priv->root_path_len + 1 /* slash */ +
+        if (UNLIKELY(priv->root_path_len +
                          strlen(index_html_path) + 1 >=
                      PATH_MAX))
             return NULL;
 
-        full_path[priv->root_path_len] = '/';
-        strncpy(full_path + priv->root_path_len + 1, index_html_path,
-                PATH_MAX - priv->root_path_len - 1);
+        strncpy(full_path + priv->root_path_len, index_html_path,
+                PATH_MAX - priv->root_path_len);
     }
 
     /* Only serve regular files. */
@@ -943,19 +941,42 @@ static void redir_free(struct file_cache_entry *fce)
     free(rd->redir_to);
 }
 
+static char *get_real_root_path(const char *root_path)
+{
+    char path_buf[PATH_MAX];
+    char *path;
+
+    path = realpath(root_path, path_buf);
+    if (!path)
+        return NULL;
+
+    char *last_slash = strrchr(path, '/');
+    if (!last_slash)
+        return NULL;
+
+    if (*(last_slash + 1) == '\0')
+        return strdup(path);
+
+    char *ret;
+    if (asprintf(&ret, "%s/", path))
+        return ret;
+
+    return NULL;
+}
+
 static void *serve_files_create(const char *prefix, void *args)
 {
     struct lwan_serve_files_settings *settings = args;
+    struct serve_files_priv *priv;
     char *canonical_root;
     int root_fd;
-    struct serve_files_priv *priv;
 
     if (!settings->root_path) {
         lwan_status_error("root_path not specified");
         return NULL;
     }
 
-    canonical_root = realpath(settings->root_path, NULL);
+    canonical_root = get_real_root_path(settings->root_path);
     if (!canonical_root) {
         lwan_status_perror("Could not obtain real path of \"%s\"",
                            settings->root_path);

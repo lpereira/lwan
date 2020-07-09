@@ -137,7 +137,7 @@ realpathat2(int dirfd, char *dirfdpath, const char *name, char *resolved,
                     strncmp(rpath, dirfdpath, (size_t)dirfdlen)) {
                 pathat = rpath;
             } else {
-                pathat = rpath + dirfdlen + 1;
+                pathat = rpath + dirfdlen;
             }
             if (UNLIKELY(*pathat == '\0'))
                 pathat = rpath;
