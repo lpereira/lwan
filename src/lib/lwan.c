@@ -291,7 +291,7 @@ error:
     free(url_map->authorization.password_file);
 }
 
-const char *get_module_name(const struct lwan_module *module)
+static const char *get_module_name(const struct lwan_module *module)
 {
     const struct lwan_module_info *iter;
 
