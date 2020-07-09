@@ -291,6 +291,18 @@ error:
     free(url_map->authorization.password_file);
 }
 
+const char *get_module_name(const struct lwan_module *module)
+{
+    const struct lwan_module_info *iter;
+
+    LWAN_SECTION_FOREACH(lwan_module, iter) {
+        if (iter->module == module)
+            return iter->name;
+    }
+
+    return "<unknown>";
+}
+
 static void parse_listener_prefix(struct config *c,
                                   const struct config_line *l,
                                   struct lwan *lwan,
@@ -342,6 +354,9 @@ add_map:
 
         hash = NULL;
     } else if (module->create_from_hash && module->handle_request) {
+        lwan_status_debug("Initializing module %s from config",
+                          get_module_name(module));
+
         url_map.data = module->create_from_hash(prefix, hash);
         if (!url_map.data) {
             config_error(c, "Could not create module instance");
@@ -384,7 +399,15 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
         struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
 
         if (copy->module && copy->module->create) {
-            copy->data = copy->module->create (map->prefix, copy->args);
+            lwan_status_debug("Initializing module %s from struct",
+                              get_module_name(copy->module));
+
+            copy->data = copy->module->create(map->prefix, copy->args);
+            if (!copy->data) {
+                lwan_status_critical("Could not initialize module %s",
+                                     get_module_name(copy->module));
+            }
+
             copy->flags = copy->module->flags;
             copy->handler = copy->module->handle_request;
         } else {
