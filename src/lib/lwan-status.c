@@ -122,12 +122,13 @@ static long gettid_cached(void)
      * https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=15216 */
     return gettid();
 #else
-    static __thread long tid;
+    static long thread_count;
+    static __thread long current_thread_id;
 
-    if (!tid)
-        tid = gettid();
+    if (!current_thread_id)
+        current_thread_id = ATOMIC_INC(thread_count);
 
-    return tid;
+    return current_thread_id;
 #endif
 }
 #endif
@@ -153,11 +154,10 @@ static void status_out(
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
     if (LIKELY(use_colors)) {
-        printf(FORMAT_WITH_COLOR("%ld ", "32;1"), gettid_cached());
         printf(FORMAT_WITH_COLOR("%s:%d ", "3"), base_name, line);
-        printf(FORMAT_WITH_COLOR("%s() ", "33"), func);
+        printf(FORMAT_WITH_COLOR("%s(%ld) ", "33"), func, gettid_cached());
     } else {
-        printf("%ld %s:%d %s() ", gettid_cached(), base_name, line, func);
+        printf("%s:%d %s(%ld) ", base_name, line, func, gettid_cached());
     }
 #endif
 
