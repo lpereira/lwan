@@ -134,8 +134,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             .helper = &helper,
         };
 
-        lwan_process_request(lwan, &request, next_request);
-
+        lwan_process_request(lwan, &request);
 
         if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
             if (next_request && *next_request) {

@@ -111,8 +111,7 @@ void lwan_madvise_queue(void *addr, size_t size);
 
 char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by);
 
-void lwan_process_request(struct lwan *l, struct lwan_request *request,
-                          char *next_request);
+void lwan_process_request(struct lwan *l, struct lwan_request *request);
 size_t lwan_prepare_response_header_full(struct lwan_request *request,
      enum lwan_http_status status, char headers[],
      size_t headers_buf_size, const struct lwan_key_value *additional_headers);
