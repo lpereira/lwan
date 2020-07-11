@@ -307,7 +307,7 @@ static void cached_queries_free(struct cache_entry *entry, void *context)
 }
 
 static struct cache_entry *my_cache_coro_get_and_ref_entry(struct cache *cache,
-                                                           struct coro *coro,
+                                                           struct lwan_request *request,
                                                            const char *key)
 {
     /* Using this function instead of cache_coro_get_and_ref_entry() will avoid
@@ -319,7 +319,7 @@ static struct cache_entry *my_cache_coro_get_and_ref_entry(struct cache *cache,
      * indirect calls that are performed every time a request is serviced.
      */
 
-    for (int tries = 16; tries; tries--) {
+    for (int tries = 64; tries; tries--) {
         int error;
         struct cache_entry *ce = cache_get_and_ref_entry(cache, key, &error);
 
@@ -329,7 +329,10 @@ static struct cache_entry *my_cache_coro_get_and_ref_entry(struct cache *cache,
         if (error != EWOULDBLOCK)
             break;
 
-        coro_yield(coro, CONN_CORO_WANT_WRITE);
+        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+
+        if (tries > 16)
+            lwan_request_sleep(request, (unsigned int)(tries / 8));
     }
 
     return NULL;
@@ -351,7 +354,7 @@ LWAN_HANDLER(cached_world)
         size_t discard;
 
         jc = (struct db_json_cached *)my_cache_coro_get_and_ref_entry(
-            cached_queries_cache, request->conn->coro,
+            cached_queries_cache, request,
             int_to_string(rand() % 10000, key_buf, &discard));
         if (UNLIKELY(!jc))
             return HTTP_INTERNAL_ERROR;
