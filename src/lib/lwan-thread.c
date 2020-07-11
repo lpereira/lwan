@@ -124,33 +124,35 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             .error_when_n_packets = error_when_n_packets,
             .header_start = header_start,
         };
-        struct lwan_request request = {
-            .conn = conn,
-            .global_response_headers = &lwan->headers,
-            .fd = fd,
-            .response = {.buffer = &strbuf},
-            .flags = flags,
-            .proxy = &proxy,
-            .helper = &helper,
-        };
+        struct lwan_request request = {.conn = conn,
+                                       .global_response_headers = &lwan->headers,
+                                       .fd = fd,
+                                       .response = {.buffer = &strbuf},
+                                       .flags = flags,
+                                       .proxy = &proxy,
+                                       .helper = &helper};
 
         lwan_process_request(lwan, &request);
 
-        if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
-            if (next_request && *next_request) {
-                conn->flags |= CONN_CORK;
-                coro_yield(coro, CONN_CORO_WANT_WRITE);
-            } else {
-                conn->flags &= ~CONN_CORK;
-                coro_yield(coro, CONN_CORO_WANT_READ);
-            }
-        } else {
+        /* Run the deferred instructions now (except those used to initialize
+         * the coroutine), so that if the connection is gracefully closed,
+         * the storage for ``helper'' is still there. */
+        coro_deferred_run(coro, init_gen);
+
+        if (UNLIKELY(!(conn->flags & CONN_IS_KEEP_ALIVE))) {
             graceful_close(lwan, conn, request_buffer);
             break;
         }
 
+        if (next_request && *next_request) {
+            conn->flags |= CONN_CORK;
+            coro_yield(coro, CONN_CORO_WANT_WRITE);
+        } else {
+            conn->flags &= ~CONN_CORK;
+            coro_yield(coro, CONN_CORO_WANT_READ);
+        }
+
         lwan_strbuf_reset(&strbuf);
-        coro_deferred_run(coro, init_gen);
 
         /* Only allow flags from config. */
         flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
