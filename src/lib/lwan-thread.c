@@ -108,7 +108,9 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     char request_buffer[DEFAULT_BUFFER_SIZE];
     struct lwan_value buffer = {.value = request_buffer, .len = 0};
     char *next_request = NULL;
+    char *header_start[N_HEADER_START];
     struct lwan_proxy proxy;
+    const int error_when_n_packets = lwan_calculate_n_packets(DEFAULT_BUFFER_SIZE);
 
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
 
@@ -116,22 +118,24 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     assert(init_gen == coro_deferred_get_generation(coro));
 
     while (true) {
-        struct lwan_request request = {.conn = conn,
-                                       .global_response_headers = &lwan->headers,
-                                       .fd = fd,
-                                       .response = {.buffer = &strbuf},
-                                       .flags = flags,
-                                       .proxy = &proxy};
+        struct lwan_request_parser_helper helper = {
+            .buffer = &buffer,
+            .next_request = next_request,
+            .error_when_n_packets = error_when_n_packets,
+            .header_start = header_start,
+        };
+        struct lwan_request request = {
+            .conn = conn,
+            .global_response_headers = &lwan->headers,
+            .fd = fd,
+            .response = {.buffer = &strbuf},
+            .flags = flags,
+            .proxy = &proxy,
+            .helper = &helper,
+        };
 
-        next_request =
-            lwan_process_request(lwan, &request, &buffer, next_request);
+        lwan_process_request(lwan, &request, next_request);
 
-        if (coro_deferred_get_generation(coro) > ((2 * LWAN_ARRAY_INCREMENT) / 3)) {
-            /* Batch execution of coro_defers() up to 2/3 LWAN_ARRAY_INCREMENT times,
-             * to avoid moving deferred array to heap in most cases.  (This is to give
-             * some slack to the next request being processed by this coro.) */
-            coro_deferred_run(coro, init_gen);
-        }
 
         if (LIKELY(conn->flags & CONN_IS_KEEP_ALIVE)) {
             if (next_request && *next_request) {
@@ -147,16 +151,16 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         }
 
         lwan_strbuf_reset(&strbuf);
+        coro_deferred_run(coro, init_gen);
 
         /* Only allow flags from config. */
         flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
+        next_request = helper.next_request;
     }
 
     coro_yield(coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
-
-#undef REQUEST_FLAG
 
 static ALWAYS_INLINE uint32_t
 conn_flags_to_epoll_events(enum lwan_connection_flags flags)

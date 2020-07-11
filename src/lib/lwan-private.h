@@ -24,8 +24,44 @@
 
 #include "lwan.h"
 
+struct lwan_request_parser_helper {
+    struct lwan_value *buffer;		/* The whole request buffer */
+    char *next_request;			/* For pipelined requests */
+
+    char **header_start;		/* Headers: n: start, n+1: end */
+    size_t n_header_start;		/* len(header_start) */
+
+    struct lwan_value accept_encoding;	/* Accept-Encoding: */
+
+    struct lwan_value query_string;	/* Stuff after ? and before # */
+
+    struct lwan_value post_data;	/* Request body for POST */
+    struct lwan_value content_type;	/* Content-Type: for POST */
+    struct lwan_value content_length;	/* Content-Length: */
+
+    struct lwan_value connection;	/* Connection: */
+
+    struct lwan_key_value_array cookies, query_params, post_params;
+
+    struct { /* If-Modified-Since: */
+        struct lwan_value raw;
+        time_t parsed;
+    } if_modified_since;
+
+    struct { /* Range: */
+        struct lwan_value raw;
+        off_t from, to;
+    } range;
+
+    time_t error_when_time;		/* Time to abort request read */
+    int error_when_n_packets;		/* Max. number of packets */
+    int urls_rewritten;			/* Times URLs have been rewritten */
+};
+
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 512
+
+#define N_HEADER_START 64
 
 #define LWAN_CONCAT(a_, b_) a_ ## b_
 #define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)
@@ -75,8 +111,8 @@ void lwan_madvise_queue(void *addr, size_t size);
 
 char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by);
 
-char *lwan_process_request(struct lwan *l, struct lwan_request *request,
-                           struct lwan_value *buffer, char *next_request);
+void lwan_process_request(struct lwan *l, struct lwan_request *request,
+                          char *next_request);
 size_t lwan_prepare_response_header_full(struct lwan_request *request,
      enum lwan_http_status status, char headers[],
      size_t headers_buf_size, const struct lwan_key_value *additional_headers);
@@ -162,4 +198,11 @@ lwan_aligned_alloc(size_t n, size_t alignment)
         return NULL;
 
     return ret;
+}
+
+static ALWAYS_INLINE int lwan_calculate_n_packets(size_t total)
+{
+    /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
+     * after ~2x number of expected packets to fully read the request body.*/
+    return LWAN_MAX(5, (int)(total / 740));
 }

@@ -46,46 +46,11 @@
 
 #define HEADER_TERMINATOR_LEN (sizeof("\r\n") - 1)
 #define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
-#define N_HEADER_START 64
 
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
     FINALIZER_ERROR_TIMEOUT
-};
-
-struct lwan_request_parser_helper {
-    struct lwan_value *buffer;		/* The whole request buffer */
-    char *next_request;			/* For pipelined requests */
-
-    char **header_start;		/* Headers: n: start, n+1: end */
-    size_t n_header_start;		/* len(header_start) */
-
-    struct lwan_value accept_encoding;	/* Accept-Encoding: */
-
-    struct lwan_value query_string;	/* Stuff after ? and before # */
-
-    struct lwan_value post_data;	/* Request body for POST */
-    struct lwan_value content_type;	/* Content-Type: for POST */
-    struct lwan_value content_length;	/* Content-Length: */
-
-    struct lwan_value connection;	/* Connection: */
-
-    struct lwan_key_value_array cookies, query_params, post_params;
-
-    struct { /* If-Modified-Since: */
-        struct lwan_value raw;
-        time_t parsed;
-    } if_modified_since;
-
-    struct { /* Range: */
-        struct lwan_value raw;
-        off_t from, to;
-    } range;
-
-    time_t error_when_time;		/* Time to abort request read */
-    int error_when_n_packets;		/* Max. number of packets */
-    int urls_rewritten;			/* Times URLs have been rewritten */
 };
 
 struct proxy_header_v2 {
@@ -906,7 +871,7 @@ read_request_finalizer(size_t total_read,
      * hogging the server.  (Clients can't only connect and do nothing, they
      * need to send data, otherwise the timeout queue timer will kick in and
      * close the connection.  Limit the number of packets to avoid them sending
-     * just a byte at a time.) See calculate_n_packets() to see how this is
+     * just a byte at a time.) See lwan_calculate_n_packets() to see how this is
      * calculated. */
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
         return FINALIZER_ERROR_TIMEOUT;
@@ -970,13 +935,6 @@ post_data_finalizer(size_t total_read,
         return FINALIZER_ERROR_TIMEOUT;
 
     return FINALIZER_TRY_AGAIN;
-}
-
-static ALWAYS_INLINE int calculate_n_packets(size_t total)
-{
-    /* 740 = 1480 (a common MTU) / 2, so that Lwan'll optimistically error out
-     * after ~2x number of expected packets to fully read the request body.*/
-    return LWAN_MAX(5, (int)(total / 740));
 }
 
 static const char *is_dir(const char *v)
@@ -1180,7 +1138,7 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     helper->next_request = NULL;
 
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
-    helper->error_when_n_packets = calculate_n_packets(post_data_size);
+    helper->error_when_n_packets = lwan_calculate_n_packets(post_data_size);
 
     struct lwan_value buffer = {.value = new_buffer,
                                 .len = post_data_size};
@@ -1362,29 +1320,19 @@ static bool handle_rewrite(struct lwan_request *request)
     return true;
 }
 
-char *lwan_process_request(struct lwan *l,
-                           struct lwan_request *request,
-                           struct lwan_value *buffer,
-                           char *next_request)
+void lwan_process_request(struct lwan *l,
+                          struct lwan_request *request,
+                          char *next_request)
 {
-    char *header_start[N_HEADER_START];
-    struct lwan_request_parser_helper helper = {
-        .buffer = buffer,
-        .next_request = next_request,
-        .error_when_n_packets = calculate_n_packets(DEFAULT_BUFFER_SIZE),
-        .header_start = header_start,
-    };
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
-
-    request->helper = &helper;
 
     status = read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
         /* This request was bad, but maybe there's a good one in the
          * pipeline.  */
-        if (status == HTTP_BAD_REQUEST && helper.next_request)
-            goto out;
+        if (status == HTTP_BAD_REQUEST && request->helper->next_request)
+            return;
 
         /* Response here can be: HTTP_TOO_LARGE, HTTP_BAD_REQUEST (without
          * next request), or HTTP_TIMEOUT.  Nothing to do, just abort the
@@ -1397,20 +1345,20 @@ char *lwan_process_request(struct lwan *l,
     status = parse_http_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
-        goto out;
+        return;
     }
 
 lookup_again:
     url_map = lwan_trie_lookup_prefix(&l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
         lwan_default_response(request, HTTP_NOT_FOUND);
-        goto out;
+        return;
     }
 
     status = prepare_for_response(url_map, request);
     if (UNLIKELY(status != HTTP_OK)) {
         lwan_default_response(request, status);
-        goto out;
+        return;
     }
 
     status = url_map->handler(request, &request->response, url_map->data);
@@ -1418,14 +1366,11 @@ lookup_again:
         if (request->flags & RESPONSE_URL_REWRITTEN) {
             if (LIKELY(handle_rewrite(request)))
                 goto lookup_again;
-            goto out;
+            return;
         }
     }
 
     lwan_response(request, status);
-
-out:
-    return helper.next_request;
 }
 
 static inline void *
