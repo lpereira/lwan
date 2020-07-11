@@ -329,7 +329,7 @@ static struct cache_entry *my_cache_coro_get_and_ref_entry(struct cache *cache,
         if (error != EWOULDBLOCK)
             break;
 
-        coro_yield(coro, CONN_CORO_YIELD);
+        coro_yield(coro, CONN_CORO_WANT_WRITE);
     }
 
     return NULL;

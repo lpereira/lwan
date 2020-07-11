@@ -381,15 +381,14 @@ struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
             return ce;
         }
 
-        /*
-         * If the cache would block while reading its hash table, yield and
-         * try again. On any other error, just return NULL.
-         */
-        if (error == EWOULDBLOCK) {
-            coro_yield(coro, CONN_CORO_YIELD);
-        } else {
+        if (error != EWOULDBLOCK)
             break;
-        }
+
+        /* If the cache would block while reading its hash table, yield and
+         * try again.   (This yields "want-write" because otherwise this
+         * worker thread might never be resumed again; it's not always that
+         * a socket can be read from, but you can always write to it.)  */
+        coro_yield(coro, CONN_CORO_WANT_WRITE);
     }
 
     return NULL;
