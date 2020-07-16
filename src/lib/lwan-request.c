@@ -867,17 +867,19 @@ read_request_finalizer(size_t total_read,
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
 
-    /* Yield a timeout error to avoid clients being intentionally slow and
-     * hogging the server.  (Clients can't only connect and do nothing, they
-     * need to send data, otherwise the timeout queue timer will kick in and
-     * close the connection.  Limit the number of packets to avoid them sending
-     * just a byte at a time.) See lwan_calculate_n_packets() to see how this is
-     * calculated. */
-    if (UNLIKELY(n_packets > helper->error_when_n_packets))
-        return FINALIZER_ERROR_TIMEOUT;
+    if (!(request->conn->flags & CONN_CORK)) {
+        /* CONN_CORK is set on pipelined requests.  For non-pipelined requests,
+         * try looking at the last four bytes to see if we have a complete
+         * request in the buffer as a fast path.  (The memmem() below appears
+         * in profiles with measurable impact.) */
+        if (LIKELY(total_read >= MIN_REQUEST_SIZE)) {
+            if (!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4))
+                return FINALIZER_DONE;
+        }
+    }
 
     char *crlfcrlf =
-        memmem(helper->buffer->value, helper->buffer->len, "\r\n\r\n", 4);
+        memmem(helper->buffer->value, total_read, "\r\n\r\n", 4);
     if (LIKELY(crlfcrlf)) {
         const size_t crlfcrlf_to_base =
             (size_t)(crlfcrlf - helper->buffer->value);
@@ -900,6 +902,15 @@ read_request_finalizer(size_t total_read,
             }
         }
     }
+
+    /* Yield a timeout error to avoid clients being intentionally slow and
+     * hogging the server.  (Clients can't only connect and do nothing, they
+     * need to send data, otherwise the timeout queue timer will kick in and
+     * close the connection.  Limit the number of packets to avoid them sending
+     * just a byte at a time.) See lwan_calculate_n_packets() to see how this is
+     * calculated. */
+    if (UNLIKELY(n_packets > helper->error_when_n_packets))
+        return FINALIZER_ERROR_TIMEOUT;
 
     return FINALIZER_TRY_AGAIN;
 }
