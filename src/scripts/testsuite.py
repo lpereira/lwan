@@ -398,7 +398,7 @@ class TestFileServing(LwanTest):
 
     self.assertResponseHtml(r)
 
-    self.assertTrue('<h1>Index of &#x2f;icons</h1>' in r.text)
+    self.assertTrue('<h1>Index of icons</h1>' in r.text)
 
     def assertHasImage(name):
       imgtag = "<a href=\"%s.gif\">%s.gif</a>" % (name, name)
