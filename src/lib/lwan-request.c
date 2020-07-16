@@ -1331,8 +1331,7 @@ static bool handle_rewrite(struct lwan_request *request)
     return true;
 }
 
-void lwan_process_request(struct lwan *l,
-                          struct lwan_request *request)
+void lwan_process_request(struct lwan *l, struct lwan_request *request)
 {
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
@@ -1380,7 +1379,7 @@ lookup_again:
         }
     }
 
-    lwan_response(request, status);
+    return (void)lwan_response(request, status);
 }
 
 static inline void *
