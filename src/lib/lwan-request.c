@@ -50,7 +50,7 @@
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
-    FINALIZER_ERROR_TIMEOUT
+    FINALIZER_TIMEOUT,
 };
 
 struct proxy_header_v2 {
@@ -771,17 +771,14 @@ try_another_file_name:
 #endif
 
 static enum lwan_http_status
-read_from_request_socket(struct lwan_request *request,
-                         struct lwan_value *buffer,
-                         const size_t buffer_size,
-                         enum lwan_read_finalizer (*finalizer)(
-                             size_t total_read,
-                             size_t buffer_size,
-                             struct lwan_request *request,
-                             int n_packets))
+client_read(struct lwan_request *request,
+            struct lwan_value *buffer,
+            const size_t buffer_size,
+            enum lwan_read_finalizer (*finalizer)(size_t buffer_size,
+                                                  struct lwan_request *request,
+                                                  int n_packets))
 {
     struct lwan_request_parser_helper *helper = request->helper;
-    size_t total_read = 0;
     int n_packets = 0;
 
     if (helper->next_request) {
@@ -795,33 +792,31 @@ read_from_request_socket(struct lwan_request *request,
              * stucture (maybe a ringbuffer, reading with readv(), and each
              * pointer is coro_strdup() if they wrap around?) were used for
              * the request buffer.  */
-            total_read = buffer->len = new_len;
+            buffer->len = new_len;
             memmove(buffer->value, helper->next_request, new_len);
             goto try_to_finalize;
         }
     }
 
-    for (;; n_packets++) {
-        size_t to_read = (size_t)(buffer_size - total_read);
+    for (buffer->len = 0;; n_packets++) {
+        size_t to_read = (size_t)(buffer_size - buffer->len);
 
         if (UNLIKELY(to_read == 0))
             return HTTP_TOO_LARGE;
 
-        ssize_t n = read(request->fd, buffer->value + total_read, to_read);
+        ssize_t n = read(request->fd, buffer->value + buffer->len, to_read);
         if (UNLIKELY(n <= 0)) {
             if (n < 0) {
                 switch (errno) {
+                case EINTR:
                 case EAGAIN:
 yield_and_read_again:
                     coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
                     continue;
-                case EINTR:
-                    coro_yield(request->conn->coro, CONN_CORO_YIELD);
-                    continue;
                 }
 
                 /* Unexpected error before reading anything */
-                if (UNLIKELY(!total_read))
+                if (UNLIKELY(!buffer->len))
                     return HTTP_BAD_REQUEST;
             }
 
@@ -830,24 +825,21 @@ yield_and_read_again:
             break;
         }
 
-        total_read += (size_t)n;
-        buffer->len = (size_t)total_read;
+        buffer->len += (size_t)n;
 
 try_to_finalize:
-        switch (finalizer(total_read, buffer_size, request, n_packets)) {
+        switch (finalizer(buffer_size, request, n_packets)) {
         case FINALIZER_DONE:
             buffer->value[buffer->len] = '\0';
-
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
             save_to_corpus_for_fuzzing(*buffer);
 #endif
-
             return HTTP_OK;
 
         case FINALIZER_TRY_AGAIN:
             goto yield_and_read_again;
 
-        case FINALIZER_ERROR_TIMEOUT:
+        case FINALIZER_TIMEOUT:
             return HTTP_TIMEOUT;
         }
     }
@@ -858,31 +850,31 @@ try_to_finalize:
 }
 
 static enum lwan_read_finalizer
-read_request_finalizer(size_t total_read,
-                       size_t buffer_size __attribute__((unused)),
+read_request_finalizer(size_t buffer_size __attribute__((unused)),
                        struct lwan_request *request,
                        int n_packets)
 {
     static const size_t min_proxied_request_size =
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
+    const struct lwan_value *buffer = helper->buffer;
 
     if (!(request->conn->flags & CONN_CORK)) {
         /* CONN_CORK is set on pipelined requests.  For non-pipelined requests,
          * try looking at the last four bytes to see if we have a complete
          * request in the buffer as a fast path.  (The memmem() below appears
          * in profiles with measurable impact.) */
-        if (LIKELY(total_read >= MIN_REQUEST_SIZE)) {
-            if (!memcmp(helper->buffer->value + total_read - 4, "\r\n\r\n", 4))
+        if (LIKELY(buffer->len >= MIN_REQUEST_SIZE)) {
+            STRING_SWITCH (buffer->value + buffer->len - 4) {
+            case STR4_INT('\r', '\n', '\r', '\n'):
                 return FINALIZER_DONE;
+            }
         }
     }
 
-    char *crlfcrlf =
-        memmem(helper->buffer->value, total_read, "\r\n\r\n", 4);
+    char *crlfcrlf = memmem(buffer->value, buffer->len, "\r\n\r\n", 4);
     if (LIKELY(crlfcrlf)) {
-        const size_t crlfcrlf_to_base =
-            (size_t)(crlfcrlf - helper->buffer->value);
+        const size_t crlfcrlf_to_base = (size_t)(crlfcrlf - buffer->value);
 
         if (LIKELY(helper->next_request)) {
             helper->next_request = NULL;
@@ -892,7 +884,7 @@ read_request_finalizer(size_t total_read,
         if (crlfcrlf_to_base >= MIN_REQUEST_SIZE - 4)
             return FINALIZER_DONE;
 
-        if (total_read > min_proxied_request_size &&
+        if (buffer->len > min_proxied_request_size &&
             request->flags & REQUEST_ALLOW_PROXY_REQS) {
             /* FIXME: Checking for PROXYv2 protocol header here is a layering
              * violation. */
@@ -910,7 +902,7 @@ read_request_finalizer(size_t total_read,
      * just a byte at a time.) See lwan_calculate_n_packets() to see how this is
      * calculated. */
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
-        return FINALIZER_ERROR_TIMEOUT;
+        return FINALIZER_TIMEOUT;
 
     return FINALIZER_TRY_AGAIN;
 }
@@ -918,32 +910,31 @@ read_request_finalizer(size_t total_read,
 static ALWAYS_INLINE enum lwan_http_status
 read_request(struct lwan_request *request)
 {
-    return read_from_request_socket(request, request->helper->buffer,
-                                    DEFAULT_BUFFER_SIZE - 1 /* -1 for NUL byte */,
-                                    read_request_finalizer);
+    return client_read(request, request->helper->buffer,
+                       DEFAULT_BUFFER_SIZE - 1 /* -1 for NUL byte */,
+                       read_request_finalizer);
 }
 
 static enum lwan_read_finalizer
-post_data_finalizer(size_t total_read,
-                    size_t buffer_size,
+post_data_finalizer(size_t buffer_size,
                     struct lwan_request *request,
                     int n_packets)
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
-    if (buffer_size == total_read)
+    if (buffer_size == helper->buffer->len)
         return FINALIZER_DONE;
 
     /* For POST requests, the body can be larger, and due to small MTUs on
      * most ethernet connections, responding with a timeout solely based on
      * number of packets doesn't work.  Use keepalive timeout instead.  */
     if (UNLIKELY(time(NULL) > helper->error_when_time))
-        return FINALIZER_ERROR_TIMEOUT;
+        return FINALIZER_TIMEOUT;
 
     /* In addition to time, also estimate the number of packets based on an
      * usual MTU value and the request body size.  */
     if (UNLIKELY(n_packets > helper->error_when_n_packets))
-        return FINALIZER_ERROR_TIMEOUT;
+        return FINALIZER_TIMEOUT;
 
     return FINALIZER_TRY_AGAIN;
 }
@@ -1151,10 +1142,8 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
     helper->error_when_n_packets = lwan_calculate_n_packets(post_data_size);
 
-    struct lwan_value buffer = {.value = new_buffer,
-                                .len = post_data_size};
-    return read_from_request_socket(request, &buffer, buffer.len,
-                                    post_data_finalizer);
+    struct lwan_value buffer = {.value = new_buffer};
+    return client_read(request, &buffer, post_data_size, post_data_finalizer);
 }
 
 static char *
@@ -1657,7 +1646,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         FINALIZER_DONE)
         return 0;
 
-    /* read_from_request_socket() NUL-terminates the string */
+    /* client_read() NUL-terminates the string */
     data_copy[length - 1] = '\0';
 
     if (parse_http_request(&request) == HTTP_OK) {
