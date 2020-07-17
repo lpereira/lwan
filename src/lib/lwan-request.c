@@ -773,9 +773,10 @@ try_another_file_name:
 static enum lwan_http_status
 client_read(struct lwan_request *request,
             struct lwan_value *buffer,
-            const size_t buffer_size,
-            enum lwan_read_finalizer (*finalizer)(size_t buffer_size,
-                                                  struct lwan_request *request,
+            const size_t want_to_read,
+            enum lwan_read_finalizer (*finalizer)(const struct lwan_value *buffer,
+                                                  size_t want_to_read,
+                                                  const struct lwan_request *request,
                                                   int n_packets))
 {
     struct lwan_request_parser_helper *helper = request->helper;
@@ -799,7 +800,7 @@ client_read(struct lwan_request *request,
     }
 
     for (buffer->len = 0;; n_packets++) {
-        size_t to_read = (size_t)(buffer_size - buffer->len);
+        size_t to_read = (size_t)(want_to_read - buffer->len);
 
         if (UNLIKELY(to_read == 0))
             return HTTP_TOO_LARGE;
@@ -828,7 +829,7 @@ yield_and_read_again:
         buffer->len += (size_t)n;
 
 try_to_finalize:
-        switch (finalizer(buffer_size, request, n_packets)) {
+        switch (finalizer(buffer, want_to_read, request, n_packets)) {
         case FINALIZER_DONE:
             buffer->value[buffer->len] = '\0';
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
@@ -850,14 +851,14 @@ try_to_finalize:
 }
 
 static enum lwan_read_finalizer
-read_request_finalizer(size_t buffer_size __attribute__((unused)),
-                       struct lwan_request *request,
+read_request_finalizer(const struct lwan_value *buffer,
+                       size_t want_to_read __attribute__((unused)),
+                       const struct lwan_request *request,
                        int n_packets)
 {
     static const size_t min_proxied_request_size =
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
-    const struct lwan_value *buffer = helper->buffer;
 
     if (!(request->conn->flags & CONN_CORK)) {
         /* CONN_CORK is set on pipelined requests.  For non-pipelined requests,
@@ -916,13 +917,14 @@ read_request(struct lwan_request *request)
 }
 
 static enum lwan_read_finalizer
-post_data_finalizer(size_t buffer_size,
-                    struct lwan_request *request,
+post_data_finalizer(const struct lwan_value *buffer,
+                    size_t want_to_read,
+                    const struct lwan_request *request,
                     int n_packets)
 {
-    struct lwan_request_parser_helper *helper = request->helper;
+    const struct lwan_request_parser_helper *helper = request->helper;
 
-    if (buffer_size == helper->buffer->len)
+    if (want_to_read == buffer->len)
         return FINALIZER_DONE;
 
     /* For POST requests, the body can be larger, and due to small MTUs on
