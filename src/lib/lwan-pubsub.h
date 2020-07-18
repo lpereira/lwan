@@ -32,6 +32,9 @@ void lwan_pubsub_free_topic(struct lwan_pubsub_topic *topic);
 bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
                          const void *contents,
                          size_t len);
+bool lwan_pubsub_publishf(struct lwan_pubsub_topic *topic,
+                          const char *format,
+                          ...) __attribute__((format(printf, 2, 3)));
 
 struct lwan_pubsub_subscriber *
 lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic);

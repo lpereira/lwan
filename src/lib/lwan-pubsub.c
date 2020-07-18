@@ -18,6 +18,9 @@
  * USA.
  */
 
+#define _GNU_SOURCE
+#include <stdarg.h>
+#include <stdio.h>
 #include <pthread.h>
 
 #include "list.h"
@@ -175,9 +178,10 @@ void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
     }
 }
 
-bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
-                         const void *contents,
-                         size_t len)
+static bool lwan_pubsub_publish_full(struct lwan_pubsub_topic *topic,
+                                     const void *contents,
+                                     size_t len,
+                                     bool want_memdup)
 {
     struct lwan_pubsub_msg *msg = calloc(1, sizeof(*msg));
     struct lwan_pubsub_subscriber *sub;
@@ -191,7 +195,7 @@ bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
     msg->refcount = 1;
 
     msg->value = (struct lwan_value){
-        .value = my_memdup(contents, len),
+        .value = want_memdup ? my_memdup(contents, len) : (void*)contents,
         .len = len,
     };
     if (!msg->value.value) {
@@ -215,6 +219,31 @@ bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
     lwan_pubsub_msg_done(msg);
 
     return true;
+}
+
+bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
+                         const void *contents,
+                         size_t len)
+{
+    return lwan_pubsub_publish_full(topic, contents, len, true);
+}
+
+bool lwan_pubsub_publishf(struct lwan_pubsub_topic *topic,
+                          const char *format,
+                          ...)
+{
+    char *msg;
+    int len;
+    va_list ap;
+
+    va_start(ap, format);
+    len = vasprintf(&msg, format, ap);
+    va_end(ap);
+
+    if (len < 0)
+        return false;
+
+    return lwan_pubsub_publish_full(topic, msg, (size_t)len, false);
 }
 
 struct lwan_pubsub_subscriber *

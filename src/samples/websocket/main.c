@@ -125,7 +125,6 @@ LWAN_HANDLER(ws_chat)
 {
     struct lwan_pubsub_subscriber *sub;
     struct lwan_pubsub_msg *msg;
-    struct lwan_strbuf tmp_msg = LWAN_STRBUF_STATIC_INIT;
     enum lwan_http_status status;
     static int total_user_count;
     int user_id;
@@ -141,13 +140,13 @@ LWAN_HANDLER(ws_chat)
 
     user_id = ATOMIC_INC(total_user_count);
 
-    lwan_strbuf_printf(response->buffer, "*** Welcome to the chat, User%d!\n", user_id);
+    lwan_strbuf_printf(response->buffer, "*** Welcome to the chat, User%d!\n",
+                       user_id);
     lwan_response_websocket_write(request);
 
-    coro_defer2(request->conn->coro, pub_depart_message, chat, (void *)(intptr_t)user_id);
-    lwan_strbuf_printf(&tmp_msg, "*** User%d has joined the chat!\n", user_id);
-    lwan_pubsub_publish(chat, lwan_strbuf_get_buffer(&tmp_msg),
-                        lwan_strbuf_get_length(&tmp_msg));
+    coro_defer2(request->conn->coro, pub_depart_message, chat,
+                (void *)(intptr_t)user_id);
+    lwan_pubsub_publishf(chat, "*** User%d has joined the chat!\n", user_id);
 
     while (true) {
         switch (lwan_response_websocket_read(request)) {
@@ -173,12 +172,9 @@ LWAN_HANDLER(ws_chat)
             break;
 
         case 0: /* We got something! Copy it to echo it back */
-            lwan_strbuf_printf(&tmp_msg, "User%d: %.*s\n",
-                               user_id,
-                               (int)lwan_strbuf_get_length(response->buffer),
-                               lwan_strbuf_get_buffer(response->buffer));
-            lwan_pubsub_publish(chat, lwan_strbuf_get_buffer(&tmp_msg),
-                                lwan_strbuf_get_length(&tmp_msg));
+            lwan_pubsub_publishf(chat, "User%d: %.*s\n", user_id,
+                                 (int)lwan_strbuf_get_length(response->buffer),
+                                 lwan_strbuf_get_buffer(response->buffer));
             break;
         }
     }
