@@ -28,3 +28,11 @@ void lwan_http_authorize_shutdown(void);
 bool lwan_http_authorize(struct lwan_request *request,
                          const char *realm,
                          const char *password_file);
+
+static inline bool
+lwan_http_authorize_urlmap(struct lwan_request *request,
+                           const struct lwan_url_map *url_map)
+{
+    return lwan_http_authorize(request, url_map->authorization.realm,
+                               url_map->authorization.password_file);
+}

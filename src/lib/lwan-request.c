@@ -1275,10 +1275,10 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
 
-    if (UNLIKELY(url_map->flags & HANDLER_MUST_AUTHORIZE &&
-                 !lwan_http_authorize(request, url_map->authorization.realm,
-                                      url_map->authorization.password_file)))
-        return HTTP_NOT_AUTHORIZED;
+    if (UNLIKELY(url_map->flags & HANDLER_MUST_AUTHORIZE)) {
+        if (!lwan_http_authorize_urlmap(request, url_map))
+            return HTTP_NOT_AUTHORIZED;
+    }
 
     while (*request->url.value == '/' && request->url.len > 0) {
         request->url.value++;
