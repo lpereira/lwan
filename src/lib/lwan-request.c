@@ -1678,10 +1678,14 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         .flags = REQUEST_ALLOW_PROXY_REQS,
         .proxy = &proxy,
     };
+    struct lwan_value buffer = {
+        .value = data_copy,
+        .len = length,
+    };
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    if (read_request_finalizer(length, sizeof(data_copy), &request, 1) !=
+    if (read_request_finalizer(&buffer, sizeof(data_copy), &request, 1) !=
         FINALIZER_DONE)
         return 0;
 
