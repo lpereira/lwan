@@ -260,12 +260,6 @@ enum lwan_request_flags {
 #undef SELECT_MASK
 #undef GENERATE_ENUM_ITEM
 
-/* Ideally, this would check if all items in enum lwan_request_flags,
- * when bitwise-or'd together, would not have have any bit set that
- * is also set in REQUEST_METHOD_MASK. */
-static_assert(REQUEST_ACCEPT_DEFLATE > REQUEST_METHOD_MASK,
-              "enough bits to store request methods");
-
 enum lwan_connection_flags {
     CONN_MASK = -1,
 

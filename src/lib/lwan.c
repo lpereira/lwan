@@ -43,6 +43,12 @@
 #include "lwan-lua.h"
 #endif
 
+/* Ideally, this would check if all items in enum lwan_request_flags,
+ * when bitwise-or'd together, would not have have any bit set that
+ * is also set in REQUEST_METHOD_MASK. */
+static_assert(REQUEST_ACCEPT_DEFLATE > REQUEST_METHOD_MASK,
+              "enough bits to store request methods");
+
 /* See detect_fastest_monotonic_clock() */
 clockid_t monotonic_clock_id = CLOCK_MONOTONIC;
 
