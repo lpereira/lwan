@@ -1112,6 +1112,8 @@ get_remaining_post_data_length(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
     if (UNLIKELY(parsed_size >= (long)max_size))
         return HTTP_TOO_LARGE;
+    if (UNLIKELY(!parsed_size))
+        return HTTP_OK;
 
     *total = (size_t)parsed_size;
 
