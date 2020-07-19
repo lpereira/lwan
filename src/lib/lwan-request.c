@@ -1095,57 +1095,101 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     return ptr;
 }
 
-static enum lwan_http_status read_post_data(struct lwan_request *request)
+static enum lwan_http_status
+get_remaining_post_data_length(struct lwan_request *request,
+                               const size_t max_size,
+                               size_t *total,
+                               size_t *have)
 {
     struct lwan_request_parser_helper *helper = request->helper;
-    /* Holy indirection, Batman! */
-    struct lwan_config *config = &request->conn->thread->lwan->config;
-    const size_t max_post_data_size = config->max_post_data_size;
-    char *new_buffer;
     long parsed_size;
 
     if (UNLIKELY(!helper->content_length.value))
         return HTTP_BAD_REQUEST;
+
     parsed_size = parse_long(helper->content_length.value, -1);
     if (UNLIKELY(parsed_size < 0))
         return HTTP_BAD_REQUEST;
-    if (UNLIKELY(parsed_size >= (long)max_post_data_size))
+    if (UNLIKELY(parsed_size >= (long)max_size))
         return HTTP_TOO_LARGE;
 
-    size_t post_data_size = (size_t)parsed_size;
-    size_t have;
-    if (!helper->next_request) {
-        have = 0;
-    } else {
-        char *buffer_end = helper->buffer->value + helper->buffer->len;
-        have = (size_t)(ptrdiff_t)(buffer_end - helper->next_request);
+    *total = (size_t)parsed_size;
 
-        if (have >= post_data_size) {
-            helper->post_data.value = helper->next_request;
-            helper->post_data.len = post_data_size;
-            helper->next_request += post_data_size;
-            return HTTP_OK;
-        }
+    if (!helper->next_request) {
+        *have = 0;
+        return HTTP_PARTIAL_CONTENT;
     }
 
-    new_buffer = alloc_post_buffer(request->conn->coro, post_data_size + 1,
+    char *buffer_end = helper->buffer->value + helper->buffer->len;
+
+    *have = (size_t)(ptrdiff_t)(buffer_end - helper->next_request);
+
+    if (*have < *total)
+        return HTTP_PARTIAL_CONTENT;
+
+    helper->post_data.value = helper->next_request;
+    helper->post_data.len = *total;
+    helper->next_request += *total;
+    return HTTP_OK;
+}
+
+static enum lwan_http_status read_post_data(struct lwan_request *request)
+{
+    /* Holy indirection, Batman! */
+    const struct lwan_config *config = &request->conn->thread->lwan->config;
+    struct lwan_request_parser_helper *helper = request->helper;
+    enum lwan_http_status status;
+    size_t total, have;
+    char *new_buffer;
+
+    status = get_remaining_post_data_length(request, config->max_post_data_size,
+                                            &total, &have);
+    if (status != HTTP_PARTIAL_CONTENT)
+        return status;
+
+    new_buffer = alloc_post_buffer(request->conn->coro, total + 1,
                                    config->allow_post_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
 
     helper->post_data.value = new_buffer;
-    helper->post_data.len = post_data_size;
+    helper->post_data.len = total;
     if (have) {
         new_buffer = mempcpy(new_buffer, helper->next_request, have);
-        post_data_size -= have;
+        total -= have;
     }
     helper->next_request = NULL;
 
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
-    helper->error_when_n_packets = lwan_calculate_n_packets(post_data_size);
+    helper->error_when_n_packets = lwan_calculate_n_packets(total);
 
     struct lwan_value buffer = {.value = new_buffer};
-    return client_read(request, &buffer, post_data_size, post_data_finalizer);
+    return client_read(request, &buffer, total, post_data_finalizer);
+}
+
+static enum lwan_http_status discard_post_data(struct lwan_request *request)
+{
+    /* Holy indirection, Batman! */
+    const struct lwan_config *config = &request->conn->thread->lwan->config;
+    enum lwan_http_status status;
+    size_t total, have;
+
+    status = get_remaining_post_data_length(request, config->max_post_data_size,
+                                            &total, &have);
+    if (status != HTTP_PARTIAL_CONTENT)
+        return status;
+
+    /* FIXME: set/use error_when_*? */
+    total -= have;
+    while (total) {
+        char buffer[DEFAULT_BUFFER_SIZE];
+        ssize_t r;
+
+        r = lwan_recv(request, buffer, LWAN_MIN(sizeof(buffer), total), 0);
+        total -= (size_t)r;
+    }
+
+    return HTTP_OK;
 }
 
 static char *
@@ -1286,20 +1330,11 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
     }
 
     if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
-        enum lwan_http_status status;
+        if (url_map->flags & HANDLER_HAS_POST_DATA)
+            return read_post_data(request);
 
-        if (!(url_map->flags & HANDLER_HAS_POST_DATA)) {
-            /* FIXME: Discard POST data here? If a POST request is sent
-             * to a handler that is not supposed to handle a POST request,
-             * the next request in the pipeline will fail because the
-             * body of the previous request will be used as the next
-             * request itself. */
-            return HTTP_NOT_ALLOWED;
-        }
-
-        status = read_post_data(request);
-        if (UNLIKELY(status != HTTP_OK))
-            return status;
+        enum lwan_http_status status = discard_post_data(request);
+        return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
     }
 
     return HTTP_OK;
