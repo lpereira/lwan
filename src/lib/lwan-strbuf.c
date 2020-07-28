@@ -81,11 +81,9 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
     if (UNLIKELY(!s))
         return false;
 
-    if (!size) {
-        *s = LWAN_STRBUF_STATIC_INIT;
-    } else {
-        memset(s, 0, sizeof(*s));
+    *s = LWAN_STRBUF_STATIC_INIT;
 
+    if (size) {
         if (UNLIKELY(!grow_buffer_if_needed(s, size)))
             return false;
 
