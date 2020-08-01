@@ -314,7 +314,7 @@ size_t lwan_prepare_response_header_full(
             APPEND_CHAR_NOCHECK(' ');
             APPEND_STRING(header->value);
         }
-    } else if (UNLIKELY(status == HTTP_NOT_AUTHORIZED)) {
+    } else if (UNLIKELY(status == HTTP_NOT_AUTHORIZED) && additional_headers) {
         const struct lwan_key_value *header;
 
         for (header = additional_headers; header->key; header++) {
