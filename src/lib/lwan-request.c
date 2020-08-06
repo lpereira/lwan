@@ -1165,7 +1165,7 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     helper->error_when_time = time(NULL) + config->keep_alive_timeout;
     helper->error_when_n_packets = lwan_calculate_n_packets(total);
 
-    struct lwan_value buffer = {.value = new_buffer};
+    struct lwan_value buffer = {.value = new_buffer, .len = total};
     return client_read(request, &buffer, total, post_data_finalizer);
 }
 
