@@ -402,14 +402,13 @@ timeout_t timeouts_timeout(struct timeouts *T)
 
 struct timeout *timeouts_get(struct timeouts *T)
 {
-    if (!list_empty(&T->expired)) {
-        struct timeout *to = list_top(&T->expired, struct timeout, tqe);
+    struct timeout *to = list_top(&T->expired, struct timeout, tqe);
 
-        list_del_from(&T->expired, &to->tqe);
-        to->pending = NULL;
-
-        return to;
-    } else {
+    if (!to)
         return NULL;
-    }
+
+    list_del_from(&T->expired, &to->tqe);
+    to->pending = NULL;
+
+    return to;
 }
