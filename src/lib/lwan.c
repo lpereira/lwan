@@ -321,6 +321,9 @@ static void parse_listener_prefix(struct config *c,
     char *prefix = strdupa(l->value);
     struct config *isolated;
 
+    if (!hash)
+        lwan_status_critical("Could not allocate hash table");
+
     isolated = config_isolate_section(c, l);
     if (!isolated) {
         config_error(c, "Could not isolate configuration file");
