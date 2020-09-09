@@ -617,8 +617,25 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
             __builtin_unreachable();
         }
 
-
         fclose(sib);
+    }
+
+    /* Some systems may lie about the number of online CPUs (obtainable with
+     * sysconf()), but don't filter out the CPU topology information from
+     * sysfs, which might reference CPU numbers higher than the amount
+     * obtained with sysconf().  */
+    for (unsigned int i = 0; i < l->n_cpus; i++) {
+        if (siblings[i] == 0xbebacafe) {
+            lwan_status_warning("Could not determine sibling for CPU %d", i);
+            return false;
+        }
+
+        if (siblings[i] > l->n_cpus) {
+            lwan_status_warning("CPU topology information says CPU %d exists, "
+                                "but max CPUs is %d. Is Lwan running in a "
+                                "container?", siblings[i], l->n_cpus);
+            return false;
+        }
     }
 
     return true;
@@ -650,6 +667,9 @@ static void
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     uint32_t *siblings = alloca(l->n_cpus * sizeof(uint32_t));
+
+    for (uint32_t i = 0; i < l->n_cpus; i++)
+        siblings[i] = 0xbebacafe;
 
     if (!read_cpu_topology(l, siblings)) {
         for (uint32_t i = 0; i < n_threads; i++)
