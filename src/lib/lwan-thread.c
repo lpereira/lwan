@@ -704,11 +704,12 @@ adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t mask)
     }
 }
 #elif defined(__x86_64__)
-static void
+static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     for (uint32_t i = 0; i < n_threads; i++)
         schedtbl[i] = (i / 2) % l->thread.count;
+    return false;
 }
 
 static void
