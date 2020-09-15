@@ -488,7 +488,8 @@ struct lwan {
 
     int main_socket;
 
-    unsigned int n_cpus;
+    unsigned int online_cpus;
+    unsigned int available_cpus;
 };
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);

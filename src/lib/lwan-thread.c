@@ -584,7 +584,10 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 {
     char path[PATH_MAX];
 
-    for (unsigned int i = 0; i < l->n_cpus; i++) {
+    for (uint32_t i = 0; i < l->available_cpus; i++)
+        siblings[i] = 0xbebacafe;
+
+    for (unsigned int i = 0; i < l->available_cpus; i++) {
         FILE *sib;
         uint32_t id, sibling;
         char separator;
@@ -620,20 +623,23 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
         fclose(sib);
     }
 
-    /* Some systems may lie about the number of online CPUs (obtainable with
-     * sysconf()), but don't filter out the CPU topology information from
-     * sysfs, which might reference CPU numbers higher than the amount
-     * obtained with sysconf().  */
-    for (unsigned int i = 0; i < l->n_cpus; i++) {
+    /* Perform a sanity check here, as some systems seem to filter out the
+     * result of sysconf() to obtain the number of configured and online
+     * CPUs but don't bother changing what's available through sysfs as far
+     * as the CPU topology information goes.  It's better to fall back to a
+     * possibly non-optimal setup than just crash during startup while
+     * trying to perform an out-of-bounds array access.  */
+    for (unsigned int i = 0; i < l->available_cpus; i++) {
         if (siblings[i] == 0xbebacafe) {
             lwan_status_warning("Could not determine sibling for CPU %d", i);
             return false;
         }
 
-        if (siblings[i] > l->n_cpus) {
-            lwan_status_warning("CPU topology information says CPU %d exists, "
-                                "but max CPUs is %d. Is Lwan running in a "
-                                "container?", siblings[i], l->n_cpus);
+        if (siblings[i] >= l->available_cpus) {
+            lwan_status_warning("CPU information topology says CPU %d exists, "
+                                "but max available CPUs is %d (online CPUs: %d). "
+                                "Is Lwan running in a (broken) container?",
+                                siblings[i], l->available_cpus, l->online_cpus);
             return false;
         }
     }
@@ -644,13 +650,13 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 static void
 siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 {
-    int *seen = alloca(l->n_cpus * sizeof(int));
-    int n_schedtbl = 0;
+    int *seen = alloca(l->available_cpus * sizeof(int));
+    unsigned int n_schedtbl = 0;
 
-    for (uint32_t i = 0; i < l->n_cpus; i++)
+    for (uint32_t i = 0; i < l->available_cpus; i++)
         seen[i] = -1;
 
-    for (uint32_t i = 0; i < l->n_cpus; i++) {
+    for (uint32_t i = 0; i < l->available_cpus; i++) {
         if (seen[siblings[i]] < 0) {
             seen[siblings[i]] = (int)i;
         } else {
@@ -659,29 +665,28 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
         }
     }
 
-    if (!n_schedtbl)
-        memcpy(schedtbl, seen, l->n_cpus * sizeof(int));
+    if (n_schedtbl != l->available_cpus)
+        memcpy(schedtbl, seen, l->available_cpus * sizeof(int));
 }
 
-static void
+static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
-    uint32_t *siblings = alloca(l->n_cpus * sizeof(uint32_t));
+    uint32_t *siblings = alloca(l->available_cpus * sizeof(uint32_t));
 
-    for (uint32_t i = 0; i < l->n_cpus; i++)
-        siblings[i] = 0xbebacafe;
-
-    if (!read_cpu_topology(l, siblings)) {
-        for (uint32_t i = 0; i < n_threads; i++)
-            schedtbl[i] = (i / 2) % l->thread.count;
-    } else {
-        uint32_t *affinity = alloca(l->n_cpus * sizeof(uint32_t));
+    if (read_cpu_topology(l, siblings)) {
+        uint32_t *affinity = alloca(l->available_cpus * sizeof(uint32_t));
 
         siblings_to_schedtbl(l, siblings, affinity);
 
         for (uint32_t i = 0; i < n_threads; i++)
-            schedtbl[i] = affinity[i % l->n_cpus];
+            schedtbl[i] = affinity[i % l->available_cpus];
+        return true;
     }
+
+    for (uint32_t i = 0; i < n_threads; i++)
+        schedtbl[i] = (i / 2) % l->thread.count;
+    return false;
 }
 
 static void
@@ -735,6 +740,11 @@ void lwan_thread_init(struct lwan *l)
 #ifdef __x86_64__
     static_assert(sizeof(struct lwan_connection) == 32,
                   "Two connections per cache line");
+
+    lwan_status_debug("%d CPUs of %d are online. "
+                      "Reading topology to pre-schedule clients",
+                      l->online_cpus, l->available_cpus);
+
     /*
      * Pre-schedule each file descriptor, to reduce some operations in the
      * fast path.
@@ -747,10 +757,13 @@ void lwan_thread_init(struct lwan *l)
     uint32_t n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
     uint32_t *schedtbl = alloca(n_threads * sizeof(uint32_t));
 
-    topology_to_schedtbl(l, schedtbl, n_threads);
+    bool adj_affinity = topology_to_schedtbl(l, schedtbl, n_threads);
 
     n_threads--; /* Transform count into mask for AND below */
-    adjust_threads_affinity(l, schedtbl, n_threads);
+
+    if (adj_affinity)
+        adjust_threads_affinity(l, schedtbl, n_threads);
+
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else

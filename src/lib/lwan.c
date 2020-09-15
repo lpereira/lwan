@@ -645,17 +645,26 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
-static unsigned int get_number_of_cpus(void)
+static void get_number_of_cpus(struct lwan *l)
 {
     long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    long n_available_cpus = sysconf(_SC_NPROCESSORS_CONF);
 
-    if (UNLIKELY(n_online_cpus < 0)) {
+    if (n_online_cpus < 0) {
         lwan_status_warning(
             "Could not get number of online CPUs, assuming 1 CPU");
-        return 1;
+        n_online_cpus = 1;
     }
 
-    return (unsigned int)n_online_cpus;
+    if (n_available_cpus < 0) {
+        lwan_status_warning(
+            "Could not get number of available CPUs, assuming %ld CPUs",
+            n_online_cpus);
+        n_available_cpus = 1;
+    }
+
+    l->online_cpus = (unsigned int)n_online_cpus;
+    l->available_cpus = (unsigned int)n_available_cpus;
 }
 
 void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }
@@ -698,17 +707,18 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
-    l->n_cpus = get_number_of_cpus();
+    get_number_of_cpus(l);
     if (!l->config.n_threads) {
-        l->thread.count = l->n_cpus;
+        l->thread.count = l->online_cpus;
         if (l->thread.count == 1)
             l->thread.count = 2;
-    } else if (l->config.n_threads > 3 * l->n_cpus) {
-        l->thread.count = l->n_cpus * 3;
+    } else if (l->config.n_threads > 3 * l->online_cpus) {
+        l->thread.count = l->online_cpus * 3;
 
-        lwan_status_warning("%d threads requested, but only %d online CPUs; "
-                            "capping to %d threads",
-                            l->config.n_threads, l->n_cpus, 3 * l->n_cpus);
+        lwan_status_warning("%d threads requested, but only %d online CPUs "
+                            "(out of %d configured CPUs); capping to %d threads",
+                            l->config.n_threads, l->online_cpus, l->available_cpus,
+                            3 * l->online_cpus);
     } else if (l->config.n_threads > 255) {
         l->thread.count = 256;
 
