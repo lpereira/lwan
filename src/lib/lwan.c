@@ -660,7 +660,7 @@ static void get_number_of_cpus(struct lwan *l)
         lwan_status_warning(
             "Could not get number of available CPUs, assuming %ld CPUs",
             n_online_cpus);
-        n_available_cpus = 1;
+        n_available_cpus = n_online_cpus;
     }
 
     l->online_cpus = (unsigned int)n_online_cpus;
