@@ -210,14 +210,6 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-if (EXISTS ${CMAKE_SOURCE_DIR}/src/gcda/lwan.gcov)
-	enable_c_flag_if_avail(-fauto-profile=${CMAKE_SOURCE_DIR}/src/gcda/lwan.gcov
-				C_FLAGS_REL HAVE_AUTO_PROFILE)
-	if (HAVE_AUTO_PROFILE)
-		message(STATUS "Using AutoFDO profile")
-	endif ()
-endif ()
-
 enable_c_flag_if_avail(-mtune=native C_FLAGS_REL HAVE_MTUNE_NATIVE)
 enable_c_flag_if_avail(-march=native C_FLAGS_REL HAVE_MARCH_NATIVE)
 
