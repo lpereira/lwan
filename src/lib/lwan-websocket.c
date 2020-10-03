@@ -228,6 +228,7 @@ next_frame:
     if (!lwan_recv(request, &header, sizeof(header), continuation ? 0 : MSG_DONTWAIT))
         return EAGAIN;
     header = htons(header);
+    continuation = false;
 
     if (UNLIKELY(header & 0x7000)) {
         lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting", header & 0x7000);
@@ -293,10 +294,8 @@ next_frame:
     lwan_readv(request, vec, N_ELEMENTS(vec));
     unmask(msg, frame_len, mask);
 
-    if (continuation && !(header & 0x8000)) {
-        continuation = false;
+    if (continuation && !(header & 0x8000))
         goto next_frame;
-    }
 
     return (request->conn->flags & CONN_IS_WEBSOCKET) ? 0 : ECONNRESET;
 }
