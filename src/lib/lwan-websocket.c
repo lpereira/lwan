@@ -119,17 +119,39 @@ static void send_websocket_pong(struct lwan_request *request, size_t len)
 
 static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 {
-    size_t len;
-
-    static_assert(sizeof(size_t) == sizeof(uint64_t), "size_t has a sane size");
+    uint64_t len;
 
     switch (header & 0x7f) {
     case 0x7e:
         lwan_recv(request, &len, 2, 0);
-        return (size_t)ntohs((uint16_t)len);
+        len = (uint64_t)ntohs((uint16_t)len);
+
+        if (len < 0x7e) {
+            lwan_status_warning("Can't use 16-bit encoding for frame length of %zu",
+                                len);
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
+        return (size_t)len;
     case 0x7f:
         lwan_recv(request, &len, 8, 0);
-        return (size_t)be64toh(len);
+        len = be64toh(len);
+
+        if (UNLIKELY(len > SSIZE_MAX)) {
+            lwan_status_warning("Frame length of %zu won't fit a ssize_t",
+                                len);
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+        if (UNLIKELY(len < 0x7f)) {
+            lwan_status_warning("Can't use 64-bit encoding for frame length of %zu",
+                                len);
+            coro_yield(request->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
+        return (size_t)len;
     default:
         return (size_t)(header & 0x7f);
     }
@@ -137,13 +159,13 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 
 static void discard_frame(struct lwan_request *request, uint16_t header)
 {
-    uint64_t len = get_frame_length(request, header);
+    size_t len = get_frame_length(request, header);
 
     for (char buffer[128]; len;)
         len -= (size_t)lwan_recv(request, buffer, sizeof(buffer), 0);
 }
 
-static void unmask(char *msg, uint64_t msg_len, char mask[static 4])
+static void unmask(char *msg, size_t msg_len, char mask[static 4])
 {
     const uint32_t mask32 = string_as_uint32(mask);
     char *msg_end = msg + msg_len;
