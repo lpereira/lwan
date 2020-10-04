@@ -30,6 +30,8 @@
 
 extern const uint8_t digital_clock_font[10][5];
 
+struct tm* my_localtime(const time_t *t);
+
 static float rand_float(float scale)
 {
     return ((float)rand() / (float)(RAND_MAX)) * scale;
@@ -42,7 +44,7 @@ static void pong_time_update(struct pong_time *pong_time)
     if (cur_time != pong_time->last_time) {
         char digits[5];
 
-        strftime(digits, sizeof(digits), "%H%M", localtime(&cur_time));
+        strftime(digits, sizeof(digits), "%H%M", my_localtime(&cur_time));
 
         for (int i = 0; i < 4; i++)
             pong_time->time[i] = digits[i] - '0';

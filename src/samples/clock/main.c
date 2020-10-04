@@ -57,6 +57,12 @@ static void destroy_gif(void *data)
     ge_close_gif(gif);
 }
 
+struct tm* my_localtime(const time_t *t)
+{
+    static __thread struct tm result;
+    return localtime_r(t, &result);
+}
+
 LWAN_HANDLER(clock)
 {
     static const uint8_t base_offsets[] = {0, 0, 2, 2, 4, 4};
@@ -79,7 +85,7 @@ LWAN_HANDLER(clock)
         int digit, line, base;
 
         curtime = time(NULL);
-        strftime(digits, sizeof(digits), "%H%M%S", localtime(&curtime));
+        strftime(digits, sizeof(digits), "%H%M%S", my_localtime(&curtime));
 
         for (digit = 0; digit < 6; digit++) {
             int dig = digits[digit] - '0';
@@ -173,7 +179,7 @@ LWAN_HANDLER(blocks)
         if (curtime != last) {
             char digits[5];
 
-            strftime(digits, sizeof(digits), "%H%M", localtime(&curtime));
+            strftime(digits, sizeof(digits), "%H%M", my_localtime(&curtime));
             last = curtime;
             odd_second = last & 1;
 
@@ -328,7 +334,7 @@ static void setup_timezone(void)
     char *last_slash = strrchr(tzpath, '/');
     if (last_slash && !strcmp(last_slash, "/UTC")) {
         /* If this system is set up to use UTC, there's no need to
-         * stat(/etc/localtime) every time localtime() is called like
+         * stat(/etc/localtime) every time my_localtime() is called like
          * Glibc likes to do. */
         setenv("TZ", ":/etc/localtime", 1);
     }

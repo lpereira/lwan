@@ -64,6 +64,8 @@ static POS char_height, char_width, colon_width;
 static int digit_widths[8];
 static unsigned int easing[FRAMES_PER_SECOND];
 
+struct tm* my_localtime(const time_t *t);
+
 static struct frame *frame_mk(int width, int height)
 {
     struct frame *fr = malloc(sizeof(struct frame) +
@@ -293,7 +295,7 @@ void xdaliclock_update(struct xdaliclock *xdc)
 {
     if (xdc->frame >= FRAMES_PER_SECOND) {
         const time_t now = time(NULL);
-        const struct tm *tm = localtime(&now);
+        const struct tm *tm = my_localtime(&now);
 
         memcpy(xdc->current_digits, xdc->target_digits,
                sizeof(xdc->current_digits));
