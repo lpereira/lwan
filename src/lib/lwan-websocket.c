@@ -144,7 +144,7 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
-        if (UNLIKELY(len < 0x7f)) {
+        if (UNLIKELY(len <= 0xffff)) {
             lwan_status_warning("Can't use 64-bit encoding for frame length of %zu",
                                 len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
