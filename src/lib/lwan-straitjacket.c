@@ -237,8 +237,16 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
         case CONFIG_LINE_TYPE_LINE:
             /* TODO: limit_syscalls */
             if (streq(l->key, "user")) {
+                if (user_name) {
+                    config_error(c, "`user' already specified");
+                    return;
+                }
                 user_name = strdupa(l->value);
             } else if (streq(l->key, "chroot")) {
+                if (chroot_path) {
+                    config_error(c, "`chroot' already specified");
+                    return;
+                }
                 chroot_path = strdupa(l->value);
             } else if (streq(l->key, "drop_capabilities")) {
                 drop_capabilities = parse_bool(l->value, true);
