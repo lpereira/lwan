@@ -79,8 +79,7 @@ static void graceful_close(struct lwan *l,
         if (r < 0) {
             switch (errno) {
             case EAGAIN:
-                coro_yield(conn->coro, CONN_CORO_WANT_READ);
-                /* Fallthrough */
+                break;
             case EINTR:
                 continue;
             default:
@@ -88,7 +87,7 @@ static void graceful_close(struct lwan *l,
             }
         }
 
-        coro_yield(conn->coro, CONN_CORO_YIELD);
+        coro_yield(conn->coro, CONN_CORO_WANT_READ);
     }
 
     /* close(2) will be called when the coroutine yields with CONN_CORO_ABORT */
