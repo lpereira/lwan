@@ -347,14 +347,14 @@ static void *lex_error(struct lexer *lexer, const char *msg, ...)
     return NULL;
 }
 
-static bool isident(int ch)
+static bool is_ident(int ch)
 {
     return isalnum(ch) || ch == '_' || ch == '.' || ch == '/';
 }
 
 static void *lex_identifier(struct lexer *lexer)
 {
-    while (isident(next(lexer)))
+    while (is_ident(next(lexer)))
         ;
     backup(lexer);
     emit(lexer, LEXEME_IDENTIFIER);
@@ -374,7 +374,7 @@ static void *lex_partial(struct lexer *lexer)
             ignore(lexer);
             continue;
         }
-        if (isident(r)) {
+        if (is_ident(r)) {
             backup(lexer);
             return lex_identifier;
         }
@@ -452,7 +452,7 @@ static void *lex_inside_action(struct lexer *lexer)
                 ignore(lexer);
                 continue;
             }
-            if (isident(r)) {
+            if (is_ident(r)) {
                 backup(lexer);
                 return lex_identifier;
             }

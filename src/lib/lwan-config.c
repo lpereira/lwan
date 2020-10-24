@@ -258,7 +258,7 @@ static size_t remaining(struct lexer *lexer)
 static void *lex_config(struct lexer *lexer);
 static void *lex_variable(struct lexer *lexer);
 
-static bool isstring(int chr)
+static bool is_string(int chr)
 {
     return chr && !isspace(chr) && chr != '=' && chr != '#';
 }
@@ -278,7 +278,7 @@ static void *lex_string(struct lexer *lexer)
 
             return lex_variable;
         }
-    } while (isstring(chr));
+    } while (is_string(chr));
 
     backup(lexer);
     emit(lexer, LEXEME_STRING);
@@ -327,7 +327,7 @@ static void *lex_multiline_string(struct lexer *lexer)
     return lex_error(lexer, "EOF while scanning multiline string");
 }
 
-static bool isvariable(int chr)
+static bool is_variable(int chr)
 {
     return isalpha(chr) || chr == '_';
 }
@@ -375,19 +375,19 @@ static void *lex_variable(struct lexer *lexer)
 
             return lex_config;
         }
-    } while (isvariable(chr));
+    } while (is_variable(chr));
 
     return lex_error(lexer, "EOF while scanning for end of variable");
 }
 
-static bool iscomment(int chr)
+static bool is_comment(int chr)
 {
     return chr != '\0' && chr != '\n';
 }
 
 static void *lex_comment(struct lexer *lexer)
 {
-    while (iscomment(next(lexer)))
+    while (is_comment(next(lexer)))
         ;
     backup(lexer);
     return lex_config;
@@ -437,7 +437,7 @@ static void *lex_config(struct lexer *lexer)
         if (chr == '$' && peek(lexer) == '{')
             return lex_variable;
 
-        if (isstring(chr))
+        if (is_string(chr))
             return lex_string;
 
         return lex_error(lexer, "Invalid character");
