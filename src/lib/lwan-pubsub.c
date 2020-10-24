@@ -163,13 +163,6 @@ void lwan_pubsub_free_topic(struct lwan_pubsub_topic *topic)
     free(topic);
 }
 
-static void *my_memdup(const void *src, size_t len)
-{
-    void *dup = malloc(len);
-
-    return dup ? memcpy(dup, src, len) : NULL;
-}
-
 void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
 {
     if (!ATOMIC_DEC(msg->refcount)) {
@@ -178,12 +171,10 @@ void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
     }
 }
 
-static bool lwan_pubsub_publish_full(struct lwan_pubsub_topic *topic,
-                                     const void *contents,
-                                     size_t len,
-                                     bool want_memdup)
+static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
+                                      const struct lwan_value value)
 {
-    struct lwan_pubsub_msg *msg = calloc(1, sizeof(*msg));
+    struct lwan_pubsub_msg *msg = malloc(sizeof(*msg));
     struct lwan_pubsub_subscriber *sub;
 
     if (!msg)
@@ -193,15 +184,7 @@ static bool lwan_pubsub_publish_full(struct lwan_pubsub_topic *topic,
      * all subscribers.  If it drops to 0, it means we didn't publish the
      * message and we can free it. */
     msg->refcount = 1;
-
-    msg->value = (struct lwan_value){
-        .value = want_memdup ? my_memdup(contents, len) : (void*)contents,
-        .len = len,
-    };
-    if (!msg->value.value) {
-        free(msg);
-        return false;
-    }
+    msg->value = value;
 
     pthread_mutex_lock(&topic->lock);
     list_for_each (&topic->subscribers, sub, subscriber) {
@@ -221,11 +204,23 @@ static bool lwan_pubsub_publish_full(struct lwan_pubsub_topic *topic,
     return true;
 }
 
+static void *my_memdup(const void *src, size_t len)
+{
+    void *dup = malloc(len);
+
+    return dup ? memcpy(dup, src, len) : NULL;
+}
+
 bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
                          const void *contents,
                          size_t len)
 {
-    return lwan_pubsub_publish_full(topic, contents, len, true);
+    const struct lwan_value value = { .value = my_memdup(contents, len), .len = len };
+
+    if (!value.value)
+        return false;
+
+    return lwan_pubsub_publish_value(topic, value);
 }
 
 bool lwan_pubsub_publishf(struct lwan_pubsub_topic *topic,
@@ -243,7 +238,8 @@ bool lwan_pubsub_publishf(struct lwan_pubsub_topic *topic,
     if (len < 0)
         return false;
 
-    return lwan_pubsub_publish_full(topic, msg, (size_t)len, false);
+    const struct lwan_value value = { .value = msg, .len = (size_t)len };
+    return lwan_pubsub_publish_value(topic, value);
 }
 
 struct lwan_pubsub_subscriber *
