@@ -52,9 +52,13 @@ extern "C" {
                               __typeof__(array), __typeof__(&(array)[0]))]))
 #endif
 
+
 #define N_ELEMENTS(array)                                                      \
     (ZERO_IF_IS_ARRAY(array) | sizeof(array) / sizeof(array[0]))
 
+/* This macro is used as an attempt to convince the compiler that it should
+ * never elide an expression -- for instance, when writing fuzz-test or
+ * micro-benchmarks. */
 #define LWAN_NO_DISCARD(...)                                                   \
     do {                                                                       \
         __typeof__(__VA_ARGS__) no_discard_ = __VA_ARGS__;                     \
