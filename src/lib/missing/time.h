@@ -29,15 +29,19 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts);
 #endif
 
 #if !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_FAST)
-#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST /* FreeBSD */
+#  define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_FAST /* FreeBSD */
 #elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC_RAW_APPROX)
-#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_RAW_APPROX /* macOS */
-#elif !defined(CLOCK_MONOTONIC_COARSE) && defined(CLOCK_MONOTONIC)
-#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#  define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC_RAW_APPROX /* New-ish macOS */
+#elif !defined(CLOCK_MONOTONIC_COARSE)
+#  if defined(CLOCK_MONOTONIC)
+#    define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#  else
+#    define CLOCK_MONOTONIC_COARSE 0xbebac0ca /* Old macOS, usually */
+#  endif
 #endif
 
 #if !defined(CLOCK_MONOTONIC)
-#define CLOCK_MONOTONIC 0xBebaCafe
+#define CLOCK_MONOTONIC 0xbebacafe
 #endif
 
 #endif /* MISSING_TIME_H */
