@@ -15,6 +15,10 @@ dump(struct config *config, int indent_level)
     while ((line = config_read_line(config))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_LINE:
+            LWAN_NO_DISCARD(parse_bool(line->value, false));
+            LWAN_NO_DISCARD(parse_long(line->value, 0));
+            LWAN_NO_DISCARD(parse_int(line->value, 0));
+            LWAN_NO_DISCARD(parse_time_period(line->value, 0));
             break;
 
         case CONFIG_LINE_TYPE_SECTION_END:
