@@ -2,10 +2,12 @@
 #include <stdio.h>
 #include <string.h>
 
+extern "C" {
 #include "lwan-config.h"
+#include "lwan-private.h"
+}
 
-static bool
-dump(struct config *config, int indent_level)
+static bool dump(struct config *config, int indent_level)
 {
     const struct config_line *line;
 
