@@ -185,6 +185,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 
     entry = cache->cb.create_entry(key, cache->cb.context);
     if (UNLIKELY(!entry)) {
+        *error = ECANCELED;
         free(key_copy);
         return NULL;
     }
