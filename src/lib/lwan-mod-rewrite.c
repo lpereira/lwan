@@ -68,22 +68,18 @@ struct str_builder {
 static enum lwan_http_status module_redirect_to(struct lwan_request *request,
                                                 const char *url)
 {
-    struct lwan_key_value *headers =
-        coro_malloc(request->conn->coro, sizeof(*headers) * 2);
+    const struct lwan_key_value headers[] = {
+        {"Location", coro_strdup(request->conn->coro, url)},
+        {},
+    };
 
-    if (UNLIKELY(!headers))
-        return HTTP_INTERNAL_ERROR;
+    request->response.headers =
+        coro_memdup(request->conn->coro, headers, sizeof(headers));
 
-    headers[0].key = "Location";
-    headers[0].value = coro_strdup(request->conn->coro, url);
-    if (UNLIKELY(!headers[0].value))
-        return HTTP_INTERNAL_ERROR;
+    if (LIKELY(headers[0].value && request->response.headers))
+        return HTTP_MOVED_PERMANENTLY;
 
-    headers[1].key = NULL;
-    headers[1].value = NULL;
-    request->response.headers = headers;
-
-    return HTTP_MOVED_PERMANENTLY;
+    return HTTP_INTERNAL_ERROR;
 }
 
 static enum lwan_http_status module_rewrite_as(struct lwan_request *request,
