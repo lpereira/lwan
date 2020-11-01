@@ -203,12 +203,12 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     }
 
     if (!hash_add_unique(cache->hash.table, entry->key, entry)) {
-        struct timespec time_to_expire;
+        struct timespec now;
 
-        if (UNLIKELY(clock_gettime(monotonic_clock_id, &time_to_expire) < 0))
+        if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
             lwan_status_critical("clock_gettime");
 
-        entry->time_to_expire = time_to_expire.tv_sec + cache->settings.time_to_live;
+        entry->time_to_expire = now.tv_sec + cache->settings.time_to_live;
 
         if (LIKELY(!pthread_rwlock_wrlock(&cache->queue.lock))) {
             list_add_tail(&cache->queue.list, &entry->entries);
