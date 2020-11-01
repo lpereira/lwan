@@ -441,10 +441,17 @@ in a `500 Internal Server Error` response being thrown.
 The `rewrite` module will match
 [patterns](https://man.openbsd.org/patterns.7) in URLs and give the option
 to either redirect to another URL, or rewrite the request in a way that Lwan
-will handle the request as if it were made in that way originally.  The
-patterns are a special kind of regular expressions, forked from Lua 5.3.1,
-that do not contain backreferences and other features that could create
-denial-of-service issues in Lwan.  The new URL can be specified using a
+will handle the request as if it were made in that way originally.
+
+Forked from Lua 5.3.1, the regular expresion engine may not be as
+feature-packed as most general-purpose engines, but has been chosen
+specifically because it is a [deterministic finite
+automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) in
+an attempt to make some kinds of [denial of service
+attacks](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS)
+not possible.
+
+The new URL can be specified using a
 simple text substitution syntax, or use Lua scripts; Lua scripts will
 contain the same metamethods available in the `req` metatable provided by
 the Lua module, so it can be quite powerful.
