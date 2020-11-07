@@ -38,7 +38,11 @@
 
 #ifndef OFF_MAX
 # include <sys/types.h>
-# define OFF_MAX ~((off_t)1 << (sizeof(off_t) * CHAR_BIT - 1))
+#if SIZE_MAX == ULONG_MAX
+#  define OFF_MAX LLONG_MAX
+#else
+#  define OFF_MAX LONG_MAX
+#endif
 #endif
 
 #ifndef PAGE_SIZE
