@@ -38,7 +38,7 @@
 
 #ifndef OFF_MAX
 # include <sys/types.h>
-#if SIZE_MAX == ULONG_MAX
+#if SIZE_MAX == ULLONG_MAX
 #  define OFF_MAX LLONG_MAX
 #else
 #  define OFF_MAX LONG_MAX
