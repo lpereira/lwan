@@ -82,7 +82,7 @@ static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
 
 static unsigned int get_random_unsigned(void)
 {
-    unsigned int value;
+    unsigned int value = 0;
 
 #if defined(SYS_getrandom)
     long int ret = syscall(SYS_getrandom, &value, sizeof(value), 0);
