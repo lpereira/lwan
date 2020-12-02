@@ -176,22 +176,52 @@ void lwan_readahead_init(void)
 
     lwan_status_debug("Initializing low priority readahead thread");
 
-    if (pipe2(readahead_pipe_fd, O_CLOEXEC | PIPE_DIRECT_FLAG) < 0)
-        lwan_status_critical_perror("pipe2");
+    if (pipe2(readahead_pipe_fd, O_CLOEXEC | PIPE_DIRECT_FLAG) < 0) {
+        lwan_status_warning("Could not create pipe for readahead queue");
+        goto disable_readahead;
+    }
 
     /* Only write side should be non-blocking. */
     flags = fcntl(readahead_pipe_fd[1], F_GETFL);
-    if (flags < 0)
-        lwan_status_critical_perror("fcntl");
-    if (fcntl(readahead_pipe_fd[1], F_SETFL, flags | O_NONBLOCK) < 0)
-        lwan_status_critical_perror("fcntl");
+    if (flags < 0) {
+        lwan_status_warning(
+            "Could not get flags for readahead pipe write side");
+        goto disable_readahead_close_pipe;
+    }
+    if (fcntl(readahead_pipe_fd[1], F_SETFL, flags | O_NONBLOCK) < 0) {
+        lwan_status_warning(
+            "Could not set readahead write side to be no-blocking");
+        goto disable_readahead_close_pipe;
+    }
 
-    if (pthread_create(&readahead_self, NULL, lwan_readahead_loop, NULL))
-        lwan_status_critical_perror("pthread_create");
+    if (pthread_create(&readahead_self, NULL, lwan_readahead_loop, NULL)) {
+        lwan_status_warning("Could not create low-priority readahead thread");
+        goto disable_readahead_close_pipe;
+    }
 
 #ifdef SCHED_IDLE
     struct sched_param sched_param = {.sched_priority = 0};
     if (pthread_setschedparam(readahead_self, SCHED_IDLE, &sched_param) < 0)
-        lwan_status_perror("pthread_setschedparam");
+        lwan_status_perror(
+            "Could not set scheduling policy of readahead thread to idle");
 #endif /* SCHED_IDLE */
+
+    return;
+
+disable_readahead_close_pipe:
+    close(readahead_pipe_fd[0]);
+    close(readahead_pipe_fd[1]);
+
+disable_readahead:
+    /* Set these to -1 just to ensure that even if the page_size check inside
+     * the enqueuing functions fail, we don't write stuff to a file descriptor
+     * that's not the readahead queue. */
+    readahead_pipe_fd[0] = readahead_pipe_fd[1] = -1;
+
+    /* If page_size is 0, then the enqueuing functions won't write to the pipe.
+     * This way, we don't need to introduce new checks there for
+     * this corner case of not being able to create/set up the pipe. */
+    page_size = 0;
+
+    lwan_status_warning("Readahead thread has been disabled");
 }
