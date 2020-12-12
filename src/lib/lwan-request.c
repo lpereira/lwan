@@ -33,6 +33,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
@@ -967,6 +968,23 @@ static const char *is_dir(const char *v)
     return v;
 }
 
+static const char *is_dir_good_for_tmp(const char *v)
+{
+    struct statfs sb;
+
+    v = is_dir(v);
+    if (!v)
+        return NULL;
+
+    if (!statfs(v, &sb) && sb.f_type == TMPFS_MAGIC) {
+        lwan_status_warning("%s is a tmpfs filesystem, "
+                            "not considering it", v);
+        return NULL;
+    }
+
+    return v;
+}
+
 static const char *temp_dir;
 
 static const char *
@@ -974,23 +992,23 @@ get_temp_dir(void)
 {
     const char *tmpdir;
 
-    tmpdir = is_dir(secure_getenv("TMPDIR"));
+    tmpdir = is_dir_good_for_tmp(secure_getenv("TMPDIR"));
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir(secure_getenv("TMP"));
+    tmpdir = is_dir_good_for_tmp(secure_getenv("TMP"));
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir(secure_getenv("TEMP"));
+    tmpdir = is_dir_good_for_tmp(secure_getenv("TEMP"));
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir("/var/tmp");
+    tmpdir = is_dir_good_for_tmp("/var/tmp");
     if (tmpdir)
         return tmpdir;
 
-    tmpdir = is_dir(P_tmpdir);
+    tmpdir = is_dir_good_for_tmp(P_tmpdir);
     if (tmpdir)
         return tmpdir;
 

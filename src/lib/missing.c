@@ -29,6 +29,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 
 #include "lwan.h"
@@ -598,5 +599,16 @@ size_t fwrite_unlocked(const void *ptr, size_t size, size_t n, FILE *stream)
     }
 
     return (total_to_write - to_write) / size;
+}
+#endif
+
+#if !defined(HAVE_STATFS)
+int statfs(const char *path, struct statfs *buf)
+{
+    (void)path;
+    (void)buf;
+
+    *errno = ENOSYS;
+    return -1;
 }
 #endif

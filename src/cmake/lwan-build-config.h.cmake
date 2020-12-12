@@ -44,6 +44,7 @@
 #cmakedefine HAVE_FWRITE_UNLOCKED
 #cmakedefine HAVE_GETTID
 #cmakedefine HAVE_SECURE_GETENV
+#cmakedefine HAVE_STATFS
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

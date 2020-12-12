@@ -166,6 +166,17 @@ check_function_exists(fwrite_unlocked HAVE_FWRITE_UNLOCKED)
 check_function_exists(gettid HAVE_GETTID)
 check_function_exists(secure_getenv HAVE_SECURE_GETENV)
 
+check_include_files("sys/vfs.h" HAVE_SYS_VFS_H)
+if (HAVE_SYS_VFS_H)
+   check_symbol_exists(statfs sys/vfs.h HAVE_STATFS)
+endif ()
+if (NOT HAVE_STATFS)
+   check_include_files("sys/mount.h;sys/param.h" HAVE_SYS_MOUNT_AND_SYS_PARAM_H)
+   if (HAVE_SYS_MOUNT_AND_SYS_PARAM_H)
+        check_symbol_exists(statfs "sys/mount.h;sys/param.h" HAVE_STATFS)
+   endif ()
+endif()
+
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,
 # as there's getauxval(), with a fallback to reading the link
