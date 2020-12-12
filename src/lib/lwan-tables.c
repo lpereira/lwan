@@ -91,6 +91,10 @@ void lwan_tables_init(void)
                  "application/xml"));
     assert(streq(lwan_determine_mime_type_for_file_name(".nosuchext"),
                  "application/octet-stream"));
+    assert(streq(lwan_determine_mime_type_for_file_name("nodotinfilename"),
+                 "application/octet-stream"));
+    assert(streq(lwan_determine_mime_type_for_file_name(""),
+                 "application/octet-stream"));
     assert(streq(lwan_determine_mime_type_for_file_name(".gif"),
                  "image/gif"));
     assert(streq(lwan_determine_mime_type_for_file_name(".JS"),
