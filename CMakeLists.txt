@@ -165,17 +165,7 @@ check_function_exists(getentropy HAVE_GETENTROPY)
 check_function_exists(fwrite_unlocked HAVE_FWRITE_UNLOCKED)
 check_function_exists(gettid HAVE_GETTID)
 check_function_exists(secure_getenv HAVE_SECURE_GETENV)
-
-check_include_files("sys/vfs.h" HAVE_SYS_VFS_H)
-if (HAVE_SYS_VFS_H)
-   check_symbol_exists(statfs sys/vfs.h HAVE_STATFS)
-endif ()
-if (NOT HAVE_STATFS)
-   check_include_files("sys/mount.h" HAVE_SYS_MOUNT_H)
-   if (HAVE_SYS_MOUNT_H)
-        check_symbol_exists(statfs "sys/mount.h" HAVE_STATFS)
-   endif ()
-endif()
+check_function_exists(statfs HAVE_STATFS)
 
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,
