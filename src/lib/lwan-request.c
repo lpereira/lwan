@@ -519,7 +519,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
             return false;
 
         if (next_chr == next_header) {
-            if (buffer_end - next_chr > (ptrdiff_t)HEADER_TERMINATOR_LEN) {
+            if (buffer_end - next_chr >= (ptrdiff_t)HEADER_TERMINATOR_LEN) {
                 STRING_SWITCH_SMALL (next_header) {
                 case STR2_INT('\r', '\n'):
                     helper->next_request = next_header + HEADER_TERMINATOR_LEN;
