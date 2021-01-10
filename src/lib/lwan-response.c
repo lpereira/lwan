@@ -95,38 +95,6 @@ void lwan_response_shutdown(struct lwan *l __attribute__((unused)))
     lwan_tpl_free(error_template);
 }
 
-#ifndef NDEBUG
-static const char *get_request_method(struct lwan_request *request)
-{
-#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
-    case REQUEST_METHOD_##upper:                                               \
-        return #upper;
-
-    switch (lwan_request_get_method(request)) {
-        FOR_EACH_REQUEST_METHOD(GENERATE_CASE_STMT)
-    default:
-        return "UNKNOWN";
-    }
-
-#undef GENERATE_CASE_STMT
-}
-
-static void log_request(struct lwan_request *request,
-                        enum lwan_http_status status)
-{
-    char ip_buffer[INET6_ADDRSTRLEN];
-
-    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s",
-                      lwan_request_get_remote_address(request, ip_buffer),
-                      request->conn->thread->date.date,
-                      get_request_method(request), request->original_url.value,
-                      request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
-                      status, request->response.mime_type);
-}
-#else
-#define log_request(...)
-#endif
-
 static inline bool has_response_body(enum lwan_request_flags method,
                                      enum lwan_http_status status)
 {
@@ -143,7 +111,6 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
         /* Send last, 0-sized chunk */
         lwan_strbuf_reset(response->buffer);
         lwan_response_send_chunk(request);
-        log_request(request, status);
         return;
     }
 
@@ -157,8 +124,6 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
            just be handled by lwan_default_response().  */
         return lwan_default_response(request, status);
     }
-
-    log_request(request, status);
 
     if (request->flags & RESPONSE_STREAM) {
         if (LIKELY(response->stream.callback)) {

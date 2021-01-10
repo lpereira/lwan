@@ -1377,6 +1377,38 @@ static bool handle_rewrite(struct lwan_request *request)
     return true;
 }
 
+#ifndef NDEBUG
+static const char *get_request_method(struct lwan_request *request)
+{
+#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
+    case REQUEST_METHOD_##upper:                                               \
+        return #upper;
+
+    switch (lwan_request_get_method(request)) {
+        FOR_EACH_REQUEST_METHOD(GENERATE_CASE_STMT)
+    default:
+        return "UNKNOWN";
+    }
+
+#undef GENERATE_CASE_STMT
+}
+
+static void log_request(struct lwan_request *request,
+                        enum lwan_http_status status)
+{
+    char ip_buffer[INET6_ADDRSTRLEN];
+
+    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s",
+                      lwan_request_get_remote_address(request, ip_buffer),
+                      request->conn->thread->date.date,
+                      get_request_method(request), request->original_url.value,
+                      request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
+                      status, request->response.mime_type);
+}
+#else
+#define log_request(...)
+#endif
+
 void lwan_process_request(struct lwan *l, struct lwan_request *request)
 {
     enum lwan_http_status status;
@@ -1398,23 +1430,19 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
     }
 
     status = parse_http_request(request);
-    if (UNLIKELY(status != HTTP_OK)) {
-        lwan_default_response(request, status);
-        return;
-    }
+    if (UNLIKELY(status != HTTP_OK))
+        goto log_and_return;
 
 lookup_again:
     url_map = lwan_trie_lookup_prefix(&l->url_map_trie, request->url.value);
     if (UNLIKELY(!url_map)) {
-        lwan_default_response(request, HTTP_NOT_FOUND);
-        return;
+        status = HTTP_NOT_FOUND;
+        goto log_and_return;
     }
 
     status = prepare_for_response(url_map, request);
-    if (UNLIKELY(status != HTTP_OK)) {
-        lwan_default_response(request, status);
-        return;
-    }
+    if (UNLIKELY(status != HTTP_OK))
+        goto log_and_return;
 
     status = url_map->handler(request, &request->response, url_map->data);
     if (UNLIKELY(url_map->flags & HANDLER_CAN_REWRITE_URL)) {
@@ -1424,6 +1452,9 @@ lookup_again:
             return;
         }
     }
+
+log_and_return:
+    log_request(request, status);
 
     return (void)lwan_response(request, status);
 }
