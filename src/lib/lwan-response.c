@@ -126,7 +126,6 @@ static void log_request(struct lwan_request *request,
 #else
 #define log_request(...)
 #endif
-#include <stdlib.h>
 
 static inline bool has_response_body(enum lwan_request_flags method,
                                      enum lwan_http_status status)
