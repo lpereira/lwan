@@ -116,6 +116,10 @@ size_t lwan_prepare_response_header_full(struct lwan_request *request,
      enum lwan_http_status status, char headers[],
      size_t headers_buf_size, const struct lwan_key_value *additional_headers);
 
+void lwan_response(struct lwan_request *request, enum lwan_http_status status);
+void lwan_default_response(struct lwan_request *request,
+                           enum lwan_http_status status);
+
 void lwan_straitjacket_enforce_from_config(struct config *c);
 
 const char *lwan_get_config_path(char *path_buf, size_t path_buf_len);

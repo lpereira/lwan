@@ -499,9 +499,6 @@ struct lwan {
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);
 void lwan_main_loop(struct lwan *l);
 
-void lwan_response(struct lwan_request *request, enum lwan_http_status status);
-void lwan_default_response(struct lwan_request *request,
-                           enum lwan_http_status status);
 size_t lwan_prepare_response_header(struct lwan_request *request,
                                     enum lwan_http_status status,
                                     char header_buffer[],

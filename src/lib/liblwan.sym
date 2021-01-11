@@ -23,12 +23,10 @@ global:
     lwan_request_get_*;
     lwan_request_sleep;
 
-    lwan_response;
     lwan_response_send_chunk;
     lwan_response_send_event;
     lwan_response_set_chunked;
     lwan_response_set_event_stream;
-    lwan_default_response;
     lwan_prepare_response_header;
     lwan_prepare_response_header_full;
 
