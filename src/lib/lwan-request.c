@@ -986,6 +986,7 @@ static const char *is_dir_good_for_tmp(const char *v)
 }
 
 static const char *temp_dir;
+static const size_t post_buffer_temp_file_thresh = 1<<20;
 
 static const char *
 get_temp_dir(void)
@@ -1012,6 +1013,9 @@ get_temp_dir(void)
     if (tmpdir)
         return tmpdir;
 
+    lwan_status_warning("Temporary directory could not be determined. POST "
+                        "requests over %zu bytes will fail.",
+                        post_buffer_temp_file_thresh);
     return NULL;
 }
 
@@ -1073,7 +1077,7 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     void *ptr = (void *)MAP_FAILED;
     int fd;
 
-    if (LIKELY(size < 1<<20)) {
+    if (LIKELY(size < post_buffer_temp_file_thresh)) {
         ptr = coro_malloc(coro, size);
 
         if (LIKELY(ptr))
