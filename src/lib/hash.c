@@ -417,9 +417,10 @@ int hash_add(struct hash *hash, const void *key, const void *value)
 
     if (!entry.key)
         return -errno;
-
-    hash->free_key(*entry.key);
-    hash->free_value(*entry.value);
+    if (entry.existing) {
+        hash->free_key(*entry.key);
+        hash->free_value(*entry.value);
+    }
 
     *entry.key = (void *)key;
     *entry.value = (void *)value;
