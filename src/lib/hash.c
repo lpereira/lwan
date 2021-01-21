@@ -50,7 +50,7 @@ struct hash {
     unsigned int n_buckets_mask;
 
     unsigned (*hash_value)(const void *key);
-    int (*key_compare)(const void *k1, const void *k2);
+    int (*key_equal)(const void *k1, const void *k2);
     void (*free_value)(void *value);
     void (*free_key)(void *value);
 
@@ -212,19 +212,16 @@ __attribute__((constructor(65535))) static void initialize_odd_constant(void)
 #endif
 }
 
-static inline int hash_int_key_cmp(const void *k1, const void *k2)
+static inline int hash_int_key_equal(const void *k1, const void *k2)
 {
-    intptr_t a = (intptr_t)k1;
-    intptr_t b = (intptr_t)k2;
-
-    return (a > b) - (a < b);
+    return k1 == k2;
 }
 
 static void no_op(void *arg __attribute__((unused))) {}
 
 static struct hash *
 hash_internal_new(unsigned int (*hash_value)(const void *key),
-                  int (*key_compare)(const void *k1, const void *k2),
+                  int (*key_equal)(const void *k1, const void *k2),
                   void (*free_key)(void *value),
                   void (*free_value)(void *value))
 {
@@ -240,7 +237,7 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
     }
 
     hash->hash_value = hash_value;
-    hash->key_compare = key_compare;
+    hash->key_equal = key_equal;
 
     hash->free_value = free_value;
     hash->free_key = free_key;
@@ -254,7 +251,7 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
 struct hash *hash_int_new(void (*free_key)(void *value),
                           void (*free_value)(void *value))
 {
-    return hash_internal_new(hash_int, hash_int_key_cmp,
+    return hash_internal_new(hash_int, hash_int_key_equal,
                              free_key ? free_key : no_op,
                              free_value ? free_value : no_op);
 }
@@ -263,7 +260,7 @@ struct hash *hash_str_new(void (*free_key)(void *value),
                           void (*free_value)(void *value))
 {
     return hash_internal_new(
-        hash_str, (int (*)(const void *, const void *))strcmp,
+        hash_str, (int (*)(const void *, const void *))streq,
         free_key ? free_key : no_op, free_value ? free_value : no_op);
 }
 
@@ -317,7 +314,7 @@ static struct hash_entry hash_add_entry_hashed(struct hash *hash,
     for (entry = 0; entry < bucket->used; entry++) {
         if (hashval != bucket->hashvals[entry])
             continue;
-        if (!hash->key_compare(key, bucket->keys[entry])) {
+        if (hash->key_equal(key, bucket->keys[entry])) {
             existing = true;
             goto done;
         }
@@ -461,7 +458,7 @@ hash_find_entry(const struct hash *hash, const char *key, unsigned int hashval)
     for (unsigned int entry = 0; entry < bucket->used; entry++) {
         if (hashval != bucket->hashvals[entry])
             continue;
-        if (!hash->key_compare(key, bucket->keys[entry])) {
+        if (hash->key_equal(key, bucket->keys[entry])) {
             return (struct hash_entry){
                 .key = &bucket->keys[entry],
                 .value = &bucket->values[entry],
