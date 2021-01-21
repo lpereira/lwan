@@ -322,7 +322,7 @@ static struct hash_entry hash_add_entry_hashed(struct hash *hash,
 
     entry = bucket->used;
 
-    bucket->keys[entry] = (void *)key;
+    bucket->keys[entry] = NULL;
     bucket->values[entry] = NULL;
     bucket->hashvals[entry] = hashval;
 
@@ -418,7 +418,10 @@ int hash_add(struct hash *hash, const void *key, const void *value)
     if (!entry.key)
         return -errno;
 
+    hash->free_key(*entry.key);
     hash->free_value(*entry.value);
+
+    *entry.key = (void *)key;
     *entry.value = (void *)value;
 
     if (hash->count > hash->n_buckets_mask)
@@ -437,6 +440,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     if (entry.existing)
         return -EEXIST;
 
+    *entry.key = (void *)key;
     *entry.value = (void *)value;
 
     if (hash->count > hash->n_buckets_mask)
