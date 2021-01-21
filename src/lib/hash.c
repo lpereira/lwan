@@ -419,9 +419,6 @@ int hash_add(struct hash *hash, const void *key, const void *value)
         return -errno;
 
     hash->free_value(*entry.value);
-    hash->free_key(*entry.key);
-
-    *entry.key = (void *)key;
     *entry.value = (void *)value;
 
     if (hash->count > hash->n_buckets_mask)
@@ -440,7 +437,6 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     if (entry.existing)
         return -EEXIST;
 
-    *entry.key = (void *)key;
     *entry.value = (void *)value;
 
     if (hash->count > hash->n_buckets_mask)
