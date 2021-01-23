@@ -405,6 +405,29 @@ static struct hash_entry hash_add_entry(struct hash *hash, const void *key)
     return hash_add_entry_hashed(hash, key, hashval);
 }
 
+static inline bool need_rehash_grow(const struct hash *hash)
+{
+    /* The heuristic to rehash and grow the number of buckets is if there's
+     * more than 16 entries per bucket on average.  This is the number of
+     * elements in the hashvals array that would fit in a single cache line. */
+    return hash->count > hash_n_buckets(hash) * 16;
+}
+
+static inline bool need_rehash_shrink(const struct hash *hash)
+{
+    /* A hash table will be shrunk if, on average, more than 50% of its
+     * buckets are empty, but will never have less than MIN_BUCKETS buckets. */
+    const unsigned int n_buckets = hash_n_buckets(hash);
+
+    if (n_buckets <= MIN_BUCKETS)
+        return false;
+
+    if (hash->count > n_buckets / 2)
+        return false;
+
+    return true;
+}
+
 /*
  * add or replace key in hash map.
  *
@@ -425,7 +448,7 @@ int hash_add(struct hash *hash, const void *key, const void *value)
     *entry.key = (void *)key;
     *entry.value = (void *)value;
 
-    if (hash->count > hash->n_buckets_mask)
+    if (need_rehash_grow(hash))
         rehash(hash, hash_n_buckets(hash) * 2);
 
     return 0;
@@ -444,7 +467,7 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value)
     *entry.key = (void *)key;
     *entry.value = (void *)value;
 
-    if (hash->count > hash->n_buckets_mask)
+    if (need_rehash_grow(hash))
         rehash(hash, hash_n_buckets(hash) * 2);
 
     return 0;
@@ -511,7 +534,7 @@ int hash_del(struct hash *hash, const void *key)
     bucket->used--;
     hash->count--;
 
-    if (hash->n_buckets_mask > (MIN_BUCKETS - 1) && hash->count < hash->n_buckets_mask / 2) {
+    if (need_rehash_shrink(hash)) {
         rehash(hash, hash_n_buckets(hash) / 2);
     } else {
         unsigned int steps_used = bucket->used / STEPS;
