@@ -332,8 +332,16 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
         .thread = t,
     };
     if (UNLIKELY(!conn->coro)) {
+        /* FIXME: send a "busy" response to this client? we don't have a coroutine
+         * at this point, can't use lwan_send() here */
+        lwan_status_error("Could not create coroutine, dropping connection");
+
         conn->flags = 0;
-        lwan_status_error("Could not create coroutine");
+
+        int fd = lwan_connection_get_fd(tq->lwan, conn);
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+
         return;
     }
 
