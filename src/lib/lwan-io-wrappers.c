@@ -39,16 +39,22 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
     int flags = (request->conn->flags & CONN_CORK) ? MSG_MORE : 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
+        const int remaining_len = (int)(iov_count - curr_iov);
         ssize_t written;
+
+        if (remaining_len == 1) {
+            const struct iovec *vec = &iov[curr_iov];
+            return lwan_send(request, vec->iov_base, vec->iov_len, flags);
+        }
 
         if (flags) {
             struct msghdr hdr = {
                 .msg_iov = iov + curr_iov,
-                .msg_iovlen = (size_t)(iov_count - curr_iov),
+                .msg_iovlen = (size_t)remaining_len,
             };
             written = sendmsg(request->fd, &hdr, flags);
         } else {
-            written = writev(request->fd, iov + curr_iov, iov_count - curr_iov);
+            written = writev(request->fd, iov + curr_iov, remaining_len);
         }
 
         if (UNLIKELY(written < 0)) {
