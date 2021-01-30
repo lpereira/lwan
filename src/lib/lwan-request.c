@@ -1147,7 +1147,7 @@ get_remaining_post_data_length(struct lwan_request *request,
 
     char *buffer_end = helper->buffer->value + helper->buffer->len;
 
-    *have = (size_t)(ptrdiff_t)(buffer_end - helper->next_request);
+    *have = (size_t)(buffer_end - helper->next_request);
 
     if (*have < *total)
         return HTTP_PARTIAL_CONTENT;
@@ -1530,7 +1530,7 @@ const char *lwan_request_get_header(struct lwan_request *request,
 ALWAYS_INLINE int
 lwan_connection_get_fd(const struct lwan *lwan, const struct lwan_connection *conn)
 {
-    return (int)(ptrdiff_t)(conn - lwan->conns);
+    return (int)(intptr_t)(conn - lwan->conns);
 }
 
 const char *

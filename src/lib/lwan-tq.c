@@ -26,7 +26,7 @@
 static inline int timeout_queue_node_to_idx(struct timeout_queue *tq,
                                             struct lwan_connection *conn)
 {
-    return (conn == &tq->head) ? -1 : (int)(ptrdiff_t)(conn - tq->conns);
+    return (conn == &tq->head) ? -1 : (int)(intptr_t)(conn - tq->conns);
 }
 
 static inline struct lwan_connection *
