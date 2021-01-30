@@ -751,7 +751,7 @@ try_another_file_name:
     if (fd < 0)
         goto try_another_file_name;
 
-    for (ssize_t total_written = 0; total_written != (ssize_t)buffer.len;) {
+    while (buffer.len) {
         ssize_t r = write(fd, buffer.value, buffer.len);
 
         if (r < 0) {
@@ -763,7 +763,8 @@ try_another_file_name:
             goto try_another_file_name;
         }
 
-        total_written += r;
+        buffer.value += r;
+        buffer.len -= r;
     }
 
     close(fd);
