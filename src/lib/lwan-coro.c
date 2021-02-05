@@ -199,6 +199,8 @@ asm(".text\n\t"
     "movl   0xc(%eax),%ebp\n\t"  /* EBP */
     "movl   0x1c(%eax),%ecx\n\t" /* ECX */
     "ret\n\t");
+#elif defined(HAVE_LIBUCONTEXT)
+#define coro_swapcontext(cur, oth) libucontext_swapcontext(cur, oth)
 #else
 #define coro_swapcontext(cur, oth) swapcontext(cur, oth)
 #endif
@@ -291,15 +293,26 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 #define STACK_PTR 6
     coro->context[STACK_PTR] = (uintptr_t)stack;
 #else
+
+#if defined(HAVE_LIBUCONTEXT)
+    libucontext_getcontext(&coro->context);
+#else
     getcontext(&coro->context);
+#endif
 
     coro->context.uc_stack.ss_sp = stack;
     coro->context.uc_stack.ss_size = CORO_STACK_SIZE;
     coro->context.uc_stack.ss_flags = 0;
     coro->context.uc_link = NULL;
 
+#if defined(HAVE_LIBUCONTEXT)
+    libucontext_makecontext(&coro->context, (void (*)())coro_entry_point, 3,
+                            coro, func, data);
+#else
     makecontext(&coro->context, (void (*)())coro_entry_point, 3, coro, func,
                 data);
+#endif
+
 #endif
 }
 

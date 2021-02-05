@@ -37,6 +37,7 @@ The build system will look for these libraries and enable/link if available.
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
  - [ZSTD](https://github.com/facebook/zstd)
+ - [libucontext](https://github.com/kaniini/libucontext) is **recommended** on non-x86 targets
  - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC` to CMake with the following values:
     - ["mimalloc"](https://github.com/microsoft/mimalloc)
     - ["jemalloc"](http://jemalloc.net/)
