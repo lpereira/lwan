@@ -23,6 +23,7 @@
 #include <sys/param.h>
 #elif defined(__linux__)
 #include_next <sys/vfs.h>
+#include <linux/magic.h>
 #endif
 
 #ifndef _MISSING_VFS_H_
