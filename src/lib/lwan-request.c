@@ -734,7 +734,7 @@ out:
 }
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-static void save_to_corpus_for_fuzzing(const struct lwan_value buffer)
+static void save_to_corpus_for_fuzzing(struct lwan_value buffer)
 {
     struct lwan_value buffer_copy;
     char corpus_name[PATH_MAX];
