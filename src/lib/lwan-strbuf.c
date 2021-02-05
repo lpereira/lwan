@@ -262,6 +262,24 @@ void lwan_strbuf_reset(struct lwan_strbuf *s)
     s->used = 0;
 }
 
+void lwan_strbuf_reset_trim(struct lwan_strbuf *s, size_t trim_thresh)
+{
+    if (s->flags & BUFFER_MALLOCD && s->capacity > trim_thresh) {
+        /* Not using realloc() here because we don't care about the contents
+         * of this buffer after reset is called, but we want to maintain a
+         * buffer already allocated of up to trim_thresh bytes. */
+        void *tmp = malloc(trim_thresh);
+
+        if (tmp) {
+            free(s->buffer);
+            s->buffer = tmp;
+            s->capacity = trim_thresh;
+        }
+    }
+
+    return lwan_strbuf_reset(s);
+}
+
 /* This function is quite dangerous, so the prototype is only in lwan-private.h */
 char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by)
 {

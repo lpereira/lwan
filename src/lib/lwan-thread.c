@@ -153,7 +153,9 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             coro_yield(coro, CONN_CORO_WANT_READ);
         }
 
-        lwan_strbuf_reset(&strbuf);
+        /* Ensure string buffer is reset between requests, and that the backing
+         * store isn't over 2KB. */
+        lwan_strbuf_reset_trim(&strbuf, 2048);
 
         /* Only allow flags from config. */
         flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);

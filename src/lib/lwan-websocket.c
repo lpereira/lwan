@@ -210,7 +210,7 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 }
 
-int lwan_response_websocket_read(struct lwan_request *request)
+int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint)
 {
     enum ws_opcode opcode = WS_OPCODE_INVALID;
     enum ws_opcode last_opcode;
@@ -220,7 +220,7 @@ int lwan_response_websocket_read(struct lwan_request *request)
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
         return ENOTCONN;
 
-    lwan_strbuf_reset(request->response.buffer);
+    lwan_strbuf_reset_trim(request->response.buffer, size_hint);
 
 next_frame:
     last_opcode = opcode;
@@ -298,4 +298,15 @@ next_frame:
         goto next_frame;
 
     return (request->conn->flags & CONN_IS_WEBSOCKET) ? 0 : ECONNRESET;
+}
+
+inline int lwan_response_websocket_read(struct lwan_request *request)
+{
+    /* Ensure that a rogue client won't keep increasing the memory usage in an
+     * uncontrolled manner by curbing the backing store to 1KB at most by default.
+     * If an application expects messages to be larger than 1024 bytes on average,
+     * they can call lwan_response_websocket_read_hint() directly with a larger
+     * value to avoid malloc chatter (things should still work, but will be
+     * slightly more inefficient). */
+    return lwan_response_websocket_read_hint(request, 1024);
 }
