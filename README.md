@@ -136,7 +136,8 @@ Alternative memory allocators can be selected as well.  Lwan currently
 supports [TCMalloc](https://github.com/gperftools/gperftools),
 [mimalloc](https://github.com/microsoft/mimalloc), and
 [jemalloc](http://jemalloc.net/) out of the box.  To use either one of them,
-pass `-DALTERNATIVE_MALLOC=ON` to the CMake invocation line.
+pass `-DALTERNATIVE_MALLOC=name` to the CMake invocation line, using the
+names provided in the "Optional dependencies"  section.
 
 ### Tests
 
@@ -234,8 +235,8 @@ Some examples can be found in `lwan.conf` and `techempower.conf`.
 #### Time Intervals
 
 Time fields can be specified using multipliers. Multiple can be specified, they're
-just added together; for instance, "1M 1w" specifies "1 month and 1 week".  The following
-table lists all known multipliers:
+just added together; for instance, "1M 1w" specifies "1 month and 1 week"
+(37 days).  The following table lists all known multipliers:
 
 | Multiplier | Description |
 |------------|-------------|
@@ -243,9 +244,9 @@ table lists all known multipliers:
 | `m`        | Minutes |
 | `h`        | Hours |
 | `d`        | Days |
-| `w`        | Weeks |
-| `M`        | Months |
-| `y`        | Years |
+| `w`        | 7-day Weeks |
+| `M`        | 30-day Months |
+| `y`        | 365-day Years |
 
 A number with a multiplier not in this table is ignored; a warning is issued while
 reading the configuration file.  No spaces must exist between the number and its
