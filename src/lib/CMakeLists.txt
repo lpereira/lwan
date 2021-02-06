@@ -106,12 +106,39 @@ add_custom_target(generate_auto_index_icons
 )
 add_dependencies(lwan-static generate_auto_index_icons)
 
-
 include_directories(${CMAKE_BINARY_DIR})
 
 if (NOT HAVE_BUILTIN_FPCLASSIFY)
 	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 endif ()
+
+if (HAVE_LIBUCONTEXT)
+	message(STATUS "Using libucontext/${CMAKE_SYSTEM_PROCESSOR} for coroutine context switching")
+
+	include(ExternalProject)
+
+	ExternalProject_Add(libucontext
+		GIT_REPOSITORY https://github.com/kaniini/libucontext
+
+		BUILD_IN_SOURCE ON
+
+		CONFIGURE_COMMAND ""
+		BUILD_COMMAND make
+		INSTALL_COMMAND make install DESTDIR=${CMAKE_BINARY_DIR}
+
+		BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/lib/libucontext.a
+
+		BUILD_ALWAYS OFF
+		UPDATE_DISCONNECTED ON
+	)
+	add_dependencies(lwan-static libucontext)
+
+	set(ADDITIONAL_LIBRARIES ${CMAKE_BINARY_DIR}/lib/libucontext.a ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
+	include_directories(${CMAKE_BINARY_DIR}/usr/include)
+else ()
+	message(STATUS "Using built-in context switching routines for ${CMAKE_SYSTEM_PROCESSOR} processors")
+endif ()
+
 
 install(
 	TARGETS lwan-static lwan-shared

@@ -27,7 +27,7 @@
 typedef uintptr_t coro_context[10];
 #elif defined(__i386__)
 typedef uintptr_t coro_context[7];
-#elif defined(HAS_LIBUCONTEXT)
+#elif defined(HAVE_LIBUCONTEXT)
 #include <libucontext/libucontext.h>
 typedef libucontext_ucontext_t coro_context;
 #else
