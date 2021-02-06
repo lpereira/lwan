@@ -37,7 +37,6 @@ The build system will look for these libraries and enable/link if available.
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
  - [ZSTD](https://github.com/facebook/zstd)
- - [libucontext](https://github.com/kaniini/libucontext) is **recommended** on non-x86 targets
  - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC` to CMake with the following values:
     - ["mimalloc"](https://github.com/microsoft/mimalloc)
     - ["jemalloc"](http://jemalloc.net/)
@@ -53,6 +52,8 @@ The build system will look for these libraries and enable/link if available.
     - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
 
+On non-x86 systems, [libucontext](https://github.com/kaniini/libucontext)
+will be downloaded and built alongside Lwan.
 
 ### Common operating system package names
 
