@@ -112,7 +112,6 @@ base64_encode(const unsigned char *src, size_t len, size_t *out_len)
             *pos++ = base64_table[(in[1] & 0x0f) << 2];
         }
         *pos++ = '=';
-        line_len += 4;
     }
 
     *pos = '\0';
