@@ -1454,14 +1454,12 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
 
     status = read_request(request);
     if (UNLIKELY(status != HTTP_OK)) {
-        /* This request was bad, but maybe there's a good one in the
-         * pipeline.  */
-        if (status == HTTP_BAD_REQUEST && request->helper->next_request)
-            return;
-
-        /* Response here can be: HTTP_TOO_LARGE, HTTP_BAD_REQUEST (without
-         * next request), or HTTP_TIMEOUT.  Nothing to do, just abort the
-         * coroutine.  */
+        /* If read_request() returns any error at this point, it's probably
+         * better to just send an error response and abort the coroutine and
+         * let the client handle the error instead: we don't have
+         * information to even log the request because it has not been
+         * parsed yet at this stage.  Even if there are other requests waiting
+         * in the pipeline, this seems like the safer thing to do.  */
         lwan_default_response(request, status);
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
