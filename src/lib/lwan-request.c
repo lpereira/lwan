@@ -606,6 +606,28 @@ static void parse_if_modified_since(struct lwan_request_parser_helper *helper)
     helper->if_modified_since.parsed = parsed;
 }
 
+static bool
+parse_off_without_sign(const char *ptr, char **end, off_t *off)
+{
+    unsigned long long val;
+
+    static_assert(sizeof(val) >= sizeof(off_t),
+                  "off_t fits in a long long");
+
+    errno = 0;
+
+    val = strtoull(ptr, end, 10);
+    if (UNLIKELY(val == 0 && *end == ptr))
+        return false;
+    if (UNLIKELY(errno != 0))
+        return false;
+    if (UNLIKELY(val > OFF_MAX))
+        return false;
+
+    *off = (off_t)val;
+    return true;
+}
+
 static void
 parse_range(struct lwan_request_parser_helper *helper)
 {
@@ -617,31 +639,40 @@ parse_range(struct lwan_request_parser_helper *helper)
         return;
 
     range += sizeof("bytes=") - 1;
-    uint64_t from, to;
 
-    if (sscanf(range, "%"SCNu64"-%"SCNu64, &from, &to) == 2) {
-        if (UNLIKELY(from > OFF_MAX || to > OFF_MAX))
+    off_t from, to;
+    char *end;
+
+    if (*range == '-') {
+        from = 0;
+
+        if (!parse_off_without_sign(range + 1, &end, &to))
             goto invalid_range;
-
-        helper->range.from = (off_t)from;
-        helper->range.to = (off_t)to;
-    } else if (sscanf(range, "-%"SCNu64, &to) == 1) {
-        if (UNLIKELY(to > OFF_MAX))
+        if (*end != '\0')
             goto invalid_range;
-
-        helper->range.from = 0;
-        helper->range.to = (off_t)to;
-    } else if (sscanf(range, "%"SCNu64"-", &from) == 1) {
-        if (UNLIKELY(from > OFF_MAX))
+    } else if (lwan_char_isdigit(*range)) {
+        if (!parse_off_without_sign(range, &end, &from))
             goto invalid_range;
-
-        helper->range.from = (off_t)from;
-        helper->range.to = -1;
+        switch (*end) {
+        case '\0':
+            to = -1;
+            break;
+        case '-':
+            if (!parse_off_without_sign(end + 1, &end, &to))
+                goto invalid_range;
+            if (*end != '\0')
+                goto invalid_range;
+            break;
+        default:
+            goto invalid_range;
+        }
     } else {
 invalid_range:
-        helper->range.from = -1;
-        helper->range.to = -1;
+        to = from = -1;
     }
+
+    helper->range.from = from;
+    helper->range.to = to;
 }
 
 static void
