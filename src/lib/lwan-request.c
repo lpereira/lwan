@@ -653,18 +653,17 @@ parse_range(struct lwan_request_parser_helper *helper)
     } else if (lwan_char_isdigit(*range)) {
         if (!parse_off_without_sign(range, &end, &from))
             goto invalid_range;
-        switch (*end) {
-        case '\0':
+        if (*end != '-')
+            goto invalid_range;
+
+        range = end + 1;
+        if (*range == '\0') {
             to = -1;
-            break;
-        case '-':
-            if (!parse_off_without_sign(end + 1, &end, &to))
+        } else {
+            if (!parse_off_without_sign(range, &end, &to))
                 goto invalid_range;
             if (*end != '\0')
                 goto invalid_range;
-            break;
-        default:
-            goto invalid_range;
         }
     } else {
 invalid_range:
