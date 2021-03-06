@@ -767,11 +767,14 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
     char *index_html_path = index_html_path_buf;
 
     if (S_ISDIR(st->st_mode)) {
+        size_t index_html_path_len;
+
         /* It is a directory. It might be the root directory (empty key), or
          * something else.  In either case, tack priv->index_html to the
          * path.  */
         if (*key == '\0') {
             index_html_path = (char *)priv->index_html;
+            index_html_path_len = strlen(index_html_path);
         } else {
             /* Redirect /path to /path/. This is to help cases where there's
              * something like <img src="../foo.png">, so that actually
@@ -784,6 +787,8 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
                                priv->index_html);
             if (UNLIKELY(ret < 0 || ret >= PATH_MAX))
                 return NULL;
+
+            index_html_path_len = (size_t)ret;
         }
 
         /* See if it exists. */
@@ -805,10 +810,7 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
             return NULL;
 
         /* If it does, we want its full path. */
-        /* FIXME: Use strlcpy() here instead of calling strlen()? */
-        if (UNLIKELY(priv->root_path_len +
-                         strlen(index_html_path) + 1 >=
-                     PATH_MAX))
+        if (UNLIKELY(priv->root_path_len + index_html_path_len + 1 >= PATH_MAX))
             return NULL;
 
         strncpy(full_path + priv->root_path_len, index_html_path,
