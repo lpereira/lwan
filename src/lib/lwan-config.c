@@ -669,8 +669,15 @@ static void *parse_config(struct parser *parser)
         return NULL;
 
     default:
-        return PARSER_ERROR(parser, "Unexpected lexeme type: %s",
-                            lexeme_type_str[lexeme->type]);
+        switch (lexeme->type) {
+        case LEXEME_VARIABLE:
+        case LEXEME_VARIABLE_DEFAULT:
+            return PARSER_ERROR(parser, "Variable '%.*s' can't be used here",
+                                (int)lexeme->value.len, lexeme->value.value);
+        default:
+            return PARSER_ERROR(parser, "Unexpected lexeme type: %s",
+                                lexeme_type_str[lexeme->type]);
+        }
     }
 }
 
