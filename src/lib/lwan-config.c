@@ -39,9 +39,23 @@
 
 #include "ringbuffer.h"
 
-#define FOR_EACH_LEXEME(X)                                                     \
-    X(ERROR) X(STRING) X(EQUAL) X(OPEN_BRACKET) X(CLOSE_BRACKET) X(LINEFEED)   \
-    X(VARIABLE) X(VARIABLE_DEFAULT) X(EOF)
+#define LEX_ERROR(lexer, fmt, ...)                                             \
+    ({                                                                         \
+        config_error(config_from_lexer(lexer), "Syntax error: " fmt,           \
+                          ##__VA_ARGS__);                                      \
+        NULL;                                                                  \
+    })
+
+#define PARSER_ERROR(parser, fmt, ...)                                         \
+    ({                                                                         \
+        config_error(config_from_parser(parser), "Parsing error: " fmt,        \
+                     ##__VA_ARGS__);                                           \
+        NULL;                                                                  \
+    })
+
+#define FOR_EACH_LEXEME(X)                                                      \
+    X(STRING) X(EQUAL) X(OPEN_BRACKET) X(CLOSE_BRACKET) X(LINEFEED) X(VARIABLE) \
+    X(VARIABLE_DEFAULT) X(EOF)
 
 #define GENERATE_ENUM(id) LEXEME_ ## id,
 #define GENERATE_ARRAY_ITEM(id) [LEXEME_ ## id] = #id,
@@ -286,19 +300,16 @@ static void *lex_string(struct lexer *lexer)
     return lex_config;
 }
 
-static void *lex_error(struct lexer *lexer, const char *msg)
+static struct config *config_from_parser(struct parser *parser)
 {
-    struct lexeme lexeme = {
-        .type = LEXEME_ERROR,
-        .value = {
-            .value = msg,
-            .len = strlen(msg)
-        }
-    };
+    return container_of(parser, struct config, parser);
+}
 
-    emit_lexeme(lexer, &lexeme);
+static struct config *config_from_lexer(struct lexer *lexer)
+{
+    struct parser *parser = container_of(lexer, struct parser, lexer);
 
-    return NULL;
+    return config_from_parser(parser);
 }
 
 static bool lex_streq(struct lexer *lexer, const char *str, size_t s)
@@ -324,7 +335,7 @@ static void *lex_multiline_string(struct lexer *lexer)
         }
     } while (next(lexer) != '\0');
 
-    return lex_error(lexer, "EOF while scanning multiline string");
+    return LEX_ERROR(lexer, "EOF while scanning multiline string");
 }
 
 static bool is_variable(int chr)
@@ -349,7 +360,7 @@ static void *lex_variable_default(struct lexer *lexer)
         }
     } while (chr != '\0');
 
-    return lex_error(lexer, "EOF while scanning for end of variable");
+    return LEX_ERROR(lexer, "EOF while scanning for end of variable");
 }
 
 static void *lex_variable(struct lexer *lexer)
@@ -377,7 +388,7 @@ static void *lex_variable(struct lexer *lexer)
         }
     } while (is_variable(chr));
 
-    return lex_error(lexer, "EOF while scanning for end of variable");
+    return LEX_ERROR(lexer, "EOF while scanning for end of variable");
 }
 
 static bool is_comment(int chr)
@@ -440,7 +451,7 @@ static void *lex_config(struct lexer *lexer)
         if (is_string(chr))
             return lex_string;
 
-        return lex_error(lexer, "Invalid character");
+        return LEX_ERROR(lexer, "Invalid character: '%c'", chr);
     }
 
     emit(lexer, LEXEME_LINEFEED);
@@ -467,11 +478,12 @@ static void *parse_config(struct parser *parser);
 
 #define ENV_VAR_NAME_LEN_MAX 64
 
-static __attribute__((noinline)) const char *secure_getenv_len(const char *key, size_t len)
+static __attribute__((noinline)) const char *
+secure_getenv_len(struct parser *parser, const char *key, size_t len)
 {
     if (UNLIKELY(len > ENV_VAR_NAME_LEN_MAX)) {
-        lwan_status_error("Variable name exceeds %d bytes", ENV_VAR_NAME_LEN_MAX);
-        return NULL;
+        return PARSER_ERROR(parser, "Variable name \"%.*s\" exceeds %d bytes",
+                            (int)len, key, ENV_VAR_NAME_LEN_MAX);
     }
 
     return secure_getenv(strndupa(key, len));
@@ -500,13 +512,13 @@ static void *parse_key_value(struct parser *parser)
         case LEXEME_VARIABLE: {
             const char *value;
 
-            value = secure_getenv_len(lexeme->value.value, lexeme->value.len);
+            value = secure_getenv_len(parser, lexeme->value.value,
+                                      lexeme->value.len);
             if (lexeme->type == LEXEME_VARIABLE) {
                 if (!value) {
-                    lwan_status_error(
-                        "Variable '$%.*s' not defined in environment",
+                    return PARSER_ERROR(
+                        parser, "Variable '$%.*s' not defined in environment",
                         (int)lexeme->value.len, lexeme->value.value);
-                    return NULL;
                 } else {
                     lwan_strbuf_append_strz(&parser->strbuf, value);
                 }
@@ -514,15 +526,14 @@ static void *parse_key_value(struct parser *parser)
                 const struct lexeme *var_name = lexeme;
 
                 if (!(lexeme = lex_next(&parser->lexer))) {
-                    lwan_status_error(
-                        "Default value for variable '$%.*s' not given",
+                    return PARSER_ERROR(
+                        parser, "Default value for variable '$%.*s' not given",
                         (int)var_name->value.len, var_name->value.value);
-                    return NULL;
                 }
 
                 if (lexeme->type != LEXEME_STRING) {
-                    lwan_status_error("Wrong format for default value");
-                    return NULL;
+                    return PARSER_ERROR(parser,
+                                        "Wrong format for default value");
                 }
 
                 if (!value) {
@@ -565,16 +576,15 @@ static void *parse_key_value(struct parser *parser)
                        : NULL;
 
         default:
-            lwan_status_error("Unexpected token while parsing key-value: %s",
-                              lexeme_type_str[lexeme->type]);
-            return NULL;
+            return PARSER_ERROR(parser,
+                                "Unexpected token while parsing key-value: %s",
+                                lexeme_type_str[lexeme->type]);
         }
 
         last_lexeme = lexeme->type;
     }
 
-    lwan_status_error("EOF while parsing key-value");
-    return NULL;
+    return PARSER_ERROR(parser, "EOF while parsing key-value");
 }
 
 static void *parse_section(struct parser *parser)
@@ -647,22 +657,20 @@ static void *parse_config(struct parser *parser)
         return parse_config;
 
     case LEXEME_CLOSE_BRACKET: {
-        struct config_line line = { .type = CONFIG_LINE_TYPE_SECTION_END };
+        struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
 
         if (config_ring_buffer_try_put(&parser->items, &line))
             return parse_config;
 
-        lwan_status_error("Could not parse section end");
-        return NULL;
+        return PARSER_ERROR(parser, "Could not parse section");
     }
 
     case LEXEME_EOF:
         return NULL;
 
     default:
-        lwan_status_error("Unexpected lexeme type: %s",
-            lexeme_type_str[lexeme->type]);
-        return NULL;
+        return PARSER_ERROR(parser, "Unexpected lexeme type: %s",
+                            lexeme_type_str[lexeme->type]);
     }
 }
 
