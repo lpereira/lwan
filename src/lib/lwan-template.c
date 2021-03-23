@@ -1394,7 +1394,7 @@ lwan_tpl_compile_file(const char *filename,
     if (fstat(fd, &st) < 0)
         goto close_file;
 
-    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (mapped == MAP_FAILED)
         goto close_file;
 

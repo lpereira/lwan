@@ -709,7 +709,7 @@ config_open_path(const char *path, void **data, size_t *size)
         return NULL;
     }
 
-    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
     if (mapped == MAP_FAILED)
         return NULL;
