@@ -568,6 +568,7 @@ static void *parse_key_value(struct parser *parser)
             backup(&parser->lexer);
             /* fallthrough */
 
+        case LEXEME_EOF:
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
