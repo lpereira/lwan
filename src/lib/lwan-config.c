@@ -666,6 +666,9 @@ static void *parse_config(struct parser *parser)
     case LEXEME_CLOSE_BRACKET: {
         struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
 
+        if (!lexeme_ring_buffer_empty(&parser->buffer))
+            return PARSER_ERROR(parser, "Not expecting a close bracket here");
+
         if (!config_ring_buffer_try_put(&parser->items, &line))
             return PARSER_ERROR(parser, "Internal error: could not store section end in ring buffer");
 
