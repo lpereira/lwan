@@ -491,6 +491,9 @@ static void *parse_key_value(struct parser *parser)
     size_t key_size;
 
     while ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer))) {
+        if (lexeme->type != LEXEME_STRING)
+            return PARSER_ERROR(parser, "Expecting string");
+
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                lexeme->value.len);
 
