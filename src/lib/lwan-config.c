@@ -588,8 +588,9 @@ static void *parse_section(struct parser *parser)
     const struct lexeme *lexeme;
     size_t name_len;
 
-    if (!(lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer)))
-        return NULL;
+    lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer);
+    if (!lexeme || lexeme->type != LEXEME_STRING)
+        return PARSER_ERROR(parser, "Expecting a string");
 
     lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                            lexeme->value.len);
@@ -597,6 +598,9 @@ static void *parse_section(struct parser *parser)
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
     while ((lexeme = lexeme_ring_buffer_get_ptr_or_null(&parser->buffer))) {
+        if (lexeme->type != LEXEME_STRING)
+            return PARSER_ERROR(parser, "Expecting a string");
+
         lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
                                lexeme->value.len);
 
