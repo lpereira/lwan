@@ -58,19 +58,13 @@
     X(VARIABLE_DEFAULT) X(EOF)
 
 #define GENERATE_ENUM(id) LEXEME_ ## id,
-#define GENERATE_ARRAY_ITEM(id) [LEXEME_ ## id] = #id,
 
 enum lexeme_type {
     FOR_EACH_LEXEME(GENERATE_ENUM)
     TOTAL_LEXEMES
 };
 
-static const char *lexeme_type_str[TOTAL_LEXEMES] = {
-    FOR_EACH_LEXEME(GENERATE_ARRAY_ITEM)
-};
-
 #undef GENERATE_ENUM
-#undef GENERATE_ARRAY_ITEM
 
 struct lexeme {
     enum lexeme_type type;
@@ -576,10 +570,11 @@ static void *parse_key_value(struct parser *parser)
                        ? parse_config
                        : NULL;
 
-        default:
-            return PARSER_ERROR(parser,
-                                "Unexpected token while parsing key-value: %s",
-                                lexeme_type_str[lexeme->type]);
+        case LEXEME_OPEN_BRACKET:
+            return PARSER_ERROR(parser, "Open bracket not expected here");
+
+        case TOTAL_LEXEMES:
+            __builtin_unreachable();
         }
 
         last_lexeme = lexeme->type;
@@ -669,17 +664,16 @@ static void *parse_config(struct parser *parser)
     case LEXEME_EOF:
         return NULL;
 
-    default:
-        switch (lexeme->type) {
-        case LEXEME_VARIABLE:
-        case LEXEME_VARIABLE_DEFAULT:
-            return PARSER_ERROR(parser, "Variable '%.*s' can't be used here",
-                                (int)lexeme->value.len, lexeme->value.value);
-        default:
-            return PARSER_ERROR(parser, "Unexpected lexeme type: %s",
-                                lexeme_type_str[lexeme->type]);
-        }
+    case LEXEME_VARIABLE:
+    case LEXEME_VARIABLE_DEFAULT:
+        return PARSER_ERROR(parser, "Variable '%.*s' can't be used here",
+                            (int)lexeme->value.len, lexeme->value.value);
+
+    case TOTAL_LEXEMES:
+        __builtin_unreachable();
     }
+
+    return NULL;
 }
 
 static const struct config_line *parser_next(struct parser *parser)
