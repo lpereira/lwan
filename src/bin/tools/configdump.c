@@ -69,12 +69,6 @@ dump(struct config *config, int indent_level)
             break;
         }
     }
-
-    if (config_last_error(config)) {
-        lwan_status_critical("Error while reading configuration file (line %d): %s",
-                             config_cur_line(config),
-                             config_last_error(config));
-    }
 }
 
 int main(int argc, char *argv[])
@@ -94,6 +88,12 @@ int main(int argc, char *argv[])
     }
 
     dump(config, 0);
+
+    if (config_last_error(config)) {
+        lwan_status_critical("Error while reading configuration file (line %d): %s\n",
+                             config_cur_line(config),
+                             config_last_error(config));
+    }
 
     config_close(config);
 
