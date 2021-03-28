@@ -633,10 +633,13 @@ static void *parse_section_shorthand(struct parser *parser)
 
 static void *parse_config(struct parser *parser)
 {
-    const struct lexeme *lexeme;
+    const struct lexeme *lexeme = lex_next(&parser->lexer);
 
-    if (!(lexeme = lex_next(&parser->lexer)))
-        return NULL;
+    if (!lexeme) {
+        /* EOF is signaled by a LEXEME_EOF from the parser, so
+         * this should never happen. */
+        return PARSER_ERROR(parser, "Internal error: Could not obtain lexeme");
+    }
 
     switch (lexeme->type) {
     case LEXEME_EQUAL:
@@ -652,21 +655,22 @@ static void *parse_config(struct parser *parser)
         return parse_config;
 
     case LEXEME_STRING:
-        lexeme_ring_buffer_try_put(&parser->buffer, lexeme);
+        if (!lexeme_ring_buffer_try_put(&parser->buffer, lexeme))
+            return PARSER_ERROR(parser, "Internal error: could not store string in ring buffer");
 
         return parse_config;
 
     case LEXEME_CLOSE_BRACKET: {
         struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
 
-        if (config_ring_buffer_try_put(&parser->items, &line))
-            return parse_config;
+        if (!config_ring_buffer_try_put(&parser->items, &line))
+            return PARSER_ERROR(parser, "Internal error: could not store section end in ring buffer");
 
-        return PARSER_ERROR(parser, "Could not parse section");
+        return parse_config;
     }
 
     case LEXEME_EOF:
-        return NULL;
+        break;
 
     case LEXEME_VARIABLE:
     case LEXEME_VARIABLE_DEFAULT:
