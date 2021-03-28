@@ -360,7 +360,7 @@ static void *lex_variable_default(struct lexer *lexer)
         }
     } while (chr != '\0');
 
-    return LEX_ERROR(lexer, "EOF while scanning for end of variable");
+    return LEX_ERROR(lexer, "EOF while scanning for default value for variable");
 }
 
 static void *lex_variable(struct lexer *lexer)
