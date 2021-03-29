@@ -629,6 +629,8 @@ static void *parse_section_shorthand(struct parser *parser)
 
         if (config_ring_buffer_try_put(&parser->items, &line))
             return next_state;
+
+        return PARSER_ERROR(parser, "Internal error: couldn´t append line to internal ring buffer");
     }
 
     return NULL;
