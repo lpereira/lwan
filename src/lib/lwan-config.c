@@ -646,9 +646,15 @@ static void *parse_config(struct parser *parser)
 
     switch (lexeme->type) {
     case LEXEME_EQUAL:
+        if (lexeme_ring_buffer_empty(&parser->buffer))
+            return PARSER_ERROR(parser, "Keys can´t be empty");
+
         return parse_key_value;
 
     case LEXEME_OPEN_BRACKET:
+        if (lexeme_ring_buffer_empty(&parser->buffer))
+            return PARSER_ERROR(parser, "Section names can´t be empty");
+
         return parse_section;
 
     case LEXEME_LINEFEED:
