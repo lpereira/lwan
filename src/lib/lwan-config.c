@@ -682,6 +682,9 @@ static void *parse_config(struct parser *parser)
     }
 
     case LEXEME_EOF:
+        if (!lexeme_ring_buffer_empty(&parser->buffer))
+            return PARSER_ERROR(parser, "Internal error: Premature EOF");
+
         break;
 
     case LEXEME_VARIABLE:
