@@ -268,7 +268,7 @@ static void *lex_variable(struct lexer *lexer);
 
 static bool is_string(int chr)
 {
-    return chr && !isspace(chr) && chr != '=' && chr != '#';
+    return chr && !isspace(chr) && chr != '=' && chr != '#' && chr != '{' && chr != '}';
 }
 
 static void *lex_string(struct lexer *lexer)
