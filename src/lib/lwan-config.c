@@ -572,12 +572,16 @@ static void *parse_key_value(struct parser *parser)
             /* fallthrough */
 
         case LEXEME_EOF:
+            /* FIXME: EOF while in a global context is fine, but when in a section
+             * it's not. */
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
-            return config_ring_buffer_try_put(&parser->items, &line)
-                       ? parse_config
-                       : NULL;
+
+            if (config_ring_buffer_try_put(&parser->items, &line))
+                return parse_config;
+
+            return PARSER_ERROR(parser, "Could not add key/value to ring buffer");
 
         case LEXEME_OPEN_BRACKET:
             return PARSER_ERROR(parser, "Open bracket not expected here");
