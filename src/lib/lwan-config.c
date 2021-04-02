@@ -422,6 +422,12 @@ static void *lex_config(struct lexer *lexer)
         }
 
         if (chr == '}') {
+            /* Emitting a linefeed lexeme before a close bracket lexeme
+             * simplifies the parser and allows for situations where a
+             * section is closed when declaring a key/value pair
+             * (e.g. "section{key=value}" all in a single line).
+             */
+            emit(lexer, LEXEME_LINEFEED);
             emit(lexer, LEXEME_CLOSE_BRACKET);
             return lex_config;
         }
