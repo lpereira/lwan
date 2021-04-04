@@ -99,6 +99,7 @@ struct config {
         void *addr;
         size_t sz;
     } mapped;
+    int opened_brackets;
 };
 
 unsigned int parse_time_period(const char *str, unsigned int default_value)
@@ -667,6 +668,8 @@ static void *parse_config(struct parser *parser)
         if (lexeme_ring_buffer_empty(&parser->buffer))
             return PARSER_ERROR(parser, "Section names can´t be empty");
 
+        config_from_parser(parser)->opened_brackets++;
+
         return parse_section;
 
     case LEXEME_LINEFEED:
@@ -683,6 +686,10 @@ static void *parse_config(struct parser *parser)
 
     case LEXEME_CLOSE_BRACKET: {
         struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
+        struct config *config = config_from_parser(parser);
+
+        if (!config->opened_brackets)
+            return PARSER_ERROR(parser, "Section closed before it opened");
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             return PARSER_ERROR(parser, "Not expecting a close bracket here");
@@ -690,10 +697,15 @@ static void *parse_config(struct parser *parser)
         if (!config_ring_buffer_try_put(&parser->items, &line))
             return PARSER_ERROR(parser, "Internal error: could not store section end in ring buffer");
 
+        config->opened_brackets--;
+
         return parse_config;
     }
 
     case LEXEME_EOF:
+        if (config_from_parser(parser)->opened_brackets)
+            return PARSER_ERROR(parser, "EOF while looking for a close bracket");
+
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             return PARSER_ERROR(parser, "Internal error: Premature EOF");
 
@@ -779,6 +791,7 @@ config_init_data(struct config *config, const void *data, size_t len)
     };
 
     config->error_message = NULL;
+    config->opened_brackets = 0;
 
     lwan_strbuf_init(&config->parser.strbuf);
     config_ring_buffer_init(&config->parser.items);
@@ -874,6 +887,7 @@ struct config *config_isolate_section(struct config *current_conf,
 
     isolated->mapped.addr = NULL;
     isolated->mapped.sz = 0;
+    /* Keep opened_brackets from the original */
 
     lexer = &isolated->parser.lexer;
     lexer->start = lexer->pos;
