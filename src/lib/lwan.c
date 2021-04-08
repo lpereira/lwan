@@ -63,6 +63,8 @@ static const struct lwan_config default_config = {
     .n_threads = 0,
     .max_post_data_size = 10 * DEFAULT_BUFFER_SIZE,
     .allow_post_temp_file = false,
+    .max_put_data_size = 10 * DEFAULT_BUFFER_SIZE,
+    .allow_put_temp_file = false,
 };
 
 LWAN_HANDLER(brew_coffee)
@@ -544,9 +546,20 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                     config_error(conf,
                                  "Maximum post data can't be over 128MiB");
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
+            } else if (streq(line->key, "max_put_data_size")) {
+                long max_put_data_size = parse_long(
+                    line->value, (long)default_config.max_put_data_size);
+                if (max_put_data_size < 0)
+                    config_error(conf, "Negative maximum put data size");
+                else if (max_put_data_size > 128 * (1 << 20))
+                    config_error(conf,
+                                 "Maximum put data can't be over 128MiB");
+                lwan->config.max_put_data_size = (size_t)max_put_data_size;
             } else if (streq(line->key, "allow_temp_files")) {
-                lwan->config.allow_post_temp_file =
-                    !!strstr(line->value, "post");
+                if (strstr(line->value, "post"))
+                    lwan->config.allow_post_temp_file = true;
+                if (strstr(line->value, "put"))
+                    lwan->config.allow_put_temp_file = true;
             } else {
                 config_error(conf, "Unknown config key: %s", line->key);
             }

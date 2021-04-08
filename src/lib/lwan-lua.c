@@ -93,9 +93,53 @@ static int request_param_getter(lua_State *L,
     return 1;
 }
 
+LWAN_LUA_METHOD(remote)
+{
+	struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    char ip_buffer[INET6_ADDRSTRLEN];
+	lua_pushstring(L, lwan_request_get_remote_address(request, ip_buffer));
+	return 1;
+}
+
+
 LWAN_LUA_METHOD(header)
 {
     return request_param_getter(L, lwan_request_get_header);
+}
+
+LWAN_LUA_METHOD(method)
+{
+#define GEN_TABLE_ENTRY(upper, lower, mask, constant) [REQUEST_METHOD_##upper] = { .value = #upper, .len = sizeof(#upper) - 1 },
+    static const struct lwan_value method2name[REQUEST_METHOD_MASK] = {
+        FOR_EACH_REQUEST_METHOD(GEN_TABLE_ENTRY)
+    };
+#undef GEN_TABLE_ENTRY
+
+	struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+	lua_pushstring(L, method2name[lwan_request_get_method(request)].value);
+	return 1;
+}
+
+LWAN_LUA_METHOD(path)
+{
+	struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    if (request->url.value && request->url.len) {
+        lua_pushlstring(L, request->url.value, request->url.len);
+    } else {
+        lua_pushnil(L);
+    }
+	return 1;
+}
+
+LWAN_LUA_METHOD(query)
+{
+	struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    if (request->helper->query_string.value && request->helper->query_string.len) {
+        lua_pushlstring(L, request->helper->query_string.value, request->helper->query_string.len);
+    } else {
+        lua_pushnil(L);
+    }
+	return 1;
 }
 
 LWAN_LUA_METHOD(query_param)
@@ -111,6 +155,17 @@ LWAN_LUA_METHOD(post_param)
 LWAN_LUA_METHOD(cookie)
 {
     return request_param_getter(L, lwan_request_get_cookie);
+}
+
+LWAN_LUA_METHOD(body)
+{
+	struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    if (request->helper->put_data.value && request->helper->put_data.len) {
+        lua_pushlstring(L, request->helper->put_data.value, request->helper->put_data.len);
+    } else {
+        lua_pushnil(L);
+    }
+	return 1;
 }
 
 LWAN_LUA_METHOD(ws_upgrade)

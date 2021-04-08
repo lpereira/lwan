@@ -551,6 +551,9 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         char *end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         STRING_SWITCH_L (p) {
+        case STR4_INT_L('E', 'x', 'p', 'e'):
+            SET_HEADER_VALUE(expect, "Expect");
+            break;
         case STR4_INT_L('A', 'c', 'c', 'e'):
             p += HEADER_LENGTH("Accept");
 
@@ -1021,6 +1024,7 @@ static const char *is_dir_good_for_tmp(const char *v)
 
 static const char *temp_dir;
 static const size_t post_buffer_temp_file_thresh = 1<<20;
+static const size_t put_buffer_temp_file_thresh = 1<<20;
 
 static const char *
 get_temp_dir(void)
@@ -1048,8 +1052,10 @@ get_temp_dir(void)
         return tmpdir;
 
     lwan_status_warning("Temporary directory could not be determined. POST "
-                        "requests over %zu bytes will fail.",
-                        post_buffer_temp_file_thresh);
+                        "requests over %zu bytes or PUT requests over %zu "
+                        "bytes will fail.",
+                        post_buffer_temp_file_thresh,
+                        put_buffer_temp_file_thresh);
     return NULL;
 }
 
@@ -1096,7 +1102,7 @@ struct file_backed_buffer {
 };
 
 static void
-free_post_buffer(void *data)
+free_buffer(void *data)
 {
     struct file_backed_buffer *buf = data;
 
@@ -1105,13 +1111,13 @@ free_post_buffer(void *data)
 }
 
 static void*
-alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
+alloc_buffer(struct coro *coro, size_t size, size_t thresh, bool allow_file)
 {
     struct file_backed_buffer *buf;
     void *ptr = (void *)MAP_FAILED;
     int fd;
 
-    if (LIKELY(size < post_buffer_temp_file_thresh)) {
+    if (LIKELY(size < thresh)) {
         ptr = coro_malloc(coro, size);
 
         if (LIKELY(ptr))
@@ -1140,7 +1146,7 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
     if (UNLIKELY(ptr == MAP_FAILED))
         return NULL;
 
-    buf = coro_malloc_full(coro, sizeof(*buf), free_post_buffer);
+    buf = coro_malloc_full(coro, sizeof(*buf), free_buffer);
     if (UNLIKELY(!buf)) {
         munmap(ptr, size);
         return NULL;
@@ -1152,10 +1158,11 @@ alloc_post_buffer(struct coro *coro, size_t size, bool allow_file)
 }
 
 static enum lwan_http_status
-get_remaining_post_data_length(struct lwan_request *request,
+get_remaining_data_length(struct lwan_request *request,
                                const size_t max_size,
                                size_t *total,
-                               size_t *have)
+                               size_t *have,
+                               struct lwan_value *data)
 {
     struct lwan_request_parser_helper *helper = request->helper;
     long parsed_size;
@@ -1185,8 +1192,8 @@ get_remaining_post_data_length(struct lwan_request *request,
     if (*have < *total)
         return HTTP_PARTIAL_CONTENT;
 
-    helper->post_data.value = helper->next_request;
-    helper->post_data.len = *total;
+    data->value = helper->next_request;
+    data->len = *total;
     helper->next_request += *total;
     return HTTP_OK;
 }
@@ -1200,12 +1207,13 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     size_t total, have;
     char *new_buffer;
 
-    status = get_remaining_post_data_length(request, config->max_post_data_size,
-                                            &total, &have);
+    status = get_remaining_data_length(request, config->max_post_data_size,
+                                        &total, &have, &helper->post_data);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
-    new_buffer = alloc_post_buffer(request->conn->coro, total + 1,
+    new_buffer = alloc_buffer(request->conn->coro, total + 1,
+                                   post_buffer_temp_file_thresh,
                                    config->allow_post_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
@@ -1231,9 +1239,10 @@ static enum lwan_http_status discard_post_data(struct lwan_request *request)
     const struct lwan_config *config = &request->conn->thread->lwan->config;
     enum lwan_http_status status;
     size_t total, have;
+    struct lwan_value data;
 
-    status = get_remaining_post_data_length(request, config->max_post_data_size,
-                                            &total, &have);
+    status = get_remaining_data_length(request, config->max_post_data_size,
+                                        &total, &have, &data);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
@@ -1248,6 +1257,55 @@ static enum lwan_http_status discard_post_data(struct lwan_request *request)
     }
 
     return HTTP_OK;
+}
+
+static enum lwan_http_status read_put_data(struct lwan_request *request)
+{
+    /* Holy indirection, Batman! */
+    const struct lwan_config *config = &request->conn->thread->lwan->config;
+    struct lwan_request_parser_helper *helper = request->helper;
+    enum lwan_http_status status;
+    size_t total, have;
+    char *new_buffer;
+
+    status = get_remaining_data_length(request, config->max_put_data_size,
+                                        &total, &have, &helper->put_data);
+    if (status != HTTP_PARTIAL_CONTENT)
+        return status;
+
+    char *v = (char *)helper->expect.value;
+    if (helper->expect.value && helper->expect.len &&
+        STR4_INT_L('1', '0', '0', '-') == STR4_INT_L(v[0], v[1], v[2], v[3])) {
+        char headers[DEFAULT_HEADERS_SIZE];
+        size_t header_len = (size_t)snprintf(headers, sizeof(headers), "HTTP/1.%c 100 Continue\r\n\r\n",
+                                        request->flags & REQUEST_IS_HTTP_1_0 ? '0' : '1');
+        lwan_send(request, headers, header_len, 0);
+    }
+
+    new_buffer = alloc_buffer(request->conn->coro, total + 1,
+                               put_buffer_temp_file_thresh,
+                               config->allow_put_temp_file);
+    if (UNLIKELY(!new_buffer))
+        return HTTP_INTERNAL_ERROR;
+
+    helper->put_data.value = new_buffer;
+    helper->put_data.len = total;
+    if (have) {
+        new_buffer = mempcpy(new_buffer, helper->next_request, have);
+        total -= have;
+    }
+    helper->next_request = NULL;
+
+    helper->error_when_time = time(NULL) + config->keep_alive_timeout;
+    helper->error_when_n_packets = lwan_calculate_n_packets(total);
+
+    struct lwan_value buffer = {.value = new_buffer, .len = total};
+    return client_read(request, &buffer, total, post_data_finalizer);
+}
+
+static enum lwan_http_status discard_put_data(struct lwan_request *request)
+{
+    return discard_post_data(request);
 }
 
 static char *
@@ -1392,6 +1450,14 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
             return read_post_data(request);
 
         enum lwan_http_status status = discard_post_data(request);
+        return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
+    }
+
+    if (lwan_request_get_method(request) == REQUEST_METHOD_PUT) {
+        if (url_map->flags & HANDLER_HAS_PUT_DATA)
+            return read_put_data(request);
+
+        enum lwan_http_status status = discard_put_data(request);
         return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
     }
 

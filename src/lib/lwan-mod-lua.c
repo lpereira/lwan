@@ -307,6 +307,7 @@ static const struct lwan_module module = {
     .create_from_hash = lua_create_from_hash,
     .destroy = lua_destroy,
     .handle_request = lua_handle_request,
+    .flags = HANDLER_HAS_PUT_DATA,
 };
 
 LWAN_REGISTER_MODULE(lua, &module);
