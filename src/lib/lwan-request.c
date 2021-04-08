@@ -1020,8 +1020,7 @@ static const char *is_dir_good_for_tmp(const char *v)
 }
 
 static const char *temp_dir;
-static const size_t post_buffer_temp_file_thresh = 1<<20;
-static const size_t put_buffer_temp_file_thresh = 1<<20;
+static const size_t body_buffer_temp_file_thresh = 1<<20;
 
 static const char *
 get_temp_dir(void)
@@ -1049,10 +1048,8 @@ get_temp_dir(void)
         return tmpdir;
 
     lwan_status_warning("Temporary directory could not be determined. POST "
-                        "requests over %zu bytes or PUT requests over %zu "
-                        "bytes will fail.",
-                        post_buffer_temp_file_thresh,
-                        put_buffer_temp_file_thresh);
+                        "or PUT requests over %zu bytes bytes will fail.",
+                        body_buffer_temp_file_thresh);
     return NULL;
 }
 
@@ -1099,7 +1096,7 @@ struct file_backed_buffer {
 };
 
 static void
-free_buffer(void *data)
+free_body_buffer(void *data)
 {
     struct file_backed_buffer *buf = data;
 
@@ -1108,13 +1105,13 @@ free_buffer(void *data)
 }
 
 static void*
-alloc_buffer(struct coro *coro, size_t size, size_t thresh, bool allow_file)
+alloc_body_buffer(struct coro *coro, size_t size, bool allow_file)
 {
     struct file_backed_buffer *buf;
     void *ptr = (void *)MAP_FAILED;
     int fd;
 
-    if (LIKELY(size < thresh)) {
+    if (LIKELY(size < body_buffer_temp_file_thresh)) {
         ptr = coro_malloc(coro, size);
 
         if (LIKELY(ptr))
@@ -1143,7 +1140,7 @@ alloc_buffer(struct coro *coro, size_t size, size_t thresh, bool allow_file)
     if (UNLIKELY(ptr == MAP_FAILED))
         return NULL;
 
-    buf = coro_malloc_full(coro, sizeof(*buf), free_buffer);
+    buf = coro_malloc_full(coro, sizeof(*buf), free_body_buffer);
     if (UNLIKELY(!buf)) {
         munmap(ptr, size);
         return NULL;
@@ -1209,8 +1206,7 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
-    new_buffer = alloc_buffer(request->conn->coro, total + 1,
-                                   post_buffer_temp_file_thresh,
+    new_buffer = alloc_body_buffer(request->conn->coro, total + 1,
                                    config->allow_post_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
@@ -1230,7 +1226,7 @@ static enum lwan_http_status read_post_data(struct lwan_request *request)
     return client_read(request, &buffer, total, post_data_finalizer);
 }
 
-static enum lwan_http_status discard_post_data(struct lwan_request *request)
+static enum lwan_http_status discard_body_data(struct lwan_request *request)
 {
     /* Holy indirection, Batman! */
     const struct lwan_config *config = &request->conn->thread->lwan->config;
@@ -1278,8 +1274,7 @@ static enum lwan_http_status read_put_data(struct lwan_request *request)
         lwan_send(request, headers, header_len, 0);
     }
 
-    new_buffer = alloc_buffer(request->conn->coro, total + 1,
-                               put_buffer_temp_file_thresh,
+    new_buffer = alloc_body_buffer(request->conn->coro, total + 1,
                                config->allow_put_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
@@ -1297,11 +1292,6 @@ static enum lwan_http_status read_put_data(struct lwan_request *request)
 
     struct lwan_value buffer = {.value = new_buffer, .len = total};
     return client_read(request, &buffer, total, post_data_finalizer);
-}
-
-static enum lwan_http_status discard_put_data(struct lwan_request *request)
-{
-    return discard_post_data(request);
 }
 
 static char *
@@ -1441,19 +1431,17 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
         request->url.len--;
     }
 
-    if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
-        if (url_map->flags & HANDLER_HAS_POST_DATA)
-            return read_post_data(request);
+    switch (lwan_request_get_method(request)) {
+    default: break;
 
-        enum lwan_http_status status = discard_post_data(request);
-        return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
-    }
-
-    if (lwan_request_get_method(request) == REQUEST_METHOD_PUT) {
-        if (url_map->flags & HANDLER_HAS_PUT_DATA)
-            return read_put_data(request);
-
-        enum lwan_http_status status = discard_put_data(request);
+    case REQUEST_METHOD_POST:
+    case REQUEST_METHOD_PUT:
+        if (url_map->flags & HANDLER_HAS_BODY_DATA) {
+            return lwan_request_get_method(request) == REQUEST_METHOD_POST
+                ? read_post_data(request)
+                : read_put_data(request);
+        }
+        enum lwan_http_status status = discard_body_data(request);
         return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
     }
 
