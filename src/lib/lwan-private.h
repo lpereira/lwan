@@ -39,7 +39,6 @@ struct lwan_request_parser_helper {
     struct lwan_value put_data;	/* Request body for PUT */
     struct lwan_value content_type;	/* Content-Type: for POST and PUT */
     struct lwan_value content_length;	/* Content-Length: */
-    struct lwan_value expect; /* Expect: */
 
     struct lwan_value connection;	/* Connection: */
 

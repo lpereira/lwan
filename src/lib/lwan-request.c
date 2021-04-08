@@ -551,9 +551,6 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         char *end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         STRING_SWITCH_L (p) {
-        case STR4_INT_L('E', 'x', 'p', 'e'):
-            SET_HEADER_VALUE(expect, "Expect");
-            break;
         case STR4_INT_L('A', 'c', 'c', 'e'):
             p += HEADER_LENGTH("Accept");
 
@@ -1273,9 +1270,8 @@ static enum lwan_http_status read_put_data(struct lwan_request *request)
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
-    char *v = (char *)helper->expect.value;
-    if (helper->expect.value && helper->expect.len &&
-        STR4_INT_L('1', '0', '0', '-') == STR4_INT_L(v[0], v[1], v[2], v[3])) {
+    const char *expect = lwan_request_get_header(request, "Expect");
+    if (expect && strncmp(expect, "100-", 4) == 0) {
         char headers[DEFAULT_HEADERS_SIZE];
         size_t header_len = (size_t)snprintf(headers, sizeof(headers), "HTTP/1.%c 100 Continue\r\n\r\n",
                                         request->flags & REQUEST_IS_HTTP_1_0 ? '0' : '1');
