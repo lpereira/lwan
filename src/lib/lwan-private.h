@@ -35,8 +35,7 @@ struct lwan_request_parser_helper {
 
     struct lwan_value query_string;	/* Stuff after ? and before # */
 
-    struct lwan_value post_data;	/* Request body for POST */
-    struct lwan_value put_data;	/* Request body for PUT */
+    struct lwan_value body_data; /* Request body for POST and PUT */
     struct lwan_value content_type;	/* Content-Type: for POST and PUT */
     struct lwan_value content_length;	/* Content-Length: */
 

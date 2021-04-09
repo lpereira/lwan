@@ -143,8 +143,8 @@ LWAN_LUA_METHOD(cookie)
 LWAN_LUA_METHOD(body)
 {
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
-    if (request->helper->put_data.len) {
-        lua_pushlstring(L, request->helper->put_data.value, request->helper->put_data.len);
+    if (request->helper->body_data.len) {
+        lua_pushlstring(L, request->helper->body_data.value, request->helper->body_data.len);
     } else {
         lua_pushlstring(L, "", 0);
     }
