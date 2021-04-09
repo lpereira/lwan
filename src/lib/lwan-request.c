@@ -1155,8 +1155,7 @@ static enum lwan_http_status
 get_remaining_data_length(struct lwan_request *request,
                                const size_t max_size,
                                size_t *total,
-                               size_t *have,
-                               struct lwan_value *data)
+                               size_t *have)
 {
     struct lwan_request_parser_helper *helper = request->helper;
     long parsed_size;
@@ -1186,8 +1185,8 @@ get_remaining_data_length(struct lwan_request *request,
     if (*have < *total)
         return HTTP_PARTIAL_CONTENT;
 
-    data->value = helper->next_request;
-    data->len = *total;
+    helper->body_data.value = helper->next_request;
+    helper->body_data.len = *total;
     helper->next_request += *total;
     return HTTP_OK;
 }
@@ -1202,7 +1201,7 @@ static enum lwan_http_status read_body_data(struct lwan_request *request, size_t
     size_t total, have;
     char *new_buffer;
 
-    status = get_remaining_data_length(request, max_data_size, &total, &have,  &helper->body_data);
+    status = get_remaining_data_length(request, max_data_size, &total, &have);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
@@ -1240,10 +1239,9 @@ static enum lwan_http_status discard_body_data(struct lwan_request *request)
     const struct lwan_config *config = &request->conn->thread->lwan->config;
     enum lwan_http_status status;
     size_t total, have;
-    struct lwan_value data;
 
     status = get_remaining_data_length(request, config->max_post_data_size,
-                                        &total, &have, &data);
+                                        &total, &have);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
