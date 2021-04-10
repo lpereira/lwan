@@ -277,6 +277,7 @@ can be decided automatically, so some configuration options are provided.
 | `threads` | `int` | `0` | Number of I/O threads. Default (0) is the number of online CPUs |
 | `proxy_protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
 | `max_post_data_size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
+| `max_put_data_size` | `int` | `40960` | Sets the maximum number of data size for PUT requests, in bytes |
 
 ### Straitjacket
 
@@ -426,6 +427,10 @@ information from the request, or to set the response, as seen below:
    - `req:ws_upgrade()` returns `1` if the connection could be upgraded to a WebSocket; `0` otherwise
    - `req:ws_write(str)` sends `str` through the WebSocket-upgraded connection
    - `req:ws_read()` returns a string with the contents of the last WebSocket frame, or a number indicating an status (ENOTCONN/107 on Linux if it has been disconnected; EAGAIN/11 on Linux if nothing was available; ENOMSG/42 on Linux otherwise).  The return value here might change in the future for something more Lua-like.
+   - `req:remote_address()` returns a string with the remote IP address.
+   - `req:path()` returns a string with the request path.
+   - `req:query_string()` returns a string with the query string (empty string if no query string present).
+   - `req:body()` returns the request body (POST/PUT requests).
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return
