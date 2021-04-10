@@ -1214,13 +1214,15 @@ static enum lwan_http_status read_body_data(struct lwan_request *request)
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
-    const char *expect = lwan_request_get_header(request, "Expect");
-    if (expect && strncmp(expect, "100-", 4) == 0) {
-        char headers[DEFAULT_HEADERS_SIZE];
-        size_t header_len = (size_t)snprintf(
-            headers, sizeof(headers), "HTTP/1.%c 100 Continue\r\n\r\n",
-            request->flags & REQUEST_IS_HTTP_1_0 ? '0' : '1');
-        lwan_send(request, headers, header_len, 0);
+    if (!(request->flags & REQUEST_IS_HTTP_1_0)) {
+        /* §8.2.3 https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html */
+        const char *expect = lwan_request_get_header(request, "Expect");
+
+        if (expect && strncmp(expect, "100-", 4) == 0) {
+            static const char continue_header[] = "HTTP/1.1 100 Continue\r\n\r\n";
+
+            lwan_send(request, continue_header, sizeof(continue_header) - 1, 0);
+        }
     }
 
     new_buffer =
