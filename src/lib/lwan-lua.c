@@ -93,9 +93,36 @@ static int request_param_getter(lua_State *L,
     return 1;
 }
 
+LWAN_LUA_METHOD(remote_address)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    char ip_buffer[INET6_ADDRSTRLEN];
+    lua_pushstring(L, lwan_request_get_remote_address(request, ip_buffer));
+    return 1;
+}
+
+
 LWAN_LUA_METHOD(header)
 {
     return request_param_getter(L, lwan_request_get_header);
+}
+
+LWAN_LUA_METHOD(path)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushlstring(L, request->url.value, request->url.len);
+    return 1;
+}
+
+LWAN_LUA_METHOD(query_string)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    if (request->helper->query_string.len) {
+        lua_pushlstring(L, request->helper->query_string.value, request->helper->query_string.len);
+    } else {
+        lua_pushlstring(L, "", 0);
+    }
+    return 1;
 }
 
 LWAN_LUA_METHOD(query_param)
@@ -111,6 +138,17 @@ LWAN_LUA_METHOD(post_param)
 LWAN_LUA_METHOD(cookie)
 {
     return request_param_getter(L, lwan_request_get_cookie);
+}
+
+LWAN_LUA_METHOD(body)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    if (request->helper->body_data.len) {
+        lua_pushlstring(L, request->helper->body_data.value, request->helper->body_data.len);
+    } else {
+        lua_pushlstring(L, "", 0);
+    }
+    return 1;
 }
 
 LWAN_LUA_METHOD(ws_upgrade)
