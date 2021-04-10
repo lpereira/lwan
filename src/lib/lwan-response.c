@@ -322,7 +322,7 @@ size_t lwan_prepare_response_header_full(
     if (UNLIKELY(request->flags & REQUEST_ALLOW_CORS)) {
         APPEND_CONSTANT(
             "\r\nAccess-Control-Allow-Origin: *"
-            "\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS"
+            "\r\nAccess-Control-Allow-Methods: GET, POST, PUT, OPTIONS"
             "\r\nAccess-Control-Allow-Credentials: true"
             "\r\nAccess-Control-Allow-Headers: Origin, Accept, Content-Type");
     }

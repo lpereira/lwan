@@ -210,12 +210,12 @@ enum lwan_http_status {
 #undef GENERATE_ENUM_ITEM
 
 enum lwan_handler_flags {
-    HANDLER_HAS_POST_DATA = 1 << 0,
+    HANDLER_HAS_BODY_DATA = 1 << 0,
     HANDLER_MUST_AUTHORIZE = 1 << 1,
     HANDLER_CAN_REWRITE_URL = 1 << 2,
     HANDLER_DATA_IS_HASH_TABLE = 1 << 3,
 
-    HANDLER_PARSE_MASK = HANDLER_HAS_POST_DATA,
+    HANDLER_PARSE_MASK = HANDLER_HAS_BODY_DATA,
 };
 
 /* 1<<0 set: response has body; see has_response_body() in lwan-response.c */
@@ -224,7 +224,8 @@ enum lwan_handler_flags {
     X(POST, post, (1 << 1 | 1 << 0), STR4_INT('P', 'O', 'S', 'T'))             \
     X(HEAD, head, (1 << 1), STR4_INT('H', 'E', 'A', 'D'))                      \
     X(OPTIONS, options, (1 << 2), STR4_INT('O', 'P', 'T', 'I'))                \
-    X(DELETE, delete, (1 << 1 | 1 << 2), STR4_INT('D', 'E', 'L', 'E'))
+    X(DELETE, delete, (1 << 1 | 1 << 2), STR4_INT('D', 'E', 'L', 'E'))         \
+    X(PUT, put, (1 << 2 | 1 << 0), STR4_INT('P', 'U', 'T', ' '))
 
 #define SELECT_MASK(upper, lower, mask, constant) mask |
 #define GENERATE_ENUM_ITEM(upper, lower, mask, constant) REQUEST_METHOD_##upper = mask,
@@ -463,6 +464,7 @@ struct lwan_config {
     char *config_file_path;
 
     size_t max_post_data_size;
+    size_t max_put_data_size;
 
     unsigned int keep_alive_timeout;
     unsigned int expires;
@@ -473,6 +475,7 @@ struct lwan_config {
     bool proxy_protocol;
     bool allow_cors;
     bool allow_post_temp_file;
+    bool allow_put_temp_file;
 };
 
 struct lwan {
