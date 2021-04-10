@@ -219,13 +219,14 @@ enum lwan_handler_flags {
 };
 
 /* 1<<0 set: response has body; see has_response_body() in lwan-response.c */
+/* 1<<3 set: request has body; see request_has_body() in lwan-request.c */
 #define FOR_EACH_REQUEST_METHOD(X)                                             \
     X(GET, get, (1 << 0), STR4_INT('G', 'E', 'T', ' '))                        \
-    X(POST, post, (1 << 1 | 1 << 0), STR4_INT('P', 'O', 'S', 'T'))             \
+    X(POST, post, (1 << 3 | 1 << 1 | 1 << 0), STR4_INT('P', 'O', 'S', 'T'))    \
     X(HEAD, head, (1 << 1), STR4_INT('H', 'E', 'A', 'D'))                      \
     X(OPTIONS, options, (1 << 2), STR4_INT('O', 'P', 'T', 'I'))                \
     X(DELETE, delete, (1 << 1 | 1 << 2), STR4_INT('D', 'E', 'L', 'E'))         \
-    X(PUT, put, (1 << 2 | 1 << 0), STR4_INT('P', 'U', 'T', ' '))
+    X(PUT, put, (1 << 3 | 1 << 2 | 1 << 0), STR4_INT('P', 'U', 'T', ' '))
 
 #define SELECT_MASK(upper, lower, mask, constant) mask |
 #define GENERATE_ENUM_ITEM(upper, lower, mask, constant) REQUEST_METHOD_##upper = mask,
@@ -236,30 +237,30 @@ enum lwan_request_flags {
     REQUEST_METHOD_MASK = FOR_EACH_REQUEST_METHOD(SELECT_MASK) 0,
     FOR_EACH_REQUEST_METHOD(GENERATE_ENUM_ITEM)
 
-    REQUEST_ACCEPT_DEFLATE = 1 << 3,
-    REQUEST_ACCEPT_GZIP = 1 << 4,
-    REQUEST_ACCEPT_BROTLI = 1 << 5,
-    REQUEST_ACCEPT_ZSTD = 1 << 6,
-    REQUEST_ACCEPT_MASK = 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6,
+    REQUEST_ACCEPT_DEFLATE = 1 << 4,
+    REQUEST_ACCEPT_GZIP = 1 << 5,
+    REQUEST_ACCEPT_BROTLI = 1 << 6,
+    REQUEST_ACCEPT_ZSTD = 1 << 7,
+    REQUEST_ACCEPT_MASK = 1 << 4 | 1 << 5 | 1 << 6 | 1 << 7,
 
-    REQUEST_IS_HTTP_1_0 = 1 << 7,
-    REQUEST_ALLOW_PROXY_REQS = 1 << 8,
-    REQUEST_PROXIED = 1 << 9,
-    REQUEST_ALLOW_CORS = 1 << 10,
+    REQUEST_IS_HTTP_1_0 = 1 << 8,
+    REQUEST_ALLOW_PROXY_REQS = 1 << 9,
+    REQUEST_PROXIED = 1 << 10,
+    REQUEST_ALLOW_CORS = 1 << 11,
 
-    RESPONSE_SENT_HEADERS = 1 << 11,
-    RESPONSE_CHUNKED_ENCODING = 1 << 12,
-    RESPONSE_NO_CONTENT_LENGTH = 1 << 13,
-    RESPONSE_URL_REWRITTEN = 1 << 14,
+    RESPONSE_SENT_HEADERS = 1 << 12,
+    RESPONSE_CHUNKED_ENCODING = 1 << 13,
+    RESPONSE_NO_CONTENT_LENGTH = 1 << 14,
+    RESPONSE_URL_REWRITTEN = 1 << 15,
 
-    RESPONSE_STREAM = 1 << 15,
+    RESPONSE_STREAM = 1 << 16,
 
-    REQUEST_PARSED_QUERY_STRING = 1 << 16,
-    REQUEST_PARSED_IF_MODIFIED_SINCE = 1 << 17,
-    REQUEST_PARSED_RANGE = 1 << 18,
-    REQUEST_PARSED_POST_DATA = 1 << 19,
-    REQUEST_PARSED_COOKIES = 1 << 20,
-    REQUEST_PARSED_ACCEPT_ENCODING = 1 << 21,
+    REQUEST_PARSED_QUERY_STRING = 1 << 17,
+    REQUEST_PARSED_IF_MODIFIED_SINCE = 1 << 18,
+    REQUEST_PARSED_RANGE = 1 << 19,
+    REQUEST_PARSED_POST_DATA = 1 << 20,
+    REQUEST_PARSED_COOKIES = 1 << 21,
+    REQUEST_PARSED_ACCEPT_ENCODING = 1 << 22,
 };
 
 #undef SELECT_MASK

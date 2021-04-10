@@ -1191,30 +1191,40 @@ get_remaining_body_data_length(struct lwan_request *request,
     return HTTP_OK;
 }
 
-static enum lwan_http_status read_body_data(struct lwan_request *request, size_t max_data_size,
-                                            bool allow_temp_file)
+static enum lwan_http_status read_body_data(struct lwan_request *request)
 {
     /* Holy indirection, Batman! */
     const struct lwan_config *config = &request->conn->thread->lwan->config;
     struct lwan_request_parser_helper *helper = request->helper;
     enum lwan_http_status status;
-    size_t total, have;
+    size_t total, have, max_data_size;
+    bool allow_temp_file;
     char *new_buffer;
 
-    status = get_remaining_body_data_length(request, max_data_size, &total, &have);
+    if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
+        allow_temp_file = config->allow_post_temp_file;
+        max_data_size = config->max_post_data_size;
+    } else {
+        allow_temp_file = config->allow_put_temp_file;
+        max_data_size = config->max_put_data_size;
+    }
+
+    status =
+        get_remaining_body_data_length(request, max_data_size, &total, &have);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
     const char *expect = lwan_request_get_header(request, "Expect");
     if (expect && strncmp(expect, "100-", 4) == 0) {
         char headers[DEFAULT_HEADERS_SIZE];
-        size_t header_len = (size_t)snprintf(headers, sizeof(headers), "HTTP/1.%c 100 Continue\r\n\r\n",
-                                        request->flags & REQUEST_IS_HTTP_1_0 ? '0' : '1');
+        size_t header_len = (size_t)snprintf(
+            headers, sizeof(headers), "HTTP/1.%c 100 Continue\r\n\r\n",
+            request->flags & REQUEST_IS_HTTP_1_0 ? '0' : '1');
         lwan_send(request, headers, header_len, 0);
     }
 
-    new_buffer = alloc_body_buffer(request->conn->coro, total + 1,
-                               allow_temp_file);
+    new_buffer =
+        alloc_body_buffer(request->conn->coro, total + 1, allow_temp_file);
     if (UNLIKELY(!new_buffer))
         return HTTP_INTERNAL_ERROR;
 
@@ -1379,6 +1389,13 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
     return HTTP_SWITCHING_PROTOCOLS;
 }
 
+static inline bool request_has_body(const struct lwan_request *request)
+{
+    /* 3rd bit set in method: request method has body. See lwan.h,
+     * definition of FOR_EACH_REQUEST_METHOD() for more info. */
+    return lwan_request_get_method(request) & 1 << 3;
+}
+
 static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
                                                   struct lwan_request *request)
 {
@@ -1395,18 +1412,9 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
         request->url.len--;
     }
 
-    switch (lwan_request_get_method(request)) {
-    default: break;
-
-    case REQUEST_METHOD_POST:
-    case REQUEST_METHOD_PUT:
-        if (url_map->flags & HANDLER_HAS_BODY_DATA) {
-            const struct lwan_config *config = &request->conn->thread->lwan->config;
-
-            return lwan_request_get_method(request) == REQUEST_METHOD_POST
-                ? read_body_data(request, config->max_post_data_size, config->allow_post_temp_file)
-                : read_body_data(request, config->max_put_data_size, config->allow_put_temp_file);
-        }
+    if (request_has_body(request)) {
+        if (url_map->flags & HANDLER_HAS_BODY_DATA)
+            return read_body_data(request);
 
         enum lwan_http_status status = discard_body_data(request);
         return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
