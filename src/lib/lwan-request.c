@@ -1184,7 +1184,7 @@ get_remaining_body_data_length(struct lwan_request *request,
     return HTTP_OK;
 }
 
-static enum lwan_http_status read_body_data(struct lwan_request *request)
+static int read_body_data(struct lwan_request *request)
 {
     /* Holy indirection, Batman! */
     const struct lwan_config *config = &request->conn->thread->lwan->config;
@@ -1205,7 +1205,7 @@ static enum lwan_http_status read_body_data(struct lwan_request *request)
     status =
         get_remaining_body_data_length(request, max_data_size, &total, &have);
     if (status != HTTP_PARTIAL_CONTENT)
-        return status;
+        return -(int)status;
 
     if (!(request->flags & REQUEST_IS_HTTP_1_0)) {
         /* §8.2.3 https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html */
@@ -1221,7 +1221,7 @@ static enum lwan_http_status read_body_data(struct lwan_request *request)
     new_buffer =
         alloc_body_buffer(request->conn->coro, total + 1, allow_temp_file);
     if (UNLIKELY(!new_buffer))
-        return HTTP_INTERNAL_ERROR;
+        return -HTTP_INTERNAL_ERROR;
 
     helper->body_data.value = new_buffer;
     helper->body_data.len = total;
@@ -1408,14 +1408,15 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
     }
 
     if (request_has_body(request)) {
-        /* FIXME: if read_body_data() fails somehow (e.g. buffer
-         * allocation failed, can't use file, etc), then
-         * discard_body_data() isn't called.  */
+        int status = 0;
 
-        if (url_map->flags & HANDLER_HAS_BODY_DATA)
-            return read_body_data(request);
+        if (url_map->flags & HANDLER_HAS_BODY_DATA) {
+            status = read_body_data(request);
+            if (status > 0)
+                return status;
+        }
 
-        enum lwan_http_status status = discard_body_data(request);
+        status = discard_body_data(request);
         return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
     }
 
