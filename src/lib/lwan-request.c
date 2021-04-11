@@ -395,7 +395,7 @@ static void parse_query_string(struct lwan_request *request)
                      url_decode, '&');
 }
 
-static void parse_post_data(struct lwan_request *request)
+static void parse_form_data(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
     static const char content_type[] = "application/x-www-form-urlencoded";
@@ -1725,9 +1725,9 @@ lwan_request_get_query_params(struct lwan_request *request)
 ALWAYS_INLINE const struct lwan_key_value_array *
 lwan_request_get_post_params(struct lwan_request *request)
 {
-    if (!(request->flags & REQUEST_PARSED_POST_DATA)) {
-        parse_post_data(request);
-        request->flags |= REQUEST_PARSED_POST_DATA;
+    if (!(request->flags & REQUEST_PARSED_FORM_DATA)) {
+        parse_form_data(request);
+        request->flags |= REQUEST_PARSED_FORM_DATA;
     }
 
     return &request->helper->post_params;
