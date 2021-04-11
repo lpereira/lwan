@@ -1408,6 +1408,10 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
     }
 
     if (request_has_body(request)) {
+        /* FIXME: if read_body_data() fails somehow (e.g. buffer
+         * allocation failed, can't use file, etc), then
+         * discard_body_data() isn't called.  */
+
         if (url_map->flags & HANDLER_HAS_BODY_DATA)
             return read_body_data(request);
 
