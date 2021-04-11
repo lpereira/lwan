@@ -1151,15 +1151,15 @@ get_remaining_body_data_length(struct lwan_request *request,
                                size_t *have)
 {
     struct lwan_request_parser_helper *helper = request->helper;
-    long parsed_size;
+    long long parsed_size;
 
     if (UNLIKELY(!helper->content_length.value))
         return HTTP_BAD_REQUEST;
 
-    parsed_size = parse_long(helper->content_length.value, -1);
+    parsed_size = parse_long_long(helper->content_length.value, -1);
     if (UNLIKELY(parsed_size < 0))
         return HTTP_BAD_REQUEST;
-    if (UNLIKELY(parsed_size >= (long)max_size))
+    if (UNLIKELY((size_t)parsed_size >= max_size))
         return HTTP_TOO_LARGE;
     if (UNLIKELY(!parsed_size))
         return HTTP_OK;
@@ -1240,12 +1240,16 @@ static int read_body_data(struct lwan_request *request)
 
 static enum lwan_http_status discard_body_data(struct lwan_request *request)
 {
-    /* Holy indirection, Batman! */
-    const struct lwan_config *config = &request->conn->thread->lwan->config;
     enum lwan_http_status status;
     size_t total, have;
 
-    status = get_remaining_body_data_length(request, config->max_post_data_size,
+    /* SIZE_MAX is passed to get_remaining_body_data_length() since
+     * this won't allocate a buffer big enough for the whole body, but
+     * it has to be fully read regardless of what the configuration
+     * says.  Ideally this would send a "request too large" response
+     * and close the connection to avoid the client from hogging the
+     * server. */
+    status = get_remaining_body_data_length(request, SIZE_MAX,
                                             &total, &have);
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
