@@ -131,16 +131,16 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
     return total ? total : default_value;
 }
 
-long parse_long(const char *value, long default_value)
+long long parse_long_long(const char *value, long long default_value)
 {
     char *endptr;
-    long parsed;
+    long long parsed;
 
     if (!value)
         return default_value;
 
     errno = 0;
-    parsed = strtol(value, &endptr, 0);
+    parsed = strtoll(value, &endptr, 0);
 
     if (errno != 0)
         return default_value;
@@ -149,6 +149,16 @@ long parse_long(const char *value, long default_value)
         return default_value;
 
     return parsed;
+}
+
+long parse_long(const char *value, long default_value)
+{
+    long long long_long_value = parse_long_long(value, default_value);
+
+    if ((long long)(long)long_long_value != long_long_value)
+        return default_value;
+
+    return (long)long_long_value;
 }
 
 int parse_int(const char *value, int default_value)

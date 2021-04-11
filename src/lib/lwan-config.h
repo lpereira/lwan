@@ -65,6 +65,7 @@ bool config_skip_section(struct config *conf, const struct config_line *line);
 
 bool parse_bool(const char *value, bool default_value);
 long parse_long(const char *value, long default_value);
+long long parse_long_long(const char *value, long long default_value);
 int parse_int(const char *value, int default_value);
 unsigned int parse_time_period(const char *str, unsigned int default_value);
 
