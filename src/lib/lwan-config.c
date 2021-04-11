@@ -513,44 +513,43 @@ static void *parse_key_value(struct parser *parser)
 
     while ((lexeme = lex_next(&parser->lexer))) {
         switch (lexeme->type) {
-        case LEXEME_VARIABLE_DEFAULT:
         case LEXEME_VARIABLE: {
-            const char *value;
+            const char *value = secure_getenv_len(parser, lexeme->value.value,
+                                                  lexeme->value.len);
+            if (!value) {
+                return PARSER_ERROR(
+                    parser, "Variable '$%.*s' not defined in environment",
+                    (int)lexeme->value.len, lexeme->value.value);
+            }
 
-            value = secure_getenv_len(parser, lexeme->value.value,
-                                      lexeme->value.len);
-            if (lexeme->type == LEXEME_VARIABLE) {
-                if (!value) {
-                    return PARSER_ERROR(
-                        parser, "Variable '$%.*s' not defined in environment",
-                        (int)lexeme->value.len, lexeme->value.value);
-                } else {
-                    lwan_strbuf_append_strz(&parser->strbuf, value);
-                }
+            lwan_strbuf_append_strz(&parser->strbuf, value);
+
+            break;
+        }
+
+        case LEXEME_VARIABLE_DEFAULT: {
+            const char *value = secure_getenv_len(parser, lexeme->value.value,
+                                                  lexeme->value.len);
+            const struct lexeme *var_name = lexeme;
+
+            if (!(lexeme = lex_next(&parser->lexer))) {
+                return PARSER_ERROR(
+                    parser, "Default value for variable '$%.*s' not given",
+                    (int)var_name->value.len, var_name->value.value);
+            }
+
+            if (lexeme->type != LEXEME_STRING)
+                return PARSER_ERROR(parser, "Wrong format for default value");
+
+            if (!value) {
+                lwan_status_debug(
+                    "Using default value of '%.*s' for variable '${%.*s}'",
+                    (int)lexeme->value.len, lexeme->value.value,
+                    (int)var_name->value.len, var_name->value.value);
+                lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
+                                       lexeme->value.len);
             } else {
-                const struct lexeme *var_name = lexeme;
-
-                if (!(lexeme = lex_next(&parser->lexer))) {
-                    return PARSER_ERROR(
-                        parser, "Default value for variable '$%.*s' not given",
-                        (int)var_name->value.len, var_name->value.value);
-                }
-
-                if (lexeme->type != LEXEME_STRING) {
-                    return PARSER_ERROR(parser,
-                                        "Wrong format for default value");
-                }
-
-                if (!value) {
-                    lwan_status_debug(
-                        "Using default value of '%.*s' for variable '${%.*s}'",
-                        (int)lexeme->value.len, lexeme->value.value,
-                        (int)var_name->value.len, var_name->value.value);
-                    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                                           lexeme->value.len);
-                } else {
-                    lwan_strbuf_append_strz(&parser->strbuf, value);
-                }
+                lwan_strbuf_append_strz(&parser->strbuf, value);
             }
 
             break;
