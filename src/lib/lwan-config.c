@@ -569,12 +569,10 @@ static void *parse_key_value(struct parser *parser)
             break;
 
         case LEXEME_CLOSE_BRACKET:
+            /* FIXME: backup() can´t be called by the parser! This is broken! */
             backup(&parser->lexer);
             /* fallthrough */
 
-        case LEXEME_EOF:
-            /* FIXME: EOF while in a global context is fine, but when in a section
-             * it's not. */
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
@@ -586,6 +584,9 @@ static void *parse_key_value(struct parser *parser)
 
         case LEXEME_OPEN_BRACKET:
             return PARSER_ERROR(parser, "Open bracket not expected here");
+
+        case LEXEME_EOF:
+            return PARSER_ERROR(parser, "Internal error: EOF found while parsing key/value");
 
         case TOTAL_LEXEMES:
             __builtin_unreachable();
