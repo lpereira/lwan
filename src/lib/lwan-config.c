@@ -569,21 +569,22 @@ static void *parse_key_value(struct parser *parser)
 
             break;
 
-        case LEXEME_CLOSE_BRACKET:
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
 
-            if (config_ring_buffer_try_put(&parser->items, &line)) {
-                return lexeme->type == LEXEME_LINEFEED ? parse_config
-                                                       : parse_section_end;
-            }
+            if (config_ring_buffer_try_put(&parser->items, &line))
+                return parse_config;
 
             return PARSER_ERROR(parser,
                                 "Could not add key/value to ring buffer");
 
         case LEXEME_OPEN_BRACKET:
             return PARSER_ERROR(parser, "Open bracket not expected here");
+
+        case LEXEME_CLOSE_BRACKET:
+            return PARSER_ERROR(
+                parser, "Internal error: Close bracket found while parsing key/value");
 
         case LEXEME_EOF:
             return PARSER_ERROR(
