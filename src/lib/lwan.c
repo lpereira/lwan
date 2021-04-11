@@ -556,10 +556,17 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                                  "Maximum put data can't be over 128MiB");
                 lwan->config.max_put_data_size = (size_t)max_put_data_size;
             } else if (streq(line->key, "allow_temp_files")) {
-                if (strstr(line->value, "post"))
-                    lwan->config.allow_post_temp_file = true;
-                if (strstr(line->value, "put"))
-                    lwan->config.allow_put_temp_file = true;
+                bool has_post, has_put;
+
+                if (strstr(line->value, "all")) {
+                    has_post = has_put = true;
+                } else {
+                    has_post = !!strstr(line->value, "post");
+                    has_put = !!strstr(line->value, "put");
+                }
+
+                lwan->config.allow_post_temp_file = has_post;
+                lwan->config.allow_put_temp_file = has_put;
             } else {
                 config_error(conf, "Unknown config key: %s", line->key);
             }
