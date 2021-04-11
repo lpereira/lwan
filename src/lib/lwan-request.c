@@ -895,16 +895,10 @@ read_request_finalizer(const struct lwan_value *buffer,
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
     struct lwan_request_parser_helper *helper = request->helper;
 
-    if (!(request->conn->flags & CONN_CORK)) {
-        /* CONN_CORK is set on pipelined requests.  For non-pipelined requests,
-         * try looking at the last four bytes to see if we have a complete
-         * request in the buffer as a fast path.  (The memmem() below appears
-         * in profiles with measurable impact.) */
-        if (LIKELY(buffer->len >= MIN_REQUEST_SIZE)) {
-            STRING_SWITCH (buffer->value + buffer->len - 4) {
-            case STR4_INT('\r', '\n', '\r', '\n'):
-                return FINALIZER_DONE;
-            }
+    if (LIKELY(buffer->len >= MIN_REQUEST_SIZE)) {
+        STRING_SWITCH (buffer->value + buffer->len - 4) {
+        case STR4_INT('\r', '\n', '\r', '\n'):
+            return FINALIZER_DONE;
         }
     }
 
