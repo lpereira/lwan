@@ -49,15 +49,21 @@ static void *response_create_from_hash(const char *prefix,
         return NULL;
     }
 
-    struct lwan_response_settings settings = {
-        .code = (enum lwan_http_status)parse_int(code, 999)
-    };
-
-    if (settings.code == 999) {
-        lwan_status_error("Unknown error code: %s", code);
+    int code_as_int = parse_int(code, -1);
+    if (code_as_int < 0) {
+        lwan_status_error("Couldn't parse `code` as an integer");
         return NULL;
     }
 
+    const char *valid_code = lwan_http_status_as_string_with_code(code_as_int);
+    if (!strncmp(valid_code, "999 ", 4)) {
+        lwan_status_error("Code %d isn't a known HTTP status code", code_as_int);
+        return NULL;
+    }
+
+    struct lwan_response_settings settings = {
+        .code = (enum lwan_http_status)code_as_int
+    };
     return response_create(prefix, &settings);
 }
 
