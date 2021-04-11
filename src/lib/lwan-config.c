@@ -476,6 +476,7 @@ static const struct lexeme *lex_next(struct lexer *lexer)
 }
 
 static void *parse_config(struct parser *parser);
+static void *parse_section_end(struct parser *parser);
 
 #define ENV_VAR_NAME_LEN_MAX 64
 
@@ -569,24 +570,24 @@ static void *parse_key_value(struct parser *parser)
             break;
 
         case LEXEME_CLOSE_BRACKET:
-            /* FIXME: backup() can´t be called by the parser! This is broken! */
-            backup(&parser->lexer);
-            /* fallthrough */
-
         case LEXEME_LINEFEED:
             line.key = lwan_strbuf_get_buffer(&parser->strbuf);
             line.value = line.key + key_size + 1;
 
-            if (config_ring_buffer_try_put(&parser->items, &line))
-                return parse_config;
+            if (config_ring_buffer_try_put(&parser->items, &line)) {
+                return lexeme->type == LEXEME_LINEFEED ? parse_config
+                                                       : parse_section_end;
+            }
 
-            return PARSER_ERROR(parser, "Could not add key/value to ring buffer");
+            return PARSER_ERROR(parser,
+                                "Could not add key/value to ring buffer");
 
         case LEXEME_OPEN_BRACKET:
             return PARSER_ERROR(parser, "Open bracket not expected here");
 
         case LEXEME_EOF:
-            return PARSER_ERROR(parser, "Internal error: EOF found while parsing key/value");
+            return PARSER_ERROR(
+                parser, "Internal error: EOF found while parsing key/value");
 
         case TOTAL_LEXEMES:
             __builtin_unreachable();
@@ -648,6 +649,27 @@ static void *parse_section_shorthand(struct parser *parser)
     return NULL;
 }
 
+static void *parse_section_end(struct parser *parser)
+{
+    struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
+    struct config *config = config_from_parser(parser);
+
+    if (!config->opened_brackets)
+        return PARSER_ERROR(parser, "Section closed before it opened");
+
+    if (!lexeme_ring_buffer_empty(&parser->buffer))
+        return PARSER_ERROR(parser, "Not expecting a close bracket here");
+
+    if (!config_ring_buffer_try_put(&parser->items, &line)) {
+        return PARSER_ERROR(parser,
+                            "Internal error: could not store section end in ring buffer");
+    }
+
+    config->opened_brackets--;
+
+    return parse_config;
+}
+
 static void *parse_config(struct parser *parser)
 {
     const struct lexeme *lexeme = lex_next(&parser->lexer);
@@ -685,23 +707,8 @@ static void *parse_config(struct parser *parser)
 
         return parse_config;
 
-    case LEXEME_CLOSE_BRACKET: {
-        struct config_line line = {.type = CONFIG_LINE_TYPE_SECTION_END};
-        struct config *config = config_from_parser(parser);
-
-        if (!config->opened_brackets)
-            return PARSER_ERROR(parser, "Section closed before it opened");
-
-        if (!lexeme_ring_buffer_empty(&parser->buffer))
-            return PARSER_ERROR(parser, "Not expecting a close bracket here");
-
-        if (!config_ring_buffer_try_put(&parser->items, &line))
-            return PARSER_ERROR(parser, "Internal error: could not store section end in ring buffer");
-
-        config->opened_brackets--;
-
-        return parse_config;
-    }
+    case LEXEME_CLOSE_BRACKET:
+        return parse_section_end;
 
     case LEXEME_EOF:
         if (config_from_parser(parser)->opened_brackets)
