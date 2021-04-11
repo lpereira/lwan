@@ -904,13 +904,12 @@ read_request_finalizer(const struct lwan_value *buffer,
 
     char *crlfcrlf = memmem(buffer->value, buffer->len, "\r\n\r\n", 4);
     if (LIKELY(crlfcrlf)) {
-        const size_t crlfcrlf_to_base = (size_t)(crlfcrlf - buffer->value);
-
         if (LIKELY(helper->next_request)) {
             helper->next_request = NULL;
             return FINALIZER_DONE;
         }
 
+        const size_t crlfcrlf_to_base = (size_t)(crlfcrlf - buffer->value);
         if (crlfcrlf_to_base >= MIN_REQUEST_SIZE - 4)
             return FINALIZER_DONE;
 
