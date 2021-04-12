@@ -102,7 +102,7 @@ static inline bool has_response_body(enum lwan_request_flags method,
     return (method & 1 << 0) || status != HTTP_NOT_MODIFIED;
 }
 
-void lwan_response(struct lwan_request *request, enum lwan_http_status status)
+static void lwan_response_internal(struct lwan_request *request, enum lwan_http_status status)
 {
     const struct lwan_response *response = &request->response;
     char headers[DEFAULT_HEADERS_SIZE];
@@ -164,6 +164,18 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     };
 
     return (void)lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
+}
+
+void lwan_response(struct lwan_request *request, enum lwan_http_status status)
+{
+    if (UNLIKELY(status == HTTP_TIMEOUT)) {
+        /* If a timeout has been reached, it's safer to just gracefully
+         * close the connection instead of figuring out what would be
+         * the current state of the request buffer.  */
+        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+    }
+
+    return lwan_response_internal(request, status);
 }
 
 void lwan_default_response(struct lwan_request *request,
