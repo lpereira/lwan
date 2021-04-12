@@ -1254,17 +1254,18 @@ static enum lwan_http_status discard_body_data(struct lwan_request *request)
     if (status != HTTP_PARTIAL_CONTENT)
         return status;
 
-    /* FIXME: set/use error_when_*? */
     total -= have;
-    while (total) {
+    int n_packets = lwan_calculate_n_packets(total);
+    while (total && n_packets) {
         char buffer[DEFAULT_BUFFER_SIZE];
         ssize_t r;
 
         r = lwan_recv(request, buffer, LWAN_MIN(sizeof(buffer), total), 0);
         total -= (size_t)r;
+        n_packets--;
     }
 
-    return HTTP_OK;
+    return n_packets ? HTTP_OK : HTTP_TIMEOUT;
 }
 
 static char *
