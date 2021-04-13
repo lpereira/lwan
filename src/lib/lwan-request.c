@@ -1238,36 +1238,6 @@ static int read_body_data(struct lwan_request *request)
     return client_read(request, &buffer, total, body_data_finalizer);
 }
 
-static enum lwan_http_status discard_body_data(struct lwan_request *request)
-{
-    enum lwan_http_status status;
-    size_t total, have;
-
-    /* SIZE_MAX is passed to get_remaining_body_data_length() since
-     * this won't allocate a buffer big enough for the whole body, but
-     * it has to be fully read regardless of what the configuration
-     * says.  Ideally this would send a "request too large" response
-     * and close the connection to avoid the client from hogging the
-     * server. */
-    status = get_remaining_body_data_length(request, SIZE_MAX,
-                                            &total, &have);
-    if (status != HTTP_PARTIAL_CONTENT)
-        return status;
-
-    total -= have;
-    int n_packets = lwan_calculate_n_packets(total);
-    while (total && n_packets) {
-        char buffer[DEFAULT_BUFFER_SIZE];
-        ssize_t r;
-
-        r = lwan_recv(request, buffer, LWAN_MIN(sizeof(buffer), total), 0);
-        total -= (size_t)r;
-        n_packets--;
-    }
-
-    return n_packets ? HTTP_OK : HTTP_TIMEOUT;
-}
-
 static char *
 parse_proxy_protocol(struct lwan_request *request, char *buffer)
 {
@@ -1421,8 +1391,12 @@ static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
                 return status;
         }
 
-        status = discard_body_data(request);
-        return (status == HTTP_OK) ? HTTP_NOT_ALLOWED : status;
+        /* Instead of trying to read the body here, which will require
+         * us to allocate and read potentially a lot of bytes, force
+         * this connection to be closed as soon as we send a "not allowed"
+         * response.  */
+        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+        return status < 0 ? -status : HTTP_NOT_ALLOWED;
     }
 
     return HTTP_OK;
