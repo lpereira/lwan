@@ -14,11 +14,12 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lwan.h"
 #include "lwan-mod-response.h"
@@ -35,6 +36,14 @@ static void *response_create(const char *prefix __attribute__((unused)),
                              void *instance)
 {
     struct lwan_response_settings *settings = instance;
+
+    const char *valid_code =
+        lwan_http_status_as_string_with_code(settings->code);
+    if (!strncmp(valid_code, "999 ", 4)) {
+        lwan_status_error("Code %d isn't a known HTTP status code",
+                          settings->code);
+        return NULL;
+    }
 
     return (void *)settings->code;
 }
@@ -55,14 +64,8 @@ static void *response_create_from_hash(const char *prefix,
         return NULL;
     }
 
-    const char *valid_code = lwan_http_status_as_string_with_code(code_as_int);
-    if (!strncmp(valid_code, "999 ", 4)) {
-        lwan_status_error("Code %d isn't a known HTTP status code", code_as_int);
-        return NULL;
-    }
-
     struct lwan_response_settings settings = {
-        .code = (enum lwan_http_status)code_as_int
+        .code = (enum lwan_http_status)code_as_int,
     };
     return response_create(prefix, &settings);
 }
