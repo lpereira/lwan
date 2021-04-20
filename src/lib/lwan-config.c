@@ -41,15 +41,22 @@
 
 #define LEX_ERROR(lexer, fmt, ...)                                             \
     ({                                                                         \
-        config_error(config_from_lexer(lexer), "Syntax error: " fmt,           \
-                          ##__VA_ARGS__);                                      \
+        config_error(config_from_lexer(lexer), "%s" fmt,                       \
+                     "Syntax error: ", ##__VA_ARGS__);                         \
         NULL;                                                                  \
     })
 
 #define PARSER_ERROR(parser, fmt, ...)                                         \
     ({                                                                         \
-        config_error(config_from_parser(parser), "Parsing error: " fmt,        \
-                     ##__VA_ARGS__);                                           \
+        config_error(config_from_parser(parser), "%s" fmt,                     \
+                     "Parsing error: ", ##__VA_ARGS__);                        \
+        NULL;                                                                  \
+    })
+
+#define INTERNAL_ERROR(parser, fmt, ...)                                       \
+    ({                                                                         \
+        config_error(config_from_parser(parser), "%s" fmt,                     \
+                     "Internal error: ", ##__VA_ARGS__);                       \
         NULL;                                                                  \
     })
 
@@ -592,12 +599,12 @@ static void *parse_key_value(struct parser *parser)
             return PARSER_ERROR(parser, "Open bracket not expected here");
 
         case LEXEME_CLOSE_BRACKET:
-            return PARSER_ERROR(
-                parser, "Internal error: Close bracket found while parsing key/value");
+            return INTERNAL_ERROR(
+                parser, "Close bracket found while parsing key/value");
 
         case LEXEME_EOF:
-            return PARSER_ERROR(
-                parser, "Internal error: EOF found while parsing key/value");
+            return INTERNAL_ERROR(
+                parser, "EOF found while parsing key/value");
 
         case TOTAL_LEXEMES:
             __builtin_unreachable();
@@ -653,7 +660,7 @@ static void *parse_section_shorthand(struct parser *parser)
         if (config_ring_buffer_try_put(&parser->items, &line))
             return next_state;
 
-        return PARSER_ERROR(parser, "Internal error: couldn´t append line to internal ring buffer");
+        return INTERNAL_ERROR(parser, "couldn't append line to internal ring buffer");
     }
 
     return NULL;
@@ -671,8 +678,8 @@ static void *parse_section_end(struct parser *parser)
         return PARSER_ERROR(parser, "Not expecting a close bracket here");
 
     if (!config_ring_buffer_try_put(&parser->items, &line)) {
-        return PARSER_ERROR(parser,
-                            "Internal error: could not store section end in ring buffer");
+        return INTERNAL_ERROR(parser,
+                              "could not store section end in ring buffer");
     }
 
     config->opened_brackets--;
@@ -687,7 +694,7 @@ static void *parse_config(struct parser *parser)
     if (!lexeme) {
         /* EOF is signaled by a LEXEME_EOF from the parser, so
          * this should never happen. */
-        return PARSER_ERROR(parser, "Internal error: Could not obtain lexeme");
+        return INTERNAL_ERROR(parser, "could not obtain lexeme");
     }
 
     switch (lexeme->type) {
@@ -713,7 +720,7 @@ static void *parse_config(struct parser *parser)
 
     case LEXEME_STRING:
         if (!lexeme_ring_buffer_try_put(&parser->buffer, lexeme))
-            return PARSER_ERROR(parser, "Internal error: could not store string in ring buffer");
+            return INTERNAL_ERROR(parser, "could not store string in ring buffer");
 
         return parse_config;
 
@@ -725,7 +732,7 @@ static void *parse_config(struct parser *parser)
             return PARSER_ERROR(parser, "EOF while looking for a close bracket");
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
-            return PARSER_ERROR(parser, "Internal error: Premature EOF");
+            return INTERNAL_ERROR(parser, "premature EOF");
 
         break;
 
