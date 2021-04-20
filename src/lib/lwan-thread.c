@@ -421,6 +421,7 @@ static bool process_pending_timers(struct timeout_queue *tq,
 static int
 turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 {
+    const int infinite_timeout = -1;
     timeout_t wheel_timeout;
     struct timespec now;
 
@@ -430,23 +431,21 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
     timeouts_update(t->wheel,
                     (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
 
+    /* Check if there's an expired timer. */
     wheel_timeout = timeouts_timeout(t->wheel);
-    if (UNLIKELY((int64_t)wheel_timeout < 0))
-        goto infinite_timeout;
-
-    if (wheel_timeout == 0) {
-        if (!process_pending_timers(tq, t, epoll_fd))
-            goto infinite_timeout;
-
-        wheel_timeout = timeouts_timeout(t->wheel);
-        if (wheel_timeout == 0)
-            goto infinite_timeout;
+    if (wheel_timeout > 0) {
+        return (int)wheel_timeout; /* No, but will soon. Wake us up in
+                                      wheel_timeout ms. */
     }
 
-    return (int)wheel_timeout;
+    if (UNLIKELY((int64_t)wheel_timeout < 0))
+        return infinite_timeout; /* None found. */
 
-infinite_timeout:
-    return -1;
+    if (!process_pending_timers(tq, t, epoll_fd))
+        return infinite_timeout; /* No more timers to process. */
+
+    /* After processing pending timers, determine when to wake up. */
+    return (int)timeouts_timeout(t->wheel);
 }
 
 static void *thread_io_loop(void *data)
