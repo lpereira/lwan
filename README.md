@@ -424,6 +424,7 @@ information from the request, or to set the response, as seen below:
    - `req:send_event(event, str)` sends an event (using server-sent events)
    - `req:cookie(param)` returns the cookie named `param`, or `nil` is not found
    - `req:set_headers(tbl)` sets the response headers from the table `tbl`; a header may be specified multiple times by using a table, rather than a string, in the table value (`{'foo'={'bar', 'baz'}}`); must be called before sending any response with `say()` or `send_event()`
+   - `req:header(name)` obtains the header from the request with the given name or `nil` if not found
    - `req:sleep(ms)` pauses the current handler for the specified amount of milliseconds
    - `req:ws_upgrade()` returns `1` if the connection could be upgraded to a WebSocket; `0` otherwise
    - `req:ws_write(str)` sends `str` through the WebSocket-upgraded connection
