@@ -1323,11 +1323,7 @@ prepare_websocket_handshake(struct lwan_request *request, char **encoded)
     sha1_finalize(&ctx, digest);
 
     *encoded = (char *)base64_encode(digest, sizeof(digest), NULL);
-    if (UNLIKELY(!*encoded))
-        return HTTP_INTERNAL_ERROR;
-    coro_defer(request->conn->coro, free, *encoded);
-
-    return HTTP_SWITCHING_PROTOCOLS;
+    return LIKELY(*encoded) ? HTTP_SWITCHING_PROTOCOLS : HTTP_INTERNAL_ERROR;
 }
 
 enum lwan_http_status
@@ -1350,6 +1346,7 @@ lwan_request_websocket_upgrade(struct lwan_request *request)
             {.key = "Upgrade", .value = "websocket"},
             {},
         });
+    free(encoded);
     if (UNLIKELY(!header_buf_len))
         return HTTP_INTERNAL_ERROR;
 
