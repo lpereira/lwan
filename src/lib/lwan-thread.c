@@ -195,8 +195,7 @@ static void update_epoll_flags(int fd,
          * or EPOLLOUT events.  We still want to track this fd in epoll, though,
          * so unset both so that only EPOLLRDHUP (plus the implicitly-set ones)
          * are set. */
-        [CONN_CORO_SUSPEND_TIMER] = CONN_SUSPENDED_TIMER,
-        [CONN_CORO_SUSPEND_ASYNC_AWAIT] = CONN_SUSPENDED_ASYNC_AWAIT,
+        [CONN_CORO_SUSPEND] = CONN_SUSPENDED,
 
         /* Ideally, when suspending a coroutine, the current flags&CONN_EVENTS_MASK
          * would have to be stored and restored -- however, resuming as if the
@@ -214,8 +213,7 @@ static void update_epoll_flags(int fd,
         [CONN_CORO_WANT_READ] = ~CONN_EVENTS_WRITE,
         [CONN_CORO_WANT_WRITE] = ~CONN_EVENTS_READ,
 
-        [CONN_CORO_SUSPEND_TIMER] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_ASYNC_AWAIT),
-        [CONN_CORO_SUSPEND_ASYNC_AWAIT] = ~(CONN_EVENTS_READ_WRITE | CONN_SUSPENDED_TIMER),
+        [CONN_CORO_SUSPEND] = ~CONN_EVENTS_READ_WRITE,
         [CONN_CORO_RESUME] = ~CONN_SUSPENDED,
     };
     enum lwan_connection_flags prev_flags = conn->flags;
@@ -267,7 +265,7 @@ resume_async(struct timeout_queue *tq,
     struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
     if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
         if (LIKELY((await_fd_conn->flags & CONN_EVENTS_MASK) == flags))
-            return CONN_CORO_SUSPEND_ASYNC_AWAIT;
+            return CONN_CORO_SUSPEND;
 
         op = EPOLL_CTL_MOD;
     } else {
@@ -281,7 +279,7 @@ resume_async(struct timeout_queue *tq,
     if (LIKELY(!epoll_ctl(epoll_fd, op, await_fd, &event))) {
         await_fd_conn->flags &= ~CONN_EVENTS_MASK;
         await_fd_conn->flags |= flags;
-        return CONN_CORO_SUSPEND_ASYNC_AWAIT;
+        return CONN_CORO_SUSPEND;
     }
 
     return CONN_CORO_ABORT;

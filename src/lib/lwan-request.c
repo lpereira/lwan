@@ -1616,12 +1616,14 @@ lwan_request_get_remote_address(struct lwan_request *request,
 
 static void remove_sleep(void *data1, void *data2)
 {
+    static const enum lwan_connection_flags suspended_sleep =
+        CONN_SUSPENDED | CONN_HAS_REMOVE_SLEEP_DEFER;
     struct timeouts *wheel = data1;
     struct timeout *timeout = data2;
     struct lwan_request *request =
         container_of(timeout, struct lwan_request, timeout);
 
-    if (request->conn->flags & CONN_SUSPENDED_TIMER)
+    if ((request->conn->flags & suspended_sleep) == suspended_sleep)
         timeouts_del(wheel, timeout);
 
     request->conn->flags &= ~CONN_HAS_REMOVE_SLEEP_DEFER;
@@ -1640,7 +1642,7 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
         conn->flags |= CONN_HAS_REMOVE_SLEEP_DEFER;
     }
 
-    coro_yield(conn->coro, CONN_CORO_SUSPEND_TIMER);
+    coro_yield(conn->coro, CONN_CORO_SUSPEND);
 }
 
 ALWAYS_INLINE int

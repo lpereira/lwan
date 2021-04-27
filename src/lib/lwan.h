@@ -282,19 +282,15 @@ enum lwan_connection_flags {
 
     /* This is only used to determine if timeout_del() is necessary when
      * the connection coro ends. */
-    CONN_SUSPENDED_TIMER = 1 << 5,
+    CONN_SUSPENDED = 1 << 5,
     CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
 
-    CONN_SUSPENDED_ASYNC_AWAIT = 1 << 7,
-
-    CONN_SUSPENDED = CONN_SUSPENDED_TIMER | CONN_SUSPENDED_ASYNC_AWAIT,
-
-    CONN_CORK = 1 << 8,
+    CONN_CORK = 1 << 7,
 
     /* Set only on file descriptors being watched by async/await to determine
      * which epoll operation to use when suspending/resuming (ADD/MOD). Reset
      * whenever associated client connection is closed. */
-    CONN_ASYNC_AWAIT = 1 << 9,
+    CONN_ASYNC_AWAIT = 1 << 8,
 };
 
 enum lwan_connection_coro_yield {
@@ -306,8 +302,7 @@ enum lwan_connection_coro_yield {
     CONN_CORO_WANT_WRITE,
     CONN_CORO_WANT_READ_WRITE,
 
-    CONN_CORO_SUSPEND_TIMER,
-    CONN_CORO_SUSPEND_ASYNC_AWAIT,
+    CONN_CORO_SUSPEND,
     CONN_CORO_RESUME,
 
     /* Group async stuff together to make it easier to check if a connection
