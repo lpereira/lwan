@@ -1235,7 +1235,7 @@ static int read_body_data(struct lwan_request *request)
     helper->error_when_n_packets = lwan_calculate_n_packets(total);
 
     struct lwan_value buffer = {.value = new_buffer, .len = total};
-    return client_read(request, &buffer, total, body_data_finalizer);
+    return (int)client_read(request, &buffer, total, body_data_finalizer);
 }
 
 static char *
