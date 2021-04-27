@@ -1363,38 +1363,49 @@ static inline bool request_has_body(const struct lwan_request *request)
     return lwan_request_get_method(request) & 1 << 3;
 }
 
-static enum lwan_http_status prepare_for_response(struct lwan_url_map *url_map,
+static enum lwan_http_status
+maybe_read_body_data(const struct lwan_url_map *url_map,
+                     struct lwan_request *request)
+{
+    int status = 0;
+
+    if (url_map->flags & HANDLER_EXPECTS_BODY_DATA) {
+        status = read_body_data(request);
+        if (status > 0)
+            return (enum lwan_http_status)status;
+    }
+
+    /* Instead of trying to read the body here, which will require
+     * us to allocate and read potentially a lot of bytes, force
+     * this connection to be closed as soon as we send a "not allowed"
+     * response.  */
+    request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+
+    if (status < 0) {
+        status = -status;
+        return (enum lwan_http_status)status;
+    }
+
+    return HTTP_NOT_ALLOWED;
+}
+
+static enum lwan_http_status prepare_for_response(const struct lwan_url_map *url_map,
                                                   struct lwan_request *request)
 {
     request->url.value += url_map->prefix_len;
     request->url.len -= url_map->prefix_len;
+    while (*request->url.value == '/' && request->url.len > 0) {
+        request->url.value++;
+        request->url.len--;
+    }
 
     if (UNLIKELY(url_map->flags & HANDLER_MUST_AUTHORIZE)) {
         if (!lwan_http_authorize_urlmap(request, url_map))
             return HTTP_NOT_AUTHORIZED;
     }
 
-    while (*request->url.value == '/' && request->url.len > 0) {
-        request->url.value++;
-        request->url.len--;
-    }
-
-    if (request_has_body(request)) {
-        int status = 0;
-
-        if (url_map->flags & HANDLER_HAS_BODY_DATA) {
-            status = read_body_data(request);
-            if (status > 0)
-                return status;
-        }
-
-        /* Instead of trying to read the body here, which will require
-         * us to allocate and read potentially a lot of bytes, force
-         * this connection to be closed as soon as we send a "not allowed"
-         * response.  */
-        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
-        return status < 0 ? -status : HTTP_NOT_ALLOWED;
-    }
+    if (UNLIKELY(request_has_body(request)))
+        return maybe_read_body_data(url_map, request);
 
     return HTTP_OK;
 }

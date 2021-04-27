@@ -210,12 +210,12 @@ enum lwan_http_status {
 #undef GENERATE_ENUM_ITEM
 
 enum lwan_handler_flags {
-    HANDLER_HAS_BODY_DATA = 1 << 0,
+    HANDLER_EXPECTS_BODY_DATA = 1 << 0,
     HANDLER_MUST_AUTHORIZE = 1 << 1,
     HANDLER_CAN_REWRITE_URL = 1 << 2,
     HANDLER_DATA_IS_HASH_TABLE = 1 << 3,
 
-    HANDLER_PARSE_MASK = HANDLER_HAS_BODY_DATA,
+    HANDLER_PARSE_MASK = HANDLER_EXPECTS_BODY_DATA,
 };
 
 /* 1<<0 set: response has body; see has_response_body() in lwan-response.c */
