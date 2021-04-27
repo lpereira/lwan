@@ -26,7 +26,14 @@
 
 struct lwan_strbuf {
     char *buffer;
+
+    /* `capacity` used to be derived from `used` by aligning it to the next
+     * power of two, but this resulted in re-allocations after this strbuf
+     * been reset between requests.  It now always contains the capacity
+     * allocated by `buffer`; resetting essentially only resets `used` and
+     * writes `\0` to buffer[0]. */
     size_t capacity, used;
+
     unsigned int flags;
 };
 
