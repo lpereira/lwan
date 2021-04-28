@@ -1314,6 +1314,8 @@ prepare_websocket_handshake(struct lwan_request *request, char **encoded)
     if (UNLIKELY(!sec_websocket_key))
         return HTTP_BAD_REQUEST;
     const size_t sec_websocket_key_len = strlen(sec_websocket_key);
+    if (sec_websocket_key_len == 0)
+        return HTTP_BAD_REQUEST;
     if (UNLIKELY(!base64_validate((void *)sec_websocket_key, sec_websocket_key_len)))
         return HTTP_BAD_REQUEST;
 
