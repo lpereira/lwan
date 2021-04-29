@@ -13,5 +13,5 @@ bool base64_validate(const unsigned char *src, size_t len);
 static inline size_t base64_encoded_len(size_t decoded_len)
 {
     /* This counts the padding bytes (by rounding to the next multiple of 4). */
-    return ((4u * decoded_len) + 3u) & ~3u;
+    return ((4u * decoded_len / 3u) + 3u) & ~3u;
 }
