@@ -512,7 +512,7 @@ static int create_listen_socket(struct lwan_thread *t)
         lwan_status_critical("Could not create listen_fd");
 
     struct epoll_event event = {
-        .events = EPOLLIN | EPOLLET | EPOLLHUP | EPOLLERR | EPOLLEXCLUSIVE,
+        .events = EPOLLIN | EPOLLET | EPOLLERR,
         .data.ptr = NULL,
     };
     if (epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event) < 0)
