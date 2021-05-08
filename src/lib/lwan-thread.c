@@ -598,8 +598,7 @@ static void *thread_io_loop(void *data)
     return NULL;
 }
 
-static void create_thread(struct lwan *l, struct lwan_thread *thread,
-                          const size_t n_queue_fds)
+static void create_thread(struct lwan *l, struct lwan_thread *thread)
 {
     int ignore;
     pthread_attr_t attr;
@@ -814,11 +813,8 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
-    const size_t n_queue_fds = LWAN_MIN(l->thread.max_fd / l->thread.count,
-                                        (size_t)(2 * lwan_socket_get_backlog_size()));
-    lwan_status_debug("Pending client file descriptor queue has %zu items", n_queue_fds);
     for (unsigned int i = 0; i < l->thread.count; i++)
-        create_thread(l, &l->thread.threads[i], n_queue_fds);
+        create_thread(l, &l->thread.threads[i]);
 
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 #ifdef __x86_64__
