@@ -31,7 +31,6 @@ extern "C" {
 #include <string.h>
 
 #include "hash.h"
-#include "queue.h"
 #include "timeout.h"
 #include "lwan-array.h"
 #include "lwan-config.h"
@@ -437,7 +436,6 @@ struct lwan_thread {
         char date[30];
         char expires[30];
     } date;
-    struct spsc_queue pending_fds;
     struct timeouts *wheel;
     int epoll_fd;
     int pipe_fd[2];

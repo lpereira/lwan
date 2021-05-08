@@ -39,7 +39,6 @@ set(SOURCES
 	missing-pthread.c
 	murmur3.c
 	patterns.c
-	queue.c
 	realpathat.c
 	sd-daemon.c
 	sha1.c

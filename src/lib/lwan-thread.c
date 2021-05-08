@@ -313,7 +313,7 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
-static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
+static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
                                      struct coro_switcher *switcher,
                                      struct timeout_queue *tq)
 {
@@ -342,10 +342,11 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
         shutdown(fd, SHUT_RDWR);
         close(fd);
 
-        return;
+        return false;
     }
 
     timeout_queue_insert(tq, conn);
+    return true;
 }
 
 static void accept_nudge(int pipe_fd,
@@ -356,24 +357,11 @@ static void accept_nudge(int pipe_fd,
                          int epoll_fd)
 {
     uint64_t event;
-    int new_fd;
 
     /* Errors are ignored here as pipe_fd serves just as a way to wake the
      * thread from epoll_wait().  It's fine to consume the queue at this
      * point, regardless of the error type. */
     (void)read(pipe_fd, &event, sizeof(event));
-
-    while (spsc_queue_pop(&t->pending_fds, &new_fd)) {
-        struct lwan_connection *conn = &conns[new_fd];
-        struct epoll_event ev = {
-            .data.ptr = conn,
-            .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
-        };
-
-        if (LIKELY(!epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev)))
-            spawn_coro(conn, switcher, tq);
-    }
-
     timeouts_add(t->wheel, &tq->timeout, 1000);
 }
 
@@ -497,6 +485,11 @@ static void *thread_io_loop(void *data)
                 continue;
             }
 
+            if (!conn->coro) {
+                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq)))
+                    continue;
+            }
+
             resume_coro(&tq, conn, epoll_fd);
             timeout_queue_move_to_last(&tq, conn);
         }
@@ -555,11 +548,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread,
 
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
-
-    if (spsc_queue_init(&thread->pending_fds, n_queue_fds) < 0) {
-        lwan_status_critical("Could not initialize pending fd "
-                             "queue width %zu elements", n_queue_fds);
-    }
 }
 
 void lwan_thread_nudge(struct lwan_thread *t)
@@ -572,19 +560,11 @@ void lwan_thread_nudge(struct lwan_thread *t)
 
 void lwan_thread_add_client(struct lwan_thread *t, int fd)
 {
-    for (int i = 0; i < 10; i++) {
-        bool pushed = spsc_queue_push(&t->pending_fds, fd);
-
-        if (LIKELY(pushed))
-            return;
-
-        /* Queue is full; nudge the thread to consume it. */
-        lwan_thread_nudge(t);
-    }
-
-    lwan_status_error("Dropping connection %d", fd);
-    /* FIXME: send "busy" response now, even without receiving request? */
-    close(fd);
+    struct epoll_event ev = {
+        .data.ptr = &t->lwan->conns[fd],
+        .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
+    };
+    epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 }
 
 #if defined(__linux__) && defined(__x86_64__)
@@ -808,7 +788,6 @@ void lwan_thread_shutdown(struct lwan *l)
 #endif
 
         pthread_join(l->thread.threads[i].self, NULL);
-        spsc_queue_free(&t->pending_fds);
         timeouts_close(t->wheel);
     }
 
