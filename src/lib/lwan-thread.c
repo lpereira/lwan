@@ -349,12 +349,9 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
     return true;
 }
 
-static void accept_nudge(int pipe_fd,
-                         struct lwan_thread *t,
-                         struct lwan_connection *conns,
+static void accept_nudge(struct lwan_thread *t,
                          struct timeout_queue *tq,
-                         struct coro_switcher *switcher,
-                         int epoll_fd)
+                         int pipe_fd)
 {
     uint64_t event;
 
@@ -434,6 +431,96 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
     return (int)timeouts_timeout(t->wheel);
 }
 
+enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
+
+struct core_bitmap {
+    uint64_t bitmap[4];
+};
+
+static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
+{
+    struct lwan_thread *thread = l->conns[fd].thread;
+
+    lwan_thread_add_client(thread, fd);
+
+    return (int)(thread - l->thread.threads);
+}
+
+static ALWAYS_INLINE enum herd_accept
+accept_one(struct lwan *l, int listen_fd, struct core_bitmap *cores)
+{
+    int fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+
+    if (LIKELY(fd >= 0)) {
+        int core = schedule_client(l, fd);
+
+        cores->bitmap[core / 64] |= UINT64_C(1)<<(core % 64);
+
+        return HERD_MORE;
+    }
+
+    switch (errno) {
+    case EAGAIN:
+        return HERD_GONE;
+
+    case EBADF:
+    case ECONNABORTED:
+    case EINVAL:
+        lwan_status_info("Listening socket closed");
+        return HERD_SHUTDOWN;
+
+    default:
+        lwan_status_perror("accept");
+        return HERD_MORE;
+    }
+}
+
+static bool try_accept_connections(struct lwan_thread *t, int listen_fd)
+{
+    struct lwan *lwan = t->lwan;
+    struct core_bitmap cores = {};
+    enum herd_accept ha;
+
+    ha = accept_one(lwan, listen_fd, &cores);
+    if (ha == HERD_MORE) {
+        do {
+            ha = accept_one(lwan, listen_fd, &cores);
+        } while (ha == HERD_MORE);
+    }
+    if (UNLIKELY(ha > HERD_MORE))
+        return false;
+
+    for (size_t i = 0; i < N_ELEMENTS(cores.bitmap); i++) {
+        for (uint64_t c = cores.bitmap[i]; c; c ^= c & -c) {
+            size_t core = (size_t)__builtin_ctzl(c);
+            struct lwan_thread *cur_thread = &lwan->thread.threads[i * 64 + core];
+
+            if (cur_thread != t)
+                lwan_thread_nudge(cur_thread);
+        }
+    }
+
+    return true;
+}
+
+static int create_listen_socket(struct lwan_thread *t)
+{
+    int listen_fd;
+
+    listen_fd = lwan_create_listen_socket(t->lwan);
+    if (listen_fd < 0)
+        lwan_status_critical("Could not create listen_fd");
+
+    struct epoll_event event = {
+        .events = EPOLLIN | EPOLLET | EPOLLHUP | EPOLLERR | EPOLLEXCLUSIVE,
+        .data.ptr = NULL,
+    };
+    if (epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event) < 0)
+        lwan_status_critical_perror("Could not add socket to epoll");
+
+    return listen_fd;
+}
+
 static void *thread_io_loop(void *data)
 {
     struct lwan_thread *t = data;
@@ -444,10 +531,13 @@ static void *thread_io_loop(void *data)
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct timeout_queue tq;
+    int listen_fd;
 
     lwan_status_debug("Worker thread #%zd starting",
                       t - t->lwan->thread.threads + 1);
     lwan_set_thread_name("worker");
+
+    listen_fd = create_listen_socket(t);
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
@@ -473,8 +563,12 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (UNLIKELY(!event->data.ptr)) {
-                accept_nudge(read_pipe_fd, t, lwan->conns, &tq, &switcher,
-                             epoll_fd);
+                accept_nudge(t, &tq, read_pipe_fd);
+                if (UNLIKELY(!try_accept_connections(t, listen_fd))) {
+                    close(epoll_fd);
+                    epoll_fd = -1;
+                    break;
+                }
                 continue;
             }
 
@@ -499,6 +593,7 @@ static void *thread_io_loop(void *data)
 
     timeout_queue_expire_all(&tq);
     free(events);
+    close(listen_fd);
 
     return NULL;
 }

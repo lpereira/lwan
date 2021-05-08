@@ -56,7 +56,6 @@ static const struct lwan_config default_config = {
     .listener = "localhost:8080",
     .keep_alive_timeout = 15,
     .quiet = false,
-    .reuse_port = false,
     .proxy_protocol = false,
     .allow_cors = false,
     .expires = 1 * ONE_WEEK,
@@ -515,9 +514,6 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             } else if (streq(line->key, "quiet")) {
                 lwan->config.quiet =
                     parse_bool(line->value, default_config.quiet);
-            } else if (streq(line->key, "reuse_port")) {
-                lwan->config.reuse_port =
-                    parse_bool(line->value, default_config.reuse_port);
             } else if (streq(line->key, "proxy_protocol")) {
                 lwan->config.proxy_protocol =
                     parse_bool(line->value, default_config.proxy_protocol);
@@ -759,7 +755,6 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     lwan_readahead_init();
     lwan_thread_init(l);
-    lwan_socket_init(l);
     lwan_http_authorize_init();
 }
 
@@ -787,106 +782,11 @@ void lwan_shutdown(struct lwan *l)
     lwan_readahead_shutdown();
 }
 
-static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
-{
-    struct lwan_thread *thread = l->conns[fd].thread;
-
-    lwan_thread_add_client(thread, fd);
-
-    return (int)(thread - l->thread.threads);
-}
-
-static volatile sig_atomic_t main_socket = -1;
-
-static_assert(sizeof(main_socket) >= sizeof(int),
-              "size of sig_atomic_t > size of int");
-
-static void sigint_handler(int signal_number __attribute__((unused)))
-{
-    if (main_socket < 0)
-        return;
-
-    shutdown((int)main_socket, SHUT_RDWR);
-    close((int)main_socket);
-
-    main_socket = -1;
-}
-
-enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
-
-struct core_bitmap {
-    uint64_t bitmap[4];
-};
-
-static ALWAYS_INLINE enum herd_accept
-accept_one(struct lwan *l, struct core_bitmap *cores)
-{
-    int fd = accept4((int)main_socket, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
-
-    if (LIKELY(fd >= 0)) {
-        int core = schedule_client(l, fd);
-
-        cores->bitmap[core / 64] |= UINT64_C(1)<<(core % 64);
-
-        return HERD_MORE;
-    }
-
-    switch (errno) {
-    case EAGAIN:
-        return HERD_GONE;
-
-    case EBADF:
-    case ECONNABORTED:
-    case EINVAL:
-        if (main_socket < 0) {
-            lwan_status_info("Signal 2 (Interrupt) received");
-        } else {
-            lwan_status_info("Main socket closed for unknown reasons");
-        }
-        return HERD_SHUTDOWN;
-
-    default:
-        lwan_status_perror("accept");
-        return HERD_MORE;
-    }
-}
-
 void lwan_main_loop(struct lwan *l)
 {
-    struct core_bitmap cores = {};
-
-    assert(main_socket == -1);
-    main_socket = l->main_socket;
-
-    if (signal(SIGINT, sigint_handler) == SIG_ERR)
-        lwan_status_critical("Could not set signal handler");
-
     lwan_status_info("Ready to serve");
 
-    while (true) {
-        enum herd_accept ha;
-
-        fcntl(l->main_socket, F_SETFL, 0);
-        ha = accept_one(l, &cores);
-        if (ha == HERD_MORE) {
-            fcntl(l->main_socket, F_SETFL, O_NONBLOCK);
-
-            do {
-                ha = accept_one(l, &cores);
-            } while (ha == HERD_MORE);
-        }
-
-        if (UNLIKELY(ha > HERD_MORE))
-            break;
-
-        for (size_t i = 0; i < N_ELEMENTS(cores.bitmap); i++) {
-            for (uint64_t c = cores.bitmap[i]; c; c ^= c & -c) {
-                size_t core = (size_t)__builtin_ctzl(c);
-                lwan_thread_nudge(&l->thread.threads[i * 64 + core]);
-            }
-        }
-        cores = (struct core_bitmap){};
-    }
+    lwan_job_thread_main_loop();
 }
 
 #ifdef CLOCK_MONOTONIC_COARSE

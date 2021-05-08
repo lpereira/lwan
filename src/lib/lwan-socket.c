@@ -184,7 +184,7 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
             lwan_status_warning("%s not supported by the kernel", #_option);   \
     } while (0)
 
-static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
+static int bind_and_listen_addrinfos(struct addrinfo *addrs)
 {
     const struct addrinfo *addr;
 
@@ -198,11 +198,9 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs, bool reuse_port)
 
         SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEADDR, (int[]){1});
 #ifdef SO_REUSEPORT
-        SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEPORT,
-                                   (int[]){reuse_port});
+        SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEPORT, (int[]){1});
 #else
-        if (reuse_port)
-            lwan_status_warning("reuse_port not supported by the OS");
+        lwan_status_critical("SO_REUSEPORT not supported by the OS");
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
@@ -219,6 +217,7 @@ static int setup_socket_normally(struct lwan *l)
     char *node, *port;
     char *listener = strdupa(l->config.listener);
     sa_family_t family = parse_listener(listener, &node, &port);
+
     if (family == AF_MAX) {
         lwan_status_critical("Could not parse listener: %s",
                              l->config.listener);
@@ -233,12 +232,12 @@ static int setup_socket_normally(struct lwan *l)
     if (ret)
         lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
 
-    int fd = bind_and_listen_addrinfos(addrs, l->config.reuse_port);
+    int fd = bind_and_listen_addrinfos(addrs);
     freeaddrinfo(addrs);
     return fd;
 }
 
-void lwan_socket_init(struct lwan *l)
+int lwan_create_listen_socket(struct lwan *l)
 {
     int fd, n;
 
@@ -262,13 +261,14 @@ void lwan_socket_init(struct lwan *l)
 #define TCP_FASTOPEN 23
 #endif
 
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEADDR, (int[]){1});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_DEFER_ACCEPT,
                                (int[]){(int)l->config.keep_alive_timeout});
 #endif
 
-    l->main_socket = fd;
+    return fd;
 }
 
 #undef SET_SOCKET_OPTION

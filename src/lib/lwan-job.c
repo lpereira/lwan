@@ -63,8 +63,7 @@ timedwait(bool had_job)
     pthread_cond_timedwait(&job_wait_cond, &job_wait_mutex, &rgtp);
 }
 
-static void*
-job_thread(void *data __attribute__((unused)))
+void lwan_job_thread_main_loop(void)
 {
     /* Idle priority for the calling thread.   Magic value of `7` obtained from
      * sample program in linux/Documentation/block/ioprio.txt.  This is a no-op
@@ -93,8 +92,6 @@ job_thread(void *data __attribute__((unused)))
 
     if (pthread_mutex_unlock(&job_wait_mutex))
         lwan_status_critical("Could not lock job wait mutex");
-
-    return NULL;
 }
 
 void lwan_job_thread_init(void)
@@ -105,9 +102,8 @@ void lwan_job_thread_init(void)
 
     list_head_init(&jobs);
 
+    self = pthread_self();
     running = true;
-    if (pthread_create(&self, NULL, job_thread, NULL) < 0)
-        lwan_status_critical_perror("pthread_create");
 
 #ifdef SCHED_IDLE
     struct sched_param sched_param = {

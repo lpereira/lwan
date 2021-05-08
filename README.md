@@ -272,7 +272,6 @@ can be decided automatically, so some configuration options are provided.
 |--------|------|---------|-------------|
 | `keep_alive_timeout` | `time`  | `15` | Timeout to keep a connection alive |
 | `quiet` | `bool` | `false` | Set to true to not print any debugging messages. Only effective in release builds. |
-| `reuse_port` | `bool` | `false` | Sets `SO_REUSEPORT` to `1` in the master socket |
 | `expires` | `time` | `1M 1w` | Value of the "Expires" header. Default is 1 month and 1 week |
 | `threads` | `int` | `0` | Number of I/O threads. Default (0) is the number of online CPUs |
 | `proxy_protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |

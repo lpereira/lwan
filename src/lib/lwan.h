@@ -465,7 +465,6 @@ struct lwan_config {
     unsigned int n_threads;
 
     bool quiet;
-    bool reuse_port;
     bool proxy_protocol;
     bool allow_cors;
     bool allow_post_temp_file;
@@ -486,8 +485,6 @@ struct lwan {
 
     struct lwan_config config;
     struct coro_switcher switcher;
-
-    int main_socket;
 
     unsigned int online_cpus;
     unsigned int available_cpus;

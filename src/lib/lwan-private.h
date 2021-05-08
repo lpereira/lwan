@@ -85,8 +85,7 @@ void lwan_set_thread_name(const char *name);
 void lwan_response_init(struct lwan *l);
 void lwan_response_shutdown(struct lwan *l);
 
-void lwan_socket_init(struct lwan *l);
-void lwan_socket_shutdown(struct lwan *l);
+int lwan_create_listen_socket(struct lwan *l);
 
 void lwan_thread_init(struct lwan *l);
 void lwan_thread_shutdown(struct lwan *l);
@@ -97,6 +96,7 @@ void lwan_status_init(struct lwan *l);
 void lwan_status_shutdown(struct lwan *l);
 
 void lwan_job_thread_init(void);
+void lwan_job_thread_main_loop(void);
 void lwan_job_thread_shutdown(void);
 void lwan_job_add(bool (*cb)(void *data), void *data);
 void lwan_job_del(bool (*cb)(void *data), void *data);
