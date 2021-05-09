@@ -33,7 +33,6 @@
 #cmakedefine HAVE_RAWMEMCHR
 #cmakedefine HAVE_READAHEAD
 #cmakedefine HAVE_REALLOCARRAY
-#cmakedefine HAVE_EVENTFD
 #cmakedefine HAVE_EPOLL
 #cmakedefine HAVE_KQUEUE
 #cmakedefine HAVE_DLADDR

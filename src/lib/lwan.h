@@ -438,7 +438,6 @@ struct lwan_thread {
     } date;
     struct timeouts *wheel;
     int epoll_fd;
-    int pipe_fd[2];
     pthread_t self;
 };
 

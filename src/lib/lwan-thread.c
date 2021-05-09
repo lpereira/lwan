@@ -31,10 +31,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#if defined(HAVE_EVENTFD)
-#include <sys/eventfd.h>
-#endif
-
 #include "lwan-private.h"
 #include "lwan-tq.h"
 #include "list.h"
@@ -349,19 +345,6 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
     return true;
 }
 
-static void accept_nudge(struct lwan_thread *t,
-                         struct timeout_queue *tq,
-                         int pipe_fd)
-{
-    uint64_t event;
-
-    /* Errors are ignored here as pipe_fd serves just as a way to wake the
-     * thread from epoll_wait().  It's fine to consume the queue at this
-     * point, regardless of the error type. */
-    (void)read(pipe_fd, &event, sizeof(event));
-    timeouts_add(t->wheel, &tq->timeout, 1000);
-}
-
 static bool process_pending_timers(struct timeout_queue *tq,
                                    struct lwan_thread *t,
                                    int epoll_fd)
@@ -433,29 +416,13 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 
 enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
 
-struct core_bitmap {
-    uint64_t bitmap[4];
-};
-
-static ALWAYS_INLINE int schedule_client(struct lwan *l, int fd)
-{
-    struct lwan_thread *thread = l->conns[fd].thread;
-
-    lwan_thread_add_client(thread, fd);
-
-    return (int)(thread - l->thread.threads);
-}
-
 static ALWAYS_INLINE enum herd_accept
-accept_one(struct lwan *l, int listen_fd, struct core_bitmap *cores)
+accept_one(struct lwan *l, int listen_fd)
 {
     int fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
-        int core = schedule_client(l, fd);
-
-        cores->bitmap[core / 64] |= UINT64_C(1)<<(core % 64);
-
+        lwan_thread_add_client(l->conns[fd].thread, fd);
         return HERD_MORE;
     }
 
@@ -478,27 +445,13 @@ accept_one(struct lwan *l, int listen_fd, struct core_bitmap *cores)
 static bool try_accept_connections(struct lwan_thread *t, int listen_fd)
 {
     struct lwan *lwan = t->lwan;
-    struct core_bitmap cores = {};
     enum herd_accept ha;
 
-    ha = accept_one(lwan, listen_fd, &cores);
-    if (ha == HERD_MORE) {
-        do {
-            ha = accept_one(lwan, listen_fd, &cores);
-        } while (ha == HERD_MORE);
+    while ((ha = accept_one(lwan, listen_fd)) == HERD_MORE) {
     }
-    if (UNLIKELY(ha > HERD_MORE))
+
+    if (ha > HERD_MORE)
         return false;
-
-    for (size_t i = 0; i < N_ELEMENTS(cores.bitmap); i++) {
-        for (uint64_t c = cores.bitmap[i]; c; c ^= c & -c) {
-            size_t core = (size_t)__builtin_ctzl(c);
-            struct lwan_thread *cur_thread = &lwan->thread.threads[i * 64 + core];
-
-            if (cur_thread != t)
-                lwan_thread_nudge(cur_thread);
-        }
-    }
 
     return true;
 }
@@ -525,7 +478,6 @@ static void *thread_io_loop(void *data)
 {
     struct lwan_thread *t = data;
     int epoll_fd = t->epoll_fd;
-    const int read_pipe_fd = t->pipe_fd[0];
     const int max_events = LWAN_MIN((int)t->lwan->thread.max_fd, 1024);
     struct lwan *lwan = t->lwan;
     struct epoll_event *events;
@@ -562,13 +514,13 @@ static void *thread_io_loop(void *data)
         for (struct epoll_event *event = events; n_fds--; event++) {
             struct lwan_connection *conn;
 
-            if (UNLIKELY(!event->data.ptr)) {
-                accept_nudge(t, &tq, read_pipe_fd);
+            if (!event->data.ptr) {
                 if (UNLIKELY(!try_accept_connections(t, listen_fd))) {
                     close(epoll_fd);
                     epoll_fd = -1;
                     break;
                 }
+                timeouts_add(t->wheel, &tq.timeout, 1000);
                 continue;
             }
 
@@ -622,34 +574,11 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
         lwan_status_critical_perror("pthread_attr_setdetachstate");
 
-#if defined(HAVE_EVENTFD)
-    int efd = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE | EFD_CLOEXEC);
-    if (efd < 0)
-        lwan_status_critical_perror("eventfd");
-
-    thread->pipe_fd[0] = thread->pipe_fd[1] = efd;
-#else
-    if (pipe2(thread->pipe_fd, O_NONBLOCK | O_CLOEXEC) < 0)
-        lwan_status_critical_perror("pipe");
-#endif
-
-    struct epoll_event event = { .events = EPOLLIN, .data.ptr = NULL };
-    if (epoll_ctl(thread->epoll_fd, EPOLL_CTL_ADD, thread->pipe_fd[0], &event) < 0)
-        lwan_status_critical_perror("epoll_ctl");
-
     if (pthread_create(&thread->self, &attr, thread_io_loop, thread))
         lwan_status_critical_perror("pthread_create");
 
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
-}
-
-void lwan_thread_nudge(struct lwan_thread *t)
-{
-    uint64_t event = 1;
-
-    if (UNLIKELY(write(t->pipe_fd[1], &event, sizeof(event)) < 0))
-        lwan_status_perror("write");
 }
 
 void lwan_thread_add_client(struct lwan_thread *t, int fd)
@@ -862,9 +791,10 @@ void lwan_thread_shutdown(struct lwan *l)
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
+        int epoll_fd = t->epoll_fd;
 
-        close(t->epoll_fd);
-        lwan_thread_nudge(t);
+        t->epoll_fd = -1;
+        close(epoll_fd);
     }
 
     pthread_barrier_wait(&l->thread.barrier);
@@ -872,11 +802,6 @@ void lwan_thread_shutdown(struct lwan *l)
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
-
-        close(t->pipe_fd[0]);
-#if !defined(HAVE_EVENTFD)
-        close(t->pipe_fd[1]);
-#endif
 
         pthread_join(l->thread.threads[i].self, NULL);
         timeouts_close(t->wheel);
