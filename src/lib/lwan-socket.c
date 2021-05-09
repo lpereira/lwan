@@ -150,22 +150,25 @@ static sa_family_t parse_listener(char *listener, char **node, char **port)
     return parse_listener_ipv4(listener, node, port);
 }
 
-static int listen_addrinfo(int fd, const struct addrinfo *addr)
+static int
+listen_addrinfo(int fd, const struct addrinfo *addr, bool print_listening_msg)
 {
     if (listen(fd, lwan_socket_get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
-    char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
-    int ret = getnameinfo(addr->ai_addr, addr->ai_addrlen, host_buf,
-                          sizeof(host_buf), serv_buf, sizeof(serv_buf),
-                          NI_NUMERICHOST | NI_NUMERICSERV);
-    if (ret)
-        lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
+    if (print_listening_msg) {
+        char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
+        int ret = getnameinfo(addr->ai_addr, addr->ai_addrlen, host_buf,
+                              sizeof(host_buf), serv_buf, sizeof(serv_buf),
+                              NI_NUMERICHOST | NI_NUMERICSERV);
+        if (ret)
+            lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
 
-    if (addr->ai_family == AF_INET6)
-        lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
-    else
-        lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
+        if (addr->ai_family == AF_INET6)
+            lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
+        else
+            lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
+    }
 
     return set_socket_flags(fd);
 }
@@ -184,7 +187,7 @@ static int listen_addrinfo(int fd, const struct addrinfo *addr)
             lwan_status_warning("%s not supported by the kernel", #_option);   \
     } while (0)
 
-static int bind_and_listen_addrinfos(struct addrinfo *addrs)
+static int bind_and_listen_addrinfos(const struct addrinfo *addrs, bool print_listening_msg)
 {
     const struct addrinfo *addr;
 
@@ -204,7 +207,7 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs)
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
-            return listen_addrinfo(fd, addr);
+            return listen_addrinfo(fd, addr, print_listening_msg);
 
         close(fd);
     }
@@ -212,7 +215,7 @@ static int bind_and_listen_addrinfos(struct addrinfo *addrs)
     lwan_status_critical("Could not bind socket");
 }
 
-static int setup_socket_normally(struct lwan *l)
+static int setup_socket_normally(struct lwan *l, bool print_listening_msg)
 {
     char *node, *port;
     char *listener = strdupa(l->config.listener);
@@ -232,12 +235,12 @@ static int setup_socket_normally(struct lwan *l)
     if (ret)
         lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
 
-    int fd = bind_and_listen_addrinfos(addrs);
+    int fd = bind_and_listen_addrinfos(addrs, print_listening_msg);
     freeaddrinfo(addrs);
     return fd;
 }
 
-int lwan_create_listen_socket(struct lwan *l)
+int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
 {
     int fd, n;
 
@@ -249,7 +252,7 @@ int lwan_create_listen_socket(struct lwan *l)
     } else if (n == 1) {
         fd = setup_socket_from_systemd();
     } else {
-        fd = setup_socket_normally(l);
+        fd = setup_socket_normally(l, print_listening_msg);
     }
 
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,

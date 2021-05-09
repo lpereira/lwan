@@ -417,9 +417,9 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
 
 static ALWAYS_INLINE enum herd_accept
-accept_one(struct lwan *l, int listen_fd)
+accept_one(struct lwan *l, const struct lwan_thread *t)
 {
-    int fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+    int fd = accept4(t->listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
         lwan_thread_add_client(l->conns[fd].thread, fd);
@@ -442,12 +442,12 @@ accept_one(struct lwan *l, int listen_fd)
     }
 }
 
-static bool try_accept_connections(struct lwan_thread *t, int listen_fd)
+static bool try_accept_connections(const struct lwan_thread *t)
 {
     struct lwan *lwan = t->lwan;
     enum herd_accept ha;
 
-    while ((ha = accept_one(lwan, listen_fd)) == HERD_MORE) {
+    while ((ha = accept_one(lwan, t)) == HERD_MORE) {
     }
 
     if (ha > HERD_MORE)
@@ -456,11 +456,11 @@ static bool try_accept_connections(struct lwan_thread *t, int listen_fd)
     return true;
 }
 
-static int create_listen_socket(struct lwan_thread *t)
+static int create_listen_socket(struct lwan_thread *t, bool print_listening_msg)
 {
     int listen_fd;
 
-    listen_fd = lwan_create_listen_socket(t->lwan);
+    listen_fd = lwan_create_listen_socket(t->lwan, print_listening_msg);
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
@@ -483,13 +483,10 @@ static void *thread_io_loop(void *data)
     struct epoll_event *events;
     struct coro_switcher switcher;
     struct timeout_queue tq;
-    int listen_fd;
 
     lwan_status_debug("Worker thread #%zd starting",
                       t - t->lwan->thread.threads + 1);
     lwan_set_thread_name("worker");
-
-    listen_fd = create_listen_socket(t);
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
@@ -515,7 +512,7 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (!event->data.ptr) {
-                if (UNLIKELY(!try_accept_connections(t, listen_fd))) {
+                if (UNLIKELY(!try_accept_connections(t))) {
                     close(epoll_fd);
                     epoll_fd = -1;
                     break;
@@ -545,7 +542,6 @@ static void *thread_io_loop(void *data)
 
     timeout_queue_expire_all(&tq);
     free(events);
-    close(listen_fd);
 
     return NULL;
 }
@@ -742,8 +738,14 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
-    for (unsigned int i = 0; i < l->thread.count; i++)
-        create_thread(l, &l->thread.threads[i]);
+    for (unsigned int i = 0; i < l->thread.count; i++) {
+        struct lwan_thread *thread = &l->thread.threads[i];
+
+        create_thread(l, thread);
+
+        if ((thread->listen_fd = create_listen_socket(thread, i == 0)) < 0)
+            lwan_status_critical_perror("Could not create listening socket");
+    }
 
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 #ifdef __x86_64__
@@ -792,9 +794,12 @@ void lwan_thread_shutdown(struct lwan *l)
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];
         int epoll_fd = t->epoll_fd;
+        int listen_fd = t->listen_fd;
 
+        t->listen_fd = -1;
         t->epoll_fd = -1;
         close(epoll_fd);
+        close(listen_fd);
     }
 
     pthread_barrier_wait(&l->thread.barrier);

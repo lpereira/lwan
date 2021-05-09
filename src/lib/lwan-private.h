@@ -85,7 +85,7 @@ void lwan_set_thread_name(const char *name);
 void lwan_response_init(struct lwan *l);
 void lwan_response_shutdown(struct lwan *l);
 
-int lwan_create_listen_socket(struct lwan *l);
+int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg);
 
 void lwan_thread_init(struct lwan *l);
 void lwan_thread_shutdown(struct lwan *l);
