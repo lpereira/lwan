@@ -91,9 +91,9 @@ void timeout_queue_expire(struct timeout_queue *tq,
     if (LIKELY(conn->coro)) {
         coro_free(conn->coro);
         conn->coro = NULL;
-
-        close(lwan_connection_get_fd(tq->lwan, conn));
     }
+
+    close(lwan_connection_get_fd(tq->lwan, conn));
 }
 
 void timeout_queue_expire_waiting(struct timeout_queue *tq)
