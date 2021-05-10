@@ -504,6 +504,7 @@ static void *thread_io_loop(void *data)
     for (;;) {
         int timeout = turn_timer_wheel(&tq, t, epoll_fd);
         int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
+        bool accepted_connection = false;
 
         if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)
@@ -515,13 +516,13 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (!event->data.ptr) {
-                if (UNLIKELY(!try_accept_connections(t))) {
-                    close(epoll_fd);
-                    epoll_fd = -1;
-                    break;
+                if (LIKELY(try_accept_connections(t)) {
+                    accepted_connections = true;
+                    continue;
                 }
-                timeouts_add(t->wheel, &tq.timeout, 1000);
-                continue;
+                close(epoll_fd);
+                epoll_fd = -1;
+                break;
             }
 
             conn = event->data.ptr;
@@ -538,6 +539,11 @@ static void *thread_io_loop(void *data)
 
             resume_coro(&tq, conn, epoll_fd);
             timeout_queue_move_to_last(&tq, conn);
+        }
+
+        if (accepted_connection) {
+            timeouts_add(t->wheel, &tq.timeout, 1000);
+            accepted_connection = false;
         }
     }
 
