@@ -420,7 +420,12 @@ accept_one(struct lwan *l, const struct lwan_thread *t)
     int fd = accept4(t->listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
     if (LIKELY(fd >= 0)) {
-        lwan_thread_add_client(l->conns[fd].thread, fd);
+        struct epoll_event ev = {
+            .data.ptr = &l->conns[fd],
+            .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
+        };
+        epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+
         return HERD_MORE;
     }
 
@@ -573,15 +578,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
 
     if (pthread_attr_destroy(&attr))
         lwan_status_critical_perror("pthread_attr_destroy");
-}
-
-void lwan_thread_add_client(struct lwan_thread *t, int fd)
-{
-    struct epoll_event ev = {
-        .data.ptr = &t->lwan->conns[fd],
-        .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
-    };
-    epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 }
 
 #if defined(__linux__) && defined(__x86_64__)
