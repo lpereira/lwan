@@ -413,51 +413,57 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
     return (int)timeouts_timeout(t->wheel);
 }
 
-enum herd_accept { HERD_MORE = 0, HERD_GONE = -1, HERD_SHUTDOWN = 1 };
-
-static ALWAYS_INLINE enum herd_accept
-accept_one(struct lwan *l, const struct lwan_thread *t)
+static bool accept_waiting_clients(const struct lwan_thread *t)
 {
-    int fd = accept4(t->listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+    const struct lwan_connection *conns = t->lwan->conns;
 
-    if (LIKELY(fd >= 0)) {
-        struct epoll_event ev = {
-            .data.ptr = &l->conns[fd],
-            .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
-        };
-        epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+    while (true) {
+        int fd =
+            accept4(t->listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
-        return HERD_MORE;
+        if (LIKELY(fd >= 0)) {
+            const struct lwan_connection *conn = &conns[fd];
+            struct epoll_event ev = {
+                .data.ptr = (void *)conn,
+                .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
+            };
+            int r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+
+            if (UNLIKELY(r < 0)) {
+                /* FIXME: send a "busy" response here? No coroutine has been
+                 * created at this point to use the usual stuff, though. */
+                lwan_status_perror("Could not add file descriptor %d to epoll "
+                                   "set %d. Dropping connection",
+                                   fd, conn->thread->epoll_fd);
+                shutdown(fd, SHUT_RDWR);
+                close(fd);
+            }
+
+#if __linux__ && defined(__x86_64__)
+            /* Ignore errors here, as this is just a hint */
+            (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
+#endif
+
+            continue;
+        }
+
+        switch (errno) {
+        default:
+            lwan_status_perror("Unexpected error while accepting connections");
+            /* fallthrough */
+
+        case EAGAIN:
+            return true;
+
+        case EBADF:
+        case ECONNABORTED:
+        case EINVAL:
+            lwan_status_info("Listening socket closed");
+            return false;
+        }
     }
 
-    switch (errno) {
-    case EAGAIN:
-        return HERD_GONE;
-
-    case EBADF:
-    case ECONNABORTED:
-    case EINVAL:
-        lwan_status_info("Listening socket closed");
-        return HERD_SHUTDOWN;
-
-    default:
-        lwan_status_perror("accept");
-        return HERD_MORE;
-    }
-}
-
-static bool try_accept_connections(const struct lwan_thread *t)
-{
-    struct lwan *lwan = t->lwan;
-    enum herd_accept ha;
-
-    while ((ha = accept_one(lwan, t)) == HERD_MORE) {
-    }
-
-    if (ha > HERD_MORE)
-        return false;
-
-    return true;
+    __builtin_unreachable();
 }
 
 static int create_listen_socket(struct lwan_thread *t, bool print_listening_msg)
@@ -467,6 +473,11 @@ static int create_listen_socket(struct lwan_thread *t, bool print_listening_msg)
     listen_fd = lwan_create_listen_socket(t->lwan, print_listening_msg);
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
+
+#if __linux__ && defined(__x86_64__)
+    /* Ignore errors here, as this is just a hint */
+    (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
+#endif
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET | EPOLLERR,
@@ -517,7 +528,7 @@ static void *thread_io_loop(void *data)
             struct lwan_connection *conn;
 
             if (!event->data.ptr) {
-                if (LIKELY(try_accept_connections(t))) {
+                if (LIKELY(accept_waiting_clients(t))) {
                     accepted_connections = true;
                     continue;
                 }
@@ -561,7 +572,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
     int ignore;
     pthread_attr_t attr;
 
-    memset(thread, 0, sizeof(*thread));
     thread->lwan = l;
 
     thread->wheel = timeouts_open(&ignore);
@@ -728,6 +738,8 @@ adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t n)
 
 void lwan_thread_init(struct lwan *l)
 {
+    const unsigned int total_conns = l->thread.max_fd * l->thread.count;
+
     if (pthread_barrier_init(&l->thread.barrier, NULL,
                              (unsigned)l->thread.count + 1))
         lwan_status_critical("Could not create barrier");
@@ -739,16 +751,6 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
-    for (unsigned int i = 0; i < l->thread.count; i++) {
-        struct lwan_thread *thread = &l->thread.threads[i];
-
-        create_thread(l, thread);
-
-        if ((thread->listen_fd = create_listen_socket(thread, i == 0)) < 0)
-            lwan_status_critical_perror("Could not create listening socket");
-    }
-
-    const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 #ifdef __x86_64__
     static_assert(sizeof(struct lwan_connection) == 32,
                   "Two connections per cache line");
@@ -776,14 +778,34 @@ void lwan_thread_init(struct lwan *l)
 
     n_threads--; /* Transform count into mask for AND below */
 
-    if (adj_affinity)
-        adjust_threads_affinity(l, schedtbl, n_threads);
+    if (adj_affinity) {
+        /* Save which CPU this tread will be pinned at so we can use
+         * SO_INCOMING_CPU later.  */
+        for (unsigned int i = 0; i < l->thread.count; i++)
+            l->thread.threads[i].cpu = schedtbl[i & n_threads];
+    }
 
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else
+    for (unsigned int i = 0; i < l->thread.count; i++)
+        l->thread.threads[i].cpu = i % l->thread.count;
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[i % l->thread.count];
+#endif
+
+    for (unsigned int i = 0; i < l->thread.count; i++) {
+        struct lwan_thread *thread = &l->thread.threads[i];
+
+        create_thread(l, thread);
+
+        if ((thread->listen_fd = create_listen_socket(thread, i == 0)) < 0)
+            lwan_status_critical_perror("Could not create listening socket");
+    }
+
+#ifdef __x86_64__
+    if (adj_affinity)
+        adjust_threads_affinity(l, schedtbl, n_threads);
 #endif
 
     pthread_barrier_wait(&l->thread.barrier);

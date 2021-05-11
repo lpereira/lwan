@@ -439,6 +439,7 @@ struct lwan_thread {
     struct timeouts *wheel;
     int epoll_fd;
     int listen_fd;
+    unsigned int cpu;
     pthread_t self;
 };
 
