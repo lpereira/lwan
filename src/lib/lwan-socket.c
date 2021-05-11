@@ -244,8 +244,6 @@ int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
 {
     int fd, n;
 
-    lwan_status_debug("Initializing sockets");
-
     n = sd_listen_fds(1);
     if (n > 1) {
         lwan_status_critical("Too many file descriptors received");
