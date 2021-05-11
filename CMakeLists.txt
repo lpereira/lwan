@@ -181,7 +181,10 @@ check_c_source_compiles("int main(void) { __builtin_fpclassify(0, 0, 0, 0, 0, 0.
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_mul_overflow(0, 0, &p); }" HAVE_BUILTIN_MUL_OVERFLOW)
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_add_overflow(0, 0, &p); }" HAVE_BUILTIN_ADD_OVERFLOW)
 check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATIC_ASSERT)
-
+check_c_source_compiles("#include <linux/filter.h>
+#include <sys/socket.h>
+#include <stddef.h>
+int main(void) { setsockopt(0, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, NULL, 0); }" HAVE_SO_ATTACH_REUSEPORT_CBPF)
 
 #
 # Look for Valgrind header

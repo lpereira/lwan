@@ -44,6 +44,7 @@
 #cmakedefine HAVE_GETTID
 #cmakedefine HAVE_SECURE_GETENV
 #cmakedefine HAVE_STATFS
+#cmakedefine HAVE_SO_ATTACH_REUSEPORT_CBPF
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL

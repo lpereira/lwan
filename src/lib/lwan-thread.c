@@ -31,6 +31,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
+#include <linux/filter.h>
+#endif
+
 #include "lwan-private.h"
 #include "lwan-tq.h"
 #include "list.h"
@@ -439,10 +443,10 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
                 close(fd);
             }
 
-            if (SO_INCOMING_CPU_SUPPORTED) {
-                /* Ignore errors here, as this is just a hint */
-                (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
-            }
+#if defined(HAVE_SO_INCOMING_CPU)
+            /* Ignore errors here, as this is just a hint */
+            (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
+#endif
 
             continue;
         }
@@ -466,18 +470,30 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
     __builtin_unreachable();
 }
 
-static int create_listen_socket(struct lwan_thread *t, bool print_listening_msg)
+static int create_listen_socket(struct lwan_thread *t, unsigned int socket_num)
 {
     int listen_fd;
 
-    listen_fd = lwan_create_listen_socket(t->lwan, print_listening_msg);
+    listen_fd = lwan_create_listen_socket(t->lwan, socket_num == 0);
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
-    if (SO_INCOMING_CPU_SUPPORTED) {
-        /* Ignore errors here, as this is just a hint */
-        (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
-    }
+    /* Ignore errors here, as this is just a hint */
+#if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
+    /* From socket(7): "The  BPF program must return an index between 0 and
+     * N-1 representing the socket which should receive the packet (where N
+     * is the number of sockets in the group)." */
+    struct sock_filter filter[] = {
+        {BPF_LD | BPF_W | BPF_IMM, 0, 0, socket_num}, /* A = socket_num */
+        {BPF_RET | BPF_A, 0, 0, 0},                   /* return A */
+    };
+    struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
+    (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &fprog,
+                     sizeof(fprog));
+#elif defined(HAVE_SO_INCOMING_CPU)
+    (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu,
+                     sizeof(t->cpu));
+#endif
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET | EPOLLERR,
@@ -799,7 +815,7 @@ void lwan_thread_init(struct lwan *l)
 
         create_thread(l, thread);
 
-        if ((thread->listen_fd = create_listen_socket(thread, i == 0)) < 0)
+        if ((thread->listen_fd = create_listen_socket(thread, i)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
     }
 
