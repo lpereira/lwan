@@ -31,21 +31,6 @@
 #define SOCK_CLOEXEC 0
 #endif
 
-#ifdef __linux__
-#ifndef SO_INCOMING_CPU
-#define SO_INCOMING_CPU 49 /* Build with old kernel headers */
-#endif
-#ifdef __x86_64__
-#define SO_INCOMING_CPU_SUPPORTED 1
-#endif
-#endif
-#ifndef SO_INCOMING_CPU
-#define SO_INCOMING_CPU 0
-#endif
-#ifndef SO_INCOMING_CPU_SUPPORTED
-#define SO_INCOMING_CPU_SUPPORTED 0
-#endif
-
 #ifndef SOCK_NONBLOCK
 #define SOCK_NONBLOCK 00004000
 #endif

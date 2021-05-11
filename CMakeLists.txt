@@ -184,7 +184,14 @@ check_c_source_compiles("int main(void) { _Static_assert(1, \"\"); }" HAVE_STATI
 check_c_source_compiles("#include <linux/filter.h>
 #include <sys/socket.h>
 #include <stddef.h>
-int main(void) { setsockopt(0, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, NULL, 0); }" HAVE_SO_ATTACH_REUSEPORT_CBPF)
+int main(void) {
+	setsockopt(0, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, NULL, 0);
+}" HAVE_SO_ATTACH_REUSEPORT_CBPF)
+check_c_source_compiles("#include <sys/socket.h>
+#include <stddef.h>
+int main(void) {
+	setsockopt(0, SOL_SOCKET, SO_INCOMING_CPU, NULL, 0);
+}" HAVE_SO_INCOMING_CPU)
 
 #
 # Look for Valgrind header

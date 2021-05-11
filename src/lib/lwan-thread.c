@@ -443,7 +443,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
                 close(fd);
             }
 
-#if defined(HAVE_SO_INCOMING_CPU)
+#if defined(HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
             /* Ignore errors here, as this is just a hint */
             (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
 #endif
@@ -490,7 +490,7 @@ static int create_listen_socket(struct lwan_thread *t, unsigned int socket_num)
     struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
     (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &fprog,
                      sizeof(fprog));
-#elif defined(HAVE_SO_INCOMING_CPU)
+#elif defined(HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
     (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu,
                      sizeof(t->cpu));
 #endif
