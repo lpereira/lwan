@@ -439,10 +439,10 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
                 close(fd);
             }
 
-#if __linux__ && defined(__x86_64__)
-            /* Ignore errors here, as this is just a hint */
-            (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
-#endif
+            if (SO_INCOMING_CPU_SUPPORTED) {
+                /* Ignore errors here, as this is just a hint */
+                (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
+            }
 
             continue;
         }
@@ -474,10 +474,10 @@ static int create_listen_socket(struct lwan_thread *t, bool print_listening_msg)
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
-#if __linux__ && defined(__x86_64__)
-    /* Ignore errors here, as this is just a hint */
-    (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
-#endif
+    if (SO_INCOMING_CPU_SUPPORTED) {
+        /* Ignore errors here, as this is just a hint */
+        (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
+    }
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET | EPOLLERR,
