@@ -37,7 +37,10 @@
 
 int lwan_socket_get_backlog_size(void)
 {
-    int backlog = SOMAXCONN;
+    static int backlog = 0;
+
+    if (backlog)
+        return backlog;
 
 #ifdef __linux__
     FILE *somaxconn;
@@ -50,6 +53,9 @@ int lwan_socket_get_backlog_size(void)
         fclose(somaxconn);
     }
 #endif
+
+    if (!backlog)
+        backlog = SOMAXCONN;
 
     return backlog;
 }
