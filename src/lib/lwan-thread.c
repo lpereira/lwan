@@ -752,6 +752,9 @@ void lwan_thread_init(struct lwan *l)
 #ifdef __x86_64__
     static_assert(sizeof(struct lwan_connection) == 32,
                   "Two connections per cache line");
+#ifdef _SC_LEVEL1_DCACHE_LINESIZE
+    assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
+#endif
 
     lwan_status_debug("%d CPUs of %d are online. "
                       "Reading topology to pre-schedule clients",
