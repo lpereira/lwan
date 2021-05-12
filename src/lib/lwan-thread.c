@@ -470,26 +470,45 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
     __builtin_unreachable();
 }
 
-static int create_listen_socket(struct lwan_thread *t, unsigned int socket_num)
+static int create_listen_socket(struct lwan_thread *t,
+                                unsigned int num,
+                                unsigned int num_sockets)
 {
     int listen_fd;
 
-    listen_fd = lwan_create_listen_socket(t->lwan, socket_num == 0);
+    listen_fd = lwan_create_listen_socket(t->lwan, num == 0);
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
-    /* Ignore errors here, as this is just a hint */
+     /* Ignore errors here, as this is just a hint */
 #if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
-    /* From socket(7): "The  BPF program must return an index between 0 and
-     * N-1 representing the socket which should receive the packet (where N
-     * is the number of sockets in the group)." */
-    struct sock_filter filter[] = {
-        {BPF_LD | BPF_W | BPF_IMM, 0, 0, socket_num}, /* A = socket_num */
-        {BPF_RET | BPF_A, 0, 0, 0},                   /* return A */
-    };
-    struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
-    (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF, &fprog,
-                     sizeof(fprog));
+    /* From socket(7): "These  options may be set repeatedly at any time on
+     * any socket in the group to replace the current BPF program used by
+     * all sockets in the group." */
+    if (num == 0) {
+        /* From socket(7): "The  BPF program must return an index between 0 and
+         * N-1 representing the socket which should receive the packet (where N
+         * is the number of sockets in the group)." */
+        const uint32_t cpu_ad_off = (uint32_t)SKF_AD_OFF + SKF_AD_CPU;
+        struct sock_filter filter[] = {
+            {BPF_LD | BPF_W | BPF_ABS, 0, 0, cpu_ad_off},   /* A = curr_cpu_index */
+            {BPF_ALU | BPF_MOD | BPF_K, 0, 0, num_sockets}, /* A %= num_sockets */
+            {BPF_RET | BPF_A, 0, 0, 0},                     /* return A */
+        };
+        struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
+
+        if (!(num_sockets & (num_sockets - 1))) {
+            /* FIXME: Is this strength reduction already made by the kernel? */
+            filter[1].code &= (uint16_t)~BPF_MOD;
+            filter[1].code |= BPF_AND;
+            filter[1].k = num_sockets - 1;
+        }
+
+        (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF,
+                         &fprog, sizeof(fprog));
+        (void)setsockopt(listen_fd, SOL_SOCKET, SO_LOCK_FILTER,
+                         (int[]){1}, sizeof(int));
+    }
 #elif defined(HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
     (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu,
                      sizeof(t->cpu));
@@ -815,7 +834,7 @@ void lwan_thread_init(struct lwan *l)
 
         create_thread(l, thread);
 
-        if ((thread->listen_fd = create_listen_socket(thread, i)) < 0)
+        if ((thread->listen_fd = create_listen_socket(thread, i, l->thread.count)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
     }
 
