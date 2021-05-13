@@ -161,6 +161,16 @@ void lwan_lua_state_push_request(lua_State *L, struct lwan_request *request);
 const char *lwan_lua_state_last_error(lua_State *L);
 #endif
 
+/* This macro is used as an attempt to convince the compiler that it should
+ * never elide an expression -- for instance, when writing fuzz-test or
+ * micro-benchmarks. */
+#define LWAN_NO_DISCARD(...)                                                   \
+    do {                                                                       \
+        __typeof__(__VA_ARGS__) no_discard_ = __VA_ARGS__;                     \
+        __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
+    } while (0)
+
+
 #ifdef __APPLE__
 #define SECTION_START(name_) __start_##name_[] __asm("section$start$__DATA$" #name_)
 #define SECTION_END(name_)   __stop_##name_[] __asm("section$end$__DATA$" #name_)

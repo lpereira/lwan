@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "base64.h"
+#include "lwan-private.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
