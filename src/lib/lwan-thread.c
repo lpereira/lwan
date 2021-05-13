@@ -824,7 +824,7 @@ void lwan_thread_init(struct lwan *l)
         l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else
     for (unsigned int i = 0; i < l->thread.count; i++)
-        l->thread.threads[i].cpu = i % l->thread.count;
+        l->thread.threads[i].cpu = i % l->online_cpus;
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[i % l->thread.count];
 #endif
