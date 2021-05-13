@@ -161,8 +161,10 @@ static void discard_frame(struct lwan_request *request, uint16_t header)
 {
     size_t len = get_frame_length(request, header);
 
-    for (char buffer[128]; len;)
-        len -= (size_t)lwan_recv(request, buffer, sizeof(buffer), 0);
+    for (char buffer[1024]; len;) {
+        const size_t to_read = LWAN_MIN(len, sizeof(buffer));
+        len -= (size_t)lwan_recv(request, buffer, to_read, MSG_TRUNC);
+    }
 }
 
 static void unmask(char *msg, size_t msg_len, char mask[static 4])
