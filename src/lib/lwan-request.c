@@ -1787,54 +1787,57 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    if (read_request_finalizer(&buffer, sizeof(data_copy), &request, 1) !=
-        FINALIZER_DONE)
+    enum lwan_read_finalizer finalizer =
+        read_request_finalizer(&buffer, sizeof(data_copy), &request, 1);
+    if (finalizer != FINALIZER_DONE)
         return 0;
 
     /* client_read() NUL-terminates the string */
     data_copy[length - 1] = '\0';
 
-    if (parse_http_request(&request) == HTTP_OK) {
-        off_t trash1;
-        time_t trash2;
-        char *trash3;
-        size_t gen = coro_deferred_get_generation(coro);
+    if (parse_http_request(&request) != HTTP_OK)
+        return 0;
 
-        /* Only pointers were set in helper struct; actually parse them here. */
-        parse_accept_encoding(&request);
+    off_t trash1;
+    time_t trash2;
+    char *trash3;
+    size_t gen = coro_deferred_get_generation(coro);
 
-        /* Requesting these items will force them to be parsed, and also
-         * exercise the lookup function. */
-        LWAN_NO_DISCARD(
-            lwan_request_get_header(&request, "Non-Existing-Header"));
-        LWAN_NO_DISCARD(lwan_request_get_header(
-            &request, "Host")); /* Usually existing short header */
-        LWAN_NO_DISCARD(
-            lwan_request_get_cookie(&request, "Non-Existing-Cookie"));
-        LWAN_NO_DISCARD(
-            lwan_request_get_cookie(&request, "FOO")); /* Set by some tests */
-        LWAN_NO_DISCARD(
-            lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
-        LWAN_NO_DISCARD(
-            lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
+    /* Only pointers were set in helper struct; actually parse them here. */
+    parse_accept_encoding(&request);
 
-        lwan_request_get_range(&request, &trash1, &trash1);
-        LWAN_NO_DISCARD(trash1);
+    /* Requesting these items will force them to be parsed, and also
+     * exercise the lookup function. */
+    LWAN_NO_DISCARD(lwan_request_get_header(&request, "Non-Existing-Header"));
 
-        lwan_request_get_if_modified_since(&request, &trash2);
-        LWAN_NO_DISCARD(trash2);
+    /* Usually existing short header */
+    LWAN_NO_DISCARD(lwan_request_get_header(&request, "Host"));
 
-        if (prepare_websocket_handshake(&request, &trash3) ==
-            HTTP_SWITCHING_PROTOCOLS) {
-            free(trash3);
-        }
-        LWAN_NO_DISCARD(trash3);
+    LWAN_NO_DISCARD(lwan_request_get_cookie(&request, "Non-Existing-Cookie"));
+    /* Set by some tests */
+    LWAN_NO_DISCARD(lwan_request_get_cookie(&request, "FOO"));
 
-        LWAN_NO_DISCARD(
-            lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
+    LWAN_NO_DISCARD(
+        lwan_request_get_query_param(&request, "Non-Existing-Query-Param"));
 
-        coro_deferred_run(coro, gen);
-    }
+    LWAN_NO_DISCARD(
+        lwan_request_get_post_param(&request, "Non-Existing-Post-Param"));
+
+    lwan_request_get_range(&request, &trash1, &trash1);
+    LWAN_NO_DISCARD(trash1);
+
+    lwan_request_get_if_modified_since(&request, &trash2);
+    LWAN_NO_DISCARD(trash2);
+
+    enum lwan_http_response handshake =
+        prepare_websocket_handshake(&request, &trash3);
+    LWAN_NO_DISCARD(trash3);
+    if (handshake == HTTP_SWITCHING_PROTOCOLS)
+        free(trash3);
+
+    LWAN_NO_DISCARD(lwan_http_authorize(&request, "Fuzzy Realm", "/dev/null"));
+
+    coro_deferred_run(coro, gen);
 
     return 0;
 }
