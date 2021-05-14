@@ -216,11 +216,6 @@ void lwan_default_response(struct lwan_request *request,
 #define APPEND_CONSTANT(const_str_)                                            \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
-enum uncommon_overrides {
-    OVERRIDE_DATE = 1 << 0,
-    OVERRIDE_EXPIRES = 1 << 1,
-};
-
 static ALWAYS_INLINE bool has_content_length(enum lwan_request_flags v)
 {
     return !(v & (RESPONSE_NO_CONTENT_LENGTH | RESPONSE_STREAM |
@@ -245,9 +240,10 @@ size_t lwan_prepare_response_header_full(
     char *p_headers;
     char *p_headers_end = headers + headers_buf_size;
     char buffer[INT_TO_STR_BUFFER_SIZE];
-    enum uncommon_overrides overrides = 0;
     const enum lwan_request_flags request_flags = request->flags;
     const enum lwan_connection_flags conn_flags = request->conn->flags;
+    bool date_override = false;
+    bool expires_override = false;
 
     assert(request->global_response_headers);
 
@@ -259,7 +255,7 @@ size_t lwan_prepare_response_header_full(
         APPEND_CONSTANT("HTTP/1.1 ");
     APPEND_STRING(lwan_http_status_as_string_with_code(status));
 
-    if (!additional_headers)
+    if (LIKELY(!additional_headers))
         goto skip_additional_headers;
 
     if (LIKELY((status < HTTP_CLASS__CLIENT_ERROR))) {
@@ -273,11 +269,11 @@ size_t lwan_prepare_response_header_full(
                 break;
             case STR4_INT_L('D', 'a', 't', 'e'):
                 if (LIKELY(*(header->key + 4) == '\0'))
-                    overrides |= OVERRIDE_DATE;
+                    date_override = true;
                 break;
             case STR4_INT_L('E', 'x', 'p', 'i'):
                 if (LIKELY(streq(header->key + 4, "res")))
-                    overrides |= OVERRIDE_EXPIRES;
+                    expires_override = true;
                 break;
             }
 
@@ -289,6 +285,9 @@ size_t lwan_prepare_response_header_full(
             APPEND_CHAR_NOCHECK(' ');
             APPEND_STRING(header->value);
         }
+
+        if (date_override)
+            goto skip_date_header;
     } else if (UNLIKELY(status == HTTP_NOT_AUTHORIZED)) {
         const struct lwan_key_value *header;
 
@@ -302,12 +301,12 @@ size_t lwan_prepare_response_header_full(
     }
 
 skip_additional_headers:
+    APPEND_CONSTANT("\r\nDate: ");
+    APPEND_STRING_LEN(request->conn->thread->date.date, 29);
+
+skip_date_header:
     if (UNLIKELY(conn_flags & CONN_IS_UPGRADE)) {
         APPEND_CONSTANT("\r\nConnection: Upgrade");
-
-        /* Lie that the Expires header has ben overriden just so that we
-         * don't send them when performing a websockets handhsake.  */
-        overrides |= OVERRIDE_EXPIRES;
     } else {
         if (!(conn_flags & CONN_SENT_CONNECTION_HEADER)) {
             if (LIKELY(conn_flags & CONN_IS_KEEP_ALIVE))
@@ -321,14 +320,8 @@ skip_additional_headers:
             APPEND_CONSTANT("\r\nContent-Type: ");
             APPEND_STRING(request->response.mime_type);
         }
-    }
 
-    if (UNLIKELY(overrides)) {
-        if (overrides & OVERRIDE_DATE) {
-            APPEND_CONSTANT("\r\nDate: ");
-            APPEND_STRING_LEN(request->conn->thread->date.date, 29);
-        }
-        if (overrides & OVERRIDE_EXPIRES) {
+        if (!expires_override) {
             APPEND_CONSTANT("\r\nExpires: ");
             APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
         }
