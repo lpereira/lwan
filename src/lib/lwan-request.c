@@ -757,10 +757,12 @@ out:
     if (LIKELY(!(request->flags & REQUEST_IS_HTTP_1_0)))
         has_keep_alive = !has_close;
 
-    if (has_keep_alive)
+    if (has_keep_alive) {
         request->conn->flags |= CONN_IS_KEEP_ALIVE;
-    else
-        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+    } else {
+        request->conn->flags &=
+            ~(CONN_IS_KEEP_ALIVE | CONN_SENT_CONNECTION_HEADER);
+    }
 }
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)

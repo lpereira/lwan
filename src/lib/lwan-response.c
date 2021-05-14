@@ -231,22 +231,24 @@ size_t lwan_prepare_response_header_full(
     char buffer[INT_TO_STR_BUFFER_SIZE];
     bool date_overridden = false;
     bool expires_overridden = false;
+    const enum lwan_request_flags request_flags = request->flags;
+    const enum lwan_connection_flags conn_flags = request->conn->flags;
 
     assert(request->global_response_headers);
 
     p_headers = headers;
 
-    if (UNLIKELY(request->flags & REQUEST_IS_HTTP_1_0))
+    if (UNLIKELY(request_flags & REQUEST_IS_HTTP_1_0))
         APPEND_CONSTANT("HTTP/1.0 ");
     else
         APPEND_CONSTANT("HTTP/1.1 ");
     APPEND_STRING(lwan_http_status_as_string_with_code(status));
 
-    if (UNLIKELY(request->flags & RESPONSE_CHUNKED_ENCODING)) {
+    if (UNLIKELY(request_flags & RESPONSE_CHUNKED_ENCODING)) {
         APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
-    } else if (UNLIKELY(request->flags & RESPONSE_NO_CONTENT_LENGTH)) {
+    } else if (UNLIKELY(request_flags & RESPONSE_NO_CONTENT_LENGTH)) {
         /* Do nothing. */
-    } else if (!(request->flags & RESPONSE_STREAM)) {
+    } else if (!(request_flags & RESPONSE_STREAM)) {
         APPEND_CONSTANT("\r\nContent-Length: ");
         APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
     }
@@ -290,17 +292,19 @@ size_t lwan_prepare_response_header_full(
         }
     }
 
-    if (UNLIKELY(request->conn->flags & CONN_IS_UPGRADE)) {
+    if (UNLIKELY(conn_flags & CONN_IS_UPGRADE)) {
         APPEND_CONSTANT("\r\nConnection: Upgrade");
 
         /* Lie that the Expires header has ben overriden just so that we
          * don't send them when performing a websockets handhsake.  */
         expires_overridden = true;
     } else {
-        if (LIKELY(request->conn->flags & CONN_IS_KEEP_ALIVE)) {
-            APPEND_CONSTANT("\r\nConnection: keep-alive");
-        } else {
-            APPEND_CONSTANT("\r\nConnection: close");
+        if (!(conn_flags & CONN_SENT_CONNECTION_HEADER)) {
+            if (LIKELY(conn_flags & CONN_IS_KEEP_ALIVE))
+                APPEND_CONSTANT("\r\nConnection: keep-alive");
+            else
+                APPEND_CONSTANT("\r\nConnection: close");
+            request->conn->flags |= CONN_SENT_CONNECTION_HEADER;
         }
 
         if (LIKELY(request->response.mime_type)) {
@@ -319,7 +323,7 @@ size_t lwan_prepare_response_header_full(
         APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
     }
 
-    if (UNLIKELY(request->flags & REQUEST_ALLOW_CORS)) {
+    if (UNLIKELY(request_flags & REQUEST_ALLOW_CORS)) {
         APPEND_CONSTANT(
             "\r\nAccess-Control-Allow-Origin: *"
             "\r\nAccess-Control-Allow-Methods: GET, POST, PUT, OPTIONS"

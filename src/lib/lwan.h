@@ -281,6 +281,8 @@ enum lwan_connection_flags {
      * which epoll operation to use when suspending/resuming (ADD/MOD). Reset
      * whenever associated client connection is closed. */
     CONN_ASYNC_AWAIT = 1 << 8,
+
+    CONN_SENT_CONNECTION_HEADER = 1 << 9,
 };
 
 enum lwan_connection_coro_yield {
