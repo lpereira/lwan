@@ -243,7 +243,7 @@ size_t lwan_prepare_response_header_full(
     const enum lwan_request_flags request_flags = request->flags;
     const enum lwan_connection_flags conn_flags = request->conn->flags;
     bool date_override = false;
-    bool expires_override = false;
+    bool expires_override = !!(request->flags & RESPONSE_NO_EXPIRES);
 
     assert(request->global_response_headers);
 

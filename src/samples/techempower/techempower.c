@@ -188,6 +188,8 @@ LWAN_HANDLER(json)
 {
     struct hello_world_json j = {.message = hello_world};
 
+    request->flags |= RESPONSE_NO_EXPIRES;
+
     return json_response_obj(response, hello_world_json_desc,
                              N_ELEMENTS(hello_world_json_desc), &j);
 }
@@ -232,6 +234,8 @@ LWAN_HANDLER(db)
     if (!queried)
         return HTTP_INTERNAL_ERROR;
 
+    request->flags |= RESPONSE_NO_EXPIRES;
+
     return json_response_obj(response, db_json_desc, N_ELEMENTS(db_json_desc),
                          &db_json);
 }
@@ -262,8 +266,9 @@ LWAN_HANDLER(queries)
      * so this is a good approximation.  */
     lwan_strbuf_grow_to(response->buffer, (size_t)(32l * queries));
 
-    ret = json_response_arr(response, &queries_array_desc, &qj);
+    request->flags |= RESPONSE_NO_EXPIRES;
 
+    ret = json_response_arr(response, &queries_array_desc, &qj);
 out:
     db_stmt_finalize(stmt);
 
@@ -370,6 +375,7 @@ LWAN_HANDLER(cached_queries)
      * so this is a good approximation.  */
     lwan_strbuf_grow_to(response->buffer, (size_t)(32l * queries));
 
+    request->flags |= RESPONSE_NO_EXPIRES;
     return json_response_arr(response, &queries_array_desc, &qj);
 }
 
@@ -378,6 +384,7 @@ LWAN_HANDLER(plaintext)
     lwan_strbuf_set_static(response->buffer, hello_world,
                            sizeof(hello_world) - 1);
 
+    request->flags |= RESPONSE_NO_EXPIRES;
     response->mime_type = "text/plain";
     return HTTP_OK;
 }
@@ -461,6 +468,7 @@ LWAN_HANDLER(fortunes)
                                              &fortune)))
         return HTTP_INTERNAL_ERROR;
 
+    request->flags |= RESPONSE_NO_EXPIRES;
     response->mime_type = "text/html; charset=UTF-8";
     return HTTP_OK;
 }
