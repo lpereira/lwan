@@ -262,7 +262,7 @@ size_t lwan_prepare_response_header_full(
     if (!additional_headers)
         goto skip_additional_headers;
 
-    if (LIKELY((status < HTTP_BAD_REQUEST))) {
+    if (LIKELY((status < HTTP_CLASS__CLIENT_ERROR))) {
         const struct lwan_key_value *header;
 
         for (header = additional_headers; header->key; header++) {
