@@ -27,7 +27,7 @@
     ({                                                                         \
         char *strndupa_tmp_s = alloca(l + 1);                                  \
         strndupa_tmp_s[l] = '\0';                                              \
-        memcpy(strndupa_tmp_s, s, l);                                          \
+        strncpy(strndupa_tmp_s, s, l);                                          \
     })
 
 #ifndef strndupa
