@@ -160,10 +160,19 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 static void discard_frame(struct lwan_request *request, uint16_t header)
 {
     size_t len = get_frame_length(request, header);
+#if defined(__linux__)
+    /* MSG_TRUNC for TCP sockets is only supported the way we need here
+     * on Linux. */
+    int flags = MSG_TRUNC;
+#else
+    /* On other OSes, we need to actually read into the buffer in order
+     * to discard the data. */
+    int flags = 0;
+#endif
 
     for (char buffer[1024]; len;) {
         const size_t to_read = LWAN_MIN(len, sizeof(buffer));
-        len -= (size_t)lwan_recv(request, buffer, to_read, MSG_TRUNC);
+        len -= (size_t)lwan_recv(request, buffer, to_read, flags);
     }
 }
 
