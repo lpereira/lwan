@@ -588,10 +588,8 @@ static void *thread_io_loop(void *data)
             timeout_queue_move_to_last(&tq, conn);
         }
 
-        if (accepted_connections) {
+        if (accepted_connections)
             timeouts_add(t->wheel, &tq.timeout, 1000);
-            accepted_connections = false;
-        }
     }
 
     pthread_barrier_wait(&lwan->thread.barrier);
