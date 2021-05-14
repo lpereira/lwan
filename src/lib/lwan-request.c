@@ -1831,7 +1831,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
     lwan_request_get_if_modified_since(&request, &trash2);
     LWAN_NO_DISCARD(trash2);
 
-    enum lwan_http_response handshake =
+    enum lwan_http_status handshake =
         prepare_websocket_handshake(&request, &trash3);
     LWAN_NO_DISCARD(trash3);
     if (handshake == HTTP_SWITCHING_PROTOCOLS)
