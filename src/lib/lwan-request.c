@@ -825,7 +825,7 @@ client_read(struct lwan_request *request,
 
         if (__builtin_sub_overflow(buffer->len, next_request_len, &new_len)) {
             helper->next_request = NULL;
-        } else {
+        } else if (new_len) {
             /* FIXME: This memmove() could be eventually removed if a better
              * stucture (maybe a ringbuffer, reading with readv(), and each
              * pointer is coro_strdup() if they wrap around?) were used for
