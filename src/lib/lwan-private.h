@@ -148,6 +148,9 @@ static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
     number |= number >> 4;
     number |= number >> 8;
     number |= number >> 16;
+#if __SIZE_WIDTH__ == 64
+    number |= number >> 32;
+#endif
 
     return number + 1;
 }
