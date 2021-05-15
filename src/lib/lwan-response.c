@@ -216,13 +216,15 @@ void lwan_default_response(struct lwan_request *request,
 #define APPEND_CONSTANT(const_str_)                                            \
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
-static ALWAYS_INLINE bool has_content_length(enum lwan_request_flags v)
+static ALWAYS_INLINE __attribute__((const)) bool
+has_content_length(enum lwan_request_flags v)
 {
     return !(v & (RESPONSE_NO_CONTENT_LENGTH | RESPONSE_STREAM |
                   RESPONSE_CHUNKED_ENCODING));
 }
 
-static ALWAYS_INLINE bool has_uncommon_response_headers(enum lwan_request_flags v)
+static ALWAYS_INLINE __attribute__((const)) bool
+has_uncommon_response_headers(enum lwan_request_flags v)
 {
     return v & (REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
 }
@@ -242,7 +244,6 @@ size_t lwan_prepare_response_header_full(
     char buffer[INT_TO_STR_BUFFER_SIZE];
     const enum lwan_request_flags request_flags = request->flags;
     const enum lwan_connection_flags conn_flags = request->conn->flags;
-    bool date_override = false;
     bool expires_override = !!(request->flags & RESPONSE_NO_EXPIRES);
 
     assert(request->global_response_headers);
@@ -260,6 +261,7 @@ size_t lwan_prepare_response_header_full(
 
     if (LIKELY((status < HTTP_CLASS__CLIENT_ERROR))) {
         const struct lwan_key_value *header;
+        bool date_override = false;
 
         for (header = additional_headers; header->key; header++) {
             STRING_SWITCH_L (header->key) {
@@ -330,7 +332,8 @@ skip_date_header:
     if (LIKELY(has_content_length(request_flags))) {
         APPEND_CONSTANT("\r\nContent-Length: ");
         APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
-    } else if (UNLIKELY(has_uncommon_response_headers(request_flags))) {
+    }
+    if (UNLIKELY(has_uncommon_response_headers(request_flags))) {
         if (request_flags & REQUEST_ALLOW_CORS) {
             APPEND_CONSTANT(
                 "\r\nAccess-Control-Allow-Origin: *"
@@ -339,8 +342,10 @@ skip_date_header:
                 "\r\nAccess-Control-Allow-Headers: Origin, Accept, "
                 "Content-Type");
         }
-        if (request_flags & RESPONSE_CHUNKED_ENCODING)
+        if (request_flags & RESPONSE_CHUNKED_ENCODING &&
+            !has_content_length(request_flags)) {
             APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
+        }
     }
 
     APPEND_STRING_LEN(lwan_strbuf_get_buffer(request->global_response_headers),
