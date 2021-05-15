@@ -1638,6 +1638,15 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
 {
     struct lwan_connection *conn = request->conn;
     struct timeouts *wheel = conn->thread->wheel;
+    struct timespec now;
+
+    /* We need to update the timer wheel right now because
+     * a request might have requested to sleep a long time
+     * before it was being serviced -- causing the timeout
+     * to essentially be a no-op. */
+    if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
+        lwan_status_critical("Could not get monotonic time");
+    timeouts_update(wheel, (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
 
     request->timeout = (struct timeout) {};
     timeouts_add(wheel, &request->timeout, ms);

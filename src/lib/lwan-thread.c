@@ -313,7 +313,7 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
-static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
+static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
                                      struct coro_switcher *switcher,
                                      struct timeout_queue *tq)
 {
@@ -334,7 +334,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
     };
     if (LIKELY(conn->coro)) {
         timeout_queue_insert(tq, conn);
-        return;
+        return true;
     }
 
     /* FIXME: send a "busy" response to this client? we don't have a coroutine
@@ -346,6 +346,7 @@ static ALWAYS_INLINE void spawn_coro(struct lwan_connection *conn,
     int fd = lwan_connection_get_fd(tq->lwan, conn);
     shutdown(fd, SHUT_RDWR);
     close(fd);
+    return false;
 }
 
 static bool process_pending_timers(struct timeout_queue *tq,
@@ -580,8 +581,8 @@ static void *thread_io_loop(void *data)
             }
 
             if (!conn->coro) {
-                spawn_coro(conn, &switcher, &tq);
-                continue;
+                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq)))
+                    continue;
             }
 
             resume_coro(&tq, conn, epoll_fd);
