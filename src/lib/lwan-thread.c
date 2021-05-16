@@ -368,6 +368,8 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 
     int fd = lwan_connection_get_fd(tq->lwan, conn);
 
+    lwan_status_error("Couldn't spawn coroutine for file descriptor %d", fd);
+
     if (!send_string_without_coro(fd, "HTTP/1.0 503 Unavailable"))
         goto out;
     if (!send_string_without_coro(fd, "\r\nConnection: close"))
