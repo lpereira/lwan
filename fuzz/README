@@ -1,6 +1,2 @@
-This directory contains files that managed to crash something in Lwan
-after being fuzzed.  They have been committed alongside the fix, so
-it's easier to find them with git blame.
-
 `http.dict' has been copied from the h2o web server project:
 https://github.com/h2o/h2o/blob/c14554e7/fuzz/http.dict

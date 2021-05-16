@@ -972,7 +972,7 @@ class TestFuzzRegressionBase(SocketTest):
 
   @staticmethod
   def wrap(name):
-    with open(os.path.join("fuzz", name), "rb") as f:
+    with open(os.path.join("fuzz", "regression", name), "rb") as f:
       contents = str(f.read(), "latin-1")
     def run_test_wrapped(self):
       return self.run_test(contents)
@@ -981,7 +981,7 @@ class TestFuzzRegressionBase(SocketTest):
 TestFuzzRegression = type('TestFuzzRegression', (TestFuzzRegressionBase,), {
   "test_" + name.replace("-", "_"): TestFuzzRegressionBase.wrap(name)
   for name in (
-    cf for cf in os.listdir("fuzz") if cf.startswith(("clusterfuzz-", "crash-"))
+    cf for cf in os.listdir("fuzz/regression") if cf.startswith(("clusterfuzz-", "crash-"))
   )
 })
 
