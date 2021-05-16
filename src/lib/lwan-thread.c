@@ -363,13 +363,16 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
         timeout_queue_insert(tq, conn);
         return true;
     }
+
     conn->flags = 0;
 
     int fd = lwan_connection_get_fd(tq->lwan, conn);
 
-    if (!send_string_without_coro(fd, "HTTP/1.0 503 Unavailable\r\n"))
+    if (!send_string_without_coro(fd, "HTTP/1.0 503 Unavailable"))
         goto out;
-    if (!send_string_without_coro(fd, "Connection: close"))
+    if (!send_string_without_coro(fd, "\r\nConnection: close"))
+        goto out;
+    if (!send_string_without_coro(fd, "\r\nContent-Type: text/html"))
         goto out;
     if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&tq->lwan->headers),
                                  lwan_strbuf_get_length(&tq->lwan->headers))) {
