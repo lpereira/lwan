@@ -1,0 +1,5 @@
+This directory contains some inputs that crashed Lwan previously,
+but for reasons I can't investigate right now, are hanging the
+test harness.
+
+They're still kept here for future investigations.
