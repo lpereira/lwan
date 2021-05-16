@@ -45,6 +45,7 @@
 #include "lwan-io-wrappers.h"
 #include "sha1.h"
 
+#define HEADER_VALUE_SEPARATOR_LEN (sizeof(": ") - 1)
 #define HEADER_TERMINATOR_LEN (sizeof("\r\n") - 1)
 #define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
 
@@ -1550,25 +1551,24 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
 const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
 {
-    char name[64];
-    int r;
+    const size_t header_len = strlen(header);
+    const size_t header_len_with_separator = header_len + HEADER_VALUE_SEPARATOR_LEN;
 
     assert(strchr(header, ':') == NULL);
-
-    r = snprintf(name, sizeof(name), "%s: ", header);
-    if (UNLIKELY(r < 0 || r >= (int)sizeof(name)))
-        return NULL;
 
     for (size_t i = 0; i < request->helper->n_header_start; i++) {
         const char *start = request->helper->header_start[i];
         char *end = request->helper->header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
-        if (UNLIKELY(end - start < r))
+        if (UNLIKELY((size_t)(end - start) < header_len_with_separator))
             continue;
 
-        if (!strncasecmp(start, name, (size_t)r)) {
+        if (strncmp(start + header_len, ": ", HEADER_VALUE_SEPARATOR_LEN))
+            continue;
+
+        if (!strncasecmp(start, header, header_len)) {
             *end = '\0';
-            return start + r;
+            return start + header_len_with_separator;
         }
     }
 
