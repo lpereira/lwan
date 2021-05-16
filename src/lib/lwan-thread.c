@@ -313,6 +313,33 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
+static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len)
+{
+    size_t total_sent = 0;
+
+    for (int try = 0; try < 10; try++) {
+        size_t to_send = buf_len - total_sent;
+        if (!to_send)
+            return true;
+
+        ssize_t sent = write(fd, buf + total_sent, to_send);
+        if (sent <= 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+
+        total_sent += (size_t)sent;
+    }
+
+    return false;
+}
+
+static bool send_string_without_coro(int fd, const char *str)
+{
+    return send_buffer_without_coro(fd, str, strlen(str));
+}
+
 static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
                                      struct coro_switcher *switcher,
                                      struct timeout_queue *tq)
@@ -326,7 +353,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
     assert((uintptr_t)t <
            (uintptr_t)(tq->lwan->thread.threads + tq->lwan->thread.count));
 
-    *conn = (struct lwan_connection) {
+    *conn = (struct lwan_connection){
         .coro = coro_new(switcher, process_request_coro, conn),
         .flags = CONN_EVENTS_READ,
         .time_to_expire = tq->current_time + tq->move_to_last_bump,
@@ -336,14 +363,28 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
         timeout_queue_insert(tq, conn);
         return true;
     }
-
-    /* FIXME: send a "busy" response to this client? we don't have a coroutine
-     * at this point, can't use lwan_send() here */
-    lwan_status_error("Could not create coroutine, dropping connection");
-
     conn->flags = 0;
 
     int fd = lwan_connection_get_fd(tq->lwan, conn);
+
+    if (!send_string_without_coro(fd, "HTTP/1.0 503 Unavailable\r\n"))
+        goto out;
+    if (!send_string_without_coro(fd, "Connection: close"))
+        goto out;
+    if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&tq->lwan->headers),
+                                 lwan_strbuf_get_length(&tq->lwan->headers))) {
+        struct lwan_strbuf buffer;
+
+        lwan_strbuf_init(&buffer);
+        lwan_fill_default_response(&buffer, HTTP_UNAVAILABLE);
+
+        send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&buffer),
+                                 lwan_strbuf_get_length(&buffer));
+
+        lwan_strbuf_free(&buffer);
+    }
+
+out:
     shutdown(fd, SHUT_RDWR);
     close(fd);
     return false;

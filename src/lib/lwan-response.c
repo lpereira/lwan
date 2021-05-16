@@ -166,18 +166,23 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     return (void)lwan_writev(request, response_vec, N_ELEMENTS(response_vec));
 }
 
+void lwan_fill_default_response(struct lwan_strbuf *buffer,
+                                enum lwan_http_status status)
+{
+    lwan_tpl_apply_with_buffer(
+        error_template, buffer,
+        &(struct error_template){
+            .short_message = lwan_http_status_as_string(status),
+            .long_message = lwan_http_status_as_descriptive_string(status),
+        });
+}
+
 void lwan_default_response(struct lwan_request *request,
                            enum lwan_http_status status)
 {
     request->response.mime_type = "text/html";
 
-    lwan_tpl_apply_with_buffer(
-        error_template, request->response.buffer,
-        &(struct error_template){
-            .short_message = lwan_http_status_as_string(status),
-            .long_message = lwan_http_status_as_descriptive_string(status),
-        });
-
+    lwan_fill_default_response(request->response.buffer, status);
     lwan_response(request, status);
 }
 
