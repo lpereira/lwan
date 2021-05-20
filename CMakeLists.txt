@@ -98,6 +98,16 @@ if (USE_ALTERNATIVE_MALLOC)
 	endif ()
 endif ()
 
+###
+# syslog
+option(USE_SYSLOG "Enable syslog" "OFF")
+if (${USE_SYSLOG} STREQUAL "ON" AND HAVE_SYSLOG_FUNC)
+    set(HAVE_SYSLOG 1)
+endif ()
+if (HAVE_SYSLOG)
+    message(STATUS "Using syslog/rsyslog for logging.")
+endif ()
+
 #
 # Look for C library functions
 #
@@ -111,6 +121,7 @@ set(CMAKE_EXTRA_INCLUDE_FILES
 	time.h
 	unistd.h
 	dlfcn.h
+	syslog.h
 )
 check_include_file(linux/capability.h HAVE_LINUX_CAPABILITY)
 check_include_file(sys/auxv.h HAVE_SYS_AUXV)
@@ -151,6 +162,7 @@ check_function_exists(fwrite_unlocked HAVE_FWRITE_UNLOCKED)
 check_function_exists(gettid HAVE_GETTID)
 check_function_exists(secure_getenv HAVE_SECURE_GETENV)
 check_function_exists(statfs HAVE_STATFS)
+check_function_exists(syslog HAVE_SYSLOG_FUNC)
 
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,

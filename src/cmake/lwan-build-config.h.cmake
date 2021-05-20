@@ -46,6 +46,7 @@
 #cmakedefine HAVE_STATFS
 #cmakedefine HAVE_SO_ATTACH_REUSEPORT_CBPF
 #cmakedefine HAVE_SO_INCOMING_CPU
+#cmakedefine HAVE_SYSLOG
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine HAVE_BUILTIN_CLZLL
