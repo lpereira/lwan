@@ -1450,19 +1450,50 @@ static const char *get_request_method(struct lwan_request *request)
 }
 
 static void log_request(struct lwan_request *request,
-                        enum lwan_http_status status)
+                        enum lwan_http_status status,
+                        double duration)
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s",
+    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s %.3f ms",
                       lwan_request_get_remote_address(request, ip_buffer),
                       request->conn->thread->date.date,
                       get_request_method(request), request->original_url.value,
                       request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
-                      status, request->response.mime_type);
+                      status, request->response.mime_type, duration);
 }
 #else
 #define log_request(...)
+#endif
+
+#ifndef NDEBUG
+static struct timespec current_precise_monotonic_timespec(void)
+{
+    struct timespec now;
+
+    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0)) {
+        lwan_status_perror("clock_gettime");
+        return (struct timespec){};
+    }
+
+    return now;
+}
+
+static double elapsed_time_ms(const struct timespec then)
+{
+    const struct timespec now = current_precise_monotonic_timespec();
+    struct timespec diff = {
+        .tv_sec = now.tv_sec - then.tv_sec,
+        .tv_nsec = now.tv_nsec - then.tv_nsec,
+    };
+
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec--;
+        diff.tv_nsec += 1000000000l;
+    }
+
+    return (double)diff.tv_sec / 1000.0 + (double)diff.tv_nsec / 1000000.0;
+}
 #endif
 
 void lwan_process_request(struct lwan *l, struct lwan_request *request)
@@ -1471,6 +1502,10 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
     struct lwan_url_map *url_map;
 
     status = read_request(request);
+
+#ifndef NDEBUG
+    struct timespec request_begin_time = current_precise_monotonic_timespec();
+#endif
     if (UNLIKELY(status != HTTP_OK)) {
         /* If read_request() returns any error at this point, it's probably
          * better to just send an error response and abort the coroutine and
@@ -1508,9 +1543,9 @@ lookup_again:
     }
 
 log_and_return:
-    log_request(request, status);
+    lwan_response(request, status);
 
-    return (void)lwan_response(request, status);
+    log_request(request, status, elapsed_time_ms(request_begin_time));
 }
 
 static inline void *
