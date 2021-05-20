@@ -338,7 +338,7 @@ static int luaopen_log(lua_State *L)
         { NULL, NULL },
     };
 
-        luaL_newmetatable(L, metatable_name);
+    luaL_newmetatable(L, metatable_name);
     luaL_register(L, metatable_name, functions);
 
     return 0;

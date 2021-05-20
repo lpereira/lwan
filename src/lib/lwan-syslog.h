@@ -29,10 +29,10 @@ void lwan_syslog_status_out(
     const char *file,
     const int line,
     const char *func,
-	const long tid,
+    const long tid,
 #endif
     enum lwan_status_type type,
-	int saved_errno,
+    int saved_errno,
     const char *fmt,
     va_list values);
 
