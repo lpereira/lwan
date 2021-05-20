@@ -310,6 +310,43 @@ LWAN_LUA_METHOD(sleep)
     return 0;
 }
 
+#define IMPLEMENT_LOG_FUNCTION(name)                              \
+  static int lwan_lua_log_##name(lua_State *L)                    \
+  {                                                               \
+      size_t log_str_len = 0;                                     \
+      const char *log_str = lua_tolstring(L, -1, &log_str_len);   \
+      if (log_str_len) {                                          \
+          lwan_status_##name("%s", log_str);                      \
+      }                                                           \
+      return 0;                                                   \
+  }
+#define SET_LOG_FUNCTION(name) { #name, lwan_lua_log_##name },
+
+IMPLEMENT_LOG_FUNCTION(info)
+IMPLEMENT_LOG_FUNCTION(warning)
+IMPLEMENT_LOG_FUNCTION(error)
+IMPLEMENT_LOG_FUNCTION(critical)
+
+static int luaopen_log(lua_State *L)
+{
+    static const char *metatable_name = "Lwan.log";
+    static const struct luaL_Reg functions[] = {
+        SET_LOG_FUNCTION(info)
+        SET_LOG_FUNCTION(warning)
+        SET_LOG_FUNCTION(error)
+        SET_LOG_FUNCTION(critical)
+        { NULL, NULL },
+    };
+
+        luaL_newmetatable(L, metatable_name);
+    luaL_register(L, metatable_name, functions);
+
+    return 0;
+}
+
+#undef SET_LOG_FUNCTION
+#undef IMPLEMENT_LOG_FUNCTION
+
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
 static struct lwan_lua_method_array lua_methods;
 
@@ -353,6 +390,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
         return NULL;
 
     luaL_openlibs(L);
+    luaopen_log(L);
 
     luaL_newmetatable(L, request_metatable_name);
     luaL_register(L, NULL, lwan_lua_method_array_get_array(&lua_methods));
