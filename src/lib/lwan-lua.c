@@ -93,6 +93,20 @@ static int request_param_getter(lua_State *L,
     return 1;
 }
 
+LWAN_LUA_METHOD(request_date)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushstring(L, request->conn->thread->date.date);
+    return 1;
+}
+
+LWAN_LUA_METHOD(request_id)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushfstring(L, "%08x", request->id);
+    return 1;
+}
+
 LWAN_LUA_METHOD(remote_address)
 {
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);

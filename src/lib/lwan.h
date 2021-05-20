@@ -368,6 +368,7 @@ struct lwan_request {
     const struct lwan_strbuf *const global_response_headers;
     struct lwan_proxy *proxy;
 
+    unsigned int id;
     struct timeout timeout;
 
     struct lwan_request_parser_helper *helper;

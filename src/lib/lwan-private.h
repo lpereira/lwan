@@ -222,3 +222,21 @@ static ALWAYS_INLINE int lwan_calculate_n_packets(size_t total)
      * after ~2x number of expected packets to fully read the request body.*/
     return LWAN_MAX(5, (int)(total / 740));
 }
+
+static ALWAYS_INLINE int64_t lwan_get_time(void)
+{
+    struct timespec now;
+
+    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0)) {
+        lwan_status_perror("clock_gettime");
+        return 0;
+    }
+
+    return (int64_t)now.tv_sec * 1000000 + now.tv_nsec / 1000;
+}
+
+static ALWAYS_INLINE unsigned int lwan_get_request_id()
+{
+    srand((unsigned int)lwan_get_time());
+    return (0x1000000 + (unsigned)rand() % 0xffffffff);
+}
