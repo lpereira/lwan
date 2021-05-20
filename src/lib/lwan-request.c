@@ -1450,16 +1450,17 @@ static const char *get_request_method(struct lwan_request *request)
 }
 
 static void log_request(struct lwan_request *request,
-                        enum lwan_http_status status)
+                        enum lwan_http_status status,
+                        int64_t duration)
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s",
+    lwan_status_debug("%s [%s] \"%s %s HTTP/%s\" %d %s %.3f ms",
                       lwan_request_get_remote_address(request, ip_buffer),
                       request->conn->thread->date.date,
                       get_request_method(request), request->original_url.value,
                       request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
-                      status, request->response.mime_type);
+                      status, request->response.mime_type,  (double)duration / 1000.0);
 }
 #else
 #define log_request(...)
@@ -1471,6 +1472,10 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
     struct lwan_url_map *url_map;
 
     status = read_request(request);
+
+#ifndef NDEBUG
+    int64_t begin = lwan_get_time();
+#endif
     if (UNLIKELY(status != HTTP_OK)) {
         /* If read_request() returns any error at this point, it's probably
          * better to just send an error response and abort the coroutine and
@@ -1508,9 +1513,9 @@ lookup_again:
     }
 
 log_and_return:
-    log_request(request, status);
+    lwan_response(request, status);
 
-    return (void)lwan_response(request, status);
+    log_request(request, status, lwan_get_time() - begin);
 }
 
 static inline void *
