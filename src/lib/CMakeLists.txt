@@ -25,6 +25,7 @@ set(SOURCES
 	lwan-response.c
 	lwan-socket.c
 	lwan-status.c
+	lwan-syslog.c
 	lwan-straitjacket.c
 	lwan-strbuf.c
 	lwan-tables.c

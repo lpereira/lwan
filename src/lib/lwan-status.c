@@ -30,17 +30,9 @@
 #include <unistd.h>
 
 #include "lwan-private.h"
+#include "lwan-status.h"
 
-enum lwan_status_type {
-    STATUS_INFO = 0,
-    STATUS_WARNING = 1,
-    STATUS_ERROR = 2,
-    STATUS_DEBUG = 3,
-    STATUS_PERROR = 4,
-    STATUS_NONE = 5,
-    /* [6,7] are unused so that CRITICAL can be ORed with previous items */
-    STATUS_CRITICAL = 8,
-};
+#include "lwan-syslog.h"
 
 static volatile bool quiet = false;
 static bool use_colors;
@@ -147,6 +139,12 @@ static void status_out(
     struct lwan_value start = start_color(type);
     struct lwan_value end = end_color();
     int saved_errno = errno;
+
+#ifndef NDEBUG
+    lwan_syslog_status_out(file, line, func, gettid_cached(), type, saved_errno, fmt, values);
+#else
+    lwan_syslog_status_out(type, saved_errno, fmt, values);
+#endif
 
     flockfile(stdout);
 
