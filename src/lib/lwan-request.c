@@ -843,7 +843,7 @@ client_read(struct lwan_request *request,
         if (UNLIKELY(to_read == 0))
             return HTTP_TOO_LARGE;
 
-        ssize_t n = read(request->fd, buffer->value + buffer->len, to_read);
+        ssize_t n = recv(request->fd, buffer->value + buffer->len, to_read, 0);
         if (UNLIKELY(n <= 0)) {
             if (n < 0) {
                 switch (errno) {

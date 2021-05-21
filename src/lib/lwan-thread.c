@@ -71,7 +71,7 @@ static void graceful_close(struct lwan *l,
     }
 
     for (int tries = 0; tries < 20; tries++) {
-        ssize_t r = read(fd, buffer, DEFAULT_BUFFER_SIZE);
+        ssize_t r = recv(fd, buffer, DEFAULT_BUFFER_SIZE, 0);
 
         if (!r)
             break;
