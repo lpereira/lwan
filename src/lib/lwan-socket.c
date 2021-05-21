@@ -65,13 +65,9 @@ static bool is_reno_supported(void)
 }
 #endif
 
-int lwan_socket_get_backlog_size(void)
+static int backlog_size;
+static void init_backlog_size(void)
 {
-    static int backlog = 0;
-
-    if (backlog)
-        return backlog;
-
 #ifdef __linux__
     FILE *somaxconn;
 
@@ -79,15 +75,20 @@ int lwan_socket_get_backlog_size(void)
     if (somaxconn) {
         int tmp;
         if (fscanf(somaxconn, "%d", &tmp) == 1)
-            backlog = tmp;
+            backlog_size = tmp;
         fclose(somaxconn);
     }
 #endif
 
-    if (!backlog)
-        backlog = SOMAXCONN;
+    if (!backlog_size)
+        backlog_size = SOMAXCONN;
+}
 
-    return backlog;
+int lwan_socket_get_backlog_size(void)
+{
+    static pthread_once_t backlog_size_once = PTHREAD_ONCE_INIT;
+    pthread_once(&backlog_size_once, init_backlog_size);
+    return backlog_size;
 }
 
 static int set_socket_flags(int fd)
