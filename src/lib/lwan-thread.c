@@ -795,18 +795,15 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 }
 
 static void
-adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t mask)
+adjust_thread_affinity(const struct lwan_thread *thread)
 {
-    for (uint32_t i = 0; i < l->thread.count; i++) {
-        cpu_set_t set;
+    cpu_set_t set;
 
-        CPU_ZERO(&set);
-        CPU_SET(schedtbl[i & mask], &set);
+    CPU_ZERO(&set);
+    CPU_SET(thread->cpu, &set);
 
-        if (pthread_setaffinity_np(l->thread.threads[i].self, sizeof(set),
-                                   &set))
-            lwan_status_warning("Could not set affinity for thread %d", i);
-    }
+    if (pthread_setaffinity_np(thread->self, sizeof(set), &set))
+        lwan_status_warning("Could not set thread affinity");
 }
 #elif defined(__x86_64__)
 static bool
@@ -818,8 +815,9 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 }
 
 static void
-adjust_threads_affinity(struct lwan *l, uint32_t *schedtbl, uint32_t n)
+adjust_thread_affinity(const struct lwan_thread *thread)
 {
+    (void)thread;
 }
 #endif
 
@@ -862,13 +860,6 @@ void lwan_thread_init(struct lwan *l)
 
     n_threads--; /* Transform count into mask for AND below */
 
-    if (adj_affinity) {
-        /* Save which CPU this tread will be pinned at so we can use
-         * SO_INCOMING_CPU later.  */
-        for (unsigned int i = 0; i < l->thread.count; i++)
-            l->thread.threads[i].cpu = schedtbl[i & n_threads];
-    }
-
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
 #else
@@ -876,7 +867,9 @@ void lwan_thread_init(struct lwan *l)
         l->thread.threads[i].cpu = i % l->online_cpus;
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[i % l->thread.count];
+
     uint32_t *schedtbl = NULL;
+    const bool adj_affinity = false;
 #endif
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
@@ -894,9 +887,11 @@ void lwan_thread_init(struct lwan *l)
                     break;
                 }
             }
-            if (!thread)
+            if (!thread) {
+                /* FIXME: can this happen when we have a offline CPU? */
                 lwan_status_critical(
                     "Could not figure out which CPU thread %d should go to", i);
+            }
         } else {
             thread = &l->thread.threads[i % l->thread.count];
         }
@@ -909,13 +904,13 @@ void lwan_thread_init(struct lwan *l)
         if ((thread->listen_fd = create_listen_socket(thread, i)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
 
+        if (adj_affinity) {
+            l->thread.threads[i].cpu = schedtbl[i & n_threads];
+            adjust_thread_affinity(thread);
+        }
+
         pthread_barrier_wait(&l->thread.barrier);
     }
-
-#ifdef __x86_64__
-    if (adj_affinity)
-        adjust_threads_affinity(l, schedtbl, n_threads);
-#endif
 
     lwan_status_debug("Worker threads created and ready to serve");
 }
