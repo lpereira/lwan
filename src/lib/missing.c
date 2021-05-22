@@ -613,25 +613,11 @@ int statfs(const char *path, struct statfs *buf)
 }
 #endif
 
-#if defined(SYS_getrandom)
-long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
+static int lwan_getentropy_fallback(void *buffer, size_t buffer_len)
 {
-    return syscall(SYS_getrandom, buffer, buffer_len, flags);
-}
-#elif defined(HAVE_GETENTROPY)
-long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
-{
-    (void)flags;
-    if (!getentropy(buffer, buffer_len))
-        return buffer_len;
-    return -1;
-}
-#else
-long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
-{
-    (void)flags;
+    int fd;
 
-    int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
+    fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
     if (fd < 0) {
         fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
         if (fd < 0)
@@ -641,5 +627,32 @@ long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
     close(fd);
 
     return total_read == (ssize_t)buffer_len ? 0 : -1;
+}
+
+#if defined(SYS_getrandom)
+long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
+{
+    long r = syscall(SYS_getrandom, buffer, buffer_len, flags);
+
+    if (r < 0)
+        return lwan_getentropy_fallback(buffer, buffer_len);
+
+    return r;
+}
+#elif defined(HAVE_GETENTROPY)
+long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
+{
+    (void)flags;
+
+    if (!getentropy(buffer, buffer_len))
+        return buffer_len;
+
+    return lwan_getentropy_fallback(buffer, buffer_len);
+}
+#else
+long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
+{
+    (void)flags;
+    return lwan_getentropy_fallback(buffer, buffer_len);
 }
 #endif
