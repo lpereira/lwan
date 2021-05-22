@@ -1474,7 +1474,7 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
     status = read_request(request);
 
 #ifndef NDEBUG
-    int64_t begin = lwan_get_time();
+    int64_t request_start_time = lwan_get_monotonic_precise_time();
 #endif
     if (UNLIKELY(status != HTTP_OK)) {
         /* If read_request() returns any error at this point, it's probably
@@ -1515,7 +1515,7 @@ lookup_again:
 log_and_return:
     lwan_response(request, status);
 
-    log_request(request, status, lwan_get_time() - begin);
+    log_request(request, status, lwan_get_monotonic_precise_time() - request_start_time);
 }
 
 static inline void *

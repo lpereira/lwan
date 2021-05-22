@@ -316,7 +316,7 @@ LWAN_LUA_METHOD(sleep)
       size_t log_str_len = 0;                                     \
       const char *log_str = lua_tolstring(L, -1, &log_str_len);   \
       if (log_str_len) {                                          \
-          lwan_status_##name("%s", log_str);                      \
+          lwan_status_##name("%.*s", (int)log_str_len, log_str);  \
       }                                                           \
       return 0;                                                   \
   }
