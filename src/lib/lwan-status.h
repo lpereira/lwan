@@ -19,17 +19,6 @@
 
 #pragma once
 
-enum lwan_status_type {
-    STATUS_INFO = 0,
-    STATUS_WARNING = 1,
-    STATUS_ERROR = 2,
-    STATUS_DEBUG = 3,
-    STATUS_PERROR = 4,
-    STATUS_NONE = 5,
-    /* [6,7] are unused so that CRITICAL can be ORed with previous items */
-    STATUS_CRITICAL = 8,
-};
-
 #ifdef NDEBUG
 #define DECLARE_STATUS_PROTO(type_, ...)                             \
   void lwan_status_##type_(const char *fmt, ...)                     \

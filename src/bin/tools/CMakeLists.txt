@@ -34,7 +34,6 @@ else ()
 		configdump.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-config.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
-		${CMAKE_SOURCE_DIR}/src/lib/lwan-syslog.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-strbuf.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
 		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c

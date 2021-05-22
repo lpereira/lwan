@@ -28,11 +28,22 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef HAVE_SYSLOG
+#include <syslog.h>
+#endif
 
 #include "lwan-private.h"
-#include "lwan-status.h"
 
-#include "lwan-syslog.h"
+enum lwan_status_type {
+    STATUS_INFO = 0,
+    STATUS_WARNING = 1,
+    STATUS_ERROR = 2,
+    STATUS_DEBUG = 3,
+    STATUS_PERROR = 4,
+    STATUS_NONE = 5,
+    /* [6,7] are unused so that CRITICAL can be ORed with previous items */
+    STATUS_CRITICAL = 8,
+};
 
 static volatile bool quiet = false;
 static bool use_colors;
@@ -125,6 +136,86 @@ static long gettid_cached(void)
 #endif
 
 #define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
+
+#ifdef HAVE_SYSLOG
+#define APPEND(func, fmt, ...)                                                 \
+    len = func(tmp + offs, (unsigned long)(log_len - offs), fmt, __VA_ARGS__); \
+    if (len >= log_len - offs - 1) {                                           \
+        log_len *= 2;                                                          \
+        continue;                                                              \
+    } else if (len < 0) {                                                      \
+        return;                                                                \
+    }                                                                          \
+    offs += len;
+
+void lwan_syslog_status_out(
+#ifndef NDEBUG
+    const char *file,
+    const int line,
+    const char *func,
+    const long tid,
+#endif
+    enum lwan_status_type type,
+    int saved_errno,
+    const char *fmt,
+    va_list values)
+{
+    static volatile int log_len = 256;
+    char *tmp = NULL;
+    char *errmsg = NULL;
+
+#ifndef NDEBUG
+    char *base_name = basename(strdupa(file));
+#endif
+
+    if (UNLIKELY(type & STATUS_PERROR)) {
+        char errbuf[64];
+        errmsg = strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
+    }
+
+    do {
+        va_list copied_values;
+        va_copy(copied_values, values);
+
+        tmp = alloca((size_t)log_len);
+
+        int len = 0;
+        int offs = 0;
+
+#ifndef NDEBUG
+        APPEND(snprintf, "%ld %s:%d %s() ", tid, base_name, line, func)
+#endif
+
+        APPEND(vsnprintf, fmt, copied_values)
+
+        if (errmsg) {
+            APPEND(snprintf, ": %s (error number %d)", errmsg, saved_errno)
+        }
+    } while (0);
+
+    static const int prioritylist[] = {
+        [STATUS_CRITICAL + STATUS_PERROR] = LOG_CRIT,
+        [STATUS_CRITICAL] = LOG_CRIT,
+        [STATUS_ERROR] = LOG_ERR,
+        [STATUS_WARNING] = LOG_WARNING,
+        [STATUS_INFO] = LOG_INFO,
+        [STATUS_DEBUG] = LOG_DEBUG,
+    };
+
+    syslog(prioritylist[type], "%s", tmp);
+}
+
+#undef APPEND
+
+__attribute__((constructor))
+__attribute__((no_sanitize_address))
+static void register_lwan_to_syslog(void)
+{
+    openlog("lwan", LOG_NDELAY | LOG_PID | LOG_CONS, LOG_USER);
+}
+#else
+#define lwan_syslog_status_out(...)
+#endif
 
 static void status_out(
 #ifndef NDEBUG
