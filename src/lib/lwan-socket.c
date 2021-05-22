@@ -306,7 +306,7 @@ int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
                                (int[]){(int)l->config.keep_alive_timeout});
 
     if (is_reno_supported())
-        SET_SOCKET_OPTION_MAY_FAIL(IPPROTO_TCP, TCP_CONGESTION, "reno");
+        setsockopt(fd, IPPROTO_TCP, TCP_CONGESTION, "reno", 4);
 #endif
 
     return fd;
