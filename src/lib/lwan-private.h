@@ -222,3 +222,7 @@ static ALWAYS_INLINE int lwan_calculate_n_packets(size_t total)
      * after ~2x number of expected packets to fully read the request body.*/
     return LWAN_MAX(5, (int)(total / 740));
 }
+
+long int lwan_getentropy(void *buffer, size_t buffer_len, int flags);
+uint64_t lwan_random_uint64();
+

@@ -93,6 +93,26 @@ static void graceful_close(struct lwan *l,
     /* close(2) will be called when the coroutine yields with CONN_CORO_ABORT */
 }
 
+static __thread __uint128_t lehmer64_state;
+
+static void lwan_random_seed_prng_for_thread(uint64_t fallback_seed)
+{
+    if (lwan_getentropy(&lehmer64_state, sizeof(lehmer64_state), 0) < 0) {
+        lwan_status_warning("Couldn't get proper entropy for PRNG, using fallback seed");
+        for (int i = 0; i < 4; i++) {
+            lehmer64_state |= fallback_seed;
+            lehmer64_state <<= 32;
+        }
+    }
+}
+
+uint64_t lwan_random_uint64()
+{
+    /* https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/ */
+    lehmer64_state *= 0xda942042e4dd58b5ull;
+    return (uint64_t)(lehmer64_state >> 64);
+}
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -592,6 +612,8 @@ static void *thread_io_loop(void *data)
     update_date_cache(t);
 
     timeout_queue_init(&tq, lwan);
+
+    lwan_random_seed_prng_for_thread((uint64_t)(epoll_fd | time(NULL)));
 
     pthread_barrier_wait(&lwan->thread.barrier);
 
