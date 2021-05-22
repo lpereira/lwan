@@ -99,10 +99,9 @@ static void lwan_random_seed_prng_for_thread(uint64_t fallback_seed)
 {
     if (lwan_getentropy(&lehmer64_state, sizeof(lehmer64_state), 0) < 0) {
         lwan_status_warning("Couldn't get proper entropy for PRNG, using fallback seed");
-        for (int i = 0; i < 4; i++) {
-            lehmer64_state |= fallback_seed;
-            lehmer64_state <<= 32;
-        }
+        lehmer64_state |= fallback_seed;
+        lehmer64_state <<= 32;
+        lehmer64_state |= fallback_seed;
     }
 }
 
