@@ -509,11 +509,6 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
                 close(fd);
             }
 
-#if defined(HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
-            /* Ignore errors here, as this is just a hint */
-            (void)setsockopt(fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu, sizeof(t->cpu));
-#endif
-
             continue;
         }
 
@@ -537,8 +532,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
 }
 
 static int create_listen_socket(struct lwan_thread *t,
-                                unsigned int num,
-                                unsigned int num_sockets)
+                                unsigned int num)
 {
     int listen_fd;
 
@@ -558,17 +552,9 @@ static int create_listen_socket(struct lwan_thread *t,
         const uint32_t cpu_ad_off = (uint32_t)SKF_AD_OFF + SKF_AD_CPU;
         struct sock_filter filter[] = {
             {BPF_LD | BPF_W | BPF_ABS, 0, 0, cpu_ad_off},   /* A = curr_cpu_index */
-            {BPF_ALU | BPF_MOD | BPF_K, 0, 0, num_sockets}, /* A %= num_sockets */
             {BPF_RET | BPF_A, 0, 0, 0},                     /* return A */
         };
         struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
-
-        if (!(num_sockets & (num_sockets - 1))) {
-            /* FIXME: Is this strength reduction already made by the kernel? */
-            filter[1].code &= (uint16_t)~BPF_MOD;
-            filter[1].code |= BPF_AND;
-            filter[1].k = num_sockets - 1;
-        }
 
         (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF,
                          &fprog, sizeof(fprog));
@@ -841,10 +827,6 @@ void lwan_thread_init(struct lwan *l)
 {
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
 
-    if (pthread_barrier_init(&l->thread.barrier, NULL,
-                             (unsigned)l->thread.count + 1))
-        lwan_status_critical("Could not create barrier");
-
     lwan_status_debug("Initializing threads");
 
     l->thread.threads =
@@ -872,7 +854,8 @@ void lwan_thread_init(struct lwan *l)
      * use the CPU topology to group two connections per cache line in such
      * a way that false sharing is avoided.
      */
-    uint32_t n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
+    uint32_t n_threads =
+        (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
     uint32_t *schedtbl = alloca(n_threads * sizeof(uint32_t));
 
     bool adj_affinity = topology_to_schedtbl(l, schedtbl, n_threads);
@@ -893,23 +876,46 @@ void lwan_thread_init(struct lwan *l)
         l->thread.threads[i].cpu = i % l->online_cpus;
     for (unsigned int i = 0; i < total_conns; i++)
         l->conns[i].thread = &l->thread.threads[i % l->thread.count];
+    uint32_t *schedtbl = NULL;
 #endif
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
-        struct lwan_thread *thread = &l->thread.threads[i];
+        struct lwan_thread *thread = NULL;
+
+        if (schedtbl) {
+            /* This is not the most elegant thing, but this assures that the
+             * listening sockets are added to the SO_REUSEPORT group in a
+             * specific order, because that's what the CBPF program to direct
+             * the incoming connection to the right CPU will use. */
+            for (uint32_t thread_id = 0; thread_id < l->thread.count;
+                 thread_id++) {
+                if (schedtbl[thread_id & n_threads] == i) {
+                    thread = &l->thread.threads[thread_id];
+                    break;
+                }
+            }
+            if (!thread)
+                lwan_status_critical(
+                    "Could not figure out which CPU thread %d should go to", i);
+        } else {
+            thread = &l->thread.threads[i % l->thread.count];
+        }
+
+        if (pthread_barrier_init(&l->thread.barrier, NULL, 1))
+            lwan_status_critical("Could not create barrier");
 
         create_thread(l, thread);
 
-        if ((thread->listen_fd = create_listen_socket(thread, i, l->thread.count)) < 0)
+        if ((thread->listen_fd = create_listen_socket(thread, i)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
+
+        pthread_barrier_wait(&l->thread.barrier);
     }
 
 #ifdef __x86_64__
     if (adj_affinity)
         adjust_threads_affinity(l, schedtbl, n_threads);
 #endif
-
-    pthread_barrier_wait(&l->thread.barrier);
 
     lwan_status_debug("Worker threads created and ready to serve");
 }
