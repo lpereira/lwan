@@ -896,7 +896,7 @@ void lwan_thread_init(struct lwan *l)
             thread = &l->thread.threads[i % l->thread.count];
         }
 
-        if (pthread_barrier_init(&l->thread.barrier, NULL, 1))
+        if (pthread_barrier_init(&l->thread.barrier, NULL, 2))
             lwan_status_critical("Could not create barrier");
 
         create_thread(l, thread);
