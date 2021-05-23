@@ -111,33 +111,6 @@ static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
     return false;
 }
 
-static unsigned int get_random_unsigned(void)
-{
-    unsigned int value = 0;
-
-#if defined(SYS_getrandom)
-    long int ret = syscall(SYS_getrandom, &value, sizeof(value), 0);
-    if (ret == sizeof(value))
-        return value;
-#elif defined(HAVE_GETENTROPY)
-    int ret = getentropy(&value, sizeof(value));
-    if (ret == 0)
-        return value;
-#endif
-
-    int fd = open("/dev/urandom", O_CLOEXEC | O_RDONLY);
-    if (fd < 0) {
-        fd = open("/dev/random", O_CLOEXEC | O_RDONLY);
-        if (fd < 0)
-            return DEFAULT_ODD_CONSTANT;
-    }
-    if (read(fd, &value, sizeof(value)) != sizeof(value))
-        value = DEFAULT_ODD_CONSTANT;
-    close(fd);
-
-    return value;
-}
-
 static inline unsigned int hash_int_shift_mult(const void *keyptr)
 {
     /* http://www.concentric.net/~Ttwang/tech/inthash.htm */
@@ -200,7 +173,9 @@ __attribute__((constructor(65535))) static void initialize_odd_constant(void)
 {
     /* This constant is randomized in order to mitigate the DDoS attack
      * described by Crosby and Wallach in UsenixSec2003.  */
-    odd_constant = get_random_unsigned() | 1;
+    if (lwan_getentropy(&odd_constant, sizeof(odd_constant), 0) < 0)
+        odd_constant = DEFAULT_ODD_CONSTANT;
+    odd_constant |= 1;
     murmur3_set_seed(odd_constant);
 
 #if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)

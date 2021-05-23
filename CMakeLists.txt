@@ -238,6 +238,8 @@ else ()
 		HAVE_READ_ONLY_GOT)
 	enable_c_flag_if_avail(-fno-plt CMAKE_C_FLAGS
 		HAVE_NO_PLT)
+	enable_c_flag_if_avail(-no-pie CMAKE_C_FLAGS
+		HAVE_NO_PIE)
 	enable_c_flag_if_avail(-Wl,-z,noexecstack CMAKE_EXE_LINKER_FLAGS
 		HAVE_NOEXEC_STACK)
 endif ()
@@ -248,10 +250,7 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	enable_c_flag_if_avail(-malign-data=abi C_FLAGS_REL HAVE_ALIGN_DATA)
 	enable_c_flag_if_avail(-fno-asynchronous-unwind-tables C_FLAGS_REL HAVE_NO_ASYNC_UNWIND_TABLES)
 
-	enable_c_flag_if_avail(-flto=jobserver C_FLAGS_REL HAVE_LTO_JOBSERVER)
-	if (NOT HAVE_LTO_JOBSERVER)
-		enable_c_flag_if_avail(-flto C_FLAGS_REL HAVE_LTO)
-	endif ()
+	enable_c_flag_if_avail(-fPIC -flto C_FLAGS_REL HAVE_LTO)
 
 	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL HAVE_LTO_FAT_OBJS)
 	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL HAVE_BUILTIN_IA32_CRC32)

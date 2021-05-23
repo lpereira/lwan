@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -35,13 +36,38 @@
 #include "int-to-str.h"
 #include "sd-daemon.h"
 
-int lwan_socket_get_backlog_size(void)
+#ifdef __linux__
+
+static bool reno_supported;
+static void init_reno_supported(void)
 {
-    static int backlog = 0;
+    FILE *allowed;
 
-    if (backlog)
-        return backlog;
+    reno_supported = false;
 
+    allowed = fopen("/proc/sys/net/ipv4/tcp_allowed_congestion_control", "re");
+    if (!allowed)
+        return;
+
+    char line[4096];
+    if (fgets(line, sizeof(line), allowed)) {
+        if (strstr(line, "reno"))
+            reno_supported = true;
+    }
+    fclose(allowed);
+}
+
+static bool is_reno_supported(void)
+{
+    static pthread_once_t reno_supported_once = PTHREAD_ONCE_INIT;
+    pthread_once(&reno_supported_once, init_reno_supported);
+    return reno_supported;
+}
+#endif
+
+static int backlog_size;
+static void init_backlog_size(void)
+{
 #ifdef __linux__
     FILE *somaxconn;
 
@@ -49,15 +75,20 @@ int lwan_socket_get_backlog_size(void)
     if (somaxconn) {
         int tmp;
         if (fscanf(somaxconn, "%d", &tmp) == 1)
-            backlog = tmp;
+            backlog_size = tmp;
         fclose(somaxconn);
     }
 #endif
 
-    if (!backlog)
-        backlog = SOMAXCONN;
+    if (!backlog_size)
+        backlog_size = SOMAXCONN;
+}
 
-    return backlog;
+int lwan_socket_get_backlog_size(void)
+{
+    static pthread_once_t backlog_size_once = PTHREAD_ONCE_INIT;
+    pthread_once(&backlog_size_once, init_backlog_size);
+    return backlog_size;
 }
 
 static int set_socket_flags(int fd)
@@ -190,7 +221,7 @@ listen_addrinfo(int fd, const struct addrinfo *addr, bool print_listening_msg)
     do {                                                                       \
         const socklen_t _param_size_ = (socklen_t)sizeof(*(_param));           \
         if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
-            lwan_status_warning("%s not supported by the kernel", #_option);   \
+            lwan_status_perror("%s not supported by the kernel", #_option);    \
     } while (0)
 
 static int bind_and_listen_addrinfos(const struct addrinfo *addrs, bool print_listening_msg)
@@ -273,6 +304,9 @@ int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_DEFER_ACCEPT,
                                (int[]){(int)l->config.keep_alive_timeout});
+
+    if (is_reno_supported())
+        setsockopt(fd, IPPROTO_TCP, TCP_CONGESTION, "reno", 4);
 #endif
 
     return fd;

@@ -247,8 +247,5 @@ static ALWAYS_INLINE int64_t lwan_get_monotonic_time(void)
     return (int64_t)now.tv_sec * 1000000 + now.tv_nsec / 1000;
 }
 
-static ALWAYS_INLINE unsigned int lwan_get_request_id()
-{
-    srand((unsigned int)lwan_get_monotonic_time());
-    return (0x1000000 + (unsigned)rand() % 0xffffffff);
-}
+long int lwan_getentropy(void *buffer, size_t buffer_len, int flags);
+uint64_t lwan_random_uint64();
