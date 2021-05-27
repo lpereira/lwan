@@ -711,9 +711,8 @@ Without keep-alive, these numbers drop around 6-fold.
 IRC Channel
 -----------
 
-There is an IRC channel (`#lwan`) on [Freenode](http://freenode.net). A
-standard IRC client can be used.  A [web IRC gateway](http://webchat.freenode.net?channels=%23lwan&uio=d4)
-is also available.
+There is an IRC channel (`#lwan`) on [Libera](https://libera.chat). A
+standard IRC client can be used.
 
 Lwan in the wild
 ----------------
