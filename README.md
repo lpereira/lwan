@@ -432,6 +432,8 @@ information from the request, or to set the response, as seen below:
    - `req:path()` returns a string with the request path.
    - `req:query_string()` returns a string with the query string (empty string if no query string present).
    - `req:body()` returns the request body (POST/PUT requests).
+   - `req:request_id()` returns a string containing the request ID.
+   - `req:request_date()` returns the date as it'll be written in the `Date` response header.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return
