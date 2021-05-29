@@ -296,6 +296,13 @@ LWAN_LUA_METHOD(sleep)
     return 0;
 }
 
+LWAN_LUA_METHOD(request_id)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushfstring(L, "%016lx", request->request_id);
+    return 1;
+}
+
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
 static struct lwan_lua_method_array lua_methods;
 

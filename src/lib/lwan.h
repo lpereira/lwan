@@ -362,16 +362,18 @@ struct lwan_request_parser_helper;
 struct lwan_request {
     enum lwan_request_flags flags;
     int fd;
-    struct lwan_value url;
-    struct lwan_value original_url;
     struct lwan_connection *conn;
     const struct lwan_strbuf *const global_response_headers;
-    struct lwan_proxy *proxy;
 
-    struct timeout timeout;
-
+    uint64_t request_id;
     struct lwan_request_parser_helper *helper;
+
+    struct lwan_value url;
+    struct lwan_value original_url;
     struct lwan_response response;
+
+    struct lwan_proxy *proxy;
+    struct timeout timeout;
 };
 
 struct lwan_module {
