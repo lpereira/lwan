@@ -140,6 +140,9 @@ supports [TCMalloc](https://github.com/gperftools/gperftools),
 pass `-DALTERNATIVE_MALLOC=name` to the CMake invocation line, using the
 names provided in the "Optional dependencies"  section.
 
+The `-DUSE_SYSLOG=ON` option can be passed to CMake to also log to the system log
+in addition to the standard output.
+
 ### Tests
 
     ~/lwan/build$ make testsuite
