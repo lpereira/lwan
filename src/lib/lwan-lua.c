@@ -303,6 +303,13 @@ LWAN_LUA_METHOD(request_id)
     return 1;
 }
 
+LWAN_LUA_METHOD(request_date)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushstring(L, request->conn->thread->date.date);
+    return 1;
+}
+
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
 static struct lwan_lua_method_array lua_methods;
 
