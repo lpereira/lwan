@@ -33,9 +33,6 @@ static FORCE_INLINE uint64_t rotl64(uint64_t x, int8_t r)
     return (x << r) | (x >> (64 - r));
 }
 
-#define ROTL32(x,y)    rotl32(x,y)
-#define ROTL64(x,y)    rotl64(x,y)
-
 #define BIG_CONSTANT(x) (x##LLU)
 
 static uint32_t seed_value = 0xdeadbeef;
@@ -87,10 +84,10 @@ MurmurHash3_x86_32(const void *key, size_t len, uint32_t seed, void *out)
         memcpy(&k1, blocks + i, sizeof(k1));
 
         k1 *= c1;
-        k1 = ROTL32(k1, 15);
+        k1 = rotl32(k1, 15);
         k1 *= c2;
         h1 ^= k1;
-        h1 = ROTL32(h1, 13);
+        h1 = rotl32(h1, 13);
         h1 = h1 * 5 + 0xe6546b64;
     }
 
@@ -108,7 +105,7 @@ MurmurHash3_x86_32(const void *key, size_t len, uint32_t seed, void *out)
     case 1:
         k1 ^= (uint32_t)tail[0];
         k1 *= c1;
-        k1 = ROTL32(k1, 15);
+        k1 = rotl32(k1, 15);
         k1 *= c2;
         h1 ^= k1;
     };
@@ -152,14 +149,14 @@ FORCE_INLINE static void MurmurHash3_x86_128 (const void *key, const size_t len,
         memcpy(&k3, blocks + i * 4 + 2, sizeof(k3));
         memcpy(&k4, blocks + i * 4 + 3, sizeof(k4));
 
-        k1 *= c1; k1 = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
-        h1 = ROTL32(h1,19); h1 += h2; h1 = h1*5+0x561ccd1b;
-        k2 *= c2; k2 = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
-        h2 = ROTL32(h2,17); h2 += h3; h2 = h2*5+0x0bcaa747;
-        k3 *= c3; k3 = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
-        h3 = ROTL32(h3,15); h3 += h4; h3 = h3*5+0x96cd1c35;
-        k4 *= c4; k4 = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
-        h4 = ROTL32(h4,13); h4 += h1; h4 = h4*5+0x32ac3b17;
+        k1 *= c1; k1 = rotl32(k1,15); k1 *= c2; h1 ^= k1;
+        h1 = rotl32(h1,19); h1 += h2; h1 = h1*5+0x561ccd1b;
+        k2 *= c2; k2 = rotl32(k2,16); k2 *= c3; h2 ^= k2;
+        h2 = rotl32(h2,17); h2 += h3; h2 = h2*5+0x0bcaa747;
+        k3 *= c3; k3 = rotl32(k3,17); k3 *= c4; h3 ^= k3;
+        h3 = rotl32(h3,15); h3 += h4; h3 = h3*5+0x96cd1c35;
+        k4 *= c4; k4 = rotl32(k4,18); k4 *= c1; h4 ^= k4;
+        h4 = rotl32(h4,13); h4 += h1; h4 = h4*5+0x32ac3b17;
     }
 
     //----------
@@ -176,25 +173,25 @@ FORCE_INLINE static void MurmurHash3_x86_128 (const void *key, const size_t len,
     case 15: k4 ^= (uint32_t)tail[14] << 16; /* fallthrough */
     case 14: k4 ^= (uint32_t)tail[13] << 8;  /* fallthrough */
     case 13: k4 ^= (uint32_t)tail[12] << 0;
-             k4 *= c4; k4 = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
+             k4 *= c4; k4 = rotl32(k4,18); k4 *= c1; h4 ^= k4;
              /* fallthrough */
     case 12: k3 ^= (uint32_t)tail[11] << 24; /* fallthrough */
     case 11: k3 ^= (uint32_t)tail[10] << 16; /* fallthrough */
     case 10: k3 ^= (uint32_t)tail[ 9] << 8;  /* fallthrough */
     case  9: k3 ^= (uint32_t)tail[ 8] << 0;
-             k3 *= c3; k3 = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
+             k3 *= c3; k3 = rotl32(k3,17); k3 *= c4; h3 ^= k3;
              /* fallthrough */
     case  8: k2 ^= (uint32_t)tail[ 7] << 24; /* fallthrough */
     case  7: k2 ^= (uint32_t)tail[ 6] << 16; /* fallthrough */
     case  6: k2 ^= (uint32_t)tail[ 5] << 8;  /* fallthrough */
     case  5: k2 ^= (uint32_t)tail[ 4] << 0;
-             k2 *= c2; k2 = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
+             k2 *= c2; k2 = rotl32(k2,16); k2 *= c3; h2 ^= k2;
              /* fallthrough */
     case  4: k1 ^= (uint32_t)tail[ 3] << 24; /* fallthrough */
     case  3: k1 ^= (uint32_t)tail[ 2] << 16; /* fallthrough */
     case  2: k1 ^= (uint32_t)tail[ 1] << 8;  /* fallthrough */
     case  1: k1 ^= (uint32_t)tail[ 0] << 0;
-             k1 *= c1; k1 = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
+             k1 *= c1; k1 = rotl32(k1,15); k1 *= c2; h1 ^= k1;
     }
 
     //----------
@@ -244,17 +241,17 @@ MurmurHash3_x64_128(const void *key, const size_t len, const uint32_t seed,
         memcpy(&k2, blocks + i * 2 + 1, sizeof(k2));
 
         k1 *= c1;
-        k1 = ROTL64(k1, 31);
+        k1 = rotl64(k1, 31);
         k1 *= c2;
         h1 ^= k1;
-        h1 = ROTL64(h1, 27);
+        h1 = rotl64(h1, 27);
         h1 += h2;
         h1 = h1 * 5 + 0x52dce729;
         k2 *= c2;
-        k2 = ROTL64(k2, 33);
+        k2 = rotl64(k2, 33);
         k2 *= c1;
         h2 ^= k2;
-        h2 = ROTL64(h2, 31);
+        h2 = rotl64(h2, 31);
         h2 += h1;
         h2 = h2 * 5 + 0x38495ab5;
     }
@@ -280,7 +277,7 @@ MurmurHash3_x64_128(const void *key, const size_t len, const uint32_t seed,
     case 9:
         k2 ^= (uint64_t) (tail[8]) << 0;
         k2 *= c2;
-        k2 = ROTL64(k2, 33);
+        k2 = rotl64(k2, 33);
         k2 *= c1;
         h2 ^= k2;
         /* fallthrough */
@@ -308,7 +305,7 @@ MurmurHash3_x64_128(const void *key, const size_t len, const uint32_t seed,
     case 1:
         k1 ^= (uint64_t) (tail[0]) << 0;
         k1 *= c1;
-        k1 = ROTL64(k1, 31);
+        k1 = rotl64(k1, 31);
         k1 *= c2;
         h1 ^= k1;
     };
