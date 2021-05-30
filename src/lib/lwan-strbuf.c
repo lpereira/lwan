@@ -28,6 +28,7 @@
 
 static const unsigned int BUFFER_MALLOCD = 1 << 0;
 static const unsigned int STRBUF_MALLOCD = 1 << 1;
+static const unsigned int BUFFER_FIXED = 1 << 2;
 
 static inline size_t align_size(size_t unaligned_size)
 {
@@ -41,6 +42,9 @@ static inline size_t align_size(size_t unaligned_size)
 
 static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 {
+    if (s->flags & BUFFER_FIXED)
+        return size < s->capacity;
+
     if (!(s->flags & BUFFER_MALLOCD)) {
         const size_t aligned_size = align_size(LWAN_MAX(size + 1, s->used));
         if (UNLIKELY(!aligned_size))
@@ -93,6 +97,23 @@ bool lwan_strbuf_init_with_size(struct lwan_strbuf *s, size_t size)
     return true;
 }
 
+bool lwan_strbuf_init_with_fixed_buffer(struct lwan_strbuf *s,
+                                        void *buffer,
+                                        size_t size)
+{
+    if (UNLIKELY(!s))
+        return false;
+
+    *s = (struct lwan_strbuf) {
+        .capacity = size,
+        .used = 0,
+        .buffer = buffer,
+        .flags = BUFFER_FIXED,
+    };
+
+    return true;
+}
+
 ALWAYS_INLINE bool lwan_strbuf_init(struct lwan_strbuf *s)
 {
     return lwan_strbuf_init_with_size(s, 0);
@@ -103,6 +124,21 @@ struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
     struct lwan_strbuf *s = malloc(sizeof(*s));
 
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, size))) {
+        free(s);
+
+        return NULL;
+    }
+
+    s->flags |= STRBUF_MALLOCD;
+
+    return s;
+}
+
+struct lwan_strbuf *lwan_strbuf_new_with_fixed_buffer(size_t size)
+{
+    struct lwan_strbuf *s = malloc(sizeof(*s) + size + 1);
+
+    if (UNLIKELY(!lwan_strbuf_init_with_fixed_buffer(s, s + 1, size))) {
         free(s);
 
         return NULL;
