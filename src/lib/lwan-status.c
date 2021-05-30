@@ -160,12 +160,13 @@ void lwan_syslog_status_out(
     const char *fmt,
     va_list values)
 {
+    char syslog_buffer[256];
     va_list copied_values;
     struct lwan_strbuf buf;
 
     va_copy(copied_values, values);
 
-    lwan_strbuf_init(&buf);
+    lwan_strbuf_init_with_fixed_buffer(&buf, syslog_buffer, sizeof(syslog_buffer));
 
 #ifndef NDEBUG
     lwan_strbuf_append_printf(&buf, "%ld %s:%d %s() ", tid,
