@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,9 +75,13 @@ static inline bool lwan_strbuf_setz(struct lwan_strbuf *s1, const char *s2)
 
 bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
+bool lwan_strbuf_append_vprintf(struct lwan_strbuf *s,
+                                const char *fmt,
+                                va_list v);
 
 bool lwan_strbuf_printf(struct lwan_strbuf *s1, const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
+bool lwan_strbuf_vprintf(struct lwan_strbuf *s1, const char *fmt, va_list ap);
 
 bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size);
 bool lwan_strbuf_grow_by(struct lwan_strbuf *s, size_t offset);

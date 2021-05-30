@@ -211,16 +211,26 @@ internal_printf(struct lwan_strbuf *s1,
     return success;
 }
 
+bool lwan_strbuf_vprintf(struct lwan_strbuf *s, const char *fmt, va_list ap)
+{
+    return internal_printf(s, lwan_strbuf_set, fmt, ap);
+}
+
 bool lwan_strbuf_printf(struct lwan_strbuf *s, const char *fmt, ...)
 {
     bool could_printf;
     va_list values;
 
     va_start(values, fmt);
-    could_printf = internal_printf(s, lwan_strbuf_set, fmt, values);
+    could_printf = lwan_strbuf_vprintf(s, fmt, values);
     va_end(values);
 
     return could_printf;
+}
+
+bool lwan_strbuf_append_vprintf(struct lwan_strbuf *s, const char *fmt, va_list ap)
+{
+    return internal_printf(s, lwan_strbuf_append_str, fmt, ap);
 }
 
 bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
@@ -229,7 +239,7 @@ bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
     va_list values;
 
     va_start(values, fmt);
-    could_printf = internal_printf(s, lwan_strbuf_append_str, fmt, values);
+    could_printf = lwan_strbuf_append_vprintf(s, fmt, values);
     va_end(values);
 
     return could_printf;
