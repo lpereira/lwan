@@ -136,6 +136,7 @@ static long gettid_cached(void)
 
 #ifdef HAVE_SYSLOG
 
+#include <lwan-strbuf.h>
 #include <syslog.h>
 
 static int status_to_syslog_prio[] = {
@@ -146,16 +147,6 @@ static int status_to_syslog_prio[] = {
     [STATUS_INFO] = LOG_INFO,
     [STATUS_DEBUG] = LOG_DEBUG,
 };
-
-#define APPEND(func, fmt, ...)                                                 \
-    len = func(tmp + offs, (unsigned long)(log_len - offs), fmt, __VA_ARGS__); \
-    if (len >= log_len - offs - 1) {                                           \
-        log_len *= 2;                                                          \
-        continue;                                                              \
-    } else if (len < 0) {                                                      \
-        return;                                                                \
-    }                                                                          \
-    offs += len;
 
 void lwan_syslog_status_out(
 #ifndef NDEBUG
@@ -169,43 +160,30 @@ void lwan_syslog_status_out(
     const char *fmt,
     va_list values)
 {
-    static volatile int log_len = 256;
-    char *tmp = NULL;
-    char *errmsg = NULL;
+    va_list copied_values;
+    struct lwan_strbuf buf;
+
+    va_copy(copied_values, values);
+
+    lwan_strbuf_init(&buf);
 
 #ifndef NDEBUG
-    char *base_name = basename(strdupa(file));
+    lwan_strbuf_append_printf(&buf, "%ld %s:%d %s() ", tid,
+                              basename(strdupa(file)), line, func);
 #endif
+    lwan_strbuf_append_vprintf(&buf, fmt, copied_values);
 
-    if (UNLIKELY(type & STATUS_PERROR)) {
-        char errbuf[64];
-        errmsg = strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
+    if (type & STATUS_PERROR) {
+        char errbuf[128];
+
+        lwan_strbuf_append_strz(
+            &buf, strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1));
     }
 
-    do {
-        va_list copied_values;
-        va_copy(copied_values, values);
-
-        tmp = alloca((size_t)log_len);
-
-        int len = 0;
-        int offs = 0;
-
-#ifndef NDEBUG
-        APPEND(snprintf, "%ld %s:%d %s() ", tid, base_name, line, func)
-#endif
-
-        APPEND(vsnprintf, fmt, copied_values)
-
-        if (errmsg) {
-            APPEND(snprintf, ": %s (error number %d)", errmsg, saved_errno)
-        }
-    } while (0);
-
-    syslog(status_to_syslog_prio[type], "%s", tmp);
+    syslog(status_to_syslog_prio[type], "%.*s",
+           (int)lwan_strbuf_get_length(&buf), lwan_strbuf_get_buffer(&buf));
+    lwan_strbuf_free(&buf);
 }
-
-#undef APPEND
 
 __attribute__((constructor)) static void register_lwan_to_syslog(void)
 {
