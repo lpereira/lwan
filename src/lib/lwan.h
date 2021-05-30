@@ -252,6 +252,8 @@ enum lwan_request_flags {
     REQUEST_PARSED_FORM_DATA = 1 << 21,
     REQUEST_PARSED_COOKIES = 1 << 22,
     REQUEST_PARSED_ACCEPT_ENCODING = 1 << 23,
+
+    RESPONSE_INCLUDE_REQUEST_ID = 1 << 24,
 };
 
 #undef SELECT_MASK

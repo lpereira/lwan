@@ -165,6 +165,8 @@ LWAN_HANDLER(hello_world)
     response->headers = headers;
     response->mime_type = "text/plain";
 
+    request->flags |= RESPONSE_INCLUDE_REQUEST_ID;
+
     const char *name = lwan_request_get_query_param(request, "name");
     if (name)
         lwan_strbuf_printf(response->buffer, "Hello, %s!", name);

@@ -682,6 +682,16 @@ class TestAuthentication(LwanTest):
 
 
 class TestHelloWorld(LwanTest):
+  def test_request_id(self):
+    all_request_ids = set()
+    for i in range(20):
+      r = requests.get('http://127.0.0.1:8080/hello')
+      self.assertResponsePlain(r)
+      request_id = r.headers['x-request-id']
+      self.assertFalse(request_id in all_request_ids)
+      self.assertTrue(re.match(r'^[a-f0-9]{16}$', request_id))
+      all_request_ids.add(request_id)
+
   def test_cookies(self):
     c = {
         'SOMECOOKIE': '1c330301-89e4-408a-bf6c-ce107efe8a27',

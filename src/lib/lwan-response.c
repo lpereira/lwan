@@ -231,7 +231,7 @@ has_content_length(enum lwan_request_flags v)
 static ALWAYS_INLINE __attribute__((const)) bool
 has_uncommon_response_headers(enum lwan_request_flags v)
 {
-    return v & (REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
+    return v & (RESPONSE_INCLUDE_REQUEST_ID | REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
 }
 
 size_t lwan_prepare_response_header_full(
@@ -350,6 +350,14 @@ skip_date_header:
         if (request_flags & RESPONSE_CHUNKED_ENCODING &&
             !has_content_length(request_flags)) {
             APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
+        }
+        if (request_flags & RESPONSE_INCLUDE_REQUEST_ID) {
+            char request_id[] = "fill-with-req-id";
+            APPEND_CONSTANT("\r\nX-Request-Id: ");
+            int r = snprintf(request_id, sizeof(request_id), "%016lx", request->request_id);
+            if (UNLIKELY(r < 0 || r >= (int)sizeof(request_id)))
+                return 0;
+            APPEND_STRING_LEN(request_id, (size_t)r);
         }
     }
 
