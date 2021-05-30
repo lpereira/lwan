@@ -140,7 +140,7 @@ static long gettid_cached(void)
 #include <syslog.h>
 
 static int status_to_syslog_prio[] = {
-    [STATUS_CRITICAL + STATUS_PERROR] = LOG_CRIT,
+    [STATUS_CRITICAL | STATUS_PERROR] = LOG_CRIT,
     [STATUS_CRITICAL] = LOG_CRIT,
     [STATUS_ERROR] = LOG_ERR,
     [STATUS_WARNING] = LOG_WARNING,
