@@ -164,25 +164,32 @@ void lwan_syslog_status_out(
     va_list copied_values;
     struct lwan_strbuf buf;
 
-    va_copy(copied_values, values);
-
-    lwan_strbuf_init_with_fixed_buffer(&buf, syslog_buffer, sizeof(syslog_buffer));
+    lwan_strbuf_init_with_fixed_buffer(&buf, syslog_buffer,
+                                       sizeof(syslog_buffer));
 
 #ifndef NDEBUG
-    lwan_strbuf_append_printf(&buf, "%ld %s:%d %s() ", tid,
-                              basename(strdupa(file)), line, func);
+    if (!lwan_strbuf_append_printf(&buf, "%ld %s:%d %s() ", tid,
+                                   basename(strdupa(file)), line, func))
+        goto out;
 #endif
-    lwan_strbuf_append_vprintf(&buf, fmt, copied_values);
+
+    va_copy(copied_values, values);
+    if (!lwan_strbuf_append_vprintf(&buf, fmt, copied_values))
+        goto out;
 
     if (type & STATUS_PERROR) {
         char errbuf[128];
 
-        lwan_strbuf_append_strz(
-            &buf, strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1));
+        if (!lwan_strbuf_append_strz(
+                &buf,
+                strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1)))
+            goto out;
     }
 
     syslog(status_to_syslog_prio[type], "%.*s",
            (int)lwan_strbuf_get_length(&buf), lwan_strbuf_get_buffer(&buf));
+
+out:
     lwan_strbuf_free(&buf);
 }
 
