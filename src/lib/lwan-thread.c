@@ -35,9 +35,10 @@
 #include <linux/filter.h>
 #endif
 
+#include "list.h"
+#include "murmur3.h"
 #include "lwan-private.h"
 #include "lwan-tq.h"
-#include "list.h"
 
 static void lwan_strbuf_free_defer(void *data)
 {
@@ -95,13 +96,13 @@ static void graceful_close(struct lwan *l,
 
 static __thread __uint128_t lehmer64_state;
 
-static void lwan_random_seed_prng_for_thread(uint64_t fallback_seed)
+static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
 {
     if (lwan_getentropy(&lehmer64_state, sizeof(lehmer64_state), 0) < 0) {
         lwan_status_warning("Couldn't get proper entropy for PRNG, using fallback seed");
-        lehmer64_state |= fallback_seed;
-        lehmer64_state <<= 32;
-        lehmer64_state |= fallback_seed;
+        lehmer64_state |= murmur3_fmix64((uint64_t)(uintptr_t)t);
+        lehmer64_state <<= 64;
+        lehmer64_state |= murmur3_fmix64((uint64_t)t->epoll_fd);
     }
 }
 
@@ -599,7 +600,7 @@ static void *thread_io_loop(void *data)
 
     timeout_queue_init(&tq, lwan);
 
-    lwan_random_seed_prng_for_thread((uint64_t)(epoll_fd | time(NULL)));
+    lwan_random_seed_prng_for_thread(t);
 
     pthread_barrier_wait(&lwan->thread.barrier);
 

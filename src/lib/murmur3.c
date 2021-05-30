@@ -55,7 +55,7 @@ static FORCE_INLINE uint32_t fmix32(uint32_t h)
 #endif
 
 //----------
-static FORCE_INLINE uint64_t fmix64(uint64_t k)
+FORCE_INLINE uint64_t murmur3_fmix64(uint64_t k)
 {
     k ^= k >> 33;
     k *= BIG_CONSTANT(0xff51afd7ed558ccd);
@@ -319,8 +319,8 @@ MurmurHash3_x64_128(const void *key, const size_t len, const uint32_t seed,
     h2 ^= (uint64_t)len;
     h1 += h2;
     h2 += h1;
-    h1 = fmix64(h1);
-    h2 = fmix64(h2);
+    h1 = murmur3_fmix64(h1);
+    h2 = murmur3_fmix64(h2);
     h1 += h2;
     h2 += h1;
     ((uint64_t *) out)[0] = h1;
