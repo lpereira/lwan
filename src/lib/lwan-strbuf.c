@@ -176,8 +176,10 @@ void lwan_strbuf_free(struct lwan_strbuf *s)
 {
     if (UNLIKELY(!s))
         return;
-    if (s->flags & BUFFER_MALLOCD)
+    if (s->flags & BUFFER_MALLOCD) {
+        assert(!(s->flags & BUFFER_FIXED));
         free(s->buffer);
+    }
     if (s->flags & STRBUF_MALLOCD)
         free(s);
 }
