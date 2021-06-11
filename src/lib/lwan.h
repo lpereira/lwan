@@ -521,13 +521,6 @@ bool lwan_response_set_event_stream(struct lwan_request *request,
                                     enum lwan_http_status status);
 void lwan_response_send_event(struct lwan_request *request, const char *event);
 
-
-const char *lwan_http_status_as_string(enum lwan_http_status status)
-    __attribute__((const)) __attribute__((warn_unused_result));
-const char *lwan_http_status_as_string_with_code(enum lwan_http_status status)
-    __attribute__((const)) __attribute__((warn_unused_result));
-const char *lwan_http_status_as_descriptive_string(enum lwan_http_status status)
-    __attribute__((const)) __attribute__((warn_unused_result));
 const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     __attribute__((pure)) __attribute__((warn_unused_result));
 
@@ -535,21 +528,13 @@ void lwan_init(struct lwan *l);
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config);
 void lwan_shutdown(struct lwan *l);
 
-void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
-
 const struct lwan_config *lwan_get_default_config(void);
-
-int lwan_connection_get_fd(const struct lwan *lwan,
-                           const struct lwan_connection *conn)
-    __attribute__((pure)) __attribute__((warn_unused_result));
 
 const char *
 lwan_request_get_remote_address(struct lwan_request *request,
                                 char buffer LWAN_ARRAY_PARAM(INET6_ADDRSTRLEN))
     __attribute__((warn_unused_result));
 
-int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
-int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);
 
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)

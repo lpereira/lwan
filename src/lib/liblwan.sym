@@ -9,8 +9,6 @@ global:
     lwan_get_config_path;
     lwan_get_default_config;
 
-    lwan_http_status_as_*;
-
     lwan_init;
     lwan_init_with_config;
     lwan_shutdown;
@@ -38,9 +36,6 @@ global:
     lwan_status_info;
     lwan_status_perror;
     lwan_status_warning;
-
-    lwan_straitjacket_enforce;
-    lwan_straitjacket_enforce_from_config;
 
     lwan_tpl_apply;
     lwan_tpl_apply_with_buffer;

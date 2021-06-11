@@ -226,3 +226,18 @@ static ALWAYS_INLINE int lwan_calculate_n_packets(size_t total)
 long int lwan_getentropy(void *buffer, size_t buffer_len, int flags);
 uint64_t lwan_random_uint64();
 
+const char *lwan_http_status_as_string(enum lwan_http_status status)
+    __attribute__((const)) __attribute__((warn_unused_result));
+const char *lwan_http_status_as_string_with_code(enum lwan_http_status status)
+    __attribute__((const)) __attribute__((warn_unused_result));
+const char *lwan_http_status_as_descriptive_string(enum lwan_http_status status)
+    __attribute__((const)) __attribute__((warn_unused_result));
+
+int lwan_connection_get_fd(const struct lwan *lwan,
+                           const struct lwan_connection *conn)
+    __attribute__((pure)) __attribute__((warn_unused_result));
+
+int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
+int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);
+
+void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);

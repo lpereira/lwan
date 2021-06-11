@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-mod-redirect.h"
 
 struct redirect_priv {
