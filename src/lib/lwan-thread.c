@@ -347,6 +347,8 @@ static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, in
         if (sent <= 0) {
             if (errno == EINTR)
                 continue;
+            if (errno == EAGAIN)
+                continue;
             break;
         }
 
