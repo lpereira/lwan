@@ -334,7 +334,7 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
-static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len)
+static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, int flags)
 {
     size_t total_sent = 0;
 
@@ -343,7 +343,7 @@ static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len)
         if (!to_send)
             return true;
 
-        ssize_t sent = write(fd, buf + total_sent, to_send);
+        ssize_t sent = send(fd, buf + total_sent, to_send, flags);
         if (sent <= 0) {
             if (errno == EINTR)
                 continue;
@@ -356,9 +356,41 @@ static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len)
     return false;
 }
 
-static bool send_string_without_coro(int fd, const char *str)
+static bool send_string_without_coro(int fd, const char *str, int flags)
 {
-    return send_buffer_without_coro(fd, str, strlen(str));
+    return send_buffer_without_coro(fd, str, strlen(str), flags);
+}
+
+static void send_response_without_coro(const struct lwan *l,
+                                       int fd,
+                                       enum lwan_http_status status)
+{
+    if (!send_string_without_coro(fd, "HTTP/1.0 ", MSG_MORE))
+        return;
+
+    if (!send_string_without_coro(
+            fd, lwan_http_status_as_string_with_code(status), MSG_MORE))
+        return;
+
+    if (!send_string_without_coro(fd, "\r\nConnection: close", MSG_MORE))
+        return;
+
+    if (!send_string_without_coro(fd, "\r\nContent-Type: text/html", MSG_MORE))
+        return;
+
+    if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&l->headers),
+                                 lwan_strbuf_get_length(&l->headers),
+                                 MSG_MORE)) {
+        struct lwan_strbuf buffer;
+
+        lwan_strbuf_init(&buffer);
+        lwan_fill_default_response(&buffer, status);
+
+        send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&buffer),
+                                 lwan_strbuf_get_length(&buffer), 0);
+
+        lwan_strbuf_free(&buffer);
+    }
 }
 
 static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
@@ -391,26 +423,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 
     lwan_status_error("Couldn't spawn coroutine for file descriptor %d", fd);
 
-    if (!send_string_without_coro(fd, "HTTP/1.0 503 Unavailable"))
-        goto out;
-    if (!send_string_without_coro(fd, "\r\nConnection: close"))
-        goto out;
-    if (!send_string_without_coro(fd, "\r\nContent-Type: text/html"))
-        goto out;
-    if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&tq->lwan->headers),
-                                 lwan_strbuf_get_length(&tq->lwan->headers))) {
-        struct lwan_strbuf buffer;
-
-        lwan_strbuf_init(&buffer);
-        lwan_fill_default_response(&buffer, HTTP_UNAVAILABLE);
-
-        send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&buffer),
-                                 lwan_strbuf_get_length(&buffer));
-
-        lwan_strbuf_free(&buffer);
-    }
-
-out:
+    send_response_without_coro(tq->lwan, fd, HTTP_UNAVAILABLE);
     shutdown(fd, SHUT_RDWR);
     close(fd);
     return false;
@@ -502,11 +515,11 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
             int r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 
             if (UNLIKELY(r < 0)) {
-                /* FIXME: send a "busy" response here? No coroutine has been
-                 * created at this point to use the usual stuff, though. */
                 lwan_status_perror("Could not add file descriptor %d to epoll "
                                    "set %d. Dropping connection",
                                    fd, conn->thread->epoll_fd);
+
+                send_response_without_coro(t->lwan, fd, HTTP_UNAVAILABLE);
                 shutdown(fd, SHUT_RDWR);
                 close(fd);
             }
