@@ -70,7 +70,7 @@ int lwan_parse_rfc_time(const char in[static 30], time_t *out)
     str += 5;
 
     tm.tm_mday = parse_2_digit_num(str, ' ', 31);
-    if (UNLIKELY(tm.tm_mday <= 1))
+    if (UNLIKELY(tm.tm_mday <= 0))
         return -EINVAL;
     str += 3;
 
