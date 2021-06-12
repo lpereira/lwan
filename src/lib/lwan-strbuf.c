@@ -214,7 +214,7 @@ bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 
     s1->buffer = (char *)s2;
     s1->used = s1->capacity = sz;
-    s1->flags &= ~BUFFER_MALLOCD;
+    s1->flags &= ~(BUFFER_MALLOCD | BUFFER_FIXED);
 
     return true;
 }
