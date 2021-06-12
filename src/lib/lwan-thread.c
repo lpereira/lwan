@@ -94,6 +94,19 @@ static void graceful_close(struct lwan *l,
     /* close(2) will be called when the coroutine yields with CONN_CORO_ABORT */
 }
 
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
+{
+    (void)t;
+}
+
+uint64_t lwan_random_uint64()
+{
+    static uint64_t value;
+
+    return ATOMIC_INC(value);
+}
+#else
 static __thread __uint128_t lehmer64_state;
 
 static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
@@ -112,6 +125,7 @@ uint64_t lwan_random_uint64()
     lehmer64_state *= 0xda942042e4dd58b5ull;
     return (uint64_t)(lehmer64_state >> 64);
 }
+#endif
 
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
