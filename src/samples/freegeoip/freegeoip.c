@@ -71,7 +71,7 @@ static const struct lwan_var_descriptor template_descriptor[] = {
 };
 
 static const char json_template_str[] =
-    "{{callback?}}{{callback}}({{/callback?}}"
+    "{{callback?}}alert('Using JSONP, especially with a third-party service, is insecure. Stop using this ASAP.');{{callback}}({{/callback?}}"
     "{"
     "\"country_code\":\"{{country.code}}\","
     "\"country_name\":\"{{country.name}}\","
