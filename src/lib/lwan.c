@@ -713,6 +713,11 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_job_thread_init();
     lwan_tables_init();
 
+    /* Get the number of CPUs here because straightjacket might be active
+     * and this will block access to /proc and /sys, which will cause
+     * get_number_of_cpus() to get incorrect fallback values. */
+    get_number_of_cpus(l);
+
     try_setup_from_config(l, config);
 
     if (!lwan_strbuf_get_length(&l->headers))
@@ -723,7 +728,6 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
-    get_number_of_cpus(l);
     if (!l->config.n_threads) {
         l->thread.count = l->online_cpus;
         if (l->thread.count == 1)
