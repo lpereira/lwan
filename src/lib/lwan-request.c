@@ -1451,16 +1451,19 @@ static const char *get_request_method(struct lwan_request *request)
 
 static void log_request(struct lwan_request *request,
                         enum lwan_http_status status,
-                        double duration)
+                        double time_to_read_request,
+                        double time_to_process_request)
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug("%s [%s] %016lx \"%s %s HTTP/%s\" %d %s %.3f ms",
+    lwan_status_debug("%s [%s] %016lx \"%s %s HTTP/%s\" %d %s (r:%.3fms p:%.3fms)",
                       lwan_request_get_remote_address(request, ip_buffer),
                       request->conn->thread->date.date, request->request_id,
                       get_request_method(request), request->original_url.value,
                       request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
-                      status, request->response.mime_type, duration);
+                      status, request->response.mime_type,
+                      time_to_read_request,
+                      time_to_process_request);
 }
 #else
 #define log_request(...)
@@ -1501,9 +1504,14 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
     enum lwan_http_status status;
     struct lwan_url_map *url_map;
 
+#ifndef NDEBUG
+    struct timespec request_read_begin_time = current_precise_monotonic_timespec();
+#endif
     status = read_request(request);
 
 #ifndef NDEBUG
+    double time_to_read_request = elapsed_time_ms(request_read_begin_time);
+
     struct timespec request_begin_time = current_precise_monotonic_timespec();
 #endif
     if (UNLIKELY(status != HTTP_OK)) {
@@ -1545,7 +1553,7 @@ lookup_again:
 log_and_return:
     lwan_response(request, status);
 
-    log_request(request, status, elapsed_time_ms(request_begin_time));
+    log_request(request, status, time_to_read_request, elapsed_time_ms(request_begin_time));
 }
 
 static inline void *
