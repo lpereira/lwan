@@ -863,45 +863,52 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
+    uint32_t *schedtbl;
+    uint32_t n_threads;
+    bool adj_affinity;
+
 #ifdef __x86_64__
-    static_assert(sizeof(struct lwan_connection) == 32,
-                  "Two connections per cache line");
+    if (l->online_cpus > 1) {
+        static_assert(sizeof(struct lwan_connection) == 32,
+                      "Two connections per cache line");
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
-    assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
+        assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
+        lwan_status_debug("%d CPUs of %d are online. "
+                          "Reading topology to pre-schedule clients",
+                          l->online_cpus, l->available_cpus);
+        /*
+         * Pre-schedule each file descriptor, to reduce some operations in the
+         * fast path.
+         *
+         * Since struct lwan_connection is guaranteed to be 32-byte long, two of
+         * them can fill up a cache line.  Assume siblings share cache lines and
+         * use the CPU topology to group two connections per cache line in such
+         * a way that false sharing is avoided.
+         */
+        n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
+        schedtbl = alloca(n_threads * sizeof(uint32_t));
 
-    lwan_status_debug("%d CPUs of %d are online. "
-                      "Reading topology to pre-schedule clients",
-                      l->online_cpus, l->available_cpus);
+        adj_affinity = topology_to_schedtbl(l, schedtbl, n_threads);
 
-    /*
-     * Pre-schedule each file descriptor, to reduce some operations in the
-     * fast path.
-     *
-     * Since struct lwan_connection is guaranteed to be 32-byte long, two of
-     * them can fill up a cache line.  Assume siblings share cache lines and
-     * use the CPU topology to group two connections per cache line in such
-     * a way that false sharing is avoided.
-     */
-    uint32_t n_threads =
-        (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
-    uint32_t *schedtbl = alloca(n_threads * sizeof(uint32_t));
+        n_threads--; /* Transform count into mask for AND below */
 
-    bool adj_affinity = topology_to_schedtbl(l, schedtbl, n_threads);
+        for (unsigned int i = 0; i < total_conns; i++)
+            l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
+    } else
+#endif /* __x86_64__ */
+    {
+        lwan_status_debug("Using round-robin to preschedule clients");
 
-    n_threads--; /* Transform count into mask for AND below */
+        for (unsigned int i = 0; i < l->thread.count; i++)
+            l->thread.threads[i].cpu = i % l->online_cpus;
+        for (unsigned int i = 0; i < total_conns; i++)
+            l->conns[i].thread = &l->thread.threads[i % l->thread.count];
 
-    for (unsigned int i = 0; i < total_conns; i++)
-        l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
-#else
-    for (unsigned int i = 0; i < l->thread.count; i++)
-        l->thread.threads[i].cpu = i % l->online_cpus;
-    for (unsigned int i = 0; i < total_conns; i++)
-        l->conns[i].thread = &l->thread.threads[i % l->thread.count];
-
-    uint32_t *schedtbl = NULL;
-    const bool adj_affinity = false;
-#endif
+        schedtbl = NULL;
+        adj_affinity = false;
+        n_threads = l->thread.count;
+    }
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *thread = NULL;
