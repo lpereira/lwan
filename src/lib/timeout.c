@@ -217,35 +217,52 @@ static inline int timeout_slot(int wheel, timeout_t expires)
     return (int)(WHEEL_MASK & ((expires >> (wheel * WHEEL_BIT)) - !!wheel));
 }
 
-static void
-timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
+/* Insert 'to' into 'T'. Requres that to->expires is set, and set some time
+ * in the future. Requires that to is not pending or expired.
+ */
+static void timeouts_sched_future_nopending(struct timeouts *T,
+                                            struct timeout *to)
 {
     timeout_t rem;
     int wheel, slot;
 
+    rem = timeout_rem(T, to);
+
+    /* rem is nonzero since:
+     *   rem == timeout_rem(T, to),
+     *       == to->expires - T->curtime
+     *   and above we have expires > T->curtime.
+     */
+    wheel = timeout_wheel(rem);
+    slot = timeout_slot(wheel, to->expires);
+
+    to->pending = &T->wheel[wheel][slot];
+    list_add_tail(to->pending, &to->tqe);
+
+    T->pending[wheel] |= WHEEL_C(1) << slot;
+}
+
+/* As 'timeouts_sched_future_nopending', but do not require that to->expires
+ * is in the future.
+ */
+static void timeouts_sched_nopending(struct timeouts *T, struct timeout *to)
+{
+    if (to->expires > T->curtime) {
+        timeouts_sched_future_nopending(T, to);
+        return;
+    }
+
+    to->pending = &T->expired;
+    list_add_tail(to->pending, &to->tqe);
+}
+
+static void
+timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
+{
     timeouts_del(T, to);
 
     to->expires = expires;
-
-    if (expires > T->curtime) {
-        rem = timeout_rem(T, to);
-
-        /* rem is nonzero since:
-         *   rem == timeout_rem(T,to),
-         *       == to->expires - T->curtime
-         *   and above we have expires > T->curtime.
-         */
-        wheel = timeout_wheel(rem);
-        slot = timeout_slot(wheel, to->expires);
-
-        to->pending = &T->wheel[wheel][slot];
-
-        T->pending[wheel] |= WHEEL_C(1) << slot;
-    } else {
-        to->pending = &T->expired;
-    }
-
-    list_add_tail(to->pending, &to->tqe);
+    timeouts_sched_nopending(T, to);
 }
 
 void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
@@ -332,7 +349,7 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
         list_del_from(&todo, &to->tqe);
         to->pending = NULL;
 
-        timeouts_sched(T, to, to->expires);
+        timeouts_sched_nopending(T, to);
     }
 
     return;
@@ -366,7 +383,8 @@ static timeout_t timeouts_int(struct timeouts *T)
 
     for (wheel = 0; wheel < WHEEL_NUM; wheel++) {
         if (T->pending[wheel]) {
-            slot = (unsigned int)(wheel_mask & (T->curtime >> (wheel * WHEEL_BIT)));
+            slot = (unsigned int)(wheel_mask &
+                                  (T->curtime >> (wheel * WHEEL_BIT)));
 
             /* ctz input cannot be zero: T->pending[wheel] is
              * nonzero, so rotr() is nonzero. */
