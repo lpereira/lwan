@@ -364,6 +364,8 @@ if (LUA_FOUND AND PYTHONINTERP_FOUND)
 		DEPENDS testrunner
 		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 		COMMENT "Running benchmark.")
+else ()
+  message(WARNING "Lua or Python3 not found, skip target testsuite and benchmark.")
 endif()
 
 add_subdirectory(src)
