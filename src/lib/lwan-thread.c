@@ -516,6 +516,7 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 
 static bool accept_waiting_clients(const struct lwan_thread *t)
 {
+    const uint32_t read_events = conn_flags_to_epoll_events(CONN_EVENTS_READ);
     const struct lwan_connection *conns = t->lwan->conns;
 
     while (true) {
@@ -524,10 +525,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
 
         if (LIKELY(fd >= 0)) {
             const struct lwan_connection *conn = &conns[fd];
-            struct epoll_event ev = {
-                .data.ptr = (void *)conn,
-                .events = conn_flags_to_epoll_events(CONN_EVENTS_READ),
-            };
+            struct epoll_event ev = {.data.ptr = (void *)conn, .events = read_events};
             int r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 
             if (UNLIKELY(r < 0)) {
