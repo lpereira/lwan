@@ -1,6 +1,5 @@
-/* ==========================================================================
+/*
  * timeout.c - Tickless hierarchical timing wheel.
- * --------------------------------------------------------------------------
  * Copyright (c) 2013, 2014  William Ahern
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -21,20 +20,13 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
- * ==========================================================================
  */
 
 #include <assert.h>
-
 #include <limits.h> /* CHAR_BIT */
-
 #include <stddef.h> /* NULL */
 #include <stdlib.h> /* malloc(3) free(3) */
-
-#include <inttypes.h> /* UINT64_C uint64_t */
-
 #include <string.h> /* memset(3) */
-
 #include <errno.h> /* errno */
 
 #include "lwan-private.h"
@@ -44,15 +36,7 @@
 #include "timeout.h"
 
 /*
- * A N C I L L A R Y  R O U T I N E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-#define abstime_t timeout_t /* for documentation purposes */
-#define reltime_t timeout_t /* "" */
-
-/*
- * B I T  M A N I P U L A T I O N  R O U T I N E S
+ * Bit manipulation routines
  *
  * The macros and routines below implement wheel parameterization. The
  * inputs are:
@@ -77,8 +61,7 @@
  * WHEEL_BIT cannot be smaller than 3 bits because of our rotr and rotl
  * routines, which only operate on all the value bits in an integer, and
  * there's no integer smaller than uint8_t.
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+ */
 
 #define WHEEL_BIT 6
 #define WHEEL_NUM 4
@@ -132,10 +115,7 @@ static inline wheel_t rotr(const wheel_t v, uint32_t n)
 
 #undef WHEEL_T_BITS
 
-/*
- * T I M E R  R O U T I N E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Timer routines */
 
 struct timeouts {
     struct list_head wheel[WHEEL_NUM][WHEEL_LEN];
@@ -201,7 +181,7 @@ void timeouts_del(struct timeouts *T, struct timeout *to)
     }
 }
 
-static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to)
+static inline timeout_t timeout_rem(struct timeouts *T, struct timeout *to)
 {
     return to->expires - T->curtime;
 }
@@ -256,7 +236,7 @@ void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
         timeouts_sched(T, to, T->curtime + timeout);
 }
 
-void timeouts_update(struct timeouts *T, abstime_t curtime)
+void timeouts_update(struct timeouts *T, timeout_t curtime)
 {
     timeout_t elapsed = curtime - T->curtime;
     struct list_head todo;

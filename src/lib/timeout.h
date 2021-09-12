@@ -1,6 +1,5 @@
-/* ==========================================================================
+/*
  * timeout.h - Tickless hierarchical timing wheel.
- * --------------------------------------------------------------------------
  * Copyright (c) 2013, 2014  William Ahern
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -21,36 +20,22 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
- * ==========================================================================
  */
-#ifndef TIMEOUT_H
-#define TIMEOUT_H
 
-#include <stdbool.h> /* bool */
-#include <stdio.h>   /* FILE */
-
-#include <inttypes.h> /* PRIu64 PRIx64 PRIX64 uint64_t */
+#pragma once
+#include <inttypes.h> /* uint64_t */
 
 #include "list.h"
 
-/*
- * I N T E G E R  T Y P E  I N T E R F A C E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Integer type interfaces */
 
 #define TIMEOUT_C(n) UINT64_C(n)
-#define TIMEOUT_PRIu PRIu64
-#define TIMEOUT_PRIx PRIx64
-#define TIMEOUT_PRIX PRIX64
 
 typedef uint64_t timeout_t;
 
 #define timeout_error_t int /* for documentation purposes */
 
-/*
- * T I M E O U T  I N T E R F A C E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Timeout interfaces */
 
 #define TIMEOUT_ABS 0x01 /* treat timeout values as absolute */
 
@@ -62,45 +47,40 @@ typedef uint64_t timeout_t;
 struct timeout {
     int flags;
 
-    timeout_t expires;
     /* absolute expiration time */
+    timeout_t expires;
 
-    struct list_head *pending;
     /* timeout list if pending on wheel or expiry queue */
+    struct list_head *pending;
 
-    struct list_node tqe;
     /* entry member for struct timeout_list lists */
-}; /* struct timeout */
+    struct list_node tqe;
+};
 
-struct timeout *timeout_init(struct timeout *);
 /* initialize timeout structure (same as TIMEOUT_INITIALIZER) */
+struct timeout *timeout_init(struct timeout *);
 
-/*
- * T I M I N G  W H E E L  I N T E R F A C E S
- *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Timing wheel interfaces */
 
 struct timeouts;
 
-struct timeouts *timeouts_open(timeout_error_t *);
 /* open a new timing wheel, setting optional HZ (for float conversions) */
+struct timeouts *timeouts_open(timeout_error_t *);
 
-void timeouts_close(struct timeouts *);
 /* destroy timing wheel */
+void timeouts_close(struct timeouts *);
 
-void timeouts_update(struct timeouts *, timeout_t);
 /* update timing wheel with current absolute time */
+void timeouts_update(struct timeouts *, timeout_t);
 
-timeout_t timeouts_timeout(struct timeouts *);
 /* return interval to next required update */
+timeout_t timeouts_timeout(struct timeouts *);
 
-void timeouts_add(struct timeouts *, struct timeout *, timeout_t);
 /* add timeout to timing wheel */
+void timeouts_add(struct timeouts *, struct timeout *, timeout_t);
 
-void timeouts_del(struct timeouts *, struct timeout *);
 /* remove timeout from any timing wheel or expired queue (okay if on neither) */
+void timeouts_del(struct timeouts *, struct timeout *);
 
-struct timeout *timeouts_get(struct timeouts *);
 /* return any expired timeout (caller should loop until NULL-return) */
-
-#endif /* TIMEOUT_H */
+struct timeout *timeouts_get(struct timeouts *);
