@@ -2,14 +2,13 @@
 
 from __future__ import print_function
 
-import commands
 import json
 import os
 import subprocess
 import sys
 import time
 
-LWAN_PATH = './build/testrunner/testrunner'
+LWAN_PATH = '../../build/src/bin/testrunner/testrunner'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
     LWAN_PATH = arg
@@ -38,19 +37,18 @@ def weighttp(url, n_threads, n_connections, n_requests, keep_alive):
             '-t %(n_threads)d ' \
             '-c %(n_connections)d ' \
             '-n %(n_requests)d ' \
-            '-j ' \
             '%(url)s 2> /dev/null' % locals()
 
   clearstderrline()
   sys.stderr.write('*** %s\r' % command)
 
-  output = commands.getoutput(command)
+  output = subprocess.getoutput(command)
 
   return json.loads(output)
 
 
 def weighttp_has_json_output():
-  output = commands.getoutput('weighttp -j')
+  output = subprocess.getoutput('weighttp -j')
   return not 'unknown option: -j' in output
 
 
