@@ -81,7 +81,10 @@ void lwan_readahead_shutdown(void)
 
     lwan_status_debug("Shutting down readahead thread");
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
     write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
+#pragma GCC diagnostic pop
     pthread_join(readahead_self, NULL);
 
     close(readahead_pipe_fd[0]);
@@ -100,7 +103,10 @@ void lwan_readahead_queue(int fd, off_t off, size_t size)
     };
 
     /* Readahead is just a hint.  Failing to write is not an error. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
     write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
+#pragma GCC diagnostic pop
 }
 
 void lwan_madvise_queue(void *addr, size_t length)
@@ -114,7 +120,10 @@ void lwan_madvise_queue(void *addr, size_t length)
     };
 
     /* Madvise is just a hint.  Failing to write is not an error. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
     write(readahead_pipe_fd[1], &cmd, sizeof(cmd));
+#pragma GCC diagnostic pop
 }
 
 static void *lwan_readahead_loop(void *data __attribute__((unused)))
