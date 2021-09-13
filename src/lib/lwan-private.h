@@ -208,7 +208,7 @@ lwan_aligned_alloc(size_t n, size_t alignment)
     void *ret;
 
     assert((alignment & (alignment - 1)) == 0);
-    assert((alignment % (sizeof(void *)) == 0);
+    assert((alignment % (sizeof(void *))) == 0);
 
     n = (n + alignment - 1) & ~(alignment - 1);
     if (UNLIKELY(posix_memalign(&ret, alignment, n)))
