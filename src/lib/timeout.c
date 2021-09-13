@@ -201,20 +201,15 @@ void timeouts_del(struct timeouts *T, struct timeout *to)
     }
 }
 
-static inline reltime_t timeout_rem(struct timeouts *T, struct timeout *to)
+static inline int timeout_wheel(timeout_t curtime, timeout_t expires)
 {
-    return to->expires - T->curtime;
-}
-
-static inline int timeout_wheel(timeout_t timeout)
-{
-    /* must be called with timeout != 0, so fls input is nonzero */
-    return (fls(LWAN_MIN(timeout, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
+    /* must be called with expires > curtime, so fls input is nonzero */
+    return (fls(LWAN_MIN(curtime ^ expires, TIMEOUT_MAX)) - 1) / WHEEL_BIT;
 }
 
 static inline int timeout_slot(int wheel, timeout_t expires)
 {
-    return (int)(WHEEL_MASK & ((expires >> (wheel * WHEEL_BIT)) - !!wheel));
+    return (int)(WHEEL_MASK & ((expires >> (wheel * WHEEL_BIT))));
 }
 
 /* Insert 'to' into 'T'. Requres that to->expires is set, and set some time
@@ -223,17 +218,9 @@ static inline int timeout_slot(int wheel, timeout_t expires)
 static void timeouts_sched_future_nopending(struct timeouts *T,
                                             struct timeout *to)
 {
-    timeout_t rem;
     int wheel, slot;
 
-    rem = timeout_rem(T, to);
-
-    /* rem is nonzero since:
-     *   rem == timeout_rem(T, to),
-     *       == to->expires - T->curtime
-     *   and above we have expires > T->curtime.
-     */
-    wheel = timeout_wheel(rem);
+    wheel = timeout_wheel(T->curtime, to->expires);
     slot = timeout_slot(wheel, to->expires);
 
     to->pending = &T->wheel[wheel][slot];
@@ -291,38 +278,27 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
         /*
          * Calculate the slots expiring in this wheel
          *
-         * If the elapsed time is greater than the maximum period of
-         * the wheel, mark every position as expiring.
+         * Assume that current slot is empty, its timer either expired or
+         * moved to the lower wheel. If the elapsed time is greater or equal
+         * to the maximum period of the wheel, mark every position as
+         * expiring.
          *
-         * Otherwise, to determine the expired slots fill in all the
-         * bits between the last slot processed and the current
-         * slot, inclusive of the last slot. We'll bitwise-AND this
-         * with our pending set below.
-         *
-         * If a wheel rolls over, force a tick of the next higher
-         * wheel.
+         * Otherwise, to determine the expired slots fill in all the bits
+         * between the last slot processed and the current slot (exclusive,
+         * we do not need to check it again), inclusive of the last slot.
+         * We will bitwise-AND this with our pending set below.
          */
-        if ((elapsed >> (wheel * WHEEL_BIT)) > WHEEL_MAX) {
+        if ((elapsed >> (wheel * WHEEL_BIT)) >= WHEEL_MAX) {
             pending = (wheel_t)~WHEEL_C(0);
         } else {
-            const timeout_t wheel_mask = (timeout_t)WHEEL_MASK;
-            wheel_t _elapsed = WHEEL_MASK & (elapsed >> (wheel * WHEEL_BIT));
+            wheel_t _elapsed;
             unsigned int oslot, nslot;
 
-            /*
-             * TODO: It's likely that at least one of the
-             * following three bit fill operations is redundant
-             * or can be replaced with a simpler operation.
-             */
-            oslot = (unsigned int)(wheel_mask &
-                                   (T->curtime >> (wheel * WHEEL_BIT)));
-            pending = rotl(((UINT64_C(1) << _elapsed) - 1), oslot);
+            oslot = WHEEL_MASK & (T->curtime >> (wheel * WHEEL_BIT));
+            nslot = WHEEL_MASK & (curtime >> (wheel * WHEEL_BIT));
+            _elapsed = WHEEL_MASK & (WHEEL_LEN + nslot - oslot);
 
-            nslot =
-                (unsigned int)(wheel_mask & (curtime >> (wheel * WHEEL_BIT)));
-            pending |= rotr(rotl(((WHEEL_C(1) << _elapsed) - 1), nslot),
-                            (unsigned int)_elapsed);
-            pending |= WHEEL_C(1) << nslot;
+            pending = rotl(((WHEEL_C(1) << _elapsed) - 1), oslot);
         }
 
         while (pending & T->pending[wheel]) {
@@ -337,9 +313,6 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
 
         if (!(0x1 & pending))
             break; /* break if we didn't wrap around end of wheel */
-
-        /* if we're continuing, the next wheel must tick at least once */
-        elapsed = LWAN_MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
     }
 
     T->curtime = curtime;
@@ -388,10 +361,12 @@ static timeout_t timeouts_int(struct timeouts *T)
 
             /* ctz input cannot be zero: T->pending[wheel] is
              * nonzero, so rotr() is nonzero. */
-            _timeout = (timeout_t)(ctz(rotr(T->pending[wheel], slot)) + !!wheel)
+            _timeout = (timeout_t)(ctz(rotr(T->pending[wheel], slot)) +
+                                   !!(T->pending[wheel] & (TIMEOUT_C(1) << slot)))
                        << (wheel * WHEEL_BIT);
-            /* +1 to higher order wheels as those timeouts are one rotation in
-             * the future (otherwise they'd be on a lower wheel or expired) */
+            /* +1 when a timeout greater than TIMEOUT_MAX and wrap in to
+             * current slot of the highest wheel.
+             */
 
             _timeout -= relmask & T->curtime;
             /* reduce by how much lower wheels have progressed */
