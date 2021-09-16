@@ -234,6 +234,14 @@ has_uncommon_response_headers(enum lwan_request_flags v)
     return v & (RESPONSE_INCLUDE_REQUEST_ID | REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
 }
 
+static bool
+has_query_string(const struct lwan_request *request)
+{
+    /* FIXME: new flag to make this check cheaper? */
+    const struct lwan_value *query_string = &request->helper->query_string;
+    return query_string->value && query_string->len;
+}
+
 size_t lwan_prepare_response_header_full(
     struct lwan_request *request,
     enum lwan_http_status status,
@@ -328,7 +336,7 @@ skip_date_header:
             APPEND_STRING(request->response.mime_type);
         }
 
-        if (!expires_override) {
+        if (!expires_override || !has_query_string(request)) {
             APPEND_CONSTANT("\r\nExpires: ");
             APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
         }
