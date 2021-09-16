@@ -457,9 +457,9 @@ class TestRewrite(LwanTest):
         self.assertResponsePlain(r, 200)
 
         if (key, value) == ('style', 'dark'):
-          self.assertEqual(r.text, 'Hello, %s!' % value)
+          self.assertEqual(r.text, 'Hello, dark!')
         else:
-          self.assertNotEqual(r.text, 'Hello, %s!' % value)
+          self.assertEqual(r.text, 'Hello, light!')
 
   def test_conditional_rewrite_without_cookie(self):
       r = requests.get('http://localhost:8080/css/test.css')
