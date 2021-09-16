@@ -449,6 +449,24 @@ class TestRedirect(LwanTest):
     self.assertEqual(r.headers['location'], 'http://lwan.ws')
 
 class TestRewrite(LwanTest):
+  def test_conditional_rewrite_with_cookie(self):
+    for key in ('style', 'something-else'):
+      for value in ('dark', 'dork', '', None):
+        r = requests.get('http://localhost:8080/css/test.css', cookies={key: value})
+
+        self.assertResponsePlain(r, 200)
+
+        if (key, value) == ('style', 'dark'):
+          self.assertEqual(r.text, 'Hello, %s!' % value)
+        else:
+          self.assertNotEqual(r.text, 'Hello, %s!' % value)
+
+  def test_conditional_rewrite_without_cookie(self):
+      r = requests.get('http://localhost:8080/css/test.css')
+
+      self.assertResponsePlain(r, 200)
+      self.assertEqual(r.text, 'Hello, light!')
+
   def test_pattern_redirect_to(self):
     r = requests.get('http://127.0.0.1:8080/pattern/foo/1234x5678', allow_redirects=False)
 
