@@ -254,6 +254,8 @@ enum lwan_request_flags {
     REQUEST_PARSED_ACCEPT_ENCODING = 1 << 23,
 
     RESPONSE_INCLUDE_REQUEST_ID = 1 << 24,
+
+    REQUEST_HAS_QUERY_STRING = 1 << 25,
 };
 
 #undef SELECT_MASK
