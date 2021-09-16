@@ -515,6 +515,29 @@ every pattern.
 `redirect_to` and `rewrite_as` options are mutually exclusive, and one of
 them must be specified at least.
 
+It's also possible to specify conditions to trigger a rewrite.  To specify one,
+open a `condition` block, specify the condition type, and then the parameters
+for that condition to be evaluated:
+
+|Condition|Parameters|
+|---------|----------|
+|`cookie` | A single `key` = `value`|
+
+For example, if one wants to send `site-dark-mode.css` if there is a `style` cookie
+with the value `dark`, and send `site-light-mode.css` otherwise, one can write:
+
+```
+rewrite ... {
+   pattern site.css {
+      rewrite as = /site-dark-mode.css
+      condition cookie { style = dark }
+   }
+   pattern site.css {
+      rewrite as = /site-light-mode.css
+   }
+}
+```
+
 #### Redirect
 
 The `redirect` module will, as it says in the tin, generate a `301

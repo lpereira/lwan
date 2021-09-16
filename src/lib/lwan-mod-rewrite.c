@@ -46,11 +46,20 @@ enum pattern_flag {
     PATTERN_EXPAND_LWAN = 1<<2,
     PATTERN_EXPAND_LUA = 1<<3,
     PATTERN_EXPAND_MASK = PATTERN_EXPAND_LWAN | PATTERN_EXPAND_LUA,
+
+    PATTERN_COND_COOKIE = 1<<4,
+    PATTERN_COND_MASK = PATTERN_COND_COOKIE,
 };
 
 struct pattern {
     char *pattern;
     char *expand_pattern;
+    struct {
+        struct {
+            char *key;
+            char *value;
+        } cookie;
+    } condition;
     enum pattern_flag flags;
 };
 
@@ -257,6 +266,20 @@ rewrite_handle_request(struct lwan_request *request,
         if (captures <= 0)
             continue;
 
+        if (p->flags & PATTERN_COND_COOKIE) {
+            assert(p->condition.cookie.key);
+            assert(p->condition.cookie.value);
+
+            const char *cookie_val =
+                lwan_request_get_cookie(request, p->condition.cookie.key);
+
+            if (!cookie_val)
+                continue;
+
+            if (!streq(cookie_val, p->condition.cookie.value))
+                continue;
+        }
+
         switch (p->flags & PATTERN_EXPAND_MASK) {
 #ifdef HAVE_LUA
         case PATTERN_EXPAND_LUA:
@@ -304,6 +327,10 @@ static void rewrite_destroy(void *instance)
     LWAN_ARRAY_FOREACH(&pd->patterns, iter) {
         free(iter->pattern);
         free(iter->expand_pattern);
+        if (iter->flags & PATTERN_COND_COOKIE) {
+            free(iter->condition.cookie.key);
+            free(iter->condition.cookie.value);
+        }
     }
 
     pattern_array_reset(&pd->patterns);
@@ -315,6 +342,59 @@ static void *rewrite_create_from_hash(const char *prefix,
                                       __attribute__((unused)))
 {
     return rewrite_create(prefix, NULL);
+}
+
+static void parse_condition(struct pattern *pattern,
+                            struct config *config,
+                            const struct config_line *line)
+{
+    char *cookie_key = NULL, *cookie_value = NULL;
+
+    if (!streq(line->value, "cookie")) {
+        config_error(config, "Condition `%s' not supported", line->value);
+        return;
+    }
+
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Unexpected section: %s", line->key);
+            return;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            if (!cookie_key || !cookie_value) {
+                config_error(config, "Cookie key/value has not been specified");
+                return;
+            }
+
+            pattern->flags |= PATTERN_COND_COOKIE;
+            pattern->condition.cookie.key = cookie_key;
+            pattern->condition.cookie.value = cookie_value;
+            return;
+
+        case CONFIG_LINE_TYPE_LINE:
+            if (cookie_key || cookie_value) {
+                config_error(config, "Can only condition on a single cookie. Currently has: %s=%s", cookie_key, cookie_value);
+                free(cookie_key);
+                free(cookie_value);
+                return;
+            }
+
+            cookie_key = strdup(line->key);
+            if (!cookie_key) {
+                config_error(config, "Could not copy cookie key while parsing condition");
+                return;
+            }
+
+            cookie_value = strdup(line->value);
+            if (!cookie_value) {
+                free(cookie_key);
+                config_error(config, "Could not copy cookie value while parsing condition");
+                return;
+            }
+            break;
+        }
+    }
 }
 
 static bool rewrite_parse_conf_pattern(struct private_data *pd,
@@ -356,7 +436,11 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            config_error(config, "Unexpected section: %s", line->key);
+            if (streq(line->key, "condition")) {
+                parse_condition(pattern, config, line);
+            } else {
+                config_error(config, "Unexpected section: %s", line->key);
+            }
             break;
         case CONFIG_LINE_TYPE_SECTION_END:
             if (redirect_to && rewrite_as) {
