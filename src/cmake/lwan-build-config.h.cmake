@@ -30,7 +30,6 @@
 #cmakedefine HAVE_MKOSTEMP
 #cmakedefine HAVE_PIPE2
 #cmakedefine HAVE_PTHREADBARRIER
-#cmakedefine HAVE_RAWMEMCHR
 #cmakedefine HAVE_READAHEAD
 #cmakedefine HAVE_REALLOCARRAY
 #cmakedefine HAVE_EPOLL
