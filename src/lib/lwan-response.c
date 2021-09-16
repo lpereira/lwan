@@ -234,11 +234,6 @@ has_uncommon_response_headers(enum lwan_request_flags v)
     return v & (RESPONSE_INCLUDE_REQUEST_ID | REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
 }
 
-static ALWAYS_INLINE bool has_query_string(enum lwan_request_flags v)
-{
-    return v & REQUEST_HAS_QUERY_STRING;
-}
-
 size_t lwan_prepare_response_header_full(
     struct lwan_request *request,
     enum lwan_http_status status,
@@ -254,7 +249,7 @@ size_t lwan_prepare_response_header_full(
     char buffer[INT_TO_STR_BUFFER_SIZE];
     const enum lwan_request_flags request_flags = request->flags;
     const enum lwan_connection_flags conn_flags = request->conn->flags;
-    bool expires_override = !!(request->flags & RESPONSE_NO_EXPIRES);
+    bool expires_override = !!(request->flags & (RESPONSE_NO_EXPIRES | REQUEST_HAS_QUERY_STRING));
 
     assert(request->global_response_headers);
 
@@ -333,7 +328,7 @@ skip_date_header:
             APPEND_STRING(request->response.mime_type);
         }
 
-        if (!expires_override || !has_query_string(request_flags)) {
+        if (!expires_override) {
             APPEND_CONSTANT("\r\nExpires: ");
             APPEND_STRING_LEN(request->conn->thread->date.expires, 29);
         }
