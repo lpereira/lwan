@@ -1198,12 +1198,17 @@ static int read_body_data(struct lwan_request *request)
     bool allow_temp_file;
     char *new_buffer;
 
-    if (lwan_request_get_method(request) == REQUEST_METHOD_POST) {
+    switch (lwan_request_get_method(request)) {
+    case REQUEST_METHOD_POST:
         allow_temp_file = config->allow_post_temp_file;
         max_data_size = config->max_post_data_size;
-    } else {
+        break;
+    case REQUEST_METHOD_PUT:
         allow_temp_file = config->allow_put_temp_file;
         max_data_size = config->max_put_data_size;
+        break;
+    default:
+        return -HTTP_NOT_ALLOWED;
     }
 
     status =
