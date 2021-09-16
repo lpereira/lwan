@@ -431,6 +431,7 @@ static void parse_fragment_and_query(struct lwan_request *request,
         helper->query_string.value = query_string + 1;
         helper->query_string.len = (size_t)(space - query_string - 1);
         request->url.len -= helper->query_string.len + 1;
+        request->flags |= REQUEST_HAS_QUERY_STRING;
     }
 }
 
