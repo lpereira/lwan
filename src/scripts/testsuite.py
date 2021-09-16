@@ -450,7 +450,7 @@ class TestRedirect(LwanTest):
 
 class TestRewrite(LwanTest):
   def test_conditional_rewrite_with_cookie(self):
-    for key in ('style', 'something-else'):
+    for key in ('style', 'something-else', ''):
       for value in ('dark', 'dork', '', None):
         r = requests.get('http://localhost:8080/css/test.css', cookies={key: value})
 
