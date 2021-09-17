@@ -27,9 +27,10 @@
 
 #include "lwan-private.h"
 
+#include "patterns.h"
 #include "lwan-array.h"
 #include "lwan-mod-rewrite.h"
-#include "patterns.h"
+#include "lwan-strbuf.h"
 
 #ifdef HAVE_LUA
 #include <lauxlib.h>
@@ -86,11 +87,6 @@ struct private_data {
     struct pattern_array patterns;
 };
 
-struct str_builder {
-    char *buffer;
-    size_t size, len;
-};
-
 static enum lwan_http_status module_redirect_to(struct lwan_request *request,
                                                 const char *url)
 {
@@ -123,25 +119,6 @@ static enum lwan_http_status module_rewrite_as(struct lwan_request *request,
     return HTTP_OK;
 }
 
-static bool
-append_str(struct str_builder *builder, const char *src, size_t src_len)
-{
-    size_t total_size;
-    char *dest;
-
-    if (UNLIKELY(__builtin_add_overflow(builder->len, src_len, &total_size)))
-        return false;
-
-    if (UNLIKELY(total_size >= builder->size))
-        return false;
-
-    dest = mempcpy(builder->buffer + builder->len, src, src_len);
-    *dest = '\0';
-    builder->len = total_size;
-
-    return true;
-}
-
 #define MAX_INT_DIGITS (3 * sizeof(int))
 
 static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
@@ -153,17 +130,22 @@ static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
     return parse_int(strndupa(s, len), default_value);
 }
 
-static const char *expand(struct pattern *pattern, const char *orig,
+static const char *expand(struct pattern *pattern,
+                          const char *orig,
                           char buffer[static PATH_MAX],
-                          const struct str_find *sf, int captures)
+                          const struct str_find *sf,
+                          int captures)
 {
     const char *expand_pattern = pattern->expand_pattern;
-    struct str_builder builder = {.buffer = buffer, .size = PATH_MAX};
+    struct lwan_strbuf strbuf;
     const char *ptr;
 
     ptr = strchr(expand_pattern, '%');
     if (!ptr)
         return expand_pattern;
+
+    if (!lwan_strbuf_init_with_fixed_buffer(&strbuf, buffer, PATH_MAX))
+        return NULL;
 
     do {
         size_t index_len = strspn(ptr + 1, "0123456789");
@@ -171,7 +153,7 @@ static const char *expand(struct pattern *pattern, const char *orig,
         if (ptr > expand_pattern) {
             const size_t len = (size_t)(ptr - expand_pattern);
 
-            if (UNLIKELY(!append_str(&builder, expand_pattern, len)))
+            if (UNLIKELY(!lwan_strbuf_append_str(&strbuf, expand_pattern, len)))
                 return NULL;
 
             expand_pattern += len;
@@ -183,13 +165,13 @@ static const char *expand(struct pattern *pattern, const char *orig,
             if (UNLIKELY(index < 0 || index > captures))
                 return NULL;
 
-            if (UNLIKELY(
-                    !append_str(&builder, orig + sf[index].sm_so,
-                                (size_t)(sf[index].sm_eo - sf[index].sm_so))))
+            if (UNLIKELY(!lwan_strbuf_append_str(
+                    &strbuf, orig + sf[index].sm_so,
+                    (size_t)(sf[index].sm_eo - sf[index].sm_so))))
                 return NULL;
 
             expand_pattern += index_len;
-        } else if (UNLIKELY(!append_str(&builder, "%", 1))) {
+        } else if (UNLIKELY(!lwan_strbuf_append_char(&strbuf, '%'))) {
             return NULL;
         }
 
@@ -197,13 +179,14 @@ static const char *expand(struct pattern *pattern, const char *orig,
     } while ((ptr = strchr(expand_pattern, '%')));
 
     const size_t remaining_len = strlen(expand_pattern);
-    if (remaining_len && !append_str(&builder, expand_pattern, remaining_len))
+    if (remaining_len &&
+        !lwan_strbuf_append_str(&strbuf, expand_pattern, remaining_len))
         return NULL;
 
-    if (UNLIKELY(!builder.len))
+    if (UNLIKELY(!lwan_strbuf_get_length(&strbuf)))
         return NULL;
 
-    return builder.buffer;
+    return lwan_strbuf_get_buffer(&strbuf);
 }
 
 #ifdef HAVE_LUA
