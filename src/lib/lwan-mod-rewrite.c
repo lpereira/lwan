@@ -256,7 +256,7 @@ static const char *expand_lua(struct lwan_request *request,
 
 static bool condition_matches(struct lwan_request *request,
                               const struct pattern *p,
-                              struct str_find *sf,
+                              const struct str_find *sf,
                               int captures)
 {
     if (LIKELY(!(p->flags & PATTERN_COND_MASK)))
