@@ -543,6 +543,7 @@ lwan_request_get_method(const struct lwan_request *request)
 {
     return (enum lwan_request_flags)(request->flags & REQUEST_METHOD_MASK);
 }
+const char *lwan_request_get_method_str(const struct lwan_request *request);
 
 int lwan_request_get_range(struct lwan_request *request,
                            off_t *from,

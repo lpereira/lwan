@@ -1439,8 +1439,7 @@ static bool handle_rewrite(struct lwan_request *request)
     return true;
 }
 
-#ifndef NDEBUG
-static const char *get_request_method(struct lwan_request *request)
+const char *lwan_request_get_method_str(const struct lwan_request *request)
 {
 #define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
     case REQUEST_METHOD_##upper:                                               \
@@ -1451,10 +1450,10 @@ static const char *get_request_method(struct lwan_request *request)
     default:
         return "UNKNOWN";
     }
-
 #undef GENERATE_CASE_STMT
 }
 
+#ifndef NDEBUG
 static void log_request(struct lwan_request *request,
                         enum lwan_http_status status,
                         double time_to_read_request,
@@ -1462,14 +1461,14 @@ static void log_request(struct lwan_request *request,
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug("%s [%s] %016lx \"%s %s HTTP/%s\" %d %s (r:%.3fms p:%.3fms)",
-                      lwan_request_get_remote_address(request, ip_buffer),
-                      request->conn->thread->date.date, request->request_id,
-                      get_request_method(request), request->original_url.value,
-                      request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1",
-                      status, request->response.mime_type,
-                      time_to_read_request,
-                      time_to_process_request);
+    lwan_status_debug(
+        "%s [%s] %016lx \"%s %s HTTP/%s\" %d %s (r:%.3fms p:%.3fms)",
+        lwan_request_get_remote_address(request, ip_buffer),
+        request->conn->thread->date.date, request->request_id,
+        lwan_request_get_method_str(request), request->original_url.value,
+        request->flags & REQUEST_IS_HTTP_1_0 ? "1.0" : "1.1", status,
+        request->response.mime_type, time_to_read_request,
+        time_to_process_request);
 }
 #else
 #define log_request(...)
