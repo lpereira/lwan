@@ -519,9 +519,15 @@ It's also possible to specify conditions to trigger a rewrite.  To specify one,
 open a `condition` block, specify the condition type, and then the parameters
 for that condition to be evaluated:
 
-|Condition|Parameters|
-|---------|----------|
-|`cookie` | A single `key` = `value`|
+|Condition|Parameters|Description|
+|---------|----------|-----------|
+|`cookie` | A single `key` = `value`| Checks if request has cookie `key` has value `value` |
+|`query`  | A single `key` = `value`| Checks if request has query variable `key` has value `value` |
+|`post`  | A single `key` = `value`| Checks if request has post data `key` has value `value` |
+|`header`  | A single `key` = `value`| Checks if request header `key` has value `value` |
+|`environment`  | A single `key` = `value`| Checks if environment variable `key` has value `value` |
+|`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
+|`lua` | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
 
 For example, if one wants to send `site-dark-mode.css` if there is a `style` cookie
 with the value `dark`, and send `site-light-mode.css` otherwise, one can write:

@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "lwan-private.h"
 
@@ -39,26 +40,42 @@
 #endif
 
 enum pattern_flag {
-    PATTERN_HANDLE_REWRITE = 1<<0,
-    PATTERN_HANDLE_REDIRECT = 1<<1,
+    PATTERN_HANDLE_REWRITE = 1 << 0,
+    PATTERN_HANDLE_REDIRECT = 1 << 1,
     PATTERN_HANDLE_MASK = PATTERN_HANDLE_REWRITE | PATTERN_HANDLE_REDIRECT,
 
-    PATTERN_EXPAND_LWAN = 1<<2,
-    PATTERN_EXPAND_LUA = 1<<3,
+    PATTERN_EXPAND_LWAN = 1 << 2,
+    PATTERN_EXPAND_LUA = 1 << 3,
     PATTERN_EXPAND_MASK = PATTERN_EXPAND_LWAN | PATTERN_EXPAND_LUA,
 
-    PATTERN_COND_COOKIE = 1<<4,
-    PATTERN_COND_MASK = PATTERN_COND_COOKIE,
+    PATTERN_COND_COOKIE = 1 << 4,
+    PATTERN_COND_ENV_VAR = 1 << 5,
+    PATTERN_COND_STAT = 1 << 6,
+    PATTERN_COND_QUERY_VAR = 1 << 7,
+    PATTERN_COND_POST_VAR = 1 << 8,
+    PATTERN_COND_HEADER = 1 << 9,
+    PATTERN_COND_LUA = 1 << 10,
+    PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
+                        PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
+                        PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
+                        PATTERN_COND_LUA,
 };
 
 struct pattern {
     char *pattern;
     char *expand_pattern;
     struct {
+        struct lwan_key_value cookie, env_var, query_var, post_var, header;
         struct {
-            char *key;
-            char *value;
-        } cookie;
+            char *path;
+            unsigned int has_is_file : 1;
+            unsigned int has_is_dir : 1;
+            unsigned int is_file : 1;
+            unsigned int is_dir : 1;
+        } stat;
+        struct {
+            char *script;
+        } lua;
     } condition;
     enum pattern_flag flags;
 };
@@ -246,6 +263,102 @@ static const char *expand_lua(struct lwan_request *request,
 }
 #endif
 
+static bool condition_matches(struct lwan_request *request,
+                              const struct pattern *p)
+{
+    if (LIKELY(!(p->flags & PATTERN_COND_MASK)))
+        return true;
+
+    if (p->flags & PATTERN_COND_COOKIE) {
+        assert(p->condition.cookie.key);
+        assert(p->condition.cookie.value);
+
+        const char *cookie =
+            lwan_request_get_cookie(request, p->condition.cookie.key);
+        if (!cookie || !streq(cookie, p->condition.cookie.value))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_ENV_VAR) {
+        assert(p->condition.env_var.key);
+        assert(p->condition.env_var.value);
+
+        const char *env_var = secure_getenv(p->condition.env_var.key);
+        if (!env_var || !streq(env_var, p->condition.env_var.value))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_QUERY_VAR) {
+        assert(p->condition.query_var.key);
+        assert(p->condition.query_var.value);
+
+        const char *query =
+            lwan_request_get_query_param(request, p->condition.query_var.key);
+        if (!query || !streq(query, p->condition.query_var.value))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_QUERY_VAR) {
+        assert(p->condition.post_var.key);
+        assert(p->condition.post_var.value);
+
+        const char *post =
+            lwan_request_get_post_param(request, p->condition.post_var.key);
+        if (!post || !streq(post, p->condition.post_var.value))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_STAT) {
+        assert(p->condition.stat.path);
+
+        struct stat st;
+
+        if (stat(p->condition.stat.path, &st) < 0)
+            return false;
+        if (p->condition.stat.has_is_file &&
+            p->condition.stat.is_file != !!S_ISREG(st.st_mode)) {
+            return false;
+        }
+        if (p->condition.stat.has_is_dir &&
+            p->condition.stat.is_dir != !!S_ISDIR(st.st_mode)) {
+            return false;
+        }
+    }
+
+#ifdef HAVE_LUA
+    if (p->flags & PATTERN_COND_LUA) {
+        assert(p->condition.lua.script);
+
+        lua_State *L = lwan_lua_create_state(NULL, p->condition.lua.script);
+        if (!L)
+            return false;
+        coro_defer(request->conn->coro, lua_close_defer, L);
+
+        lua_getglobal(L, "matches");
+        if (!lua_isfunction(L, -1)) {
+            lwan_status_error(
+                "Could not obtain reference to `matches()` function: %s",
+                lwan_lua_state_last_error(L));
+            return false;
+        }
+
+        lwan_lua_state_push_request(L, request);
+
+        if (lua_pcall(L, 1, 1, 0) != 0) {
+            lwan_status_error("Could not execute `matches()` function: %s",
+                              lwan_lua_state_last_error(L));
+            return false;
+        }
+
+        if (!lua_toboolean(L, -1))
+            return false;
+    }
+#else
+    assert(!(p->flags & PATTERN_COND_LUA));
+#endif
+
+    return true;
+}
 static enum lwan_http_status
 rewrite_handle_request(struct lwan_request *request,
                        struct lwan_response *response __attribute__((unused)),
@@ -266,19 +379,8 @@ rewrite_handle_request(struct lwan_request *request,
         if (captures <= 0)
             continue;
 
-        if (p->flags & PATTERN_COND_COOKIE) {
-            assert(p->condition.cookie.key);
-            assert(p->condition.cookie.value);
-
-            const char *cookie_val =
-                lwan_request_get_cookie(request, p->condition.cookie.key);
-
-            if (!cookie_val)
-                continue;
-
-            if (!streq(cookie_val, p->condition.cookie.value))
-                continue;
-        }
+        if (!condition_matches(request, p))
+            continue;
 
         switch (p->flags & PATTERN_EXPAND_MASK) {
 #ifdef HAVE_LUA
@@ -331,6 +433,30 @@ static void rewrite_destroy(void *instance)
             free(iter->condition.cookie.key);
             free(iter->condition.cookie.value);
         }
+        if (iter->flags & PATTERN_COND_ENV_VAR) {
+            free(iter->condition.env_var.key);
+            free(iter->condition.env_var.value);
+        }
+        if (iter->flags & PATTERN_COND_QUERY_VAR) {
+            free(iter->condition.query_var.key);
+            free(iter->condition.query_var.value);
+        }
+        if (iter->flags & PATTERN_COND_POST_VAR) {
+            free(iter->condition.post_var.key);
+            free(iter->condition.post_var.value);
+        }
+        if (iter->flags & PATTERN_COND_HEADER) {
+            free(iter->condition.header.key);
+            free(iter->condition.header.value);
+        }
+        if (iter->flags & PATTERN_COND_STAT) {
+            free(iter->condition.stat.path);
+        }
+#ifdef HAVE_LUA
+        if (iter->flags & PATTERN_COND_LUA) {
+            free(iter->condition.lua.script);
+        }
+#endif
     }
 
     pattern_array_reset(&pd->patterns);
@@ -344,59 +470,201 @@ static void *rewrite_create_from_hash(const char *prefix,
     return rewrite_create(prefix, NULL);
 }
 
-static void parse_condition(struct pattern *pattern,
-                            struct config *config,
-                            const struct config_line *line)
+static void parse_condition_key_value(struct pattern *pattern,
+                                      struct lwan_key_value *key_value,
+                                      enum pattern_flag condition_type,
+                                      struct config *config,
+                                      const struct config_line *line)
 {
-    char *cookie_key = NULL, *cookie_value = NULL;
-
-    if (!streq(line->value, "cookie")) {
-        config_error(config, "Condition `%s' not supported", line->value);
-        return;
-    }
+    char *key = NULL, *value = NULL;
 
     while ((line = config_read_line(config))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_SECTION:
             config_error(config, "Unexpected section: %s", line->key);
-            return;
+            goto out;
 
         case CONFIG_LINE_TYPE_SECTION_END:
-            if (!cookie_key || !cookie_value) {
-                config_error(config, "Cookie key/value has not been specified");
-                return;
+            if (!key || !value) {
+                config_error(config, "Key/value has not been specified");
+                goto out;
             }
 
-            pattern->flags |= PATTERN_COND_COOKIE;
-            pattern->condition.cookie.key = cookie_key;
-            pattern->condition.cookie.value = cookie_value;
+            *key_value = (struct lwan_key_value){key, value};
+            pattern->flags |= condition_type & PATTERN_COND_MASK;
             return;
 
         case CONFIG_LINE_TYPE_LINE:
-            if (cookie_key || cookie_value) {
-                config_error(config, "Can only condition on a single cookie. Currently has: %s=%s", cookie_key, cookie_value);
-                free(cookie_key);
-                free(cookie_value);
-                return;
+            if (key || value) {
+                config_error(config,
+                             "Can only condition on a single key/value pair. "
+                             "Currently has: %s=%s",
+                             key, value);
+                goto out;
             }
 
-            cookie_key = strdup(line->key);
-            if (!cookie_key) {
-                config_error(config, "Could not copy cookie key while parsing condition");
-                return;
+            key = strdup(line->key);
+            if (!key) {
+                config_error(config,
+                             "Could not copy key while parsing condition");
+                goto out;
             }
 
-            cookie_value = strdup(line->value);
-            if (!cookie_value) {
-                free(cookie_key);
-                config_error(config, "Could not copy cookie value while parsing condition");
-                return;
+            value = strdup(line->value);
+            if (!value) {
+                free(key);
+                config_error(config,
+                             "Could not copy value while parsing condition");
+                goto out;
             }
             break;
         }
     }
+
+out:
+    free(key);
+    free(value);
 }
 
+static void parse_condition_stat(struct pattern *pattern,
+                                 struct config *config,
+                                 const struct config_line *line)
+{
+    char *path = NULL, *is_dir = NULL, *is_file = NULL;
+
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Unexpected section: %s", line->key);
+            goto out;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            if (!path) {
+                config_error(config, "Path not specified");
+                goto out;
+            }
+
+            pattern->condition.stat.path = path;
+            pattern->condition.stat.is_dir = parse_bool(is_dir, false);
+            pattern->condition.stat.is_file = parse_bool(is_file, false);
+            pattern->condition.stat.has_is_dir = is_dir != NULL;
+            pattern->condition.stat.has_is_file = is_file != NULL;
+            pattern->flags |= PATTERN_COND_STAT;
+            return;
+
+        case CONFIG_LINE_TYPE_LINE:
+            if (streq(line->key, "path")) {
+                if (path) {
+                    config_error(config, "Path `%s` already specified", path);
+                    goto out;
+                }
+                path = strdup(line->value);
+                if (!path) {
+                    config_error(config, "Could not copy path");
+                    goto out;
+                }
+            } else if (streq(line->key, "is_dir")) {
+                is_dir = line->value;
+            } else if (streq(line->key, "is_file")) {
+                is_file = line->value;
+            } else {
+                config_error(config, "Unexpected key: %s", line->key);
+                goto out;
+            }
+
+            break;
+        }
+    }
+
+out:
+    free(path);
+}
+
+#ifdef HAVE_LUA
+static void parse_condition_lua(struct pattern *pattern,
+                                struct config *config,
+                                const struct config_line *line)
+{
+    char *script = NULL;
+
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Unexpected section: %s", line->key);
+            goto out;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            if (!script) {
+                config_error(config, "Script not specified");
+                goto out;
+            }
+
+            pattern->condition.lua.script = script;
+            pattern->flags |= PATTERN_COND_LUA;
+            return;
+
+        case CONFIG_LINE_TYPE_LINE:
+            if (streq(line->key, "script")) {
+                if (script) {
+                    config_error(config, "Script already specified");
+                    goto out;
+                }
+                script = strdup(line->value);
+                if (!script) {
+                    config_error(config, "Could not copy script");
+                    goto out;
+                }
+            } else {
+                config_error(config, "Unexpected key: %s", line->key);
+                goto out;
+            }
+
+            break;
+        }
+    }
+
+out:
+    free(script);
+}
+#endif
+
+static void parse_condition(struct pattern *pattern,
+                            struct config *config,
+                            const struct config_line *line)
+{
+    if (streq(line->value, "cookie")) {
+        return parse_condition_key_value(pattern, &pattern->condition.cookie,
+                                         PATTERN_COND_COOKIE, config, line);
+    }
+    if (streq(line->value, "query")) {
+        return parse_condition_key_value(pattern,
+                                         &pattern->condition.query_var,
+                                         PATTERN_COND_QUERY_VAR, config, line);
+    }
+    if (streq(line->value, "post")) {
+        return parse_condition_key_value(pattern, &pattern->condition.post_var,
+                                         PATTERN_COND_POST_VAR, config, line);
+    }
+    if (streq(line->value, "environment")) {
+        return parse_condition_key_value(pattern,
+                                         &pattern->condition.env_var,
+                                         PATTERN_COND_ENV_VAR, config, line);
+    }
+    if (streq(line->value, "header")) {
+        return parse_condition_key_value(pattern, &pattern->condition.header,
+                                         PATTERN_COND_HEADER, config, line);
+    }
+    if (streq(line->value, "stat")) {
+        return parse_condition_stat(pattern, config, line);
+    }
+#ifdef HAVE_LUA
+    if (streq(line->value, "lua")) {
+        return parse_condition_lua(pattern, config, line);
+    }
+#endif
+
+    config_error(config, "Condition `%s' not supported", line->value);
+}
 static bool rewrite_parse_conf_pattern(struct private_data *pd,
                                        struct config *config,
                                        const struct config_line *line)
