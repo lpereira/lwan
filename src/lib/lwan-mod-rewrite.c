@@ -130,13 +130,12 @@ static __attribute__((noinline)) int parse_int_len(const char *s, size_t len,
     return parse_int(strndupa(s, len), default_value);
 }
 
-static const char *expand(struct pattern *pattern,
-                          const char *orig,
-                          char buffer[static PATH_MAX],
-                          const struct str_find *sf,
-                          int captures)
+static const char *expand_string(const char *expand_pattern,
+                                 const char *orig,
+                                 char buffer[static PATH_MAX],
+                                 const struct str_find *sf,
+                                 int captures)
 {
-    const char *expand_pattern = pattern->expand_pattern;
     struct lwan_strbuf strbuf;
     const char *ptr;
 
@@ -187,6 +186,15 @@ static const char *expand(struct pattern *pattern,
         return NULL;
 
     return lwan_strbuf_get_buffer(&strbuf);
+}
+
+static ALWAYS_INLINE const char *expand(const struct pattern *pattern,
+                                        const char *orig,
+                                        char buffer[static PATH_MAX],
+                                        const struct str_find *sf,
+                                        int captures)
+{
+    return expand_string(pattern->expand_pattern, orig, buffer, sf, captures);
 }
 
 #ifdef HAVE_LUA
@@ -247,10 +255,15 @@ static const char *expand_lua(struct lwan_request *request,
 #endif
 
 static bool condition_matches(struct lwan_request *request,
-                              const struct pattern *p)
+                              const struct pattern *p,
+                              struct str_find *sf,
+                              int captures)
 {
     if (LIKELY(!(p->flags & PATTERN_COND_MASK)))
         return true;
+
+    const char *url = request->url.value;
+    char expanded_buf[PATH_MAX];
 
     if (p->flags & PATTERN_COND_COOKIE) {
         assert(p->condition.cookie.key);
@@ -258,7 +271,12 @@ static bool condition_matches(struct lwan_request *request,
 
         const char *cookie =
             lwan_request_get_cookie(request, p->condition.cookie.key);
-        if (!cookie || !streq(cookie, p->condition.cookie.value))
+        if (!cookie)
+            return false;
+
+        const char *val = expand_string(p->condition.cookie.value, url,
+                                        expanded_buf, sf, captures);
+        if (!val || !streq(val, cookie))
             return false;
     }
 
@@ -267,7 +285,12 @@ static bool condition_matches(struct lwan_request *request,
         assert(p->condition.env_var.value);
 
         const char *env_var = secure_getenv(p->condition.env_var.key);
-        if (!env_var || !streq(env_var, p->condition.env_var.value))
+        if (!env_var)
+            return false;
+
+        const char *val = expand_string(p->condition.env_var.value, url,
+                                        expanded_buf, sf, captures);
+        if (!val || !streq(val, env_var))
             return false;
     }
 
@@ -277,7 +300,13 @@ static bool condition_matches(struct lwan_request *request,
 
         const char *query =
             lwan_request_get_query_param(request, p->condition.query_var.key);
-        if (!query || !streq(query, p->condition.query_var.value))
+
+        if (!query)
+            return false;
+
+        const char *val = expand_string(p->condition.query_var.value, url,
+                                        expanded_buf, sf, captures);
+        if (!val || !streq(val, query))
             return false;
     }
 
@@ -287,7 +316,12 @@ static bool condition_matches(struct lwan_request *request,
 
         const char *post =
             lwan_request_get_post_param(request, p->condition.post_var.key);
-        if (!post || !streq(post, p->condition.post_var.value))
+        if (!post)
+            return false;
+
+        const char *val = expand_string(p->condition.post_var.value, url,
+                                        expanded_buf, sf, captures);
+        if (!val || !streq(val, post))
             return false;
     }
 
@@ -296,8 +330,16 @@ static bool condition_matches(struct lwan_request *request,
 
         struct stat st;
 
-        if (stat(p->condition.stat.path, &st) < 0)
+        /* FIXME: Expanding path from a user-controlled URL and use the
+         * resulting path to call stat(2) on could lead to some information
+         * disclosure vulnerability. Would require the server to be configured
+         * in a certain way, though.
+         */
+        const char *path = expand_string(p->condition.stat.path, url,
+                                         expanded_buf, sf, captures);
+        if (!path || stat(path, &st) < 0)
             return false;
+
         if (p->condition.stat.has_is_file &&
             p->condition.stat.is_file != !!S_ISREG(st.st_mode)) {
             return false;
@@ -342,6 +384,7 @@ static bool condition_matches(struct lwan_request *request,
 
     return true;
 }
+
 static enum lwan_http_status
 rewrite_handle_request(struct lwan_request *request,
                        struct lwan_response *response __attribute__((unused)),
@@ -362,7 +405,7 @@ rewrite_handle_request(struct lwan_request *request,
         if (captures <= 0)
             continue;
 
-        if (!condition_matches(request, p))
+        if (!condition_matches(request, p, sf, captures))
             continue;
 
         switch (p->flags & PATTERN_EXPAND_MASK) {

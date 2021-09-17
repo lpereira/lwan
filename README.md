@@ -529,8 +529,16 @@ for that condition to be evaluated:
 |`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
 |`lua` | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
 
-For example, if one wants to send `site-dark-mode.css` if there is a `style` cookie
-with the value `dark`, and send `site-light-mode.css` otherwise, one can write:
+The `value` in all conditions, with the exception of `lua`, can
+reference the matched pattern using the same substitution syntax used
+for the `rewrite as` or `redirect to` actions.  For instance,
+`condition cookie { some-cookie-name = foo-%1-bar }` will substitute
+`%1` with the first match from the pattern this condition is related
+to.
+
+For example, if one wants to send `site-dark-mode.css` if there is a
+`style` cookie with the value `dark`, and send `site-light-mode.css`
+otherwise, one can write:
 
 ```
 rewrite ... {
