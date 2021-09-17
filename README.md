@@ -526,6 +526,7 @@ for that condition to be evaluated:
 |`post`  | A single `key` = `value`| Checks if request has post data `key` has value `value` |
 |`header`  | A single `key` = `value`| Checks if request header `key` has value `value` |
 |`environment`  | A single `key` = `value`| Checks if environment variable `key` has value `value` |
+|`method`  | `key` = `value`| Checks if HTTP method has value `value`; `key` must be `name` |
 |`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
 |`lua` | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
 

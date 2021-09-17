@@ -56,17 +56,18 @@ enum pattern_flag {
     PATTERN_COND_POST_VAR = 1 << 8,
     PATTERN_COND_HEADER = 1 << 9,
     PATTERN_COND_LUA = 1 << 10,
+    PATTERN_COND_METHOD = 1 << 11,
     PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
-                        PATTERN_COND_LUA,
+                        PATTERN_COND_LUA | PATTERN_COND_METHOD,
 };
 
 struct pattern {
     char *pattern;
     char *expand_pattern;
     struct {
-        struct lwan_key_value cookie, env_var, query_var, post_var, header;
+        struct lwan_key_value cookie, env_var, query_var, post_var, header, method;
         struct {
             char *path;
             unsigned int has_is_file : 1;
@@ -264,6 +265,17 @@ static bool condition_matches(struct lwan_request *request,
 
     const char *url = request->url.value;
     char expanded_buf[PATH_MAX];
+
+    if (p->flags & PATTERN_COND_METHOD) {
+        assert(p->condition.method.key);
+        assert(p->condition.method.value);
+
+        const char *method = lwan_request_get_method_str(request);
+        if (!method)
+            return false;
+        if (strcasecmp(method, p->condition.method.value) != 0)
+            return false;
+    }
 
     if (p->flags & PATTERN_COND_COOKIE) {
         assert(p->condition.cookie.key);
@@ -475,6 +487,10 @@ static void rewrite_destroy(void *instance)
             free(iter->condition.header.key);
             free(iter->condition.header.value);
         }
+        if (iter->flags & PATTERN_COND_METHOD) {
+            free(iter->condition.method.key);
+            free(iter->condition.method.value);
+        }
         if (iter->flags & PATTERN_COND_STAT) {
             free(iter->condition.stat.path);
         }
@@ -663,8 +679,7 @@ static void parse_condition(struct pattern *pattern,
                                          PATTERN_COND_COOKIE, config, line);
     }
     if (streq(line->value, "query")) {
-        return parse_condition_key_value(pattern,
-                                         &pattern->condition.query_var,
+        return parse_condition_key_value(pattern, &pattern->condition.query_var,
                                          PATTERN_COND_QUERY_VAR, config, line);
     }
     if (streq(line->value, "post")) {
@@ -672,13 +687,19 @@ static void parse_condition(struct pattern *pattern,
                                          PATTERN_COND_POST_VAR, config, line);
     }
     if (streq(line->value, "environment")) {
-        return parse_condition_key_value(pattern,
-                                         &pattern->condition.env_var,
+        return parse_condition_key_value(pattern, &pattern->condition.env_var,
                                          PATTERN_COND_ENV_VAR, config, line);
     }
     if (streq(line->value, "header")) {
         return parse_condition_key_value(pattern, &pattern->condition.header,
                                          PATTERN_COND_HEADER, config, line);
+    }
+    if (streq(line->value, "method")) {
+        parse_condition_key_value(pattern, &pattern->condition.method,
+                                  PATTERN_COND_METHOD, config, line);
+        if (!streq(pattern->condition.method.key, "name"))
+            config_error(config, "Method condition requires `name`");
+        return;
     }
     if (streq(line->value, "stat")) {
         return parse_condition_stat(pattern, config, line);
@@ -691,6 +712,7 @@ static void parse_condition(struct pattern *pattern,
 
     config_error(config, "Condition `%s' not supported", line->value);
 }
+
 static bool rewrite_parse_conf_pattern(struct private_data *pd,
                                        struct config *config,
                                        const struct config_line *line)
