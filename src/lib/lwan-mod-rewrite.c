@@ -717,12 +717,17 @@ static void parse_condition(struct pattern *pattern,
 
         parse_condition_key_value(pattern, &method,
                                   PATTERN_COND_METHOD, config, line);
+        if (config_last_error(config))
+            return;
         if (!streq(method.key, "name")) {
             config_error(config, "Method condition requires `name`");
             free(method.value);
+        } else {
+            pattern->condition.method.name = method.value;
         }
+
         free(method.key);
-        pattern->condition.method.name = method.value;
+
         return;
     }
     if (streq(line->value, "stat")) {
