@@ -61,19 +61,32 @@ enum pattern_flag {
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
                         PATTERN_COND_LUA | PATTERN_COND_METHOD,
+
+    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 12,
+    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 13,
+    PATTERN_COND_STAT__IS_FILE = 1 << 14,
+    PATTERN_COND_STAT__IS_DIR = 1 << 15,
+
+    PATTERN_COND_STAT__FILE_CHECK =
+        PATTERN_COND_STAT__HAS_IS_FILE | PATTERN_COND_STAT__IS_FILE,
+    PATTERN_COND_STAT__DIR_CHECK =
+        PATTERN_COND_STAT__HAS_IS_DIR | PATTERN_COND_STAT__IS_DIR,
 };
 
 struct pattern {
     char *pattern;
     char *expand_pattern;
     struct {
-        struct lwan_key_value cookie, env_var, query_var, post_var, header, method;
+        struct lwan_key_value cookie;
+        struct lwan_key_value env_var;
+        struct lwan_key_value query_var;
+        struct lwan_key_value post_var;
+        struct lwan_key_value header;
+        struct {
+            char *name;
+        } method;
         struct {
             char *path;
-            unsigned int has_is_file : 1;
-            unsigned int has_is_dir : 1;
-            unsigned int is_file : 1;
-            unsigned int is_dir : 1;
         } stat;
         struct {
             char *script;
@@ -273,7 +286,7 @@ static bool condition_matches(struct lwan_request *request,
         const char *method = lwan_request_get_method_str(request);
         if (!method)
             return false;
-        if (strcasecmp(method, p->condition.method.value) != 0)
+        if (strcasecmp(method, p->condition.method.name) != 0)
             return false;
     }
 
@@ -352,14 +365,14 @@ static bool condition_matches(struct lwan_request *request,
         if (!path || stat(path, &st) < 0)
             return false;
 
-        if (p->condition.stat.has_is_file &&
-            p->condition.stat.is_file != !!S_ISREG(st.st_mode)) {
+        if ((p->flags & PATTERN_COND_STAT__FILE_CHECK) ==
+                PATTERN_COND_STAT__FILE_CHECK &&
+            !S_ISREG(st.st_mode))
             return false;
-        }
-        if (p->condition.stat.has_is_dir &&
-            p->condition.stat.is_dir != !!S_ISDIR(st.st_mode)) {
+        if ((p->flags & PATTERN_COND_STAT__DIR_CHECK) ==
+                PATTERN_COND_STAT__DIR_CHECK &&
+            !S_ISDIR(st.st_mode))
             return false;
-        }
     }
 
 #ifdef HAVE_LUA
@@ -488,8 +501,7 @@ static void rewrite_destroy(void *instance)
             free(iter->condition.header.value);
         }
         if (iter->flags & PATTERN_COND_METHOD) {
-            free(iter->condition.method.key);
-            free(iter->condition.method.value);
+            free(iter->condition.method.name);
         }
         if (iter->flags & PATTERN_COND_STAT) {
             free(iter->condition.stat.path);
@@ -587,10 +599,16 @@ static void parse_condition_stat(struct pattern *pattern,
             }
 
             pattern->condition.stat.path = path;
-            pattern->condition.stat.is_dir = parse_bool(is_dir, false);
-            pattern->condition.stat.is_file = parse_bool(is_file, false);
-            pattern->condition.stat.has_is_dir = is_dir != NULL;
-            pattern->condition.stat.has_is_file = is_file != NULL;
+            if (is_dir) {
+                pattern->flags |= PATTERN_COND_STAT__HAS_IS_DIR;
+                if (parse_bool(is_dir, false))
+                    pattern->flags |= PATTERN_COND_STAT__IS_DIR;
+            }
+            if (is_file) {
+                pattern->flags |= PATTERN_COND_STAT__HAS_IS_FILE;
+                if (parse_bool(is_file, false))
+                    pattern->flags |= PATTERN_COND_STAT__IS_FILE;
+            }
             pattern->flags |= PATTERN_COND_STAT;
             return;
 
@@ -695,10 +713,16 @@ static void parse_condition(struct pattern *pattern,
                                          PATTERN_COND_HEADER, config, line);
     }
     if (streq(line->value, "method")) {
-        parse_condition_key_value(pattern, &pattern->condition.method,
+        struct lwan_key_value method = {};
+
+        parse_condition_key_value(pattern, &method,
                                   PATTERN_COND_METHOD, config, line);
-        if (!streq(pattern->condition.method.key, "name"))
+        if (!streq(method.key, "name")) {
             config_error(config, "Method condition requires `name`");
+            free(method.value);
+        }
+        free(method.key);
+        pattern->condition.method.name = method.value;
         return;
     }
     if (streq(line->value, "stat")) {
