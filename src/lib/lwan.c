@@ -591,6 +591,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     if (config_last_error(conf)) {
         lwan_status_critical("Error on config file \"%s\", line %d: %s", path,
                              config_cur_line(conf), config_last_error(conf));
+        lwan_trie_destroy(&lwan->url_map_trie);
     }
 
     config_close(conf);
