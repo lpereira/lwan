@@ -310,7 +310,7 @@ static bool condition_matches(struct lwan_request *request,
             return false;
     }
 
-    if (p->flags & PATTERN_COND_QUERY_VAR) {
+    if (p->flags & PATTERN_COND_POST_VAR) {
         assert(p->condition.post_var.key);
         assert(p->condition.post_var.value);
 
