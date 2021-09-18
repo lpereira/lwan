@@ -531,11 +531,11 @@ for that condition to be evaluated:
 |`lua`⋆ | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
 |`encoding`⋆ | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
 
-The `value` in all conditions, with the exception of those marked with an
-star`⋆`, can reference the matched pattern using the same substitution
-syntax used for the `rewrite as` or `redirect to` actions.  For instance,
-`condition cookie { some-cookie-name = foo-%1-bar }` will substitute `%1`
-with the first match from the pattern this condition is related to.
+The `value` in all conditions, with the exception of those marked with `⋆`,
+can reference the matched pattern using the same substitution syntax used
+for the `rewrite as` or `redirect to` actions.  For instance, `condition
+cookie { some-cookie-name = foo-%1-bar }` will substitute `%1` with the
+first match from the pattern this condition is related to.
 
 For example, if one wants to send `site-dark-mode.css` if there is a
 `style` cookie with the value `dark`, and send `site-light-mode.css`
