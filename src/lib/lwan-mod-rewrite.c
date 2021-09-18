@@ -83,14 +83,13 @@ struct pattern {
         struct lwan_key_value post_var;
         struct lwan_key_value header;
         struct {
-            char *name;
-        } method;
-        struct {
             char *path;
         } stat;
         struct {
             char *script;
         } lua;
+        enum lwan_request_flags method;
+        /* FIXME: Use pahole to find alignment holes? */
     } condition;
     enum pattern_flag flags;
 };
@@ -280,13 +279,7 @@ static bool condition_matches(struct lwan_request *request,
     char expanded_buf[PATH_MAX];
 
     if (p->flags & PATTERN_COND_METHOD) {
-        assert(p->condition.method.key);
-        assert(p->condition.method.value);
-
-        const char *method = lwan_request_get_method_str(request);
-        if (!method)
-            return false;
-        if (strcasecmp(method, p->condition.method.name) != 0)
+        if (lwan_request_get_method(request) != p->condition.method)
             return false;
     }
 
@@ -500,9 +493,6 @@ static void rewrite_destroy(void *instance)
             free(iter->condition.header.key);
             free(iter->condition.header.value);
         }
-        if (iter->flags & PATTERN_COND_METHOD) {
-            free(iter->condition.method.name);
-        }
         if (iter->flags & PATTERN_COND_STAT) {
             free(iter->condition.stat.path);
         }
@@ -688,6 +678,21 @@ out:
 }
 #endif
 
+static bool get_method_from_string(struct pattern *pattern, const char *string)
+{
+#define GENERATE_CMP(upper, lower, mask, constant)                             \
+    if (!strcasecmp(string, #upper)) {                                         \
+        pattern->condition.method = (mask);                                    \
+        return true;                                                           \
+    }
+
+    FOR_EACH_REQUEST_METHOD(GENERATE_CMP)
+
+#undef GENERATE_CMP
+
+    return false;
+}
+
 static void parse_condition(struct pattern *pattern,
                             struct config *config,
                             const struct config_line *line)
@@ -719,14 +724,15 @@ static void parse_condition(struct pattern *pattern,
                                   PATTERN_COND_METHOD, config, line);
         if (config_last_error(config))
             return;
+
         if (!streq(method.key, "name")) {
             config_error(config, "Method condition requires `name`");
-            free(method.value);
-        } else {
-            pattern->condition.method.name = method.value;
+        } else if (!get_method_from_string(pattern, method.value)) {
+            config_error(config, "Unknown HTTP method: %s", method.value);
         }
 
         free(method.key);
+        free(method.value);
 
         return;
     }
