@@ -526,32 +526,61 @@ for that condition to be evaluated:
 |`post`  | A single `key` = `value`| Checks if request has post data `key` has value `value` |
 |`header`  | A single `key` = `value`| Checks if request header `key` has value `value` |
 |`environment`  | A single `key` = `value`| Checks if environment variable `key` has value `value` |
-|`method`  | `key` = `value`| Checks if HTTP method has value `value`; `key` must be `name` |
+|`method`⋆  | `key` = `value`| Checks if HTTP method has value `value`; `key` must be `name` |
 |`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
-|`lua` | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
+|`lua`⋆ | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
+|`encoding`⋆ | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
 
-The `value` in all conditions, with the exception of `lua`, can
-reference the matched pattern using the same substitution syntax used
-for the `rewrite as` or `redirect to` actions.  For instance,
-`condition cookie { some-cookie-name = foo-%1-bar }` will substitute
-`%1` with the first match from the pattern this condition is related
-to.
+The `value` in all conditions, with the exception of those marked with an
+star`⋆`, can reference the matched pattern using the same substitution
+syntax used for the `rewrite as` or `redirect to` actions.  For instance,
+`condition cookie { some-cookie-name = foo-%1-bar }` will substitute `%1`
+with the first match from the pattern this condition is related to.
 
 For example, if one wants to send `site-dark-mode.css` if there is a
 `style` cookie with the value `dark`, and send `site-light-mode.css`
 otherwise, one can write:
 
 ```
-rewrite ... {
-   pattern site.css {
-      rewrite as = /site-dark-mode.css
-      condition cookie { style = dark }
-   }
-   pattern site.css {
-      rewrite as = /site-light-mode.css
-   }
+pattern site.css {
+   rewrite as = /site-dark-mode.css
+   condition cookie { style = dark }
+}
+pattern site.css {
+   rewrite as = /site-light-mode.css
 }
 ```
+
+Another example: if one wants to send pre-compressed files
+if they do exist in the filesystem and the user requested them:
+
+```
+pattern (%g+) {
+   condition encoding { brotli = yes }
+   condition stat { path = %1.brotli }
+   rewrite as = %1.brotli
+}
+pattern (%g+) {
+   condition encoding { gzip = yes }
+   condition stat { path = %1.gzip }
+   rewrite as = %1.gzip
+}
+pattern (%g+) {
+   condition encoding { zstd = yes }
+   condition stat { path = %1.zstd }
+   rewrite as = %1.zstd
+}
+pattern (%g+) {
+   condition encoding { deflate = yes }
+   condition stat { path = %1.deflate }
+   rewrite as = %1.deflate
+}
+```
+
+(In general, this is not necessary, as the file serving module will do this
+automatically and pick the smallest file available for the requested
+encoding, cache it for a while, but this shows it's possible to have a
+similar feature by configuration alone.)
 
 #### Redirect
 

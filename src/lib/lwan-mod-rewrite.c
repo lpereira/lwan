@@ -57,15 +57,17 @@ enum pattern_flag {
     PATTERN_COND_HEADER = 1 << 9,
     PATTERN_COND_LUA = 1 << 10,
     PATTERN_COND_METHOD = 1 << 11,
+    PATTERN_COND_ACCEPT_ENCODING = 1 << 12,
     PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
-                        PATTERN_COND_LUA | PATTERN_COND_METHOD,
+                        PATTERN_COND_LUA | PATTERN_COND_METHOD |
+                        PATTERN_COND_ACCEPT_ENCODING,
 
-    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 12,
-    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 13,
-    PATTERN_COND_STAT__IS_FILE = 1 << 14,
-    PATTERN_COND_STAT__IS_DIR = 1 << 15,
+    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 13,
+    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 14,
+    PATTERN_COND_STAT__IS_FILE = 1 << 15,
+    PATTERN_COND_STAT__IS_DIR = 1 << 16,
 
     PATTERN_COND_STAT__FILE_CHECK =
         PATTERN_COND_STAT__HAS_IS_FILE | PATTERN_COND_STAT__IS_FILE,
@@ -88,7 +90,7 @@ struct pattern {
         struct {
             char *script;
         } lua;
-        enum lwan_request_flags method;
+        enum lwan_request_flags request_flags;
         /* FIXME: Use pahole to find alignment holes? */
     } condition;
     enum pattern_flag flags;
@@ -279,7 +281,16 @@ static bool condition_matches(struct lwan_request *request,
     char expanded_buf[PATH_MAX];
 
     if (p->flags & PATTERN_COND_METHOD) {
-        if (lwan_request_get_method(request) != p->condition.method)
+        const enum lwan_request_flags method =
+            p->condition.request_flags & REQUEST_METHOD_MASK;
+        if (lwan_request_get_method(request) != method)
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_ACCEPT_ENCODING) {
+        const enum lwan_request_flags accept =
+            p->condition.request_flags & REQUEST_ACCEPT_MASK;
+        if (!(request->flags & accept))
             return false;
     }
 
@@ -630,6 +641,44 @@ out:
     free(path);
 }
 
+static void parse_condition_accept_encoding(struct pattern *pattern,
+                                            struct config *config)
+{
+    const struct config_line *line;
+
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Unexpected section: %s", line->key);
+            return;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            pattern->flags |= PATTERN_COND_ACCEPT_ENCODING;
+            return;
+
+        case CONFIG_LINE_TYPE_LINE:
+            if (streq(line->key, "deflate")) {
+                if (parse_bool(line->value, false))
+                    pattern->condition.request_flags |= REQUEST_ACCEPT_DEFLATE;
+            } else if (streq(line->key, "gzip")) {
+                if (parse_bool(line->value, false))
+                    pattern->condition.request_flags |= REQUEST_ACCEPT_GZIP;
+            } else if (streq(line->key, "brotli")) {
+                if (parse_bool(line->value, false))
+                    pattern->condition.request_flags |= REQUEST_ACCEPT_BROTLI;
+            } else if (streq(line->key, "zstd")) {
+                if (parse_bool(line->value, false))
+                    pattern->condition.request_flags |= REQUEST_ACCEPT_ZSTD;
+            } else if (!streq(line->key, "none")) {
+                config_error(config, "Unsupported encoding for condition: %s",
+                             line->key);
+                return;
+            }
+            break;
+        }
+    }
+}
+
 #ifdef HAVE_LUA
 static void parse_condition_lua(struct pattern *pattern,
                                 struct config *config,
@@ -682,7 +731,7 @@ static bool get_method_from_string(struct pattern *pattern, const char *string)
 {
 #define GENERATE_CMP(upper, lower, mask, constant)                             \
     if (!strcasecmp(string, #upper)) {                                         \
-        pattern->condition.method = (mask);                                    \
+        pattern->condition.request_flags = (mask);                                    \
         return true;                                                           \
     }
 
@@ -738,6 +787,9 @@ static void parse_condition(struct pattern *pattern,
     }
     if (streq(line->value, "stat")) {
         return parse_condition_stat(pattern, config, line);
+    }
+    if (streq(line->value, "encoding")) {
+        return parse_condition_accept_encoding(pattern, config);
     }
 #ifdef HAVE_LUA
     if (streq(line->value, "lua")) {
