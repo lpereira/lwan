@@ -436,8 +436,8 @@ struct lwan_thread {
         char date[30];
         char expires[30];
     } date;
-    struct timeouts *wheel;
     int epoll_fd;
+    struct timeouts *wheel;
     int listen_fd;
     unsigned int cpu;
     pthread_t self;
