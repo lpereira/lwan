@@ -290,7 +290,7 @@ static bool condition_matches(struct lwan_request *request,
     if (p->flags & PATTERN_COND_ACCEPT_ENCODING) {
         const enum lwan_request_flags accept =
             p->condition.request_flags & REQUEST_ACCEPT_MASK;
-        if (!(request->flags & accept))
+        if (!(lwan_request_get_accept_encoding(request) & accept))
             return false;
     }
 
