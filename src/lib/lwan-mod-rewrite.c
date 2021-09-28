@@ -699,54 +699,6 @@ static void parse_condition_accept_encoding(struct pattern *pattern,
     }
 }
 
-#ifdef HAVE_LUA
-static void parse_condition_lua(struct pattern *pattern,
-                                struct config *config,
-                                const struct config_line *line)
-{
-    char *script = NULL;
-
-    while ((line = config_read_line(config))) {
-        switch (line->type) {
-        case CONFIG_LINE_TYPE_SECTION:
-            config_error(config, "Unexpected section: %s", line->key);
-            goto out;
-
-        case CONFIG_LINE_TYPE_SECTION_END:
-            if (!script) {
-                config_error(config, "Script not specified");
-                goto out;
-            }
-
-            pattern->condition.lua.script = script;
-            pattern->flags |= PATTERN_COND_LUA;
-            return;
-
-        case CONFIG_LINE_TYPE_LINE:
-            if (streq(line->key, "script")) {
-                if (script) {
-                    config_error(config, "Script already specified");
-                    goto out;
-                }
-                script = strdup(line->value);
-                if (!script) {
-                    config_error(config, "Could not copy script");
-                    goto out;
-                }
-            } else {
-                config_error(config, "Unexpected key: %s", line->key);
-                goto out;
-            }
-
-            break;
-        }
-    }
-
-out:
-    free(script);
-}
-#endif
-
 static bool get_method_from_string(struct pattern *pattern, const char *string)
 {
 #define GENERATE_CMP(upper, lower, mask, constant)                             \
@@ -792,11 +744,6 @@ static void parse_condition(struct pattern *pattern,
     if (streq(line->value, "encoding")) {
         return parse_condition_accept_encoding(pattern, config);
     }
-#ifdef HAVE_LUA
-    if (streq(line->value, "lua")) {
-        return parse_condition_lua(pattern, config, line);
-    }
-#endif
 
     config_error(config, "Condition `%s' not supported", line->value);
 }
@@ -852,7 +799,16 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
                     goto out;
                 }
                 pattern->flags |= PATTERN_COND_METHOD;
-            } else {
+            } else
+#ifdef HAVE_LUA
+            if (streq(line->key, "condition_lua")) {
+                pattern->condition.lua.script = strdup(line->value);
+                if (!pattern->condition.lua.script)
+                    lwan_status_critical("Couldn't copy Lua script");
+                pattern->flags |= PATTERN_COND_LUA;
+            } else
+#endif
+            {
                 config_error(config, "Unexpected key: %s", line->key);
                 goto out;
             }
