@@ -882,3 +882,5 @@ in no particular order.  Contributions are appreciated:
 
 > "Impressive all and all, even more for being written in (grokkable!) C. Nice work."
 > [tpaschalis](https://news.ycombinator.com/item?id=17550961)
+
+> "LWAN was a complete failure" [dermetfan](http://dermetfan.net/posts/zig-with-c-web-servers.html)
