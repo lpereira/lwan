@@ -530,12 +530,18 @@ for that condition to be evaluated:
 |`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
 |`lua`⋆ | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
 |`encoding`⋆ | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
+|`proxied`♠ | Boolean | Checks if request has been proxied through PROXY protocol |
+|`http_1.0`♠ | Boolean | Checks if request is made with a HTTP/1.0 client |
+|`has_query_string`♠ | Boolean | Checks if request has a query string (even if empty) |
 
 The `value` in all conditions, with the exception of those marked with `⋆`,
 can reference the matched pattern using the same substitution syntax used
 for the `rewrite as` or `redirect to` actions.  For instance, `condition
 cookie { some-cookie-name = foo-%1-bar }` will substitute `%1` with the
 first match from the pattern this condition is related to.
+
+Conditions marked with `♠` do not require a section, and can be written, for
+instance, as `condition has_query_string = yes`.
 
 For example, if one wants to send `site-dark-mode.css` if there is a
 `style` cookie with the value `dark`, and send `site-light-mode.css`

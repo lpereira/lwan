@@ -58,16 +58,21 @@ enum pattern_flag {
     PATTERN_COND_LUA = 1 << 10,
     PATTERN_COND_METHOD = 1 << 11,
     PATTERN_COND_ACCEPT_ENCODING = 1 << 12,
+    PATTERN_COND_PROXIED = 1 << 13,
+    PATTERN_COND_HTTP10 = 1 << 14,
+    PATTERN_COND_HAS_QUERY_STRING = 1 << 15,
     PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
                         PATTERN_COND_LUA | PATTERN_COND_METHOD |
-                        PATTERN_COND_ACCEPT_ENCODING,
+                        PATTERN_COND_ACCEPT_ENCODING |
+                        PATTERN_COND_PROXIED | PATTERN_COND_HTTP10 |
+                        PATTERN_COND_HAS_QUERY_STRING,
 
-    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 13,
-    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 14,
-    PATTERN_COND_STAT__IS_FILE = 1 << 15,
-    PATTERN_COND_STAT__IS_DIR = 1 << 16,
+    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 16,
+    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 17,
+    PATTERN_COND_STAT__IS_FILE = 1 << 18,
+    PATTERN_COND_STAT__IS_DIR = 1 << 19,
 
     PATTERN_COND_STAT__FILE_CHECK =
         PATTERN_COND_STAT__HAS_IS_FILE | PATTERN_COND_STAT__IS_FILE,
@@ -291,6 +296,21 @@ static bool condition_matches(struct lwan_request *request,
         const enum lwan_request_flags accept =
             p->condition.request_flags & REQUEST_ACCEPT_MASK;
         if (!(lwan_request_get_accept_encoding(request) & accept))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_PROXIED) {
+        if (!(request->flags & p->condition.request_flags & REQUEST_PROXIED))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_HTTP10) {
+        if (!(request->flags & p->condition.request_flags & REQUEST_IS_HTTP_1_0))
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_HAS_QUERY_STRING) {
+        if (!(request->flags & p->condition.request_flags & REQUEST_HAS_QUERY_STRING))
             return false;
     }
 
@@ -833,6 +853,18 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
                     goto out;
             } else if (streq(line->key, "expand_with_lua")) {
                 expand_with_lua = parse_bool(line->value, false);
+            } else if (streq(line->key, "condition_proxied")) {
+                if (parse_bool(line->value, false)) {
+                    pattern->flags |= PATTERN_COND_PROXIED;
+                }
+            } else if (streq(line->key, "condition_http_1.0")) {
+                if (parse_bool(line->value, false)) {
+                    pattern->flags |= PATTERN_COND_HTTP10;
+                }
+            } else if (streq(line->key, "condition_has_query_string")) {
+                if (parse_bool(line->value, false)) {
+                    pattern->flags |= PATTERN_COND_HAS_QUERY_STRING;
+                }
             } else {
                 config_error(config, "Unexpected key: %s", line->key);
                 goto out;
