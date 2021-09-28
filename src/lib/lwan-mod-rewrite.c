@@ -731,7 +731,7 @@ static bool get_method_from_string(struct pattern *pattern, const char *string)
 {
 #define GENERATE_CMP(upper, lower, mask, constant)                             \
     if (!strcasecmp(string, #upper)) {                                         \
-        pattern->condition.request_flags = (mask);                                    \
+        pattern->condition.request_flags |= (mask);                            \
         return true;                                                           \
     }
 
