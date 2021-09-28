@@ -272,13 +272,13 @@ static const char *expand_lua(struct lwan_request *request,
 static bool condition_matches(struct lwan_request *request,
                               const struct pattern *p,
                               const struct str_find *sf,
-                              int captures)
+                              int captures,
+                              char expanded_buf[static PATH_MAX])
 {
     if (LIKELY(!(p->flags & PATTERN_COND_MASK)))
         return true;
 
     const char *url = request->url.value;
-    char expanded_buf[PATH_MAX];
 
     if (p->flags & PATTERN_COND_METHOD) {
         const enum lwan_request_flags method =
@@ -434,7 +434,7 @@ rewrite_handle_request(struct lwan_request *request,
         if (captures <= 0)
             continue;
 
-        if (!condition_matches(request, p, sf, captures))
+        if (!condition_matches(request, p, sf, captures, final_url))
             continue;
 
         switch (p->flags & PATTERN_EXPAND_MASK) {
