@@ -526,15 +526,15 @@ for that condition to be evaluated:
 |`post`  | A single `key` = `value`| Checks if request has post data `key` has value `value` |
 |`header`  | A single `key` = `value`| Checks if request header `key` has value `value` |
 |`environment`  | A single `key` = `value`| Checks if environment variable `key` has value `value` |
-|`method`⋆  | `key` = `value`| Checks if HTTP method has value `value`; `key` must be `name` |
 |`stat` | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
-|`lua`⋆ | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
-|`encoding`⋆ | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
+|`lua`♦ | `script` | Runs Lua function `matches(req)` inside `script` and checks if it returns `true` or `false` |
+|`encoding`♦ | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
 |`proxied`♠ | Boolean | Checks if request has been proxied through PROXY protocol |
 |`http_1.0`♠ | Boolean | Checks if request is made with a HTTP/1.0 client |
 |`has_query_string`♠ | Boolean | Checks if request has a query string (even if empty) |
+|`method`♠  | Method name | Checks if HTTP method is the one specified |
 
-The `value` in all conditions, with the exception of those marked with `⋆`,
+The `value` in all conditions, with the exception of those marked with `♦`,
 can reference the matched pattern using the same substitution syntax used
 for the `rewrite as` or `redirect to` actions.  For instance, `condition
 cookie { some-cookie-name = foo-%1-bar }` will substitute `%1` with the

@@ -786,25 +786,6 @@ static void parse_condition(struct pattern *pattern,
         return parse_condition_key_value(pattern, &pattern->condition.header,
                                          PATTERN_COND_HEADER, config, line);
     }
-    if (streq(line->value, "method")) {
-        struct lwan_key_value method = {};
-
-        parse_condition_key_value(pattern, &method,
-                                  PATTERN_COND_METHOD, config, line);
-        if (config_last_error(config))
-            return;
-
-        if (!streq(method.key, "name")) {
-            config_error(config, "Method condition requires `name`");
-        } else if (!get_method_from_string(pattern, method.value)) {
-            config_error(config, "Unknown HTTP method: %s", method.value);
-        }
-
-        free(method.key);
-        free(method.value);
-
-        return;
-    }
     if (streq(line->value, "stat")) {
         return parse_condition_stat(pattern, config, line);
     }
@@ -865,6 +846,12 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
                 if (parse_bool(line->value, false)) {
                     pattern->flags |= PATTERN_COND_HAS_QUERY_STRING;
                 }
+            } else if (streq(line->key, "condition_method")) {
+                if (!get_method_from_string(pattern, line->value)) {
+                    config_error(config, "Unknown HTTP method: %s", line->value);
+                    goto out;
+                }
+                pattern->flags |= PATTERN_COND_METHOD;
             } else {
                 config_error(config, "Unexpected key: %s", line->key);
                 goto out;
