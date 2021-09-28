@@ -520,7 +520,7 @@ open a `condition` block, specify the condition type, and then the parameters
 for that condition to be evaluated:
 
 |Condition|Can use subst. syntax|Parameters|Description|
-|---------|----------|-----------|
+|---------|---------------------|----------|-----------|
 |`cookie` | Yes | A single `key` = `value`| Checks if request has cookie `key` has value `value` |
 |`query`  | Yes | A single `key` = `value`| Checks if request has query variable `key` has value `value` |
 |`post`  | Yes | A single `key` = `value`| Checks if request has post data `key` has value `value` |
