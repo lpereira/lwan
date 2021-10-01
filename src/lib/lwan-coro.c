@@ -62,22 +62,30 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 
 #define CORO_BUMP_PTR_ALLOC_SIZE 1024
 
-static_assert(DEFAULT_BUFFER_SIZE < CORO_STACK_SIZE,
-              "Request buffer fits inside coroutine stack");
-
 #if (!defined(NDEBUG) && defined(MAP_STACK)) || defined(__OpenBSD__)
 /* As an exploit mitigation, OpenBSD requires any stacks to be allocated via
  * mmap(...  MAP_STACK ...).
  *
  * Also enable this on debug builds to catch stack overflows while testing
  * (MAP_STACK exists in Linux, but it's a no-op).  */
-
 #define ALLOCATE_STACK_WITH_MMAP
+#endif
 
-static_assert((CORO_STACK_SIZE % PAGE_SIZE) == 0,
-              "Coroutine stack size is a multiple of page size");
-static_assert((CORO_STACK_SIZE >= PAGE_SIZE),
-              "Coroutine stack size is at least a page long");
+#ifndef NDEBUG
+__attribute__((constructor)) static void assert_sizes_are_sane(void)
+{
+    /* This is done in runtime rather than during compilation time because
+     * in Glibc >= 2.34, SIGSTKSZ is defined as sysconf(_SC_MINSIGSTKSZ). */
+
+    /* Request buffer fits inside coroutine stack */
+    assert(DEFAULT_BUFFER_SIZE < CORO_STACK_SIZE);
+#ifdef ALLOCATE_STACK_WITH_MMAP
+    /* Coroutine stack size is a multiple of page size */
+    assert((CORO_STACK_SIZE % PAGE_SIZE) == 0);
+    /* Coroutine stack size is at least a page long */
+    assert((CORO_STACK_SIZE >= PAGE_SIZE));
+#endif
+}
 #endif
 
 typedef void (*defer1_func)(void *data);
