@@ -635,6 +635,35 @@ section with a `basic` parameter, and set one of its options.
 | `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
 | `password_file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
+Container Images
+----------------
+lwan container images are available at [ghcr.io/lperiera/lwan](https://ghcr.io/lperiera/lwan).
+Container runtimes like [docker](https://docker.io) or [podman](https://podman.io) may be used to build and run lwan in a container.
+
+
+### Pull lwan images from GHCR
+Container images are tagged with release version numbers, so a specific version of lwan can be pulled.
+
+    # latest version
+    docker pull ghcr.io/lperiera/lwan:latest
+    # pull a specific version
+    docker pull ghcr.io/lperiera/lwan:v0.3
+    
+### Build images locally
+Clone the repository and use Containerfile (Dockerfile) to build lwan with all optional dependencies enabled.
+
+    podman build -t lwan .
+    
+### Run your image
+The image expects to find static content at /wwwroot, so a volume containing your content can be mounted.
+
+    docker run --rm -p 8080:8080 -v ./www:/wwwroot lwan
+    
+To bring your own own lwan.conf, simply mount it at /lwan.conf.
+
+    podman run --rm -p 8080:8080 -v ./lwan.conf:/lwan.conf lwan
+
+
 Hacking
 -------
 
