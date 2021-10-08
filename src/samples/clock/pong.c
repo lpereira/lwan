@@ -47,7 +47,7 @@ static void pong_time_update(struct pong_time *pong_time)
         strftime(digits, sizeof(digits), "%H%M", my_localtime(&cur_time));
 
         for (int i = 0; i < 4; i++)
-            pong_time->time[i] = digits[i] - '0';
+            pong_time->time[i] = (char)(digits[i] - '0');
 
         pong_time->hour = pong_time->time[0] * 10 + pong_time->time[1];
         pong_time->minute = pong_time->time[2] * 10 + pong_time->time[3];
