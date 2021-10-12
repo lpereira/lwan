@@ -46,7 +46,7 @@ The build system will look for these libraries and enable/link if available.
     - [Python](https://www.python.org/) (2.6+) with Requests
     - [Lua 5.1](http://www.lua.org)
  - To run benchmark:
-    - Special version of [Weighttp](https://github.com/lpereira/weighttp)
+    - [Weighttp](https://github.com/lpereira/weighttp) -- bundled and built alongside Lwan for convenience
     - [Matplotlib](https://github.com/matplotlib/matplotlib)
  - To build TechEmpower benchmark suite:
     - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
@@ -110,6 +110,7 @@ This will generate a few binaries:
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
  - `src/bin/tools/configdump`: Dumps a configuration file using the configuration reader API.
+ - `src/bin/tools/weighttp`: Rewrite of the `weighttp` HTTP benchmarking tool.
 
 #### Remarks
 

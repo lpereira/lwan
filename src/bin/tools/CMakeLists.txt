@@ -40,5 +40,8 @@ else ()
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 
-	export(TARGETS configdump mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
+	add_executable(weighttp weighttp.c)
+	target_link_libraries(weighttp ${CMAKE_THREAD_LIBS_INIT})
+
+	export(TARGETS weighttp configdump mimegen bin2hex FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
 endif ()
