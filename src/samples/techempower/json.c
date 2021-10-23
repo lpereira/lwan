@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017 Intel Corporation
- * Copyright (c) 2020 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2020 L. A. F. Pereira <l@tia.mat.br>
  *
  * SPDX-License-Identifier: Apache-2.0
  */

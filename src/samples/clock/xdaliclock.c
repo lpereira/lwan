@@ -1,6 +1,6 @@
 /*
  * Lwan port of Dali Clock
- * Copyright (c) 2018 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2018 L. A. F. Pereira <l@tia.mat.br>
  *
  * Based on:
  * Dali Clock - a melting digital clock for Pebble.

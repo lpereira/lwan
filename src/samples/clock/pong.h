@@ -1,7 +1,7 @@
 /*
  * C port of Daniel Esteban's Pong Clock for Lwan
  * Copyright (C) 2019 Daniel Esteban <conejo@conejo.me>
- * Copyright (C) 2020 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (C) 2020 L. A. F. Pereira <l@tia.mat.br>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to

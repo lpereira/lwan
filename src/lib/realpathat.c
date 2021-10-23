@@ -1,5 +1,5 @@
 /* -at() version of realpath()
-   Copyright (C) 2012 Leandro A. F. Pereira
+   Copyright (C) 2012 L. A. F. Pereira
 
    Based on: return the canonical absolute name of a given file.
    Copyright (C) 1996-2002,2004,2005,2006,2008 Free Software Foundation, Inc.

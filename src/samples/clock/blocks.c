@@ -1,6 +1,6 @@
 /*
  * Falling block clock
- * Copyright (c) 2018 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2018 L. A. F. Pereira <l@tia.mat.br>
  *
  * Inspired by code written by Tobias Blum
  * https://github.com/toblum/esp_p10_tetris_clock

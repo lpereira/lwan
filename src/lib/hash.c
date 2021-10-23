@@ -1,7 +1,7 @@
 /*
  * Based on libkmod-hash.c from libkmod - interface to kernel module operations
  * Copyright (C) 2011-2012  ProFUSION embedded systems
- * Copyright (C) 2013 Leandro Pereira <leandro@hardinfo.org>
+ * Copyright (C) 2013 L.Pereira <l@tia.mat.br>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

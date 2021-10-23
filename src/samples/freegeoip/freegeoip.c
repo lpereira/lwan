@@ -1,6 +1,6 @@
 /*
  * lwan - simple web server
- * Copyright (c) 2012 Leandro A. F. Pereira <leandro@hardinfo.org>
+ * Copyright (c) 2012 L. A. F. Pereira <l@tia.mat.br>
  *
  * SQL query is copied from freegeoip.go
  * Copyright (c) 2013 Alexandre Fiori
