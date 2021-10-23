@@ -834,20 +834,6 @@ adjust_thread_affinity(const struct lwan_thread *thread)
     if (pthread_setaffinity_np(thread->self, sizeof(set), &set))
         lwan_status_warning("Could not set thread affinity");
 }
-#elif defined(__x86_64__)
-static bool
-topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
-{
-    for (uint32_t i = 0; i < n_threads; i++)
-        schedtbl[i] = (i / 2) % l->thread.count;
-    return false;
-}
-
-static void
-adjust_thread_affinity(const struct lwan_thread *thread)
-{
-    (void)thread;
-}
 #endif
 
 void lwan_thread_init(struct lwan *l)
@@ -865,7 +851,7 @@ void lwan_thread_init(struct lwan *l)
     uint32_t n_threads;
     bool adj_affinity;
 
-#ifdef __x86_64__
+#if defined(__x86_64__) && defined(__linux__)
     if (l->online_cpus > 1) {
         static_assert(sizeof(struct lwan_connection) == 32,
                       "Two connections per cache line");
@@ -894,7 +880,7 @@ void lwan_thread_init(struct lwan *l)
         for (unsigned int i = 0; i < total_conns; i++)
             l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
     } else
-#endif /* __x86_64__ */
+#endif /* __x86_64__ && __linux__ */
     {
         lwan_status_debug("Using round-robin to preschedule clients");
 
