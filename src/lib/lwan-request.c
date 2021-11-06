@@ -1611,12 +1611,12 @@ const char *lwan_request_get_header(struct lwan_request *request,
         if (UNLIKELY((size_t)(end - start) < header_len_with_separator))
             continue;
 
-        if (strncmp(start + header_len, ": ", HEADER_VALUE_SEPARATOR_LEN))
-            continue;
-
-        if (!strncasecmp(start, header, header_len)) {
-            *end = '\0';
-            return start + header_len_with_separator;
+        STRING_SWITCH_SMALL(start + header_len) {
+        case STR2_INT(':', ' '):
+            if (!strncasecmp(start, header, header_len)) {
+                *end = '\0';
+                return start + header_len_with_separator;
+            }
         }
     }
 
