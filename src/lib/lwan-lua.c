@@ -299,7 +299,7 @@ LWAN_LUA_METHOD(sleep)
 LWAN_LUA_METHOD(request_id)
 {
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
-    lua_pushfstring(L, "%016lx", request->request_id);
+    lua_pushfstring(L, "%016lx", lwan_request_get_id(request));
     return 1;
 }
 

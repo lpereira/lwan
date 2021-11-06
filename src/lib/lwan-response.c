@@ -352,12 +352,10 @@ skip_date_header:
             APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
         }
         if (request_flags & RESPONSE_INCLUDE_REQUEST_ID) {
-            char request_id[] = "fill-with-req-id";
             APPEND_CONSTANT("\r\nX-Request-Id: ");
-            int r = snprintf(request_id, sizeof(request_id), "%016lx", request->request_id);
-            if (UNLIKELY(r < 0 || r >= (int)sizeof(request_id)))
-                return 0;
-            APPEND_STRING_LEN(request_id, (size_t)r);
+            RETURN_0_ON_OVERFLOW(16);
+            for (uint64_t id = lwan_request_get_id(request); id; id >>= 4)
+                APPEND_CHAR_NOCHECK("0123456789abcdef"[id & 15]);
         }
     }
 

@@ -127,6 +127,16 @@ uint64_t lwan_random_uint64()
 }
 #endif
 
+uint64_t lwan_request_get_id(struct lwan_request *request)
+{
+    struct lwan_request_parser_helper *helper = request->helper;
+
+    if (helper->request_id == 0)
+        helper->request_id = lwan_random_uint64();
+
+    return helper->request_id;
+}
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -160,7 +170,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         struct lwan_request request = {.conn = conn,
                                        .global_response_headers = &lwan->headers,
                                        .fd = fd,
-                                       .request_id = lwan_random_uint64(),
                                        .response = {.buffer = &strbuf},
                                        .flags = flags,
                                        .proxy = &proxy,

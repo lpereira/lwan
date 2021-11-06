@@ -369,7 +369,6 @@ struct lwan_request {
     struct lwan_connection *conn;
     const struct lwan_strbuf *const global_response_headers;
 
-    uint64_t request_id;
     struct lwan_request_parser_helper *helper;
 
     struct lwan_value url;

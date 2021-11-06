@@ -53,6 +53,8 @@ struct lwan_request_parser_helper {
         off_t from, to;
     } range;
 
+    uint64_t request_id;		/* Request ID for debugging purposes */
+
     time_t error_when_time;		/* Time to abort request read */
     int error_when_n_packets;		/* Max. number of packets */
     int urls_rewritten;			/* Times URLs have been rewritten */
@@ -242,3 +244,6 @@ int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
 int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
+
+uint64_t lwan_request_get_id(struct lwan_request *request);
+
