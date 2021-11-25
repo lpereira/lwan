@@ -128,6 +128,7 @@ LWAN_HANDLER(ws_chat)
     enum lwan_http_status status;
     static int total_user_count;
     int user_id;
+    uint64_t sleep_time = 1000;
 
     sub = lwan_pubsub_subscribe(chat);
     if (!sub)
@@ -166,9 +167,19 @@ LWAN_HANDLER(ws_chat)
                 lwan_pubsub_msg_done(msg);
 
                 lwan_response_websocket_write(request);
+                sleep_time = 500;
             }
 
-            lwan_request_sleep(request, 1000);
+            lwan_request_sleep(request, sleep_time);
+
+            /* We're receiving a lot of messages, wait up to 1s (500ms in the loop
+             * above, and 500ms in the increment below). Otherwise, wait 500ms every
+             * time we return from lwan_request_sleep() until we reach 8s.  This way,
+             * if a chat is pretty busy, we'll have a lag of at least 1s -- which is
+             * probably fine; if it's not busy, we can sleep a bit more and conserve
+             * some resources. */
+            if (sleep_time <= 8000)
+                sleep_time += 500;
             break;
 
         case 0: /* We got something! Copy it to echo it back */
