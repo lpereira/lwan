@@ -181,32 +181,6 @@ asm(".text\n\t"
     "movq   64(%rsi),%rcx\n\t"
     "movq   56(%rsi),%rsi\n\t"
     "jmpq   *%rcx\n\t");
-#elif defined(__i386__)
-void __attribute__((noinline, visibility("internal")))
-coro_swapcontext(coro_context *current, coro_context *other);
-asm(".text\n\t"
-    ".p2align 5\n\t"
-    ASM_ROUTINE(coro_swapcontext)
-    "movl   0x4(%esp),%eax\n\t"
-    "movl   %ecx,0x1c(%eax)\n\t" /* ECX */
-    "movl   %ebx,0x0(%eax)\n\t"  /* EBX */
-    "movl   %esi,0x4(%eax)\n\t"  /* ESI */
-    "movl   %edi,0x8(%eax)\n\t"  /* EDI */
-    "movl   %ebp,0xc(%eax)\n\t"  /* EBP */
-    "movl   (%esp),%ecx\n\t"
-    "movl   %ecx,0x14(%eax)\n\t" /* EIP */
-    "leal   0x4(%esp),%ecx\n\t"
-    "movl   %ecx,0x18(%eax)\n\t" /* ESP */
-    "movl   8(%esp),%eax\n\t"
-    "movl   0x14(%eax),%ecx\n\t" /* EIP (1) */
-    "movl   0x18(%eax),%esp\n\t" /* ESP */
-    "pushl  %ecx\n\t"            /* EIP (2) */
-    "movl   0x0(%eax),%ebx\n\t"  /* EBX */
-    "movl   0x4(%eax),%esi\n\t"  /* ESI */
-    "movl   0x8(%eax),%edi\n\t"  /* EDI */
-    "movl   0xc(%eax),%ebp\n\t"  /* EBP */
-    "movl   0x1c(%eax),%ecx\n\t" /* ECX */
-    "ret\n\t");
 #elif defined(HAVE_LIBUCONTEXT)
 #define coro_swapcontext(cur, oth) libucontext_swapcontext(cur, oth)
 #else
@@ -282,24 +256,6 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 
 #define STACK_PTR 9
     coro->context[STACK_PTR] = (rsp & ~0xful) - 0x8ul;
-#elif defined(__i386__)
-    stack = (unsigned char *)(uintptr_t)(stack + CORO_STACK_SIZE);
-
-    /* Make room for 3 args */
-    stack -= sizeof(uintptr_t) * 3;
-    /* Ensure 4-byte alignment */
-    stack = (unsigned char *)((uintptr_t)stack & (uintptr_t)~0x3);
-
-    uintptr_t *argp = (uintptr_t *)stack;
-    *argp++ = 0;
-    *argp++ = (uintptr_t)coro;
-    *argp++ = (uintptr_t)func;
-    *argp++ = (uintptr_t)data;
-
-    coro->context[5 /* EIP */] = (uintptr_t)coro_entry_point;
-
-#define STACK_PTR 6
-    coro->context[STACK_PTR] = (uintptr_t)stack;
 #elif defined(HAVE_LIBUCONTEXT)
     libucontext_getcontext(&coro->context);
 
