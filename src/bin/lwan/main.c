@@ -34,12 +34,10 @@ enum args {
 
 static void print_module_info(void)
 {
-    extern const struct lwan_module_info SECTION_START(lwan_module);
-    extern const struct lwan_module_info SECTION_END(lwan_module);
     const struct lwan_module_info *module;
 
     printf("Available modules:\n");
-    for (module = __start_lwan_module; module < __stop_lwan_module; module++) {
+    LWAN_SECTION_FOREACH(lwan_module, module) {
         printf(" * %s\n", module->name);
     }
 }
@@ -47,12 +45,10 @@ static void print_module_info(void)
 static void
 print_handler_info(void)
 {
-    extern const struct lwan_handler_info SECTION_START(lwan_handler);
-    extern const struct lwan_handler_info SECTION_END(lwan_handler);
     const struct lwan_handler_info *handler;
 
     printf("Available handlers:\n");
-    for (handler = __start_lwan_handler; handler < __stop_lwan_handler; handler++) {
+    LWAN_SECTION_FOREACH(lwan_handler, handler) {
         printf(" * %s\n", handler->name);
     }
 }
