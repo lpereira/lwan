@@ -605,7 +605,9 @@ static void parse_condition_stat(struct pattern *pattern,
                                  struct config *config,
                                  const struct config_line *line)
 {
-    char *path = NULL, *is_dir = NULL, *is_file = NULL;
+    char *path = NULL;
+    bool has_is_dir = false, is_dir;
+    bool has_is_file = false, is_file;
 
     while ((line = config_read_line(config))) {
         switch (line->type) {
@@ -620,14 +622,14 @@ static void parse_condition_stat(struct pattern *pattern,
             }
 
             pattern->condition.stat.path = path;
-            if (is_dir) {
+            if (has_is_dir) {
                 pattern->flags |= PATTERN_COND_STAT__HAS_IS_DIR;
-                if (parse_bool(is_dir, false))
+                if (is_dir)
                     pattern->flags |= PATTERN_COND_STAT__IS_DIR;
             }
-            if (is_file) {
+            if (has_is_file) {
                 pattern->flags |= PATTERN_COND_STAT__HAS_IS_FILE;
-                if (parse_bool(is_file, false))
+                if (is_file)
                     pattern->flags |= PATTERN_COND_STAT__IS_FILE;
             }
             pattern->flags |= PATTERN_COND_STAT;
@@ -645,9 +647,11 @@ static void parse_condition_stat(struct pattern *pattern,
                     goto out;
                 }
             } else if (streq(line->key, "is_dir")) {
-                is_dir = line->value;
+                is_dir = parse_bool(line->value, false);
+                has_is_dir = true;
             } else if (streq(line->key, "is_file")) {
-                is_file = line->value;
+                is_file = parse_bool(line->value, false);
+                has_is_file = true;
             } else {
                 config_error(config, "Unexpected key: %s", line->key);
                 goto out;
