@@ -157,25 +157,6 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
     }
 }
 
-static void discard_frame(struct lwan_request *request, uint16_t header)
-{
-    size_t len = get_frame_length(request, header);
-#if defined(__linux__)
-    /* MSG_TRUNC for TCP sockets is only supported the way we need here
-     * on Linux. */
-    int flags = MSG_TRUNC;
-#else
-    /* On other OSes, we need to actually read into the buffer in order
-     * to discard the data. */
-    int flags = 0;
-#endif
-
-    for (char buffer[1024]; len;) {
-        const size_t to_read = LWAN_MIN(len, sizeof(buffer));
-        len -= (size_t)lwan_recv(request, buffer, to_read, flags);
-    }
-}
-
 static void unmask(char *msg, size_t msg_len, char mask[static 4])
 {
     const uint32_t mask32 = string_as_uint32(mask);
@@ -278,10 +259,6 @@ next_frame:
         goto next_frame;
 
     case WS_OPCODE_PONG:
-        lwan_status_debug("Received unsolicited PONG frame, discarding frame");
-        discard_frame(request, header);
-        goto next_frame;
-
     case WS_OPCODE_RSVD_1 ... WS_OPCODE_RSVD_5:
     case WS_OPCODE_RSVD_CONTROL_1 ... WS_OPCODE_RSVD_CONTROL_5:
     case WS_OPCODE_INVALID:
