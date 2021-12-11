@@ -35,6 +35,17 @@
 #include <linux/filter.h>
 #endif
 
+#if defined(HAVE_MBEDTLS)
+#include <mbedtls/entropy.h>
+#include <mbedtls/error.h>
+#include <mbedtls/gcm.h>
+#include <mbedtls/net_sockets.h>
+#include <mbedtls/ssl_internal.h>
+
+#include <linux/tls.h>
+#include <netinet/tcp.h>
+#endif
+
 #include "list.h"
 #include "murmur3.h"
 #include "lwan-private.h"
@@ -137,6 +148,146 @@ uint64_t lwan_request_get_id(struct lwan_request *request)
     return helper->request_id;
 }
 
+#if defined(HAVE_MBEDTLS)
+static bool
+lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
+{
+    struct tls12_crypto_info_aes_gcm_128 info = {
+        .info = {.version = TLS_1_2_VERSION,
+                 .cipher_type = TLS_CIPHER_AES_GCM_128},
+    };
+    const unsigned char *salt, *iv, *rec_seq;
+    mbedtls_gcm_context *gcm_ctx;
+    mbedtls_aes_context *aes_ctx;
+
+    switch (rx_or_tx) {
+    case TLS_RX:
+        salt = ssl->transform->iv_dec;
+        rec_seq = ssl->in_ctr;
+        gcm_ctx = ssl->transform->cipher_ctx_dec.cipher_ctx;
+        break;
+    case TLS_TX:
+        salt = ssl->transform->iv_enc;
+        rec_seq = ssl->cur_out_ctr;
+        gcm_ctx = ssl->transform->cipher_ctx_enc.cipher_ctx;
+        break;
+    default:
+        __builtin_unreachable();
+    }
+
+    iv = salt + 4;
+    aes_ctx = gcm_ctx->cipher_ctx.cipher_ctx;
+
+    memcpy(info.iv, iv, TLS_CIPHER_AES_GCM_128_IV_SIZE);
+    memcpy(info.rec_seq, rec_seq, TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
+    memcpy(info.key, aes_ctx->rk, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
+    memcpy(info.salt, salt, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
+
+    if (UNLIKELY(setsockopt(fd, SOL_TLS, rx_or_tx, &info, sizeof(info)) < 0)) {
+        lwan_status_perror("Could not set kTLS keys for fd %d", fd);
+        lwan_always_bzero(&info, sizeof(info));
+        return false;
+    }
+
+    lwan_always_bzero(&info, sizeof(info));
+    return true;
+}
+
+__attribute__((format(printf, 2, 3)))
+__attribute__((noinline, cold))
+static void lwan_status_mbedtls_error(int error_code, const char *fmt, ...)
+{
+    char *formatted;
+    va_list ap;
+    int r;
+
+    va_start(ap, fmt);
+    r = vasprintf(&formatted, fmt, ap);
+    if (r >= 0) {
+        char mbedtls_errbuf[128];
+
+        mbedtls_strerror(error_code, mbedtls_errbuf, sizeof(mbedtls_errbuf));
+        lwan_status_error("%s: %s", formatted, mbedtls_errbuf);
+        free(formatted);
+    }
+    va_end(ap);
+}
+
+static void lwan_setup_tls_free_ssl_context(void *data1, void *data2)
+{
+    struct lwan_connection *conn = data1;
+
+    if (UNLIKELY(conn->flags & CONN_NEEDS_TLS_SETUP)) {
+        mbedtls_ssl_context *ssl = data2;
+
+        mbedtls_ssl_free(ssl);
+        conn->flags &= ~CONN_NEEDS_TLS_SETUP;
+    }
+}
+
+static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
+{
+    mbedtls_ssl_context ssl;
+    bool retval = false;
+    int r;
+
+    mbedtls_ssl_init(&ssl);
+
+    r = mbedtls_ssl_setup(&ssl, &l->tls->config);
+    if (UNLIKELY(r != 0)) {
+        lwan_status_mbedtls_error(r, "Could not setup TLS context");
+        return false;
+    }
+
+    /* Yielding the coroutine during the handshake enables the I/O loop to
+     * destroy this coro (e.g.  on connection hangup) before we have the
+     * opportunity to free the SSL context.  Defer this call for these
+     * cases. */
+    coro_defer2(conn->coro, lwan_setup_tls_free_ssl_context, conn, &ssl);
+
+    int fd = lwan_connection_get_fd(l, conn);
+    /* FIXME: This is only required for the handshake; this uses read() and
+     * write() under the hood but maybe we can use something like recv() and
+     * send() instead to force MSG_MORE et al?  (strace shows a few
+     * consecutive calls to write(); this might be sent in separate TCP
+     * fragments.) */
+    mbedtls_ssl_set_bio(&ssl, &fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+
+    while (true) {
+        switch (mbedtls_ssl_handshake(&ssl)) {
+        case 0:
+            goto enable_tls_ulp;
+        case MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS:
+        case MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS:
+        case MBEDTLS_ERR_SSL_WANT_READ:
+            coro_yield(conn->coro, CONN_CORO_WANT_READ);
+            break;
+        case MBEDTLS_ERR_SSL_WANT_WRITE:
+            coro_yield(conn->coro, CONN_CORO_WANT_WRITE);
+            break;
+        default:
+            goto fail;
+        }
+    }
+
+enable_tls_ulp:
+    if (UNLIKELY(setsockopt(fd, SOL_TCP, TCP_ULP, "tls", sizeof("tls")) < 0))
+        goto fail;
+    if (UNLIKELY(!lwan_setup_tls_keys(fd, &ssl, TLS_RX)))
+        goto fail;
+    if (UNLIKELY(!lwan_setup_tls_keys(fd, &ssl, TLS_TX)))
+        goto fail;
+
+    retval = true;
+
+fail:
+    mbedtls_ssl_free(&ssl);
+
+    conn->flags &= ~CONN_NEEDS_TLS_SETUP;
+    return retval;
+}
+#endif
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -159,6 +310,22 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
     const size_t init_gen = 1; /* 1 call to coro_defer() */
     assert(init_gen == coro_deferred_get_generation(coro));
+
+#if defined(HAVE_MBEDTLS)
+    if (conn->flags & CONN_NEEDS_TLS_SETUP) {
+        /* Sometimes this flag is unset when it *should* be set! Need to
+         * figure out why.  This causes the TLS handshake to not happen,
+         * making the normal HTTP request reading code to try and read
+         * the handshake as if it were a HTTP request. */
+        if (UNLIKELY(!lwan_setup_tls(lwan, conn))) {
+            coro_yield(coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
+        conn->flags |= CONN_TLS;
+    }
+#endif
+    assert(!(conn->flags & CONN_NEEDS_TLS_SETUP));
 
     while (true) {
         struct lwan_request_parser_helper helper = {
@@ -265,6 +432,10 @@ static void update_epoll_flags(int fd,
     conn->flags |= or_mask[yield_result];
     conn->flags &= and_mask[yield_result];
 
+    assert(!(conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)));
+    assert((conn->flags & (CONN_TLS | CONN_NEEDS_TLS_SETUP)) ==
+           (prev_flags & (CONN_TLS | CONN_NEEDS_TLS_SETUP)));
+
     if (conn->flags == prev_flags)
         return;
 
@@ -357,6 +528,7 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
+__attribute__((cold))
 static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, int flags)
 {
     size_t total_sent = 0;
@@ -381,27 +553,41 @@ static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, in
     return false;
 }
 
+__attribute__((cold))
 static bool send_string_without_coro(int fd, const char *str, int flags)
 {
     return send_buffer_without_coro(fd, str, strlen(str), flags);
 }
 
-static void send_response_without_coro(const struct lwan *l,
-                                       int fd,
-                                       enum lwan_http_status status)
+__attribute__((cold)) static void
+send_last_response_without_coro(const struct lwan *l,
+                                const struct lwan_connection *conn,
+                                enum lwan_http_status status)
 {
+    int fd = lwan_connection_get_fd(l, conn);
+
+    if (conn->flags & CONN_NEEDS_TLS_SETUP) {
+        /* There's nothing that can be done here if a client is expecting a
+         * TLS connection: the TLS handshake requires a coroutine as it
+         * might yield.  (In addition, the TLS handshake might allocate
+         * memory, and if you couldn't create a coroutine at this point,
+         * it's unlikely you'd be able to allocate memory for the TLS
+         * context anyway.) */
+        goto shutdown_and_close;
+    }
+
     if (!send_string_without_coro(fd, "HTTP/1.0 ", MSG_MORE))
-        return;
+        goto shutdown_and_close;
 
     if (!send_string_without_coro(
             fd, lwan_http_status_as_string_with_code(status), MSG_MORE))
-        return;
+        goto shutdown_and_close;
 
     if (!send_string_without_coro(fd, "\r\nConnection: close", MSG_MORE))
-        return;
+        goto shutdown_and_close;
 
     if (!send_string_without_coro(fd, "\r\nContent-Type: text/html", MSG_MORE))
-        return;
+        goto shutdown_and_close;
 
     if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&l->headers),
                                  lwan_strbuf_get_length(&l->headers),
@@ -416,6 +602,10 @@ static void send_response_without_coro(const struct lwan *l,
 
         lwan_strbuf_free(&buffer);
     }
+
+shutdown_and_close:
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
 }
 
 static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
@@ -423,6 +613,11 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
                                      struct timeout_queue *tq)
 {
     struct lwan_thread *t = conn->thread;
+#if defined(HAVE_MBEDTLS)
+    const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_NEEDS_TLS_SETUP;
+#else
+    const enum lwan_connection_flags flags_to_keep = 0;
+#endif
 
     assert(!conn->coro);
     assert(!(conn->flags & CONN_ASYNC_AWAIT));
@@ -433,7 +628,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 
     *conn = (struct lwan_connection){
         .coro = coro_new(switcher, process_request_coro, conn),
-        .flags = CONN_EVENTS_READ,
+        .flags = CONN_EVENTS_READ | flags_to_keep,
         .time_to_expire = tq->current_time + tq->move_to_last_bump,
         .thread = t,
     };
@@ -448,9 +643,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 
     lwan_status_error("Couldn't spawn coroutine for file descriptor %d", fd);
 
-    send_response_without_coro(tq->lwan, fd, HTTP_UNAVAILABLE);
-    shutdown(fd, SHUT_RDWR);
-    close(fd);
+    send_last_response_without_coro(tq->lwan, conn, HTTP_UNAVAILABLE);
     return false;
 }
 
@@ -523,18 +716,19 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
     return (int)timeouts_timeout(t->wheel);
 }
 
-static bool accept_waiting_clients(const struct lwan_thread *t)
+static bool accept_waiting_clients(const struct lwan_thread *t,
+                                   const struct lwan_connection *listen_socket)
 {
     const uint32_t read_events = conn_flags_to_epoll_events(CONN_EVENTS_READ);
-    const struct lwan_connection *conns = t->lwan->conns;
+    struct lwan_connection *conns = t->lwan->conns;
+    int listen_fd = (int)(intptr_t)(listen_socket - conns);
 
     while (true) {
-        int fd =
-            accept4(t->listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
+        int fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
         if (LIKELY(fd >= 0)) {
-            const struct lwan_connection *conn = &conns[fd];
-            struct epoll_event ev = {.data.ptr = (void *)conn, .events = read_events};
+            struct lwan_connection *conn = &conns[fd];
+            struct epoll_event ev = {.data.ptr = conn, .events = read_events};
             int r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 
             if (UNLIKELY(r < 0)) {
@@ -542,11 +736,17 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
                                    "set %d. Dropping connection",
                                    fd, conn->thread->epoll_fd);
 
-                send_response_without_coro(t->lwan, fd, HTTP_UNAVAILABLE);
-                shutdown(fd, SHUT_RDWR);
-                close(fd);
+                send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
+#if defined(HAVE_MBEDTLS)
+            } else if (listen_socket->flags & CONN_LISTENER_HTTPS) {
+                assert(listen_fd == t->tls_listen_fd);
+                assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
+                conn->flags |= CONN_NEEDS_TLS_SETUP;
+            } else {
+                assert(listen_fd == t->listen_fd);
+                assert(listen_socket->flags & CONN_LISTENER_HTTP);
+#endif
             }
-
             continue;
         }
 
@@ -570,11 +770,13 @@ static bool accept_waiting_clients(const struct lwan_thread *t)
 }
 
 static int create_listen_socket(struct lwan_thread *t,
-                                unsigned int num)
+                                unsigned int num,
+                                bool tls)
 {
+    const struct lwan *lwan = t->lwan;
     int listen_fd;
 
-    listen_fd = lwan_create_listen_socket(t->lwan, num == 0);
+    listen_fd = lwan_create_listen_socket(lwan, num == 0, tls);
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
@@ -606,7 +808,7 @@ static int create_listen_socket(struct lwan_thread *t,
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET | EPOLLERR,
-        .data.ptr = NULL,
+        .data.ptr = &t->lwan->conns[listen_fd],
     };
     if (epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event) < 0)
         lwan_status_critical_perror("Could not add socket to epoll");
@@ -652,10 +854,15 @@ static void *thread_io_loop(void *data)
         }
 
         for (struct epoll_event *event = events; n_fds--; event++) {
-            struct lwan_connection *conn;
+            struct lwan_connection *conn = event->data.ptr;
 
-            if (!event->data.ptr) {
-                if (LIKELY(accept_waiting_clients(t))) {
+            if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                timeout_queue_expire(&tq, conn);
+                continue;
+            }
+
+            if (conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)) {
+                if (LIKELY(accept_waiting_clients(t, conn))) {
                     accepted_connections = true;
                     continue;
                 }
@@ -664,16 +871,11 @@ static void *thread_io_loop(void *data)
                 break;
             }
 
-            conn = event->data.ptr;
-
-            if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                timeout_queue_expire(&tq, conn);
-                continue;
-            }
-
             if (!conn->coro) {
-                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq)))
+                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq))) {
+                    send_last_response_without_coro(t->lwan, conn, HTTP_INTERNAL_ERROR);
                     continue;
+                }
             }
 
             resume_coro(&tq, conn, epoll_fd);
@@ -845,9 +1047,135 @@ adjust_thread_affinity(const struct lwan_thread *thread)
 }
 #endif
 
+#if defined(HAVE_MBEDTLS)
+static bool is_tls_ulp_supported(void)
+{
+    FILE *available_ulp = fopen("/proc/sys/net/ipv4/tcp_available_ulp", "re");
+    char buffer[512];
+    bool available = false;
+
+    if (!available_ulp)
+        return false;
+
+    if (fgets(buffer, 512, available_ulp)) {
+        if (strstr(buffer, "tls"))
+            available = true;
+    }
+
+    fclose(available_ulp);
+    return available;
+}
+
+static bool lwan_init_tls(struct lwan *l)
+{
+    static const int aes128_ciphers[] = {
+        /* Only allow Ephemeral Diffie-Hellman key exchange, so Perfect
+         * Forward Secrecy is possible.  */
+        MBEDTLS_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        MBEDTLS_TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+        MBEDTLS_TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
+
+        /* FIXME: Other ciphers are supported by kTLS, notably AES256 and
+         * ChaCha20-Poly1305.  Add those here and patch
+         * lwan_setup_tls_keys() to match.  */
+
+        /* FIXME: Maybe allow this to be user-tunable like other servers do?  */
+        0,
+    };
+    int r;
+
+    if (!l->config.ssl.cert || !l->config.ssl.key)
+        return false;
+
+    if (!is_tls_ulp_supported())
+        lwan_status_critical(
+            "TLS ULP not loaded. Try running `modprobe tls` as root.");
+
+    l->tls = calloc(1, sizeof(*l->tls));
+    if (!l->tls)
+        lwan_status_critical("Could not allocate memory for SSL context");
+
+    lwan_status_debug("Initializing mbedTLS");
+
+    mbedtls_ssl_config_init(&l->tls->config);
+    mbedtls_x509_crt_init(&l->tls->server_cert);
+    mbedtls_pk_init(&l->tls->server_key);
+    mbedtls_entropy_init(&l->tls->entropy);
+    mbedtls_ctr_drbg_init(&l->tls->ctr_drbg);
+
+    r = mbedtls_x509_crt_parse_file(&l->tls->server_cert, l->config.ssl.cert);
+    if (r) {
+        lwan_status_mbedtls_error(r, "Could not parse certificate at %s",
+                                  l->config.ssl.cert);
+        abort();
+    }
+
+    r = mbedtls_pk_parse_keyfile(&l->tls->server_key, l->config.ssl.key, NULL);
+    if (r) {
+        lwan_status_mbedtls_error(r, "Could not parse key file at %s",
+                                  l->config.ssl.key);
+        abort();
+    }
+
+    /* Even though this points to files that will probably be outside
+     * the reach of the server (if straightjackets are used), wipe this
+     * struct to get rid of the paths to these files. */
+    lwan_always_bzero(l->config.ssl.cert, strlen(l->config.ssl.cert));
+    free(l->config.ssl.cert);
+    lwan_always_bzero(l->config.ssl.key, strlen(l->config.ssl.key));
+    free(l->config.ssl.key);
+    lwan_always_bzero(&l->config.ssl, sizeof(l->config.ssl));
+
+    mbedtls_ssl_conf_ca_chain(&l->tls->config, l->tls->server_cert.next, NULL);
+    r = mbedtls_ssl_conf_own_cert(&l->tls->config, &l->tls->server_cert,
+                                  &l->tls->server_key);
+    if (r) {
+        lwan_status_mbedtls_error(r, "Could not set cert/key");
+        abort();
+    }
+
+    r = mbedtls_ctr_drbg_seed(&l->tls->ctr_drbg, mbedtls_entropy_func,
+                              &l->tls->entropy, NULL, 0);
+    if (r) {
+        lwan_status_mbedtls_error(r, "Could not seed ctr_drbg");
+        abort();
+    }
+
+    r = mbedtls_ssl_config_defaults(&l->tls->config, MBEDTLS_SSL_IS_SERVER,
+                                    MBEDTLS_SSL_TRANSPORT_STREAM,
+                                    MBEDTLS_SSL_PRESET_DEFAULT);
+    if (r) {
+        lwan_status_mbedtls_error(r, "Could not set mbedTLS default config");
+        abort();
+    }
+
+    mbedtls_ssl_conf_rng(&l->tls->config, mbedtls_ctr_drbg_random,
+                         &l->tls->ctr_drbg);
+    mbedtls_ssl_conf_ciphersuites(&l->tls->config, aes128_ciphers);
+
+    mbedtls_ssl_conf_renegotiation(&l->tls->config,
+                                   MBEDTLS_SSL_RENEGOTIATION_DISABLED);
+    mbedtls_ssl_conf_legacy_renegotiation(&l->tls->config,
+                                          MBEDTLS_SSL_LEGACY_NO_RENEGOTIATION);
+
+#if defined(MBEDTLS_SSL_ALPN)
+    static const char *alpn_protos[] = {"http/1.1", NULL};
+    mbedtls_ssl_conf_alpn_protocols(&l->tls->config, alpn_protos);
+#endif
+
+    return true;
+}
+#endif
+
 void lwan_thread_init(struct lwan *l)
 {
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
+#if defined(HAVE_MBEDTLS)
+    const bool tls_initialized = lwan_init_tls(l);
+#else
+    const bool tls_initialized = false;
+#endif
 
     lwan_status_debug("Initializing threads");
 
@@ -932,8 +1260,17 @@ void lwan_thread_init(struct lwan *l)
 
         create_thread(l, thread);
 
-        if ((thread->listen_fd = create_listen_socket(thread, i)) < 0)
+        if ((thread->listen_fd = create_listen_socket(thread, i, false)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
+        l->conns[thread->listen_fd].flags |= CONN_LISTENER_HTTP;
+
+        if (tls_initialized) {
+            if ((thread->tls_listen_fd = create_listen_socket(thread, i, true)) < 0)
+                lwan_status_critical_perror("Could not create TLS listening socket");
+            l->conns[thread->tls_listen_fd].flags |= CONN_LISTENER_HTTPS;
+        } else {
+            thread->tls_listen_fd = -1;
+        }
 
         if (adj_affinity) {
             l->thread.threads[i].cpu = schedtbl[i & n_threads];
@@ -972,4 +1309,13 @@ void lwan_thread_shutdown(struct lwan *l)
     }
 
     free(l->thread.threads);
+
+    if (l->tls) {
+        mbedtls_ssl_config_free(&l->tls->config);
+        mbedtls_x509_crt_free(&l->tls->server_cert);
+        mbedtls_pk_free(&l->tls->server_key);
+        mbedtls_entropy_free(&l->tls->entropy);
+        mbedtls_ctr_drbg_free(&l->tls->ctr_drbg);
+        free(l->tls);
+    }
 }

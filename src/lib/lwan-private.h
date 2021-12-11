@@ -87,7 +87,9 @@ void lwan_set_thread_name(const char *name);
 void lwan_response_init(struct lwan *l);
 void lwan_response_shutdown(struct lwan *l);
 
-int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg);
+int lwan_create_listen_socket(const struct lwan *l,
+                              bool print_listening_msg,
+                              bool is_https);
 
 void lwan_thread_init(struct lwan *l);
 void lwan_thread_shutdown(struct lwan *l);
@@ -159,6 +161,21 @@ static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
     return number + 1;
 }
 
+#if defined(HAVE_MBEDTLS)
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ssl.h>
+
+struct lwan_tls_context {
+    mbedtls_ssl_config config;
+    mbedtls_x509_crt server_cert;
+    mbedtls_pk_context server_key;
+
+    mbedtls_entropy_context entropy;
+
+    mbedtls_ctr_drbg_context ctr_drbg;
+};
+#endif
 
 #ifdef HAVE_LUA
 #include <lua.h>
@@ -177,6 +194,10 @@ const char *lwan_lua_state_last_error(lua_State *L);
         __asm__ __volatile__("" ::"g"(no_discard_) : "memory");                \
     } while (0)
 
+static inline void lwan_always_bzero(void *ptr, size_t len)
+{
+    LWAN_NO_DISCARD(memset(ptr, 0, len));
+}
 
 #ifdef __APPLE__
 #define SECTION_START(name_) __start_##name_[] __asm("section$start$__DATA$" #name_)

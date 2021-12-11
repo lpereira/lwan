@@ -427,13 +427,95 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
     }
 }
 
-static void parse_listener(struct config *c,
-                           const struct config_line *l,
-                           struct lwan *lwan)
+const char *lwan_get_config_path(char *path_buf, size_t path_buf_len)
 {
-    free(lwan->config.listener);
-    lwan->config.listener = strdup(l->value);
+    char buffer[PATH_MAX];
 
+    if (proc_pidpath(getpid(), buffer, sizeof(buffer)) < 0)
+        goto out;
+
+    char *path = strrchr(buffer, '/');
+    if (!path)
+        goto out;
+    int ret = snprintf(path_buf, path_buf_len, "%s.conf", path + 1);
+    if (ret < 0 || ret >= (int)path_buf_len)
+        goto out;
+
+    return path_buf;
+
+out:
+    return "lwan.conf";
+}
+
+static void parse_tls_listener(struct config *conf, const struct config_line *line, struct lwan *lwan)
+{
+#if !defined(HAVE_MBEDTLS)
+    config_error(conf, "Lwan has been built without mbedTLS support");
+    return;
+#endif
+
+    lwan->config.tls_listener = strdup(line->value);
+    if (!lwan->config.tls_listener) {
+        config_error(conf, "Could not allocate memory for tls_listener");
+        return;
+    }
+
+    lwan->config.ssl.cert = NULL;
+    lwan->config.ssl.key = NULL;
+
+    while ((line = config_read_line(conf))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION_END:
+            return;
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(conf, "Unexpected section: %s", line->key);
+            return;
+        case CONFIG_LINE_TYPE_LINE:
+            if (streq(line->key, "cert")) {
+                free(lwan->config.ssl.cert);
+                lwan->config.ssl.cert = strdup(line->value);
+                if (!lwan->config.ssl.cert)
+                    return lwan_status_critical("Could not copy string");
+            } else if (streq(line->key, "key")) {
+                free(lwan->config.ssl.key);
+                lwan->config.ssl.key = strdup(line->value);
+                if (!lwan->config.ssl.key)
+                    return lwan_status_critical("Could not copy string");
+            } else {
+                config_error(conf, "Unexpected key: %s", line->key);
+            }
+        }
+    }
+
+    config_error(conf, "Expecting section end while parsing SSL configuration");
+}
+
+static void
+parse_listener(struct config *c, const struct config_line *l, struct lwan *lwan)
+{
+    lwan->config.listener = strdup(l->value);
+    if (!lwan->config.listener)
+        config_error(c, "Could not allocate memory for listener");
+
+    while ((l = config_read_line(c))) {
+        switch (l->type) {
+        case CONFIG_LINE_TYPE_LINE:
+            config_error(c, "Unexpected key %s", l->key);
+            return;
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(c, "Unexpected section %s", l->key);
+            return;
+        case CONFIG_LINE_TYPE_SECTION_END:
+            return;
+        }
+    }
+
+    config_error(c, "Unexpected EOF while parsing listener");
+}
+
+static void
+parse_site(struct config *c, const struct config_line *l, struct lwan *lwan)
+{
     while ((l = config_read_line(c))) {
         switch (l->type) {
         case CONFIG_LINE_TYPE_LINE:
@@ -467,31 +549,13 @@ static void parse_listener(struct config *c,
     config_error(c, "Expecting section end while parsing listener");
 }
 
-const char *lwan_get_config_path(char *path_buf, size_t path_buf_len)
-{
-    char buffer[PATH_MAX];
-
-    if (proc_pidpath(getpid(), buffer, sizeof(buffer)) < 0)
-        goto out;
-
-    char *path = strrchr(buffer, '/');
-    if (!path)
-        goto out;
-    int ret = snprintf(path_buf, path_buf_len, "%s.conf", path + 1);
-    if (ret < 0 || ret >= (int)path_buf_len)
-        goto out;
-
-    return path_buf;
-
-out:
-    return "lwan.conf";
-}
-
 static bool setup_from_config(struct lwan *lwan, const char *path)
 {
     const struct config_line *line;
     struct config *conf;
+    bool has_site = false;
     bool has_listener = false;
+    bool has_tls_listener = false;
     char path_buf[PATH_MAX];
 
     if (!path)
@@ -568,17 +632,31 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             }
             break;
         case CONFIG_LINE_TYPE_SECTION:
-            if (streq(line->key, "listener")) {
-                if (!has_listener) {
-                    parse_listener(conf, line, lwan);
-                    has_listener = true;
+            if (streq(line->key, "site")) {
+                if (!has_site) {
+                    parse_site(conf, line, lwan);
+                    has_site = true;
                 } else {
-                    config_error(conf, "Only one listener supported");
+                    config_error(conf, "Only one site may be configured");
                 }
             } else if (streq(line->key, "straitjacket")) {
                 lwan_straitjacket_enforce_from_config(conf);
             } else if (streq(line->key, "headers")) {
                 parse_global_headers(conf, lwan);
+            } else if (streq(line->key, "listener")) {
+                if (has_listener) {
+                    config_error(conf, "Listener already set up");
+                } else {
+                    parse_listener(conf, line, lwan);
+                    has_listener = true;
+                }
+            } else if (streq(line->key, "tls_listener")) {
+                if (has_tls_listener) {
+                    config_error(conf, "TLS Listener already set up");
+                } else {
+                    parse_tls_listener(conf, line, lwan);
+                    has_tls_listener = true;
+                }
             } else {
                 config_error(conf, "Unknown section type: %s", line->key);
             }

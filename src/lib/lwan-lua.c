@@ -107,6 +107,13 @@ LWAN_LUA_METHOD(header)
     return request_param_getter(L, lwan_request_get_header);
 }
 
+LWAN_LUA_METHOD(is_https)
+{
+    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
+    lua_pushboolean(L, !!(request->conn->flags & CONN_TLS));
+    return 1;
+}
+
 LWAN_LUA_METHOD(path)
 {
     struct lwan_request *request = lwan_lua_get_request_from_userdata(L);

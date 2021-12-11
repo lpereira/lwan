@@ -37,6 +37,8 @@ The build system will look for these libraries and enable/link if available.
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
  - [ZSTD](https://github.com/facebook/zstd)
+ - On Linux builds, if `-DENABLE_TLS=ON` (default) is passed:
+    - [mbedTLS](https://github.com/ARMmbed/mbedtls)
  - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC` to CMake with the following values:
     - ["mimalloc"](https://github.com/microsoft/mimalloc)
     - ["jemalloc"](http://jemalloc.net/)
@@ -63,10 +65,10 @@ will be downloaded and built alongside Lwan.
  - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config`
  - macOS: `brew install cmake`
 
-#### Build all examples
- - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind`
+#### Build with all optional features
+ - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind mbedtls`
  - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
- - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev`
+ - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev libmbedtls-dev`
  - macOS: `brew install cmake mysql-connector-c sqlite lua@5.1 pkg-config`
 
 ### Build commands
@@ -340,17 +342,70 @@ written in the configuration file.
 
 ### Listeners
 
-In order to specify which interfaces Lwan should listen on, a `listener` section
-must be specified.  Only one listener per Lwan process is accepted at the moment.
-The only parameter to a listener block is the interface address and the port to
-listen on; anything inside a listener section are instances of modules.
+Only two listeners are supported per Lwan process: the HTTP listener (`listener`
+section), and the HTTPS listener (`tls_listener` section).  Only one listener
+of each type is allowed.
 
-The syntax for the listener parameter is `${ADDRESS}:${PORT}`, where `${ADDRESS}`
-can either be `*` (binding to all interfaces), an IPv6 address (if surrounded by
-square brackets), an IPv4 address, or a hostname.  If systemd's socket activation
-is used, `systemd` can be specified as a parameter.
+> :warning: **Warning:** TLS support is experimental.  Although it is stable
+> during initial testing, your mileage may vary. Only TLSv1.2 is supported
+> at this point, but TLSv1.3 is planned.
 
-### Routing URLs Using Modules or Handlers
+> :bulb: **Note:** TLS support requires :penguin: Linux with the `tls.ko`
+> module built-in or loaded.  Support for other operating systems may be
+> added in the future.  FreeBSD seems possible, other operating systems
+> do not seem to offer similar feature.  For unsupported operating systems,
+> using a TLS terminator proxy such as [Hitch](https://hitch-tls.org/) is a good
+> option.
+
+For both `listener` and `tls_listener` sections, the only parameter is the
+the interface address and port to listen on.  The listener syntax is
+`${ADDRESS}:${PORT}`, where `${ADDRESS}` can either be `*` (binding to all
+interfaces), an IPv6 address (if surrounded by square brackets), an IPv4
+address, or a hostname.  For instance, `listener localhost:9876` would
+listen only in the `lo` interface, port `9876`.
+
+While a `listener` section takes no keys, a `tls_listener` section
+requires two: `cert` and `key`.  Each point, respectively, to the location
+on disk where the TLS certificate and private key files are located.
+
+> :magic_wand: **Tip:** To generate these keys for testing purposes, the
+> OpenSSL command-line tool can be used like the following:
+> `openssl req -nodes -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 7`
+
+> :bulb: **Note:** It's recommended that a [Straitjacket](#Straitjacket) with a `chroot` option is declared
+> right after a `tls_listener` section, in such a way that the paths to the
+> certificate and key are out of reach from that point on.
+
+If systemd socket activation is used, `systemd` can be specified as a
+parameter.  (If multiple listeners from systemd are specified,
+`systemd:FileDescriptorName` can be specified, where `FileDescriptorName`
+follows the [conventions set in the `systemd.socket` documentation](https://www.freedesktop.org/software/systemd/man/systemd.socket.html).)
+
+Examples:
+
+```
+listener *:8080		# Listen on all interfaces, port 8080, HTTP
+
+tls_listener *:8081 {	# Listen on all interfaces, port 8081, HTTPS
+	cert = /path/to/cert.pem
+	key = /path/to/key.pem
+}
+
+# Use named systemd socket activation for HTTP listener
+listener systemd:my-service-http.socket	
+
+# Use named systemd socket activation for HTTPS listener
+tls_listener systemd:my-service-https.socket {
+	...
+}
+```
+
+### Site
+
+A `site` section groups instances of modules and handlers that will respond to
+requests to a given URL prefix.
+
+#### Routing URLs Using Modules or Handlers
 
 In order to route URLs, Lwan matches the largest common prefix from the request
 URI with a set of prefixes specified in the listener section.  How a request to
@@ -438,6 +493,7 @@ information from the request, or to set the response, as seen below:
    - `req:body()` returns the request body (POST/PUT requests).
    - `req:request_id()` returns a string containing the request ID.
    - `req:request_date()` returns the date as it'll be written in the `Date` response header.
+   - `req:is_https()` returns `true` if this request is serviced through HTTPS, `false` otherwise.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return
@@ -531,6 +587,7 @@ for that condition to be evaluated:
 |`encoding` | No | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
 |`proxied`♠ | No | Boolean | Checks if request has been proxied through PROXY protocol |
 |`http_1.0`♠ | No | Boolean | Checks if request is made with a HTTP/1.0 client |
+|`is_https`♠ | No | Boolean | Checks if request is made through HTTPS |
 |`has_query_string`♠ | No | Boolean | Checks if request has a query string (even if empty) |
 |`method`♠ |No | Method name | Checks if HTTP method is the one specified |
 |`lua`♠ |No| String | Runs Lua function `matches(req)` inside String and checks if it returns `true` or `false` |

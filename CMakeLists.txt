@@ -76,6 +76,29 @@ if (ZSTD_FOUND)
 	set(HAVE_ZSTD 1)
 endif ()
 
+option(ENABLE_TLS "Enable support for TLS (Linux-only)" "ON")
+if (ENABLE_TLS)
+	check_include_file(linux/tls.h HAVE_LINUX_TLS_H)
+	if (HAVE_LINUX_TLS_H)
+		# TLS support requires Linux, as Lwan uses the kTLS flavor
+		# only supported there.
+		# TODO: Try using BearSSL instead of mbedTLS and only link
+		# against things that are absolutely necessary to perform
+		# a TLS 1.2 handshake to inform the kernel about the keys.
+		find_library(MBEDTLS NAMES mbedtls)
+		if (NOT ${MBEDTLS} STREQUAL "MBEDTLS-NOTFOUND")
+			find_library(MBEDTLS_CRYPTO NAMES mbedcrypto REQUIRED)
+			find_library(MBEDTLS_X509 NAMES mbedx509 REQUIRED)
+
+			message(STATUS "Building with Linux kTLS + mbedTLS at ${MBEDTLS}")
+			set(HAVE_MBEDTLS 1)
+			list(APPEND ADDITIONAL_LIBRARIES ${MBEDTLS} ${MBEDTLS_CRYPTO} ${MBEDTLS_X509})
+		else ()
+			message(STATUS "mbedTLS not found: not building with TLS support")
+		endif ()
+	endif ()
+endif ()
+
 option(USE_ALTERNATIVE_MALLOC "Use alternative malloc implementations" "OFF")
 if (USE_ALTERNATIVE_MALLOC)
 	unset(ALTMALLOC_LIBS CACHE)

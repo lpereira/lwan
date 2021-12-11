@@ -61,23 +61,27 @@ enum pattern_flag {
     PATTERN_COND_PROXIED = 1 << 13,
     PATTERN_COND_HTTP10 = 1 << 14,
     PATTERN_COND_HAS_QUERY_STRING = 1 << 15,
+    PATTERN_COND_HTTPS = 1 << 16,
     PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
                         PATTERN_COND_LUA | PATTERN_COND_METHOD |
                         PATTERN_COND_ACCEPT_ENCODING |
                         PATTERN_COND_PROXIED | PATTERN_COND_HTTP10 |
-                        PATTERN_COND_HAS_QUERY_STRING,
+                        PATTERN_COND_HAS_QUERY_STRING |
+                        PATTERN_COND_HTTPS,
 
-    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 16,
-    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 17,
-    PATTERN_COND_STAT__IS_FILE = 1 << 18,
-    PATTERN_COND_STAT__IS_DIR = 1 << 19,
+    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 17,
+    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 18,
+    PATTERN_COND_STAT__IS_FILE = 1 << 19,
+    PATTERN_COND_STAT__IS_DIR = 1 << 20,
 
     PATTERN_COND_STAT__FILE_CHECK =
         PATTERN_COND_STAT__HAS_IS_FILE | PATTERN_COND_STAT__IS_FILE,
     PATTERN_COND_STAT__DIR_CHECK =
         PATTERN_COND_STAT__HAS_IS_DIR | PATTERN_COND_STAT__IS_DIR,
+
+    PATTERN_COND_HTTPS__IS_HTTPS = 1 << 21,
 };
 
 struct pattern {
@@ -290,6 +294,16 @@ static bool condition_matches(struct lwan_request *request,
             p->condition.request_flags & REQUEST_METHOD_MASK;
         if (lwan_request_get_method(request) != method)
             return false;
+    }
+
+    if (p->flags & PATTERN_COND_HTTPS) {
+        bool is_tls = request->conn->flags & CONN_TLS;
+        if (p->flags & PATTERN_COND_HTTPS__IS_HTTPS) {
+            if (!is_tls)
+                return false;
+        } else if (is_tls) {
+            return false;
+        }
     }
 
     if (p->flags & PATTERN_COND_ACCEPT_ENCODING) {
@@ -786,17 +800,18 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             } else if (streq(line->key, "expand_with_lua")) {
                 expand_with_lua = parse_bool(line->value, false);
             } else if (streq(line->key, "condition_proxied")) {
-                if (parse_bool(line->value, false)) {
+                if (parse_bool(line->value, false))
                     pattern->flags |= PATTERN_COND_PROXIED;
-                }
             } else if (streq(line->key, "condition_http_1.0")) {
-                if (parse_bool(line->value, false)) {
+                if (parse_bool(line->value, false))
                     pattern->flags |= PATTERN_COND_HTTP10;
-                }
             } else if (streq(line->key, "condition_has_query_string")) {
-                if (parse_bool(line->value, false)) {
+                if (parse_bool(line->value, false))
                     pattern->flags |= PATTERN_COND_HAS_QUERY_STRING;
-                }
+            } else if (streq(line->key, "condition_is_https")) {
+                if (parse_bool(line->value, false))
+                    pattern->flags |= PATTERN_COND_HTTPS__IS_HTTPS;
+                pattern->flags |= PATTERN_COND_HTTPS;
             } else if (streq(line->key, "condition_method")) {
                 if (!get_method_from_string(pattern, line->value)) {
                     config_error(config, "Unknown HTTP method: %s", line->value);

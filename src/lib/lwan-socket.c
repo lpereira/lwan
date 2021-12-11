@@ -20,6 +20,7 @@
 
 #define _GNU_SOURCE
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
@@ -108,17 +109,6 @@ static int set_socket_flags(int fd)
     return fd;
 }
 
-static int setup_socket_from_systemd(void)
-{
-    int fd = SD_LISTEN_FDS_START;
-
-    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0))
-        lwan_status_critical("Passed file descriptor is not a "
-                             "listening TCP socket");
-
-    return set_socket_flags(fd);
-}
-
 static sa_family_t parse_listener_ipv4(char *listener, char **node, char **port)
 {
     char *colon = strrchr(listener, ':');
@@ -187,13 +177,16 @@ static sa_family_t parse_listener(char *listener, char **node, char **port)
     return parse_listener_ipv4(listener, node, port);
 }
 
-static int
-listen_addrinfo(int fd, const struct addrinfo *addr, bool print_listening_msg)
+static int listen_addrinfo(int fd,
+                           const struct addrinfo *addr,
+                           bool print_listening_msg,
+                           bool is_https)
 {
     if (listen(fd, lwan_socket_get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
     if (print_listening_msg) {
+        const char *s_if_https = is_https ? "s" : "";
         char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
         int ret = getnameinfo(addr->ai_addr, addr->ai_addrlen, host_buf,
                               sizeof(host_buf), serv_buf, sizeof(serv_buf),
@@ -202,9 +195,11 @@ listen_addrinfo(int fd, const struct addrinfo *addr, bool print_listening_msg)
             lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
 
         if (addr->ai_family == AF_INET6)
-            lwan_status_info("Listening on http://[%s]:%s", host_buf, serv_buf);
+            lwan_status_info("Listening on http%s://[%s]:%s", s_if_https,
+                             host_buf, serv_buf);
         else
-            lwan_status_info("Listening on http://%s:%s", host_buf, serv_buf);
+            lwan_status_info("Listening on http%s://%s:%s", s_if_https,
+                             host_buf, serv_buf);
     }
 
     return set_socket_flags(fd);
@@ -224,7 +219,9 @@ listen_addrinfo(int fd, const struct addrinfo *addr, bool print_listening_msg)
             lwan_status_perror("%s not supported by the kernel", #_option);    \
     } while (0)
 
-static int bind_and_listen_addrinfos(const struct addrinfo *addrs, bool print_listening_msg)
+static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
+                                     bool print_listening_msg,
+                                     bool is_https)
 {
     const struct addrinfo *addr;
 
@@ -244,7 +241,7 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs, bool print_li
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
-            return listen_addrinfo(fd, addr, print_listening_msg);
+            return listen_addrinfo(fd, addr, print_listening_msg, is_https);
 
         close(fd);
     }
@@ -252,10 +249,13 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs, bool print_li
     lwan_status_critical("Could not bind socket");
 }
 
-static int setup_socket_normally(struct lwan *l, bool print_listening_msg)
+static int setup_socket_normally(const struct lwan *l,
+                                 bool print_listening_msg,
+                                 bool is_https,
+                                 const char *listener_from_config)
 {
     char *node, *port;
-    char *listener = strdupa(l->config.listener);
+    char *listener = strdupa(listener_from_config);
     sa_family_t family = parse_listener(listener, &node, &port);
 
     if (family == AF_MAX) {
@@ -272,24 +272,13 @@ static int setup_socket_normally(struct lwan *l, bool print_listening_msg)
     if (ret)
         lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
 
-    int fd = bind_and_listen_addrinfos(addrs, print_listening_msg);
+    int fd = bind_and_listen_addrinfos(addrs, print_listening_msg, is_https);
     freeaddrinfo(addrs);
     return fd;
 }
 
-int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
+static int set_socket_options(const struct lwan *l, int fd)
 {
-    int fd, n;
-
-    n = sd_listen_fds(1);
-    if (n > 1) {
-        lwan_status_critical("Too many file descriptors received");
-    } else if (n == 1) {
-        fd = setup_socket_from_systemd();
-    } else {
-        fd = setup_socket_normally(l, print_listening_msg);
-    }
-
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
                       (&(struct linger){.l_onoff = 1, .l_linger = 1}));
 
@@ -310,6 +299,77 @@ int lwan_create_listen_socket(struct lwan *l, bool print_listening_msg)
 #endif
 
     return fd;
+}
+
+static int from_systemd_socket(const struct lwan *l, int fd)
+{
+    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0)) {
+        lwan_status_critical("Passed file descriptor is not a "
+                             "listening TCP socket");
+    }
+
+    return set_socket_options(l, set_socket_flags(fd));
+}
+
+int lwan_create_listen_socket(const struct lwan *l,
+                              bool print_listening_msg,
+                              bool is_https)
+{
+    const char *listener = is_https ? l->config.tls_listener
+                                    : l->config.listener;
+
+    if (!strncmp(listener, "systemd:", sizeof("systemd:") - 1)) {
+        char **names;
+        int n = sd_listen_fds_with_names(false, &names);
+        int fd = -1;
+
+        if (n < 0) {
+            errno = -n;
+            lwan_status_perror(
+                "Could not parse socket activation data from systemd");
+            return n;
+        }
+
+        listener += sizeof("systemd:") - 1;
+
+        for (int i = 0; i < n; i++) {
+            if (!strcmp(names[i], listener)) {
+                fd = SD_LISTEN_FDS_START + i;
+                break;
+            }
+        }
+
+        strv_free(names);
+
+        if (fd < 0) {
+            lwan_status_critical(
+                "No socket named `%s' has been passed from systemd", listener);
+        }
+
+        return from_systemd_socket(l, fd);
+    }
+
+    if (streq(listener, "systemd")) {
+        int n = sd_listen_fds(false);
+
+        if (n < 0) {
+            errno = -n;
+            lwan_status_perror("Could not obtain sockets passed from systemd");
+            return n;
+        }
+
+        if (n != 1) {
+            lwan_status_critical(
+                "%d listeners passed from systemd. Must specify listeners with "
+                "systemd:listener-name syntax",
+                n);
+        }
+
+        return from_systemd_socket(l, SD_LISTEN_FDS_START);
+    }
+
+    int fd = setup_socket_normally(l, print_listening_msg, is_https, listener);
+    return set_socket_options(l, fd);
 }
 
 #undef SET_SOCKET_OPTION

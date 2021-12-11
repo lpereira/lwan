@@ -63,6 +63,7 @@
 #cmakedefine HAVE_BROTLI
 #cmakedefine HAVE_ZSTD
 #cmakedefine HAVE_LIBUCONTEXT
+#cmakedefine HAVE_MBEDTLS
 
 /* Valgrind support for coroutines */
 #cmakedefine HAVE_VALGRIND

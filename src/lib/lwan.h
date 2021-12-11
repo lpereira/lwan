@@ -288,6 +288,19 @@ enum lwan_connection_flags {
     CONN_ASYNC_AWAIT = 1 << 8,
 
     CONN_SENT_CONNECTION_HEADER = 1 << 9,
+
+    /* Both are used to know if an epoll event pertains to a listener rather
+     * than a client.  */
+    CONN_LISTENER_HTTP = 1 << 10,
+    CONN_LISTENER_HTTPS = 1 << 11,
+
+    /* Set on file descriptors accepted by listeners with the
+     * CONN_LISTENER_HTTPS flag, and unset right after the handshake has been
+     * completed (when CONN_TLS is then set.) */
+    CONN_NEEDS_TLS_SETUP = 1 << 12,
+
+    /* Used mostly for the Lua and Rewrite modules */
+    CONN_TLS = 1 << 14,
 };
 
 enum lwan_connection_coro_yield {
@@ -438,6 +451,7 @@ struct lwan_thread {
     int epoll_fd;
     struct timeouts *wheel;
     int listen_fd;
+    int tls_listen_fd;
     unsigned int cpu;
     pthread_t self;
 };
@@ -454,8 +468,14 @@ struct lwan_config {
     struct lwan_key_value *global_headers;
 
     char *listener;
+    char *tls_listener;
     char *error_template;
     char *config_file_path;
+
+    struct {
+        char *cert;
+        char *key;
+    } ssl;
 
     size_t max_post_data_size;
     size_t max_put_data_size;
@@ -483,8 +503,11 @@ struct lwan {
         unsigned int count;
     } thread;
 
+#if defined(HAVE_MBEDTLS)
+    struct lwan_tls_context *tls;
+#endif
+
     struct lwan_config config;
-    struct coro_switcher switcher;
 
     unsigned int online_cpus;
     unsigned int available_cpus;
