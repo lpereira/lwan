@@ -36,6 +36,12 @@
 #include "sd-daemon.h"
 #include "lwan-config.h"
 
+static void unsetenv_listen_vars(void) {
+        unsetenv("LISTEN_PID");
+        unsetenv("LISTEN_FDS");
+        unsetenv("LISTEN_FDNAMES");
+}
+
 int sd_listen_fds(int unset_environment) {
         int n, l, r, fd;
         const char *e;
@@ -97,11 +103,127 @@ int sd_listen_fds(int unset_environment) {
         r = n;
 
 finish:
-        if (unset_environment) {
-                unsetenv("LISTEN_PID");
-                unsetenv("LISTEN_FDS");
+        if (unset_environment)
+                unsetenv_listen_vars();
+
+        return r;
+}
+
+/* Both strv_extend_n() and strv_split() aren't simple copies of the
+ * same functions from systemd.  These are simplified versions of those
+ * functions, used only in the sd_listen_fds_with_names() ported from
+ * newer versions of systemd.
+ */
+static int strv_extend_n(char ***p, const char *s, int n) {
+        if (!p)
+                return -EINVAL;
+        if (!s)
+                return -EINVAL;
+
+        *p = calloc((size_t)n, sizeof(char *));
+        if (!p)
+                return -ENOMEM;
+
+        size_t s_size = strlen(s) + 1;
+        char *copies = calloc((size_t)(n + 1), s_size);
+        if (!copies) {
+                free(*p);
+                return -ENOMEM;
+        }
+        for (int i = 0; i < n; i++) {
+                char *copy = &copies[(size_t)i * s_size];
+                *p[i] = memcpy(copy, s, s_size);
+        }        
+
+        return 0;
+}
+
+static int strv_split(char ***p, const char *value, const char separator) {
+        char *copy = strdup(value);
+        int n_split = 0;
+
+        if (!copy)
+                return -ENOMEM;
+
+        for (char *c = copy; *c; ) {
+                char *sep_pos = strchr(c, separator);
+                if (!sep_pos)
+                        break;
+
+                n_split++;
+                c = sep_pos + 1;
+        }        
+
+        if (!n_split)
+                return 0;
+
+        *p = calloc((size_t)(n_split + 1), sizeof(char *));
+        if (!*p) {
+                free(copy);
+                return -ENOMEM;
         }
 
+        int i = 0;
+        for (char *c = copy; *c; ) {
+                char *sep_pos = strchr(c, separator);
+                if (!sep_pos)
+                        break;
+
+                *sep_pos = '\0';
+                *p[i++] = c;
+                c = sep_pos + 1;
+        }        
+
+        return n_split;
+}
+
+int sd_listen_fds_with_names(int unset_environment, char ***names) {
+        char **l = NULL;
+        bool have_names;
+        int n_names = 0, n_fds;
+        const char *e;
+        int r;
+
+        if (!names)
+                return sd_listen_fds(unset_environment);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (e) {
+                n_names = strv_split(&l, e, ':');
+                if (n_names < 0) {
+                        if (unset_environment)
+                                unsetenv_listen_vars();
+                        return n_names;
+                }
+
+                have_names = true;
+        } else {
+                have_names = false;
+        }
+
+        n_fds = sd_listen_fds(unset_environment);
+        if (n_fds <= 0) {
+                r = n_fds;
+                goto fail;
+        }
+
+        if (have_names) {
+                if (n_names != n_fds) {
+                        r = -EINVAL;
+                        goto fail;
+                }
+        } else {
+                r = strv_extend_n(&l, "unknown", n_fds);
+                if (r < 0)
+                        goto fail;
+        }
+
+        *names = l;
+
+        return n_fds;
+
+fail:
+        free(l);
         return r;
 }
 

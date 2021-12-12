@@ -70,6 +70,7 @@
   See sd_listen_fds(3) for more information.
 */
 int sd_listen_fds(int unset_environment);
+int sd_listen_fds_with_names(int unset_environment, char ***names);
 
 /*
   Helper call for identifying a passed file descriptor. Returns 1 if
@@ -255,3 +256,11 @@ int sd_booted(void);
 */
 int sd_watchdog_enabled(int unset_environment, uint64_t *usec);
 
+
+static inline void strv_free(char **p)
+{
+    if (p) {
+        free(p[0]);
+        free(p);
+    }
+}
