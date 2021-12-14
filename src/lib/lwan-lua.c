@@ -42,7 +42,6 @@ ALWAYS_INLINE struct lwan_request *lwan_lua_get_request_from_userdata(lua_State 
 
 LWAN_LUA_METHOD(say)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -55,7 +54,6 @@ LWAN_LUA_METHOD(say)
 
 LWAN_LUA_METHOD(send_event)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t event_str_len;
     const char *event_str = lua_tolstring(L, -1, &event_str_len);
     const char *event_name = lua_tostring(L, -2);
@@ -68,7 +66,6 @@ LWAN_LUA_METHOD(send_event)
 
 LWAN_LUA_METHOD(set_response)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
@@ -78,13 +75,13 @@ LWAN_LUA_METHOD(set_response)
 }
 
 static int request_param_getter(lua_State *L,
+                                struct lwan_request *request,
                                 const char *(*getter)(struct lwan_request *req,
                                                       const char *key))
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     const char *key_str = lua_tostring(L, -1);
-
     const char *value = getter(request, key_str);
+
     if (!value)
         lua_pushnil(L);
     else
@@ -95,35 +92,30 @@ static int request_param_getter(lua_State *L,
 
 LWAN_LUA_METHOD(remote_address)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     char ip_buffer[INET6_ADDRSTRLEN];
     lua_pushstring(L, lwan_request_get_remote_address(request, ip_buffer));
     return 1;
 }
 
-
 LWAN_LUA_METHOD(header)
 {
-    return request_param_getter(L, lwan_request_get_header);
+    return request_param_getter(L, request, lwan_request_get_header);
 }
 
 LWAN_LUA_METHOD(is_https)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_pushboolean(L, !!(request->conn->flags & CONN_TLS));
     return 1;
 }
 
 LWAN_LUA_METHOD(path)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_pushlstring(L, request->url.value, request->url.len);
     return 1;
 }
 
 LWAN_LUA_METHOD(query_string)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     if (request->helper->query_string.len) {
         lua_pushlstring(L, request->helper->query_string.value, request->helper->query_string.len);
     } else {
@@ -134,22 +126,21 @@ LWAN_LUA_METHOD(query_string)
 
 LWAN_LUA_METHOD(query_param)
 {
-    return request_param_getter(L, lwan_request_get_query_param);
+    return request_param_getter(L, request, lwan_request_get_query_param);
 }
 
 LWAN_LUA_METHOD(post_param)
 {
-    return request_param_getter(L, lwan_request_get_post_param);
+    return request_param_getter(L, request, lwan_request_get_post_param);
 }
 
 LWAN_LUA_METHOD(cookie)
 {
-    return request_param_getter(L, lwan_request_get_cookie);
+    return request_param_getter(L, request, lwan_request_get_cookie);
 }
 
 LWAN_LUA_METHOD(body)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     if (request->helper->body_data.len) {
         lua_pushlstring(L, request->helper->body_data.value, request->helper->body_data.len);
     } else {
@@ -160,7 +151,6 @@ LWAN_LUA_METHOD(body)
 
 LWAN_LUA_METHOD(ws_upgrade)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     enum lwan_http_status status = lwan_request_websocket_upgrade(request);
 
     lua_pushinteger(L, status);
@@ -170,7 +160,6 @@ LWAN_LUA_METHOD(ws_upgrade)
 
 LWAN_LUA_METHOD(ws_write)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     size_t data_len;
     const char *data_str = lua_tolstring(L, -1, &data_len);
 
@@ -182,7 +171,6 @@ LWAN_LUA_METHOD(ws_write)
 
 LWAN_LUA_METHOD(ws_read)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     int r;
 
     /* FIXME: maybe return a table {status=r, content=buf}? */
@@ -238,7 +226,6 @@ LWAN_LUA_METHOD(set_headers)
     const int key_index = -2;
     const int value_index = -1;
     struct lwan_key_value_array *headers;
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     struct coro *coro = request->conn->coro;
     struct lwan_key_value *kv;
 
@@ -295,7 +282,6 @@ out:
 
 LWAN_LUA_METHOD(sleep)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_Integer ms = lua_tointeger(L, -1);
 
     lwan_request_sleep(request, (uint64_t)ms);
@@ -305,14 +291,12 @@ LWAN_LUA_METHOD(sleep)
 
 LWAN_LUA_METHOD(request_id)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_pushfstring(L, "%016lx", lwan_request_get_id(request));
     return 1;
 }
 
 LWAN_LUA_METHOD(request_date)
 {
-    struct lwan_request *request = lwan_lua_get_request_from_userdata(L);
     lua_pushstring(L, request->conn->thread->date.date);
     return 1;
 }

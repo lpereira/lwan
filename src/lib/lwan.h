@@ -82,14 +82,6 @@ extern "C" {
         struct lwan_response *response __attribute__((unused)),                \
         void *data __attribute__((unused)))
 
-#define LWAN_LUA_METHOD(name_)                                                 \
-    static int lwan_lua_method_##name_(lua_State *L);                          \
-    static const struct lwan_lua_method_info                                   \
-        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_method))))     \
-            lwan_lua_method_info_##name_ = {.name = #name_,                    \
-                                            .func = lwan_lua_method_##name_};  \
-    static int lwan_lua_method_##name_(lua_State *L)
-
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -409,11 +401,6 @@ struct lwan_module {
 struct lwan_module_info {
     const char *name;
     const struct lwan_module *module;
-};
-
-struct lwan_lua_method_info {
-    const char *name;
-    int (*func)();
 };
 
 struct lwan_handler_info {
