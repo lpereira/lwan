@@ -42,7 +42,7 @@
 
 static void lwan_strbuf_free_defer(void *data)
 {
-    lwan_strbuf_free((struct lwan_strbuf *)data);
+    return lwan_strbuf_free((struct lwan_strbuf *)data);
 }
 
 static void graceful_close(struct lwan *l,
