@@ -54,8 +54,10 @@ The build system will look for these libraries and enable/link if available.
     - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
 
-On non-x86 systems, [libucontext](https://github.com/kaniini/libucontext)
-will be downloaded and built alongside Lwan.
+> :bulb: **Note:** On non-x86_64 systems,
+> [libucontext](https://github.com/kaniini/libucontext) will be downloaded
+> and built alongside Lwan.  This will require a network connection, so keep
+> this in mind when packaging Lwan for non-x86_64 architectures.
 
 ### Common operating system package names
 
@@ -118,10 +120,12 @@ This will generate a few binaries:
 
 Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations (such as [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization))
-and tune the code for current architecture. *Please use this version
-when benchmarking*, as the default is the Debug build, which not only
-logs all requests to the standard output, but does so while holding a
-mutex.
+and tune the code for current architecture.
+
+> :exclamation: **Important:** *Please use the release build when benchmarking*, as
+> the default is the Debug build, which not only logs all requests to the
+> standard output, but does so while holding a lock, severely holding down
+> the server.
 
 The default build (i.e. not passing `-DCMAKE_BUILD_TYPE=Release`) will build
 a version suitable for debugging purposes.  This version can be used under
@@ -174,10 +178,11 @@ Running
 -------
 
 Set up the server by editing the provided `lwan.conf`; the format is
-explained in details below.  (Lwan will try to find a configuration file
-based in the executable name in the current directory; `testrunner.conf`
-will be used for the `testrunner` binary, `lwan.conf` for the `lwan` binary,
-and so on.)
+explained in details below.
+
+> :bulb: **Note:** Lwan will try to find a configuration file based in the
+> executable name in the current directory; `testrunner.conf` will be used
+> for the `testrunner` binary, `lwan.conf` for the `lwan` binary, and so on.
 
 Configuration files are loaded from the current directory. If no changes
 are made to this file, running Lwan will serve static files located in
@@ -189,8 +194,9 @@ settings for the environment it's running on.  Many of these settings can
 be tweaked in the configuration file, but it's usually a good idea to not
 mess with them.
 
-Optionally, the `lwan` binary can be used for one-shot static file serving
-without any configuration file. Run it with `--help` for help on that.
+> :magic_wand: **Tip:** Optionally, the `lwan` binary can be used for one-shot
+> static file serving without any configuration file.  Run it with `--help`
+> for help on that.
 
 Configuration File
 ----------------
@@ -206,9 +212,10 @@ can be empty; in this case, curly brackets are optional.
 an implementation detail, code reading configuration options will only be
 given the version with underscores).
 
-Values can contain environment variables. Use the syntax `${VARIABLE_NAME}`.
-Default values can be specified with a colon (e.g.  `${VARIABLE_NAME:foo}`,
-which evaluates to `${VARIABLE_NAME}` if it's set, or `foo` otherwise).
+> :magic_wand: **Tip:** Values can contain environment variables. Use the
+> syntax `${VARIABLE_NAME}`.  Default values can be specified with a colon
+> (e.g.  `${VARIABLE_NAME:foo}`, which evaluates to `${VARIABLE_NAME}` if
+> it's set, or `foo` otherwise).
 
 ```
 sound volume = 11 # This one is 1 louder
@@ -255,9 +262,9 @@ just added together; for instance, "1M 1w" specifies "1 month and 1 week"
 | `M`        | 30-day Months |
 | `y`        | 365-day Years |
 
-A number with a multiplier not in this table is ignored; a warning is issued while
-reading the configuration file.  No spaces must exist between the number and its
-multiplier.
+> :bulb: **Note:** A number with a multiplier not in this table is ignored; a
+> warning is issued while reading the configuration file.  No spaces must
+> exist between the number and its multiplier.
 
 #### Boolean Values
 
@@ -300,6 +307,10 @@ e.g.  instantiating the `serve_files` module, Lwan will refuse to
 start.  (This check is only performed on Linux as a safeguard for
 malconfiguration.)
 
+> :magic_wand: **Tip:** Declare a Straitjacket right before a `site` section
+> in such a way that configuration files and private data (e.g. TLS keys)
+> are out of reach of the server after initialization has taken place.
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `user` | `str`  | `NULL` | Drop privileges to this user name |
@@ -336,9 +347,9 @@ actual values while servicing requests.  These include but is not limited to:
   - `Transfer-Encoding`
   - All `Access-Control-Allow-` headers
 
-Header names are also case-insensitive (and case-preserving).  Overriding
-`SeRVeR` will override the `Server` header, but send it the way it was
-written in the configuration file.
+> :bulb: **Note:** Header names are also case-insensitive (and case-preserving).  Overriding
+> `SeRVeR` will override the `Server` header, but send it the way it was
+> written in the configuration file.
 
 ### Listeners
 
@@ -426,9 +437,10 @@ section can be present in the declaration of a module instance.  Handlers do
 not take any configuration options, but may include the `authorization`
 section.
 
-A list of built-in modules can be obtained by executing Lwan with the `-m`
-command-line argument.  The following is some basic documentation for the
-modules shipped with Lwan.
+> :magic_wand: **Tip:** A list of built-in modules can be obtained by
+> executing Lwan with the `-m` command-line argument.
+
+The following is some basic documentation for the modules shipped with Lwan.
 
 #### File Serving
 
@@ -457,22 +469,29 @@ frameworks such as [Sailor](https://github.com/lpereira/sailor-hello-lwan).
 
 Scripts can be served from files or embedded in the configuration file, and
 the results of loading them, the standard Lua modules, and (optionally, if
-using LuaJIT) optimizing the code will be cached for a while.  Each I/O
-thread in Lwan will create an instance of a Lua VM (i.e.  one `lua_State`
-struct for every I/O thread), and each Lwan coroutine will spawn a Lua
-thread (with `lua_newthread()`) per request.  Because of this, Lua scripts
-can't use global variables, as they may be not only serviced by different
-threads, but the state will be available only for the amount of time
-specified in the `cache_period` configuration option.
+using LuaJIT) optimizing the code will be cached for a while.
+
+> :bulb: **Note:** Lua scripts can't use global variables, as they may be not
+> only serviced by different threads, but the state will be available only
+> for the amount of time specified in the `cache_period` configuration
+> option.  This is because each I/O thread in Lwan will create an instance
+> of a Lua VM (i.e.  one `lua_State` struct for every I/O thread), and each
+> Lwan coroutine will spawn a Lua thread (with `lua_newthread()`) per
+> request.
 
 There's no need to have one instance of the Lua module for each endpoint; a
 single script, embedded in the configuration file or otherwise, can service
 many different endpoints.  Scripts are supposed to implement functions with
 the following signature: `handle_${METHOD}_${ENDPOINT}(req)`, where
 `${METHOD}` can be a HTTP method (i.e.  `get`, `post`, `head`, etc.), and
-`${ENDPOINT}` is the desired endpoint to be handled by that function.  The
-special `${ENDPOINT}` `root` can be specified to act as a catchall.  The
-`req` parameter points to a metatable that contains methods to obtain
+`${ENDPOINT}` is the desired endpoint to be handled by that function.
+
+> :magic_wand: **Tip:** Use the `root` endpoint for a catchall. For example,
+> the handler function `handle_get_root()` will be called if no other handler
+> could be found for that request.  If no catchall is specified, the server
+> will return a `404 Not Found` error.
+
+The `req` parameter points to a metatable that contains methods to obtain
 information from the request, or to set the response, as seen below:
 
    - `req:query_param(param)` returns the query parameter (from the query string) with the key `param`, or `nil` if not found
@@ -514,18 +533,19 @@ The `rewrite` module will match
 to either redirect to another URL, or rewrite the request in a way that Lwan
 will handle the request as if it were made in that way originally.
 
-Forked from Lua 5.3.1, the regular expresion engine may not be as
-feature-packed as most general-purpose engines, but has been chosen
-specifically because it is a [deterministic finite
-automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton) in
-an attempt to make some kinds of [denial of service
-attacks](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS)
-not possible.
+> :information_source: **Info:** Forked from Lua 5.3.1, the regular expresion
+> engine may not be as feature-packed as most general-purpose engines, but
+> has been chosen specifically because it is a [deterministic finite
+> automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton)
+> in an attempt to make some kinds of [denial of service
+> attacks](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS)
+> impossible.
 
-The new URL can be specified using a
-simple text substitution syntax, or use Lua scripts; Lua scripts will
-contain the same metamethods available in the `req` metatable provided by
-the Lua module, so it can be quite powerful.
+The new URL can be specified using a simple text substitution syntax, or use Lua scripts.
+
+> :magic_wand: **Tip: * Lua scripts will contain the same metamethods
+> available in the `req` metatable provided by the Lua module, so it can be
+> quite powerful.
 
 Each instance of the rewrite module will require a `pattern` and the action
 to execute when such pattern is matched.  Patterns are evaluated in the
@@ -576,21 +596,21 @@ It's also possible to specify conditions to trigger a rewrite.  To specify one,
 open a `condition` block, specify the condition type, and then the parameters
 for that condition to be evaluated:
 
-|Condition|Can use subst. syntax|Parameters|Description|
-|---------|---------------------|----------|-----------|
-|`cookie` | Yes | A single `key` = `value`| Checks if request has cookie `key` has value `value` |
-|`query`  | Yes | A single `key` = `value`| Checks if request has query variable `key` has value `value` |
-|`post`  | Yes | A single `key` = `value`| Checks if request has post data `key` has value `value` |
-|`header`  | Yes | A single `key` = `value`| Checks if request header `key` has value `value` |
-|`environment`  | Yes | A single `key` = `value`| Checks if environment variable `key` has value `value` |
-|`stat` | Yes | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
-|`encoding` | No | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
-|`proxied`♠ | No | Boolean | Checks if request has been proxied through PROXY protocol |
-|`http_1.0`♠ | No | Boolean | Checks if request is made with a HTTP/1.0 client |
-|`is_https`♠ | No | Boolean | Checks if request is made through HTTPS |
-|`has_query_string`♠ | No | Boolean | Checks if request has a query string (even if empty) |
-|`method`♠ |No | Method name | Checks if HTTP method is the one specified |
-|`lua`♠ |No| String | Runs Lua function `matches(req)` inside String and checks if it returns `true` or `false` |
+|Condition          |Can use subst. syntax|Section required|Parameters|Description|
+|-------------------|---------------------|----------------|----------|-----------|
+|`cookie`           | Yes | Yes | A single `key` = `value`| Checks if request has cookie `key` has value `value` |
+|`query`            | Yes | Yes | A single `key` = `value`| Checks if request has query variable `key` has value `value` |
+|`post`             | Yes | Yes | A single `key` = `value`| Checks if request has post data `key` has value `value` |
+|`header`           | Yes | Yes | A single `key` = `value`| Checks if request header `key` has value `value` |
+|`environment`      | Yes | Yes | A single `key` = `value`| Checks if environment variable `key` has value `value` |
+|`stat`             | Yes | Yes | `path`, `is_dir`, `is_file` | Checks if `path` exists in the filesystem, and optionally checks if `is_dir` or `is_file` |
+|`encoding`         | No  | Yes | `deflate`, `gzip`, `brotli`, `zstd`, `none` | Checks if client accepts responses in a determined encoding (e.g. `deflate = yes` for Deflate encoding) |
+|`proxied`          | No  | No  | Boolean | Checks if request has been proxied through PROXY protocol |
+|`http_1.0`         | No  | No  | Boolean | Checks if request is made with a HTTP/1.0 client |
+|`is_https`         | No  | No  | Boolean | Checks if request is made through HTTPS |
+|`has_query_string` | No  | No  | Boolean | Checks if request has a query string (even if empty) |
+|`method`           | No  | No  | Method name | Checks if HTTP method is the one specified |
+|`lua`              | No  | No  | String | Runs Lua function `matches(req)` inside String and checks if it returns `true` or `false` |
 
 *Can use subst. syntax* refers to the ability to reference the matched
 pattern using the same substitution syntax used for the `rewrite as` or
@@ -598,8 +618,8 @@ pattern using the same substitution syntax used for the `rewrite as` or
 foo-%1-bar }` will substitute `%1` with the first match from the pattern
 this condition is related to.
 
-Conditions marked with `♠` do not require a section, and can be written, for
-instance, as `condition has_query_string = yes`.
+> :bulb: **Note:** Conditions that do not require a section have to be written
+> as a key; for instance, `condition has_query_string = yes`.
 
 For example, if one wants to send `site-dark-mode.css` if there is a
 `style` cookie with the value `dark`, and send `site-light-mode.css`
@@ -641,10 +661,10 @@ pattern (%g+) {
 }
 ```
 
-(In general, this is not necessary, as the file serving module will do this
-automatically and pick the smallest file available for the requested
-encoding, cache it for a while, but this shows it's possible to have a
-similar feature by configuration alone.)
+> :bulb: **Note:** In general, this is not necessary, as the file serving
+> module will do this automatically and pick the smallest file available for
+> the requested encoding, cache it for a while, but this shows it's possible
+> to have a similar feature by configuration alone.
 
 #### Redirect
 
@@ -693,7 +713,9 @@ section with a `basic` parameter, and set one of its options.
 | `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
 | `password_file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
-
+> :warning: **Warning:** Not only passwords are stored in clear text in a file
+> that should be accessible by the server, they'll be kept in memory for a few
+> seconds.  Avoid using this feature if possible.
 
 Hacking
 -------
