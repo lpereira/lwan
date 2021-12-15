@@ -831,7 +831,8 @@ Lwan has been also used as a benchmark:
 
 Mentions in academic journals:
 
-* [A dynamic predictive race detector for C/C++ programs](https://link.springer.com/article/10.1007/s11227-017-1996-8) uses Lwan as a "real world example".
+* [A dynamic predictive race detector for C/C++ programs (in English, published 2017)](https://link.springer.com/article/10.1007/s11227-017-1996-8) uses Lwan as a "real world example".
+* [High-precision Data Race Detection Method for Large Scale Programs (in Chinese, published 2021)](http://www.jos.org.cn/jos/article/abstract/6260) also uses Lwan as one of the case studies.
 
 Some talks mentioning Lwan:
 
