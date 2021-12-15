@@ -150,7 +150,7 @@ struct coro {
  * (or later).  I'm not sure if I can distribute them inside a GPL program;
  * they're straightforward so I'm assuming there won't be any problem; if
  * there is, I'll just roll my own.
- *     -- Leandro
+ *     -- L.
  */
 #if defined(__x86_64__)
 void __attribute__((noinline, visibility("internal")))
