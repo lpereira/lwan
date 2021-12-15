@@ -354,8 +354,9 @@ skip_date_header:
         if (request_flags & RESPONSE_INCLUDE_REQUEST_ID) {
             APPEND_CONSTANT("\r\nX-Request-Id: ");
             RETURN_0_ON_OVERFLOW(16);
-            for (uint64_t id = lwan_request_get_id(request); id; id >>= 4)
-                APPEND_CHAR_NOCHECK("0123456789abcdef"[id & 15]);
+            uint64_t id = lwan_request_get_id(request);
+            for (int i = 60; i >= 0; i -= 4)
+                APPEND_CHAR_NOCHECK("0123456789abcdef"[(id >> i) & 0xf]);
         }
     }
 
