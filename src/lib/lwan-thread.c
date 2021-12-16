@@ -1310,6 +1310,7 @@ void lwan_thread_shutdown(struct lwan *l)
 
     free(l->thread.threads);
 
+#if defined(HAVE_MBEDTLS)
     if (l->tls) {
         mbedtls_ssl_config_free(&l->tls->config);
         mbedtls_x509_crt_free(&l->tls->server_cert);
@@ -1318,4 +1319,5 @@ void lwan_thread_shutdown(struct lwan *l)
         mbedtls_ctr_drbg_free(&l->tls->ctr_drbg);
         free(l->tls);
     }
+#endif
 }
