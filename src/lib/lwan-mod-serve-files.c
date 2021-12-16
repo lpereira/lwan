@@ -71,6 +71,12 @@ static const int open_mode = O_RDONLY | O_NONBLOCK | O_CLOEXEC;
 
 struct file_cache_entry;
 
+enum serve_files_priv_flags {
+    SERVE_FILES_SERVE_PRECOMPRESSED = 1 << 0,
+    SERVE_FILES_AUTO_INDEX = 1 << 1,
+    SERVE_FILES_AUTO_INDEX_README = 1 << 2,
+};
+
 struct serve_files_priv {
     struct cache *cache;
 
@@ -78,16 +84,14 @@ struct serve_files_priv {
     size_t root_path_len;
     int root_fd;
 
+    enum serve_files_priv_flags flags;
+
     const char *index_html;
     char *prefix;
 
     struct lwan_tpl *directory_list_tpl;
 
     size_t read_ahead;
-
-    bool serve_precompressed_files;
-    bool auto_index;
-    bool auto_index_readme;
 };
 
 struct cache_funcs {
@@ -568,7 +572,7 @@ static bool mmap_init(struct file_cache_entry *ce,
         return false;
     lwan_madvise_queue(md->uncompressed.value, md->uncompressed.len);
 
-    if (LIKELY(priv->serve_precompressed_files)) {
+    if (LIKELY(priv->flags & SERVE_FILES_SERVE_PRECOMPRESSED)) {
         size_t compressed_size;
 
         file_fd = try_open_compressed(path, priv, st, &compressed_size);
@@ -620,7 +624,7 @@ static bool sendfile_init(struct file_cache_entry *ce,
     }
 
     /* If precompressed files can be served, try opening it */
-    if (LIKELY(priv->serve_precompressed_files)) {
+    if (LIKELY(priv->flags & SERVE_FILES_SERVE_PRECOMPRESSED)) {
         size_t compressed_sz;
         int fd = try_open_compressed(relpath, priv, st, &compressed_sz);
 
@@ -662,7 +666,7 @@ static const char *dirlist_find_readme(struct lwan_strbuf *readme,
                                        "README.TXT", "README"};
     int fd = -1;
 
-    if (!priv->auto_index_readme)
+    if (!(priv->flags & SERVE_FILES_AUTO_INDEX_README))
         return NULL;
 
     for (size_t i = 0; i < N_ELEMENTS(candidates); i++) {
@@ -796,7 +800,7 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
             if (UNLIKELY(errno != ENOENT))
                 return NULL;
 
-            if (LIKELY(priv->auto_index)) {
+            if (LIKELY(priv->flags & SERVE_FILES_AUTO_INDEX)) {
                 /* If it doesn't, we want to generate a directory list. */
                 return &dirlist_funcs;
             }
@@ -1028,10 +1032,15 @@ static void *serve_files_create(const char *prefix, void *args)
     priv->root_fd = root_fd;
     priv->index_html =
         settings->index_html ? settings->index_html : "index.html";
-    priv->serve_precompressed_files = settings->serve_precompressed_files;
-    priv->auto_index = settings->auto_index;
-    priv->auto_index_readme = settings->auto_index_readme;
+
     priv->read_ahead = settings->read_ahead;
+
+    if (settings->serve_precompressed_files)
+        priv->flags |= SERVE_FILES_SERVE_PRECOMPRESSED;
+    if (settings->auto_index)
+        priv->flags |= SERVE_FILES_AUTO_INDEX;
+    if (settings->auto_index_readme)
+        priv->flags |= SERVE_FILES_AUTO_INDEX_README;
 
     return priv;
 
