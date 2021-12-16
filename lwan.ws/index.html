@@ -126,7 +126,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
     <ul>
       <li><a href="http://man7.org/linux/man-pages/man2/sendfile.2.html">No copies between kernel and userland</a> for files larger than 16KiB</li>
       <li>Smaller files are sent using <a href="http://man7.org/linux/man-pages/man2/writev.2.html">scatter-gather I/O</a></li>
-      <li>Header overhead is considered before considering <a href="https://en.wikipedia.org/wiki/DEFLATE">deflate</a> compression</li>
+      <li>Header overhead is considered before considering <a href="https://en.wikipedia.org/wiki/DEFLATE">deflate</a>, <a href="https://github.com/facebook/zstd">zstd</a>, or <a href="https://github.com/google/brotli">Brotli</a> compression</li>
       <li>Precompressed files are sent if the client asks for <b>gzip</b> compression</li>
     </ul></li>
   </li>
@@ -134,7 +134,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
     <ul>
         <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
         <li><b>Coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
-        <li>Supports <b>Linux</b>, <b>FreeBSD</b> and <b>macOS</b></li>
+        <li>Supports <b>Linux</b>, <b>OpenBSD</b>, <b>FreeBSD</b> and <b>macOS</b></li>
         <li>Purpose-built I/O loop</li>
     </ul>
   </li>
@@ -184,23 +184,27 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   </ul>
   </li>
   <li>systemd <a href="http://0pointer.de/blog/projects/socket-activation.html">socket activation</a></li>
+  <li>TLSv1.2 support with AES encryption offload, with TLSv1.3 in the works</li>
   <li>IPv6 ready</li>
-  <li><a href="http://buildbot.net/">Buildbots</a> checks every commit
-  <ul>
-  	<li>Code is <b>statically analyzed</b> by Clang Static Analyzer</li>
-  	<li>Debug &amp; Release builds</li>
-  	<li>Various platforms:
-  	    <ul>
-  	        <li><b>Arch Linux</b>, always up-to-date</li>
-  	        <li><b>FreeBSD</b> 10 and 11, courtesy of <a href="https://twitter.com/koobs">@koobs</a></li>
-  	        <li><b>macOS</b> High Sierra</li>
-  	    </ul>
-  	</li>
-  	<li>Test suite written in Python <b>tests the server</b> as a black box</li>
-  	<li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers</li>
-  	<li>Request parser continuously fuzzed with <a href="https://oss-fuzz.com">oss-fuzz</a></li>
-  </ul>
+</ul>
+
+A continuous integration systems helps keep the house in order:
+<ul>
+  <li><a href="http://buildbot.net/">Buildbots</a> checks every commit (<a href="https://buildbot.lwan.ws">instance</a>)</li>
+  <li>Code is <b>statically analyzed</b> by Clang Static Analyzer</li>
+  <li>Debug &amp; Release builds are tested and built</li>
+  <li>Workers build Lwan on various different platforms:
+      <ul>
+          <li><b>Arch Linux</b> (x86-64), always up-to-date</li>
+          <li><b>Debian GNU/Linux</b> (aarch64)</li>
+          <li><b>FreeBSD</b> 10 and 11, courtesy of <a href="https://twitter.com/koobs">@koobs</a></li>
+          <li><b>OpenBSD</b> 6.6 (x86-64) </li>
+          <li><b>macOS</b> High Sierra (x86-64)</li>
+      </ul>
   </li>
+  <li>Test suite written in Python <b>tests the server</b> as a black box</li>
+  <li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers on <b>Linux</b> and <b>OpenBSD</b></li>
+  <li>Request parser continuously fuzzed with <a href="https://oss-fuzz.com">oss-fuzz</a></li>
 </ul>
 
 <blockquote>
@@ -389,8 +393,9 @@ full-time on a real job.  Also consider that this was exclusively a research
 project: the goal was not to write a web server, but to learn while finding
 novel ways to implement certain things.</p>
 
-<p><h3>Is there a stable release?</h3> There's just one release: the
-current. This might or might not change in the future.</p>
+<p><h3>Is there a stable release?</h3> No. Some releases were made, only to
+help some distributions package Lwan, but none of them is a stable release
+that's suitable for production work.</p>
 
 <p><h3>Is anyone using this server?</h3>
 
