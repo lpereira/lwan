@@ -416,15 +416,6 @@ static void parse_fragment_and_query(struct lwan_request *request,
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
-    /* Fragments shouldn't be received by the server, but look for them anyway
-     * just in case. */
-    char *fragment = memrchr(request->url.value, '#', request->url.len);
-    if (UNLIKELY(fragment != NULL)) {
-        *fragment = '\0';
-        request->url.len = (size_t)(fragment - request->url.value);
-        space = fragment;
-    }
-
     char *query_string = memchr(request->url.value, '?', request->url.len);
     if (query_string) {
         *query_string = '\0';
