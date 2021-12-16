@@ -14,20 +14,27 @@ body{border:0;margin:0;padding:0;background:#627d4d;background:-moz-radial-gradi
 #right a{color:#8F9D6A;font-weight:700}
 #left a{color:#aca;font-weight:700}
 #button-middle-text{display:none}
+.twocolumnsifpossible {
+   column-count: 2;
+}
+.twocolumnsifpossible ul { margin-top: 0; }
 @media all and (min-height:400px){
-	#left{position:fixed}
+  #left{position:fixed}
 }
 @media all and (max-width:780px){
-	#left #lame{display:none}
-	#right{top:155px;left:0;width:calc(100% - 40px);padding:20px}
-	#left{padding-top:4px;text-align:center;width:100%}
-	#button-middle-text{display:block}
-	#left #webserver{display:none}
+  #left #lame{display:none}
+  #right{top:155px;left:0;width:calc(100% - 40px);padding:20px}
+  #left{padding-top:4px;text-align:center;width:100%}
+  #button-middle-text{display:block}
+  #left #webserver{display:none}
+  .twocolumnsifpossible {column-count: 1; }
+  .twocolumnsifpossible ul { margin-top: inherit; }
 }
 .btn,.btn span{display:inline-block;border-radius:8px}
 @media all and (max-width:940px) and (min-width:780px){
-	#right{padding-left:30px;padding-right:30px;width:calc(100% - 240px - 60px)}
-	#left{width:240px}
+  #right{padding-left:30px;padding-right:30px;width:calc(100% - 240px - 60px)}
+  #left{width:240px}
+  .twocolumnsifpossible {column-count: inherit; }
 }
 li,p{line-height:19.5px}
 .btn{box-shadow:0 8px 0 #221d2d,0 15px 20px rgba(0,0,0,.35);transition:box-shadow .2s ease-in-out}
@@ -45,13 +52,18 @@ blockquote{font-size:14px;font-style:italic;width:calc(100% - 4em);max-width:400
 blockquote:before{font-family:Georgia,serif;display:block;content:"\201C";font-size:70px;left:.2em;top:-12px;color:#555}
 blockquote cite{color:#999;font-size:90%;margin-right:1em;display:block}
 blockquote cite:before{content:"\2014 \2009"}
+li{
+  webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  -break-inside: avoid;
+}
 </style>
 </head>
 <body>
     <div id="left">
-    	<img src="lwan.svg" style="width: 230px; padding-top: 16px">
-    	<img id="lame" src="lame.svg" style="width: 230px">
-    	<img id="webserver" src="webserver.svg" style="width: 230px">
+      <img src="lwan.svg" style="width: 230px; padding-top: 16px">
+      <img id="lame" src="lame.svg" style="width: 230px">
+      <img id="webserver" src="webserver.svg" style="width: 230px">
         <p style="padding-top: 30px; padding-bottom: 30px; text-align: center">
         <a href="http://github.com/lpereira/lwan" class="btn"><span>View it on GitHub</span></a>
         </p>
@@ -116,6 +128,8 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
 </blockquote>
 
 <h2 title="Bullet points and laser pointers.">What is deadlier than bullet points?</h2>
+
+<div class="twocolumnsifpossible">
 <ul>
   <li><b>Low memory footprint</b> (~500KiB for 10k idle connections)</li>
   <li><b>Small disk footprint</b>: x86-64 executable has 110KiB (~52KiB if packed with <a href="http://upx.sourceforge.net/">UPX</a>)</li>
@@ -140,10 +154,10 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   </li>
   <li>Efficient, <a href="https://github.com/google/guava">Guava</a>-inspired <b>loading cache</b>. Used for:
   <ul>
-  	<li>Directory listing</li>
-  	<li>File information (size, last modified date, MIME type, etc)</li>
-  	<li>Compressed file contents</li>
-  	<li>Compiled Lua scripts</li>
+    <li>Directory listing</li>
+    <li>File information (size, last modified date, MIME type, etc)</li>
+    <li>Compressed file contents</li>
+    <li>Compiled Lua scripts</li>
   </ul>
   </li>
   <li>Request rewriting support based on <b>Lua</b> <a href="http://www.lua.org/manual/5.2/manual.html#6.4.1">pattern matching</a> syntax
@@ -174,13 +188,13 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <li><b>No-nonsense configuration</b> file syntax</li>
   <li>Supports a subset of HTTP/1.0 and HTTP/1.1
   <ul>
-  	<li>Support for <b>keep-alive</b> connections</li>
-  	<li>Support for <b>pipelined</b> requests</li>
+    <li>Support for <b>keep-alive</b> connections</li>
+    <li>Support for <b>pipelined</b> requests</li>
   </ul>
   <li>WebSockets</li>
   <li><a href="http://www.haproxy.org/download/1.5/doc/proxy-protocol.txt">PROXY protocol</a> support
   <ul>
-  	<li>Useful for TLS terminators such as <a href="https://hitch-tls.org/">Hitch</a></li>
+    <li>Useful for TLS terminators such as <a href="https://hitch-tls.org/">Hitch</a></li>
   </ul>
   </li>
   <li>systemd <a href="http://0pointer.de/blog/projects/socket-activation.html">socket activation</a></li>
@@ -206,6 +220,7 @@ A continuous integration systems helps keep the house in order:
   <li>Test suite is executed with both <b>Undefined Behavior</b> and <b>Address</b> sanitizers on <b>Linux</b> and <b>OpenBSD</b></li>
   <li>Request parser continuously fuzzed with <a href="https://oss-fuzz.com">oss-fuzz</a></li>
 </ul>
+</div>
 
 <blockquote>
 Nice work with Lwan! I haven't looked <u>that</u> carefully yet but so far I like what I saw. You definitely have the right
@@ -310,7 +325,8 @@ is required in the client-side to display it:</p>
 “hand-crafted HTTP parser” in 2014, and not have at least an H2 for
 security?<cite><a
 href="https://twitter.com/gnat/status/521575202728054786">@gnat</a></cite></blockquote>
-We're not security experts, by any means. Having said that, here are some facts:</p> <ul> <li>Lwan has a <b>0.0 defect
+We're not security experts, by any means. Having said that, here are some facts:</p>
+<ul class="twocolumnsifpossible"> <li>Lwan has a <b>0.0 defect
 density</b> as reported by <a
 href="https://scan.coverity.com/projects/375">Coverity</a>. No top <a
 href="https://cwe.mitre.org/top25/">CWE 25
