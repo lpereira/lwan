@@ -411,8 +411,7 @@ static void parse_form_data(struct lwan_request *request)
                      url_decode, '&');
 }
 
-static void parse_fragment_and_query(struct lwan_request *request,
-                                     const char *space)
+static void find_query_string(struct lwan_request *request, const char *space)
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
@@ -452,7 +451,7 @@ identify_http_path(struct lwan_request *request, char *buffer)
 
     request->url.value = buffer;
     request->url.len = (size_t)(space - buffer);
-    parse_fragment_and_query(request, space);
+    find_query_string(request, space);
     request->original_url = request->url;
 
     *space++ = '\0';
@@ -1419,7 +1418,7 @@ static bool handle_rewrite(struct lwan_request *request)
 
     request->flags &= ~RESPONSE_URL_REWRITTEN;
 
-    parse_fragment_and_query(request, request->url.value + request->url.len);
+    find_query_string(request, request->url.value + request->url.len);
 
     helper->urls_rewritten++;
     if (UNLIKELY(helper->urls_rewritten > 4)) {
