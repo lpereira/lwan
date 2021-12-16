@@ -703,11 +703,12 @@ class TestHelloWorld(LwanTest):
   def test_request_id(self):
     all_request_ids = set()
     for i in range(20):
-      r = requests.get('http://127.0.0.1:8080/hello')
+      r = requests.get('http://127.0.0.1:8080/hello?dump_request_id=1&dump_vars=1')
       self.assertResponsePlain(r)
       request_id = r.headers['x-request-id']
       self.assertFalse(request_id in all_request_ids)
       self.assertTrue(re.match(r'^[a-f0-9]{16}$', request_id))
+      self.assertTrue('Request ID: <<%s>>' % request_id in r.text)
       all_request_ids.add(request_id)
 
   def test_cookies(self):
