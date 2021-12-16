@@ -1526,6 +1526,7 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
          * information to even log the request because it has not been
          * parsed yet at this stage.  Even if there are other requests waiting
          * in the pipeline, this seems like the safer thing to do.  */
+        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
         lwan_default_response(request, status);
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
