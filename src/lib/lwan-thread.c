@@ -741,7 +741,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
             } else if (listen_socket->flags & CONN_LISTENER_HTTPS) {
                 assert(listen_fd == t->tls_listen_fd);
                 assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
-                conn->flags |= CONN_NEEDS_TLS_SETUP;
+                conn->flags = CONN_NEEDS_TLS_SETUP;
             } else {
                 assert(listen_fd == t->listen_fd);
                 assert(listen_socket->flags & CONN_LISTENER_HTTP);
