@@ -360,8 +360,8 @@ skip_date_header:
         }
     }
 
-    APPEND_STRING_LEN(lwan_strbuf_get_buffer(request->global_response_headers),
-                      lwan_strbuf_get_length(request->global_response_headers));
+    APPEND_STRING_LEN(request->global_response_headers->value,
+                      request->global_response_headers->len);
 
     return (size_t)(p_headers - headers);
 }

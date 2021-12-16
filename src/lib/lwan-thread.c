@@ -589,8 +589,7 @@ send_last_response_without_coro(const struct lwan *l,
     if (!send_string_without_coro(fd, "\r\nContent-Type: text/html", MSG_MORE))
         goto shutdown_and_close;
 
-    if (send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&l->headers),
-                                 lwan_strbuf_get_length(&l->headers),
+    if (send_buffer_without_coro(fd, l->headers.value, l->headers.len,
                                  MSG_MORE)) {
         struct lwan_strbuf buffer;
 

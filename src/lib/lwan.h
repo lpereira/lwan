@@ -372,7 +372,7 @@ struct lwan_request {
     enum lwan_request_flags flags;
     int fd;
     struct lwan_connection *conn;
-    const struct lwan_strbuf *const global_response_headers;
+    const struct lwan_value *const global_response_headers;
 
     struct lwan_request_parser_helper *helper;
 
@@ -481,18 +481,19 @@ struct lwan_config {
 struct lwan {
     struct lwan_trie url_map_trie;
     struct lwan_connection *conns;
-    struct lwan_strbuf headers;
-
-    struct {
-        pthread_barrier_t barrier;
-        struct lwan_thread *threads;
-        unsigned int max_fd;
-        unsigned int count;
-    } thread;
+    struct lwan_value headers;
 
 #if defined(HAVE_MBEDTLS)
     struct lwan_tls_context *tls;
 #endif
+
+    struct {
+        struct lwan_thread *threads;
+
+        unsigned int max_fd;
+        unsigned int count;
+        pthread_barrier_t barrier;
+    } thread;
 
     struct lwan_config config;
 

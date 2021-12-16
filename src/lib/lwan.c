@@ -166,11 +166,12 @@ static bool can_override_header(const char *name)
 static void build_response_headers(struct lwan *l,
                                    const struct lwan_key_value *kv)
 {
+    struct lwan_strbuf strbuf;
     bool set_server = false;
 
     assert(l);
 
-    lwan_strbuf_init(&l->headers);
+    lwan_strbuf_init(&strbuf);
 
     for (; kv && kv->key; kv++) {
         if (!can_override_header(kv->key)) {
@@ -179,15 +180,18 @@ static void build_response_headers(struct lwan *l,
             if (!strcasecmp(kv->key, "Server"))
                 set_server = true;
 
-            lwan_strbuf_append_printf(&l->headers, "\r\n%s: %s", kv->key,
+            lwan_strbuf_append_printf(&strbuf, "\r\n%s: %s", kv->key,
                                       kv->value);
         }
     }
 
     if (!set_server)
-        lwan_strbuf_append_strz(&l->headers, "\r\nServer: lwan");
+        lwan_strbuf_append_strz(&strbuf, "\r\nServer: lwan");
 
-    lwan_strbuf_append_strz(&l->headers, "\r\n\r\n");
+    lwan_strbuf_append_strz(&strbuf, "\r\n\r\n");
+
+    l->headers = (struct lwan_value){.value = lwan_strbuf_get_buffer(&strbuf),
+                                     .len = lwan_strbuf_get_length(&strbuf)};
 }
 
 static void parse_global_headers(struct config *c,
@@ -799,7 +803,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     try_setup_from_config(l, config);
 
-    if (!lwan_strbuf_get_length(&l->headers))
+    if (!l->headers.len)
         build_response_headers(l, config->global_headers);
 
     lwan_response_init(l);
@@ -855,7 +859,7 @@ void lwan_shutdown(struct lwan *l)
     lwan_status_debug("Shutting down URL handlers");
     lwan_trie_destroy(&l->url_map_trie);
 
-    lwan_strbuf_free(&l->headers);
+    free(l->headers.value);
     free(l->conns);
 
     lwan_response_shutdown(l);
