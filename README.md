@@ -16,6 +16,13 @@ Build status
 | macOS       | x86_64 | ![osx-release](https://shield.lwan.ws/img/gycKbr/release-sierra "Release macOS")       | ![osx-debug](https://shield.lwan.ws/img/gycKbr/debug-sierra "Debug macOS")     |               |          |
 | OpenBSD 6.6 | x86_64 | ![openbsd-release](https://shield.lwan.ws/img/gycKbr/release-openbsd "Release OpenBSD")       | ![openbsd-debug](https://shield.lwan.ws/img/gycKbr/debug-openbsd "Debug OpenBSD")     |               | ![openbsd-tests](https://shield.lwan.ws/img/gycKbr/openbsd-unit-tests "OpenBSD Tests")         |
 
+Installing
+----------
+
+You can either [build Lwan yourself](#Building), use a [container
+image](#container-image), or grab a package from [your favorite
+distribution](#lwan-in-the-wild).
+
 Building
 --------
 
