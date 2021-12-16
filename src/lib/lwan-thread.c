@@ -313,10 +313,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
 #if defined(HAVE_MBEDTLS)
     if (conn->flags & CONN_NEEDS_TLS_SETUP) {
-        /* Sometimes this flag is unset when it *should* be set! Need to
-         * figure out why.  This causes the TLS handshake to not happen,
-         * making the normal HTTP request reading code to try and read
-         * the handshake as if it were a HTTP request. */
         if (UNLIKELY(!lwan_setup_tls(lwan, conn))) {
             coro_yield(coro, CONN_CORO_ABORT);
             __builtin_unreachable();
@@ -728,24 +724,28 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
         if (LIKELY(fd >= 0)) {
             struct lwan_connection *conn = &conns[fd];
             struct epoll_event ev = {.data.ptr = conn, .events = read_events};
-            int r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+            int r;
 
-            if (UNLIKELY(r < 0)) {
-                lwan_status_perror("Could not add file descriptor %d to epoll "
-                                   "set %d. Dropping connection",
-                                   fd, conn->thread->epoll_fd);
-
-                send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
 #if defined(HAVE_MBEDTLS)
-            } else if (listen_socket->flags & CONN_LISTENER_HTTPS) {
+            if (listen_socket->flags & CONN_LISTENER_HTTPS) {
                 assert(listen_fd == t->tls_listen_fd);
                 assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
                 conn->flags = CONN_NEEDS_TLS_SETUP;
             } else {
                 assert(listen_fd == t->listen_fd);
                 assert(listen_socket->flags & CONN_LISTENER_HTTP);
-#endif
             }
+#endif
+
+            r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+            if (UNLIKELY(r < 0)) {
+                lwan_status_perror("Could not add file descriptor %d to epoll "
+                                   "set %d. Dropping connection",
+                                   fd, conn->thread->epoll_fd);
+                send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
+                conn->flags = 0;
+            }
+
             continue;
         }
 
