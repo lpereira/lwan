@@ -220,6 +220,7 @@ int main(int argc, char *argv[])
     ext_mime = hash_str_new(free, free);
     if (!ext_mime) {
         fprintf(stderr, "Could not allocate hash table\n");
+        fclose(fp);
         return 1;
     }
 
@@ -263,6 +264,7 @@ int main(int argc, char *argv[])
 
             if (!k || !v) {
                 fprintf(stderr, "Could not allocate memory\n");
+                fclose(fp);
                 return 1;
             }
 
@@ -273,6 +275,7 @@ int main(int argc, char *argv[])
 
                 if (r != -EEXIST) {
                     fprintf(stderr, "Could not add extension to hash table\n");
+                    fclose(fp);
                     return 1;
                 }
             }
@@ -283,6 +286,7 @@ int main(int argc, char *argv[])
     exts = calloc(hash_get_count(ext_mime), sizeof(char *));
     if (!exts) {
         fprintf(stderr, "Could not allocate extension array\n");
+        fclose(fp);
         return 1;
     }
     hash_iter_init(ext_mime, &iter);
@@ -294,6 +298,7 @@ int main(int argc, char *argv[])
     output.ptr = malloc(output.capacity);
     if (!output.ptr) {
         fprintf(stderr, "Could not allocate temporary memory\n");
+        fclose(fp);
         return 1;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
@@ -306,12 +311,14 @@ int main(int argc, char *argv[])
 
         if (output_append_padded(&output, ext_lower) < 0) {
             fprintf(stderr, "Could not append to output\n");
+            fclose(fp);
             return 1;
         }
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
         if (output_append(&output, hash_find(ext_mime, exts[i])) < 0) {
             fprintf(stderr, "Could not append to output\n");
+            fclose(fp);
             return 1;
         }
     }
@@ -320,6 +327,7 @@ int main(int argc, char *argv[])
     compressed = compress_output(&output, &compressed_size);
     if (!compressed) {
         fprintf(stderr, "Could not compress data\n");
+        fclose(fp);
         return 1;
     }
 
