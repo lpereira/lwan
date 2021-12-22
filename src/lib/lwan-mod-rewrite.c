@@ -620,8 +620,8 @@ static void parse_condition_stat(struct pattern *pattern,
                                  const struct config_line *line)
 {
     char *path = NULL;
-    bool has_is_dir = false, is_dir;
-    bool has_is_file = false, is_file;
+    bool has_is_dir = false, is_dir = false;
+    bool has_is_file = false, is_file = false;
 
     while ((line = config_read_line(config))) {
         switch (line->type) {

@@ -319,7 +319,7 @@ int lwan_create_listen_socket(const struct lwan *l,
                                     : l->config.listener;
 
     if (!strncmp(listener, "systemd:", sizeof("systemd:") - 1)) {
-        char **names;
+        char **names = NULL;
         int n = sd_listen_fds_with_names(false, &names);
         int fd = -1;
 
