@@ -470,6 +470,10 @@ static void parse_tls_listener(struct config *conf, const struct config_line *li
     while ((line = config_read_line(conf))) {
         switch (line->type) {
         case CONFIG_LINE_TYPE_SECTION_END:
+            if (!lwan->config.ssl.cert)
+                config_error(conf, "Missing path to certificate");
+            if (!lwan->config.ssl.key)
+                config_error(conf, "Missing path to private key");
             return;
         case CONFIG_LINE_TYPE_SECTION:
             config_error(conf, "Unexpected section: %s", line->key);
