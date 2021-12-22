@@ -20,7 +20,7 @@ Installing
 ----------
 
 You can either [build Lwan yourself](#Building), use a [container
-image](#container-image), or grab a package from [your favorite
+image](#container-images), or grab a package from [your favorite
 distribution](#lwan-in-the-wild).
 
 Building
@@ -959,9 +959,9 @@ to build and run Lwan in a container.
 Container images are tagged with release version numbers, so a specific version of Lwan can be pulled.
 
     # latest version
-    docker pull ghcr.io/lperiera/lwan:latest
+    docker pull ghcr.io/lpereira/lwan:latest
     # pull a specific version
-    docker pull ghcr.io/lperiera/lwan:v0.3
+    docker pull ghcr.io/lpereira/lwan:v0.3
 
 ### Build images locally
 Clone the repository and use `Containerfile` (Dockerfile) to build Lwan with all optional dependencies enabled.
