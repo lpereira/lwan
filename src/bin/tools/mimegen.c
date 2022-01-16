@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
         strncpy(ext_lower, exts[i], 8);
 
         for (char *p = ext_lower; *p; p++)
-            *p |= 0x20;
+            *p &= ~0x20;
 
         if (output_append_padded(&output, ext_lower) < 0) {
             fprintf(stderr, "Could not append to output\n");
