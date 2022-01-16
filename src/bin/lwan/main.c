@@ -54,6 +54,46 @@ print_handler_info(void)
 }
 
 static void
+print_build_time_configuration(void)
+{
+    printf("Build-time configuration:");
+#ifdef HAVE_LUA
+    printf(" Lua");
+#endif
+#ifdef HAVE_BROTLI
+    printf(" Brotli");
+#endif
+#ifdef HAVE_ZSTD
+    printf(" zstd");
+#endif
+#ifdef HAVE_MBEDTLS
+    printf(" mbedTLS");
+#endif
+#ifdef HAVE_LIBUCONTEXT
+    printf(" libucontext");
+#endif
+#ifdef HAVE_EPOLL
+    printf(" epoll");
+#endif
+#ifdef HAVE_KQUEUE
+    printf(" kqueue");
+#endif
+#ifdef HAVE_SO_ATTACH_REUSEPORT_CBPF
+    printf(" sockopt-reuseport-CBPF");
+#endif
+#ifdef HAVE_SO_INCOMING_CPU
+    printf(" sockopt-reuseport-incoming-cpu");
+#endif
+#ifdef HAVE_VALGRIND
+    printf(" valgrind");
+#endif
+#ifdef HAVE_SYSLOG
+    printf(" syslog");
+#endif
+    printf(".\n");
+}
+
+static void
 print_help(const char *argv0, const struct lwan_config *config)
 {
     char path_buf[PATH_MAX];
@@ -83,6 +123,8 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("    %s\n", argv0);
     printf("  Use /etc/%s:\n", config_file);
     printf("    %s -c /etc/%s\n", argv0, config_file);
+    printf("\n");
+    print_build_time_configuration();
     printf("\n");
     printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
 
