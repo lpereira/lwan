@@ -717,6 +717,18 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
     const uint32_t read_events = conn_flags_to_epoll_events(CONN_EVENTS_READ);
     struct lwan_connection *conns = t->lwan->conns;
     int listen_fd = (int)(intptr_t)(listen_socket - conns);
+    enum lwan_connection_flags new_conn_flags = 0;
+
+#if defined(HAVE_MBEDTLS)
+    if (listen_socket->flags & CONN_LISTENER_HTTPS) {
+        assert(listen_fd == t->tls_listen_fd);
+        assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
+        new_conn_flags = CONN_NEEDS_TLS_SETUP;
+    } else {
+        assert(listen_fd == t->listen_fd);
+        assert(listen_socket->flags & CONN_LISTENER_HTTP);
+    }
+#endif
 
     while (true) {
         int fd = accept4(listen_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -726,16 +738,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
             struct epoll_event ev = {.data.ptr = conn, .events = read_events};
             int r;
 
-#if defined(HAVE_MBEDTLS)
-            if (listen_socket->flags & CONN_LISTENER_HTTPS) {
-                assert(listen_fd == t->tls_listen_fd);
-                assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
-                conn->flags = CONN_NEEDS_TLS_SETUP;
-            } else {
-                assert(listen_fd == t->listen_fd);
-                assert(listen_socket->flags & CONN_LISTENER_HTTP);
-            }
-#endif
+            conn->flags = new_conn_flags;
 
             r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
             if (UNLIKELY(r < 0)) {
@@ -1087,9 +1090,10 @@ static bool lwan_init_tls(struct lwan *l)
     if (!l->config.ssl.cert || !l->config.ssl.key)
         return false;
 
-    if (!is_tls_ulp_supported())
+    if (!is_tls_ulp_supported()) {
         lwan_status_critical(
             "TLS ULP not loaded. Try running `modprobe tls` as root.");
+    }
 
     l->tls = calloc(1, sizeof(*l->tls));
     if (!l->tls)
