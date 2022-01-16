@@ -792,6 +792,8 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     memcpy(&l->config, config, sizeof(*config));
     l->config.listener = dup_or_null(l->config.listener);
     l->config.config_file_path = dup_or_null(l->config.config_file_path);
+    l->config.ssl.key = dup_or_null(l->config.ssl.key);
+    l->config.ssl.cert = dup_or_null(l->config.ssl.cert);
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
@@ -859,6 +861,11 @@ void lwan_shutdown(struct lwan *l)
     free(l->config.listener);
     free(l->config.error_template);
     free(l->config.config_file_path);
+
+    lwan_always_bzero(l->config.ssl.cert, strlen(l->config.ssl.cert));
+    free(l->config.ssl.cert);
+    lwan_always_bzero(l->config.ssl.key, strlen(l->config.ssl.key));
+    free(l->config.ssl.key);
 
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);
