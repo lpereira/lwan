@@ -157,8 +157,8 @@ lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
                  .cipher_type = TLS_CIPHER_AES_GCM_128},
     };
     const unsigned char *salt, *iv, *rec_seq;
-    mbedtls_gcm_context *gcm_ctx;
-    mbedtls_aes_context *aes_ctx;
+    const mbedtls_gcm_context *gcm_ctx;
+    const mbedtls_aes_context *aes_ctx;
 
     switch (rx_or_tx) {
     case TLS_RX:
