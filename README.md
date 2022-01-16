@@ -382,9 +382,11 @@ interfaces), an IPv6 address (if surrounded by square brackets), an IPv4
 address, or a hostname.  For instance, `listener localhost:9876` would
 listen only in the `lo` interface, port `9876`.
 
-While a `listener` section takes no keys, a `tls_listener` section
-requires two: `cert` and `key`.  Each point, respectively, to the location
-on disk where the TLS certificate and private key files are located.
+While a `listener` section takes no keys, a `tls_listener` section requires
+two: `cert` and `key` (each pointing, respectively, to the location on disk
+where the TLS certificate and private key files are located) and takes an
+optional boolean `hsts` key, which controls if `Strict-Transport-Security`
+headers will be sent on HTTPS responses.
 
 > :magic_wand: **Tip:** To generate these keys for testing purposes, the
 > OpenSSL command-line tool can be used like the following:

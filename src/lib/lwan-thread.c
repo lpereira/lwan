@@ -365,7 +365,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         lwan_strbuf_reset_trim(&strbuf, 2048);
 
         /* Only allow flags from config. */
-        flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS);
+        flags = request.flags & (REQUEST_PROXIED | REQUEST_ALLOW_CORS | REQUEST_WANTS_HSTS_HEADER);
         next_request = helper.next_request;
     }
 

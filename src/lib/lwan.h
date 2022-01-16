@@ -248,6 +248,8 @@ enum lwan_request_flags {
     RESPONSE_INCLUDE_REQUEST_ID = 1 << 24,
 
     REQUEST_HAS_QUERY_STRING = 1 << 25,
+
+    REQUEST_WANTS_HSTS_HEADER = 1 << 26,
 };
 
 #undef SELECT_MASK
@@ -462,6 +464,7 @@ struct lwan_config {
     struct {
         char *cert;
         char *key;
+        bool send_hsts_header;
     } ssl;
 
     size_t max_post_data_size;

@@ -231,7 +231,8 @@ has_content_length(enum lwan_request_flags v)
 static ALWAYS_INLINE __attribute__((const)) bool
 has_uncommon_response_headers(enum lwan_request_flags v)
 {
-    return v & (RESPONSE_INCLUDE_REQUEST_ID | REQUEST_ALLOW_CORS | RESPONSE_CHUNKED_ENCODING);
+    return v & (RESPONSE_INCLUDE_REQUEST_ID | REQUEST_ALLOW_CORS |
+                RESPONSE_CHUNKED_ENCODING | REQUEST_WANTS_HSTS_HEADER);
 }
 
 size_t lwan_prepare_response_header_full(
@@ -357,6 +358,10 @@ skip_date_header:
             uint64_t id = lwan_request_get_id(request);
             for (int i = 60; i >= 0; i -= 4)
                 APPEND_CHAR_NOCHECK("0123456789abcdef"[(id >> i) & 0xf]);
+        }
+        if (request_flags & REQUEST_WANTS_HSTS_HEADER) {
+            APPEND_CONSTANT("\r\nStrict-Transport-Security: "
+                            "max-age=31536000; includeSubdomains");
         }
     }
 

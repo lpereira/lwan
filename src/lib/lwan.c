@@ -489,6 +489,8 @@ static void parse_tls_listener(struct config *conf, const struct config_line *li
                 lwan->config.ssl.key = strdup(line->value);
                 if (!lwan->config.ssl.key)
                     return lwan_status_critical("Could not copy string");
+            } else if (streq(line->key, "hsts")) {
+                lwan->config.ssl.send_hsts_header = parse_bool(line->value, false);
             } else {
                 config_error(conf, "Unexpected key: %s", line->key);
             }
@@ -699,7 +701,8 @@ static void try_setup_from_config(struct lwan *l,
 
     l->config.request_flags =
         (l->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
-        (l->config.allow_cors ? REQUEST_ALLOW_CORS : 0);
+        (l->config.allow_cors ? REQUEST_ALLOW_CORS : 0) |
+        (l->config.ssl.send_hsts_header ? REQUEST_WANTS_HSTS_HEADER : 0);
 }
 
 static rlim_t setup_open_file_count_limits(void)
