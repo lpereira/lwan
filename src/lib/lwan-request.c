@@ -1206,6 +1206,11 @@ static int read_body_data(struct lwan_request *request)
     if (status != HTTP_PARTIAL_CONTENT)
         return -(int)status;
 
+    new_buffer =
+        alloc_body_buffer(request->conn->coro, total + 1, allow_temp_file);
+    if (UNLIKELY(!new_buffer))
+        return -HTTP_INTERNAL_ERROR;
+
     if (!(request->flags & REQUEST_IS_HTTP_1_0)) {
         /* §8.2.3 https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html */
         const char *expect = lwan_request_get_header(request, "Expect");
@@ -1216,11 +1221,6 @@ static int read_body_data(struct lwan_request *request)
             lwan_send(request, continue_header, sizeof(continue_header) - 1, 0);
         }
     }
-
-    new_buffer =
-        alloc_body_buffer(request->conn->coro, total + 1, allow_temp_file);
-    if (UNLIKELY(!new_buffer))
-        return -HTTP_INTERNAL_ERROR;
 
     helper->body_data.value = new_buffer;
     helper->body_data.len = total;
