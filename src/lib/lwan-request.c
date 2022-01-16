@@ -570,6 +570,9 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         case STR4_INT_L('I', 'f', '-', 'M'):
             SET_HEADER_VALUE(if_modified_since.raw, "If-Modified-Since");
             break;
+        case STR4_INT_L('H', 'o', 's', 't'):
+            SET_HEADER_VALUE(host, "Host");
+            break;
         case STR4_INT_L('R', 'a', 'n', 'g'):
             SET_HEADER_VALUE(range.raw, "Range");
             break;
@@ -1612,6 +1615,13 @@ const char *lwan_request_get_header(struct lwan_request *request,
     }
 
     return NULL;
+}
+
+const char *lwan_request_get_host(struct lwan_request *request)
+{
+    const struct lwan_request_parser_helper *helper = request->helper;
+
+    return helper->host.len ? helper->host.value : NULL;
 }
 
 ALWAYS_INLINE int

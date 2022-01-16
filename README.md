@@ -522,6 +522,7 @@ information from the request, or to set the response, as seen below:
    - `req:request_id()` returns a string containing the request ID.
    - `req:request_date()` returns the date as it'll be written in the `Date` response header.
    - `req:is_https()` returns `true` if this request is serviced through HTTPS, `false` otherwise.
+   - `req:host()` returns the value of the `Host` header if present, otherwise `nil`.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return

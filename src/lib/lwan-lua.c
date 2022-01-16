@@ -114,6 +114,18 @@ LWAN_LUA_METHOD(path)
     return 1;
 }
 
+LWAN_LUA_METHOD(host)
+{
+    const char *host = lwan_request_get_host(request);
+
+    if (host)
+        lua_pushstring(L, host);
+    else
+        lua_pushnil(L);
+
+    return 1;
+}
+
 LWAN_LUA_METHOD(query_string)
 {
     if (request->helper->query_string.len) {

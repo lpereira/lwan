@@ -41,6 +41,8 @@ struct lwan_request_parser_helper {
 
     struct lwan_value connection;	/* Connection: */
 
+    struct lwan_value host;		/* Host: */
+
     struct lwan_key_value_array cookies, query_params, post_params;
 
     struct { /* If-Modified-Since: */
