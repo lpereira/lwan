@@ -57,6 +57,7 @@ static const struct lwan_config default_config = {
     .keep_alive_timeout = 15,
     .quiet = false,
     .proxy_protocol = false,
+    .allow_remote_address_override = false,
     .allow_cors = false,
     .expires = 1 * ONE_WEEK,
     .n_threads = 0,
@@ -591,6 +592,9 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             } else if (streq(line->key, "proxy_protocol")) {
                 lwan->config.proxy_protocol =
                     parse_bool(line->value, default_config.proxy_protocol);
+            } else if (streq(line->key, "allow_remote_address_override")) {
+                lwan->config.allow_remote_address_override =
+                    parse_bool(line->value, default_config.allow_remote_address_override);
             } else if (streq(line->key, "allow_cors")) {
                 lwan->config.allow_cors =
                     parse_bool(line->value, default_config.allow_cors);
@@ -701,6 +705,7 @@ static void try_setup_from_config(struct lwan *l,
 
     l->config.request_flags =
         (l->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
+        (l->config.allow_remote_address_override ? REQUEST_ALLOW_REMOTE_ADDRESS_OVERRIDE : 0) |
         (l->config.allow_cors ? REQUEST_ALLOW_CORS : 0) |
         (l->config.ssl.send_hsts_header ? REQUEST_WANTS_HSTS_HEADER : 0);
 }

@@ -573,6 +573,9 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         case STR4_INT_L('H', 'o', 's', 't'):
             SET_HEADER_VALUE(host, "Host");
             break;
+        case STR4_INT_L('X', '-', 'R', 'e'):
+            SET_HEADER_VALUE(xrealip, "X-Real-IP");
+            break;
         case STR4_INT_L('R', 'a', 'n', 'g'):
             SET_HEADER_VALUE(range.raw, "Range");
             break;
@@ -1648,6 +1651,10 @@ lwan_request_get_remote_address(struct lwan_request *request,
 
             return memcpy(buffer, unspecified, sizeof(unspecified));
         }
+    } else if (request->flags & REQUEST_ALLOW_REMOTE_ADDRESS_OVERRIDE && request->helper->xrealip.value && request->helper->xrealip.len) {
+        size_t len = LWAN_MIN(request->helper->xrealip.len, INET6_ADDRSTRLEN - 1);
+        strncpy(buffer, request->helper->xrealip.value, len), buffer[len] = 0;
+        return buffer;
     } else {
         socklen_t sock_len = sizeof(non_proxied_addr);
 

@@ -295,6 +295,7 @@ can be decided automatically, so some configuration options are provided.
 | `expires` | `time` | `1M 1w` | Value of the "Expires" header. Default is 1 month and 1 week |
 | `threads` | `int` | `0` | Number of I/O threads. Default (0) is the number of online CPUs |
 | `proxy_protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
+| `allow_remote_address_override` | `bool` | `false` | Enables the remote address overriding by X-Real-IP header. Only enable this setting if using Lwan behind a proxy, and the proxy can handle this header; otherwise, this allows anybody to spoof origin IP addresses |
 | `max_post_data_size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
 | `max_put_data_size` | `int` | `40960` | Sets the maximum number of data size for PUT requests, in bytes |
 | `allow_temp_files` | `str` | `""` | Use temporary files; set to `post` for POST requests, `put` for PUT requests, or `all` (equivalent to setting to `post put`) for both.|

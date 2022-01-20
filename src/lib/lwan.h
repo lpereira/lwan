@@ -250,6 +250,8 @@ enum lwan_request_flags {
     REQUEST_HAS_QUERY_STRING = 1 << 25,
 
     REQUEST_WANTS_HSTS_HEADER = 1 << 26,
+
+    REQUEST_ALLOW_REMOTE_ADDRESS_OVERRIDE = 1 << 27,
 };
 
 #undef SELECT_MASK
@@ -476,6 +478,7 @@ struct lwan_config {
 
     bool quiet;
     bool proxy_protocol;
+    bool allow_remote_address_override;
     bool allow_cors;
     bool allow_post_temp_file;
     bool allow_put_temp_file;
