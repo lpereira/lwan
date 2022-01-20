@@ -1223,7 +1223,9 @@ void lwan_thread_init(struct lwan *l)
 
         if (adj_affinity) {
             l->thread.threads[i].cpu = schedtbl[i & n_threads];
+#if defined(__x86_64__) && defined(__linux__)
             adjust_thread_affinity(thread);
+#endif
         }
 
         pthread_barrier_wait(&l->thread.barrier);
