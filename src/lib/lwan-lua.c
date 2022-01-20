@@ -31,6 +31,10 @@
 
 #include "lwan-lua.h"
 
+#if LUAVMTYPE == luajit
+#define luaL_reg luaL_Reg
+#endif
+
 static const char *request_metatable_name = "Lwan.Request";
 
 ALWAYS_INLINE struct lwan_request *lwan_lua_get_request_from_userdata(lua_State *L)
