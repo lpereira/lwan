@@ -288,13 +288,8 @@ enum lwan_connection_flags {
     CONN_LISTENER_HTTP = 1 << 10,
     CONN_LISTENER_HTTPS = 1 << 11,
 
-    /* Set on file descriptors accepted by listeners with the
-     * CONN_LISTENER_HTTPS flag, and unset right after the handshake has been
-     * completed (when CONN_TLS is then set.) */
-    CONN_NEEDS_TLS_SETUP = 1 << 12,
-
-    /* Used mostly for the Lua and Rewrite modules */
-    CONN_TLS = 1 << 14,
+    /* Is this a TLS connection? */
+    CONN_TLS = 1 << 12,
 };
 
 enum lwan_connection_coro_yield {
