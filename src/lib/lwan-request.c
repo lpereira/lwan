@@ -1688,6 +1688,7 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
     struct lwan_connection *conn = request->conn;
     struct timeouts *wheel = conn->thread->wheel;
     struct timespec now;
+    struct coro_defer *defer = NULL;
 
     /* We need to update the timer wheel right now because
      * a request might have requested to sleep a long time
@@ -1701,11 +1702,16 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
     timeouts_add(wheel, &request->timeout, ms);
 
     if (!(conn->flags & CONN_HAS_REMOVE_SLEEP_DEFER)) {
-        coro_defer2(conn->coro, remove_sleep, wheel, &request->timeout);
+        defer = coro_defer2(conn->coro, remove_sleep, wheel, &request->timeout);
         conn->flags |= CONN_HAS_REMOVE_SLEEP_DEFER;
     }
 
     coro_yield(conn->coro, CONN_CORO_SUSPEND);
+
+    if (defer) {
+        coro_defer_disarm(conn->coro, defer);
+        remove_sleep(wheel, &request->timeout);
+    }
 }
 
 ALWAYS_INLINE int
