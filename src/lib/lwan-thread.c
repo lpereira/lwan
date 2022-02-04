@@ -184,7 +184,9 @@ lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
     memcpy(info.salt, salt, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
 
     if (UNLIKELY(setsockopt(fd, SOL_TLS, rx_or_tx, &info, sizeof(info)) < 0)) {
-        lwan_status_perror("Could not set kTLS keys for fd %d", fd);
+        lwan_status_perror("Could not set %s kTLS keys for fd %d",
+                           rx_or_tx == TLS_TX ? "transmission" : "reception",
+                           fd);
         lwan_always_bzero(&info, sizeof(info));
         return false;
     }
