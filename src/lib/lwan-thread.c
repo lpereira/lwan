@@ -213,16 +213,11 @@ static void lwan_status_mbedtls_error(int error_code, const char *fmt, ...)
     va_end(ap);
 }
 
-static void lwan_setup_tls_free_ssl_context(void *data1, void *data2)
+static void lwan_setup_tls_free_ssl_context(void *data)
 {
-    struct lwan_connection *conn = data1;
+    mbedtls_ssl_context *ssl = data;
 
-    if (UNLIKELY(conn->flags & CONN_NEEDS_TLS_SETUP)) {
-        mbedtls_ssl_context *ssl = data2;
-
-        mbedtls_ssl_free(ssl);
-        conn->flags &= ~CONN_NEEDS_TLS_SETUP;
-    }
+    mbedtls_ssl_free(ssl);
 }
 
 static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
@@ -243,7 +238,13 @@ static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
      * destroy this coro (e.g.  on connection hangup) before we have the
      * opportunity to free the SSL context.  Defer this call for these
      * cases. */
-    coro_defer2(conn->coro, lwan_setup_tls_free_ssl_context, conn, &ssl);
+    struct coro_defer *defer =
+        coro_defer(conn->coro, lwan_setup_tls_free_ssl_context, &ssl);
+
+    if (UNLIKELY(!defer)) {
+        lwan_status_error("Could not defer cleanup of the TLS context");
+        return false;
+    }
 
     int fd = lwan_connection_get_fd(l, conn);
     /* FIXME: This is only required for the handshake; this uses read() and
@@ -281,9 +282,8 @@ enable_tls_ulp:
     retval = true;
 
 fail:
+    coro_defer_disarm(conn->coro, defer);
     mbedtls_ssl_free(&ssl);
-
-    conn->flags &= ~CONN_NEEDS_TLS_SETUP;
     return retval;
 }
 #endif
@@ -312,16 +312,15 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     assert(init_gen == coro_deferred_get_generation(coro));
 
 #if defined(HAVE_MBEDTLS)
-    if (conn->flags & CONN_NEEDS_TLS_SETUP) {
+    if (conn->flags & CONN_TLS) {
         if (UNLIKELY(!lwan_setup_tls(lwan, conn))) {
-            coro_yield(coro, CONN_CORO_ABORT);
+            coro_yield(conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
-
-        conn->flags |= CONN_TLS;
     }
+#else
+    assert(!(conn->flags & CONN_TLS));
 #endif
-    assert(!(conn->flags & CONN_NEEDS_TLS_SETUP));
 
     while (true) {
         struct lwan_request_parser_helper helper = {
@@ -429,8 +428,7 @@ static void update_epoll_flags(int fd,
     conn->flags &= and_mask[yield_result];
 
     assert(!(conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)));
-    assert((conn->flags & (CONN_TLS | CONN_NEEDS_TLS_SETUP)) ==
-           (prev_flags & (CONN_TLS | CONN_NEEDS_TLS_SETUP)));
+    assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
     if (conn->flags == prev_flags)
         return;
@@ -562,7 +560,7 @@ send_last_response_without_coro(const struct lwan *l,
 {
     int fd = lwan_connection_get_fd(l, conn);
 
-    if (conn->flags & CONN_NEEDS_TLS_SETUP) {
+    if (conn->flags & CONN_TLS) {
         /* There's nothing that can be done here if a client is expecting a
          * TLS connection: the TLS handshake requires a coroutine as it
          * might yield.  (In addition, the TLS handshake might allocate
@@ -609,7 +607,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 {
     struct lwan_thread *t = conn->thread;
 #if defined(HAVE_MBEDTLS)
-    const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_NEEDS_TLS_SETUP;
+    const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_TLS;
 #else
     const enum lwan_connection_flags flags_to_keep = 0;
 #endif
@@ -723,7 +721,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
     if (listen_socket->flags & CONN_LISTENER_HTTPS) {
         assert(listen_fd == t->tls_listen_fd);
         assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
-        new_conn_flags = CONN_NEEDS_TLS_SETUP;
+        new_conn_flags = CONN_TLS;
     } else {
         assert(listen_fd == t->listen_fd);
         assert(listen_socket->flags & CONN_LISTENER_HTTP);
