@@ -29,4 +29,18 @@
 # define static_assert(expr, msg)
 #endif
 
+/* Use assertions as optimization hints */
+#ifndef NDEBUG
+#undef assert
+#ifdef __clang__
+#define assert(expr) __builtin_assume(expr)
+#else
+#define assert(expr)                                                           \
+    do {                                                                       \
+        if (!(expr))                                                           \
+            __builtin_unreachable();                                           \
+    } while (0)
+#endif
+#endif
+
 #endif /* MISSING_ASSERT_H */
