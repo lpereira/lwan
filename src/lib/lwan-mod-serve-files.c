@@ -475,14 +475,10 @@ error_zero_out:
 static void
 try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
 {
-    if (size > priv->read_ahead)
-        size = priv->read_ahead;
-
-    if (LIKELY(size))
-        lwan_readahead_queue(fd, 0, size);
+    lwan_readahead_queue(fd, 0, LWAN_MIN(size, priv->read_ahead));
 }
 
-static bool is_world_readable(mode_t mode)
+static inline bool is_world_readable(mode_t mode)
 {
     const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
 
