@@ -360,22 +360,47 @@ void coro_free(struct coro *coro)
     free(coro);
 }
 
-ALWAYS_INLINE void coro_defer(struct coro *coro, defer1_func func, void *data)
+static void disarmed_defer(void *data __attribute__((unused)))
+{
+}
+
+void coro_defer_disarm(struct coro *coro, struct coro_defer *defer)
+{
+    const size_t num_defers = coro_defer_array_len(&coro->defer);
+
+    assert(num_defers != 0 && defer != NULL);
+
+    if (defer == coro_defer_array_get_elem(&coro->defer, num_defers - 1)) {
+        /* If we're disarming the last defer we armed, there's no need to waste
+         * space of a deferred callback to an empty function like
+         * disarmed_defer(). */
+        struct lwan_array *defer_base = (struct lwan_array *)&coro->defer;
+        defer_base->elements--;
+    } else {
+        defer->one.func = disarmed_defer;
+        defer->has_two_args = false;
+    }
+}
+
+ALWAYS_INLINE struct coro_defer *
+coro_defer(struct coro *coro, defer1_func func, void *data)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
     if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p",
                           coro);
-        return;
+        return NULL;
     }
 
     defer->one.func = func;
     defer->one.data = data;
     defer->has_two_args = false;
+
+    return defer;
 }
 
-ALWAYS_INLINE void
+ALWAYS_INLINE struct coro_defer *
 coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
@@ -383,13 +408,15 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p",
                           coro);
-        return;
+        return NULL;
     }
 
     defer->two.func = func;
     defer->two.data1 = data1;
     defer->two.data2 = data2;
     defer->has_two_args = true;
+
+    return defer;
 }
 
 void *coro_malloc_full(struct coro *coro,
