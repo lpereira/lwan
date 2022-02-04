@@ -245,16 +245,17 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
                                                 char *buffer)
 {
-#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
-    case constant:                                                             \
-        request->flags |= (mask);                                              \
-        return buffer + sizeof(#upper);
+    const uint32_t first_four = string_as_uint32(buffer);
 
-    STRING_SWITCH (buffer) {
-        FOR_EACH_REQUEST_METHOD(GENERATE_CASE_STMT)
+#define GENERATE_IF(upper, lower, mask, constant, probability)                     \
+    if (__builtin_expect_with_probability(first_four, (constant), probability)) {  \
+        request->flags |= (mask);                                                  \
+        return buffer + sizeof(#upper);                                            \
     }
 
-#undef GENERATE_CASE_STMT
+    FOR_EACH_REQUEST_METHOD(GENERATE_IF)
+
+#undef GENERATE_IF
 
     return NULL;
 }
@@ -1434,7 +1435,7 @@ static bool handle_rewrite(struct lwan_request *request)
 
 const char *lwan_request_get_method_str(const struct lwan_request *request)
 {
-#define GENERATE_CASE_STMT(upper, lower, mask, constant)                       \
+#define GENERATE_CASE_STMT(upper, lower, mask, constant, probability)          \
     case REQUEST_METHOD_##upper:                                               \
         return #upper;
 

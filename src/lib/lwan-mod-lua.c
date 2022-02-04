@@ -103,7 +103,7 @@ static ALWAYS_INLINE struct lwan_value
 get_handle_prefix(struct lwan_request *request)
 {
 #define ENTRY(s) {.value = s, .len = sizeof(s) - 1}
-#define GEN_TABLE_ENTRY(upper, lower, mask, constant)                          \
+#define GEN_TABLE_ENTRY(upper, lower, mask, constant, probability)             \
     [REQUEST_METHOD_##upper] = ENTRY("handle_" #lower "_"),
 
     static const struct lwan_value method2name[REQUEST_METHOD_MASK] = {
