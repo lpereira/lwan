@@ -21,24 +21,20 @@
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+#include <limits.h>
 
 #include "lwan-private.h"
 #include "int-to-str.h"
 
 static int parse_2_digit_num_no_end_check(const char *str, unsigned int max)
 {
-    static const unsigned int tens[] = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90};
-
-    if (UNLIKELY(!lwan_char_isdigit(str[0])))
-        return -EINVAL;
-    if (UNLIKELY(!lwan_char_isdigit(str[1])))
-        return -EINVAL;
-
-    unsigned int val = tens[str[0] - '0'] + (unsigned int)(str[1] - '0');
-    if (UNLIKELY(val > max))
-        return -EINVAL;
-
-    return (int)val;
+    static const unsigned int tens[16] = {
+        0, 10, 20, 30, 40, 50, 60, 70, 80, 90, [11 ... 15] = UINT_MAX,
+    };
+    const unsigned int n_tens = (unsigned int)(str[0] - '0');
+    const unsigned int n_ones = (unsigned int)(str[1] - '0');
+    const unsigned int val = tens[n_tens & 15] + n_ones;
+    return UNLIKELY(val > max) ? -EINVAL : (int)val;
 }
 
 static int
