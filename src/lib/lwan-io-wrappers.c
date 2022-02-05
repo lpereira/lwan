@@ -47,15 +47,11 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
             return lwan_send(request, vec->iov_base, vec->iov_len, flags);
         }
 
-        if (flags) {
-            struct msghdr hdr = {
-                .msg_iov = iov + curr_iov,
-                .msg_iovlen = (size_t)remaining_len,
-            };
-            written = sendmsg(request->fd, &hdr, flags);
-        } else {
-            written = writev(request->fd, iov + curr_iov, remaining_len);
-        }
+        struct msghdr hdr = {
+            .msg_iov = iov + curr_iov,
+            .msg_iovlen = (size_t)remaining_len,
+        };
+        written = sendmsg(request->fd, &hdr, flags);
 
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
