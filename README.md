@@ -43,7 +43,9 @@ The build system will look for these libraries and enable/link if available.
  - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
+    - Can be disabled by passing `-DENABLE_BROTLI=NO`
  - [ZSTD](https://github.com/facebook/zstd)
+    - Can be disabled by passing `-DENABLE_ZSTD=NO`
  - On Linux builds, if `-DENABLE_TLS=ON` (default) is passed:
     - [mbedTLS](https://github.com/ARMmbed/mbedtls)
  - Alternative memory allocators can be used by passing `-DUSE_ALTERNATIVE_MALLOC` to CMake with the following values:
