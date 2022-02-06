@@ -60,6 +60,7 @@
 
 /* Libraries */
 #cmakedefine HAVE_LUA
+#cmakedefine HAVE_LUA_JIT
 #cmakedefine HAVE_BROTLI
 #cmakedefine HAVE_ZSTD
 #cmakedefine HAVE_LIBUCONTEXT
@@ -67,4 +68,3 @@
 
 /* Valgrind support for coroutines */
 #cmakedefine HAVE_VALGRIND
-
