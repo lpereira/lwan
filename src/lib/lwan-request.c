@@ -247,10 +247,11 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
 {
     const uint32_t first_four = string_as_uint32(buffer);
 
-#define GENERATE_IF(upper, lower, mask, constant, probability)                     \
-    if (__builtin_expect_with_probability(first_four, (constant), probability)) {  \
-        request->flags |= (mask);                                                  \
-        return buffer + sizeof(#upper);                                            \
+#define GENERATE_IF(upper, lower, mask, constant, probability)                 \
+    if (__builtin_expect_with_probability(first_four == (constant), 1,         \
+                                          probability)) {                      \
+        request->flags |= (mask);                                              \
+        return buffer + sizeof(#upper);                                        \
     }
 
     FOR_EACH_REQUEST_METHOD(GENERATE_IF)
