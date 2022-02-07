@@ -22,7 +22,7 @@
 #pragma once
 #include <stdint.h>
 
-enum {
+enum epoll_event_flag {
     EPOLLIN = 1 << 0,
     EPOLLOUT = 1 << 1,
     EPOLLONESHOT = 1 << 2,
@@ -30,11 +30,11 @@ enum {
     EPOLLERR = 1 << 4,
     EPOLLET = 1 << 5,
     EPOLLHUP = EPOLLRDHUP
-} epoll_event_flag;
+};
 
-enum { EPOLL_CTL_ADD, EPOLL_CTL_MOD, EPOLL_CTL_DEL } epoll_op;
+enum epoll_op { EPOLL_CTL_ADD, EPOLL_CTL_MOD, EPOLL_CTL_DEL };
 
-enum { EPOLL_CLOEXEC = 1 << 0 } epoll_create_flags;
+enum epoll_create_flags { EPOLL_CLOEXEC = 1 << 0 };
 
 struct epoll_event {
     uint32_t events;
