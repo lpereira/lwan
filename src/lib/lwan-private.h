@@ -65,7 +65,7 @@ struct lwan_request_parser_helper {
 };
 
 #define DEFAULT_BUFFER_SIZE 4096
-#define DEFAULT_HEADERS_SIZE 512
+#define DEFAULT_HEADERS_SIZE 2048
 
 #define N_HEADER_START 64
 
