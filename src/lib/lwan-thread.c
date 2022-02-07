@@ -927,73 +927,6 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
 }
 
 #if defined(__linux__) && defined(__x86_64__)
-static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
-{
-    char path[PATH_MAX];
-
-    for (uint32_t i = 0; i < l->available_cpus; i++)
-        siblings[i] = 0xbebacafe;
-
-    for (unsigned int i = 0; i < l->available_cpus; i++) {
-        FILE *sib;
-        uint32_t id, sibling;
-        char separator;
-
-        snprintf(path, sizeof(path),
-                 "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list",
-                 i);
-
-        sib = fopen(path, "re");
-        if (!sib) {
-            lwan_status_warning("Could not open `%s` to determine CPU topology",
-                                path);
-            return false;
-        }
-
-        switch (fscanf(sib, "%u%c%u", &id, &separator, &sibling)) {
-        case 2: /* No SMT */
-            siblings[i] = id;
-            break;
-        case 3: /* SMT */
-            if (!(separator == ',' || separator == '-')) {
-                lwan_status_critical("Expecting either ',' or '-' for sibling separator");
-                __builtin_unreachable();
-            }
-
-            siblings[i] = sibling;
-            break;
-        default:
-            lwan_status_critical("%s has invalid format", path);
-            __builtin_unreachable();
-        }
-
-        fclose(sib);
-    }
-
-    /* Perform a sanity check here, as some systems seem to filter out the
-     * result of sysconf() to obtain the number of configured and online
-     * CPUs but don't bother changing what's available through sysfs as far
-     * as the CPU topology information goes.  It's better to fall back to a
-     * possibly non-optimal setup than just crash during startup while
-     * trying to perform an out-of-bounds array access.  */
-    for (unsigned int i = 0; i < l->available_cpus; i++) {
-        if (siblings[i] == 0xbebacafe) {
-            lwan_status_warning("Could not determine sibling for CPU %d", i);
-            return false;
-        }
-
-        if (siblings[i] >= l->available_cpus) {
-            lwan_status_warning("CPU information topology says CPU %d exists, "
-                                "but max available CPUs is %d (online CPUs: %d). "
-                                "Is Lwan running in a (broken) container?",
-                                siblings[i], l->available_cpus, l->online_cpus);
-            return false;
-        }
-    }
-
-    return true;
-}
-
 static void
 siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 {
@@ -1019,12 +952,10 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
-    uint32_t *siblings = alloca(l->available_cpus * sizeof(uint32_t));
-
-    if (read_cpu_topology(l, siblings)) {
+    if (l->have_cpu_topology) {
         uint32_t *affinity = alloca(l->available_cpus * sizeof(uint32_t));
 
-        siblings_to_schedtbl(l, siblings, affinity);
+        siblings_to_schedtbl(l, l->cpu_siblings, affinity);
 
         for (uint32_t i = 0; i < n_threads; i++)
             schedtbl[i] = affinity[i % l->available_cpus];
