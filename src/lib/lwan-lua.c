@@ -177,11 +177,19 @@ LWAN_LUA_METHOD(ws_upgrade)
 
 LWAN_LUA_METHOD(ws_write)
 {
+    int data_offs = -1;
+    bool is_text = true;
+
+    if (lua_isboolean(L, -1)) {
+        is_text = lua_toboolean(L, -1);
+        data_offs--;
+    }
+
     size_t data_len;
-    const char *data_str = lua_tolstring(L, -1, &data_len);
+    const char *data_str = lua_tolstring(L, data_offs, &data_len);
 
     lwan_strbuf_set_static(request->response.buffer, data_str, data_len);
-    lwan_response_websocket_write(request);
+    lwan_response_websocket_write(request, is_text);
 
     return 0;
 }

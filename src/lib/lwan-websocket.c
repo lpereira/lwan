@@ -84,13 +84,13 @@ static void write_websocket_frame(struct lwan_request *request,
     lwan_writev(request, vec, N_ELEMENTS(vec));
 }
 
-void lwan_response_websocket_write(struct lwan_request *request)
+void lwan_response_websocket_write(struct lwan_request *request, bool is_text)
 {
     size_t len = lwan_strbuf_get_length(request->response.buffer);
     char *msg = lwan_strbuf_get_buffer(request->response.buffer);
     /* FIXME: does it make a difference if we use WS_OPCODE_TEXT or
      * WS_OPCODE_BINARY? */
-    unsigned char header = 0x80 | WS_OPCODE_TEXT;
+    unsigned char header = 0x80 | (is_text ? WS_OPCODE_TEXT : WS_OPCODE_BINARY);
 
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
         return;
