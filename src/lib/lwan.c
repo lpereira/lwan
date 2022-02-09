@@ -848,6 +848,8 @@ static void read_cpu_topology(struct lwan *l)
 
     l->have_cpu_topology = true;
 }
+#else
+#define read_cpu_topology(...)
 #endif
 
 void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }
@@ -886,9 +888,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
      * and this will block access to /proc and /sys, which will cause
      * get_number_of_cpus() to get incorrect fallback values. */
     get_number_of_cpus(l);
-#if defined(__linux__) && defined(__x86_64__)
     read_cpu_topology(l);
-#endif
 
     try_setup_from_config(l, config);
 
