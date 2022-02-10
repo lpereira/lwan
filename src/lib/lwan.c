@@ -34,6 +34,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 #include "lwan-private.h"
 
 #include "lwan-config.h"
@@ -848,6 +852,24 @@ static void read_cpu_topology(struct lwan *l)
 
     l->have_cpu_topology = true;
 }
+
+#elif defined(__APPLE__)
+static void read_cpu_topology(struct lwan *l)
+{
+    size_t length = sizeof(int);
+    int physical_cores = 1; sysctlbyname("hw.physicalcpu", &physical_cores, &length, NULL, 0);
+    int logical_cores = 1; sysctlbyname("hw.logicalcpu", &logical_cores, &length, NULL, 0);
+    bool ht_enabled = physical_cores != logical_cores;
+
+    l->have_cpu_topology = false;
+
+    for (int i = 0;i < logical_cores;i++) {
+        l->cpu_siblings[i] = i / ((int)ht_enabled + 1);
+    }
+
+    l->have_cpu_topology = true;
+}
+
 #else
 #define read_cpu_topology(...)
 #endif
@@ -888,6 +910,10 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
      * and this will block access to /proc and /sys, which will cause
      * get_number_of_cpus() to get incorrect fallback values. */
     get_number_of_cpus(l);
+
+    lwan_status_debug("%d CPUs of %d are online. "
+                        "Reading topology to pre-schedule clients",
+                        l->online_cpus, l->available_cpus);
     read_cpu_topology(l);
 
     try_setup_from_config(l, config);
