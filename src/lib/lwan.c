@@ -857,8 +857,22 @@ static void read_cpu_topology(struct lwan *l)
 static void read_cpu_topology(struct lwan *l)
 {
     size_t length = sizeof(int);
-    int physical_cores = 1; sysctlbyname("hw.physicalcpu", &physical_cores, &length, NULL, 0);
-    int logical_cores = 1; sysctlbyname("hw.logicalcpu", &logical_cores, &length, NULL, 0);
+    int logical_cores = 1;
+    int physical_cores = 1;
+
+    if (sysctlbyname("hw.logicalcpu", &logical_cores, &length, NULL, 0) < 0) {
+        lwan_status_warning(
+            "Could not get number of physical CPUs, assuming 1 CPU");
+        logical_cores = 1;
+    }
+
+    if (sysctlbyname("hw.physicalcpu", &physical_cores, &length, NULL, 0) < 0) {
+        lwan_status_warning(
+            "Could not get number of physical CPUs, assuming %ld CPUs",
+            logical_cores);
+        physical_cores = logical_cores;
+    }
+
     bool ht_enabled = physical_cores != logical_cores;
 
     l->have_cpu_topology = false;
