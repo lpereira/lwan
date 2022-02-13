@@ -1653,7 +1653,9 @@ lwan_request_get_remote_address(struct lwan_request *request,
 
             return memcpy(buffer, unspecified, sizeof(unspecified));
         }
-    } else if (request->flags & REQUEST_ALLOW_REMOTE_ADDRESS_OVERRIDE && request->helper->xrealip.value && request->helper->xrealip.len) {
+    } else if (request->flags & REQUEST_ALLOW_REMOTE_ADDRESS_OVERRIDE &&
+               request->helper->xrealip.value &&
+               request->helper->xrealip.len) {
         size_t len = LWAN_MIN(request->helper->xrealip.len, INET6_ADDRSTRLEN - 1);
         strncpy(buffer, request->helper->xrealip.value, len), buffer[len] = 0;
         return buffer;
