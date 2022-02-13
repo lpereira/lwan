@@ -516,7 +516,8 @@ information from the request, or to set the response, as seen below:
    - `req:header(name)` obtains the header from the request with the given name or `nil` if not found
    - `req:sleep(ms)` pauses the current handler for the specified amount of milliseconds
    - `req:ws_upgrade()` returns `1` if the connection could be upgraded to a WebSocket; `0` otherwise
-   - `req:ws_write(str[, bool])` sends `str` through the WebSocket-upgraded connection; true: send text frame (default), false: send binary data frame
+   - `req:ws_write_text(str)` sends `str` through the WebSocket-upgraded connection as text frame
+   - `req:ws_write_binary(str)` sends `str` through the WebSocket-upgraded connection as binary frame
    - `req:ws_read()` returns a string with the contents of the last WebSocket frame, or a number indicating an status (ENOTCONN/107 on Linux if it has been disconnected; EAGAIN/11 on Linux if nothing was available; ENOMSG/42 on Linux otherwise).  The return value here might change in the future for something more Lua-like.
    - `req:remote_address()` returns a string with the remote IP address.
    - `req:path()` returns a string with the request path.

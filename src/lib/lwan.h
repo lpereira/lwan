@@ -581,7 +581,8 @@ lwan_request_get_accept_encoding(struct lwan_request *request);
 
 enum lwan_http_status
 lwan_request_websocket_upgrade(struct lwan_request *request);
-void lwan_response_websocket_write(struct lwan_request *request, bool is_text);
+void lwan_response_websocket_write_text(struct lwan_request *request);
+void lwan_response_websocket_write_binary(struct lwan_request *request);
 int lwan_response_websocket_read(struct lwan_request *request);
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint);
 

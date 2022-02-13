@@ -37,7 +37,7 @@ LWAN_HANDLER(ws_write)
 
     while (true) {
         lwan_strbuf_printf(response->buffer, "Some random integer: %d", rand());
-        lwan_response_websocket_write(request, true);
+        lwan_response_websocket_write_text(request);
         lwan_request_sleep(request, 1000);
     }
 
@@ -78,7 +78,7 @@ LWAN_HANDLER(ws_read)
                                seconds_since_last_msg,
                                (int)lwan_strbuf_get_length(last_msg_recv),
                                lwan_strbuf_get_buffer(last_msg_recv));
-            lwan_response_websocket_write(request, true);
+            lwan_response_websocket_write_text(request);
 
             lwan_request_sleep(request, 1000);
             seconds_since_last_msg++;
@@ -143,7 +143,7 @@ LWAN_HANDLER(ws_chat)
 
     lwan_strbuf_printf(response->buffer, "*** Welcome to the chat, User%d!\n",
                        user_id);
-    lwan_response_websocket_write(request, true);
+    lwan_response_websocket_write_text(request);
 
     coro_defer2(request->conn->coro, pub_depart_message, chat,
                 (void *)(intptr_t)user_id);
@@ -166,7 +166,7 @@ LWAN_HANDLER(ws_chat)
                  * happens. */
                 lwan_pubsub_msg_done(msg);
 
-                lwan_response_websocket_write(request, true);
+                lwan_response_websocket_write_text(request);
                 sleep_time = 500;
             }
 

@@ -84,19 +84,27 @@ static void write_websocket_frame(struct lwan_request *request,
     lwan_writev(request, vec, N_ELEMENTS(vec));
 }
 
-void lwan_response_websocket_write(struct lwan_request *request, bool is_text)
+static inline void lwan_response_websocket_write(struct lwan_request *request, int op)
 {
     size_t len = lwan_strbuf_get_length(request->response.buffer);
     char *msg = lwan_strbuf_get_buffer(request->response.buffer);
-    /* FIXME: does it make a difference if we use WS_OPCODE_TEXT or
-     * WS_OPCODE_BINARY? */
-    unsigned char header = 0x80 | (is_text ? WS_OPCODE_TEXT : WS_OPCODE_BINARY);
+    unsigned char header = 0x80 | op;
 
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
         return;
 
     write_websocket_frame(request, header, msg, len);
     lwan_strbuf_reset(request->response.buffer);
+}
+
+void lwan_response_websocket_write_text(struct lwan_request *request)
+{
+    lwan_response_websocket_write(request, WS_OPCODE_TEXT);
+}
+
+void lwan_response_websocket_write_binary(struct lwan_request *request)
+{
+    lwan_response_websocket_write(request, WS_OPCODE_BINARY);
 }
 
 static void send_websocket_pong(struct lwan_request *request, size_t len)
