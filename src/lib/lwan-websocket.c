@@ -68,11 +68,11 @@ static void write_websocket_frame(struct lwan_request *request,
         frame_len = 2;
     } else if (len <= 65535) {
         frame[1] = 0x7e;
-        *((uint16_t *)(frame + 2)) = htons((uint16_t)len);
+        memcpy(frame + 2, &(uint16_t){htons((uint16_t)len)}, sizeof(uint16_t));
         frame_len = 4;
     } else {
         frame[1] = 0x7f;
-        *((uint64_t *)(frame + 2)) = htobe64((uint64_t)len);
+        memcpy(frame + 2, &(uint16_t){htons((uint16_t)len)}, sizeof(uint16_t));
         frame_len = 10;
     }
 
