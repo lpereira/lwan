@@ -135,9 +135,10 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     }
 
     if (LIKELY(*last_dot)) {
-        uint64_t key = string_as_uint64(last_dot + 1);
+        uint64_t key;
         const unsigned char *extension;
 
+        strncpy((char *)&key, last_dot + 1, 8);
         key &= ~0x2020202020202020ull;
 
         extension = bsearch(&key, uncompressed_mime_entries, MIME_ENTRIES, 8,
