@@ -55,9 +55,9 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #ifdef HAVE_BROTLI
-#define CORO_STACK_SIZE (8 * SIGSTKSZ)
+#define CORO_STACK_SIZE ((size_t)(8 * SIGSTKSZ))
 #else
-#define CORO_STACK_SIZE (4 * SIGSTKSZ)
+#define CORO_STACK_SIZE ((size_t)(4 * SIGSTKSZ))
 #endif
 
 #define CORO_BUMP_PTR_ALLOC_SIZE 1024
