@@ -58,6 +58,7 @@ struct coro_defer *coro_defer2(struct coro *coro,
                                void *data1,
                                void *data2);
 void coro_defer_disarm(struct coro *coro, struct coro_defer *defer);
+void coro_defer_fire_and_disarm(struct coro *coro, struct coro_defer *defer);
 
 void coro_deferred_run(struct coro *coro, size_t generation);
 size_t coro_deferred_get_generation(const struct coro *coro);

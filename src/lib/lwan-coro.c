@@ -382,6 +382,19 @@ void coro_defer_disarm(struct coro *coro, struct coro_defer *defer)
     }
 }
 
+void coro_defer_fire_and_disarm(struct coro *coro, struct coro_defer *defer)
+{
+    assert(coro);
+    assert(defer);
+
+    if (defer->has_two_args)
+        defer->two.func(defer->two.data1, defer->two.data2);
+    else
+        defer->one.func(defer->one.data);
+
+    return coro_defer_disarm(coro, defer);
+}
+
 ALWAYS_INLINE struct coro_defer *
 coro_defer(struct coro *coro, defer1_func func, void *data)
 {
