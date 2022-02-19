@@ -38,8 +38,10 @@ static struct cache *realm_password_cache = NULL;
 
 static void zero_and_free(void *str)
 {
-    if (LIKELY(str))
+    if (LIKELY(str)) {
         lwan_always_bzero(str, strlen(str));
+        free(str);
+    }
 }
 
 static struct cache_entry *
