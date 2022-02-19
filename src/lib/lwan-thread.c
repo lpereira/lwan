@@ -222,6 +222,76 @@ static void lwan_setup_tls_free_ssl_context(void *data)
     mbedtls_ssl_free(ssl);
 }
 
+struct lwan_mbedtls_handshake_ctx {
+    int fd;
+    bool last_was_send;
+};
+
+static int lwan_mbedtls_send(void *ctx, const unsigned char *buf, size_t len)
+{
+    struct lwan_mbedtls_handshake_ctx *hs_ctx = ctx;
+    ssize_t r;
+
+    /* We use MSG_MORE -- flushing when we transition from send() to recv()
+     * -- rather than buffering on our side because this contains key
+     * material that we would need to only copy, but also zero out after
+     * finishing the handshake.  */
+
+    r = send(hs_ctx->fd, buf, len, MSG_MORE);
+    if (UNLIKELY(r < 0)) {
+        switch (errno) {
+        case EINTR:
+        case EAGAIN:
+            return MBEDTLS_ERR_SSL_WANT_WRITE;
+
+        default:
+            /* It's not an internal error here, but this seemed the least
+             * innapropriate error code for this situation.  lwan_setup_tls()
+             * doesn't care. */
+            return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+        }
+    }
+
+    if (UNLIKELY((ssize_t)(int)r != r))
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+
+    hs_ctx->last_was_send = true;
+    return (int)r;
+}
+
+static void flush_pending_output(int fd)
+{
+    int zero = 0;
+    setsockopt(fd, SOL_TCP, TCP_CORK, &zero, sizeof(zero));
+}
+
+static int lwan_mbedtls_recv(void *ctx, unsigned char *buf, size_t len)
+{
+    struct lwan_mbedtls_handshake_ctx *hs_ctx = ctx;
+    ssize_t r;
+
+    if (hs_ctx->last_was_send)
+        flush_pending_output(hs_ctx->fd);
+
+    r = recv(hs_ctx->fd, buf, len, 0);
+    if (UNLIKELY(r < 0)) {
+        switch (errno) {
+        case EINTR:
+        case EAGAIN:
+            return MBEDTLS_ERR_SSL_WANT_READ;
+
+        default:
+            return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+        }
+    }
+
+    if (UNLIKELY((ssize_t)(int)r != r))
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+
+    hs_ctx->last_was_send = false;
+    return (int)r;
+}
+
 static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
 {
     mbedtls_ssl_context ssl;
@@ -249,16 +319,15 @@ static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
     }
 
     int fd = lwan_connection_get_fd(l, conn);
-    /* FIXME: This is only required for the handshake; this uses read() and
-     * write() under the hood but maybe we can use something like recv() and
-     * send() instead to force MSG_MORE et al?  (strace shows a few
-     * consecutive calls to write(); this might be sent in separate TCP
-     * fragments.) */
-    mbedtls_ssl_set_bio(&ssl, &fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+
+    struct lwan_mbedtls_handshake_ctx ctx = { .fd = fd };
+    mbedtls_ssl_set_bio(&ssl, &ctx, lwan_mbedtls_send,
+                        lwan_mbedtls_recv, NULL);
 
     while (true) {
         switch (mbedtls_ssl_handshake(&ssl)) {
         case 0:
+            flush_pending_output(fd);
             goto enable_tls_ulp;
         case MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS:
         case MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS:
