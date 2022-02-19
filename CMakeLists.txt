@@ -103,6 +103,8 @@ if (ENABLE_TLS)
 		else ()
 			message(STATUS "mbedTLS not found: not building with TLS support")
 		endif ()
+	else ()
+		message(STATUS "<linux/tls.h> not found: not building with TLS support")
 	endif ()
 endif ()
 
