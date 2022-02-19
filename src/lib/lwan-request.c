@@ -322,14 +322,13 @@ static void parse_key_values(struct lwan_request *request,
     struct lwan_key_value *kv;
     char *ptr = helper_value->value;
     const char *end = helper_value->value + helper_value->len;
+    struct coro_defer *reset_defer;
 
     if (!helper_value->len)
         return;
 
     lwan_key_value_array_init(array);
-    /* Calling lwan_key_value_array_reset() twice is fine, so even if 'goto
-     * error' is executed in this function, nothing bad should happen.  */
-    coro_defer(request->conn->coro, reset_key_value_array, array);
+    reset_defer = coro_defer(request->conn->coro, reset_key_value_array, array);
 
     do {
         char *key, *value;
@@ -368,7 +367,7 @@ static void parse_key_values(struct lwan_request *request,
     return;
 
 error:
-    lwan_key_value_array_reset(array);
+    coro_defer_fire_and_disarm(request->conn->coro, reset_defer);
 }
 
 static ssize_t
@@ -1710,10 +1709,8 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
 
     coro_yield(conn->coro, CONN_CORO_SUSPEND);
 
-    if (defer) {
-        coro_defer_disarm(conn->coro, defer);
-        remove_sleep(wheel, &request->timeout);
-    }
+    if (defer)
+        coro_defer_fire_and_disarm(conn->coro, defer);
 }
 
 ALWAYS_INLINE int
