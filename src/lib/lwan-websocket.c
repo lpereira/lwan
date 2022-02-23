@@ -60,25 +60,24 @@ static void write_websocket_frame(struct lwan_request *request,
                                   char *msg,
                                   size_t len)
 {
-    uint8_t frame[9];
+    uint8_t frame[10] = { header_byte };
     size_t frame_len;
 
     if (len <= 125) {
-        frame[0] = (uint8_t)len;
-        frame_len = 1;
+        frame[1] = (uint8_t)len;
+        frame_len = 2;
     } else if (len <= 65535) {
-        frame[0] = 0x7e;
-        memcpy(frame + 1, &(uint16_t){htons((uint16_t)len)}, sizeof(uint16_t));
-        frame_len = 3;
+        frame[1] = 0x7e;
+        memcpy(frame + 2, &(uint16_t){htons((uint16_t)len)}, sizeof(uint16_t));
+        frame_len = 4;
     } else {
-        frame[0] = 0x7f;
-        memcpy(frame + 1, &(uint64_t){htobe64((uint64_t)len)},
+        frame[1] = 0x7f;
+        memcpy(frame + 2, &(uint64_t){htobe64((uint64_t)len)},
                sizeof(uint64_t));
-        frame_len = 9;
+        frame_len = 10;
     }
 
     struct iovec vec[] = {
-        {.iov_base = &header_byte, .iov_len = 1},
         {.iov_base = frame, .iov_len = frame_len},
         {.iov_base = msg, .iov_len = len},
     };
@@ -86,7 +85,7 @@ static void write_websocket_frame(struct lwan_request *request,
     lwan_writev(request, vec, N_ELEMENTS(vec));
 }
 
-void lwan_response_websocket_write(struct lwan_request *request)
+static inline void lwan_response_websocket_write(struct lwan_request *request, unsigned char op)
 {
     size_t len = lwan_strbuf_get_length(request->response.buffer);
     char *msg = lwan_strbuf_get_buffer(request->response.buffer);
@@ -99,6 +98,16 @@ void lwan_response_websocket_write(struct lwan_request *request)
 
     write_websocket_frame(request, header, msg, len);
     lwan_strbuf_reset(request->response.buffer);
+}
+
+void lwan_response_websocket_write_text(struct lwan_request *request)
+{
+    lwan_response_websocket_write(request, WS_OPCODE_TEXT);
+}
+
+void lwan_response_websocket_write_binary(struct lwan_request *request)
+{
+    lwan_response_websocket_write(request, WS_OPCODE_BINARY);
 }
 
 static void send_websocket_pong(struct lwan_request *request, size_t len)
