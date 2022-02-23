@@ -175,13 +175,24 @@ LWAN_LUA_METHOD(ws_upgrade)
     return 1;
 }
 
-LWAN_LUA_METHOD(ws_write)
+LWAN_LUA_METHOD(ws_write_text)
 {
     size_t data_len;
     const char *data_str = lua_tolstring(L, -1, &data_len);
 
     lwan_strbuf_set_static(request->response.buffer, data_str, data_len);
-    lwan_response_websocket_write(request);
+    lwan_response_websocket_write_text(request);
+
+    return 0;
+}
+
+LWAN_LUA_METHOD(ws_write_binary)
+{
+    size_t data_len;
+    const char *data_str = lua_tolstring(L, -1, &data_len);
+
+    lwan_strbuf_set_static(request->response.buffer, data_str, data_len);
+    lwan_response_websocket_write_binary(request);
 
     return 0;
 }
