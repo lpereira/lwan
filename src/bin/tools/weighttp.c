@@ -598,7 +598,7 @@ client_connect (Client * const restrict client)
         }
 
         int rc;
-      #ifdef TCP_FASTOPEN
+      #if defined(TCP_FASTOPEN) && ! defined(__APPLE__)
         ssize_t wr = 0;
         if (client->tcp_fastopen) {/*(disabled if config->proxy is AF_UNIX)*/
             wr = sendto(fd, client->request, client->request_size,
