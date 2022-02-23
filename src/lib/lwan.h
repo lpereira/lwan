@@ -497,6 +497,9 @@ struct lwan {
 
     unsigned int online_cpus;
     unsigned int available_cpus;
+
+    bool have_cpu_topology;
+    unsigned int cpu_siblings[128];
 };
 
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map);

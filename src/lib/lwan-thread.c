@@ -31,6 +31,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/thread_act.h>
+#endif
+
 #if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
 #include <linux/filter.h>
 #endif
@@ -995,74 +1000,7 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
         lwan_status_critical_perror("pthread_attr_destroy");
 }
 
-#if defined(__linux__) && defined(__x86_64__)
-static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
-{
-    char path[PATH_MAX];
-
-    for (uint32_t i = 0; i < l->available_cpus; i++)
-        siblings[i] = 0xbebacafe;
-
-    for (unsigned int i = 0; i < l->available_cpus; i++) {
-        FILE *sib;
-        uint32_t id, sibling;
-        char separator;
-
-        snprintf(path, sizeof(path),
-                 "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list",
-                 i);
-
-        sib = fopen(path, "re");
-        if (!sib) {
-            lwan_status_warning("Could not open `%s` to determine CPU topology",
-                                path);
-            return false;
-        }
-
-        switch (fscanf(sib, "%u%c%u", &id, &separator, &sibling)) {
-        case 2: /* No SMT */
-            siblings[i] = id;
-            break;
-        case 3: /* SMT */
-            if (!(separator == ',' || separator == '-')) {
-                lwan_status_critical("Expecting either ',' or '-' for sibling separator");
-                __builtin_unreachable();
-            }
-
-            siblings[i] = sibling;
-            break;
-        default:
-            lwan_status_critical("%s has invalid format", path);
-            __builtin_unreachable();
-        }
-
-        fclose(sib);
-    }
-
-    /* Perform a sanity check here, as some systems seem to filter out the
-     * result of sysconf() to obtain the number of configured and online
-     * CPUs but don't bother changing what's available through sysfs as far
-     * as the CPU topology information goes.  It's better to fall back to a
-     * possibly non-optimal setup than just crash during startup while
-     * trying to perform an out-of-bounds array access.  */
-    for (unsigned int i = 0; i < l->available_cpus; i++) {
-        if (siblings[i] == 0xbebacafe) {
-            lwan_status_warning("Could not determine sibling for CPU %d", i);
-            return false;
-        }
-
-        if (siblings[i] >= l->available_cpus) {
-            lwan_status_warning("CPU information topology says CPU %d exists, "
-                                "but max available CPUs is %d (online CPUs: %d). "
-                                "Is Lwan running in a (broken) container?",
-                                siblings[i], l->available_cpus, l->online_cpus);
-            return false;
-        }
-    }
-
-    return true;
-}
-
+#if (defined(__linux__) && defined(__x86_64__)) || defined(__APPLE__)
 static void
 siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 {
@@ -1090,10 +1028,10 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     uint32_t *siblings = alloca(l->available_cpus * sizeof(uint32_t));
 
-    if (read_cpu_topology(l, siblings)) {
+    if (l->have_cpu_topology) {
         uint32_t *affinity = alloca(l->available_cpus * sizeof(uint32_t));
 
-        siblings_to_schedtbl(l, siblings, affinity);
+        siblings_to_schedtbl(l, l->cpu_siblings, affinity);
 
         for (uint32_t i = 0; i < n_threads; i++)
             schedtbl[i] = affinity[i % l->available_cpus];
@@ -1104,7 +1042,9 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
         schedtbl[i] = (i / 2) % l->thread.count;
     return false;
 }
+#endif
 
+#if defined(__linux__) && defined(__x86_64__)
 static void
 adjust_thread_affinity(const struct lwan_thread *thread)
 {
@@ -1116,6 +1056,17 @@ adjust_thread_affinity(const struct lwan_thread *thread)
     if (pthread_setaffinity_np(thread->self, sizeof(set), &set))
         lwan_status_warning("Could not set thread affinity");
 }
+#elif defined(__APPLE__)
+static void
+adjust_thread_affinity(const struct lwan_thread *thread)
+{
+    thread_affinity_policy_data_t policy = { (integer_t)thread->cpu };
+	if (thread_policy_set(pthread_mach_thread_np(thread->self), THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, 1) != KERN_SUCCESS) {
+        lwan_status_warning("Could not set thread affinity");
+    }
+}
+#else
+#define adjust_thread_affinity(...)
 #endif
 
 #if defined(HAVE_MBEDTLS)
@@ -1260,16 +1211,13 @@ void lwan_thread_init(struct lwan *l)
     uint32_t n_threads;
     bool adj_affinity;
 
-#if defined(__x86_64__) && defined(__linux__)
+#if (defined(__x86_64__) && defined(__linux__)) || defined(__APPLE__)
     if (l->online_cpus > 1) {
         static_assert(sizeof(struct lwan_connection) == 32,
                       "Two connections per cache line");
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
-        lwan_status_debug("%d CPUs of %d are online. "
-                          "Reading topology to pre-schedule clients",
-                          l->online_cpus, l->available_cpus);
         /*
          * Pre-schedule each file descriptor, to reduce some operations in the
          * fast path.
@@ -1289,7 +1237,7 @@ void lwan_thread_init(struct lwan *l)
         for (unsigned int i = 0; i < total_conns; i++)
             l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
     } else
-#endif /* __x86_64__ && __linux__ */
+#endif /* (__x86_64__ && __linux__) || __APPLE__ */
     {
         lwan_status_debug("Using round-robin to preschedule clients");
 
