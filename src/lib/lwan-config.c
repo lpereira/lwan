@@ -113,12 +113,28 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
 {
     unsigned int total = 0;
     unsigned int period;
+    int ignored_spaces = 0;
     char multiplier;
 
     if (!str)
         return default_value;
 
-    while (*str && sscanf(str, "%u%c", &period, &multiplier) == 2) {
+    while (*str) {
+        /* This check is necessary to avoid making sscanf() take an incredible
+         * amount of time while trying to scan the input for a number.  Fix for
+         * https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=44910 */
+        if (isspace(*str)) {
+            ignored_spaces++;
+
+            if (ignored_spaces > 1024)
+                break;
+
+            continue;
+        }
+
+        if (sscanf(str, "%u%c", &period, &multiplier) != 2)
+            break;
+
         switch (multiplier) {
         case 's': total += period; break;
         case 'm': total += period * ONE_MINUTE; break;
