@@ -34,6 +34,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 #include "lwan-private.h"
 
 #include "lwan-config.h"
@@ -773,6 +777,112 @@ static void get_number_of_cpus(struct lwan *l)
     l->available_cpus = (unsigned int)n_available_cpus;
 }
 
+#if defined(__linux__) && defined(__x86_64__)
+static void read_cpu_topology(struct lwan *l)
+{
+    char path[PATH_MAX];
+    unsigned int available_cpus = LWAN_MIN(l->available_cpus, sizeof(l->cpu_siblings) / sizeof(l->cpu_siblings[0]));
+
+    l->have_cpu_topology = false;
+
+    for (uint32_t i = 0; i < available_cpus; i++)
+        l->cpu_siblings[i] = 0xbebacafe;
+
+    for (unsigned int i = 0; i < available_cpus; i++) {
+        FILE *sib;
+        uint32_t id, sibling;
+        char separator;
+
+        snprintf(path, sizeof(path),
+                 "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list",
+                 i);
+
+        sib = fopen(path, "re");
+        if (!sib) {
+            lwan_status_warning("Could not open `%s` to determine CPU topology",
+                                path);
+            return;
+        }
+
+        switch (fscanf(sib, "%u%c%u", &id, &separator, &sibling)) {
+        case 2: /* No SMT */
+            l->cpu_siblings[i] = id;
+            break;
+        case 3: /* SMT */
+            if (!(separator == ',' || separator == '-')) {
+                lwan_status_critical("Expecting either ',' or '-' for sibling separator");
+                __builtin_unreachable();
+            }
+
+            l->cpu_siblings[i] = sibling;
+            break;
+        default:
+            lwan_status_critical("%s has invalid format", path);
+            __builtin_unreachable();
+        }
+
+        fclose(sib);
+    }
+
+    /* Perform a sanity check here, as some systems seem to filter out the
+     * result of sysconf() to obtain the number of configured and online
+     * CPUs but don't bother changing what's available through sysfs as far
+     * as the CPU topology information goes.  It's better to fall back to a
+     * possibly non-optimal setup than just crash during startup while
+     * trying to perform an out-of-bounds array access.  */
+    for (unsigned int i = 0; i < available_cpus; i++) {
+        if (l->cpu_siblings[i] == 0xbebacafe) {
+            lwan_status_warning("Could not determine sibling for CPU %d", i);
+            return;
+        }
+
+        if (l->cpu_siblings[i] >= available_cpus) {
+            lwan_status_warning("CPU information topology says CPU %d exists, "
+                                "but max available CPUs is %d (online CPUs: %d). "
+                                "Is Lwan running in a (broken) container?",
+                                l->cpu_siblings[i], available_cpus, l->online_cpus);
+            return;
+        }
+    }
+
+    l->have_cpu_topology = true;
+}
+#elif defined(__APPLE__)
+static void read_cpu_topology(struct lwan *l)
+{
+    size_t length = sizeof(int);
+    int logical_cores = 1;
+    int physical_cores = 1;
+
+    l->have_cpu_topology = false;
+
+    if (sysctlbyname("hw.logicalcpu", &logical_cores, &length, NULL, 0) < 0) {
+        lwan_status_warning(
+            "Could not get number of physical CPUs, assuming 1 CPU");
+        logical_cores = 1;
+    }
+
+    if (sysctlbyname("hw.physicalcpu", &physical_cores, &length, NULL, 0) < 0) {
+        lwan_status_warning(
+            "Could not get number of physical CPUs, assuming %ld CPUs",
+            logical_cores);
+        physical_cores = logical_cores;
+    }
+
+    bool ht_enabled = physical_cores != logical_cores;
+
+    int step = ((int)ht_enabled + 1);
+    for (int i = 0;i < logical_cores;i++) {
+        l->cpu_siblings[i] = (i / step) * step;
+        printf("%d\n", l->cpu_siblings[i]);
+    }
+
+    l->have_cpu_topology = true;
+}
+#else
+#define read_cpu_topology(...)
+#endif
+
 void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }
 
 const struct lwan_config *lwan_get_default_config(void)
@@ -809,6 +919,11 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
      * and this will block access to /proc and /sys, which will cause
      * get_number_of_cpus() to get incorrect fallback values. */
     get_number_of_cpus(l);
+
+    lwan_status_debug("%d CPUs of %d are online. "
+                        "Reading topology to pre-schedule clients",
+                        l->online_cpus, l->available_cpus);
+    read_cpu_topology(l);
 
     try_setup_from_config(l, config);
 
