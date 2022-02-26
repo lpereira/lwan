@@ -1010,7 +1010,7 @@ class TestFuzzRegressionBase(SocketTest):
 TestFuzzRegression = type('TestFuzzRegression', (TestFuzzRegressionBase,), {
   "test_" + name.replace("-", "_"): TestFuzzRegressionBase.wrap(name)
   for name in (
-    cf for cf in os.listdir("fuzz/regression") if cf.startswith(("clusterfuzz-", "crash-"))
+    cf for cf in os.listdir("fuzz/regression") if cf.startswith(("clusterfuzz-", "crash-") and "request_fuzzer" in cf)
   )
 })
 
