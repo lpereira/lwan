@@ -44,18 +44,18 @@
 
 #ifdef NEED_ALLOCA_H
 #undef NEED_ALLOCA_H
-#ifdef HAVE_ALLOCA_H
+#ifdef LWAN_HAVE_ALLOCA_H
 #include <alloca.h>
 #else
 #include <stdlib.h>
 #endif
 #endif
 
-#ifndef HAVE_MEMPCPY
+#ifndef LWAN_HAVE_MEMPCPY
 void *mempcpy(void *dest, const void *src, size_t len);
 #endif
 
-#ifndef HAVE_MEMRCHR
+#ifndef LWAN_HAVE_MEMRCHR
 void *memrchr(const void *s, int c, size_t n);
 #endif
 

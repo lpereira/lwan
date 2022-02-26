@@ -27,12 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan-build-config.h"
 #include "lwan-private.h"
 
 #include "lwan-lua.h"
 
-#if defined(HAVE_LUA_JIT)
+#if defined(LWAN_HAVE_LUA_JIT)
 #define luaL_reg luaL_Reg
 #endif
 

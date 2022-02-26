@@ -134,7 +134,7 @@ static long gettid_cached(void)
 
 #define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
 
-#ifdef HAVE_SYSLOG
+#ifdef LWAN_HAVE_SYSLOG
 
 #include <lwan-strbuf.h>
 #include <syslog.h>

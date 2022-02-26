@@ -57,38 +57,41 @@ static void
 print_build_time_configuration(void)
 {
     printf("Build-time configuration:");
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
     printf(" Lua");
 #endif
-#ifdef HAVE_BROTLI
+#ifdef LWAN_HAVE_BROTLI
     printf(" Brotli");
 #endif
-#ifdef HAVE_ZSTD
+#ifdef LWAN_HAVE_ZSTD
     printf(" zstd");
 #endif
-#ifdef HAVE_MBEDTLS
+#ifdef LWAN_HAVE_MBEDTLS
     printf(" mbedTLS");
 #endif
-#ifdef HAVE_LIBUCONTEXT
+#ifdef LWAN_HAVE_LIBUCONTEXT
     printf(" libucontext");
 #endif
-#ifdef HAVE_EPOLL
+#ifdef LWAN_HAVE_EPOLL
     printf(" epoll");
 #endif
-#ifdef HAVE_KQUEUE
+#ifdef LWAN_HAVE_KQUEUE
     printf(" kqueue");
 #endif
-#ifdef HAVE_SO_ATTACH_REUSEPORT_CBPF
+#ifdef LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF
     printf(" sockopt-reuseport-CBPF");
 #endif
-#ifdef HAVE_SO_INCOMING_CPU
+#ifdef LWAN_HAVE_SO_INCOMING_CPU
     printf(" sockopt-reuseport-incoming-cpu");
 #endif
-#ifdef HAVE_VALGRIND
+#ifdef LWAN_HAVE_VALGRIND
     printf(" valgrind");
 #endif
-#ifdef HAVE_SYSLOG
+#ifdef LWAN_HAVE_SYSLOG
     printf(" syslog");
+#endif
+#ifdef HAVE_PYTHON
+    printf(" python");
 #endif
     printf(".\n");
 }

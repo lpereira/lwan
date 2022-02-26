@@ -21,7 +21,7 @@
 #ifndef __MISSING_CAPABILITY_H__
 #define __MISSING_CAPABILITY_H__
 
-#if defined(__linux__) && defined(HAVE_LINUX_CAPABILITY)
+#if defined(__linux__) && defined(LWAN_HAVE_LINUX_CAPABILITY)
 
 #include_next <linux/capability.h>
 #include <stdio.h>

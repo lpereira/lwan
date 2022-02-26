@@ -18,7 +18,7 @@
  * USA.
  */
 
-#if !defined(HAVE_EPOLL)
+#if !defined(LWAN_HAVE_EPOLL)
 #pragma once
 #include <stdint.h>
 

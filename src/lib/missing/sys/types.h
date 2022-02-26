@@ -23,7 +23,7 @@
 #ifndef MISSING_SYS_TYPES_H
 #define MISSING_SYS_TYPES_H
 
-#ifndef HAVE_GETTID
+#ifndef LWAN_HAVE_GETTID
 pid_t gettid(void);
 #endif
 

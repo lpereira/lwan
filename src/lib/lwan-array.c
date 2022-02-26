@@ -41,7 +41,7 @@ int lwan_array_reset(struct lwan_array *a, void *inline_storage)
     return 0;
 }
 
-#if !defined(HAVE_BUILTIN_ADD_OVERFLOW)
+#if !defined(LWAN_HAVE_BUILTIN_ADD_OVERFLOW)
 static inline bool add_overflow(size_t a, size_t b, size_t *out)
 {
     if (UNLIKELY(a > 0 && b > SIZE_MAX - a))

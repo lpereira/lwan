@@ -236,14 +236,16 @@ static void emit_lexeme(struct lexer *lexer, struct lexeme *lexeme)
         lexer->start = lexer->pos;
 }
 
+static size_t current_len(struct lexer *lexer)
+{
+    return (size_t)(lexer->pos - lexer->start);
+}
+
 static void emit(struct lexer *lexer, enum lexeme_type type)
 {
     struct lexeme lexeme = {
         .type = type,
-        .value = {
-            .value = lexer->start,
-            .len = (size_t)(lexer->pos - lexer->start)
-        }
+        .value = {.value = lexer->start, .len = current_len(lexer)},
     };
     emit_lexeme(lexer, &lexeme);
 }
@@ -402,6 +404,10 @@ static void *lex_variable(struct lexer *lexer)
 
         if (chr == ':') {
             backup(lexer);
+
+            if (!current_len(lexer))
+                return LEX_ERROR(lexer, "Expecting environment variable name");
+
             emit(lexer, LEXEME_VARIABLE_DEFAULT);
             advance_n(lexer, strlen(":"));
             return lex_variable_default;
@@ -409,6 +415,10 @@ static void *lex_variable(struct lexer *lexer)
 
         if (chr == '}') {
             backup(lexer);
+
+            if (!current_len(lexer))
+                return LEX_ERROR(lexer, "Expecting environment variable name");
+
             emit(lexer, LEXEME_VARIABLE);
             advance_n(lexer, strlen("}"));
 
@@ -851,7 +861,7 @@ struct config *config_open(const char *path)
     return config ? config_init_data(config, data, len) : NULL;
 }
 
-#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+//#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 struct config *config_open_for_fuzzing(const uint8_t *data, size_t len)
 {
     struct config *config = malloc(sizeof(*config));
@@ -865,7 +875,7 @@ struct config *config_open_for_fuzzing(const uint8_t *data, size_t len)
 
     return NULL;
 }
-#endif
+//#endif
 
 void config_close(struct config *config)
 {

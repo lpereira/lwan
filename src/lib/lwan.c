@@ -39,7 +39,7 @@
 #include "lwan-config.h"
 #include "lwan-http-authorize.h"
 
-#if defined(HAVE_LUA)
+#if defined(LWAN_HAVE_LUA)
 #include "lwan-lua.h"
 #endif
 
@@ -453,7 +453,7 @@ out:
 
 static void parse_tls_listener(struct config *conf, const struct config_line *line, struct lwan *lwan)
 {
-#if !defined(HAVE_MBEDTLS)
+#if !defined(LWAN_HAVE_MBEDTLS)
     config_error(conf, "Lwan has been built without mbedTLS support");
     return;
 #endif

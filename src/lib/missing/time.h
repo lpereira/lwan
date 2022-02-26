@@ -23,7 +23,7 @@
 #ifndef MISSING_TIME_H
 #define MISSING_TIME_H
 
-#ifndef HAVE_CLOCK_GETTIME
+#ifndef LWAN_HAVE_CLOCK_GETTIME
 typedef int clockid_t;
 int clock_gettime(clockid_t clk_id, struct timespec *ts);
 #endif

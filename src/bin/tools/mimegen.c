@@ -26,11 +26,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
 #include <brotli/encode.h>
-#elif defined(HAVE_ZSTD)
+#elif defined(LWAN_HAVE_ZSTD)
 #include <zstd.h>
-#elif defined(HAVE_ZOPFLI)
+#elif defined(LWAN_HAVE_ZOPFLI)
 #include <zopfli/zopfli.h>
 #else
 #include <zlib.h>
@@ -110,7 +110,7 @@ static char *compress_output(const struct output *output, size_t *outlen)
 {
     char *compressed;
 
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     *outlen = BrotliEncoderMaxCompressedSize(output->used);
 
     compressed = malloc(*outlen);
@@ -126,7 +126,7 @@ static char *compress_output(const struct output *output, size_t *outlen)
         fprintf(stderr, "Could not compress mime type table with Brotli\n");
         exit(1);
     }
-#elif defined(HAVE_ZSTD)
+#elif defined(LWAN_HAVE_ZSTD)
     *outlen = ZSTD_compressBound(output->used);
 
     compressed = malloc(*outlen);
@@ -141,7 +141,7 @@ static char *compress_output(const struct output *output, size_t *outlen)
         fprintf(stderr, "Could not compress mime type table with ZSTD\n");
         exit(1);
     }
-#elif defined(HAVE_ZOPFLI)
+#elif defined(LWAN_HAVE_ZOPFLI)
     ZopfliOptions opts;
 
     *outlen = 0;
@@ -332,11 +332,11 @@ int main(int argc, char *argv[])
     }
 
     /* Print output. */
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     printf("/* Compressed with brotli */\n");
-#elif defined(HAVE_ZSTD)
+#elif defined(LWAN_HAVE_ZSTD)
     printf("/* Compressed with zstd */\n");
-#elif defined(HAVE_ZOPFLI)
+#elif defined(LWAN_HAVE_ZOPFLI)
     printf("/* Compressed with zopfli (deflate) */\n");
 #else
     printf("/* Compressed with zlib (deflate) */\n");

@@ -37,7 +37,14 @@ static bool dump(struct config *config, int indent_level)
         }
     }
 
-    return config_last_error(config);
+    const char *error = config_last_error(config);
+
+    if (error) {
+        printf("Error: %s\n", error);
+        return false;
+    }
+
+    return true;
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)

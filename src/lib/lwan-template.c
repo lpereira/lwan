@@ -897,7 +897,7 @@ void lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr)
 
 bool lwan_tpl_double_is_empty(void *ptr)
 {
-#if defined(HAVE_BUILTIN_FPCLASSIFY)
+#if defined(LWAN_HAVE_BUILTIN_FPCLASSIFY)
     return __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL,
                                 FP_ZERO, *(double *)ptr);
 #else

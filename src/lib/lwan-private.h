@@ -136,7 +136,7 @@ uint8_t lwan_char_isdigit(char ch) __attribute__((pure));
 
 static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
 {
-#if defined(HAVE_BUILTIN_CLZLL)
+#if defined(LWAN_HAVE_BUILTIN_CLZLL)
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
 
     if (sizeof(size_t) == sizeof(unsigned int)) {
@@ -163,7 +163,7 @@ static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
     return number + 1;
 }
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ssl.h>
@@ -179,7 +179,7 @@ struct lwan_tls_context {
 };
 #endif
 
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
 #include <lua.h>
 
 lua_State *lwan_lua_create_state(const char *script_file, const char *script);

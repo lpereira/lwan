@@ -32,7 +32,7 @@
 #include "lwan-mod-rewrite.h"
 #include "lwan-strbuf.h"
 
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -221,7 +221,7 @@ static ALWAYS_INLINE const char *expand(const struct pattern *pattern,
     return expand_string(pattern->expand_pattern, orig, buffer, sf, captures);
 }
 
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
 static void
 lua_close_defer(void *data)
 {
@@ -413,7 +413,7 @@ static bool condition_matches(struct lwan_request *request,
             return false;
     }
 
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
     if (p->flags & PATTERN_COND_LUA) {
         assert(p->condition.lua.script);
 
@@ -472,7 +472,7 @@ rewrite_handle_request(struct lwan_request *request,
             continue;
 
         switch (p->flags & PATTERN_EXPAND_MASK) {
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
         case PATTERN_EXPAND_LUA:
             expanded = expand_lua(request, p, url, final_url, sf, captures);
             break;
@@ -541,7 +541,7 @@ static void rewrite_destroy(void *instance)
         if (iter->flags & PATTERN_COND_STAT) {
             free(iter->condition.stat.path);
         }
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
         if (iter->flags & PATTERN_COND_LUA) {
             free(iter->condition.lua.script);
         }
@@ -819,7 +819,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
                 }
                 pattern->flags |= PATTERN_COND_METHOD;
             } else
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
             if (streq(line->key, "condition_lua")) {
                 pattern->condition.lua.script = strdup(line->value);
                 if (!pattern->condition.lua.script)
@@ -859,7 +859,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
                 goto out;
             }
             if (expand_with_lua) {
-#ifdef HAVE_LUA
+#ifdef LWAN_HAVE_LUA
                 pattern->flags |= PATTERN_EXPAND_LUA;
 #else
                 config_error(config, "Lwan has been built without Lua. "

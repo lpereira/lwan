@@ -45,8 +45,12 @@ set(SOURCES
 	timeout.c
 )
 
-if (HAVE_LUA)
+if (LWAN_HAVE_LUA)
 	list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c)
+endif ()
+
+if (LWAN_HAVE_PYTHON)
+	list(APPEND SOURCES lwan-mod-wsgi.c)
 endif ()
 
 add_library(lwan-static STATIC ${SOURCES})
@@ -154,6 +158,8 @@ install(FILES
 	lwan-mod-rewrite.h
 	lwan-mod-response.h
 	lwan-mod-redirect.h
+	lwan-mod-lua.h
+	lwan-mod-wsgi.h
 	lwan-status.h
 	lwan-template.h
 	lwan-trie.h

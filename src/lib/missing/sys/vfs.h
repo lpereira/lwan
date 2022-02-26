@@ -29,7 +29,7 @@
 #ifndef _MISSING_VFS_H_
 #define _MISSING_VFS_H_
 
-#if !defined(HAVE_STATFS)
+#if !defined(LWAN_HAVE_STATFS)
 struct statfs {
     int f_type;
 };

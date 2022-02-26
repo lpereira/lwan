@@ -23,7 +23,7 @@
 #define MISSING_ASSERT_H
 
 #undef static_assert
-#if defined(HAVE_STATIC_ASSERT)
+#if defined(LWAN_HAVE_STATIC_ASSERT)
 # define static_assert(expr, msg)	_Static_assert(expr, msg)
 #else
 # define static_assert(expr, msg)

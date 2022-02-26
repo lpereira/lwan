@@ -28,7 +28,7 @@
 
 #include "lwan-private.h"
 
-#ifndef HAVE_PTHREADBARRIER
+#ifndef LWAN_HAVE_PTHREADBARRIER
 #define PTHREAD_BARRIER_SERIAL_THREAD -1
 
 int

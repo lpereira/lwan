@@ -39,7 +39,7 @@
 #define SOMAXCONN 128
 #endif
 
-#ifndef HAVE_ACCEPT4
+#ifndef LWAN_HAVE_ACCEPT4
 int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags);
 #endif
 

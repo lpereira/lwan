@@ -33,7 +33,7 @@
 #include "lwan-array.h"
 #include "lwan-coro.h"
 
-#if !defined(NDEBUG) && defined(HAVE_VALGRIND)
+#if !defined(NDEBUG) && defined(LWAN_HAVE_VALGRIND)
 #define INSTRUMENT_FOR_VALGRIND
 #include <valgrind.h>
 #include <memcheck.h>
@@ -54,7 +54,7 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #define SIGSTKSZ 16384
 #endif
 
-#ifdef HAVE_BROTLI
+#ifdef LWAN_HAVE_BROTLI
 #define CORO_STACK_SIZE ((size_t)(8 * SIGSTKSZ))
 #else
 #define CORO_STACK_SIZE ((size_t)(4 * SIGSTKSZ))
@@ -181,7 +181,7 @@ asm(".text\n\t"
     "movq   64(%rsi),%rcx\n\t"
     "movq   56(%rsi),%rsi\n\t"
     "jmpq   *%rcx\n\t");
-#elif defined(HAVE_LIBUCONTEXT)
+#elif defined(LWAN_HAVE_LIBUCONTEXT)
 #define coro_swapcontext(cur, oth) libucontext_swapcontext(cur, oth)
 #else
 #error Unsupported platform.
@@ -256,7 +256,7 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 
 #define STACK_PTR 9
     coro->context[STACK_PTR] = (rsp & ~0xful) - 0x8ul;
-#elif defined(HAVE_LIBUCONTEXT)
+#elif defined(LWAN_HAVE_LIBUCONTEXT)
     libucontext_getcontext(&coro->context);
 
     coro->context.uc_stack.ss_sp = stack;

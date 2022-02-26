@@ -125,7 +125,7 @@ static inline unsigned int hash_int_shift_mult(const void *keyptr)
     return key;
 }
 
-#if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
+#if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
 static inline unsigned int hash_str_crc32(const void *keyptr)
 {
     unsigned int hash = odd_constant;
@@ -178,7 +178,7 @@ __attribute__((constructor(65535))) static void initialize_odd_constant(void)
     odd_constant |= 1;
     murmur3_set_seed(odd_constant);
 
-#if defined(HAVE_BUILTIN_CPU_INIT) && defined(HAVE_BUILTIN_IA32_CRC32)
+#if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
     __builtin_cpu_init();
     if (__builtin_cpu_supports("sse4.2")) {
         hash_str = hash_str_crc32;

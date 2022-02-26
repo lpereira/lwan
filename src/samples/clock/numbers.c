@@ -10,7 +10,7 @@
  * implied warranty.
  */
 
-#ifdef HAVE_CONFIG_H
+#ifdef LWAN_HAVE_CONFIG_H
 #include "config.h"
 #endif
 

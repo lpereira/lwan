@@ -481,7 +481,7 @@ struct lwan {
     struct lwan_connection *conns;
     struct lwan_value headers;
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     struct lwan_tls_context *tls;
 #endif
 

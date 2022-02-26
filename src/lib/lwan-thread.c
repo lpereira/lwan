@@ -31,11 +31,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
+#if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
 #include <linux/filter.h>
 #endif
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
 #include <mbedtls/entropy.h>
 #include <mbedtls/error.h>
 #include <mbedtls/gcm.h>
@@ -148,7 +148,7 @@ uint64_t lwan_request_get_id(struct lwan_request *request)
     return helper->request_id;
 }
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
 static bool
 lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
 {
@@ -270,8 +270,10 @@ static int lwan_mbedtls_recv(void *ctx, unsigned char *buf, size_t len)
     struct lwan_mbedtls_handshake_ctx *hs_ctx = ctx;
     ssize_t r;
 
-    if (hs_ctx->last_was_send)
+    if (hs_ctx->last_was_send) {
         flush_pending_output(hs_ctx->fd);
+        hs_ctx->last_was_send = false;
+    }
 
     r = recv(hs_ctx->fd, buf, len, 0);
     if (UNLIKELY(r < 0)) {
@@ -288,7 +290,6 @@ static int lwan_mbedtls_recv(void *ctx, unsigned char *buf, size_t len)
     if (UNLIKELY((ssize_t)(int)r != r))
         return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
 
-    hs_ctx->last_was_send = false;
     return (int)r;
 }
 
@@ -382,7 +383,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     const size_t init_gen = 1; /* 1 call to coro_defer() */
     assert(init_gen == coro_deferred_get_generation(coro));
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     if (conn->flags & CONN_TLS) {
         if (UNLIKELY(!lwan_setup_tls(lwan, conn))) {
             coro_yield(conn->coro, CONN_CORO_ABORT);
@@ -677,7 +678,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
                                      struct timeout_queue *tq)
 {
     struct lwan_thread *t = conn->thread;
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_TLS;
 #else
     const enum lwan_connection_flags flags_to_keep = 0;
@@ -788,7 +789,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
     int listen_fd = (int)(intptr_t)(listen_socket - conns);
     enum lwan_connection_flags new_conn_flags = 0;
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     if (listen_socket->flags & CONN_LISTENER_HTTPS) {
         assert(listen_fd == t->tls_listen_fd);
         assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
@@ -852,7 +853,7 @@ static int create_listen_socket(struct lwan_thread *t,
         lwan_status_critical("Could not create listen_fd");
 
      /* Ignore errors here, as this is just a hint */
-#if defined(HAVE_SO_ATTACH_REUSEPORT_CBPF)
+#if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
     /* From socket(7): "These  options may be set repeatedly at any time on
      * any socket in the group to replace the current BPF program used by
      * all sockets in the group." */
@@ -872,7 +873,7 @@ static int create_listen_socket(struct lwan_thread *t,
         (void)setsockopt(listen_fd, SOL_SOCKET, SO_LOCK_FILTER,
                          (int[]){1}, sizeof(int));
     }
-#elif defined(HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
+#elif defined(LWAN_HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
     (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu,
                      sizeof(t->cpu));
 #endif
@@ -1118,7 +1119,7 @@ adjust_thread_affinity(const struct lwan_thread *thread)
 }
 #endif
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
 static bool is_tls_ulp_supported(void)
 {
     FILE *available_ulp = fopen("/proc/sys/net/ipv4/tcp_available_ulp", "re");
@@ -1243,7 +1244,7 @@ static bool lwan_init_tls(struct lwan *l)
 void lwan_thread_init(struct lwan *l)
 {
     const unsigned int total_conns = l->thread.max_fd * l->thread.count;
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     const bool tls_initialized = lwan_init_tls(l);
 #else
     const bool tls_initialized = false;
@@ -1382,7 +1383,7 @@ void lwan_thread_shutdown(struct lwan *l)
 
     free(l->thread.threads);
 
-#if defined(HAVE_MBEDTLS)
+#if defined(LWAN_HAVE_MBEDTLS)
     if (l->tls) {
         mbedtls_ssl_config_free(&l->tls->config);
         mbedtls_x509_crt_free(&l->tls->server_cert);

@@ -26,25 +26,25 @@
 #if defined(__GLIBC__)
 #include <features.h>
 #if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
-#define HAVE_SECURE_GETENV
+#define LWAN_HAVE_SECURE_GETENV
 #endif
 #if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 19)
-#define HAVE_MKOSTEMPS
+#define LWAN_HAVE_MKOSTEMPS
 #endif
 #if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 7)
-#define HAVE_CORRECT_UMASK_TMPFILE
+#define LWAN_HAVE_CORRECT_UMASK_TMPFILE
 #endif
 #endif
 
-#if !defined(HAVE_SECURE_GETENV)
+#if !defined(LWAN_HAVE_SECURE_GETENV)
 static inline char *secure_getenv(const char *name) { return getenv(name); }
 #endif
 
-#if !defined(HAVE_MKOSTEMP)
+#if !defined(LWAN_HAVE_MKOSTEMP)
 int mkostemp(char *tmpl, int flags);
 #endif
 
-#if defined(HAVE_CORRECT_UMASK_TMPFILE)
+#if defined(LWAN_HAVE_CORRECT_UMASK_TMPFILE)
 #define umask_for_tmpfile(mask_)                                               \
     ({                                                                         \
         (void)(mask_);                                                         \
@@ -54,7 +54,7 @@ int mkostemp(char *tmpl, int flags);
 #define umask_for_tmpfile(mask_) umask(mask_)
 #endif
 
-#if !defined(HAVE_REALLOCARRAY)
+#if !defined(LWAN_HAVE_REALLOCARRAY)
 void *reallocarray(void *optr, size_t nmemb, size_t size);
 #endif
 

@@ -42,11 +42,11 @@
 
 #include "auto-index-icons.h"
 
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
 #include <brotli/encode.h>
 #endif
 
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
 #include <zstd.h>
 #endif
 
@@ -56,12 +56,12 @@ static const struct lwan_key_value deflate_compression_hdr[] = {
 static const struct lwan_key_value gzip_compression_hdr[] = {
     {"Content-Encoding", "gzip"}, {}
 };
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
 static const struct lwan_key_value br_compression_hdr[] = {
     {"Content-Encoding", "br"}, {}
 };
 #endif
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
 static const struct lwan_key_value zstd_compression_hdr[] = {
     {"Content-Encoding", "zstd"}, {}
 };
@@ -107,10 +107,10 @@ struct mmap_cache_data {
     struct lwan_value uncompressed;
     struct lwan_value gzip;
     struct lwan_value deflated;
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     struct lwan_value brotli;
 #endif
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
     struct lwan_value zstd;
 #endif
 };
@@ -125,7 +125,7 @@ struct sendfile_cache_data {
 struct dir_list_cache_data {
     struct lwan_strbuf rendered;
     struct lwan_value deflated;
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     struct lwan_value brotli;
 #endif
 };
@@ -409,7 +409,7 @@ error_zero_out:
     compressed->len = 0;
 }
 
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
 static void brotli_value(const struct lwan_value *uncompressed,
                          struct lwan_value *brotli,
                          const struct lwan_value *deflated)
@@ -442,7 +442,7 @@ error_zero_out:
 }
 #endif
 
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
 static void zstd_value(const struct lwan_value *uncompressed,
                        struct lwan_value *zstd,
                        const struct lwan_value *deflated)
@@ -579,10 +579,10 @@ static bool mmap_init(struct file_cache_entry *ce,
 
     md->uncompressed.len = (size_t)st->st_size;
     deflate_value(&md->uncompressed, &md->deflated);
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     brotli_value(&md->uncompressed, &md->brotli, &md->deflated);
 #endif
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
     zstd_value(&md->uncompressed, &md->zstd, &md->deflated);
 #endif
 
@@ -734,7 +734,7 @@ static bool dirlist_init(struct file_cache_entry *ce,
         .len = lwan_strbuf_get_length(&dd->rendered),
     };
     deflate_value(&rendered, &dd->deflated);
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     brotli_value(&rendered, &dd->brotli, &dd->deflated);
 #endif
 
@@ -907,10 +907,10 @@ static void mmap_free(struct file_cache_entry *fce)
     if (md->gzip.value)
         munmap(md->gzip.value, md->gzip.len);
     free(md->deflated.value);
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     free(md->brotli.value);
 #endif
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
     free(md->zstd.value);
 #endif
 }
@@ -931,7 +931,7 @@ static void dirlist_free(struct file_cache_entry *fce)
 
     lwan_strbuf_free(&dd->rendered);
     free(dd->deflated.value);
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     free(dd->brotli.value);
 #endif
 }
@@ -1272,7 +1272,7 @@ mmap_best_data(struct lwan_request *request,
 
     *header = NULL;
 
-#if defined(HAVE_ZSTD)
+#if defined(LWAN_HAVE_ZSTD)
     if (md->zstd.len && md->zstd.len < best->len &&
         accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
         best = &md->zstd;
@@ -1280,7 +1280,7 @@ mmap_best_data(struct lwan_request *request,
     }
 #endif
 
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
     if (md->brotli.len && md->brotli.len < best->len &&
         accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
         best = &md->brotli;
@@ -1334,7 +1334,7 @@ static enum lwan_http_status dirlist_serve(struct lwan_request *request,
     const char *icon = lwan_request_get_query_param(request, "icon");
 
     if (!icon) {
-#if defined(HAVE_BROTLI)
+#if defined(LWAN_HAVE_BROTLI)
         if (dd->brotli.len && accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
             return serve_value_ok(request, fce->mime_type, &dd->brotli,
                                   br_compression_hdr);

@@ -23,7 +23,7 @@
 #ifndef MISSING_PTHREAD_H
 #define MISSING_PTHREAD_H
 
-#ifndef HAVE_PTHREADBARRIER
+#ifndef LWAN_HAVE_PTHREADBARRIER
 typedef int pthread_barrierattr_t;
 typedef struct pthread_barrier {
     unsigned int count;
@@ -43,7 +43,7 @@ int pthread_barrier_wait(pthread_barrier_t *barrier);
 #include <pthread_np.h>
 #endif
 
-#ifndef HAVE_PTHREAD_SET_NAME_NP
+#ifndef LWAN_HAVE_PTHREAD_SET_NAME_NP
 int pthread_set_name_np(pthread_t thread, const char *name);
 #endif
 

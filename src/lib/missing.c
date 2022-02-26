@@ -34,7 +34,7 @@
 
 #include "lwan.h"
 
-#ifndef HAVE_MEMPCPY
+#ifndef LWAN_HAVE_MEMPCPY
 void *mempcpy(void *dest, const void *src, size_t len)
 {
     char *p = memcpy(dest, src, len);
@@ -42,7 +42,7 @@ void *mempcpy(void *dest, const void *src, size_t len)
 }
 #endif
 
-#ifndef HAVE_MEMRCHR
+#ifndef LWAN_HAVE_MEMRCHR
 void *memrchr(const void *s, int c, size_t n)
 {
     const char *end = (const char *)s + n + 1;
@@ -58,7 +58,7 @@ void *memrchr(const void *s, int c, size_t n)
 }
 #endif
 
-#ifndef HAVE_PIPE2
+#ifndef LWAN_HAVE_PIPE2
 int pipe2(int pipefd[2], int flags)
 {
     int r;
@@ -82,7 +82,7 @@ int pipe2(int pipefd[2], int flags)
 }
 #endif
 
-#ifndef HAVE_ACCEPT4
+#ifndef LWAN_HAVE_ACCEPT4
 int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
 {
     int fd = accept(sock, addr, addrlen);
@@ -117,7 +117,7 @@ int accept4(int sock, struct sockaddr *addr, socklen_t *addrlen, int flags)
 }
 #endif
 
-#ifndef HAVE_CLOCK_GETTIME
+#ifndef LWAN_HAVE_CLOCK_GETTIME
 int clock_gettime(clockid_t clk_id, struct timespec *ts)
 {
     switch (clk_id) {
@@ -134,7 +134,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 }
 #endif
 
-#if !defined(HAVE_EPOLL) && defined(HAVE_KQUEUE)
+#if !defined(LWAN_HAVE_EPOLL) && defined(LWAN_HAVE_KQUEUE)
 #include <sys/event.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -256,12 +256,12 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     hash_free(coalesce);
     return (int)(intptr_t)(ev - events);
 }
-#elif !defined(HAVE_EPOLL)
+#elif !defined(LWAN_HAVE_EPOLL)
 #error epoll() not implemented for this platform
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
-#if defined(HAVE_GETAUXVAL)
+#if defined(LWAN_HAVE_GETAUXVAL)
 #include <sys/auxv.h>
 #endif
 
@@ -275,7 +275,7 @@ int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
         return -1;
     }
 
-#if defined(HAVE_GETAUXVAL)
+#if defined(LWAN_HAVE_GETAUXVAL)
     const char *execfn = (const char *)getauxval(AT_EXECFN);
 
     if (execfn) {
@@ -322,7 +322,7 @@ int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
 
     return 0;
 }
-#elif defined(HAVE_DLADDR) && !defined(__APPLE__)
+#elif defined(LWAN_HAVE_DLADDR) && !defined(__APPLE__)
 #include <dlfcn.h>
 
 int proc_pidpath(pid_t pid, void *buffer, size_t buffersize)
@@ -360,7 +360,7 @@ fallback:
 
 #if defined(__linux__)
 
-#if !defined(HAVE_GETTID)
+#if !defined(LWAN_HAVE_GETTID)
 #include <sys/syscall.h>
 
 pid_t gettid(void) { return (pid_t)syscall(SYS_gettid); }
@@ -442,7 +442,7 @@ int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid)
 }
 #endif
 
-#if !defined(HAVE_MKOSTEMP)
+#if !defined(LWAN_HAVE_MKOSTEMP)
 int mkostemp(char *tmpl, int flags)
 {
     int fd, fl;
@@ -469,7 +469,7 @@ out:
 }
 #endif
 
-#if !defined(HAVE_REALLOCARRAY)
+#if !defined(LWAN_HAVE_REALLOCARRAY)
 /*	$OpenBSD: reallocarray.c,v 1.2 2014/12/08 03:45:00 bcook Exp $	*/
 /*
  * Copyright (c) 2008 Otto Moerbeek <otto@drijf.net>
@@ -493,7 +493,7 @@ out:
 #include <stdlib.h>
 #include <sys/types.h>
 
-#if !defined(HAVE_BUILTIN_MUL_OVERFLOW)
+#if !defined(LWAN_HAVE_BUILTIN_MUL_OVERFLOW)
 /*
  * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
@@ -525,12 +525,12 @@ void *reallocarray(void *optr, size_t nmemb, size_t size)
     }
     return realloc(optr, total_size);
 }
-#endif /* HAVE_REALLOCARRAY */
+#endif /* LWAN_HAVE_REALLOCARRAY */
 
-#if !defined(HAVE_READAHEAD)
+#if !defined(LWAN_HAVE_READAHEAD)
 ssize_t readahead(int fd, off_t offset, size_t count)
 {
-#if defined(HAVE_POSIX_FADVISE)
+#if defined(LWAN_HAVE_POSIX_FADVISE)
     return (ssize_t)posix_fadvise(fd, offset, (off_t)count,
                                   POSIX_FADV_WILLNEED);
 #else
@@ -543,7 +543,7 @@ ssize_t readahead(int fd, off_t offset, size_t count)
 }
 #endif
 
-#if !defined(HAVE_GET_CURRENT_DIR_NAME)
+#if !defined(LWAN_HAVE_GET_CURRENT_DIR_NAME)
 #include <limits.h>
 
 char *get_current_dir_name(void)
@@ -576,7 +576,7 @@ int capset(struct __user_cap_header_struct *header,
 }
 #endif
 
-#if !defined(HAVE_FWRITE_UNLOCKED)
+#if !defined(LWAN_HAVE_FWRITE_UNLOCKED)
 size_t fwrite_unlocked(const void *ptr, size_t size, size_t n, FILE *stream)
 {
     size_t to_write = size * n;
@@ -602,7 +602,7 @@ size_t fwrite_unlocked(const void *ptr, size_t size, size_t n, FILE *stream)
 }
 #endif
 
-#if !defined(HAVE_STATFS)
+#if !defined(LWAN_HAVE_STATFS)
 int statfs(const char *path, struct statfs *buf)
 {
     (void)path;
@@ -639,7 +639,7 @@ long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
 
     return r;
 }
-#elif defined(HAVE_GETENTROPY)
+#elif defined(LWAN_HAVE_GETENTROPY)
 long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
 {
     (void)flags;
