@@ -917,7 +917,7 @@ static void *thread_io_loop(void *data)
     for (;;) {
         int timeout = turn_timer_wheel(&tq, t, epoll_fd);
         int n_fds = epoll_wait(epoll_fd, events, max_events, timeout);
-        bool accepted_connections = false;
+        bool created_coros = false;
 
         if (UNLIKELY(n_fds < 0)) {
             if (errno == EBADF || errno == EINVAL)
@@ -934,10 +934,8 @@ static void *thread_io_loop(void *data)
             }
 
             if (conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)) {
-                if (LIKELY(accept_waiting_clients(t, conn))) {
-                    accepted_connections = true;
+                if (LIKELY(accept_waiting_clients(t, conn)))
                     continue;
-                }
                 close(epoll_fd);
                 epoll_fd = -1;
                 break;
@@ -948,13 +946,15 @@ static void *thread_io_loop(void *data)
                     send_last_response_without_coro(t->lwan, conn, HTTP_INTERNAL_ERROR);
                     continue;
                 }
+
+                created_coros = true;
             }
 
             resume_coro(&tq, conn, epoll_fd);
             timeout_queue_move_to_last(&tq, conn);
         }
 
-        if (accepted_connections)
+        if (created_coros)
             timeouts_add(t->wheel, &tq.timeout, 1000);
     }
 
