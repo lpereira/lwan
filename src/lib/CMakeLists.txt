@@ -49,10 +49,6 @@ if (LWAN_HAVE_LUA)
 	list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c)
 endif ()
 
-if (LWAN_HAVE_PYTHON)
-	list(APPEND SOURCES lwan-mod-wsgi.c)
-endif ()
-
 add_library(lwan-static STATIC ${SOURCES})
 set_target_properties(lwan-static PROPERTIES
    OUTPUT_NAME lwan CLEAN_DIRECT_OUTPUT 1)
@@ -159,7 +155,6 @@ install(FILES
 	lwan-mod-response.h
 	lwan-mod-redirect.h
 	lwan-mod-lua.h
-	lwan-mod-wsgi.h
 	lwan-status.h
 	lwan-template.h
 	lwan-trie.h
