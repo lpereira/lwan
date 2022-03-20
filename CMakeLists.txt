@@ -96,7 +96,7 @@ endif ()
 option(ENABLE_TLS "Enable support for TLS (Linux-only)" "ON")
 if (ENABLE_TLS)
 	check_include_file(linux/tls.h LWAN_HAVE_LINUX_TLS_H)
-	if (HAVE_LINUX_TLS_H)
+	if (LWAN_HAVE_LINUX_TLS_H)
 		# TLS support requires Linux, as Lwan uses the kTLS flavor
 		# only supported there.
 		# TODO: Try using BearSSL instead of mbedTLS and only link
@@ -146,7 +146,7 @@ option(USE_SYSLOG "Enable syslog" "OFF")
 if (${USE_SYSLOG} STREQUAL "ON" AND LWAN_HAVE_SYSLOG_FUNC)
     set(LWAN_HAVE_SYSLOG 1)
 endif ()
-if (HAVE_SYSLOG)
+if (LWAN_HAVE_SYSLOG)
     message(STATUS "Using syslog/rsyslog for logging.")
 endif ()
 
@@ -169,7 +169,7 @@ check_include_file(linux/capability.h LWAN_HAVE_LINUX_CAPABILITY)
 check_include_file(sys/auxv.h LWAN_HAVE_SYS_AUXV)
 check_include_file(sys/epoll.h LWAN_HAVE_EPOLL)
 check_include_files("sys/time.h;sys/types.h;sys/event.h" LWAN_HAVE_SYS_EVENT)
-if (HAVE_SYS_EVENT)
+if (LWAN_HAVE_SYS_EVENT)
 	set(CMAKE_EXTRA_INCLUDE_FILES
 		${CMAKE_EXTRA_INCLUDE_FILES}
 		sys/event.h sys/types.h sys/time.h
@@ -177,7 +177,7 @@ if (HAVE_SYS_EVENT)
 	check_function_exists(kqueue LWAN_HAVE_KQUEUE)
 endif ()
 check_include_file(alloca.h LWAN_HAVE_ALLOCA_H)
-if (HAVE_SYS_AUXV)
+if (LWAN_HAVE_SYS_AUXV)
 	set(CMAKE_EXTRA_INCLUDE_FILES
 		${CMAKE_EXTRA_INCLUDE_FILES}
 		sys/auxv.h
