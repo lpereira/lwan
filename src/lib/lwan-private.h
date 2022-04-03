@@ -126,7 +126,6 @@ void lwan_default_response(struct lwan_request *request,
 void lwan_fill_default_response(struct lwan_strbuf *buffer,
                                 enum lwan_http_status status);
 
-void lwan_straitjacket_enforce_from_config(struct config *c);
 
 const char *lwan_get_config_path(char *path_buf, size_t path_buf_len);
 
@@ -266,7 +265,7 @@ int lwan_connection_get_fd(const struct lwan *lwan,
 int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
 int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);
 
-void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
+void lwan_straitjacket_enforce_from_config(struct config *c);
 
 uint64_t lwan_request_get_id(struct lwan_request *request);
 

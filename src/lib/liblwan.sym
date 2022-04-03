@@ -74,6 +74,8 @@ global:
     lwan_request_await_*;
     lwan_request_async_*;
 
+    lwan_straitjacket_enforce_*;
+
 local:
     *;
 };
