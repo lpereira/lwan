@@ -43,6 +43,7 @@ set(SOURCES
 	sd-daemon.c
 	sha1.c
 	timeout.c
+	lwan-h2-huffman.c
 )
 
 if (LWAN_HAVE_LUA)
