@@ -321,7 +321,7 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
     struct bit_reader bit_reader = {.bitptr = input,
                                     .total_bitcount = input_len * 8};
 
-    while ((int64_t)bit_reader.total_bitcount > 0) {
+    while ((int64_t)bit_reader.total_bitcount > 7) {
         uint8_t peeked_byte = peek_byte(&bit_reader);
         if (LIKELY(level0[peeked_byte].num_bits)) {
             *output++ = level0[peeked_byte].symbol;
@@ -371,6 +371,29 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
         goto fail;
     }
 
+    /* FIXME: ensure we're not promoting types unnecessarily here */
+    if (bit_reader.total_bitcount) {
+        const uint8_t peeked_byte = peek_byte(&bit_reader);
+        const uint8_t eos_prefix = ((1 << bit_reader.total_bitcount) - 1)
+                                   << (8 - bit_reader.total_bitcount);
+
+        if ((peeked_byte & eos_prefix) == eos_prefix)
+            goto done;
+
+        if (level0[peeked_byte].num_bits == (int8_t)bit_reader.total_bitcount) {
+            *output = level0[peeked_byte].symbol;
+            goto done;
+        }
+
+        /* If we get here, then the remaining bits are either:
+         *  - Not a prefix of EOS
+         *  - Incomplete sequence
+         *  - Has overlong padding
+         */
+        goto fail;
+    }
+
+done:
     return ret;
 
 fail:
