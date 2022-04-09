@@ -591,6 +591,10 @@ void lwan_request_await_read_write(struct lwan_request *r, int fd);
 ssize_t lwan_request_async_read(struct lwan_request *r, int fd, void *buf, size_t len);
 ssize_t lwan_request_async_read_flags(struct lwan_request *request, int fd, void *buf, size_t len, int flags);
 ssize_t lwan_request_async_write(struct lwan_request *r, int fd, const void *buf, size_t len);
+ssize_t lwan_request_async_writev(struct lwan_request *request,
+                                  int fd,
+                                  struct iovec *iov,
+                                  int iov_count);
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
 

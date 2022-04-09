@@ -2002,3 +2002,58 @@ ssize_t lwan_request_async_write(struct lwan_request *request,
         return r;
     }
 }
+
+ssize_t lwan_request_async_writev(struct lwan_request *request,
+                                  int fd,
+                                  struct iovec *iov,
+                                  int iov_count)
+{
+    ssize_t total_written = 0;
+    int curr_iov = 0;
+
+    for (int tries = 10; tries;) {
+        const int remaining_len = (int)(iov_count - curr_iov);
+        ssize_t written;
+
+        if (remaining_len == 1) {
+            const struct iovec *vec = &iov[curr_iov];
+            return lwan_request_async_write(request, fd, vec->iov_base,
+                                            vec->iov_len);
+        }
+
+        written = writev(fd, iov + curr_iov, (size_t)remaining_len);
+        if (UNLIKELY(written < 0)) {
+            /* FIXME: Consider short writes as another try as well? */
+            tries--;
+
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                goto try_again;
+            default:
+                goto out;
+            }
+        }
+
+        total_written += written;
+
+        while (curr_iov < iov_count &&
+               written >= (ssize_t)iov[curr_iov].iov_len) {
+            written -= (ssize_t)iov[curr_iov].iov_len;
+            curr_iov++;
+        }
+
+        if (curr_iov == iov_count)
+            return total_written;
+
+        iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
+        iov[curr_iov].iov_len -= (size_t)written;
+
+    try_again:
+        lwan_request_await_write(request, fd);
+    }
+
+out:
+    coro_yield(request->conn->coro, CONN_CORO_ABORT);
+    __builtin_unreachable();
+}
