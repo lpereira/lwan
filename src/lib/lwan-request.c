@@ -1632,11 +1632,14 @@ lwan_connection_get_fd(const struct lwan *lwan, const struct lwan_connection *co
 }
 
 const char *
-lwan_request_get_remote_address(struct lwan_request *request,
-                                char buffer[static INET6_ADDRSTRLEN])
+lwan_request_get_remote_address_and_port(struct lwan_request *request,
+                                         char buffer[static INET6_ADDRSTRLEN],
+                                         uint16_t *port)
 {
     struct sockaddr_storage non_proxied_addr = {.ss_family = AF_UNSPEC};
     struct sockaddr_storage *sock_addr;
+
+    *port = 0;
 
     if (request->flags & REQUEST_PROXIED) {
         sock_addr = (struct sockaddr_storage *)&request->proxy->from;
@@ -1646,7 +1649,6 @@ lwan_request_get_remote_address(struct lwan_request *request,
 
             static_assert(sizeof(unspecified) <= INET6_ADDRSTRLEN,
                           "Enough space for unspecified address family");
-
             return memcpy(buffer, unspecified, sizeof(unspecified));
         }
     } else {
@@ -1661,12 +1663,22 @@ lwan_request_get_remote_address(struct lwan_request *request,
     }
 
     if (sock_addr->ss_family == AF_INET) {
-        return inet_ntop(AF_INET, &((struct sockaddr_in *)sock_addr)->sin_addr,
-                         buffer, INET6_ADDRSTRLEN);
+        struct sockaddr_in *sin = (struct sockaddr_in *)sock_addr;
+        *port = ntohs(sin->sin_port);
+        return inet_ntop(AF_INET, &sin->sin_addr, buffer, INET6_ADDRSTRLEN);
     }
 
-    return inet_ntop(AF_INET6, &((struct sockaddr_in6 *)sock_addr)->sin6_addr,
-                     buffer, INET6_ADDRSTRLEN);
+    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sock_addr;
+    *port = ntohs(sin6->sin6_port);
+    return inet_ntop(AF_INET6, &sin6->sin6_addr, buffer, INET6_ADDRSTRLEN);
+}
+
+const char *
+lwan_request_get_remote_address(struct lwan_request *request,
+                                char buffer[static INET6_ADDRSTRLEN])
+{
+    uint16_t port;
+    return lwan_request_get_remote_address_and_port(request, buffer, &port);
 }
 
 static void remove_sleep(void *data1, void *data2)

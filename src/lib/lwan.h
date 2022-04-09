@@ -547,6 +547,11 @@ lwan_request_get_remote_address(struct lwan_request *request,
                                 char buffer LWAN_ARRAY_PARAM(INET6_ADDRSTRLEN))
     __attribute__((warn_unused_result));
 
+const char *
+lwan_request_get_remote_address_and_port(struct lwan_request *request,
+                                         char buffer[static INET6_ADDRSTRLEN],
+                                         uint16_t *port)
+    __attribute__((warn_unused_result));
 
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)
