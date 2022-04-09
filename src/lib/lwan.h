@@ -525,7 +525,12 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms);
 
 bool lwan_response_set_chunked(struct lwan_request *request,
                                enum lwan_http_status status);
+bool lwan_response_set_chunked_full(struct lwan_request *request,
+                                    enum lwan_http_status status,
+                                    const struct lwan_key_value *additional_headers);
 void lwan_response_send_chunk(struct lwan_request *request);
+void lwan_response_send_chunk_full(struct lwan_request *request,
+                                   struct lwan_strbuf *strbuf);
 
 bool lwan_response_set_event_stream(struct lwan_request *request,
                                     enum lwan_http_status status);

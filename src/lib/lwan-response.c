@@ -388,8 +388,9 @@ ALWAYS_INLINE size_t lwan_prepare_response_header(struct lwan_request *request,
         request, status, headers, headers_buf_size, request->response.headers);
 }
 
-bool lwan_response_set_chunked(struct lwan_request *request,
-                               enum lwan_http_status status)
+bool lwan_response_set_chunked_full(struct lwan_request *request,
+                                    enum lwan_http_status status,
+                                    const struct lwan_key_value *additional_headers)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
     size_t buffer_len;
@@ -398,8 +399,9 @@ bool lwan_response_set_chunked(struct lwan_request *request,
         return false;
 
     request->flags |= RESPONSE_CHUNKED_ENCODING;
-    buffer_len = lwan_prepare_response_header(request, status, buffer,
-                                              DEFAULT_BUFFER_SIZE);
+    buffer_len = lwan_prepare_response_header_full(request, status, buffer,
+                                                   DEFAULT_BUFFER_SIZE,
+                                                   additional_headers);
     if (UNLIKELY(!buffer_len))
         return false;
 
@@ -409,14 +411,22 @@ bool lwan_response_set_chunked(struct lwan_request *request,
     return true;
 }
 
-void lwan_response_send_chunk(struct lwan_request *request)
+inline bool lwan_response_set_chunked(struct lwan_request *request,
+                                      enum lwan_http_status status)
+{
+    return lwan_response_set_chunked_full(request, status,
+                                          request->response.headers);
+}
+
+void lwan_response_send_chunk_full(struct lwan_request *request,
+                                   struct lwan_strbuf *strbuf)
 {
     if (!(request->flags & RESPONSE_SENT_HEADERS)) {
         if (UNLIKELY(!lwan_response_set_chunked(request, HTTP_OK)))
             return;
     }
 
-    size_t buffer_len = lwan_strbuf_get_length(request->response.buffer);
+    size_t buffer_len = lwan_strbuf_get_length(strbuf);
     if (UNLIKELY(!buffer_len)) {
         static const char last_chunk[] = "0\r\n\r\n";
         lwan_send(request, last_chunk, sizeof(last_chunk) - 1, 0);
@@ -435,14 +445,18 @@ void lwan_response_send_chunk(struct lwan_request *request)
 
     struct iovec chunk_vec[] = {
         {.iov_base = chunk_size, .iov_len = chunk_size_len},
-        {.iov_base = lwan_strbuf_get_buffer(request->response.buffer),
-         .iov_len = buffer_len},
+        {.iov_base = lwan_strbuf_get_buffer(strbuf), .iov_len = buffer_len},
         {.iov_base = "\r\n", .iov_len = 2},
     };
 
     lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
-    lwan_strbuf_reset(request->response.buffer);
+    lwan_strbuf_reset(strbuf);
+}
+
+void lwan_response_send_chunk(struct lwan_request *request)
+{
+    return lwan_response_send_chunk_full(request, request->response.buffer);
 }
 
 bool lwan_response_set_event_stream(struct lwan_request *request,

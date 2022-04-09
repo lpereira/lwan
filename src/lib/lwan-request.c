@@ -586,6 +586,12 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 #undef HEADER_LENGTH
 #undef SET_HEADER_VALUE
 
+bool lwan_parse_headers(struct lwan_request_parser_helper *helper,
+                        char *buffer)
+{
+    return parse_headers(helper, buffer);
+}
+
 static void parse_if_modified_since(struct lwan_request_parser_helper *helper)
 {
     static const size_t header_len =
@@ -884,14 +890,13 @@ try_to_finalize:
 }
 
 static enum lwan_read_finalizer
-read_request_finalizer(const struct lwan_value *buffer,
-                       size_t want_to_read __attribute__((unused)),
-                       const struct lwan_request *request,
-                       int n_packets)
+read_request_finalizer_from_helper(const struct lwan_value *buffer,
+                                   struct lwan_request_parser_helper *helper,
+                                   int n_packets,
+                                   bool allow_proxy_reqs)
 {
     static const size_t min_proxied_request_size =
         MIN_REQUEST_SIZE + sizeof(struct proxy_header_v2);
-    struct lwan_request_parser_helper *helper = request->helper;
 
     if (LIKELY(buffer->len >= MIN_REQUEST_SIZE)) {
         STRING_SWITCH (buffer->value + buffer->len - 4) {
@@ -911,8 +916,7 @@ read_request_finalizer(const struct lwan_value *buffer,
         if (crlfcrlf_to_base >= MIN_REQUEST_SIZE - 4)
             return FINALIZER_DONE;
 
-        if (buffer->len > min_proxied_request_size &&
-            request->flags & REQUEST_ALLOW_PROXY_REQS) {
+        if (buffer->len > min_proxied_request_size && allow_proxy_reqs) {
             /* FIXME: Checking for PROXYv2 protocol header here is a layering
              * violation. */
             STRING_SWITCH_LARGE (crlfcrlf + 4) {
@@ -932,6 +936,17 @@ read_request_finalizer(const struct lwan_value *buffer,
         return FINALIZER_TIMEOUT;
 
     return FINALIZER_TRY_AGAIN;
+}
+
+static inline enum lwan_read_finalizer
+read_request_finalizer(const struct lwan_value *buffer,
+                       size_t want_to_read __attribute__((unused)),
+                       const struct lwan_request *request,
+                       int n_packets)
+{
+    return read_request_finalizer_from_helper(
+        buffer, request->helper, n_packets,
+        request->flags & REQUEST_ALLOW_PROXY_REQS);
 }
 
 static ALWAYS_INLINE enum lwan_http_status
@@ -1591,22 +1606,24 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
     return value_lookup(lwan_request_get_cookies(request), key);
 }
 
-const char *lwan_request_get_header(struct lwan_request *request,
+const char *
+lwan_request_get_header_from_helper(struct lwan_request_parser_helper *helper,
                                     const char *header)
 {
     const size_t header_len = strlen(header);
-    const size_t header_len_with_separator = header_len + HEADER_VALUE_SEPARATOR_LEN;
+    const size_t header_len_with_separator =
+        header_len + HEADER_VALUE_SEPARATOR_LEN;
 
     assert(strchr(header, ':') == NULL);
 
-    for (size_t i = 0; i < request->helper->n_header_start; i++) {
-        const char *start = request->helper->header_start[i];
-        char *end = request->helper->header_start[i + 1] - HEADER_TERMINATOR_LEN;
+    for (size_t i = 0; i < helper->n_header_start; i++) {
+        const char *start = helper->header_start[i];
+        char *end = helper->header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
         if (UNLIKELY((size_t)(end - start) < header_len_with_separator))
             continue;
 
-        STRING_SWITCH_SMALL(start + header_len) {
+        STRING_SWITCH_SMALL (start + header_len) {
         case STR2_INT(':', ' '):
             if (!strncasecmp(start, header, header_len)) {
                 *end = '\0';
@@ -1616,6 +1633,12 @@ const char *lwan_request_get_header(struct lwan_request *request,
     }
 
     return NULL;
+}
+
+inline const char *lwan_request_get_header(struct lwan_request *request,
+                                           const char *header)
+{
+    return lwan_request_get_header_from_helper(request->helper, header);
 }
 
 const char *lwan_request_get_host(struct lwan_request *request)
@@ -1818,6 +1841,12 @@ lwan_request_get_accept_encoding(struct lwan_request *request)
     return request->flags & REQUEST_ACCEPT_MASK;
 }
 
+bool lwan_request_seems_complete(struct lwan_request_parser_helper *helper)
+{
+    return read_request_finalizer_from_helper(helper->buffer, helper, 1,
+                                              false) == FINALIZER_DONE;
+}
+
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
                                     void *data __attribute__((unused)))
@@ -1857,16 +1886,10 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
         .flags = REQUEST_ALLOW_PROXY_REQS,
         .proxy = &proxy,
     };
-    struct lwan_value buffer = {
-        .value = data_copy,
-        .len = length,
-    };
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    enum lwan_read_finalizer finalizer =
-        read_request_finalizer(&buffer, sizeof(data_copy), &request, 1);
-    if (finalizer != FINALIZER_DONE)
+    if (!lwan_request_seems_complete(&request))
         return 0;
 
     /* client_read() NUL-terminates the string */
