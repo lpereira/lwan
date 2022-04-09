@@ -1951,13 +1951,11 @@ void lwan_request_await_read_write(struct lwan_request *r, int fd)
     return async_await_fd(r->conn->coro, fd, CONN_CORO_ASYNC_AWAIT_READ_WRITE);
 }
 
-ssize_t lwan_request_async_read(struct lwan_request *request,
-                                int fd,
-                                void *buf,
-                                size_t len)
+ssize_t lwan_request_async_read_flags(
+    struct lwan_request *request, int fd, void *buf, size_t len, int flags)
 {
     while (true) {
-        ssize_t r = recv(fd, buf, len, MSG_DONTWAIT);
+        ssize_t r = recv(fd, buf, len, MSG_DONTWAIT | MSG_NOSIGNAL | flags);
 
         if (r < 0) {
             switch (errno) {
@@ -1966,11 +1964,21 @@ ssize_t lwan_request_async_read(struct lwan_request *request,
                 /* Fallthrough */
             case EINTR:
                 continue;
+            case EPIPE:
+                return -errno;
             }
         }
 
         return r;
     }
+}
+
+ssize_t lwan_request_async_read(struct lwan_request *request,
+                                int fd,
+                                void *buf,
+                                size_t len)
+{
+    return lwan_request_async_read_flags(request, fd, buf, len, 0);
 }
 
 ssize_t lwan_request_async_write(struct lwan_request *request,
