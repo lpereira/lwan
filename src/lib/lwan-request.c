@@ -2010,7 +2010,7 @@ ssize_t lwan_request_async_write(struct lwan_request *request,
                                  size_t len)
 {
     while (true) {
-        ssize_t r = send(fd, buf, len, MSG_DONTWAIT);
+        ssize_t r = send(fd, buf, len, MSG_DONTWAIT|MSG_NOSIGNAL);
 
         if (r < 0) {
             switch (errno) {
@@ -2019,6 +2019,8 @@ ssize_t lwan_request_async_write(struct lwan_request *request,
                 /* Fallthrough */
             case EINTR:
                 continue;
+            case EPIPE:
+                return -errno;
             }
         }
 
