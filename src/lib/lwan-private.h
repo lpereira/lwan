@@ -275,3 +275,4 @@ const char *lwan_request_get_header_from_helper(struct lwan_request_parser_helpe
                                                 const char *header);
 bool lwan_request_seems_complete(struct lwan_request_parser_helper *helper);
 
+sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port);

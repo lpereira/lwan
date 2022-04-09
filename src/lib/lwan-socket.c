@@ -162,6 +162,14 @@ static sa_family_t parse_listener_ipv6(char *listener, char **node, char **port)
     return AF_INET6;
 }
 
+sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port)
+{
+    if (*listener == '[')
+        return parse_listener_ipv6(listener, node, port);
+
+    return parse_listener_ipv4(listener, node, port);
+}
+
 static sa_family_t parse_listener(char *listener, char **node, char **port)
 {
     if (streq(listener, "systemd")) {
@@ -171,10 +179,7 @@ static sa_family_t parse_listener(char *listener, char **node, char **port)
         return AF_MAX;
     }
 
-    if (*listener == '[')
-        return parse_listener_ipv6(listener, node, port);
-
-    return parse_listener_ipv4(listener, node, port);
+    return lwan_socket_parse_address(listener, node, port);
 }
 
 static int listen_addrinfo(int fd,
