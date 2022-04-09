@@ -928,17 +928,22 @@ static void *thread_io_loop(void *data)
         for (struct epoll_event *event = events; n_fds--; event++) {
             struct lwan_connection *conn = event->data.ptr;
 
-            if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                timeout_queue_expire(&tq, conn);
-                continue;
-            }
-
             if (conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)) {
                 if (LIKELY(accept_waiting_clients(t, conn)))
                     continue;
                 close(epoll_fd);
                 epoll_fd = -1;
                 break;
+            }
+
+            bool expire = false;
+            if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                if (!(event->events & EPOLLIN)) {
+                    timeout_queue_expire(&tq, conn);
+                    continue;
+                }
+
+                expire = true;
             }
 
             if (!conn->coro) {
@@ -951,7 +956,12 @@ static void *thread_io_loop(void *data)
             }
 
             resume_coro(&tq, conn, epoll_fd);
-            timeout_queue_move_to_last(&tq, conn);
+
+            if (expire) {
+                timeout_queue_expire(&tq, conn);
+            } else {
+                timeout_queue_move_to_last(&tq, conn);
+            }
         }
 
         if (created_coros)
