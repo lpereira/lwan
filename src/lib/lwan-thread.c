@@ -936,14 +936,11 @@ static void *thread_io_loop(void *data)
                 break;
             }
 
-            bool expire = false;
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                if (!(event->events & EPOLLIN)) {
+                if ((conn->flags & CONN_AWAITED_FD) != CONN_SUSPENDED) {
                     timeout_queue_expire(&tq, conn);
                     continue;
                 }
-
-                expire = true;
             }
 
             if (!conn->coro) {
@@ -956,12 +953,7 @@ static void *thread_io_loop(void *data)
             }
 
             resume_coro(&tq, conn, epoll_fd);
-
-            if (expire) {
-                timeout_queue_expire(&tq, conn);
-            } else {
-                timeout_queue_move_to_last(&tq, conn);
-            }
+            timeout_queue_move_to_last(&tq, conn);
         }
 
         if (created_coros)
