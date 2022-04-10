@@ -346,16 +346,6 @@ static bool add_params(const struct private_data *pd,
                       colon + 2, value_len);
     }
 
-    if (UNLIKELY(lwan_strbuf_get_length(strbuf) > 0xffffu)) {
-        /* Should not happen because DEFAULT_BUFFER_SIZE is a lot smaller
-         * than 65535, but check anyway.  (If anything, we could send multiple
-         * PARAMS records, but that's very unlikely to happen anyway until
-         * we change how request headers are read.) */
-        static_assert(DEFAULT_BUFFER_SIZE <= 0xffffu,
-                      "only needs one PARAMS record");
-        return false;
-    }
-
     return true;
 }
 
@@ -576,6 +566,15 @@ fastcgi_handle_request(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
     if (!add_script_paths(pd, request, response))
         return HTTP_NOT_FOUND;
+    if (UNLIKELY(lwan_strbuf_get_length(response->buffer) > 0xffffu)) {
+        /* Should not happen because DEFAULT_BUFFER_SIZE is a lot smaller
+         * than 65535, but check anyway.  (If anything, we could send multiple
+         * PARAMS records, but that's very unlikely to happen anyway until
+         * we change how request headers are read.) */
+        static_assert(DEFAULT_BUFFER_SIZE <= 0xffffu,
+                      "only needs one PARAMS record");
+        return HTTP_BAD_REQUEST;
+    }
 
     struct request_header request_header = {
         .begin_request = {.version = 1,
