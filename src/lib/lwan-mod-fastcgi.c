@@ -717,7 +717,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
     pd->script_path = realpath(settings->script_path, NULL);
     if (!pd->script_path) {
         lwan_status_perror("FastCGI: `script_path` of '%s' is invalid",
-                           pd->script_path);
+                           settings->script_path);
         goto free_default_index;
     }
 
