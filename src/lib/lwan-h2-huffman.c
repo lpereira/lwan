@@ -301,8 +301,14 @@ static inline bool consume(struct bit_reader *reader, int count)
     assert(count > 0);
     reader->bitbuf <<= count;
     reader->bitcount -= count;
-    return !__builtin_sub_overflow(reader->total_bitcount, count,
-                                   &reader->total_bitcount);
+    if (__builtin_sub_overflow(reader->total_bitcount, count,
+                               &reader->total_bitcount)) {
+        return false;
+    }
+    if (reader->total_bitcount == 0) {
+        return false;
+    }
+    return true;
 }
 
 static inline size_t output_size(size_t input_size)
