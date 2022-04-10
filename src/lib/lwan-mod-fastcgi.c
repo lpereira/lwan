@@ -790,6 +790,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
                                  .sin_addr = in_addr,
                                  .sin_port = htons((uint16_t)int_port)};
         pd->addr_size = sizeof(in_addr);
+        free(address_copy);
         return pd;
     }
 
@@ -807,6 +808,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
                                   .sin6_addr = in6_addr,
                                   .sin6_port = htons((uint16_t)int_port)};
         pd->addr_size = sizeof(in6_addr);
+        free(address_copy);
         return pd;
     }
     }
