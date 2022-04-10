@@ -173,7 +173,6 @@ static struct cache_entry *create_script_name(const char *key, void *context)
     struct script_name_cache_entry *entry;
     struct lwan_value url;
     char temp[PATH_MAX];
-    char rp_buf[PATH_MAX];
     int r;
 
     entry = malloc(sizeof(*entry));
@@ -201,15 +200,12 @@ static struct cache_entry *create_script_name(const char *key, void *context)
     if (r < 0 || r >= (int)sizeof(temp))
         goto free_script_name;
 
-    char *rp = realpathat(pd->script_path_fd, pd->script_path, temp, rp_buf);
-    if (!rp)
-        goto free_script_name;
-
-    if (strncmp(rp_buf, pd->script_path, strlen(pd->script_path)))
-        goto free_script_name;
-
-    entry->script_filename = strdup(rp);
+    entry->script_filename =
+        realpathat(pd->script_path_fd, pd->script_path, temp, NULL);
     if (!entry->script_filename)
+        goto free_script_name;
+
+    if (strncmp(entry->script_filename, pd->script_path, strlen(pd->script_path)))
         goto free_script_filename;
 
     return &entry->base;
