@@ -4,7 +4,6 @@
 
 extern "C" {
 #include "lwan-config.h"
-#include "lwan-private.h"
 }
 
 static bool dump(struct config *config, int indent_level)
