@@ -127,8 +127,6 @@ static void add_param_len(struct lwan_strbuf *strbuf,
                           const char *value,
                           size_t len_value)
 {
-    const uint32_t large_mask = htonl(0x80000000u);
-
     /* FIXME: these should be enabled for release builds, too! */
     assert(len_key <= INT_MAX);
     assert(len_value <= INT_MAX);
@@ -136,14 +134,14 @@ static void add_param_len(struct lwan_strbuf *strbuf,
     if (len_key <= 127) {
         lwan_strbuf_append_char(strbuf, (char)len_key);
     } else {
-        uint32_t len_net = htonl((uint32_t)len_key) | large_mask;
+        uint32_t len_net = htonl((uint32_t)len_key) | 1u << 31;
         lwan_strbuf_append_str(strbuf, (char *)&len_net, 4);
     }
 
     if (len_value <= 127) {
         lwan_strbuf_append_char(strbuf, (char)len_value);
     } else {
-        uint32_t len_net = htonl((uint32_t)len_value) | large_mask;
+        uint32_t len_net = htonl((uint32_t)len_value) | 1u << 31;
         lwan_strbuf_append_str(strbuf, (char *)&len_net, 4);
     }
 
