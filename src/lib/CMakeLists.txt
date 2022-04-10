@@ -20,6 +20,7 @@ set(SOURCES
 	lwan-mod-response.c
 	lwan-mod-rewrite.c
 	lwan-mod-serve-files.c
+	lwan-mod-fastcgi.c
 	lwan-readahead.c
 	lwan-request.c
 	lwan-response.c

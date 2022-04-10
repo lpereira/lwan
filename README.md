@@ -713,6 +713,23 @@ a `404 Not Found` error will be sent instead.
 |--------|------|---------|-------------|
 | `code` | `int` | `999` | A HTTP response code |
 
+### FastCGI
+
+The `fastcgi` proxies requests between the HTTP client connecting to Lwan
+and a FastCGI server accessible by Lwan.  This is useful, for instance,
+to serve pages from a scripting language such as PHP.
+
+> :bulb: **Note:** This is a preliminary version of this module, and
+> as such, it's not well optimized and some features are missing.  Of
+> note, requests that send a body (e.g. POST requests) won't work because
+> Lwan does not implement the STDIN record yet.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `address` | `str` |  | Address to connect to. Can be a file path (for Unix Domain Sockets), IPv4 address (`aaa.bbb.ccc.ddd:port`), or IPv6 address (`[...]:port`). |
+| `script_path` | `str` |  | Location where the CGI scripts are located. |
+| `default_index` | `str` | `index.php` | Default script to execute if unspecified in the request URI. |
+
 ### Authorization Section
 
 Authorization sections can be declared in any module instance or handler,
