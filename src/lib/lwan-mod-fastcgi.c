@@ -614,6 +614,8 @@ fastcgi_handle_request(struct lwan_request *request,
      * HTTP request with the verb line, etc. */
     lwan_strbuf_append_char(response->buffer, '\r');
 
+    request->flags |= RESPONSE_NO_EXPIRES;
+
     while (true) {
         struct record record;
         ssize_t r;
