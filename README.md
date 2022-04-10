@@ -713,7 +713,7 @@ a `404 Not Found` error will be sent instead.
 |--------|------|---------|-------------|
 | `code` | `int` | `999` | A HTTP response code |
 
-### FastCGI
+#### FastCGI
 
 The `fastcgi` proxies requests between the HTTP client connecting to Lwan
 and a FastCGI server accessible by Lwan.  This is useful, for instance,
