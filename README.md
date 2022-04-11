@@ -715,8 +715,8 @@ a `404 Not Found` error will be sent instead.
 
 #### FastCGI
 
-The `fastcgi` proxies requests between the HTTP client connecting to Lwan
-and a FastCGI server accessible by Lwan.  This is useful, for instance,
+The `fastcgi` module proxies requests between the HTTP client connecting to
+Lwan and a FastCGI server accessible by Lwan.  This is useful, for instance,
 to serve pages from a scripting language such as PHP.
 
 > :bulb: **Note:** This is a preliminary version of this module, and
