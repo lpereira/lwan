@@ -269,10 +269,9 @@ void lwan_straitjacket_enforce_from_config(struct config *c);
 
 uint64_t lwan_request_get_id(struct lwan_request *request);
 
-bool lwan_parse_headers(struct lwan_request_parser_helper *helper,
-                        char *buffer);
+ssize_t lwan_find_headers(char **header_start, struct lwan_value *buffer,
+                          char **next_request);
 const char *lwan_request_get_header_from_helper(struct lwan_request_parser_helper *helper,
                                                 const char *header);
-bool lwan_request_seems_complete(struct lwan_request_parser_helper *helper);
 
 sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port);

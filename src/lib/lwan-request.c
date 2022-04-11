@@ -497,28 +497,29 @@ __attribute__((noinline)) static void set_header_value(
         set_header_value(&(helper->dest), end, p, header_len);                 \
     } while (0)
 
-static bool parse_headers(struct lwan_request_parser_helper *helper,
-                          char *buffer)
+static ALWAYS_INLINE ssize_t find_headers(char **header_start,
+                                          struct lwan_value *request_buffer,
+                                          char **next_request)
 {
-    char *buffer_end = helper->buffer->value + helper->buffer->len;
-    char **header_start = helper->header_start;
-    size_t n_headers = 0;
+    char *buffer = request_buffer->value;
+    char *buffer_end = buffer + request_buffer->len;
+    ssize_t n_headers = 0;
     char *next_header;
 
     for (char *next_chr = buffer + 1;;) {
         next_header = memchr(next_chr, '\r', (size_t)(buffer_end - next_chr));
 
         if (UNLIKELY(!next_header))
-            return false;
+            return -1;
 
         if (next_chr == next_header) {
             if (buffer_end - next_chr >= (ptrdiff_t)HEADER_TERMINATOR_LEN) {
                 STRING_SWITCH_SMALL (next_header) {
                 case STR2_INT('\r', '\n'):
-                    helper->next_request = next_header + HEADER_TERMINATOR_LEN;
+                    *next_request = next_header + HEADER_TERMINATOR_LEN;
                 }
             }
-            break;
+            goto out;
         }
 
         /* Is there at least a space for a minimal (H)eader and a (V)alue? */
@@ -526,20 +527,34 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
             header_start[n_headers++] = next_chr;
 
             if (UNLIKELY(n_headers >= N_HEADER_START - 1))
-                return false;
+                return -1;
         } else {
             /* Better to abort early if there's no space. */
-            return false;
+            return -1;
         }
 
         next_chr = next_header + HEADER_TERMINATOR_LEN;
         if (UNLIKELY(next_chr >= buffer_end))
-            return false;
+            return -1;
     }
 
+out:
     header_start[n_headers] = next_header;
+    return n_headers;
+}
 
-    for (size_t i = 0; i < n_headers; i++) {
+static bool parse_headers(struct lwan_request_parser_helper *helper,
+                          char *buffer)
+{
+    char **header_start = helper->header_start;
+    ssize_t n_headers = 0;
+
+    n_headers = find_headers(header_start, helper->buffer,
+                             &helper->next_request);
+    if (n_headers < 0)
+        return false;
+
+    for (ssize_t i = 0; i < n_headers; i++) {
         char *p = header_start[i];
         char *end = header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
@@ -580,16 +595,16 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
         }
     }
 
-    helper->n_header_start = n_headers;
+    helper->n_header_start = (size_t)n_headers;
     return true;
 }
 #undef HEADER_LENGTH
 #undef SET_HEADER_VALUE
 
-bool lwan_parse_headers(struct lwan_request_parser_helper *helper,
-                        char *buffer)
+ssize_t lwan_find_headers(char **header_start, struct lwan_value *buffer,
+                          char **next_request)
 {
-    return parse_headers(helper, buffer);
+    return find_headers(header_start, buffer, next_request);
 }
 
 static void parse_if_modified_since(struct lwan_request_parser_helper *helper)
@@ -1839,12 +1854,6 @@ lwan_request_get_accept_encoding(struct lwan_request *request)
     }
 
     return request->flags & REQUEST_ACCEPT_MASK;
-}
-
-bool lwan_request_seems_complete(struct lwan_request_parser_helper *helper)
-{
-    return read_request_finalizer_from_helper(helper->buffer, helper, 1,
-                                              false) == FINALIZER_DONE;
 }
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION

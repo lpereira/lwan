@@ -450,38 +450,35 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
 {
     struct lwan_response *response = &request->response;
     char *header_start[N_HEADER_START];
+    char *next_request;
     enum lwan_http_status status_code = HTTP_OK;
     struct lwan_value buffer = {
         .value = lwan_strbuf_get_buffer(response->buffer),
         .len = lwan_strbuf_get_length(response->buffer),
     };
-    struct lwan_request_parser_helper helper = {.buffer = &buffer,
-                                                .header_start = header_start};
 
     assert(!(request->flags &
              (RESPONSE_CHUNKED_ENCODING | RESPONSE_SENT_HEADERS)));
 
-    if (!lwan_request_seems_complete(&helper))
+    if (!memmem(buffer.value, buffer.len, "\r\n\r\n", 4))
         return true;
 
-    /* FIXME: Maybe split parse_headers() into a function that finds all
-     * headers and another that looks at the found headers?   We don't use
-     * the second part of this function here. */
-    if (!lwan_parse_headers(&helper, buffer.value))
+    ssize_t n_headers = lwan_find_headers(header_start, &buffer, &next_request);
+    if (n_headers < 0)
         return false;
 
     /* FIXME: Maybe use a lwan_key_value_array here? */
     struct lwan_key_value *additional_headers =
-        calloc(helper.n_header_start + 1, sizeof(struct lwan_key_value));
+        calloc((size_t)n_headers + 1, sizeof(struct lwan_key_value));
     if (!additional_headers)
         return false;
 
     struct coro_defer *free_additional_headers =
         coro_defer(request->conn->coro, free, additional_headers);
 
-    for (size_t i = 0, j = 0; i < helper.n_header_start; i++) {
-        char *begin = helper.header_start[i];
-        char *end = helper.header_start[i + 1];
+    for (ssize_t i = 0, j = 0; i < n_headers; i++) {
+        char *begin = header_start[i];
+        char *end = header_start[i + 1];
         char *p;
 
         p = strchr(begin, ':');
@@ -525,7 +522,7 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
 
     coro_defer_fire_and_disarm(request->conn->coro, free_additional_headers);
 
-    char *chunk_start = header_start[helper.n_header_start];
+    char *chunk_start = header_start[n_headers];
     size_t chunk_len = buffer.len - (size_t)(chunk_start - buffer.value);
 
     if (chunk_len) {
