@@ -228,9 +228,9 @@ static void destroy_script_name(struct cache_entry *entry, void *context)
     free(snce);
 }
 
-static bool add_script_paths(const struct private_data *pd,
-                             struct lwan_request *request,
-                             struct lwan_response *response)
+static enum lwan_http_status add_script_paths(const struct private_data *pd,
+                                              struct lwan_request *request,
+                                              struct lwan_response *response)
 {
     struct script_name_cache_entry *snce =
         (struct script_name_cache_entry *)cache_coro_get_and_ref_entry(
@@ -239,15 +239,15 @@ static bool add_script_paths(const struct private_data *pd,
     if (snce) {
         add_param(response->buffer, "SCRIPT_NAME", snce->script_name);
         add_param(response->buffer, "SCRIPT_FILENAME", snce->script_filename);
-        return true;
+        return HTTP_OK;
     }
 
-    return false;
+    return HTTP_NOT_FOUND;
 }
 
-static bool add_params(const struct private_data *pd,
-                       struct lwan_request *request,
-                       struct lwan_response *response)
+static enum lwan_http_status add_params(const struct private_data *pd,
+                                        struct lwan_request *request,
+                                        struct lwan_response *response)
 {
     const struct lwan_request_parser_helper *request_helper = request->helper;
     struct lwan_strbuf *strbuf = response->buffer;
@@ -299,7 +299,7 @@ static bool add_params(const struct private_data *pd,
          *        forward a va_arg to strbuf_append_printf() instead? */
         if (asprintf(&temp, "%s?%s", request->original_url.value,
                      query_string) < 0) {
-            return false;
+            return HTTP_INTERNAL_ERROR;
         }
 
         add_param(strbuf, "QUERY_STRING", query_string ? query_string : "");
@@ -346,7 +346,7 @@ static bool add_params(const struct private_data *pd,
                       colon + 2, value_len);
     }
 
-    return true;
+    return HTTP_OK;
 }
 
 static bool
@@ -543,30 +543,21 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
     return true;
 }
 
-static enum lwan_http_status
-fastcgi_handle_request(struct lwan_request *request,
-                       struct lwan_response *response,
-                       void *instance)
+static enum lwan_http_status send_request(struct private_data *pd,
+                                          struct lwan_request *request,
+                                          struct lwan_response *response,
+                                          int fcgi_fd)
 {
-    struct private_data *pd = instance;
-    int remaining_tries_for_chunked = 10;
-    int fcgi_fd;
+    enum lwan_http_status status;
 
-    fcgi_fd =
-        socket(pd->addr_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-    if (fcgi_fd < 0)
-        return HTTP_INTERNAL_ERROR;
+    status = add_params(pd, request, response);
+    if (status != HTTP_OK)
+        return status;
 
-    coro_defer(request->conn->coro, close_fd, (void *)(intptr_t)fcgi_fd);
+    status = add_script_paths(pd, request, response);
+    if (status != HTTP_OK)
+        return status;
 
-    if (connect(fcgi_fd, (struct sockaddr *)&pd->sock_addr, pd->addr_size) < 0)
-        return HTTP_UNAVAILABLE;
-
-    lwan_strbuf_reset(response->buffer);
-    if (!add_params(pd, request, response))
-        return HTTP_BAD_REQUEST;
-    if (!add_script_paths(pd, request, response))
-        return HTTP_NOT_FOUND;
     if (UNLIKELY(lwan_strbuf_get_length(response->buffer) > 0xffffu)) {
         /* Should not happen because DEFAULT_BUFFER_SIZE is a lot smaller
          * than 65535, but check anyway.  (If anything, we could send multiple
@@ -610,6 +601,33 @@ fastcgi_handle_request(struct lwan_request *request,
     lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec));
 
     lwan_strbuf_reset(response->buffer);
+
+    return HTTP_OK;
+}
+
+static enum lwan_http_status
+fastcgi_handle_request(struct lwan_request *request,
+                       struct lwan_response *response,
+                       void *instance)
+{
+    struct private_data *pd = instance;
+    enum lwan_http_status status;
+    int remaining_tries_for_chunked = 10;
+    int fcgi_fd;
+
+    fcgi_fd =
+        socket(pd->addr_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (fcgi_fd < 0)
+        return HTTP_INTERNAL_ERROR;
+
+    coro_defer(request->conn->coro, close_fd, (void *)(intptr_t)fcgi_fd);
+
+    if (connect(fcgi_fd, (struct sockaddr *)&pd->sock_addr, pd->addr_size) < 0)
+        return HTTP_UNAVAILABLE;
+
+    status = send_request(pd, request, response, fcgi_fd);
+    if (status != HTTP_OK)
+        return status;
 
     /* FIXME: the header parser starts at the \r from an usual
      * HTTP request with the verb line, etc. */
