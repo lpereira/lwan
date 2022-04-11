@@ -552,7 +552,8 @@ fastcgi_handle_request(struct lwan_request *request,
     int remaining_tries_for_chunked = 10;
     int fcgi_fd;
 
-    fcgi_fd = socket(pd->addr_family, SOCK_STREAM, 0);
+    fcgi_fd =
+        socket(pd->addr_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fcgi_fd < 0)
         return HTTP_INTERNAL_ERROR;
 
