@@ -170,7 +170,6 @@ static struct cache_entry *create_script_name(const char *key, void *context)
     struct private_data *pd = context;
     struct script_name_cache_entry *entry;
     struct lwan_value url;
-    char temp[PATH_MAX];
     int r;
 
     entry = malloc(sizeof(*entry));
@@ -184,15 +183,12 @@ static struct cache_entry *create_script_name(const char *key, void *context)
     }
 
     /* SCRIPT_NAME */
-    r = snprintf(temp, sizeof(temp), "/%.*s", (int)url.len, url.value);
-    if (r < 0 || r >= (int)sizeof(temp))
-        goto free_entry;
-
-    entry->script_name = strdup(temp);
-    if (!entry->script_name)
+    r = asprintf(&entry->script_name, "/%.*s", (int)url.len, url.value);
+    if (r < 0)
         goto free_entry;
 
     /* SCRIPT_FILENAME */
+    char temp[PATH_MAX];
     r = snprintf(temp, sizeof(temp), "%s/%.*s", pd->script_path, (int)url.len,
                  url.value);
     if (r < 0 || r >= (int)sizeof(temp))
