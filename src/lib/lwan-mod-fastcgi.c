@@ -578,8 +578,6 @@ static enum lwan_http_status send_request(struct private_data *pd,
         .end_params = {.version = 1,
                        .type = FASTCGI_TYPE_PARAMS,
                        .id = htons(1)},
-        /* FIXME: do we need a STDIN record if there's no request body is empty?
-         */
         .empty_stdin = {.version = 1,
                         .type = FASTCGI_TYPE_STDIN,
                         .id = htons(1)},
