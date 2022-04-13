@@ -1863,6 +1863,12 @@ static int useless_coro_for_fuzzing(struct coro *c __attribute__((unused)),
     return 0;
 }
 
+static bool request_seems_complete(struct lwan_request_parser_helper *helper)
+{
+    return read_request_finalizer_from_helper(helper->buffer, helper, 1,
+                                              false) == FINALIZER_DONE;
+}
+
 __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
                                                   size_t length)
 {
@@ -1898,7 +1904,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    if (!lwan_request_seems_complete(&request))
+    if (!request_seems_complete(&request))
         return 0;
 
     /* client_read() NUL-terminates the string */
