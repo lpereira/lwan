@@ -442,7 +442,16 @@ static bool discard_unknown_record(struct lwan_request *request,
     return true;
 }
 
-static bool try_initiating_chunked_response(struct lwan_request *request)
+DEFINE_ARRAY_TYPE_INLINEFIRST(header_array, struct lwan_key_value)
+
+static void reset_additional_header(void *data)
+{
+    struct header_array *array = data;
+    header_array_reset(array);
+}
+
+static enum lwan_http_status
+try_initiating_chunked_response(struct lwan_request *request)
 {
     struct lwan_response *response = &request->response;
     char *header_start[N_HEADER_START];
@@ -457,22 +466,19 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
              (RESPONSE_CHUNKED_ENCODING | RESPONSE_SENT_HEADERS)));
 
     if (!memmem(buffer.value, buffer.len, "\r\n\r\n", 4))
-        return true;
+        return HTTP_OK;
 
     ssize_t n_headers = lwan_find_headers(header_start, &buffer, &next_request);
     if (n_headers < 0)
-        return false;
+        return HTTP_BAD_REQUEST;
 
-    /* FIXME: Maybe use a lwan_key_value_array here? */
-    struct lwan_key_value *additional_headers =
-        calloc((size_t)n_headers + 1, sizeof(struct lwan_key_value));
-    if (!additional_headers)
-        return false;
+    struct header_array additional_headers;
 
-    struct coro_defer *free_additional_headers =
-        coro_defer(request->conn->coro, free, additional_headers);
+    header_array_init(&additional_headers);
+    struct coro_defer *additional_headers_reset = coro_defer(request->conn->coro,
+                          reset_additional_header, &additional_headers);
 
-    for (ssize_t i = 0, j = 0; i < n_headers; i++) {
+    for (ssize_t i = 0; i < n_headers; i++) {
         char *begin = header_start[i];
         char *end = header_start[i + 1];
         char *p;
@@ -506,17 +512,26 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
             else
                 status_code = (enum lwan_http_status)status_as_int;
         } else {
-            additional_headers[j++] =
-                (struct lwan_key_value){.key = key, .value = value};
+            struct lwan_key_value *header = header_array_append(&additional_headers);
+
+            if (!header)
+                return HTTP_INTERNAL_ERROR;
+
+            *header = (struct lwan_key_value){.key = key, .value = value};
         }
     }
 
+    struct lwan_key_value *header = header_array_append(&additional_headers);
+    if (!header)
+        return HTTP_INTERNAL_ERROR;
+    *header = (struct lwan_key_value){};
+
     if (!lwan_response_set_chunked_full(request, status_code,
-                                        additional_headers)) {
-        return false;
+                                        header_array_get_array(&additional_headers))) {
+        return HTTP_INTERNAL_ERROR;
     }
 
-    coro_defer_fire_and_disarm(request->conn->coro, free_additional_headers);
+    coro_defer_fire_and_disarm(request->conn->coro, additional_headers_reset);
 
     char *chunk_start = header_start[n_headers];
     size_t chunk_len = buffer.len - (size_t)(chunk_start - buffer.value);
@@ -533,7 +548,7 @@ static bool try_initiating_chunked_response(struct lwan_request *request)
         lwan_strbuf_reset(response->buffer);
     }
 
-    return true;
+    return HTTP_OK;
 }
 
 static enum lwan_http_status send_request(struct private_data *pd,
@@ -659,8 +674,9 @@ fastcgi_handle_request(struct lwan_request *request,
                 if (!remaining_tries_for_chunked)
                     return HTTP_UNAVAILABLE;
 
-                if (!try_initiating_chunked_response(request))
-                    return HTTP_BAD_REQUEST;
+                status = try_initiating_chunked_response(request);
+                if (status != HTTP_OK)
+                    return status;
             }
 
             if (record.type == FASTCGI_TYPE_END_REQUEST)
