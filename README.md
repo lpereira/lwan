@@ -720,9 +720,7 @@ Lwan and a FastCGI server accessible by Lwan.  This is useful, for instance,
 to serve pages from a scripting language such as PHP.
 
 > :bulb: **Note:** This is a preliminary version of this module, and
-> as such, it's not well optimized and some features are missing.  Of
-> note, requests that send a body (e.g. POST requests) won't work because
-> Lwan does not implement the STDIN record yet.
+> as such, it's not well optimized and some features are missing.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
