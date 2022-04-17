@@ -928,6 +928,8 @@ static void *thread_io_loop(void *data)
         for (struct epoll_event *event = events; n_fds--; event++) {
             struct lwan_connection *conn = event->data.ptr;
 
+            assert(!(conn->flags & CONN_ASYNC_AWAIT));
+
             if (conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)) {
                 if (LIKELY(accept_waiting_clients(t, conn)))
                     continue;
