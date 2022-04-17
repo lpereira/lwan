@@ -947,7 +947,7 @@ static void *thread_io_loop(void *data)
 
             if (!conn->coro) {
                 if (UNLIKELY(!spawn_coro(conn, &switcher, &tq))) {
-                    send_last_response_without_coro(t->lwan, conn, HTTP_INTERNAL_ERROR);
+                    send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
                     continue;
                 }
 
