@@ -499,6 +499,10 @@ try_initiating_chunked_response(struct lwan_request *request)
                 status_code = HTTP_INTERNAL_ERROR;
                 continue;
             }
+            if (value[3] != ' ') {
+                status_code = HTTP_INTERNAL_ERROR;
+                continue;
+            }
 
             value[3] = '\0';
             int status_as_int = parse_int(value, -1);
