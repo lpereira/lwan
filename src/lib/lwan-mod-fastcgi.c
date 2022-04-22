@@ -551,6 +551,37 @@ try_initiating_chunked_response(struct lwan_request *request)
     return HTTP_OK;
 }
 
+static void send_stdin_records(struct lwan_request *request,
+                               int fcgi_fd,
+                               const struct lwan_value *body_data,
+                               const struct record *end_stdin_block)
+{
+    size_t to_send = body_data->len;
+    char *buffer = body_data->value;
+
+    while (to_send) {
+        size_t block_size = LWAN_MIN(0xffffull, to_send);
+        struct record stdin_header = {
+            .version = 1,
+            .type = FASTCGI_TYPE_STDIN,
+            .id = htons(1),
+            .len_content = htons((uint16_t)block_size),
+        };
+        struct iovec vec[] = {
+            {.iov_base = &stdin_header, .iov_len = sizeof(stdin_header)},
+            {.iov_base = buffer, .iov_len = block_size},
+        };
+
+        lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec));
+
+        to_send -= block_size;
+        buffer += block_size;
+    }
+
+    lwan_request_async_write(request, fcgi_fd, end_stdin_block,
+                             sizeof(*end_stdin_block));
+}
+
 static enum lwan_http_status send_request(struct private_data *pd,
                                           struct lwan_request *request,
                                           struct lwan_response *response,
@@ -610,40 +641,14 @@ static enum lwan_http_status send_request(struct private_data *pd,
     const struct lwan_value *body_data = lwan_request_get_request_body(request);
     if (!body_data) {
         lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec));
-        goto done;
+    } else {
+        /* If we have body data, don't send the last element just yet: we need
+         * to send each stdin segment until we don't have anything else there
+         * anymore before sending one with len_content = 0.  */
+        lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec) - 1);
+        send_stdin_records(request, fcgi_fd, body_data, &end_stdin_block);
     }
 
-    /* If we have body data, don't send the last element just yet: we need
-     * to send each stdin segment until we don't have anything else there
-     * anymore before sending one with len_content = 0.  */
-    lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec) - 1);
-
-    size_t to_send = body_data->len;
-    char *buffer = body_data->value;
-    while (to_send) {
-        size_t block_size = LWAN_MIN(0xffffull, to_send);
-        struct record stdin_header = {
-            .version = 1,
-            .type = FASTCGI_TYPE_STDIN,
-            .id = htons(1),
-            .len_content = htons((uint16_t)block_size),
-        };
-        struct iovec chunk_vec[] = {
-            {.iov_base = &stdin_header, .iov_len = sizeof(stdin_header)},
-            {.iov_base = buffer, .iov_len = block_size},
-        };
-
-        lwan_request_async_writev(request, fcgi_fd, chunk_vec,
-                                  N_ELEMENTS(chunk_vec));
-
-        to_send -= block_size;
-        buffer += block_size;
-    }
-
-    lwan_request_async_write(request, fcgi_fd, &end_stdin_block,
-                             sizeof(end_stdin_block));
-
-done:
     lwan_strbuf_reset(response->buffer);
 
     return HTTP_OK;
