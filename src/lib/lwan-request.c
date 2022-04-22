@@ -1904,7 +1904,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 
     /* If the finalizer isn't happy with a request, there's no point in
      * going any further with parsing it. */
-    if (!request_seems_complete(&request))
+    if (!request_seems_complete(&helper))
         return 0;
 
     /* client_read() NUL-terminates the string */
