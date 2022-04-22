@@ -575,14 +575,18 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     int64_t from_coro = coro_resume(conn->coro);
     enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
 
-    if (UNLIKELY(yield_result >= CONN_CORO_ASYNC))
-        yield_result = resume_async(tq, yield_result, from_coro, conn, epoll_fd);
+    if (UNLIKELY(yield_result >= CONN_CORO_ASYNC)) {
+        yield_result =
+            resume_async(tq, yield_result, from_coro, conn, epoll_fd);
+    }
 
-    if (UNLIKELY(yield_result == CONN_CORO_ABORT))
-        return timeout_queue_expire(tq, conn);
-
-    return update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn,
-                              epoll_fd, yield_result);
+    if (UNLIKELY(yield_result == CONN_CORO_ABORT)) {
+        timeout_queue_expire(tq, conn);
+    } else {
+        update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn,
+                           epoll_fd, yield_result);
+        timeout_queue_move_to_last(tq, conn);
+    }
 }
 
 static void update_date_cache(struct lwan_thread *thread)
@@ -955,7 +959,6 @@ static void *thread_io_loop(void *data)
             }
 
             resume_coro(&tq, conn, epoll_fd);
-            timeout_queue_move_to_last(&tq, conn);
         }
 
         if (created_coros)
