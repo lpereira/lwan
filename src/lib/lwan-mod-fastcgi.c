@@ -371,15 +371,14 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 static bool
 handle_stderr(struct lwan_request *request, const struct record *record, int fd)
 {
-    /* Even though we only use buffer within this function, we need to use
-     * coro_malloc() to allocate this buffer.  Otherwise, if
-     * lwan_request_async_read() yields the coroutine, the main loop might
-     * terminate the coroutine if either connection is dropped.  */
     size_t to_read = (size_t)ntohs(record->len_content);
-    char *buffer = coro_malloc(request->conn->coro, to_read);
+    char *buffer = malloc(to_read);
 
     if (!buffer)
         return false;
+
+    struct coro_defer *buffer_free_defer =
+        coro_defer(request->conn->coro, free, buffer);
 
     for (char *p = buffer; to_read;) {
         ssize_t r = lwan_request_async_read(request, fd, p, to_read);
@@ -393,6 +392,8 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
 
     lwan_status_error("FastCGI stderr output: %.*s",
                       (int)ntohs(record->len_content), buffer);
+
+    coro_defer_fire_and_disarm(request->conn->coro, buffer_free_defer);
 
     if (record->len_padding) {
         char padding[256];
