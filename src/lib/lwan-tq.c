@@ -52,8 +52,6 @@ static inline void timeout_queue_remove(struct timeout_queue *tq,
 
     next->prev = node->prev;
     prev->next = node->next;
-
-    node->next = node->prev = -1;
 }
 
 bool timeout_queue_empty(struct timeout_queue *tq) { return tq->head.next < 0; }
