@@ -604,7 +604,7 @@ static enum lwan_http_status send_request(struct private_data *pd,
          * we change how request headers are read.) */
         static_assert(DEFAULT_BUFFER_SIZE <= 0xffffu,
                       "only needs one PARAMS record");
-        return HTTP_BAD_REQUEST;
+        return HTTP_TOO_LARGE;
     }
 
     struct request_header request_header = {
