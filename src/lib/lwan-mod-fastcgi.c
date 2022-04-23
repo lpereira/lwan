@@ -789,7 +789,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto free_default_index;
     }
 
-    pd->script_path_fd = open(pd->script_path, O_PATH | O_DIRECTORY);
+    pd->script_path_fd = open(pd->script_path, O_PATH | O_DIRECTORY | O_CLOEXEC);
     if (pd->script_path_fd < 0) {
         lwan_status_perror("FastCGI: Could not open `script_path` at '%s'",
                            pd->script_path);
