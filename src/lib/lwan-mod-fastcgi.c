@@ -884,7 +884,8 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
     }
     }
 
-    return pd;
+    lwan_status_error("FastCGI: Address '%s' isn't a valid Unix Domain Socket, IPv4, or IPv6 address",
+                      settings->address);
 
 free_address_copy:
     free(address_copy);
