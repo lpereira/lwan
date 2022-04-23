@@ -457,7 +457,7 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
     return map[flags & CONN_EVENTS_MASK];
 }
 
-static void update_epoll_flags(int fd,
+static void update_epoll_flags(const struct timeout_queue *tq,
                                struct lwan_connection *conn,
                                int epoll_fd,
                                enum lwan_connection_coro_yield yield_result)
@@ -505,10 +505,9 @@ static void update_epoll_flags(int fd,
     if (conn->flags == prev_flags)
         return;
 
-    struct epoll_event event = {
-        .events = conn_flags_to_epoll_events(conn->flags),
-        .data.ptr = conn,
-    };
+    struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
+                                .data.ptr = conn};
+    int fd = lwan_connection_get_fd(tq->lwan, conn);
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
@@ -522,7 +521,7 @@ static void clear_async_await_flag(void *data)
 }
 
 static enum lwan_connection_coro_yield
-resume_async(struct timeout_queue *tq,
+resume_async(const struct timeout_queue *tq,
              enum lwan_connection_coro_yield yield_result,
              int64_t from_coro,
              struct lwan_connection *conn,
@@ -583,8 +582,7 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     if (UNLIKELY(yield_result == CONN_CORO_ABORT)) {
         timeout_queue_expire(tq, conn);
     } else {
-        update_epoll_flags(lwan_connection_get_fd(tq->lwan, conn), conn,
-                           epoll_fd, yield_result);
+        update_epoll_flags(tq, conn, epoll_fd, yield_result);
         timeout_queue_move_to_last(tq, conn);
     }
 }
@@ -732,9 +730,7 @@ static bool process_pending_timers(struct timeout_queue *tq,
         }
 
         request = container_of(timeout, struct lwan_request, timeout);
-
-        update_epoll_flags(request->fd, request->conn, epoll_fd,
-                           CONN_CORO_RESUME);
+        update_epoll_flags(tq, request->conn, epoll_fd, CONN_CORO_RESUME);
     }
 
     if (should_expire_timers) {
