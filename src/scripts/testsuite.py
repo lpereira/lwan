@@ -1007,11 +1007,15 @@ class TestFuzzRegressionBase(SocketTest):
       return self.run_test(contents)
     return run_test_wrapped
 
+def only_request_fuzzer_regression():
+  for path in os.listdir("fuzz/regression"):
+    if not "request_fuzzer" in path:
+      continue
+    if path.startswith(("clusterfuzz-", "crash-")):
+      yield path
+
 TestFuzzRegression = type('TestFuzzRegression', (TestFuzzRegressionBase,), {
-  "test_" + name.replace("-", "_"): TestFuzzRegressionBase.wrap(name)
-  for name in (
-    cf for cf in os.listdir("fuzz/regression") if cf.startswith(("clusterfuzz-", "crash-") and "request_fuzzer" in cf)
-  )
+  "test_" + name.replace("-", "_"): TestFuzzRegressionBase.wrap(name) for name in only_request_fuzzer_regression()
 })
 
 if __name__ == '__main__':
