@@ -205,7 +205,7 @@ LWAN_HANDLER(hello_world)
 
     const char *dump_request_id = lwan_request_get_query_param(request, "dump_request_id");
     if (dump_request_id && streq(dump_request_id, "1")) {
-        lwan_strbuf_append_printf(response->buffer, "\nRequest ID: <<%0lx>>",
+        lwan_strbuf_append_printf(response->buffer, "\nRequest ID: <<%016lx>>",
                                   lwan_request_get_id(request));
     }
 
