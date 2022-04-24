@@ -431,7 +431,7 @@ class TestFileServing(LwanTest):
 
     self.assertResponsePlain(r, 301)
     self.assertTrue('location' in r.headers)
-    self.assertEqual(r.headers['location'], 'icons/')
+    self.assertEqual(r.headers['location'], '/icons/')
 
 class TestRedirect(LwanTest):
   def test_redirect_default(self):
