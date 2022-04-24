@@ -54,10 +54,13 @@ static inline void timeout_queue_remove(struct timeout_queue *tq,
     prev->next = node->next;
 }
 
-bool timeout_queue_empty(struct timeout_queue *tq) { return tq->head.next < 0; }
+inline bool timeout_queue_empty(struct timeout_queue *tq)
+{
+    return tq->head.next < 0;
+}
 
-void timeout_queue_move_to_last(struct timeout_queue *tq,
-                                struct lwan_connection *conn)
+inline void timeout_queue_move_to_last(struct timeout_queue *tq,
+                                       struct lwan_connection *conn)
 {
     /* CONN_IS_KEEP_ALIVE isn't checked here because non-keep-alive connections
      * are closed in the request processing coroutine after they have been
