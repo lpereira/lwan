@@ -108,22 +108,6 @@ void lwan_response_websocket_write_binary(struct lwan_request *request)
     lwan_response_websocket_write(request, WS_OPCODE_BINARY);
 }
 
-static void send_websocket_pong(struct lwan_request *request, size_t len)
-{
-    char temp[128];
-
-    if (UNLIKELY(len > 125)) {
-        lwan_status_debug("Received PING opcode with length %zu."
-                          "Max is 125. Aborting connection.",
-                          len);
-        coro_yield(request->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-    }
-
-    lwan_recv(request, temp, len, 0);
-    write_websocket_frame(request, WS_OPCODE_PONG, temp, len);
-}
-
 static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 {
     uint64_t len;
@@ -209,6 +193,37 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 }
 
+static inline void send_websocket_pong(struct lwan_request *request, size_t header)
+{
+       char mask[4];
+       char msg[128];
+
+       const size_t len = header & 0x7f;
+       const int masked = header >> 7;
+
+       if (UNLIKELY(len > 125)) {
+        lwan_status_debug("Received PING opcode with length %zu."
+                          "Max is 125. Aborting connection.",
+                          len);
+               coro_yield(request->conn->coro, CONN_CORO_ABORT);
+               __builtin_unreachable();
+       }
+
+       if (masked) {
+               struct iovec vec[] = {
+                       {.iov_base = mask, .iov_len = sizeof(mask)},
+                       {.iov_base = msg, .iov_len = len},
+               };
+               lwan_readv(request, vec, N_ELEMENTS(vec));
+               unmask(msg, len, mask);
+
+       } else {
+               lwan_recv(request, msg, len, 0);
+       }
+
+       write_websocket_frame(request, 0x80 | WS_OPCODE_PONG, msg, len);
+}
+
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint)
 {
     enum ws_opcode opcode = WS_OPCODE_INVALID;
@@ -262,7 +277,7 @@ next_frame:
         break;
 
     case WS_OPCODE_PING:
-        send_websocket_pong(request, header & 0x7f);
+        send_websocket_pong(request, header);
         goto next_frame;
 
     case WS_OPCODE_PONG:
