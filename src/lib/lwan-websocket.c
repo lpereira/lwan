@@ -193,35 +193,31 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 }
 
-static inline void send_websocket_pong(struct lwan_request *request, size_t header)
+static void send_websocket_pong(struct lwan_request *request, uint16_t header)
 {
-       char mask[4];
-       char msg[128];
+    const size_t len = header & 0x7f;
+    char msg[128];
+    char mask[4];
 
-       const size_t len = header & 0x7f;
-       const int masked = header >> 7;
+    assert(!(header & 0x80));
 
-       if (UNLIKELY(len > 125)) {
+    if (UNLIKELY(len > 125)) {
         lwan_status_debug("Received PING opcode with length %zu."
                           "Max is 125. Aborting connection.",
                           len);
-               coro_yield(request->conn->coro, CONN_CORO_ABORT);
-               __builtin_unreachable();
-       }
+        coro_yield(request->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
 
-       if (masked) {
-               struct iovec vec[] = {
-                       {.iov_base = mask, .iov_len = sizeof(mask)},
-                       {.iov_base = msg, .iov_len = len},
-               };
-               lwan_readv(request, vec, N_ELEMENTS(vec));
-               unmask(msg, len, mask);
+    struct iovec vec[] = {
+        {.iov_base = mask, .iov_len = sizeof(mask)},
+        {.iov_base = msg, .iov_len = len},
+    };
 
-       } else {
-               lwan_recv(request, msg, len, 0);
-       }
+    lwan_readv(request, vec, N_ELEMENTS(vec));
+    unmask(msg, len, mask);
 
-       write_websocket_frame(request, 0x80 | WS_OPCODE_PONG, msg, len);
+    write_websocket_frame(request, 0x80 | WS_OPCODE_PONG, msg, len);
 }
 
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint)
