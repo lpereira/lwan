@@ -199,7 +199,7 @@ static void send_websocket_pong(struct lwan_request *request, uint16_t header)
     char msg[128];
     char mask[4];
 
-    assert(!(header & 0x80));
+    assert(header & 0x80);
 
     if (UNLIKELY(len > 125)) {
         lwan_status_debug("Received PING opcode with length %zu."
