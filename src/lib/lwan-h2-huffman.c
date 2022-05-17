@@ -269,7 +269,7 @@ static inline const struct h2_huffman_code *next_level2(uint8_t peeked_byte)
 struct bit_reader {
     const uint8_t *bitptr;
     uint64_t bitbuf;
-    uint64_t total_bitcount;
+    int64_t total_bitcount;
     int bitcount;
 };
 
@@ -301,14 +301,8 @@ static inline bool consume(struct bit_reader *reader, int count)
     assert(count > 0);
     reader->bitbuf <<= count;
     reader->bitcount -= count;
-    if (__builtin_sub_overflow(reader->total_bitcount, count,
-                               &reader->total_bitcount)) {
-        return false;
-    }
-    if (reader->total_bitcount == 0) {
-        return false;
-    }
-    return true;
+    reader->total_bitcount -= count;
+    return reader->total_bitcount > 0;
 }
 
 static inline size_t output_size(size_t input_size)
@@ -324,13 +318,14 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
     uint8_t *output = malloc(output_size(input_len));
     uint8_t *ret = output;
     struct bit_reader bit_reader = {.bitptr = input,
-                                    .total_bitcount = input_len * 8};
+                                    .total_bitcount = (int64_t)input_len * 8};
 
-    while ((int64_t)bit_reader.total_bitcount > 7) {
+    while (bit_reader.total_bitcount > 7) {
         uint8_t peeked_byte = peek_byte(&bit_reader);
         if (LIKELY(level0[peeked_byte].num_bits)) {
             *output++ = level0[peeked_byte].symbol;
             consume(&bit_reader, level0[peeked_byte].num_bits);
+            assert(bit_reader.total_bitcount >= 0);
             continue;
         }
 
@@ -341,7 +336,8 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
         peeked_byte = peek_byte(&bit_reader);
         if (level1[peeked_byte].num_bits) {
             *output++ = level1[peeked_byte].symbol;
-            consume(&bit_reader, level1[peeked_byte].num_bits);
+            if (!consume(&bit_reader, level1[peeked_byte].num_bits))
+                goto fail;
             continue;
         }
 
@@ -352,7 +348,8 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
         peeked_byte = peek_byte(&bit_reader);
         if (level2[peeked_byte].num_bits) {
             *output++ = level2[peeked_byte].symbol;
-            consume(&bit_reader, level2[peeked_byte].num_bits);
+            if (!consume(&bit_reader, level2[peeked_byte].num_bits))
+                goto fail;
             continue;
         }
 
@@ -368,7 +365,8 @@ uint8_t *lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input,
             }
             if (LIKELY(level3[peeked_byte].num_bits)) {
                 *output++ = level3[peeked_byte].symbol;
-                consume(&bit_reader, level3[peeked_byte].num_bits);
+                if (!consume(&bit_reader, level3[peeked_byte].num_bits))
+                    goto fail;
                 continue;
             }
         }
