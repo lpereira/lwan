@@ -551,35 +551,59 @@ try_initiating_chunked_response(struct lwan_request *request)
     return HTTP_OK;
 }
 
-static void send_stdin_records(struct lwan_request *request,
-                               int fcgi_fd,
-                               const struct lwan_value *body_data,
-                               const struct record *end_stdin_block)
+DEFINE_ARRAY_TYPE_INLINEFIRST(iovec_array, struct iovec)
+DEFINE_ARRAY_TYPE_INLINEFIRST(record_array, struct record)
+
+static bool build_stdin_records(struct lwan_request *request,
+                                struct iovec_array *iovec_array,
+                                struct record_array *record_array,
+                                int fcgi_fd,
+                                const struct lwan_value *body_data)
 {
+    if (!body_data)
+        return true;
+
     size_t to_send = body_data->len;
     char *buffer = body_data->value;
 
     while (to_send) {
+        struct record *record;
+        struct iovec *iovec;
         size_t block_size = LWAN_MIN(0xffffull, to_send);
-        struct record stdin_header = {
+
+        record = record_array_append(record_array);
+        if (UNLIKELY(!record))
+            return false;
+        *record = (struct record){
             .version = 1,
             .type = FASTCGI_TYPE_STDIN,
             .id = htons(1),
             .len_content = htons((uint16_t)block_size),
         };
-        struct iovec vec[] = {
-            {.iov_base = &stdin_header, .iov_len = sizeof(stdin_header)},
-            {.iov_base = buffer, .iov_len = block_size},
-        };
 
-        lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec));
+        iovec = iovec_array_append(iovec_array);
+        if (UNLIKELY(!iovec))
+            return false;
+        *iovec = (struct iovec){.iov_base = record, .iov_len = sizeof(*record)};
+
+        iovec = iovec_array_append(iovec_array);
+        if (UNLIKELY(!iovec))
+            return false;
+        *iovec = (struct iovec){.iov_base = buffer, .iov_len = block_size};
+
+        if (iovec_array_len(iovec_array) == LWAN_ARRAY_INCREMENT) {
+            lwan_request_async_writev(request, fcgi_fd,
+                                      iovec_array_get_array(iovec_array),
+                                      (int)iovec_array_len(iovec_array));
+            iovec_array_reset(iovec_array);
+            record_array_reset(record_array);
+        }
 
         to_send -= block_size;
         buffer += block_size;
     }
 
-    lwan_request_async_write(request, fcgi_fd, end_stdin_block,
-                             sizeof(*end_stdin_block));
+    return true;
 }
 
 static enum lwan_http_status send_request(struct private_data *pd,
@@ -607,47 +631,73 @@ static enum lwan_http_status send_request(struct private_data *pd,
         return HTTP_TOO_LARGE;
     }
 
-    struct request_header request_header = {
-        .begin_request = {.version = 1,
-                          .type = FASTCGI_TYPE_BEGIN_REQUEST,
-                          .id = htons(1),
-                          .len_content = htons(
-                              (uint16_t)sizeof(struct begin_request_body))},
-        .begin_request_body = {.role = htons(FASTCGI_ROLE_RESPONDER)},
-        .begin_params = {.version = 1,
-                         .type = FASTCGI_TYPE_PARAMS,
-                         .id = htons(1),
-                         .len_content = htons((uint16_t)lwan_strbuf_get_length(
-                             response->buffer))},
-    };
-    struct record end_params_block = {
-        .version = 1,
-        .type = FASTCGI_TYPE_PARAMS,
-        .id = htons(1),
-    };
-    struct record end_stdin_block = {
-        .version = 1,
-        .type = FASTCGI_TYPE_STDIN,
-        .id = htons(1),
-    };
-    struct iovec vec[] = {
-        {.iov_base = &request_header, .iov_len = sizeof(request_header)},
-        {.iov_base = lwan_strbuf_get_buffer(response->buffer),
-         .iov_len = lwan_strbuf_get_length(response->buffer)},
-        {.iov_base = &end_params_block, .iov_len = sizeof(end_params_block)},
-        {.iov_base = &end_stdin_block, .iov_len = sizeof(end_stdin_block)},
+    struct iovec_array iovec_array;
+    struct record_array record_array;
+    struct iovec *iovec;
+
+    /* These arrays should never go beyond the inlinefirst threshold, so they
+     * shouldn't leak -- thus requiring no defer to reset them. */
+    record_array_init(&record_array);
+    iovec_array_init(&iovec_array);
+
+    iovec = iovec_array_append(&iovec_array);
+    if (UNLIKELY(!iovec))
+        return HTTP_INTERNAL_ERROR;
+    *iovec = (struct iovec){
+        .iov_base =
+            &(struct request_header){
+                .begin_request = {.version = 1,
+                                  .type = FASTCGI_TYPE_BEGIN_REQUEST,
+                                  .id = htons(1),
+                                  .len_content = htons(
+                                      (uint16_t)sizeof(struct begin_request_body))},
+                .begin_request_body = {.role = htons(FASTCGI_ROLE_RESPONDER)},
+                .begin_params = {.version = 1,
+                                 .type = FASTCGI_TYPE_PARAMS,
+                                 .id = htons(1),
+                                 .len_content =
+                                     htons((uint16_t)lwan_strbuf_get_length(
+                                         response->buffer))}},
+        .iov_len = sizeof(struct request_header),
     };
 
-    const struct lwan_value *body_data = lwan_request_get_request_body(request);
-    if (!body_data) {
-        lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec));
-    } else {
-        /* If we have body data, don't send the last element just yet: we need
-         * to send each stdin segment until we don't have anything else there
-         * anymore before sending one with len_content = 0.  */
-        lwan_request_async_writev(request, fcgi_fd, vec, N_ELEMENTS(vec) - 1);
-        send_stdin_records(request, fcgi_fd, body_data, &end_stdin_block);
+    iovec = iovec_array_append(&iovec_array);
+    if (UNLIKELY(!iovec))
+        return HTTP_INTERNAL_ERROR;
+    *iovec =
+        (struct iovec){.iov_base = lwan_strbuf_get_buffer(response->buffer),
+                       .iov_len = lwan_strbuf_get_length(response->buffer)};
+
+    iovec = iovec_array_append(&iovec_array);
+    if (UNLIKELY(!iovec))
+        return HTTP_INTERNAL_ERROR;
+    *iovec = (struct iovec){
+        .iov_base = &(struct record){.version = 1,
+                                     .type = FASTCGI_TYPE_PARAMS,
+                                     .id = htons(1)},
+        .iov_len = sizeof(struct record),
+    };
+
+    if (!build_stdin_records(request, &iovec_array, &record_array, fcgi_fd,
+                             lwan_request_get_request_body(request))) {
+        return HTTP_INTERNAL_ERROR;
     }
+
+    iovec = iovec_array_append(&iovec_array);
+    if (UNLIKELY(!iovec))
+        return HTTP_INTERNAL_ERROR;
+    *iovec = (struct iovec){
+        .iov_base = &(struct record){.version = 1,
+                                     .type = FASTCGI_TYPE_STDIN,
+                                     .id = htons(1)},
+        .iov_len = sizeof(struct record),
+    };
+
+    lwan_request_async_writev(request, fcgi_fd,
+                              iovec_array_get_array(&iovec_array),
+                              (int)iovec_array_len(&iovec_array));
+    iovec_array_reset(&iovec_array);
+    record_array_reset(&record_array);
 
     lwan_strbuf_reset(response->buffer);
 
