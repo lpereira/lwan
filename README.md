@@ -159,6 +159,10 @@ names provided in the "Optional dependencies"  section.
 The `-DUSE_SYSLOG=ON` option can be passed to CMake to also log to the system log
 in addition to the standard output.
 
+If you're building Lwan for a distribution, it might be wise to use the
+`-DMTUNE_NATIVE=OFF` option, otherwise the generated binary may fail to
+run on some computers.
+
 ### Tests
 
     ~/lwan/build$ make testsuite

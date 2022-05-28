@@ -3,7 +3,7 @@ RUN apk add --no-cache gcc make musl-dev cmake pkgconfig linux-headers \
       luajit-dev sqlite-dev zlib-dev brotli-dev zstd-dev
 COPY . /lwan
 WORKDIR /lwan/build
-RUN cmake .. -DCMAKE_BUILD_TYPE=Release
+RUN cmake .. -DCMAKE_BUILD_TYPE=Release -DMTUNE_NATIVE=OFF
 RUN make -j
 
 FROM docker.io/library/alpine:3.14.2

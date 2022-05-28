@@ -260,8 +260,11 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
-enable_c_flag_if_avail(-mtune=native C_FLAGS_REL LWAN_HAVE_MTUNE_NATIVE)
-enable_c_flag_if_avail(-march=native C_FLAGS_REL LWAN_HAVE_MARCH_NATIVE)
+option(MTUNE_NATIVE "Build with -mtune=native/-march=native" "ON")
+if (MTUNE_NATIVE)
+    enable_c_flag_if_avail(-mtune=native C_FLAGS_REL LWAN_HAVE_MTUNE_NATIVE)
+    enable_c_flag_if_avail(-march=native C_FLAGS_REL LWAN_HAVE_MARCH_NATIVE)
+endif ()
 
 enable_c_flag_if_avail(-fstack-protector-explicit CMAKE_C_FLAGS
 	LWAN_HAVE_STACK_PROTECTOR_EXPLICIT)
