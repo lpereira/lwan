@@ -1,0 +1,4 @@
+project: PROJECT
+target: config_fuzzer
+cmds:
+- cmd: /out/config_fuzzer
