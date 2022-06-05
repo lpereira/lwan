@@ -719,8 +719,8 @@ static void parse_condition_accept_encoding(struct pattern *pattern,
 
 static bool get_method_from_string(struct pattern *pattern, const char *string)
 {
-#define GENERATE_CMP(upper, lower, mask, constant, probability)		\
-    if (!strcasecmp(string, #upper)) {                                         \
+#define GENERATE_CMP(upper, lower, mask, constant, probability)                \
+    if (!strcasecmp_neutral(string, #upper)) {                                 \
         pattern->condition.request_flags |= (mask);                            \
         return true;                                                           \
     }

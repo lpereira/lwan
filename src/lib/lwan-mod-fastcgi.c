@@ -490,12 +490,12 @@ try_initiating_chunked_response(struct lwan_request *request)
         char *key = begin;
         char *value = p + 2;
 
-        if (!strcasecmp(key, "X-Powered-By")) {
+        if (!strcasecmp_neutral(key, "X-Powered-By")) {
             /* This is set by PHP-FPM.  Do not advertise this for privacy
              * reasons.  */
-        } else if (!strcasecmp(key, "Content-Type")) {
+        } else if (!strcasecmp_neutral(key, "Content-Type")) {
             response->mime_type = coro_strdup(request->conn->coro, value);
-        } else if (!strcasecmp(key, "Status")) {
+        } else if (!strcasecmp_neutral(key, "Status")) {
             if (strlen(value) < 4) {
                 status_code = HTTP_INTERNAL_ERROR;
                 continue;
