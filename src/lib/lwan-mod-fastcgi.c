@@ -496,11 +496,7 @@ try_initiating_chunked_response(struct lwan_request *request)
         } else if (!strcasecmp_neutral(key, "Content-Type")) {
             response->mime_type = coro_strdup(request->conn->coro, value);
         } else if (!strcasecmp_neutral(key, "Status")) {
-            if (strlen(value) < 4) {
-                status_code = HTTP_INTERNAL_ERROR;
-                continue;
-            }
-            if (value[3] != ' ') {
+            if (strlen(value) < 3) {
                 status_code = HTTP_INTERNAL_ERROR;
                 continue;
             }
