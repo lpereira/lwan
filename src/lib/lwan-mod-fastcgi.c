@@ -28,6 +28,7 @@
 #define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <netinet/in.h>
@@ -704,6 +705,53 @@ static enum lwan_http_status send_request(struct private_data *pd,
     return HTTP_OK;
 }
 
+static bool try_connect(struct lwan_request *request,
+                        int sock_fd,
+                        struct sockaddr *sockaddr,
+                        socklen_t socklen)
+{
+    if (LIKELY(!connect(sock_fd, sockaddr, socklen)))
+        return true;
+
+    /* Since socket has been created in non-blocking mode, connection
+     * might not be completed immediately.  Depending on the socket type,
+     * connect() might return EAGAIN or EINPROGRESS.  */
+    if (errno != EAGAIN && errno != EINPROGRESS)
+        return false;
+
+    /* If we get any of the above errors, try checking for socket error
+     * codes and loop until we get no errors.  We await for writing here
+     * because that's what the Linux man page for connect(2) says we should
+     * do in this case.  */
+    for (int try = 0; try < 10; try++) {
+        socklen_t sockerrnolen = (socklen_t)sizeof(int);
+        int sockerrno;
+
+        lwan_request_await_write(request, sock_fd);
+
+        if (getsockopt(sock_fd, SOL_SOCKET, SO_ERROR, &sockerrno,
+                       &sockerrnolen) < 0) {
+            break;
+        }
+
+        switch (sockerrno) {
+        case EISCONN:
+        case 0:
+            return true;
+
+        case EAGAIN:
+        case EINPROGRESS:
+        case EINTR:
+            continue;
+
+        default:
+            return false;
+        }
+    }
+
+    return false;
+}
+
 static enum lwan_http_status
 fastcgi_handle_request(struct lwan_request *request,
                        struct lwan_response *response,
@@ -721,8 +769,10 @@ fastcgi_handle_request(struct lwan_request *request,
 
     coro_defer(request->conn->coro, close_fd, (void *)(intptr_t)fcgi_fd);
 
-    if (connect(fcgi_fd, (struct sockaddr *)&pd->sock_addr, pd->addr_size) < 0)
+    if (!try_connect(request, fcgi_fd, (struct sockaddr *)&pd->sock_addr,
+                     pd->addr_size)) {
         return HTTP_UNAVAILABLE;
+    }
 
     status = send_request(pd, request, response, fcgi_fd);
     if (status != HTTP_OK)
