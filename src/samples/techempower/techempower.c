@@ -213,7 +213,8 @@ static bool db_query_key(struct db_stmt *stmt, struct db_json *out, int key)
 
 static inline bool db_query(struct db_stmt *stmt, struct db_json *out)
 {
-    return db_query_key(stmt, out, rand() % 10000);
+    uint64_t random_num = lwan_random_uint64() % 10000ull;
+    return db_query_key(stmt, out, (int)random_num);
 }
 
 LWAN_HANDLER(db)
@@ -484,8 +485,6 @@ int main(void)
     struct lwan l;
 
     lwan_init(&l);
-
-    srand((unsigned int)time(NULL));
 
     if (getenv("USE_MYSQL")) {
         db_connection_params = (struct db_connection_params){
