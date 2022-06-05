@@ -196,6 +196,24 @@ LWAN_LUA_METHOD(ws_write_binary)
     return 0;
 }
 
+LWAN_LUA_METHOD(ws_write)
+{
+    size_t data_len;
+    const char *data_str = lua_tolstring(L, -1, &data_len);
+
+    lwan_strbuf_set_static(request->response.buffer, data_str, data_len);
+
+    for (size_t i = 0; i < data_len; i++) {
+        if ((signed char)data_str[i] < 0) {
+            lwan_response_websocket_write_binary(request);
+            return 0;
+        }
+    }
+
+    lwan_response_websocket_write_text(request);
+    return 0;
+}
+
 LWAN_LUA_METHOD(ws_read)
 {
     int r;
