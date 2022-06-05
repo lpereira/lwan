@@ -551,7 +551,7 @@ static bool parse_headers(struct lwan_request_parser_helper *helper,
 
     n_headers = find_headers(header_start, helper->buffer,
                              &helper->next_request);
-    if (n_headers < 0)
+    if (UNLIKELY(n_headers < 0))
         return false;
 
     for (ssize_t i = 0; i < n_headers; i++) {
