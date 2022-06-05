@@ -70,4 +70,6 @@ static inline void *mempmove(void *dest, const void *src, size_t len)
     return d + len;
 }
 
+int strcasecmp_neutral(const char *a, const char *b);
+
 #endif /* MISSING_STRING_H */

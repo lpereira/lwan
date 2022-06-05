@@ -656,3 +656,39 @@ long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
     return lwan_getentropy_fallback(buffer, buffer_len);
 }
 #endif
+
+static char tolower_neutral_table[256];
+
+__attribute__((constructor))
+static void build_tolower_neutral_table(void)
+{
+    for (int i = 0; i < 256; i++) {
+        char c = (char)i;
+
+        if (c >= 'A' && c <= 'Z')
+            c |= 0x20;
+
+        tolower_neutral_table[i] = c;
+    }
+}
+
+static inline char tolower_neutral(char c)
+{
+    return tolower_neutral_table[(unsigned char)c];
+}
+
+int strcasecmp_neutral(const char *a, const char *b)
+{
+    if (a == b)
+        return 0;
+
+    for (;;) {
+        const char ca = *a++;
+        const char cb = *b++;
+
+        if (ca == '\0' || tolower_neutral(ca) != tolower_neutral(cb))
+            return (ca > cb) - (ca < cb);
+    }
+
+    return 0;
+}
