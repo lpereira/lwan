@@ -512,7 +512,7 @@ try_initiating_chunked_response(struct lwan_request *request)
             struct lwan_key_value *header = header_array_append(&additional_headers);
 
             if (!header)
-                return HTTP_INTERNAL_ERROR;
+                goto free_array_and_disarm;
 
             *header = (struct lwan_key_value){.key = key, .value = value};
         }
@@ -520,12 +520,12 @@ try_initiating_chunked_response(struct lwan_request *request)
 
     struct lwan_key_value *header = header_array_append(&additional_headers);
     if (!header)
-        return HTTP_INTERNAL_ERROR;
+        goto free_array_and_disarm;
     *header = (struct lwan_key_value){};
 
     if (!lwan_response_set_chunked_full(request, status_code,
                                         header_array_get_array(&additional_headers))) {
-        return HTTP_INTERNAL_ERROR;
+        goto free_array_and_disarm;
     }
 
     coro_defer_fire_and_disarm(request->conn->coro, additional_headers_reset);
@@ -546,6 +546,10 @@ try_initiating_chunked_response(struct lwan_request *request)
     }
 
     return HTTP_OK;
+
+free_array_and_disarm:
+    coro_defer_fire_and_disarm(request->conn->coro, additional_headers_reset);
+    return HTTP_INTERNAL_ERROR;
 }
 
 DEFINE_ARRAY_TYPE_INLINEFIRST(iovec_array, struct iovec)
