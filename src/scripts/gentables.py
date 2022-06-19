@@ -127,12 +127,20 @@ if __name__ == '__main__':
 #include <string.h>
 #include <endian.h>
 #include <stdbool.h>
+
 #define LIKELY(x) x
 #define UNLIKELY(x) x
+
 static inline uint64_t read64be(const void *ptr) {
   uint64_t v;
   memcpy(&v, ptr, 8);
   return htobe64(v);
+}
+
+static inline uint32_t read32be(const void *ptr) {
+  uint32_t v;
+  memcpy(&v, ptr, 4);
+  return htobe32(v);
 }
 
 """)
@@ -167,17 +175,26 @@ static inline uint64_t read64be(const void *ptr) {
   print("""struct bit_reader {
     const uint8_t *bitptr;
     uint64_t bitbuf;
-    uint64_t total_bitcount;
+    int64_t total_bitcount;
     int bitcount;
 };
 
 static inline uint8_t peek_byte(struct bit_reader *reader)
 {
     if (reader->bitcount < 8) {
-        // FIXME: need to use shorter reads depending on total_bitcount!
-        reader->bitbuf |= read64be(reader->bitptr) >> reader->bitcount;
-        reader->bitptr += (63 - reader->bitcount + (reader->bitcount & 1)) >> 3;
-        reader->bitcount |= 56;
+        if (reader->total_bitcount >= 64) {
+            reader->bitbuf |= read64be(reader->bitptr) >> reader->bitcount;
+            reader->bitptr += (63 - reader->bitcount + (reader->bitcount & 1)) >> 3;
+            reader->bitcount |= 56;
+        } else if (reader->total_bitcount >= 32) {
+            reader->bitbuf |= read32be(reader->bitptr) >> reader->bitcount;
+            reader->bitptr += (31 - reader->bitcount + (reader->bitcount & 1)) >> 3;
+            reader->bitcount |= 24;
+        } else {
+            reader->bitbuf |= *reader->bitptr >> reader->bitcount;
+            reader->bitptr += (7 - reader->bitcount + (reader->bitcount & 1)) >> 3;
+            reader->bitcount |= 8;
+        }
     }
     return reader->bitbuf >> 56;
 }
@@ -187,11 +204,8 @@ static inline bool consume(struct bit_reader *reader, int count)
     assert(count > 0);
     reader->bitbuf <<= count;
     reader->bitcount -= count;
-    if (__builtin_sub_overflow(reader->total_bitcount, count, &reader->total_bitcount))
-        return false;
-    if (reader->total_bitcount == 0)
-        return false;
-    return true;
+    reader->total_bitcount -= count;
+    return reader->total_bitcount > 0;
 }
 """)
   
@@ -206,9 +220,9 @@ static inline bool consume(struct bit_reader *reader, int count)
     uint8_t *output = malloc(output_size(input_len));
     uint8_t *ret = output;
     struct bit_reader bit_reader = {.bitptr = input,
-                                    .total_bitcount = input_len * 8};
+                                    .total_bitcount = (int64_t)input_len * 8};
 
-    while ((int64_t)bit_reader.total_bitcount > 7) {
+    while (bit_reader.total_bitcount > 7) {
         uint8_t peeked_byte = peek_byte(&bit_reader);
         if (LIKELY(level0[peeked_byte].num_bits)) {
             *output++ = level0[peeked_byte].symbol;
@@ -223,7 +237,8 @@ static inline bool consume(struct bit_reader *reader, int count)
         peeked_byte = peek_byte(&bit_reader);
         if (level1[peeked_byte].num_bits) {
             *output++ = level1[peeked_byte].symbol;
-            consume(&bit_reader, level1[peeked_byte].num_bits);
+            if (!consume(&bit_reader, level1[peeked_byte].num_bits))
+                goto fail;
             continue;
         }
 
@@ -234,7 +249,8 @@ static inline bool consume(struct bit_reader *reader, int count)
         peeked_byte = peek_byte(&bit_reader);
         if (level2[peeked_byte].num_bits) {
             *output++ = level2[peeked_byte].symbol;
-            consume(&bit_reader, level2[peeked_byte].num_bits);
+            if (!consume(&bit_reader, level2[peeked_byte].num_bits))
+                goto fail;
             continue;
         }
 
@@ -250,7 +266,8 @@ static inline bool consume(struct bit_reader *reader, int count)
             }
             if (LIKELY(level3[peeked_byte].num_bits)) {
                 *output++ = level3[peeked_byte].symbol;
-                consume(&bit_reader, level3[peeked_byte].num_bits);
+                if (!consume(&bit_reader, level3[peeked_byte].num_bits))
+                    goto fail;
                 continue;
             }
         }
