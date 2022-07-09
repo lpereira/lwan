@@ -65,13 +65,28 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
     }
 
     if (UNLIKELY(s->capacity < size)) {
+        char *buffer;
         const size_t aligned_size = align_size(size + 1);
+
         if (UNLIKELY(!aligned_size))
             return false;
 
-        char *buffer = realloc(s->buffer, aligned_size);
-        if (UNLIKELY(!buffer))
-            return false;
+        if (s->used == 0) {
+            /* Avoid memcpy() inside realloc() if we were not using the
+             * allocated buffer at this point.  */
+            buffer = malloc(aligned_size);
+
+            if (UNLIKELY(!buffer))
+                return false;
+
+            free(s->buffer);
+            buffer[0] = '\0';
+        } else {
+            buffer = realloc(s->buffer, aligned_size);
+
+            if (UNLIKELY(!buffer))
+                return false;
+        }
 
         s->buffer = buffer;
         s->capacity = aligned_size;
