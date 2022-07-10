@@ -242,6 +242,11 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     return buffer + size;
 }
 
+#if !defined(LWAN_HAVE_BUILTIN_EXPECT_PROBABILITY)
+#define __builtin_expect_with_probability(value1, value2, probability) \
+    __builtin_expect(value1, value2)
+#endif
+
 static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
                                                 char *buffer)
 {

@@ -230,6 +230,7 @@ endif()
 # Check for GCC builtin functions
 #
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" LWAN_HAVE_BUILTIN_CPU_INIT)
+check_c_source_compiles("int main(void) { __builtin_expect_with_probability(0, 0, 0); }" LWAN_HAVE_BUILTIN_EXPECT_PROBABILITY)
 check_c_source_compiles("int main(void) { __builtin_clzll(0); }" LWAN_HAVE_BUILTIN_CLZLL)
 check_c_source_compiles("int main(void) { __builtin_fpclassify(0, 0, 0, 0, 0, 0.0f); }" LWAN_HAVE_BUILTIN_FPCLASSIFY)
 check_c_source_compiles("int main(void) { unsigned long long p; (void)__builtin_mul_overflow(0, 0, &p); }" LWAN_HAVE_BUILTIN_MUL_OVERFLOW)
