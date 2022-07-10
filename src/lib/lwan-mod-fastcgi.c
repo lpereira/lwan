@@ -345,7 +345,7 @@ static enum lwan_http_status add_params(const struct private_data *pd,
 static bool
 handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 {
-    size_t to_read = (size_t)ntohs(record->len_content);
+    size_t to_read = record->len_content;
     char *buffer = lwan_strbuf_extend_unsafe(request->response.buffer, to_read);
 
     if (!buffer)
@@ -373,7 +373,7 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 static bool
 handle_stderr(struct lwan_request *request, const struct record *record, int fd)
 {
-    size_t to_read = (size_t)ntohs(record->len_content);
+    size_t to_read = record->len_content;
     char *buffer = malloc(to_read);
 
     if (!buffer)
@@ -393,14 +393,14 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
     }
 
     lwan_status_error("FastCGI stderr output: %.*s",
-                      (int)ntohs(record->len_content), buffer);
+                      (int)record->len_content, buffer);
 
     coro_defer_fire_and_disarm(request->conn->coro, buffer_free_defer);
 
     if (record->len_padding) {
         char padding[256];
         lwan_request_async_read_flags(request, fd, padding,
-                                      (size_t)ntohs(record->len_padding),
+                                      (size_t)record->len_padding,
                                       MSG_TRUNC);
     }
 
@@ -412,8 +412,7 @@ static bool discard_unknown_record(struct lwan_request *request,
                                    int fd)
 {
     char buffer[256];
-    size_t to_read =
-        (size_t)ntohs(record->len_content) + (size_t)ntohs(record->len_padding);
+    size_t to_read = record->len_content + record->len_padding;
 
     if (record->type > 11) {
         /* Per the spec, 11 is the maximum (unknown type), so anything
@@ -794,6 +793,9 @@ fastcgi_handle_request(struct lwan_request *request,
             return HTTP_UNAVAILABLE;
         if (r != (ssize_t)sizeof(record))
             return HTTP_INTERNAL_ERROR;
+
+        record.len_content = ntohs(record.len_content);
+        record.id = htons(record.id);
 
         switch (record.type) {
         case FASTCGI_TYPE_STDOUT:
