@@ -144,17 +144,17 @@ static bool can_override_header(const char *name)
     /* NOTE: Update lwan_prepare_response_header_full() in lwan-response.c
      *       if new headers are added here. */
 
-    if (!strcasecmp_neutral(name, "Date"))
+    if (!strcaseequal_neutral(name, "Date"))
         return false;
-    if (!strcasecmp_neutral(name, "Expires"))
+    if (!strcaseequal_neutral(name, "Expires"))
         return false;
-    if (!strcasecmp_neutral(name, "WWW-Authenticate"))
+    if (!strcaseequal_neutral(name, "WWW-Authenticate"))
         return false;
-    if (!strcasecmp_neutral(name, "Connection"))
+    if (!strcaseequal_neutral(name, "Connection"))
         return false;
-    if (!strcasecmp_neutral(name, "Content-Type"))
+    if (!strcaseequal_neutral(name, "Content-Type"))
         return false;
-    if (!strcasecmp_neutral(name, "Transfer-Encoding"))
+    if (!strcaseequal_neutral(name, "Transfer-Encoding"))
         return false;
     if (!strncasecmp(name, "Access-Control-Allow-",
                      sizeof("Access-Control-Allow-") - 1))
@@ -177,7 +177,7 @@ static void build_response_headers(struct lwan *l,
         if (!can_override_header(kv->key)) {
             lwan_status_warning("Cannot override header '%s'", kv->key);
         } else {
-            if (!strcasecmp_neutral(kv->key, "Server"))
+            if (!strcaseequal_neutral(kv->key, "Server"))
                 set_server = true;
 
             lwan_strbuf_append_printf(&strbuf, "\r\n%s: %s", kv->key,

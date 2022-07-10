@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libproc.h>
+#include <limits.h>
 #include <linux/capability.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -657,38 +658,53 @@ long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
 }
 #endif
 
-static char tolower_neutral_table[256];
-
-__attribute__((constructor))
-static void build_tolower_neutral_table(void)
+static inline int isalpha_neutral(char c)
 {
-    for (int i = 0; i < 256; i++) {
-        char c = (char)i;
-
-        if (c >= 'A' && c <= 'Z')
-            c |= 0x20;
-
-        tolower_neutral_table[i] = c;
-    }
+    /* Use this instead of isalpha() from ctype.h because they consider
+     * the current locale.  This assumes CHAR_BIT == 8.  */
+    static const unsigned char upper_table[32] = {
+        0, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255, 7, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0, 0, 0, 0, 0,
+    };
+    unsigned char uc = (unsigned char)c;
+    static_assert(CHAR_BIT == 8, "sane CHAR_BIT value");
+    return upper_table[uc >> 3] & 1 << (uc & 7);
 }
 
-static inline char tolower_neutral(char c)
+bool strcaseequal_neutral(const char *a, const char *b)
 {
-    return tolower_neutral_table[(unsigned char)c];
-}
-
-int strcasecmp_neutral(const char *a, const char *b)
-{
-    if (a == b)
-        return 0;
-
     for (;;) {
-        const char ca = *a++;
-        const char cb = *b++;
+        char ca = *a++;
+        char cb = *b++;
 
-        if (ca == '\0' || tolower_neutral(ca) != tolower_neutral(cb))
-            return (ca > cb) - (ca < cb);
+        /* See which bits are different in either character */
+        switch (ca ^ cb) {
+        case 0: /* ca and cb are the same: advance */
+            if (ca == '\0') {
+                /* If `ca` is 0 here, then cb must be 0 too, so we don't
+                 * need to check both.  */
+                return true;
+            }
+            continue;
+        case 32: /* Only 5th bit is set: advance if either are uppercase
+                  * ASCII characters, but differ in case only */
+            /* If either is an uppercase ASCII character, then move on */
+            if (isalpha_neutral(ca) || isalpha_neutral(cb))
+                continue;
+            /* Fallthrough */
+        default:
+            return false;
+        }
     }
+}
 
-    return 0;
+__attribute__((constructor)) static void test_strcaseequal_neutral(void)
+{
+    assert(strcaseequal_neutral("LWAN", "lwan") == true);
+    assert(strcaseequal_neutral("LwAn", "lWaN") == true);
+    assert(strcaseequal_neutral("SomE-HeaDer", "some-header") == true);
+
+    assert(strcaseequal_neutral("SomE-HeaDeP", "some-header") == false);
+    assert(strcaseequal_neutral("LwAN", "lwam") == false);
+    assert(strcaseequal_neutral("LwAn", "lWaM") == false);
 }
