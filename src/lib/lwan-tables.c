@@ -138,7 +138,15 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
         uint64_t key;
         const unsigned char *extension;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+        /* Data is stored with NULs on strings up to 7 chars, and no NULs
+         * for 8-char strings, because that's implicit.  So truncation is
+         * intentional here: comparison in compare_mime_entry() uses
+         * strncmp(..., 8), so even if NUL isn't present, it'll stop at the
+         * right place.  */
         strncpy((char *)&key, last_dot + 1, 8);
+#pragma GCC diagnostic pop
         key &= ~0x2020202020202020ull;
 
         extension = bsearch(&key, uncompressed_mime_entries, MIME_ENTRIES, 8,
