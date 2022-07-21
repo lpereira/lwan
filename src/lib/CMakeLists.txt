@@ -113,7 +113,7 @@ if (NOT HAVE_BUILTIN_FPCLASSIFY)
 	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 endif ()
 
-if (HAVE_LIBUCONTEXT)
+if (LWAN_HAVE_LIBUCONTEXT)
 	message(STATUS "Using libucontext/${CMAKE_SYSTEM_PROCESSOR} for coroutine context switching")
 
 	include(ExternalProject)
