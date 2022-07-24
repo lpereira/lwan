@@ -18,7 +18,9 @@
  * USA.
  */
 
+#define _GNU_SOURCE
 #include <stdlib.h>
+#include <string.h>
 
 #include "hash.h"
 #include "int-to-str.h"
@@ -140,7 +142,8 @@ static enum lwan_http_status doc(struct lwan_request *request,
         "\n"
         "To post a file:     curl -X POST --data-binary @/path/to/filename http://%s:%d/\n"
         "To post clipboard:  curl -X POST --data-binary @- http://%s:%d/ | xsel -o\n"
-        "To view:            Access the URL given as a response\n"
+        "To view:            Access the URL given as a response.\n"
+        "                    Extension suffixes may be used to provide response with different MIME-type.\n"
         "\n"
         "Items are cached for %d hours and are not stored on disk",
         SERVER_NAME, SERVER_PORT, SERVER_NAME, SERVER_PORT, CACHE_FOR_HOURS);
@@ -162,13 +165,21 @@ LWAN_HANDLER(view_root)
 
 LWAN_HANDLER(view_paste)
 {
+    char *dot = memrchr(request->url.value, '.', request->url.len);
+
+    if (dot) {
+        response->mime_type = lwan_determine_mime_type_for_file_name(dot);
+        *dot = '\0';
+    } else {
+        response->mime_type = "text/plain";
+    }
+
     struct paste *paste = (struct paste *)cache_coro_get_and_ref_entry(
         pastes, request->conn->coro, request->url.value);
 
     if (!paste)
         return HTTP_NOT_FOUND;
 
-    response->mime_type = "text/plain";
     lwan_strbuf_set_static(response->buffer, paste->paste.value,
                            paste->paste.len);
 
