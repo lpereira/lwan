@@ -166,12 +166,13 @@ LWAN_HANDLER(view_root)
 LWAN_HANDLER(view_paste)
 {
     char *dot = memrchr(request->url.value, '.', request->url.len);
+    const char *mime_type;
 
     if (dot) {
-        response->mime_type = lwan_determine_mime_type_for_file_name(dot);
+        mime_type = lwan_determine_mime_type_for_file_name(dot);
         *dot = '\0';
     } else {
-        response->mime_type = "text/plain";
+        mime_type = "text/plain";
     }
 
     struct paste *paste = (struct paste *)cache_coro_get_and_ref_entry(
@@ -180,6 +181,7 @@ LWAN_HANDLER(view_paste)
     if (!paste)
         return HTTP_NOT_FOUND;
 
+    response->mime_type = mime_type;
     lwan_strbuf_set_static(response->buffer, paste->paste.value,
                            paste->paste.len);
 
