@@ -172,7 +172,7 @@ LWAN_HANDLER(view_paste)
     lwan_strbuf_set_static(response->buffer, paste->paste.value,
                            paste->paste.len);
 
-    return HTTP_NOT_FOUND;
+    return HTTP_OK;
 }
 
 int main(void)
