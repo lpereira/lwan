@@ -141,7 +141,7 @@ static enum lwan_http_status doc(struct lwan_request *request,
         "================\n"
         "\n"
         "To post a file:     curl -X POST --data-binary @/path/to/filename http://%s:%d/\n"
-        "To post clipboard:  curl -X POST --data-binary @- http://%s:%d/ | xsel -o\n"
+        "To post clipboard:  xsel -o | curl -X POST --data-binary @- http://%s:%d/\n"
         "To view:            Access the URL given as a response.\n"
         "                    Extension suffixes may be used to provide response with different MIME-type.\n"
         "\n"
