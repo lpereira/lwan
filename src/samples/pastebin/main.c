@@ -78,7 +78,7 @@ static struct cache_entry *create_paste(const char *key, void *context)
         };
     }
 
-    return &paste->entry;
+    return (struct cache_entry *)paste;
 }
 
 static void destroy_paste(struct cache_entry *entry, void *context)
