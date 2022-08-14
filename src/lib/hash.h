@@ -13,6 +13,8 @@ struct hash_iter {
 
 struct hash *hash_int_new(void (*free_key)(void *value),
                           void (*free_value)(void *value));
+struct hash *hash_int64_new(void (*free_key)(void *value),
+                            void (*free_value)(void *value));
 struct hash *hash_str_new(void (*free_key)(void *value),
                           void (*free_value)(void *value));
 void hash_free(struct hash *hash);

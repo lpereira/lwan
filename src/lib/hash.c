@@ -80,10 +80,12 @@ static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
               "Bucket size is power of 2");
 
 static inline unsigned int hash_int_shift_mult(const void *keyptr);
+static inline unsigned int hash_int64_shift_mult(const void *keyptr);
 
 static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
 static unsigned (*hash_str)(const void *key) = murmur3_simple;
 static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
+static unsigned (*hash_int64)(const void *key) = hash_int64_shift_mult;
 
 static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
 {
@@ -123,6 +125,16 @@ static inline unsigned int hash_int_shift_mult(const void *keyptr)
     key *= c2;
     key ^= key >> 15;
     return key;
+}
+
+static inline unsigned int hash_int64_shift_mult(const void *keyptr)
+{
+    const uint64_t key = (uint64_t)(uintptr_t)keyptr;
+    uint32_t key_low = (uint32_t)(key & 0xffffffff);
+    uint32_t key_high = (uint32_t)(key >> 32);
+
+    return hash_int_shift_mult((void *)(uintptr_t)key_low) ^
+           hash_int_shift_mult((void *)(uintptr_t)key_high);
 }
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
@@ -167,6 +179,22 @@ static inline unsigned int hash_int_crc32(const void *keyptr)
     return __builtin_ia32_crc32si(odd_constant,
                                   (unsigned int)(uintptr_t)keyptr);
 }
+
+static inline unsigned int hash_int64_crc32(const void *keyptr)
+{
+#ifdef __x86_64__
+    return __builtin_ia32_crc32di(odd_constant, (uint64_t)(uintptr_t)keyptr);
+#else
+    const uint64_t key = (uint64_t)(uintptr_t)keyptr;
+    uint32_t crc;
+
+    crc = __builtin_ia32_crc32si(odd_constant, (uint32_t)(key & 0xffffffff));
+    crc = __builtin_ia32_crc32si(crc, (uint32_t)(key >> 32));
+
+    return crc;
+#endif
+}
+
 #endif
 
 __attribute__((constructor(65535))) static void initialize_odd_constant(void)
@@ -181,8 +209,10 @@ __attribute__((constructor(65535))) static void initialize_odd_constant(void)
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
     __builtin_cpu_init();
     if (__builtin_cpu_supports("sse4.2")) {
+        lwan_status_debug("Using CRC32 instructions to calculate hashes");
         hash_str = hash_str_crc32;
         hash_int = hash_int_crc32;
+        hash_int64 = hash_int64_crc32;
     }
 #endif
 }
@@ -227,6 +257,14 @@ struct hash *hash_int_new(void (*free_key)(void *value),
                           void (*free_value)(void *value))
 {
     return hash_internal_new(hash_int, hash_int_key_equal,
+                             free_key ? free_key : no_op,
+                             free_value ? free_value : no_op);
+}
+
+struct hash *hash_int64_new(void (*free_key)(void *value),
+                            void (*free_value)(void *value))
+{
+    return hash_internal_new(hash_int64, hash_int_key_equal,
                              free_key ? free_key : no_op,
                              free_value ? free_value : no_op);
 }
