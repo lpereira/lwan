@@ -183,7 +183,8 @@ static inline unsigned int hash_int_crc32(const void *keyptr)
 static inline unsigned int hash_int64_crc32(const void *keyptr)
 {
 #ifdef __x86_64__
-    return __builtin_ia32_crc32di(odd_constant, (uint64_t)(uintptr_t)keyptr);
+    return (unsigned int)__builtin_ia32_crc32di(odd_constant,
+                                                (uint64_t)(uintptr_t)keyptr);
 #else
     const uint64_t key = (uint64_t)(uintptr_t)keyptr;
     uint32_t crc;

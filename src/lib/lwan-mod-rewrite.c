@@ -311,10 +311,10 @@ static bool condition_matches(struct lwan_request *request,
         const struct str_find *s = &sf[p->condition.backref.index];
         const size_t len = strlen(p->condition.backref.str);
 
-        if ((s->sm_eo - s->sm_so) != len)
+        if ((size_t)(s->sm_eo - s->sm_so) != len)
             return false;
 
-        if (memcmp(s->sm_so, p->condition.backref.str, len) != 0)
+        if (!memcmp(request->url.value + s->sm_so, p->condition.backref.str, len))
             return false;
     }
 
@@ -769,7 +769,7 @@ static void parse_condition_backref(struct pattern *pattern,
         case CONFIG_LINE_TYPE_LINE:
             index = parse_int(line->key, -1);
             if (index < 0) {
-                config_error("Expecting backref index, got ``%s''", line->key);
+                config_error(config, "Expecting backref index, got ``%s''", line->key);
                 goto out;
             }
 
