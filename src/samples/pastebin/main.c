@@ -36,7 +36,7 @@ static struct cache *pastes;
 
 struct paste {
     struct cache_entry entry;
-    struct lwan_value paste;
+    size_t len;
     char value[];
 };
 
@@ -75,10 +75,8 @@ static struct cache_entry *create_paste(const char *key, void *context)
 
     struct paste *paste = malloc(alloc_size);
     if (paste) {
-        paste->paste = (struct lwan_value){
-            .value = memcpy(paste->value, body->value, body->len),
-            .len = body->len,
-        };
+        paste->len = body->len;
+        memcpy(paste->value, body->value, body->len);
     }
 
     return (struct cache_entry *)paste;
@@ -177,8 +175,7 @@ LWAN_HANDLER(view_paste)
         return HTTP_NOT_FOUND;
 
     response->mime_type = mime_type;
-    lwan_strbuf_set_static(response->buffer, paste->paste.value,
-                           paste->paste.len);
+    lwan_strbuf_set_static(response->buffer, paste->value, paste->len);
 
     return HTTP_OK;
 }
