@@ -532,6 +532,8 @@ parse_site(struct config *c, const struct config_line *l, struct lwan *lwan)
             config_error(c, "Expecting prefix section");
             return;
         case CONFIG_LINE_TYPE_SECTION:
+            /* FIXME: per-site authorization? */
+
             if (l->key[0] == '&') {
                 void *handler = find_handler(l->key + 1);
                 if (handler) {
