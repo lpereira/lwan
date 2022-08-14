@@ -238,6 +238,46 @@ static enum lwan_http_status add_script_paths(const struct private_data *pd,
     return HTTP_NOT_FOUND;
 }
 
+static void add_headers(struct lwan_strbuf *strbuf,
+                        char **header_start,
+                        size_t n_header_start)
+{
+    for (size_t i = 0; i < n_header_start; i++) {
+        const char *header = header_start[i];
+        const char *next_header = header_start[i + 1];
+        const char *colon = memchr(header, ':', 127 - sizeof("HTTP_: ") - 1);
+        char header_name[128];
+        int r;
+
+        if (!colon)
+            continue;
+
+        const size_t header_len = (size_t)(colon - header);
+        const size_t value_len = (size_t)(next_header - colon - 4);
+
+        r = snprintf(header_name, sizeof(header_name), "HTTP_%.*s",
+                     (int)header_len, header);
+        if (r < 0 || r >= (int)sizeof(header_name))
+            continue;
+
+        /* FIXME: RFC7230/RFC3875 compliance */
+        for (char *p = header_name; *p; p++) {
+            if (isalpha(*p))
+                *p &= ~0x20;
+            else if (!isdigit(*p))
+                *p = '_';
+        }
+
+        if (streq(header_name, "HTTP_PROXY")) {
+            /* Mitigation for https://httpoxy.org */
+            continue;
+        }
+
+        add_param_len(strbuf, header_name, header_len + sizeof("HTTP_") - 1,
+                      colon + 2, value_len);
+    }
+}
+
 static enum lwan_http_status add_params(const struct private_data *pd,
                                         struct lwan_request *request,
                                         struct lwan_response *response)
@@ -304,40 +344,9 @@ static enum lwan_http_status add_params(const struct private_data *pd,
         add_param(strbuf, "REQUEST_URI", request->original_url.value);
     }
 
-    for (size_t i = 0; i < request_helper->n_header_start; i++) {
-        const char *header = request_helper->header_start[i];
-        const char *next_header = request_helper->header_start[i + 1];
-        const char *colon = memchr(header, ':', 127 - sizeof("HTTP_: ") - 1);
-        char header_name[128];
-        int r;
-
-        if (!colon)
-            continue;
-
-        const size_t header_len = (size_t)(colon - header);
-        const size_t value_len = (size_t)(next_header - colon - 4);
-
-        r = snprintf(header_name, sizeof(header_name), "HTTP_%.*s",
-                     (int)header_len, header);
-        if (r < 0 || r >= (int)sizeof(header_name))
-            continue;
-
-        /* FIXME: RFC7230/RFC3875 compliance */
-        for (char *p = header_name; *p; p++) {
-            if (isalpha(*p))
-                *p &= ~0x20;
-            else if (!isdigit(*p))
-                *p = '_';
-        }
-
-        if (streq(header_name, "HTTP_PROXY")) {
-            /* Mitigation for https://httpoxy.org */
-            continue;
-        }
-
-        add_param_len(strbuf, header_name, header_len + sizeof("HTTP_") - 1,
-                      colon + 2, value_len);
-    }
+    add_headers(strbuf,
+                request_helper->header_start,
+                request_helper->n_header_start);
 
     return HTTP_OK;
 }
