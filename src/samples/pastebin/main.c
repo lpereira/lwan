@@ -28,8 +28,8 @@
 #include "lwan-cache.h"
 #include "lwan-private.h"
 
-#define SERVER_NAME "paste.example.com"
-#define SERVER_PORT 8080
+#define SERVER_NAME "paste.lwan.ws"
+#define SERVER_PORT 443
 #define CACHE_FOR_HOURS 2
 
 static struct cache *pastes;
@@ -132,13 +132,16 @@ static enum lwan_http_status doc(struct lwan_request *request,
         "Simple Paste Bin\n"
         "================\n"
         "\n"
-        "To post a file:     curl -X POST --data-binary @/path/to/filename http://%s:%d/\n"
-        "To post clipboard:  xsel -o | curl -X POST --data-binary @- http://%s:%d/\n"
+        "To post a file:     curl -X POST --data-binary @/path/to/filename "
+        "https://%s/\n"
+        "To post clipboard:  xsel -o | curl -X POST --data-binary @- "
+        "https://%s/\n"
         "To view:            Access the URL given as a response.\n"
-        "                    Extension suffixes may be used to provide response with different MIME-type.\n"
+        "                    Extension suffixes may be used to provide "
+        "response with different MIME-type.\n"
         "\n"
         "Items are cached for %d hours and are not stored on disk",
-        SERVER_NAME, SERVER_PORT, SERVER_NAME, SERVER_PORT, CACHE_FOR_HOURS);
+        SERVER_NAME, SERVER_NAME, CACHE_FOR_HOURS);
 
     return HTTP_OK;
 }
