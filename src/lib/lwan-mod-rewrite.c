@@ -62,6 +62,7 @@ enum pattern_flag {
     PATTERN_COND_HTTP10 = 1 << 14,
     PATTERN_COND_HAS_QUERY_STRING = 1 << 15,
     PATTERN_COND_HTTPS = 1 << 16,
+    PATTERN_COND_BACKREF = 1 << 17,
     PATTERN_COND_MASK = PATTERN_COND_COOKIE | PATTERN_COND_ENV_VAR |
                         PATTERN_COND_STAT | PATTERN_COND_QUERY_VAR |
                         PATTERN_COND_POST_VAR | PATTERN_COND_HEADER |
@@ -69,19 +70,19 @@ enum pattern_flag {
                         PATTERN_COND_ACCEPT_ENCODING |
                         PATTERN_COND_PROXIED | PATTERN_COND_HTTP10 |
                         PATTERN_COND_HAS_QUERY_STRING |
-                        PATTERN_COND_HTTPS,
+                        PATTERN_COND_HTTPS | PATTERN_COND_BACKREF,
 
-    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 17,
-    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 18,
-    PATTERN_COND_STAT__IS_FILE = 1 << 19,
-    PATTERN_COND_STAT__IS_DIR = 1 << 20,
+    PATTERN_COND_STAT__HAS_IS_FILE = 1 << 18,
+    PATTERN_COND_STAT__HAS_IS_DIR = 1 << 19,
+    PATTERN_COND_STAT__IS_FILE = 1 << 20,
+    PATTERN_COND_STAT__IS_DIR = 1 << 21,
 
     PATTERN_COND_STAT__FILE_CHECK =
         PATTERN_COND_STAT__HAS_IS_FILE | PATTERN_COND_STAT__IS_FILE,
     PATTERN_COND_STAT__DIR_CHECK =
         PATTERN_COND_STAT__HAS_IS_DIR | PATTERN_COND_STAT__IS_DIR,
 
-    PATTERN_COND_HTTPS__IS_HTTPS = 1 << 21,
+    PATTERN_COND_HTTPS__IS_HTTPS = 1 << 22,
 };
 
 struct pattern {
@@ -99,6 +100,10 @@ struct pattern {
         struct {
             char *script;
         } lua;
+        struct {
+            int index;
+            char *str;
+        } backref;
         enum lwan_request_flags request_flags;
         /* FIXME: Use pahole to find alignment holes? */
     } condition;
@@ -293,6 +298,23 @@ static bool condition_matches(struct lwan_request *request,
         const enum lwan_request_flags method =
             p->condition.request_flags & REQUEST_METHOD_MASK;
         if (lwan_request_get_method(request) != method)
+            return false;
+    }
+
+    if (p->flags & PATTERN_COND_BACKREF) {
+        assert(p->condition.backref.index > 0);
+        assert(p->condition.backref.str);
+
+        if (captures > p->condition.backref.index)
+            return false;
+
+        const struct str_find *s = &sf[p->condition.backref.index];
+        const size_t len = strlen(p->condition.backref.str);
+
+        if ((s->sm_eo - s->sm_so) != len)
+            return false;
+
+        if (memcmp(s->sm_so, p->condition.backref.str, len) != 0)
             return false;
     }
 
@@ -546,6 +568,9 @@ static void rewrite_destroy(void *instance)
             free(iter->condition.lua.script);
         }
 #endif
+        if (iter->flags & PATTERN_COND_BACKREF) {
+            free(iter->condition.backref.str);
+        }
     }
 
     pattern_array_reset(&pd->patterns);
@@ -717,10 +742,56 @@ static void parse_condition_accept_encoding(struct pattern *pattern,
     }
 }
 
+static void parse_condition_backref(struct pattern *pattern,
+                                    struct config *config)
+{
+    const struct config_line *line;
+    int index = -1;
+    char *str = NULL;
+
+    while ((line = config_read_line(config))) {
+        switch (line->type) {
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Unexpected section: %s", line->key);
+            goto out;
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            if (index < 0) {
+                config_error(config, "Backref index not provided");
+                goto out;
+            }
+
+            pattern->flags |= PATTERN_COND_BACKREF;
+            pattern->condition.backref.index = index;
+            pattern->condition.backref.str = str;
+            return;
+
+        case CONFIG_LINE_TYPE_LINE:
+            index = parse_int(line->key, -1);
+            if (index < 0) {
+                config_error("Expecting backref index, got ``%s''", line->key);
+                goto out;
+            }
+
+            free(str);
+            str = strdup(line->value);
+            if (!str) {
+                lwan_status_critical(
+                    "Couldn't allocate memory for backref key");
+            }
+
+            break;
+        }
+    }
+
+out:
+    free(str);
+}
+
 static bool get_method_from_string(struct pattern *pattern, const char *string)
 {
 #define GENERATE_CMP(upper, lower, mask, constant, probability)                \
-    if (!strcaseequal_neutral(string, #upper)) {                                 \
+    if (!strcaseequal_neutral(string, #upper)) {                               \
         pattern->condition.request_flags |= (mask);                            \
         return true;                                                           \
     }
@@ -761,6 +832,9 @@ static void parse_condition(struct pattern *pattern,
     }
     if (streq(line->value, "encoding")) {
         return parse_condition_accept_encoding(pattern, config);
+    }
+    if (streq(line->value, "backref")) {
+        return parse_condition_backref(pattern, config);
     }
 
     config_error(config, "Condition `%s' not supported", line->value);

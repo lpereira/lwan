@@ -629,6 +629,7 @@ for that condition to be evaluated:
 |`has_query_string` | No  | No  | Boolean | Checks if request has a query string (even if empty) |
 |`method`           | No  | No  | Method name | Checks if HTTP method is the one specified |
 |`lua`              | No  | No  | String | Runs Lua function `matches(req)` inside String and checks if it returns `true` or `false` |
+|`backref`          | No  | Yes | A single `backref index` = `value` | Checks if the backref number matches the provided value |
 
 *Can use subst. syntax* refers to the ability to reference the matched
 pattern using the same substitution syntax used for the `rewrite as` or

@@ -467,6 +467,15 @@ class TestRewrite(LwanTest):
       self.assertResponsePlain(r, 200)
       self.assertEqual(r.text, 'Hello, light!')
 
+  def test_conditional_rewrite_backref(self):
+      r = requests.get('http://localhost:8080/pattern/42/backref')
+
+      self.assertResponsePlain(r, 200)
+      self.assertEqual(r.text, 'Hello, fourtytwo!')
+
+      r = requests.get('http://localhost:8080/pattern/420/backref')
+      self.assertNotEqual(r.text, 'Hello, fourtytwo!')
+
   def test_pattern_redirect_to(self):
     r = requests.get('http://127.0.0.1:8080/pattern/foo/1234x5678', allow_redirects=False)
 
