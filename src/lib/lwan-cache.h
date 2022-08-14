@@ -43,6 +43,11 @@ struct cache *cache_create(cache_create_entry_cb create_entry_cb,
       cache_destroy_entry_cb destroy_entry_cb,
       void *cb_context,
       time_t time_to_live);
+struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
+                           cache_destroy_entry_cb destroy_entry_cb,
+                           void *cb_context,
+                           time_t time_to_live,
+                           struct hash *(*hash_create_func)(void (*)(void *), void (*)(void *)));
 void cache_destroy(struct cache *cache);
 
 struct cache_entry *cache_get_and_ref_entry(struct cache *cache,

@@ -76,10 +76,11 @@ struct cache {
 
 static bool cache_pruner_job(void *data);
 
-struct cache *cache_create(cache_create_entry_cb create_entry_cb,
-                             cache_destroy_entry_cb destroy_entry_cb,
-                             void *cb_context,
-                             time_t time_to_live)
+struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
+                           cache_destroy_entry_cb destroy_entry_cb,
+                           void *cb_context,
+                           time_t time_to_live,
+                           struct hash *(*hash_create_func)(void (*)(void *), void (*)(void *)))
 {
     struct cache *cache;
 
@@ -91,7 +92,7 @@ struct cache *cache_create(cache_create_entry_cb create_entry_cb,
     if (!cache)
         return NULL;
 
-    cache->hash.table = hash_str_new(free, NULL);
+    cache->hash.table = hash_create_func(free, NULL);
     if (!cache->hash.table)
         goto error_no_hash;
 
@@ -120,6 +121,15 @@ error_no_hash:
     free(cache);
 
     return NULL;
+}
+
+struct cache *cache_create(cache_create_entry_cb create_entry_cb,
+                           cache_destroy_entry_cb destroy_entry_cb,
+                           void *cb_context,
+                           time_t time_to_live)
+{
+    return cache_create_full(create_entry_cb, destroy_entry_cb, cb_context,
+                             time_to_live, hash_str_new);
 }
 
 void cache_destroy(struct cache *cache)
