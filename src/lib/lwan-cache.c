@@ -59,6 +59,13 @@ struct cache {
         void *context;
     } cb;
 
+    /* FIXME: I'm not really a fan of how these are set in cache_create(),
+     *        but this has to do for now. */
+    struct {
+        void *(*copy)(const void *);
+        void (*free)(void *);
+    } key;
+
     struct {
         time_t time_to_live;
     } settings;
@@ -76,11 +83,31 @@ struct cache {
 
 static bool cache_pruner_job(void *data);
 
+static ALWAYS_INLINE void *identity_key_copy(const void *key)
+{
+    return (void *)key;
+}
+
+static void identity_key_free(void *key)
+{
+}
+
+static ALWAYS_INLINE void *str_key_copy(const void *key)
+{
+    return strdup(key);
+}
+
+static ALWAYS_INLINE void str_key_free(void *key)
+{
+    free(key);
+}
+
 struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
-                           cache_destroy_entry_cb destroy_entry_cb,
-                           void *cb_context,
-                           time_t time_to_live,
-                           struct hash *(*hash_create_func)(void (*)(void *), void (*)(void *)))
+                                cache_destroy_entry_cb destroy_entry_cb,
+                                hash_create_func_cb hash_create_func,
+                                key_copy_cb copy_cb,
+                                void *cb_context,
+                                time_t time_to_live)
 {
     struct cache *cache;
 
@@ -103,7 +130,16 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
 
     cache->cb.create_entry = create_entry_cb;
     cache->cb.destroy_entry = destroy_entry_cb;
+    cache->cb.key_copy_cb = copy_cb ? copy_cb : strdup_key_copy_cb;
     cache->cb.context = cb_context;
+
+    if (hash_create_func == hash_str_new) {
+        cache->key.copy = str_key_copy;
+        cache->key.free = str_key_free;
+    } else {
+        cache->key.copy = identity_key_copy;
+        cache->key.free = identity_key_free;
+    }
 
     cache->settings.time_to_live = time_to_live;
 
@@ -128,8 +164,8 @@ struct cache *cache_create(cache_create_entry_cb create_entry_cb,
                            void *cb_context,
                            time_t time_to_live)
 {
-    return cache_create_full(create_entry_cb, destroy_entry_cb, cb_context,
-                             time_to_live, hash_str_new);
+    return cache_create_full(create_entry_cb, destroy_entry_cb, hash_str_new,
+                             strdup_key_copy_cb, cb_context, time_to_live);
 }
 
 void cache_destroy(struct cache *cache)
@@ -187,16 +223,18 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
     ATOMIC_INC(cache->stats.misses);
 #endif
 
-    key_copy = strdup(key);
+    key_copy = cache->key.copy(key);
     if (UNLIKELY(!key_copy)) {
-        *error = ENOMEM;
-        return NULL;
+        if (cache->key.copy != identity_key_copy) {
+            *error = ENOMEM;
+            return NULL;
+        }
     }
 
     entry = cache->cb.create_entry(key, cache->cb.context);
     if (UNLIKELY(!entry)) {
         *error = ECANCELED;
-        free(key_copy);
+        cache->key.free(key_copy);
         return NULL;
     }
 
@@ -260,7 +298,7 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
         /* FREE_KEY_ON_DESTROY is set on elements that never got into the
          * hash table, so their keys are never destroyed automatically. */
         if (entry->flags & FREE_KEY_ON_DESTROY)
-            free(entry->key);
+            cache->key.free(entry->key);
 
         return cache->cb.destroy_entry(entry, cache->cb.context);
     }
