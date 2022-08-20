@@ -19,6 +19,7 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -163,6 +164,25 @@ LWAN_HANDLER(view_root)
     }
 }
 
+static bool parse_uint64(const char *s, uint64_t *out)
+{
+    char *endptr;
+
+    if (!*s)
+        return false;
+
+    errno = 0;
+    *ret = strtoull(s, &endptr, 10);
+
+    if (errno != 0)
+        return false;
+
+    if (*endptr != '\0' || s == endptr)
+        return false;
+
+    return true;
+}
+
 LWAN_HANDLER(view_paste)
 {
     char *dot = memrchr(request->url.value, '.', request->url.len);
@@ -175,7 +195,11 @@ LWAN_HANDLER(view_paste)
         mime_type = "text/plain";
     }
 
-    const int64_t key = parse_long_long(request->url.value, 0);
+    uint64_t key;
+
+    if (!parse_uint64(request->url.value, &key))
+        return HTTP_BAD_REQUEST;
+
     struct paste *paste = (struct paste *)cache_coro_get_and_ref_entry(
         pastes, request->conn->coro, (void *)(uintptr_t)key);
 
