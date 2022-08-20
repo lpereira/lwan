@@ -32,10 +32,11 @@ struct cache_entry {
   time_t time_to_expire;
 };
 
-typedef struct cache_entry *(*cache_create_entry_cb)(
-      const char *key, void *context);
-typedef void (*cache_destroy_entry_cb)(
-      struct cache_entry *entry, void *context);
+typedef struct cache_entry *(*cache_create_entry_cb)(const void *key,
+                                                     void *context);
+typedef void (*cache_destroy_entry_cb)(struct cache_entry *entry,
+                                       void *context);
+typedef struct hash *(*hash_create_func_cb)(void (*)(void *), void (*)(void *));
 
 struct cache;
 
@@ -51,7 +52,7 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
 void cache_destroy(struct cache *cache);
 
 struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
-      const char *key, int *error);
+      const void *key, int *error);
 void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
 struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
-      struct coro *coro, const char *key);
+      struct coro *coro, const void *key);

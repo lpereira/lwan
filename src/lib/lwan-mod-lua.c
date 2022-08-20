@@ -47,7 +47,7 @@ struct lwan_lua_state {
     lua_State *L;
 };
 
-static struct cache_entry *state_create(const char *key __attribute__((unused)),
+static struct cache_entry *state_create(const void *key __attribute__((unused)),
                                         void *context)
 {
     struct lwan_lua_priv *priv = context;

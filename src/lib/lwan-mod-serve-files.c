@@ -864,7 +864,7 @@ static void destroy_cache_entry(struct cache_entry *entry,
     free(fce);
 }
 
-static struct cache_entry *create_cache_entry(const char *key, void *context)
+static struct cache_entry *create_cache_entry(const void *key, void *context)
 {
     struct serve_files_priv *priv = context;
     struct file_cache_entry *fce;

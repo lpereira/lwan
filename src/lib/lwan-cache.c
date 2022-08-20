@@ -188,7 +188,7 @@ void cache_destroy(struct cache *cache)
 }
 
 struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
-                                              const char *key, int *error)
+                                            const void *key, int *error)
 {
     struct cache_entry *entry;
     char *key_copy;
@@ -414,7 +414,7 @@ static void cache_entry_unref_defer(void *data1, void *data2)
 
 struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
                                                  struct coro *coro,
-                                                 const char *key)
+                                                 const void *key)
 {
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;

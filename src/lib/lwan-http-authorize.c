@@ -45,7 +45,7 @@ static void zero_and_free(void *str)
 }
 
 static struct cache_entry *
-create_realm_file(const char *key, void *context __attribute__((unused)))
+create_realm_file(const void *key, void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
     const struct config_line *l;
@@ -105,7 +105,7 @@ create_realm_file(const char *key, void *context __attribute__((unused)))
     }
 
     if (config_last_error(f)) {
-        lwan_status_error("Error on password file \"%s\", line %d: %s", key,
+        lwan_status_error("Error on password file \"%s\", line %d: %s", (char *)key,
                           config_cur_line(f), config_last_error(f));
         goto error;
     }

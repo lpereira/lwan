@@ -233,7 +233,7 @@ static ALWAYS_INLINE char *text_column_helper(sqlite3_stmt *stmt, int ind)
     return value ? strdup((char *)value) : NULL;
 }
 
-static struct cache_entry *create_ipinfo(const char *key,
+static struct cache_entry *create_ipinfo(const void *key,
                                          void *context __attribute__((unused)))
 {
     sqlite3_stmt *stmt;
@@ -291,7 +291,7 @@ end_no_finalize:
 }
 
 #if QUERIES_PER_HOUR != 0
-static struct cache_entry *create_query_limit(const char *key
+static struct cache_entry *create_query_limit(const void *key
                                               __attribute__((unused)),
                                               void *context
                                               __attribute__((unused)))

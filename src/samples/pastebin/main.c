@@ -61,7 +61,7 @@ static struct hash *pending_pastes(void)
     return pending_pastes;
 }
 
-static struct cache_entry *create_paste(const char *key, void *context)
+static struct cache_entry *create_paste(const void *key, void *context)
 {
     const struct lwan_value *body =
         hash_find(pending_pastes(), (const void *)key);
@@ -101,21 +101,26 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
 
     for (int try = 0; try < 10; try++) {
-        uint64_t key = lwan_random_uint64();
+        const void *key;
 
-        if (!hash_add_unique(pending_pastes(), &key, body)) {
-            coro_defer(request->conn->coro, remove_from_pending,
-                       (void *)(uintptr_t)key);
+        do {
+            key = (const void *)(uintptr_t)lwan_random_uint64();
+        } while (!key);
 
-            struct cache_entry *paste = cache_coro_get_and_ref_entry(
-                pastes, request->conn->coro, (void *)(uintptr_t)key);
+        if (hash_add_unique(pending_pastes(), key, body) < 0)
+            continue;
 
-            if (paste) {
-                response->mime_type = "text/plain";
-                lwan_strbuf_printf(response->buffer, "https://%s/p/%zu\n\n",
-                                   SERVER_NAME, key);
-                return HTTP_OK;
-            }
+        coro_defer(request->conn->coro, remove_from_pending,
+                   (void *)(uintptr_t)key);
+
+        struct cache_entry *paste =
+            cache_coro_get_and_ref_entry(pastes, request->conn->coro, key);
+
+        if (paste) {
+            response->mime_type = "text/plain";
+            lwan_strbuf_printf(response->buffer, "https://%s/p/%zu\n\n",
+                               SERVER_NAME, key);
+            return HTTP_OK;
         }
     }
 

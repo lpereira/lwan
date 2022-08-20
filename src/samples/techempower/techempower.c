@@ -282,7 +282,7 @@ struct db_json_cached {
     struct db_json db_json;
 };
 
-static struct cache_entry *cached_queries_new(const char *keyptr, void *context)
+static struct cache_entry *cached_queries_new(const void *keyptr, void *context)
 {
     struct db_json_cached *entry;
     struct db_stmt *stmt;
