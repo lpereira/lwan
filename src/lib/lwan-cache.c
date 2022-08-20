@@ -105,7 +105,6 @@ static ALWAYS_INLINE void str_key_free(void *key)
 struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
                                 cache_destroy_entry_cb destroy_entry_cb,
                                 hash_create_func_cb hash_create_func,
-                                key_copy_cb copy_cb,
                                 void *cb_context,
                                 time_t time_to_live)
 {
@@ -130,7 +129,6 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
 
     cache->cb.create_entry = create_entry_cb;
     cache->cb.destroy_entry = destroy_entry_cb;
-    cache->cb.key_copy_cb = copy_cb ? copy_cb : strdup_key_copy_cb;
     cache->cb.context = cb_context;
 
     if (hash_create_func == hash_str_new) {
@@ -165,7 +163,7 @@ struct cache *cache_create(cache_create_entry_cb create_entry_cb,
                            time_t time_to_live)
 {
     return cache_create_full(create_entry_cb, destroy_entry_cb, hash_str_new,
-                             strdup_key_copy_cb, cb_context, time_to_live);
+                             cb_context, time_to_live);
 }
 
 void cache_destroy(struct cache *cache)

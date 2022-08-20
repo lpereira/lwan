@@ -521,9 +521,9 @@ int main(void)
 
     cached_queries_cache = cache_create_full(cached_queries_new,
                                              cached_queries_free,
+                                             hash_int_new,
                                              NULL,
-                                             3600 /* 1 hour */,
-                                             hash_int_new);
+                                             3600 /* 1 hour */);
     if (!cached_queries_cache)
         lwan_status_critical("Could not create cached queries cache");
 

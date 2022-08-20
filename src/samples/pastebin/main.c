@@ -120,7 +120,7 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
         if (paste) {
             response->mime_type = "text/plain";
             lwan_strbuf_printf(response->buffer, "https://%s/p/%zu\n\n",
-                               SERVER_NAME, key);
+                               SERVER_NAME, (uint64_t)(uintptr_t)key);
             return HTTP_OK;
         }
     }
@@ -172,7 +172,7 @@ static bool parse_uint64(const char *s, uint64_t *out)
         return false;
 
     errno = 0;
-    *ret = strtoull(s, &endptr, 10);
+    *out = strtoull(s, &endptr, 10);
 
     if (errno != 0)
         return false;
@@ -223,9 +223,11 @@ int main(void)
 
     lwan_init(&l);
 
-    pastes = cache_create_full(create_paste, destroy_paste, NULL,
-                               CACHE_FOR_HOURS * 60 * 60,
-                               hash_int64_new);
+    pastes = cache_create_full(create_paste,
+                               destroy_paste,
+                               hash_int64_new,
+                               NULL,
+                               CACHE_FOR_HOURS * 60 * 60);
     if (!pastes)
         lwan_status_critical("Could not create paste cache");
 
