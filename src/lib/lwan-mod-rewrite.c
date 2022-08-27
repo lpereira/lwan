@@ -302,10 +302,10 @@ static bool condition_matches(struct lwan_request *request,
     }
 
     if (p->flags & PATTERN_COND_BACKREF) {
-        assert(p->condition.backref.index > 0);
+        assert(p->condition.backref.index >= 0);
         assert(p->condition.backref.str);
 
-        if (captures > p->condition.backref.index)
+        if (p->condition.backref.index > captures)
             return false;
 
         const struct str_find *s = &sf[p->condition.backref.index];
@@ -314,7 +314,7 @@ static bool condition_matches(struct lwan_request *request,
         if ((size_t)(s->sm_eo - s->sm_so) != len)
             return false;
 
-        if (!memcmp(request->url.value + s->sm_so, p->condition.backref.str, len))
+        if (memcmp(request->url.value + s->sm_so, p->condition.backref.str, len))
             return false;
     }
 
