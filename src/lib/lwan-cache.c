@@ -118,7 +118,11 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
     if (!cache)
         return NULL;
 
-    cache->hash.table = hash_create_func(free, NULL);
+    if (hash_create_func == hash_str_new) {
+        cache->hash.table = hash_create_func(free, NULL);
+    } else {
+        cache->hash.table = hash_create_func(NULL, NULL);
+    }
     if (!cache->hash.table)
         goto error_no_hash;
 
