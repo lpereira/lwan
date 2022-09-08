@@ -98,7 +98,7 @@ void lwan_tables_init(void)
     assert(streq(lwan_determine_mime_type_for_file_name(".gif"),
                  "image/gif"));
     assert(streq(lwan_determine_mime_type_for_file_name(".JS"),
-                 "application/javascript"));
+                 "text/javascript"));
     assert(streq(lwan_determine_mime_type_for_file_name(".BZ2"),
                  "application/x-bzip2"));
 }
@@ -129,7 +129,7 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
     case STR4_INT_L('.','g','i','f'): return "image/gif";
     case STR4_INT_L('.','h','t','m'): return "text/html";
     case STR4_INT_L('.','j','p','g'): return "image/jpeg";
-    case STR4_INT_L('.','j','s',' '): return "application/javascript";
+    case STR4_INT_L('.','j','s',' '): return "text/javascript";
     case STR4_INT_L('.','p','n','g'): return "image/png";
     case STR4_INT_L('.','t','x','t'): return "text/plain";
     }

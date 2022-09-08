@@ -177,7 +177,7 @@ static bool is_builtin_mime_type(const char *mime)
      * a bsearch().  application/octet-stream is the fallback. */
     if (streq(mime, "application/octet-stream"))
         return true;
-    if (streq(mime, "application/javascript"))
+    if (streq(mime, "text/javascript"))
         return true;
     if (streq(mime, "image/jpeg"))
         return true;
