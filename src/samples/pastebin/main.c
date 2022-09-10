@@ -102,17 +102,22 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
 
     for (int try = 0; try < 10; try++) {
-        const void *key;
+        void *key;
 
         do {
-            key = (const void *)(uintptr_t)lwan_random_uint64();
+            key = (void *)(uintptr_t)lwan_random_uint64();
         } while (!key);
 
-        if (hash_add_unique(pending_pastes(), key, body) < 0)
+        switch (hash_add_unique(pending_pastes(), key, body)) {
+        case -EEXIST:
             continue;
+        case 0:
+            break;
+        default:
+            return HTTP_UNAVAILABLE;
+        }
 
-        coro_defer(request->conn->coro, remove_from_pending,
-                   (void *)(uintptr_t)key);
+        coro_defer(request->conn->coro, remove_from_pending, key);
 
         struct cache_entry *paste =
             cache_coro_get_and_ref_entry(pastes, request->conn->coro, key);
