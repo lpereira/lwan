@@ -19,7 +19,7 @@
 
 #include "lwan.h"
 
-LWAN_HANDLER(hello_world)
+LWAN_HANDLER_ROUTE(hello_world, "/")
 {
     static const char message[] = "Hello, World!";
 
@@ -32,15 +32,11 @@ LWAN_HANDLER(hello_world)
 int
 main(void)
 {
-    const struct lwan_url_map default_map[] = {
-        { .prefix = "/", .handler = LWAN_HANDLER_REF(hello_world) },
-        { .prefix = NULL }
-    };
     struct lwan l;
 
     lwan_init(&l);
 
-    lwan_set_url_map(&l, default_map);
+    lwan_detect_url_map(&l);
     lwan_main_loop(&l);
 
     lwan_shutdown(&l);

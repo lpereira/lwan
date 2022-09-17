@@ -66,7 +66,7 @@ static const struct lwan_config default_config = {
     .allow_put_temp_file = false,
 };
 
-LWAN_HANDLER(brew_coffee)
+LWAN_HANDLER_ROUTE(brew_coffee, "/brew-coffee")
 {
     /* Placeholder handler so that __start_lwan_handler and __stop_lwan_handler
      * symbols will get defined.
@@ -404,30 +404,49 @@ out:
     config_close(isolated);
 }
 
+static void register_url_map(struct lwan *l, const struct lwan_url_map *map)
+{
+    struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
+
+    if (copy->module && copy->module->create) {
+        lwan_status_debug("Initializing module %s from struct",
+                          get_module_name(copy->module));
+
+        copy->data = copy->module->create(map->prefix, copy->args);
+        if (!copy->data) {
+            lwan_status_critical("Could not initialize module %s",
+                                 get_module_name(copy->module));
+        }
+
+        copy->flags = copy->module->flags;
+        copy->handler = copy->module->handle_request;
+    } else {
+        copy->flags = HANDLER_PARSE_MASK;
+    }
+}
+
 void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
 {
     lwan_trie_destroy(&l->url_map_trie);
     if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
         lwan_status_critical_perror("Could not initialize trie");
 
-    for (; map->prefix; map++) {
-        struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
+    for (; map->prefix; map++)
+        register_url_map(l, map);
+}
 
-        if (copy->module && copy->module->create) {
-            lwan_status_debug("Initializing module %s from struct",
-                              get_module_name(copy->module));
+void lwan_detect_url_map(struct lwan *l)
+{
+    const struct lwan_url_map_route_info *iter;
 
-            copy->data = copy->module->create(map->prefix, copy->args);
-            if (!copy->data) {
-                lwan_status_critical("Could not initialize module %s",
-                                     get_module_name(copy->module));
-            }
+    lwan_trie_destroy(&l->url_map_trie);
+    if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
+        lwan_status_critical_perror("Could not initialize trie");
 
-            copy->flags = copy->module->flags;
-            copy->handler = copy->module->handle_request;
-        } else {
-            copy->flags = HANDLER_PARSE_MASK;
-        }
+    LWAN_SECTION_FOREACH(lwan_url_map, iter) {
+        struct lwan_url_map map = {.prefix = iter->route,
+                                   .handler = iter->handler};
+        register_url_map(l, &map);
     }
 }
 

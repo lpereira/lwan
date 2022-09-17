@@ -157,7 +157,7 @@ static enum lwan_http_status doc(struct lwan_request *request,
     return HTTP_OK;
 }
 
-LWAN_HANDLER(view_root)
+LWAN_HANDLER_ROUTE(view_root, "/")
 {
     switch (lwan_request_get_method(request)) {
     case REQUEST_METHOD_POST:
@@ -188,7 +188,7 @@ static bool parse_uint64(const char *s, uint64_t *out)
     return true;
 }
 
-LWAN_HANDLER(view_paste)
+LWAN_HANDLER_ROUTE(view_paste, "/p/")
 {
     char *dot = memrchr(request->url.value, '.', request->url.len);
     const char *mime_type;
@@ -219,11 +219,6 @@ LWAN_HANDLER(view_paste)
 
 int main(void)
 {
-    const struct lwan_url_map default_map[] = {
-        {.prefix = "/", .handler = LWAN_HANDLER_REF(view_root)},
-        {.prefix = "/p/", .handler = LWAN_HANDLER_REF(view_paste)},
-        {.prefix = NULL},
-    };
     struct lwan l;
 
     lwan_init(&l);
@@ -236,7 +231,7 @@ int main(void)
     if (!pastes)
         lwan_status_critical("Could not create paste cache");
 
-    lwan_set_url_map(&l, default_map);
+    lwan_detect_url_map(&l);
     lwan_main_loop(&l);
 
     lwan_shutdown(&l);
