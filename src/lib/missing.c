@@ -662,13 +662,12 @@ static inline int isalpha_neutral(char c)
 {
     /* Use this instead of isalpha() from ctype.h because they consider
      * the current locale.  This assumes CHAR_BIT == 8.  */
-    static const unsigned char upper_table[32] = {
+    static const unsigned char table[32] = {
         0, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255, 7, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0, 0, 0, 0, 0,
     };
     unsigned char uc = (unsigned char)c;
-    static_assert(CHAR_BIT == 8, "sane CHAR_BIT value");
-    return upper_table[uc >> 3] & 1 << (uc & 7);
+    return table[uc >> 3] & 1 << (uc & 7);
 }
 
 bool strcaseequal_neutral(const char *a, const char *b)
@@ -698,6 +697,7 @@ bool strcaseequal_neutral(const char *a, const char *b)
     }
 }
 
+#ifndef NDEBUG
 __attribute__((constructor)) static void test_strcaseequal_neutral(void)
 {
     assert(strcaseequal_neutral("LWAN", "lwan") == true);
@@ -707,4 +707,10 @@ __attribute__((constructor)) static void test_strcaseequal_neutral(void)
     assert(strcaseequal_neutral("SomE-HeaDeP", "some-header") == false);
     assert(strcaseequal_neutral("LwAN", "lwam") == false);
     assert(strcaseequal_neutral("LwAn", "lWaM") == false);
+
+    static_assert(CHAR_BIT == 8, "sane CHAR_BIT value");
+    static_assert('*' == 42, "ASCII character set");
+    static_assert('0' == 48, "ASCII character set");
+    static_assert('a' == 97, "ASCII character set");
 }
+#endif
