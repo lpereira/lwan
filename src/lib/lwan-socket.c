@@ -85,7 +85,7 @@ static void init_backlog_size(void)
         backlog_size = SOMAXCONN;
 }
 
-int lwan_socket_get_backlog_size(void)
+static int get_backlog_size(void)
 {
     static pthread_once_t backlog_size_once = PTHREAD_ONCE_INIT;
     pthread_once(&backlog_size_once, init_backlog_size);
@@ -187,7 +187,7 @@ static int listen_addrinfo(int fd,
                            bool print_listening_msg,
                            bool is_https)
 {
-    if (listen(fd, lwan_socket_get_backlog_size()) < 0)
+    if (listen(fd, get_backlog_size()) < 0)
         lwan_status_critical_perror("listen");
 
     if (print_listening_msg) {

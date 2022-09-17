@@ -82,8 +82,6 @@ struct lwan_request_parser_helper {
 
 #define LWAN_MAX(a_, b_) LWAN_MIN_MAX_DETAIL(a_, b_, LWAN_TMP_ID, LWAN_TMP_ID, <)
 
-int lwan_socket_get_backlog_size(void);
-
 void lwan_set_thread_name(const char *name);
 
 void lwan_response_init(struct lwan *l);
