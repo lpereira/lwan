@@ -49,9 +49,20 @@ static int bin2hex(const char *path, const char *identifier)
         return -errno;
 
     printf("static const unsigned char %s[] = {\n", identifier);
+    printf("    ");
 
-    for (i = 0; i < st.st_size; i++)
-        printf("0x%02x, ", ptr[i] & 0xff);
+    int bytes_in_this_line = 0;
+    for (i = 0; i < st.st_size; i++) {
+        printf("0x%02x,", ptr[i] & 0xff);
+
+        bytes_in_this_line++;
+        if (bytes_in_this_line == 11) {
+            printf("\n    ");
+            bytes_in_this_line = 0;
+        } else {
+            printf(" ");
+        }
+    }
 
     printf("\n};\n");
 
