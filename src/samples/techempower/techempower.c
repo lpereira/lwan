@@ -482,10 +482,6 @@ LWAN_HANDLER(quit_lwan)
 
 int main(void)
 {
-    struct lwan l;
-
-    lwan_init(&l);
-
     if (getenv("USE_MYSQL")) {
         db_connection_params = (struct db_connection_params){
             .type = DB_CONN_MYSQL,
@@ -527,11 +523,10 @@ int main(void)
     if (!cached_queries_cache)
         lwan_status_critical("Could not create cached queries cache");
 
-    lwan_main_loop(&l);
+    lwan_main();
 
     cache_destroy(cached_queries_cache);
     lwan_tpl_free(fortune_tpl);
-    lwan_shutdown(&l);
 
     return 0;
 }

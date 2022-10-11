@@ -589,6 +589,20 @@ void lwan_init(struct lwan *l);
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config);
 void lwan_shutdown(struct lwan *l);
 
+static inline int lwan_main(void)
+{
+    struct lwan l;
+
+    lwan_init(&l);
+
+    lwan_detect_url_map(&l);
+    lwan_main_loop(&l);
+
+    lwan_shutdown(&l);
+
+    return 0;
+}
+
 const struct lwan_config *lwan_get_default_config(void);
 
 const char *lwan_request_get_host(struct lwan_request *request);

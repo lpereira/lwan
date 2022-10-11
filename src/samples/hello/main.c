@@ -29,17 +29,4 @@ LWAN_HANDLER_ROUTE(hello_world, "/")
     return HTTP_OK;
 }
 
-int
-main(void)
-{
-    struct lwan l;
-
-    lwan_init(&l);
-
-    lwan_detect_url_map(&l);
-    lwan_main_loop(&l);
-
-    lwan_shutdown(&l);
-
-    return 0;
-}
+int main(void) { return lwan_main(); }

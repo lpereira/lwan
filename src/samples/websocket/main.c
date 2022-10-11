@@ -28,7 +28,7 @@ static struct lwan_pubsub_topic *chat;
 
 /* This is a write-only sample of the API: it just sends random integers
  * over a WebSockets connection. */
-LWAN_HANDLER(ws_write)
+LWAN_HANDLER_ROUTE(ws_write, "/ws-write")
 {
     enum lwan_http_status status = lwan_request_websocket_upgrade(request);
 
@@ -52,7 +52,7 @@ static void free_strbuf(void *data)
 /* This is a slightly more featured echo server that tells how many seconds
  * passed since the last message has been received, and keeps sending it back
  * again and again. */
-LWAN_HANDLER(ws_read)
+LWAN_HANDLER_ROUTE(ws_read, "/ws-read")
 {
     enum lwan_http_status status = lwan_request_websocket_upgrade(request);
     struct lwan_strbuf *last_msg_recv;
@@ -121,7 +121,7 @@ static void pub_depart_message(void *data1, void *data2)
     lwan_pubsub_publish((struct lwan_pubsub_topic *)data1, buffer, (size_t)r);
 }
 
-LWAN_HANDLER(ws_chat)
+LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
 {
     struct lwan_pubsub_subscriber *sub;
     struct lwan_pubsub_msg *msg;
@@ -197,7 +197,7 @@ out:
     __builtin_unreachable();
 }
 
-LWAN_HANDLER(index)
+LWAN_HANDLER_ROUTE(index, "/")
 {
     static const char message[] =
         "<html>\n"
@@ -276,23 +276,10 @@ LWAN_HANDLER(index)
 
 int main(void)
 {
-    const struct lwan_url_map default_map[] = {
-        {.prefix = "/ws-write", .handler = LWAN_HANDLER_REF(ws_write)},
-        {.prefix = "/ws-read", .handler = LWAN_HANDLER_REF(ws_read)},
-        {.prefix = "/ws-chat", .handler = LWAN_HANDLER_REF(ws_chat)},
-        {.prefix = "/", .handler = LWAN_HANDLER_REF(index)},
-        {},
-    };
-    struct lwan l;
-
-    lwan_init(&l);
-
     chat = lwan_pubsub_new_topic();
 
-    lwan_set_url_map(&l, default_map);
-    lwan_main_loop(&l);
+    lwan_main();
 
-    lwan_shutdown(&l);
     lwan_pubsub_free_topic(chat);
 
     return 0;
