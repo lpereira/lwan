@@ -208,11 +208,11 @@ endif ()
 
 
 #
-# Ensure compiler is compatible with GNU99 standard
+# Ensure compiler is compatible with GNU11 standard
 #
-check_c_compiler_flag(-std=gnu99 LWAN_HAVE_STD_GNU99)
-if (NOT LWAN_HAVE_STD_GNU99)
-	message(FATAL_ERROR "Compiler does not support -std=gnu99. Consider using a newer compiler")
+check_c_compiler_flag(-std=gnu11 LWAN_HAVE_STD_GNU11)
+if (NOT LWAN_HAVE_STD_GNU11)
+	message(FATAL_ERROR "Compiler does not support -std=gnu11. Consider using a newer compiler")
 endif()
 
 
@@ -322,7 +322,7 @@ enable_warning_if_supported(-Wunsequenced)
 # While a useful warning, this is giving false positives.
 enable_warning_if_supported(-Wno-free-nonheap-object)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu99")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wconversion -std=gnu11")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${C_FLAGS_REL}")
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_REL}")
