@@ -87,8 +87,8 @@ create_realm_file(const void *key, void *context __attribute__((unused)))
             if (LIKELY(!err))
                 continue;
 
-            free(username);
-            free(password);
+            zero_and_free(username);
+            zero_and_free(password);
 
             if (err == -EEXIST) {
                 lwan_status_warning(
