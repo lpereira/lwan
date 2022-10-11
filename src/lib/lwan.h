@@ -70,13 +70,13 @@ extern "C" {
 
 #define LWAN_HANDLER_REF(name_) lwan_handler_##name_
 
-#define _LWAN_HANDLER_PROTO(name_)                                             \
+#define _LWAN_HANDLER_PROTO(name_, route_)                                     \
     static enum lwan_http_status lwan_handler_##name_(                         \
         struct lwan_request *, struct lwan_response *, void *);                \
     static const struct lwan_handler_info                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
-        lwan_handler_info_##name_ = {.name = #name_,                           \
-                                     .handler = lwan_handler_##name_};
+        lwan_handler_info_##name_ = {                                          \
+            .name = #name_, .handler = lwan_handler_##name_, .route = route_};
 #define _LWAN_HANDLER_FUNC(name_)                                              \
     static enum lwan_http_status lwan_handler_##name_(                         \
         struct lwan_request *request __attribute__((unused)),                  \
@@ -84,15 +84,11 @@ extern "C" {
         void *data __attribute__((unused)))
 
 #define LWAN_HANDLER(name_)                                                    \
-    _LWAN_HANDLER_PROTO(name_)                                                 \
+    _LWAN_HANDLER_PROTO(name_, NULL)                                           \
     _LWAN_HANDLER_FUNC(name_)
 
 #define LWAN_HANDLER_ROUTE(name_, route_)                                      \
-    _LWAN_HANDLER_PROTO(name_)                                                 \
-    static const struct lwan_url_map_route_info                                \
-        __attribute__((used, section(LWAN_SECTION_NAME(lwan_url_map))))        \
-        lwan_url_map_route_info_##name_ = {.route = route_,                    \
-                                           .handler = lwan_handler_##name_};   \
+    _LWAN_HANDLER_PROTO(name_, route_)                                         \
     __attribute__((used)) _LWAN_HANDLER_FUNC(name_)
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
@@ -453,6 +449,7 @@ struct lwan_handler_info {
     enum lwan_http_status (*handler)(struct lwan_request *request,
                                      struct lwan_response *response,
                                      void *data);
+    const char *route;
 };
 
 struct lwan_url_map {

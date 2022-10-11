@@ -66,7 +66,7 @@ static const struct lwan_config default_config = {
     .allow_put_temp_file = false,
 };
 
-LWAN_HANDLER_ROUTE(brew_coffee, "/brew-coffee")
+LWAN_HANDLER_ROUTE(brew_coffee, NULL /* do not autodetect this route */)
 {
     /* Placeholder handler so that __start_lwan_handler and __stop_lwan_handler
      * symbols will get defined.
@@ -444,17 +444,21 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
         register_url_map(l, map);
 }
 
+__attribute__((no_sanitize_address))
 void lwan_detect_url_map(struct lwan *l)
 {
-    const struct lwan_url_map_route_info *iter;
+    const struct lwan_handler_info *iter;
 
     lwan_trie_destroy(&l->url_map_trie);
     if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
         lwan_status_critical_perror("Could not initialize trie");
 
-    LWAN_SECTION_FOREACH(lwan_url_map, iter) {
-        struct lwan_url_map map = {.prefix = iter->route,
-                                   .handler = iter->handler};
+    LWAN_SECTION_FOREACH(lwan_handler, iter) {
+        if (!iter->route)
+            continue;
+
+        const struct lwan_url_map map = {.prefix = iter->route,
+                                         .handler = iter->handler};
         register_url_map(l, &map);
     }
 }
