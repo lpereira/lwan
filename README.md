@@ -304,6 +304,14 @@ can be decided automatically, so some configuration options are provided.
 | `max_post_data_size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
 | `max_put_data_size` | `int` | `40960` | Sets the maximum number of data size for PUT requests, in bytes |
 | `allow_temp_files` | `str` | `""` | Use temporary files; set to `post` for POST requests, `put` for PUT requests, or `all` (equivalent to setting to `post put`) for both.|
+| `error_template` | `str` | Default error template | Template for error codes. See variables below. |
+
+#### Variables for `error_template`
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `short_message` | `str` | Short error message (e.g. `Not found`) |
+| `long_message` | `str` | Long error message (e.g. `The requested resource could not be found on this server`) |
 
 ### Straitjacket
 
@@ -474,6 +482,20 @@ best to serve files in the fastest way possible according to some heuristics.
 | `directory_list_template`  | `str`  | `NULL`       | Path to a Mustache template for the directory list; by default, use an internal template |
 | `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
 | `cache_for`                | `time` | `5s`         | Time to keep file metadata (size, compressed contents, open file descriptor, etc.) in cache |
+
+##### Variables for `directory_list_template`
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `rel_path` | `str` | Path relative to the root directory real path |
+| `readme`   | `str` | Contents of first readme file found (`readme`, `readme.txt`, `read.me`, `README.TXT`, `README`) |
+| `file_list` | iterator | Iterates on file list |
+| `file_list.zebra_class` | `str` | `odd` for odd items, or `even` or even items |
+| `file_list.icon` | `str` | Path to the icon for the file type |
+| `file_list.name` | `str` | File name (escaped) |
+| `file_list.type` | `str` | File type (directory or regular file) |
+| `file_list.size` | `int` | File size |
+| `file_list.unit` | `str` | Unit for `file_size` |
 
 #### Lua
 
