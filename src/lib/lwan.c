@@ -337,9 +337,18 @@ static void parse_listener_prefix(struct config *c,
 
     while ((l = config_read_line(c))) {
         switch (l->type) {
-        case CONFIG_LINE_TYPE_LINE:
-            hash_add(hash, strdup(l->key), strdup(l->value));
+        case CONFIG_LINE_TYPE_LINE: {
+            char *key_copy = strdup(l->key);
+            char *value_copy = strdup(l->value);
+
+            if (!key_copy)
+                lwan_status_critical("Could not copy key from config file");
+            if (!value_copy)
+                lwan_status_critical("Could not copy value from config file");
+
+            hash_add(hash, key_copy, value_copy);
             break;
+        }
 
         case CONFIG_LINE_TYPE_SECTION:
             if (streq(l->key, "authorization")) {
