@@ -132,7 +132,7 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
 <div class="twocolumnsifpossible">
 <ul>
   <li><b>Low memory footprint</b> (~500KiB for 10k idle connections)</li>
-  <li><b>Small disk footprint</b>: x86-64 executable has 110KiB (~52KiB if packed with <a href="http://upx.sourceforge.net/">UPX</a>)</li>
+  <li><b>Small disk footprint</b>: x86-64 executable has 198KiB (~86KiB if packed with <a href="http://upx.sourceforge.net/">UPX</a>)</li>
   <li><b>Minimal memory allocations</b> &amp; copies</li>
   <li>Minimal system calls</li>
   <li>Hand-written HTTP request parser</li>
@@ -147,9 +147,9 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
   <li>Mostly <b>wait-free</b> multi-threaded design
     <ul>
         <li>One thread accepts connections, one I/O thread per logical CPU handles them</li>
-        <li><b>Coroutines</b> makes <b>asynchronous I/O</b> a breeze in C</li>
+        <li>One <b>coroutines</b> per connection makes <b>asynchronous I/O</b> a breeze in C</li>
         <li>Supports <b>Linux</b>, <b>OpenBSD</b>, <b>FreeBSD</b> and <b>macOS</b></li>
-        <li>Purpose-built I/O loop</li>
+        <li>Purpose-built I/O loop with <b>async/await</b> and <b>timer<b> support</li>
     </ul>
   </li>
   <li>Efficient, <a href="https://github.com/google/guava">Guava</a>-inspired <b>loading cache</b>. Used for:
@@ -165,11 +165,10 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
         <li>Lua scripts can be executed to control the rewriting behavior as well</li>
      </ul>
   </li>
-  <li><b>Diminute codebase</b> with roughly 10000 lines of C99 code</li>
+  <li><b>Diminute codebase</b> with roughly 20000 lines of GNU11 code</li>
   <li>Efficient <a href="https://mustache.github.io/">Mustache templating</a> engine
      <ul>
-        <li>Used internally for directory listing &amp; error messages (can
-        be loaded from a file)</li>
+        <li>Used internally for directory listing &amp; error messages (can be loaded from a file)</li>
         <li>Available for user-built handlers</li>
      </ul>
   </li>
@@ -198,8 +197,12 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
     <li>Useful for TLS terminators such as <a href="https://hitch-tls.org/">Hitch</a></li>
   </ul>
   </li>
-  <li>systemd <a href="http://0pointer.de/blog/projects/socket-activation.html">socket activation</a></li>
-  <li>TLSv1.2 support with AES encryption offload, with TLSv1.3 in the works</li>
+  <li>TLSv1.2 support with AES encryption offload (kTLS on Linux), with TLSv1.3 in the works</li>
+  <li>systemd <a href="http://0pointer.de/blog/projects/socket-activation.html">socket activation</a>
+      <ul>
+         <li>Named socket support for both TLS and non-TLS listeners</li>
+      </ul>
+  </li>
   <li>IPv6 ready</li>
 </ul>
 
@@ -248,7 +251,7 @@ internals, as they're very tightly-coupled.</p>
 
 <pre><code class="language-clike">#include "lwan.h"
 
-LWAN_HANDLER(hello_world)
+LWAN_HANDLER_ROUTE(hello_world, "/")
 {
     static const char message[] = "Hello, World!";
 
@@ -261,15 +264,11 @@ LWAN_HANDLER(hello_world)
 int
 main(void)
 {
-    const struct lwan_url_map default_map[] = {
-        { .prefix = "/", .handler = LWAN_HANDLER_REF(hello_world) },
-        { .prefix = NULL }
-    };
     struct lwan l;
 
     lwan_init(&l);
 
-    lwan_set_url_map(&l, default_map);
+    lwan_detect_url_map(&l);
     lwan_main_loop(&l);
 
     lwan_shutdown(&l);
