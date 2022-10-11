@@ -70,6 +70,7 @@ global:
     lwan_strbuf_set_staticz;
 
     lwan_module_info_*;
+    lwan_handler_info_*;
 
     lwan_request_await_*;
     lwan_request_async_*;
