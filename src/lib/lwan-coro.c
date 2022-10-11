@@ -364,6 +364,8 @@ static void disarmed_defer(void *data __attribute__((unused)))
 {
 }
 
+/* FIXME: this can access unallocated memory if the defer array is
+ * resized! */
 void coro_defer_disarm(struct coro *coro, struct coro_defer *defer)
 {
     const size_t num_defers = coro_defer_array_len(&coro->defer);
