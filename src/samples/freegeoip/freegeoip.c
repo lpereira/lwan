@@ -1,5 +1,5 @@
 /*
- * lwan - simple web server
+ * lwan - web server
  * Copyright (c) 2012 L. A. F. Pereira <l@tia.mat.br>
  *
  * SQL query is copied from freegeoip.go

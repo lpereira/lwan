@@ -1,5 +1,5 @@
 /*
- * lwan - simple web server
+ * lwan - web server
  * Copyright (c) 2012, 2013 L. A. F. Pereira <l@tia.mat.br>
  *
  * This program is free software; you can redistribute it and/or

@@ -5,7 +5,7 @@
  * This is being included here so we can fuzz-test the decoder in
  * oss-fuzz before we go forward with the HTTP/2 implementation.
  *
- * lwan - simple web server
+ * lwan - web server
  * Copyright (c) 2022 L. A. F. Pereira <l@tia.mat.br>
  *
  * This program is free software; you can redistribute it and/or
