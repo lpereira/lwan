@@ -327,7 +327,7 @@ static void parse_key_values(struct lwan_request *request,
     struct lwan_key_value *kv;
     char *ptr = helper_value->value;
     const char *end = helper_value->value + helper_value->len;
-    struct coro_defer *reset_defer;
+    ssize_t reset_defer;
 
     if (!helper_value->len)
         return;
@@ -1749,7 +1749,7 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
     struct lwan_connection *conn = request->conn;
     struct timeouts *wheel = conn->thread->wheel;
     struct timespec now;
-    struct coro_defer *defer = NULL;
+    ssize_t defer = 0;
 
     /* We need to update the timer wheel right now because
      * a request might have requested to sleep a long time
@@ -1769,7 +1769,7 @@ void lwan_request_sleep(struct lwan_request *request, uint64_t ms)
 
     coro_yield(conn->coro, CONN_CORO_SUSPEND);
 
-    if (defer)
+    if (defer > 0)
         coro_defer_fire_and_disarm(conn->coro, defer);
 }
 

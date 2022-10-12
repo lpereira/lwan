@@ -364,9 +364,8 @@ static void disarmed_defer(void *data __attribute__((unused)))
 {
 }
 
-/* FIXME: this can access unallocated memory if the defer array is
- * resized! */
-void coro_defer_disarm(struct coro *coro, struct coro_defer *defer)
+static void coro_defer_disarm_internal(struct coro *coro,
+                                       struct coro_defer *defer)
 {
     const size_t num_defers = coro_defer_array_len(&coro->defer);
 
@@ -384,20 +383,30 @@ void coro_defer_disarm(struct coro *coro, struct coro_defer *defer)
     }
 }
 
-void coro_defer_fire_and_disarm(struct coro *coro, struct coro_defer *defer)
+void coro_defer_disarm(struct coro *coro, ssize_t d)
 {
+    assert(d > 0);
+
+    return coro_defer_disarm_internal(
+        coro, coro_defer_array_get_elem(&coro->defer, (size_t)d));
+}
+
+void coro_defer_fire_and_disarm(struct coro *coro, ssize_t d)
+{
+    assert(d > 0);
+
+    struct coro_defer *defer = coro_defer_array_get_elem(&coro->defer, (size_t)d);
     assert(coro);
-    assert(defer);
 
     if (defer->has_two_args)
         defer->two.func(defer->two.data1, defer->two.data2);
     else
         defer->one.func(defer->one.data);
 
-    return coro_defer_disarm(coro, defer);
+    return coro_defer_disarm_internal(coro, defer);
 }
 
-ALWAYS_INLINE struct coro_defer *
+ALWAYS_INLINE ssize_t
 coro_defer(struct coro *coro, defer1_func func, void *data)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
@@ -405,17 +414,17 @@ coro_defer(struct coro *coro, defer1_func func, void *data)
     if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p",
                           coro);
-        return NULL;
+        return -1;
     }
 
     defer->one.func = func;
     defer->one.data = data;
     defer->has_two_args = false;
 
-    return defer;
+    return (ssize_t)coro_defer_array_get_elem_index(&coro->defer, defer);
 }
 
-ALWAYS_INLINE struct coro_defer *
+ALWAYS_INLINE ssize_t
 coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
@@ -423,7 +432,7 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     if (UNLIKELY(!defer)) {
         lwan_status_error("Could not add new deferred function for coro %p",
                           coro);
-        return NULL;
+        return -1;
     }
 
     defer->two.func = func;
@@ -431,7 +440,7 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     defer->two.data2 = data2;
     defer->has_two_args = true;
 
-    return defer;
+    return (ssize_t)coro_defer_array_get_elem_index(&coro->defer, defer);
 }
 
 void *coro_malloc_full(struct coro *coro,
