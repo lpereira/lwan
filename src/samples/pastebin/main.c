@@ -219,6 +219,12 @@ LWAN_HANDLER_ROUTE(view_paste, "/p/")
 
 int main(void)
 {
+    struct lwan l;
+
+    lwan_init(&l);
+
+    lwan_detect_url_map(&l);
+
     pastes = cache_create_full(create_paste,
                                destroy_paste,
                                hash_int64_new,
@@ -227,9 +233,9 @@ int main(void)
     if (!pastes)
         lwan_status_critical("Could not create paste cache");
 
-    lwan_main();
+    lwan_main_loop(&l);
 
-    cache_destroy(pastes);
+    lwan_shutdown(&l);
 
     return 0;
 }
