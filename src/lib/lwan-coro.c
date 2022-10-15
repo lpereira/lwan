@@ -385,7 +385,7 @@ static void coro_defer_disarm_internal(struct coro *coro,
 
 void coro_defer_disarm(struct coro *coro, ssize_t d)
 {
-    assert(d > 0);
+    assert(d >= 0);
 
     return coro_defer_disarm_internal(
         coro, coro_defer_array_get_elem(&coro->defer, (size_t)d));
@@ -393,7 +393,7 @@ void coro_defer_disarm(struct coro *coro, ssize_t d)
 
 void coro_defer_fire_and_disarm(struct coro *coro, ssize_t d)
 {
-    assert(d > 0);
+    assert(d >= 0);
 
     struct coro_defer *defer = coro_defer_array_get_elem(&coro->defer, (size_t)d);
     assert(coro);
