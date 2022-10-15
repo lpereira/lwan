@@ -70,27 +70,22 @@ extern "C" {
 
 #define LWAN_HANDLER_REF(name_) lwan_handler_##name_
 
-#define _LWAN_HANDLER_PROTO(name_, route_)                                     \
+#define LWAN_HANDLER_ROUTE(name_, route_)                                      \
     static enum lwan_http_status lwan_handler_##name_(                         \
         struct lwan_request *, struct lwan_response *, void *);                \
     static const struct lwan_handler_info                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
         __attribute__((aligned(8))) /* FIXME: why is this alignment needed? */ \
         lwan_handler_info_##name_ = {                                          \
-            .name = #name_, .handler = lwan_handler_##name_, .route = route_};
-#define _LWAN_HANDLER_FUNC(name_)                                              \
-    static enum lwan_http_status lwan_handler_##name_(                         \
+            .name = #name_,                                                    \
+            .route = route_,                                                   \
+            .handler = lwan_handler_##name_,                                   \
+    };                                                                         \
+    __attribute__((used)) static enum lwan_http_status lwan_handler_##name_(   \
         struct lwan_request *request __attribute__((unused)),                  \
         struct lwan_response *response __attribute__((unused)),                \
         void *data __attribute__((unused)))
-
-#define LWAN_HANDLER(name_)                                                    \
-    _LWAN_HANDLER_PROTO(name_, NULL)                                           \
-    _LWAN_HANDLER_FUNC(name_)
-
-#define LWAN_HANDLER_ROUTE(name_, route_)                                      \
-    _LWAN_HANDLER_PROTO(name_, route_)                                         \
-    __attribute__((used)) _LWAN_HANDLER_FUNC(name_)
+#define LWAN_HANDLER(name_) LWAN_HANDLER_ROUTE(name_, NULL)
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
 
