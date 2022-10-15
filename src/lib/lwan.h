@@ -75,6 +75,7 @@ extern "C" {
         struct lwan_request *, struct lwan_response *, void *);                \
     static const struct lwan_handler_info                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_handler))))        \
+        __attribute__((aligned(8))) /* FIXME: why is this alignment needed? */ \
         lwan_handler_info_##name_ = {                                          \
             .name = #name_, .handler = lwan_handler_##name_, .route = route_};
 #define _LWAN_HANDLER_FUNC(name_)                                              \
