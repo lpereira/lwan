@@ -389,7 +389,7 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
     if (!buffer)
         return false;
 
-    ssize_t buffer_free_defer = coro_defer(request->conn->coro, free, buffer);
+    coro_deferred buffer_free_defer = coro_defer(request->conn->coro, free, buffer);
 
     for (char *p = buffer; to_read;) {
         ssize_t r = lwan_request_async_read(request, fd, p, to_read);
@@ -481,7 +481,7 @@ try_initiating_chunked_response(struct lwan_request *request)
     struct header_array additional_headers;
 
     header_array_init(&additional_headers);
-    ssize_t additional_headers_reset = coro_defer(request->conn->coro,
+    coro_deferred additional_headers_reset = coro_defer(request->conn->coro,
                           reset_additional_header, &additional_headers);
 
     for (ssize_t i = 0; i < n_headers; i++) {

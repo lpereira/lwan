@@ -33,6 +33,7 @@ typedef libucontext_ucontext_t coro_context;
 #endif
 
 struct coro;
+typedef ssize_t coro_deferred;
 
 typedef int (*coro_function_t)(struct coro *coro, void *data);
 
@@ -50,13 +51,13 @@ int64_t coro_resume(struct coro *coro);
 int64_t coro_resume_value(struct coro *coro, int64_t value);
 int64_t coro_yield(struct coro *coro, int64_t value);
 
-ssize_t coro_defer(struct coro *coro, void (*func)(void *data), void *data);
-ssize_t coro_defer2(struct coro *coro,
-                    void (*func)(void *data1, void *data2),
-                    void *data1,
-                    void *data2);
-void coro_defer_disarm(struct coro *coro, ssize_t defer);
-void coro_defer_fire_and_disarm(struct coro *coro, ssize_t defer);
+coro_deferred coro_defer(struct coro *coro, void (*func)(void *data), void *data);
+coro_deferred coro_defer2(struct coro *coro,
+                          void (*func)(void *data1, void *data2),
+                          void *data1,
+                          void *data2);
+void coro_defer_disarm(struct coro *coro, coro_deferred defer);
+void coro_defer_fire_and_disarm(struct coro *coro, coro_deferred defer);
 
 void coro_deferred_run(struct coro *coro, size_t generation);
 size_t coro_deferred_get_generation(const struct coro *coro);

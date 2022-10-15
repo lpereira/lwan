@@ -383,7 +383,7 @@ static void coro_defer_disarm_internal(struct coro *coro,
     }
 }
 
-void coro_defer_disarm(struct coro *coro, ssize_t d)
+void coro_defer_disarm(struct coro *coro, coro_deferred d)
 {
     assert(d >= 0);
 
@@ -391,7 +391,7 @@ void coro_defer_disarm(struct coro *coro, ssize_t d)
         coro, coro_defer_array_get_elem(&coro->defer, (size_t)d));
 }
 
-void coro_defer_fire_and_disarm(struct coro *coro, ssize_t d)
+void coro_defer_fire_and_disarm(struct coro *coro, coro_deferred d)
 {
     assert(d >= 0);
 
@@ -406,7 +406,7 @@ void coro_defer_fire_and_disarm(struct coro *coro, ssize_t d)
     return coro_defer_disarm_internal(coro, defer);
 }
 
-ALWAYS_INLINE ssize_t
+ALWAYS_INLINE coro_deferred
 coro_defer(struct coro *coro, defer1_func func, void *data)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
@@ -421,10 +421,10 @@ coro_defer(struct coro *coro, defer1_func func, void *data)
     defer->one.data = data;
     defer->has_two_args = false;
 
-    return (ssize_t)coro_defer_array_get_elem_index(&coro->defer, defer);
+    return (coro_deferred)coro_defer_array_get_elem_index(&coro->defer, defer);
 }
 
-ALWAYS_INLINE ssize_t
+ALWAYS_INLINE coro_deferred
 coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
 {
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
@@ -440,7 +440,7 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     defer->two.data2 = data2;
     defer->has_two_args = true;
 
-    return (ssize_t)coro_defer_array_get_elem_index(&coro->defer, defer);
+    return (coro_deferred)coro_defer_array_get_elem_index(&coro->defer, defer);
 }
 
 void *coro_malloc_full(struct coro *coro,

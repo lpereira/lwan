@@ -311,7 +311,7 @@ static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
      * destroy this coro (e.g.  on connection hangup) before we have the
      * opportunity to free the SSL context.  Defer this call for these
      * cases. */
-    ssize_t defer =
+    coro_deferred defer =
         coro_defer(conn->coro, lwan_setup_tls_free_ssl_context, &ssl);
 
     if (UNLIKELY(!defer)) {
