@@ -166,29 +166,25 @@ static struct cache_entry *create_script_name(const void *keyptr, void *context)
 {
     struct private_data *pd = context;
     struct script_name_cache_entry *entry;
-    struct lwan_value url;
-    const char *key = keyptr;
+    const struct lwan_value *url = keyptr;
     int r;
 
     entry = malloc(sizeof(*entry));
     if (!entry)
         return NULL;
 
-    if (*key) {
-        url = (struct lwan_value){.value = (char *)key, .len = strlen(key)};
-    } else {
-        url = pd->default_index;
-    }
+    if (!url->len)
+        url = &pd->default_index;
 
     /* SCRIPT_NAME */
-    r = asprintf(&entry->script_name, "/%.*s", (int)url.len, url.value);
+    r = asprintf(&entry->script_name, "/%.*s", (int)url->len, url->value);
     if (r < 0)
         goto free_entry;
 
     /* SCRIPT_FILENAME */
     char temp[PATH_MAX];
-    r = snprintf(temp, sizeof(temp), "%s/%.*s", pd->script_path, (int)url.len,
-                 url.value);
+    r = snprintf(temp, sizeof(temp), "%s/%.*s", pd->script_path, (int)url->len,
+                 url->value);
     if (r < 0 || r >= (int)sizeof(temp))
         goto free_script_name;
 
@@ -228,7 +224,7 @@ static enum lwan_http_status add_script_paths(const struct private_data *pd,
 {
     struct script_name_cache_entry *snce =
         (struct script_name_cache_entry *)cache_coro_get_and_ref_entry(
-            pd->script_name_cache, request->conn->coro, request->url.value);
+            pd->script_name_cache, request->conn->coro, &request->url);
 
     if (snce) {
         add_param(response->buffer, "SCRIPT_NAME", snce->script_name);
