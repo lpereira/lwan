@@ -309,15 +309,18 @@ endif ()
 #
 # These warnings are only supported by GCC, and some only in newer versions.
 #
-enable_warning_if_supported(-Wduplicated-cond)
-enable_warning_if_supported(-Wduplicated-branches)
-enable_warning_if_supported(-Wlogical-op)
-enable_warning_if_supported(-Wrestrict)
+enable_warning_if_supported(-Warray-bounds)
 enable_warning_if_supported(-Wdouble-promotion)
+enable_warning_if_supported(-Wduplicated-branches)
+enable_warning_if_supported(-Wduplicated-cond)
+enable_warning_if_supported(-Wlogical-op)
 enable_warning_if_supported(-Wno-unused-parameter)
+enable_warning_if_supported(-Wrestrict)
+enable_warning_if_supported(-Wstringop-overflow)
+enable_warning_if_supported(-Wstringop-overread)
 enable_warning_if_supported(-Wstringop-truncation)
-enable_warning_if_supported(-Wvla)
 enable_warning_if_supported(-Wunsequenced)
+enable_warning_if_supported(-Wvla)
 
 # While a useful warning, this is giving false positives.
 enable_warning_if_supported(-Wno-free-nonheap-object)
