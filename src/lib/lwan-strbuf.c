@@ -346,3 +346,59 @@ char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by)
 
     return s->buffer + prev_used;
 }
+
+bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
+{
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    struct stat st;
+
+    if (UNLIKELY(fd < 0))
+        return false;
+
+    if (UNLIKELY(fstat(fd, &st) < 0))
+        goto error;
+
+    if (UNLIKELY(!lwan_strbuf_init(s)))
+        goto error;
+
+    if (UNLIKELY(!grow_buffer_if_needed(s, st.st_size)))
+        goto error;
+
+    s->used = st.st_size;
+
+    for (char *buffer = s->buffer; st.st_size; ) {
+        ssize_t n_read = read(fd, buffer, st.st_size);
+
+        if (UNLIKELY(n_read < 0)) {
+            if (errno == EINTR)
+                continue;
+            goto error;
+        }
+
+        buffer += n_read;
+        st.st_size -= (size_t)n_read;
+    }
+
+    close(fd);
+    return true;
+
+error:
+    close(fd);
+    return false;
+}
+
+struct lwan_strbuf *lwan_strbuf_new_from_file(const char *path)
+{
+    struct lwan_strbuf *strbuf = malloc(sizeof(*strbuf));
+
+    if (!strbuf)
+        return NULL;
+
+    if (lwan_strbuf_init_from_file(strbuf, path)) {
+        strbuf->flags |= STRBUF_MALLOCD;
+        return strbuf;
+    }
+
+    free(strbuf);
+    return NULL;
+}

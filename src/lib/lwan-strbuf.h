@@ -99,3 +99,6 @@ static inline char *lwan_strbuf_get_buffer(const struct lwan_strbuf *s)
 {
     return s->buffer;
 }
+
+bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path);
+struct lwan_strbuf *lwan_strbuf_new_from_file(const char *path);
