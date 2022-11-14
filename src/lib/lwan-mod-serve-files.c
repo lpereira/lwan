@@ -660,46 +660,22 @@ static const char *dirlist_find_readme(struct lwan_strbuf *readme,
 {
     static const char *candidates[] = {"readme", "readme.txt", "read.me",
                                        "README.TXT", "README"};
-    int fd = -1;
 
     if (!(priv->flags & SERVE_FILES_AUTO_INDEX_README))
         return NULL;
 
     for (size_t i = 0; i < N_ELEMENTS(candidates); i++) {
-        char buffer[PATH_MAX];
+        char readme_path[PATH_MAX];
         int r;
 
-        r = snprintf(buffer, PATH_MAX, "%s/%s", full_path, candidates[i]);
+        r = snprintf(readme_path, PATH_MAX, "%s/%s", full_path, candidates[i]);
         if (r < 0 || r >= PATH_MAX)
             continue;
 
-        fd = open(buffer, O_RDONLY | O_CLOEXEC);
-        if (fd < 0)
-            continue;
-
-        while (true) {
-            ssize_t n = read(fd, buffer, sizeof(buffer));
-
-            if (n < 0) {
-                if (errno == EINTR)
-                    continue;
-                goto error;
-            }
-
-            if (!lwan_strbuf_append_str(readme, buffer, (size_t)n))
-                goto error;
-
-            if ((size_t)n < sizeof(buffer))
-                break;
-        }
-
-        close(fd);
-        return lwan_strbuf_get_buffer(readme);
+        if (lwan_strbuf_init_from_file(readme, readme_path))
+            return lwan_strbuf_get_buffer(readme);
     }
 
-error:
-    if (fd >= 0)
-        close(fd);
     return NULL;
 }
 
