@@ -273,3 +273,11 @@ const char *lwan_request_get_header_from_helper(struct lwan_request_parser_helpe
                                                 const char *header);
 
 sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port);
+
+void lwan_request_foreach_header_for_cgi(const struct lwan_request *request,
+                                         void (*cb)(const char *header_name,
+                                                    size_t header_len,
+                                                    const char *value,
+                                                    size_t value_len,
+                                                    void *user_data),
+                                         void *user_data);

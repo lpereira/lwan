@@ -2107,3 +2107,51 @@ out:
     coro_yield(request->conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
+
+void lwan_request_foreach_header_for_cgi(const struct lwan_request *request,
+                                         void (*cb)(const char *header_name,
+                                                    size_t header_len,
+                                                    const char *value,
+                                                    size_t value_len,
+                                                    void *user_data),
+                                         void *user_data)
+{
+    const struct lwan_request_helper *helper = request->helper;
+    const char *header_start = helper->header_start;
+    const size_T n_header_start = helper->n_header_start;
+
+    for (size_t i = 0; i < n_header_start; i++) {
+        const char *header = header_start[i];
+        const char *next_header = header_start[i + 1];
+        const char *colon = memchr(header, ':', 127 - sizeof("HTTP_: ") - 1);
+        char header_name[128];
+        int r;
+
+        if (!colon)
+            continue;
+
+        const size_t header_len = (size_t)(colon - header);
+        const size_t value_len = (size_t)(next_header - colon - 4);
+
+        r = snprintf(header_name, sizeof(header_name), "HTTP_%.*s",
+                     (int)header_len, header);
+        if (r < 0 || r >= (int)sizeof(header_name))
+            continue;
+
+        /* FIXME: RFC7230/RFC3875 compliance */
+        for (char *p = header_name; *p; p++) {
+            if (isalpha(*p))
+                *p &= ~0x20;
+            else if (!isdigit(*p))
+                *p = '_';
+        }
+
+        if (streq(header_name, "HTTP_PROXY")) {
+            /* Mitigation for https://httpoxy.org */
+            continue;
+        }
+
+        cb(header_name, header_len + sizeof("HTTP_") - 1, colon + 2, value_len,
+           user_data);
+    }
+}
