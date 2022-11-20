@@ -2135,7 +2135,7 @@ out:
     __builtin_unreachable();
 }
 
-void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
+void lwan_request_foreach_header_for_cgi(const struct lwan_request *request,
                                          void (*cb)(const char *header_name,
                                                     size_t header_len,
                                                     const char *value,
@@ -2143,7 +2143,7 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
                                                     void *user_data),
                                          void *user_data)
 {
-    struct lwan_request_parser_helper *helper = request->helper;
+    const struct lwan_request_parser_helper *helper = request->helper;
     char **header_start = helper->header_start;
     size_t n_header_start = helper->n_header_start;
 

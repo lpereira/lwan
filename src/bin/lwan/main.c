@@ -92,8 +92,8 @@ print_build_time_configuration(void)
 #ifdef LWAN_HAVE_SYSLOG
     printf(" syslog");
 #endif
-#ifdef HAVE_PYTHON
-    printf(" python");
+#ifdef LWAN_HAVE_RUBY
+    printf(" ruby");
 #endif
     printf(".\n");
 }

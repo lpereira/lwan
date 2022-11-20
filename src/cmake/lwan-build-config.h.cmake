@@ -67,6 +67,7 @@
 #cmakedefine LWAN_HAVE_ZSTD
 #cmakedefine LWAN_HAVE_LIBUCONTEXT
 #cmakedefine LWAN_HAVE_MBEDTLS
+#cmakedefine LWAN_HAVE_RUBY
 
 /* Valgrind support for coroutines */
 #cmakedefine LWAN_HAVE_VALGRIND

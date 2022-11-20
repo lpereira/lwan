@@ -39,6 +39,13 @@ if (NOT ZLIB_INCLUDES STREQUAL "")
 	include_directories(${ZLIB_INCLUDES})
 endif ()
 
+pkg_check_modules(RUBY ruby-3.0)
+if (RUBY_FOUND)
+	list(APPEND ADDITIONAL_LIBRARIES "${RUBY_LDFLAGS}")
+	include_directories(${RUBY_INCLUDE_DIRS})
+	set(LWAN_HAVE_RUBY 1)
+endif()
+
 foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 	if (${pc_file} STREQUAL "luajit")
 		pkg_check_modules(LUA luajit>=2.0 luajit<2.2)
