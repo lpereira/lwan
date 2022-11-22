@@ -19,10 +19,14 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "lwan-private.h"
 
@@ -361,13 +365,13 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     if (UNLIKELY(!lwan_strbuf_init(s)))
         goto error;
 
-    if (UNLIKELY(!grow_buffer_if_needed(s, st.st_size)))
+    if (UNLIKELY(!grow_buffer_if_needed(s, (size_t)st.st_size)))
         goto error;
 
-    s->used = st.st_size;
+    s->used = (size_t)st.st_size;
 
     for (char *buffer = s->buffer; st.st_size; ) {
-        ssize_t n_read = read(fd, buffer, st.st_size);
+        ssize_t n_read = read(fd, buffer, (size_t)st.st_size);
 
         if (UNLIKELY(n_read < 0)) {
             if (errno == EINTR)
@@ -376,7 +380,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
         }
 
         buffer += n_read;
-        st.st_size -= (size_t)n_read;
+        st.st_size -= (off_t)n_read;
     }
 
     close(fd);
