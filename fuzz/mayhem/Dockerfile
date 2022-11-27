@@ -22,7 +22,7 @@ COPY . lwan
 RUN rm -rf lwan/mayhem
 WORKDIR lwan
 
-COPY mayhem/build.sh $SRC/
+COPY fuzz/mayhem/build.sh $SRC/
 
 ENV FUZZING_LANGUAGE=c++ SANITIZER=address
 RUN compile
