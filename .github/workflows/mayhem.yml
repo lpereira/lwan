@@ -44,7 +44,7 @@ jobs:
         with:
           context: .
           push: true
-          file: mayhem/Dockerfile
+          file: fuzz/mayhem/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
     
@@ -59,11 +59,11 @@ jobs:
       fail-fast: false
       matrix:
         mayhemfile:
-          - mayhem/config_fuzzer.mayhemfile
-          - mayhem/request_fuzzer.mayhemfile
-          - mayhem/pattern_fuzzer.mayhemfile
-          - mayhem/template_fuzzer.mayhemfile
-          - mayhem/h2_huffman_fuzzer.mayhemfile
+          - fuzz/mayhem/config_fuzzer.mayhemfile
+          - fuzz/mayhem/request_fuzzer.mayhemfile
+          - fuzz/mayhem/pattern_fuzzer.mayhemfile
+          - fuzz/mayhem/template_fuzzer.mayhemfile
+          - fuzz/mayhem/h2_huffman_fuzzer.mayhemfile
 
     steps:
       - uses: actions/checkout@v3
