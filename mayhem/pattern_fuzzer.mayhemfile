@@ -1,0 +1,4 @@
+project: PROJECT
+target: pattern_fuzzer
+cmds:
+- cmd: /out/pattern_fuzzer

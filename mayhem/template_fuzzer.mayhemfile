@@ -1,0 +1,4 @@
+project: PROJECT
+target: template_fuzzer
+cmds:
+- cmd: /out/template_fuzzer

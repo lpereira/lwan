@@ -1,0 +1,4 @@
+project: PROJECT
+target: h2_huffman_fuzzer
+cmds:
+- cmd: /out/h2_huffman_fuzzer

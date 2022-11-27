@@ -60,6 +60,10 @@ jobs:
       matrix:
         mayhemfile:
           - mayhem/config_fuzzer.mayhemfile
+          - mayhem/request_fuzzer.mayhemfile
+          - mayhem/pattern_fuzzer.mayhemfile
+          - mayhem/template_fuzzer.mayhemfile
+          - mayhem/h2_huffman_fuzzer.mayhemfile
 
     steps:
       - uses: actions/checkout@v3
