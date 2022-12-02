@@ -626,7 +626,6 @@ static void parse_condition_key_value(struct pattern *pattern,
 
             value = strdup(line->value);
             if (!value) {
-                free(key);
                 config_error(config,
                              "Could not copy value while parsing condition");
                 goto out;
