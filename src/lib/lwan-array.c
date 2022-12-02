@@ -125,11 +125,15 @@ static void coro_lwan_array_free_inline(void *data)
     free(array);
 }
 
-struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first)
+struct lwan_array *coro_lwan_array_new(struct coro *coro,
+                                       size_t struct_size,
+                                       bool inline_first)
 {
     struct lwan_array *array;
 
-    array = coro_malloc_full(coro, sizeof(*array),
+    assert(struct_size >= sizeof(struct lwan_array));
+
+    array = coro_malloc_full(coro, struct_size,
                              inline_first ? coro_lwan_array_free_inline
                                           : coro_lwan_array_free_heap);
     if (LIKELY(array))

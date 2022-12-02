@@ -40,7 +40,9 @@ void *lwan_array_append_inline(struct lwan_array *a,
 void lwan_array_sort(struct lwan_array *a,
                      size_t element_size,
                      int (*cmp)(const void *a, const void *b));
-struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
+struct lwan_array *coro_lwan_array_new(struct coro *coro,
+                                       size_t struct_size,
+                                       bool inline_first);
 
 #define LWAN_ARRAY_FOREACH(array_, iter_)                                      \
     for (iter_ = (array_)->base.base;                                          \
@@ -67,7 +69,8 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
     __attribute__((unused)) static inline struct array_type_                   \
         *coro_##array_type_##_new(struct coro *coro)                           \
     {                                                                          \
-        return (struct array_type_ *)coro_lwan_array_new(coro, false);         \
+        return (struct array_type_ *)coro_lwan_array_new(                      \
+            coro, sizeof(struct array_type_), false);                          \
     }                                                                          \
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, NULL)
 
@@ -85,7 +88,8 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
     __attribute__((unused)) static inline struct array_type_                   \
         *coro_##array_type_##_new(struct coro *coro)                           \
     {                                                                          \
-        return (struct array_type_ *)coro_lwan_array_new(coro, true);          \
+        return (struct array_type_ *)coro_lwan_array_new(                      \
+            coro, sizeof(struct array_type_), true);                           \
     }                                                                          \
     DEFINE_ARRAY_TYPE_FUNCS(array_type_, element_type_, &array->storage)
 
@@ -96,8 +100,8 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro, bool inline_first);
         return (element_type_ *)array->base.base;                              \
     }                                                                          \
     __attribute__((unused))                                                    \
-        __attribute__((nonnull(1))) static inline void array_type_##_init(     \
-            struct array_type_ *array)                                         \
+    __attribute__((nonnull(1))) static inline void array_type_##_init(         \
+        struct array_type_ *array)                                             \
     {                                                                          \
         array->base = (struct lwan_array){.base = NULL, .elements = 0};        \
     }                                                                          \
