@@ -483,6 +483,21 @@ best to serve files in the fastest way possible according to some heuristics.
 | `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
 | `cache_for`                | `time` | `5s`         | Time to keep file metadata (size, compressed contents, open file descriptor, etc.) in cache |
 
+> :bulb: **Note:** Files smaller than 16KiB will be compressed in RAM for
+> the duration specified in the `cache_for` setting.  Lwan will always try
+> to compress with deflate, and will optionally compress with Brotli and
+> ZSTD.  If the compression isn't worth it (e.g.  adding the
+> `Content-Encoding` headers would make the resulting response larger than
+> the uncompressed file contents), Lwan won't small send compressed files.
+> For these files, Lwan tries sending the gzipped version if that's found
+> in the filesystem and the client requested this encoding.
+>
+> For files larger than 16KiB, Lwan will not attempt to compress them.  In
+> future versions, it might do this and send responses using
+> chunked-encoding while the file is being compressed (up to a certain
+> limit, of course), but for now, only precompressed files (see
+> `serve_precompressed_path` setting in the table above) are considered.
+
 ##### Variables for `directory_list_template`
 
 | Variable | Type | Description |
