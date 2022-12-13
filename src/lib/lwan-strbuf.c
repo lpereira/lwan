@@ -362,10 +362,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     if (UNLIKELY(fstat(fd, &st) < 0))
         goto error;
 
-    if (UNLIKELY(!lwan_strbuf_init(s)))
-        goto error;
-
-    if (UNLIKELY(!grow_buffer_if_needed(s, (size_t)st.st_size)))
+    if (UNLIKELY(!lwan_strbuf_init_with_size(s, (size_t)st.st_size)))
         goto error;
 
     s->used = (size_t)st.st_size;
