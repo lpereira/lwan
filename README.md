@@ -460,8 +460,8 @@ section can be present in the declaration of a module instance.  Handlers do
 not take any configuration options, but may include the `authorization`
 section.
 
-> :magic_wand: **Tip:** A list of built-in modules can be obtained by
-> executing Lwan with the `-m` command-line argument.
+> :magic_wand: **Tip:** Executing Lwan with the `--help` command-line
+> argument will show a list of built-in modules and handlers.
 
 The following is some basic documentation for the modules shipped with Lwan.
 
