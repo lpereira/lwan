@@ -108,7 +108,11 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
     printf("       [--config] [--user username] [--chroot] [--modules|--handlers]\n");
     printf("\n");
+#ifdef LWAN_HAVE_MBEDTLS
+    printf("Serve files through HTTP or HTTPS.\n\n");
+#else
     printf("Serve files through HTTP.\n\n");
+#endif
     printf("Options:\n");
     printf("  -r, --root       Path to serve files from (default: ./wwwroot).\n");
     printf("\n");
@@ -131,8 +135,10 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("  -h, --help       This.\n");
     printf("\n");
     printf("Examples:\n");
-    printf("  Serve system-wide documentation:\n");
-    printf("    %s -r /usr/share/doc\n", argv0);
+    if (!access("/usr/share/doc", R_OK)) {
+        printf("  Serve system-wide documentation:\n");
+        printf("    %s -r /usr/share/doc\n", argv0);
+    }
     printf("  Serve on a different port:\n");
     printf("    %s -l '*:1337'\n", argv0);
     printf("  Use %s from %s:\n", config_file, current_dir);
@@ -150,6 +156,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     print_handler_info();
     printf("\n");
     printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
+    printf("For security-related reports, mail them to <security@tia.mat.br>.\n");
 
     free(current_dir);
 }
