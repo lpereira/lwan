@@ -387,6 +387,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     return true;
 
 error:
+    lwan_strbuf_free(s);
     close(fd);
     return false;
 }
