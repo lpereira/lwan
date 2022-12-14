@@ -171,25 +171,25 @@ static char *compress_output(const struct output *output, size_t *outlen)
     return compressed;
 }
 
-static bool is_builtin_mime_type(const char *mime)
+static bool is_builtin_ext(const char *ext)
 {
-    /* These are the mime types supported by Lwan without having to perform
-     * a bsearch().  application/octet-stream is the fallback. */
-    if (streq(mime, "application/octet-stream"))
+    /* STRING_SWITCH_L() is not used here to not bring in lwan.h */
+    /* FIXME: maybe use an X-macro to keep in sync with lwan-tables.c? */
+    if (strcaseequal_neutral(ext, "css"))
         return true;
-    if (streq(mime, "text/javascript"))
+    if (strcaseequal_neutral(ext, "gif"))
         return true;
-    if (streq(mime, "image/jpeg"))
+    if (strcaseequal_neutral(ext, "htm"))
         return true;
-    if (streq(mime, "image/gif"))
+    if (strcaseequal_neutral(ext, "html"))
         return true;
-    if (streq(mime, "image/png"))
+    if (strcaseequal_neutral(ext, "jpg"))
         return true;
-    if (streq(mime, "text/html"))
+    if (strcaseequal_neutral(ext, "js"))
         return true;
-    if (streq(mime, "text/css"))
+    if (strcaseequal_neutral(ext, "png"))
         return true;
-    if (streq(mime, "text/plain"))
+    if (strcaseequal_neutral(ext, "txt"))
         return true;
     return false;
 }
@@ -239,7 +239,10 @@ int main(int argc, char *argv[])
             continue;
 
         mime_type = start;
-        if (is_builtin_mime_type(mime_type))
+        /* "application/octet-stream" is the fallback, so no need to store
+         * it in the table.  It's just one line, though, so maybe not really
+         * necessary? */
+        if (streq(mime_type, "application/octet-stream"))
             continue;
 
         while (*tab && *tab == '\t') /* Find first extension. */
@@ -254,10 +257,19 @@ int main(int argc, char *argv[])
                 end = strchr(ext, '\0'); /* If not found, find last extension. */
             *end = '\0';
 
+            /* Check if we have empty extensions. Shouldn't happen with the provided
+             * mime.types file, but check on debug builds if this ever happens. */
+            assert(end != ext);
+
             if (end - ext > 8) {
                 /* Truncate extensions over 8 characters.  See commit 2050759297. */
                 ext[8] = '\0';
             }
+
+            /* Lwan has a fast-path for some common extensions, so don't bundle them
+             * in this table if not really needed. */
+            if (is_builtin_ext(ext))
+                continue;
 
             k = strdup(ext);
             v = strdup(mime_type);
