@@ -222,7 +222,7 @@ void lwan_default_response(struct lwan_request *request,
     APPEND_STRING_LEN((const_str_), sizeof(const_str_) - 1)
 
 static ALWAYS_INLINE __attribute__((const)) bool
-has_content_length(enum lwan_request_flags v)
+flags_has_content_length(enum lwan_request_flags v)
 {
     return !(v & (RESPONSE_NO_CONTENT_LENGTH | RESPONSE_STREAM |
                   RESPONSE_CHUNKED_ENCODING));
@@ -335,7 +335,8 @@ skip_date_header:
         }
     }
 
-    if (LIKELY(has_content_length(request_flags))) {
+    const bool has_content_length = flags_has_content_length(request_flags);
+    if (LIKELY(has_content_length)) {
         APPEND_CONSTANT("\r\nContent-Length: ");
         APPEND_UINT(lwan_strbuf_get_length(request->response.buffer));
     }
@@ -348,8 +349,7 @@ skip_date_header:
                 "\r\nAccess-Control-Allow-Headers: Origin, Accept, "
                 "Content-Type");
         }
-        if (request_flags & RESPONSE_CHUNKED_ENCODING &&
-            !has_content_length(request_flags)) {
+        if (!has_content_length && (request_flags & RESPONSE_CHUNKED_ENCODING)) {
             APPEND_CONSTANT("\r\nTransfer-Encoding: chunked");
         }
         if (request_flags & RESPONSE_INCLUDE_REQUEST_ID) {
