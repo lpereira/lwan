@@ -719,8 +719,8 @@ pattern (%g+) {
 
 > :bulb: **Note:** In general, this is not necessary, as the file serving
 > module will do this automatically and pick the smallest file available for
-> the requested encoding, cache it for a while, but this shows it's possible
-> to have a similar feature by configuration alone.
+> the requested encoding, but this shows it's possible to have a similar
+> feature by configuration alone.
 
 #### Redirect
 
