@@ -861,7 +861,7 @@ struct config *config_open(const char *path)
     return config ? config_init_data(config, data, len) : NULL;
 }
 
-//#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 struct config *config_open_for_fuzzing(const uint8_t *data, size_t len)
 {
     struct config *config = malloc(sizeof(*config));
@@ -875,7 +875,7 @@ struct config *config_open_for_fuzzing(const uint8_t *data, size_t len)
 
     return NULL;
 }
-//#endif
+#endif
 
 void config_close(struct config *config)
 {
