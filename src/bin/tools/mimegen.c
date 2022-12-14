@@ -196,9 +196,11 @@ static bool is_builtin_ext(const char *ext)
 
 int main(int argc, char *argv[])
 {
+    /* 32k is sufficient for the provided mime.types, but we can reallocate
+     * if necessary.  This is just to avoid unneccessary reallocs.  */
+    struct output output = { .capacity = 32768 };
     FILE *fp;
     char buffer[256];
-    struct output output = { .capacity = 1024 };
     size_t compressed_size;
     char *compressed, *ext;
     struct hash *ext_mime;
