@@ -997,6 +997,10 @@ Mentions in academic journals:
 * [A dynamic predictive race detector for C/C++ programs (in English, published 2017)](https://link.springer.com/article/10.1007/s11227-017-1996-8) uses Lwan as a "real world example".
 * [High-precision Data Race Detection Method for Large Scale Programs (in Chinese, published 2021)](http://www.jos.org.cn/jos/article/abstract/6260) also uses Lwan as one of the case studies.
 
+Mentions in magazines:
+
+* [Linux-Magazin (Germany) mentions Lwan in their December/2021 issue](https://www.linux-magazin.de/ausgaben/2021/12/tooltipps/)
+
 Some talks mentioning Lwan:
 
 * [Talk about Lwan](https://www.youtube.com/watch?v=cttY9FdCzUE) at Polyconf16, given by [@lpereira](https://github.com/lpereira).
