@@ -485,7 +485,6 @@ int main(void)
     struct lwan l;
 
     lwan_init(&l);
-    lwan_detect_url_map(&l);
 
     if (getenv("USE_MYSQL")) {
         db_connection_params = (struct db_connection_params){
