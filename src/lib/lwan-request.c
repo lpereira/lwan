@@ -278,31 +278,52 @@ static ALWAYS_INLINE char decode_hex_digit(char ch)
     return hex_digit_tbl[(unsigned char)ch];
 }
 
-static ssize_t url_decode(char *str)
+__attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
-    if (UNLIKELY(!str))
-        return -EINVAL;
+    char *inptr = str;
+    char *outptr = NULL;
 
-    char *ch, *decoded;
-    for (decoded = ch = str; *ch; ch++) {
-        if (*ch == '%') {
-            char tmp =
-                (char)(decode_hex_digit(ch[1]) << 4 | decode_hex_digit(ch[2]));
+    for (char *ch = strchr(str, '+'); ch; ch = strchr(ch + 1, '+'))
+        *ch = ' ';
 
-            if (UNLIKELY(!tmp))
-                return -EINVAL;
-
-            *decoded++ = tmp;
-            ch += 2;
-        } else if (*ch == '+') {
-            *decoded++ = ' ';
-        } else {
-            *decoded++ = *ch;
+    while (true) {
+        char *pct = strchr(inptr, '%');
+        if (!pct) {
+            if (outptr && inptr > outptr) {
+                size_t len = strlen(inptr);
+                memmove(outptr, inptr, len);
+                outptr += len;
+                *outptr = '\0';
+            }
+            break;
         }
+
+        if (outptr) {
+            ptrdiff_t diff = pct - inptr;
+            if (diff) {
+                memmove(outptr, inptr, (size_t)diff);
+                outptr += diff;
+            }
+        } else {
+            outptr = pct;
+        }
+
+        char decoded = (char)(decode_hex_digit(pct[1]) << 4);
+        decoded |= (char)decode_hex_digit(pct[2]);
+        if (UNLIKELY(!decoded)) {
+            return -1;
+        }
+
+        *outptr = decoded;
+        outptr++;
+
+        inptr = pct + 3;
     }
 
-    *decoded = '\0';
-    return (ssize_t)(decoded - str);
+    if (LIKELY(!outptr))
+        return (ssize_t)strlen(str);
+
+    return (ssize_t)(outptr - str);
 }
 
 static int key_value_compare(const void *a, const void *b)
