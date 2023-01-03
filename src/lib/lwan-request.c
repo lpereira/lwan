@@ -281,7 +281,7 @@ static ALWAYS_INLINE char decode_hex_digit(char ch)
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
     char *inptr = str;
-    char *outptr = NULL;
+    char *outptr = str;
 
     for (char *ch = strchr(str, '+'); ch; ch = strchr(ch + 1, '+'))
         *ch = ' ';
@@ -289,23 +289,15 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
     while (true) {
         char *pct = strchr(inptr, '%');
         if (!pct) {
-            if (outptr && inptr > outptr) {
-                size_t len = strlen(inptr);
-                memmove(outptr, inptr, len);
-                outptr += len;
-                *outptr = '\0';
-            }
+            if (inptr > outptr)
+                outptr = stpcpy(outptr, inptr);
             break;
         }
 
-        if (outptr) {
-            ptrdiff_t diff = pct - inptr;
-            if (diff) {
-                memmove(outptr, inptr, (size_t)diff);
-                outptr += diff;
-            }
-        } else {
-            outptr = pct;
+        ptrdiff_t diff = pct - inptr;
+        if (diff) {
+            memmove(outptr, inptr, (size_t)diff);
+            outptr += diff;
         }
 
         char decoded = (char)(decode_hex_digit(pct[1]) << 4);
@@ -319,9 +311,6 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 
         inptr = pct + 3;
     }
-
-    if (LIKELY(!outptr))
-        return (ssize_t)strlen(str);
 
     return (ssize_t)(outptr - str);
 }

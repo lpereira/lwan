@@ -714,3 +714,13 @@ __attribute__((constructor)) static void test_strcaseequal_neutral(void)
     static_assert('a' == 97, "ASCII character set");
 }
 #endif
+
+#ifndef LWAN_HAVE_STPCPY
+char *stpcpy(char *restrict dst, const char *restrict src)
+{
+    /* Implementation from the Linux stpcpy(3) man page. */
+    char *p = mempcpy(dst, src, strlen(src));
+    *p = 0;
+    return p;
+}
+#endif

@@ -46,6 +46,7 @@
 #cmakedefine LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF
 #cmakedefine LWAN_HAVE_SO_INCOMING_CPU
 #cmakedefine LWAN_HAVE_SYSLOG
+#cmakedefine LWAN_HAVE_STPCPY
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine LWAN_HAVE_BUILTIN_CLZLL

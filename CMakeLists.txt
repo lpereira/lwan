@@ -195,6 +195,7 @@ check_function_exists(gettid LWAN_HAVE_GETTID)
 check_function_exists(secure_getenv LWAN_HAVE_SECURE_GETENV)
 check_function_exists(statfs LWAN_HAVE_STATFS)
 check_function_exists(syslog LWAN_HAVE_SYSLOG_FUNC)
+check_function_exists(stpcpy LWAN_HAVE_STPCPY)
 
 # This is available on -ldl in glibc, but some systems (such as OpenBSD)
 # will bundle these in the C library.  This isn't required for glibc anyway,
