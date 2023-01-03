@@ -280,37 +280,30 @@ static ALWAYS_INLINE char decode_hex_digit(char ch)
 
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
-    char *inptr = str;
+    const char *inptr = str;
     char *outptr = str;
 
     for (char *ch = strchr(str, '+'); ch; ch = strchr(ch + 1, '+'))
         *ch = ' ';
 
-    while (true) {
-        char *pct = strchr(inptr, '%');
-        if (!pct) {
-            if (inptr > outptr)
-                outptr = stpcpy(outptr, inptr);
-            break;
-        }
-
+    for (const char *pct = strchr(inptr, '%'); pct; pct = strchr(inptr, '%')) {
         ptrdiff_t diff = pct - inptr;
-        if (diff) {
-            memmove(outptr, inptr, (size_t)diff);
-            outptr += diff;
-        }
+        if (diff)
+            outptr = stpncpy(outptr, inptr, (size_t)diff);
 
         char decoded = (char)(decode_hex_digit(pct[1]) << 4);
         decoded |= (char)decode_hex_digit(pct[2]);
-        if (UNLIKELY(!decoded)) {
+        if (UNLIKELY(!decoded))
             return -1;
-        }
 
         *outptr = decoded;
         outptr++;
 
         inptr = pct + 3;
     }
+
+    if (inptr > outptr)
+        outptr = stpcpy(outptr, inptr);
 
     return (ssize_t)(outptr - str);
 }
