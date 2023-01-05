@@ -322,6 +322,7 @@ enable_warning_if_supported(-Wstringop-overread)
 enable_warning_if_supported(-Wstringop-truncation)
 enable_warning_if_supported(-Wunsequenced)
 enable_warning_if_supported(-Wvla)
+enable_warning_if_supported(-Wno-override-init)
 
 # While a useful warning, this is giving false positives.
 enable_warning_if_supported(-Wno-free-nonheap-object)

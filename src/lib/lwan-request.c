@@ -77,7 +77,6 @@ struct proxy_header_v2 {
     } addr;
 };
 
-static char decode_hex_digit(char ch) __attribute__((pure));
 static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
 
 
@@ -267,19 +266,24 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
-static ALWAYS_INLINE char decode_hex_digit(char ch)
-{
-    static const char hex_digit_tbl[256] = {
-        ['0'] = 0,  ['1'] = 1,  ['2'] = 2,  ['3'] = 3,  ['4'] = 4,  ['5'] = 5,
-        ['6'] = 6,  ['7'] = 7,  ['8'] = 8,  ['9'] = 9,  ['a'] = 10, ['b'] = 11,
-        ['c'] = 12, ['d'] = 13, ['e'] = 14, ['f'] = 15, ['A'] = 10, ['B'] = 11,
-        ['C'] = 12, ['D'] = 13, ['E'] = 14, ['F'] = 15,
-    };
-    return hex_digit_tbl[(unsigned char)ch];
-}
-
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
+    static const unsigned char tbl1[256] = {
+        [0 ... 255] = 255, ['0'] = 0 << 4,  ['1'] = 1 << 4,  ['2'] = 2 << 4,
+        ['3'] = 3 << 4,    ['4'] = 4 << 4,  ['5'] = 5 << 4,  ['6'] = 6 << 4,
+        ['7'] = 7 << 4,    ['8'] = 8 << 4,  ['9'] = 9 << 4,  ['a'] = 10 << 4,
+        ['b'] = 11 << 4,   ['c'] = 12 << 4, ['d'] = 13 << 4, ['e'] = 14 << 4,
+        ['f'] = 15 << 4,   ['A'] = 10 << 4, ['B'] = 11 << 4, ['C'] = 12 << 4,
+        ['D'] = 13 << 4,   ['E'] = 14 << 4, ['F'] = 15 << 4,
+    };
+    static const char tbl2[256] = {
+        [0 ... 255] = -1, ['0'] = 0,  ['1'] = 1,  ['2'] = 2,  ['3'] = 3,
+        ['4'] = 4,        ['5'] = 5,  ['6'] = 6,  ['7'] = 7,  ['8'] = 8,
+        ['9'] = 9,        ['a'] = 10, ['b'] = 11, ['c'] = 12, ['d'] = 13,
+        ['e'] = 14,       ['f'] = 15, ['A'] = 10, ['B'] = 11, ['C'] = 12,
+        ['D'] = 13,       ['E'] = 14, ['F'] = 15,
+    };
+
     const char *inptr = str;
     char *outptr = str;
 
@@ -287,25 +291,44 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
         *ch = ' ';
 
     for (const char *pct = strchr(inptr, '%'); pct; pct = strchr(inptr, '%')) {
-        ptrdiff_t diff = pct - inptr;
+        const ptrdiff_t diff = pct - inptr;
         if (diff)
             outptr = stpncpy(outptr, inptr, (size_t)diff);
 
-        char decoded = (char)(decode_hex_digit(pct[1]) << 4);
-        decoded |= (char)decode_hex_digit(pct[2]);
-        if (UNLIKELY(!decoded))
-            return -1;
+        const char first = (char)tbl1[(unsigned char)pct[1]];
+        const char second = tbl2[(unsigned char)pct[2]];
+        const char decoded = first | second;
+        if (UNLIKELY(decoded <= 0)) {
+            /* This shouldn't happen in normal circumstances, but if %00 is
+             * found in the encoded string, bail here. */
+            if (decoded == '\0')
+                return -1;
 
-        *outptr = decoded;
-        outptr++;
+            /* OR-ing both lookups will yield a negative number if either
+             * encoded character is not a valid hex digit; check it here so
+             * that other valid-but-negative bytes (e.g.  0xff) are still
+             * written to outptr. */
+            if (first == -1) {
+                /* tbl1 is shifted so a valid nibble might be negative;
+                 * check for all the bits here instead.  */
+                return -1;
+            }
+            if (second < 0) {
+                /* tbl2 isn't shifted so we can check for the sign bit only. */
+                return -1;
+            }
+        }
 
+        *outptr++ = decoded;
         inptr = pct + 3;
     }
 
-    if (inptr > outptr)
+    if (inptr > outptr) {
         outptr = stpcpy(outptr, inptr);
+        return (ssize_t)(outptr - str);
+    }
 
-    return (ssize_t)(outptr - str);
+    return (ssize_t)strlen(str);
 }
 
 static int key_value_compare(const void *a, const void *b)
