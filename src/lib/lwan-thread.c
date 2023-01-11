@@ -1072,15 +1072,18 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 static void
 siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 {
-    int *seen = alloca(l->available_cpus * sizeof(int));
+    int32_t *seen = calloc(l->available_cpus, sizeof(int32_t));
     unsigned int n_schedtbl = 0;
+
+    if (!seen)
+        lwan_status_critical("Could not allocate the seen array");
 
     for (uint32_t i = 0; i < l->available_cpus; i++)
         seen[i] = -1;
 
     for (uint32_t i = 0; i < l->available_cpus; i++) {
         if (seen[siblings[i]] < 0) {
-            seen[siblings[i]] = (int)i;
+            seen[siblings[i]] = (int32_t)i;
         } else {
             schedtbl[n_schedtbl++] = (uint32_t)seen[siblings[i]];
             schedtbl[n_schedtbl++] = i;
@@ -1089,25 +1092,38 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 
     if (n_schedtbl != l->available_cpus)
         memcpy(schedtbl, seen, l->available_cpus * sizeof(int));
+
+    free(seen);
 }
 
 static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
-    uint32_t *siblings = alloca(l->available_cpus * sizeof(uint32_t));
+    uint32_t *siblings = calloc(l->available_cpus, sizeof(uint32_t));
+
+    if (!siblings)
+        lwan_status_critical("Could not allocate siblings array");
 
     if (read_cpu_topology(l, siblings)) {
-        uint32_t *affinity = alloca(l->available_cpus * sizeof(uint32_t));
+        uint32_t *affinity = calloc(l->available_cpus, sizeof(uint32_t));
+
+        if (!affinity)
+            lwan_status_critical("Could not allocate affinity array");
 
         siblings_to_schedtbl(l, siblings, affinity);
 
         for (uint32_t i = 0; i < n_threads; i++)
             schedtbl[i] = affinity[i % l->available_cpus];
+
+        free(affinity);
+        free(siblings);
         return true;
     }
 
     for (uint32_t i = 0; i < n_threads; i++)
         schedtbl[i] = (i / 2) % l->thread.count;
+
+    free(siblings);
     return false;
 }
 
@@ -1263,7 +1279,6 @@ void lwan_thread_init(struct lwan *l)
         lwan_status_critical("Could not allocate memory for threads");
 
     uint32_t *schedtbl;
-    uint32_t n_threads;
     bool adj_affinity;
 
 #if defined(__x86_64__) && defined(__linux__)
@@ -1285,15 +1300,11 @@ void lwan_thread_init(struct lwan *l)
          * use the CPU topology to group two connections per cache line in such
          * a way that false sharing is avoided.
          */
-        n_threads = (uint32_t)lwan_nextpow2((size_t)((l->thread.count - 1) * 2));
-        schedtbl = alloca(n_threads * sizeof(uint32_t));
-
-        adj_affinity = topology_to_schedtbl(l, schedtbl, n_threads);
-
-        n_threads--; /* Transform count into mask for AND below */
+        schedtbl = calloc(l->thread.count, sizeof(uint32_t));
+        adj_affinity = topology_to_schedtbl(l, schedtbl, l->thread.count);
 
         for (unsigned int i = 0; i < total_conns; i++)
-            l->conns[i].thread = &l->thread.threads[schedtbl[i & n_threads]];
+            l->conns[i].thread = &l->thread.threads[schedtbl[i % l->thread.count]];
     } else
 #endif /* __x86_64__ && __linux__ */
     {
@@ -1306,7 +1317,6 @@ void lwan_thread_init(struct lwan *l)
 
         schedtbl = NULL;
         adj_affinity = false;
-        n_threads = l->thread.count;
     }
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
@@ -1319,7 +1329,7 @@ void lwan_thread_init(struct lwan *l)
              * the incoming connection to the right CPU will use. */
             for (uint32_t thread_id = 0; thread_id < l->thread.count;
                  thread_id++) {
-                if (schedtbl[thread_id & n_threads] == i) {
+                if (schedtbl[thread_id % l->thread.count] == i) {
                     thread = &l->thread.threads[thread_id];
                     break;
                 }
@@ -1351,7 +1361,7 @@ void lwan_thread_init(struct lwan *l)
         }
 
         if (adj_affinity) {
-            l->thread.threads[i].cpu = schedtbl[i & n_threads];
+            l->thread.threads[i].cpu = schedtbl[i % l->thread.count];
             adjust_thread_affinity(thread);
         }
 
@@ -1359,6 +1369,8 @@ void lwan_thread_init(struct lwan *l)
     }
 
     lwan_status_debug("Worker threads created and ready to serve");
+
+    free(schedtbl);
 }
 
 void lwan_thread_shutdown(struct lwan *l)
