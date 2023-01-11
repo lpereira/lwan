@@ -283,20 +283,22 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
         ['e'] = 14,       ['f'] = 15, ['A'] = 10, ['B'] = 11, ['C'] = 12,
         ['D'] = 13,       ['E'] = 14, ['F'] = 15,
     };
-
     const char *inptr = str;
     char *outptr = str;
 
-    for (char *ch = strchr(str, '+'); ch; ch = strchr(ch + 1, '+'))
-        *ch = ' ';
-
-    for (const char *pct = strchr(inptr, '%'); pct; pct = strchr(inptr, '%')) {
-        const ptrdiff_t diff = pct - inptr;
+    for (char *p = strpbrk(inptr, "+%"); p; p = strpbrk(inptr, "+%")) {
+        const ptrdiff_t diff = p - inptr;
         if (diff)
             outptr = stpncpy(outptr, inptr, (size_t)diff);
 
-        const char first = (char)tbl1[(unsigned char)pct[1]];
-        const char second = tbl2[(unsigned char)pct[2]];
+        if (*p == '+') {
+            *outptr++ = ' ';
+            inptr = p + 1;
+            continue;
+        }
+
+        const char first = (char)tbl1[(unsigned char)p[1]];
+        const char second = tbl2[(unsigned char)p[2]];
         const char decoded = first | second;
         if (UNLIKELY(decoded <= 0)) {
             /* This shouldn't happen in normal circumstances, but if %00 is
@@ -320,7 +322,7 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
         }
 
         *outptr++ = decoded;
-        inptr = pct + 3;
+        inptr = p + 3;
     }
 
     if (inptr > outptr) {
