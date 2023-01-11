@@ -716,7 +716,7 @@ __attribute__((constructor)) static void test_strcaseequal_neutral(void)
 #endif
 
 #ifndef LWAN_HAVE_STPCPY
-char *stpncpy(char *restrict dst, const char *restrict src, size sz)
+char *stpncpy(char *restrict dst, const char *restrict src, size_t sz)
 {
     /* Implementation from the Linux stpcpy(3) man page. */
     char *p = mempcpy(dst, src, sz);

@@ -63,7 +63,7 @@ void *memrchr(const void *s, int c, size_t n);
 
 #ifndef LWAN_HAVE_STPCPY
 char *stpcpy(char *restrict dst, const char *restrict src);
-char *stpncpy(char *restrict dst, const char *restrict src, size sz);
+char *stpncpy(char *restrict dst, const char *restrict src, size_t sz);
 #endif
 
 static inline int streq(const char *a, const char *b)
