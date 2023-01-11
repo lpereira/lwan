@@ -688,6 +688,8 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 
     assert(!conn->coro);
     assert(!(conn->flags & CONN_ASYNC_AWAIT));
+    assert(!(conn->flags & CONN_AWAITED_FD));
+    assert(!(conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)));
     assert(t);
     assert((uintptr_t)t >= (uintptr_t)tq->lwan->thread.threads);
     assert((uintptr_t)t <
