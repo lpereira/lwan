@@ -1138,6 +1138,8 @@ adjust_thread_affinity(const struct lwan_thread *thread)
     if (pthread_setaffinity_np(thread->self, sizeof(set), &set))
         lwan_status_warning("Could not set thread affinity");
 }
+#else
+#define adjust_thread_affinity(...)
 #endif
 
 #if defined(LWAN_HAVE_MBEDTLS)
