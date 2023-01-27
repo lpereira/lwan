@@ -73,8 +73,7 @@ static inline int streq(const char *a, const char *b)
 
 static inline void *mempmove(void *dest, const void *src, size_t len)
 {
-    char *d = (char *)memmove(dest, src, len);
-    return d + len;
+    return (char *)memmove(dest, src, len) + len;
 }
 
 bool strcaseequal_neutral(const char *a, const char *b);
