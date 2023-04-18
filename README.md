@@ -991,6 +991,7 @@ Lwan has been also used as a benchmark:
 * [Kong](https://getkong.org/about/benchmark/) uses Lwan as the [backend API](https://gist.github.com/montanaflynn/01376991f0a3ad07059c) in its benchmark.
 * [TechEmpower Framework benchmarks](https://www.techempower.com/benchmarks/#section=data-r10&hw=peak&test=json) feature Lwan since round 10.
 * [KrakenD](http://www.krakend.io) used Lwan for the REST API in all official [benchmarks](http://www.krakend.io/docs/benchmarks/aws/)
+* [Effective System Call Aggregation (ESCA)](https://github.com/eecheng87/ESCA) project uses Lwan as one of the benchmarks; they claim that Lwan throughput improved by about 30% with their system call batching approach.
 
 Mentions in academic journals:
 
