@@ -973,7 +973,7 @@ been seen in the wild.  *Help build this list!*
 
 Some other distribution channels were made available as well:
 
-* Container images are available from the [ghcr.io/lpereira/lwan](GitHub Container Registry).  [More information below](#container-images).
+* Container images are available from the [GitHub Container Registry](https://ghcr.io/lpereira/lwan).  [More information below](#container-images).
 * A `Dockerfile` is maintained by [@jaxgeller](https://github.com/jaxgeller), and is [available from the Docker registry](https://hub.docker.com/r/jaxgeller/lwan/).
 * A buildpack for Heroku is maintained by [@bherrera](https://github.com/bherrera), and is [available from its repo](https://github.com/bherrera/heroku-buildpack-lwan).
 * Lwan is also available as a package in [Biicode](http://docs.biicode.com/c++/examples/lwan.html).
