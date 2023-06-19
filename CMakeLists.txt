@@ -340,7 +340,7 @@ else ()
 	set(LWAN_COMMON_LIBS -Wl,-whole-archive lwan-static -Wl,-no-whole-archive)
 endif ()
 
-if (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^x86_64|amd64")
+if (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^x86_64|amd64|aarch64")
 	set(LWAN_HAVE_LIBUCONTEXT 1)
 endif ()
 
