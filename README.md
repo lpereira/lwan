@@ -971,6 +971,7 @@ been seen in the wild.  *Help build this list!*
 * A more complete C++14 [web framework](https://github.com/matt-42/silicon) by [@matt-42](https://github.com/matt-42) offers Lwan as one of its backends.
 * A [word ladder sample program](https://github.com/sjnam/lwan-sgb-ladders) by [@sjnam](https://github.com/sjnam). [Demo](http://tbcoe.ddns.net/sgb/ladders?start=chaos&goal=order).
 * A [Shodan search](https://www.shodan.io/search?query=server%3A+lwan) listing some brave souls that expose Lwan to the public internet.
+* This [write-up shows the use of Lwan on a Capture the Flag competition](https://medium.com/feedzaitech/pixels-camp-ctf-challenge-qualifiers-writeup-ac661f4af96a).
 
 Some other distribution channels were made available as well:
 
