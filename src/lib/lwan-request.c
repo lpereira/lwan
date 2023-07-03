@@ -1036,8 +1036,9 @@ body_data_finalizer(const struct lwan_value *buffer,
     return FINALIZER_TRY_AGAIN;
 }
 
-static const char *is_dir(const char *v)
+static const char *is_dir_good_for_tmp(const char *v)
 {
+    struct statfs sb;
     struct stat st;
 
     if (!v)
@@ -1058,17 +1059,6 @@ static const char *is_dir(const char *v)
             "the sticky bit set.",
             v);
     }
-
-    return v;
-}
-
-static const char *is_dir_good_for_tmp(const char *v)
-{
-    struct statfs sb;
-
-    v = is_dir(v);
-    if (!v)
-        return NULL;
 
     if (!statfs(v, &sb) && sb.f_type == TMPFS_MAGIC) {
         lwan_status_warning("%s is a tmpfs filesystem, "
