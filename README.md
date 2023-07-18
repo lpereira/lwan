@@ -1048,6 +1048,78 @@ To bring your own `lwan.conf`, simply mount it at `/lwan.conf`.
 
     podman run --rm -p 8080:8080 -v ./lwan.conf:/lwan.conf lwan
 
+### Run image with socket activation on a Linux host with Podman
+
+Podman supports [socket activation of containers](https://github.com/containers/podman/blob/main/docs/tutorials/socket_activation.md#socket-activation-of-containers).
+This example shows how to run lwan with socket activation and Podman on a Linux host.
+
+Requirements: Podman version 4.5.0 or higher.
+
+1. Create user _test_
+   ```
+   sudo useradd test
+   ```
+2. Start a login shell for the user _test_
+   ```
+   sudo machinectl shell test@
+   ```
+3. Clone the lwan git repository to _~/lwan_
+4. Build the image
+   ```
+   podman build -t lwan ~/lwan
+   ```
+5. Create directories
+   ```
+   mkdir -p ~/.config/containers/systemd
+   mkdir -p ~/.config/systemd/user
+   ```
+6. Create the file _~/lwan.conf_ with the contents
+   ```
+   listener systemd:my.socket
+   site {
+       serve_files / {
+               path = /web
+       }
+   }
+   ```
+7. Create the file _~/.config/systemd/user/my.socket_ with the contents
+   ```
+   [Socket]
+   ListenStream=8080
+   ```
+8. Create the file _~/.config/containers/systemd/my.container_ with the contents
+   ```
+   [Unit]
+   After=my.socket
+   Requires=my.socket
+
+   [Container]
+   Network=none
+   Image=localhost/lwan
+   Volume=/home/test/lwan.conf:/lwan.conf:Z
+   Volume=/home/test/web:/web:Z
+   ```
+   The option `:Z` is needed on SELinux systems.
+   As __lwan__ only needs to communicate over the socket-activated socket, it's possible to use `Network=none`. See the article [How to limit container privilege with socket activation](https://www.redhat.com/sysadmin/socket-activation-podman).
+9. Create the web directory and an example text file
+   ```
+   mkdir ~/web
+   echo hello > ~/web/file.txt
+   ```
+10. Reload systemd configuration
+    ```
+    systemctl --user daemon-reload
+    ```
+11. Start the socket
+    ```
+    systemctl --user start my.socket
+    ```
+12. Download the example text file from the lwan web server
+    ```
+    $ curl localhost:8080/file.txt
+    hello
+    ```
+
 Lwan quotes
 -----------
 
