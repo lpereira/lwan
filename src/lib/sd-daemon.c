@@ -140,11 +140,10 @@ static int strv_extend_n(char ***p, const char *s, int n) {
 
 static int strv_split(char ***p, const char *value, const char separator) {
         char *copy = strdup(value);
-        int n_split = 0;
-
         if (!copy)
                 return -ENOMEM;
 
+        int n_split = 1;
         for (char *c = copy; *c; ) {
                 char *sep_pos = strchr(c, separator);
                 if (!sep_pos)
@@ -154,13 +153,15 @@ static int strv_split(char ***p, const char *value, const char separator) {
                 c = sep_pos + 1;
         }        
 
-        if (!n_split)
-                return 0;
-
         *p = calloc((size_t)(n_split + 1), sizeof(char *));
         if (!*p) {
                 free(copy);
                 return -ENOMEM;
+        }
+
+        if (n_split == 1) {
+                *p[0] = copy;
+                return 1;
         }
 
         int i = 0;
