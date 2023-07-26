@@ -164,7 +164,15 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
             case MADVISE:
                 madvise(cmd[i].madvise.addr, cmd[i].madvise.length,
                         MADV_WILLNEED);
-                mlock(cmd[i].madvise.addr, cmd[i].madvise.length);
+
+                if (cmd[i].madvise.length >= 10 * 1024) {
+                    /* On Linux, SO_ZEROCOPY is only useful to transmit
+                     * 10kB or more because it uses page pinning (what
+                     * mlock(2) does!), so consider the same threshold
+                     * here.  */
+                    mlock(cmd[i].madvise.addr, cmd[i].madvise.length);
+                }
+
                 break;
             case SHUTDOWN:
                 goto out;
