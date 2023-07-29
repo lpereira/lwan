@@ -29,6 +29,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/epoll.h>
 
 #include "hash.h"
 #include "timeout.h"
@@ -263,10 +264,10 @@ enum lwan_request_flags {
 enum lwan_connection_flags {
     CONN_MASK = -1,
 
-    /* These flags have smaller numbers so that the table to convert
-     * them to epoll events is smaller.  See conn_flags_to_epoll_events(). */
-    CONN_EVENTS_READ = 1 << 0,
-    CONN_EVENTS_WRITE = 1 << 1,
+    /* Upper 16-bit of CONN_EVENTS_* store the epoll event interest
+     * mask for those events.  */
+    CONN_EVENTS_READ = ((EPOLLIN | EPOLLRDHUP) << 16) | 1 << 0,
+    CONN_EVENTS_WRITE = ((EPOLLOUT | EPOLLRDHUP) << 16) | 1 << 1,
     CONN_EVENTS_READ_WRITE = CONN_EVENTS_READ | CONN_EVENTS_WRITE,
     CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
 
@@ -279,17 +280,19 @@ enum lwan_connection_flags {
     /* These are used for a few different things:
      * - Avoid re-deferring callbacks to remove request from the timeout wheel
      *   after it has slept previously and is requesting to sleep again. (The
-     *   timeout defer is disarmed right after resuming, and is only there because
-     *   connections may be closed when they're suspended.)
+     *   timeout defer is disarmed right after resuming, and is only there
+     * because connections may be closed when they're suspended.)
      * - Distinguish file descriptor in event loop between the connection and
-     *   an awaited file descriptor.  (This is set in the connection that's awaiting
-     *   since the pointer to the connection is used as user_data in both cases.
-     *   This is required to be able to resume the connection coroutine after the
-     *   await is completed, and to bubble up errors in awaited file descriptors to
-     *   request handlers rather than abruptly closing the connection.) */
-    CONN_SUSPENDED = 1 << 5,
+     *   an awaited file descriptor.  (This is set in the connection that's
+     *   awaiting since the pointer to the connection is used as user_data in both
+     *   cases. This is required to be able to resume the connection coroutine
+     *   after the await is completed, and to bubble up errors in awaited file
+     *   descriptors to request handlers rather than abruptly closing the
+     *   connection.) */
+    CONN_SUSPENDED_MASK = 1 << 5,
+    CONN_SUSPENDED = (EPOLLRDHUP << 16) | CONN_SUSPENDED_MASK,
     CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
-    CONN_AWAITED_FD = CONN_SUSPENDED | CONN_HAS_REMOVE_SLEEP_DEFER,
+    CONN_AWAITED_FD = CONN_SUSPENDED_MASK | CONN_HAS_REMOVE_SLEEP_DEFER,
 
     /* Used when HTTP pipelining has been detected.  This enables usage of the
      * MSG_MORE flags when sending responses to batch as many short responses
@@ -303,13 +306,13 @@ enum lwan_connection_flags {
 
     CONN_SENT_CONNECTION_HEADER = 1 << 9,
 
+    /* Is this a TLS connection? */
+    CONN_TLS = 1 << 10,
+
     /* Both are used to know if an epoll event pertains to a listener rather
      * than a client.  */
-    CONN_LISTENER_HTTP = 1 << 10,
-    CONN_LISTENER_HTTPS = 1 << 11,
-
-    /* Is this a TLS connection? */
-    CONN_TLS = 1 << 12,
+    CONN_LISTENER_HTTP = 1 << 11,
+    CONN_LISTENER_HTTPS = CONN_LISTENER_HTTP | CONN_TLS,
 };
 
 enum lwan_connection_coro_yield {

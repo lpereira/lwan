@@ -447,14 +447,13 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 static ALWAYS_INLINE uint32_t
 conn_flags_to_epoll_events(enum lwan_connection_flags flags)
 {
-    static const uint32_t map[CONN_EVENTS_MASK + 1] = {
-        [0 /* Suspended (timer or await) */] = EPOLLRDHUP,
-        [CONN_EVENTS_WRITE] = EPOLLOUT | EPOLLRDHUP,
-        [CONN_EVENTS_READ] = EPOLLIN | EPOLLRDHUP,
-        [CONN_EVENTS_READ_WRITE] = EPOLLIN | EPOLLOUT | EPOLLRDHUP,
-    };
+    uint32_t u32flags = (uint32_t)flags;
 
-    return map[flags & CONN_EVENTS_MASK];
+    /* No bits in the upper 16 bits can be anything other than
+     * the epoll events we might be interested in! */
+    assert(((u32flags >> 16) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
+
+    return u32flags >> 16;
 }
 
 static void update_epoll_flags(const struct timeout_queue *tq,
@@ -499,7 +498,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
     conn->flags |= or_mask[yield_result];
     conn->flags &= and_mask[yield_result];
 
-    assert(!(conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)));
+    assert(!(conn->flags & CONN_LISTENER_HTTP));
     assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
     if (conn->flags == prev_flags)
@@ -789,17 +788,18 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
     const uint32_t read_events = conn_flags_to_epoll_events(CONN_EVENTS_READ);
     struct lwan_connection *conns = t->lwan->conns;
     int listen_fd = (int)(intptr_t)(listen_socket - conns);
-    enum lwan_connection_flags new_conn_flags = 0;
+    enum lwan_connection_flags new_conn_flags = listen_socket->flags & CONN_TLS;
 
-#if defined(LWAN_HAVE_MBEDTLS)
-    if (listen_socket->flags & CONN_LISTENER_HTTPS) {
+#if !defined(NDEBUG)
+# if defined(LWAN_HAVE_MBEDTLS)
+    if (listen_socket->flags & CONN_TLS) {
         assert(listen_fd == t->tls_listen_fd);
-        assert(!(listen_socket->flags & CONN_LISTENER_HTTP));
-        new_conn_flags = CONN_TLS;
     } else {
         assert(listen_fd == t->listen_fd);
-        assert(listen_socket->flags & CONN_LISTENER_HTTP);
     }
+# else
+    assert(!(new_conn_flags & CONN_TLS));
+# endif
 #endif
 
     while (true) {
@@ -932,7 +932,10 @@ static void *thread_io_loop(void *data)
 
             assert(!(conn->flags & CONN_ASYNC_AWAIT));
 
-            if (conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)) {
+            if (conn->flags & CONN_LISTENER_HTTP) {
+                /* We can't check for CONN_TLS here because that might be a
+                 * client TLS connection!  CONN_LISTENER_HTTPS also sets
+                 * CONN_LISTENER_HTTP, so this is fine. */
                 if (LIKELY(accept_waiting_clients(t, conn)))
                     continue;
                 close(epoll_fd);
@@ -941,7 +944,7 @@ static void *thread_io_loop(void *data)
             }
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                if ((conn->flags & CONN_AWAITED_FD) != CONN_SUSPENDED) {
+                if ((conn->flags & CONN_AWAITED_FD) != CONN_SUSPENDED_MASK) {
                     timeout_queue_expire(&tq, conn);
                     continue;
                 }
