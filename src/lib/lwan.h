@@ -311,8 +311,7 @@ enum lwan_connection_flags {
 
     /* Both are used to know if an epoll event pertains to a listener rather
      * than a client.  */
-    CONN_LISTENER_HTTP = 1 << 11,
-    CONN_LISTENER_HTTPS = CONN_LISTENER_HTTP | CONN_TLS,
+    CONN_LISTENER = 1 << 11,
 };
 
 enum lwan_connection_coro_yield {

@@ -498,7 +498,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
     conn->flags |= or_mask[yield_result];
     conn->flags &= and_mask[yield_result];
 
-    assert(!(conn->flags & CONN_LISTENER_HTTP));
+    assert(!(conn->flags & CONN_LISTENER));
     assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
     if (conn->flags == prev_flags)
@@ -688,7 +688,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
     assert(!conn->coro);
     assert(!(conn->flags & CONN_ASYNC_AWAIT));
     assert(!(conn->flags & CONN_AWAITED_FD));
-    assert(!(conn->flags & (CONN_LISTENER_HTTP | CONN_LISTENER_HTTPS)));
+    assert(!(conn->flags & CONN_LISTENER));
     assert(t);
     assert((uintptr_t)t >= (uintptr_t)tq->lwan->thread.threads);
     assert((uintptr_t)t <
@@ -932,10 +932,7 @@ static void *thread_io_loop(void *data)
 
             assert(!(conn->flags & CONN_ASYNC_AWAIT));
 
-            if (conn->flags & CONN_LISTENER_HTTP) {
-                /* We can't check for CONN_TLS here because that might be a
-                 * client TLS connection!  CONN_LISTENER_HTTPS also sets
-                 * CONN_LISTENER_HTTP, so this is fine. */
+            if (conn->flags & CONN_LISTENER) {
                 if (LIKELY(accept_waiting_clients(t, conn)))
                     continue;
                 close(epoll_fd);
@@ -1355,12 +1352,12 @@ void lwan_thread_init(struct lwan *l)
 
         if ((thread->listen_fd = create_listen_socket(thread, i, false)) < 0)
             lwan_status_critical_perror("Could not create listening socket");
-        l->conns[thread->listen_fd].flags |= CONN_LISTENER_HTTP;
+        l->conns[thread->listen_fd].flags |= CONN_LISTENER;
 
         if (tls_initialized) {
             if ((thread->tls_listen_fd = create_listen_socket(thread, i, true)) < 0)
                 lwan_status_critical_perror("Could not create TLS listening socket");
-            l->conns[thread->tls_listen_fd].flags |= CONN_LISTENER_HTTPS;
+            l->conns[thread->tls_listen_fd].flags |= CONN_TLS;
         } else {
             thread->tls_listen_fd = -1;
         }
