@@ -1357,7 +1357,7 @@ void lwan_thread_init(struct lwan *l)
         if (tls_initialized) {
             if ((thread->tls_listen_fd = create_listen_socket(thread, i, true)) < 0)
                 lwan_status_critical_perror("Could not create TLS listening socket");
-            l->conns[thread->tls_listen_fd].flags |= CONN_TLS;
+            l->conns[thread->tls_listen_fd].flags |= CONN_LISTENER | CONN_TLS;
         } else {
             thread->tls_listen_fd = -1;
         }
