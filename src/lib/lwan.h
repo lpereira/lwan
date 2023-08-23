@@ -261,13 +261,16 @@ enum lwan_request_flags {
 #undef SELECT_MASK
 #undef GENERATE_ENUM_ITEM
 
+#define CONN_EPOLL_EVENT_SHIFT 16
+#define CONN_EPOLL_EVENT_MASK ((1 << CONN_EPOLL_EVENT_SHIFT) - 1)
+
 enum lwan_connection_flags {
     CONN_MASK = -1,
 
     /* Upper 16-bit of CONN_EVENTS_* store the epoll event interest
      * mask for those events.  */
-    CONN_EVENTS_READ = ((EPOLLIN | EPOLLRDHUP) << 16) | 1 << 0,
-    CONN_EVENTS_WRITE = ((EPOLLOUT | EPOLLRDHUP) << 16) | 1 << 1,
+    CONN_EVENTS_READ = ((EPOLLIN | EPOLLRDHUP) << CONN_EPOLL_EVENT_SHIFT) | 1 << 0,
+    CONN_EVENTS_WRITE = ((EPOLLOUT | EPOLLRDHUP) << CONN_EPOLL_EVENT_SHIFT) | 1 << 1,
     CONN_EVENTS_READ_WRITE = CONN_EVENTS_READ | CONN_EVENTS_WRITE,
     CONN_EVENTS_MASK = 1 << 0 | 1 << 1,
 
@@ -290,7 +293,7 @@ enum lwan_connection_flags {
      *   descriptors to request handlers rather than abruptly closing the
      *   connection.) */
     CONN_SUSPENDED_MASK = 1 << 5,
-    CONN_SUSPENDED = (EPOLLRDHUP << 16) | CONN_SUSPENDED_MASK,
+    CONN_SUSPENDED = (EPOLLRDHUP << CONN_EPOLL_EVENT_SHIFT) | CONN_SUSPENDED_MASK,
     CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
     CONN_AWAITED_FD = CONN_SUSPENDED_MASK | CONN_HAS_REMOVE_SLEEP_DEFER,
 

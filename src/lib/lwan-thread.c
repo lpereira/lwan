@@ -451,9 +451,9 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
 
     /* No bits in the upper 16 bits can be anything other than
      * the epoll events we might be interested in! */
-    assert(((u32flags >> 16) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
+    assert(((u32flags >> CONN_EPOLL_EVENT_SHIFT) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
 
-    return u32flags >> 16;
+    return u32flags >> CONN_EPOLL_EVENT_SHIFT;
 }
 
 static void update_epoll_flags(const struct timeout_queue *tq,
@@ -493,7 +493,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
         [CONN_CORO_SUSPEND] = ~CONN_EVENTS_READ_WRITE,
         [CONN_CORO_RESUME] = ~CONN_SUSPENDED,
     };
-    enum lwan_connection_flags prev_flags = conn->flags;
+    enum lwan_connection_flags prev_flags = conn->flags & CONN_EPOLL_EVENT_MASK;
 
     conn->flags |= or_mask[yield_result];
     conn->flags &= and_mask[yield_result];
@@ -501,7 +501,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
     assert(!(conn->flags & CONN_LISTENER));
     assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
-    if (conn->flags == prev_flags)
+    if ((conn->flags & CONN_EPOLL_EVENT_MASK) == prev_flags)
         return;
 
     struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
