@@ -487,17 +487,21 @@ best to serve files in the fastest way possible according to some heuristics.
 > :bulb: **Note:** Files smaller than 16KiB will be compressed in RAM for
 > the duration specified in the `cache_for` setting.  Lwan will always try
 > to compress with deflate, and will optionally compress with Brotli and
-> ZSTD.  If the compression isn't worth it (e.g.  adding the
-> `Content-Encoding` headers would make the resulting response larger than
-> the uncompressed file contents), Lwan won't small send compressed files.
-> For these files, Lwan tries sending the gzipped version if that's found
-> in the filesystem and the client requested this encoding.
+> zstd (if Lwan has been built with proper support).
+>
+> In cases where compression wouldn't be worth the effort (e.g. adding the
+> `Content-Encoding` header would result in a larger response than sending
+> the uncompressed file, usually the case for very small files), Lwan won't
+> spend time compressing a file.
 >
 > For files larger than 16KiB, Lwan will not attempt to compress them.  In
 > future versions, it might do this and send responses using
 > chunked-encoding while the file is being compressed (up to a certain
 > limit, of course), but for now, only precompressed files (see
 > `serve_precompressed_path` setting in the table above) are considered.
+>
+> For all cases, Lwan might try using the gzipped version if that's found in
+> the filesystem and the client requested this encoding.
 
 ##### Variables for `directory_list_template`
 
@@ -633,7 +637,8 @@ which case, the option `expand_with_lua` must be set to `true`, and, instead
 of using the simple text substitution syntax as the example above, a
 function named `handle_rewrite(req, captures)` has to be defined instead.
 The `req` parameter is documented in the Lua module section; the `captures`
-parameter is a table containing all the captures, in order.  This function
+parameter is a table containing all the captures, in order (i.e. ``captures[2]``
+is equivalent to ``%2`` in the simple text substitition syntax).  This function
 returns the new URL to redirect to.
 
 This module has no options by itself.  Options are specified in each and
@@ -760,11 +765,13 @@ a `404 Not Found` error will be sent instead.
 #### FastCGI
 
 The `fastcgi` module proxies requests between the HTTP client connecting to
-Lwan and a FastCGI server accessible by Lwan.  This is useful, for instance,
-to serve pages from a scripting language such as PHP.
+Lwan and a [FastCGI](https://en.wikipedia.org/wiki/FastCGI) server
+accessible by Lwan.  This is useful, for instance, to serve pages from a
+scripting language such as PHP.
 
 > :bulb: **Note:** This is a preliminary version of this module, and
-> as such, it's not well optimized and some features are missing.
+> as such, it's not well optimized, some features are missing, and
+> some values provided to the environment are hardcoded.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
