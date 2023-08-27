@@ -444,16 +444,14 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     __builtin_unreachable();
 }
 
+#define EPOLL_EVENTS(flags) (((uint32_t)flags) >> CONN_EPOLL_EVENT_SHIFT)
+#define LWAN_EVENTS(flags) (((uint32_t)flags) & CONN_EPOLL_EVENT_MASK)
+
 static ALWAYS_INLINE uint32_t
 conn_flags_to_epoll_events(enum lwan_connection_flags flags)
 {
-    uint32_t u32flags = (uint32_t)flags;
-
-    /* No bits in the upper 16 bits can be anything other than
-     * the epoll events we might be interested in! */
-    assert(((u32flags >> CONN_EPOLL_EVENT_SHIFT) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
-
-    return u32flags >> CONN_EPOLL_EVENT_SHIFT;
+    assert((EPOLL_EVENTS(flags) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
+    return EPOLL_EVENTS(flags);
 }
 
 static void update_epoll_flags(const struct timeout_queue *tq,
@@ -493,7 +491,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
         [CONN_CORO_SUSPEND] = ~CONN_EVENTS_READ_WRITE,
         [CONN_CORO_RESUME] = ~CONN_SUSPENDED,
     };
-    enum lwan_connection_flags prev_flags = conn->flags & CONN_EPOLL_EVENT_MASK;
+    enum lwan_connection_flags prev_flags = conn->flags;
 
     conn->flags |= or_mask[yield_result];
     conn->flags &= and_mask[yield_result];
@@ -501,7 +499,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
     assert(!(conn->flags & CONN_LISTENER));
     assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
-    if ((conn->flags & CONN_EPOLL_EVENT_MASK) == prev_flags)
+    if (LWAN_EVENTS(conn->flags) == LWAN_EVENTS(prev_flags))
         return;
 
     struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
