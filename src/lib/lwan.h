@@ -175,6 +175,7 @@ static ALWAYS_INLINE uint64_t string_as_uint64(const char *s)
     X(FORBIDDEN, 403, "Forbidden", "Access to this resource has been denied")                                                               \
     X(NOT_FOUND, 404, "Not found", "The requested resource could not be found on this server")                                              \
     X(NOT_ALLOWED, 405, "Not allowed", "The requested method is not allowed by this server")                                                \
+    X(NOT_ACCEPTABLE, 406, "Not acceptable", "No suitable accepted-encoding header provided")                                               \
     X(TIMEOUT, 408, "Request timeout", "Client did not produce a request within expected timeframe")                                        \
     X(TOO_LARGE, 413, "Request too large", "The request entity is too large")                                                               \
     X(RANGE_UNSATISFIABLE, 416, "Requested range unsatisfiable", "The server can't supply the requested portion of the requested resource") \
