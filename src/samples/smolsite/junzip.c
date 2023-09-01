@@ -9,7 +9,6 @@
 // Read ZIP file end record. Will move within file.
 int jzReadEndRecord(JZFile *zip, JZEndRecord *endRecord)
 {
-    unsigned char jzBuffer[JZ_BUFFER_SIZE];
     size_t fileSize, readBytes, i;
     JZEndRecord *er;
 
@@ -23,21 +22,21 @@ int jzReadEndRecord(JZFile *zip, JZEndRecord *endRecord)
         return Z_ERRNO;
     }
 
-    readBytes = (fileSize < sizeof(jzBuffer)) ? fileSize : sizeof(jzBuffer);
+    readBytes = (fileSize < sizeof(zip->buffer)) ? fileSize : sizeof(zip->buffer);
 
     if (zip->seek(zip, fileSize - readBytes, SEEK_SET)) {
         fprintf(stderr, "Cannot seek in zip file!");
         return Z_ERRNO;
     }
 
-    if (zip->read(zip, jzBuffer, readBytes) < readBytes) {
+    if (zip->read(zip, zip->buffer, readBytes) < readBytes) {
         fprintf(stderr, "Couldn't read end of zip file!");
         return Z_ERRNO;
     }
 
     // Naively assume signature can only be found in one place...
     for (i = readBytes - sizeof(JZEndRecord); i; i--) {
-        er = (JZEndRecord *)(jzBuffer + i);
+        er = (JZEndRecord *)(zip->buffer + i);
         if (er->signature == 0x06054B50)
             goto signature_found;
     }
@@ -63,7 +62,6 @@ int jzReadCentralDirectory(JZFile *zip,
                            JZRecordCallback callback,
                            void *user_data)
 {
-    unsigned char jzBuffer[JZ_BUFFER_SIZE];
     JZGlobalFileHeader fileHeader;
     JZFileHeader header;
     int i;
@@ -90,13 +88,13 @@ int jzReadCentralDirectory(JZFile *zip,
             return Z_ERRNO;
         }
 
-        if (zip->read(zip, jzBuffer, fileHeader.fileNameLength) <
+        if (zip->read(zip, zip->buffer, fileHeader.fileNameLength) <
             fileHeader.fileNameLength) {
             fprintf(stderr, "Couldn't read filename %d!", i);
             return Z_ERRNO;
         }
 
-        jzBuffer[fileHeader.fileNameLength] = '\0'; // NULL terminate
+        zip->buffer[fileHeader.fileNameLength] = '\0'; // NULL terminate
 
         if (zip->seek(zip, fileHeader.extraFieldLength, SEEK_CUR) ||
             zip->seek(zip, fileHeader.fileCommentLength, SEEK_CUR)) {
@@ -108,7 +106,7 @@ int jzReadCentralDirectory(JZFile *zip,
         memcpy(&header, &fileHeader.compressionMethod, sizeof(header));
         header.offset = fileHeader.relativeOffsetOflocalHeader;
 
-        if (!callback(zip, i, &header, (char *)jzBuffer, user_data))
+        if (!callback(zip, i, &header, (char *)zip->buffer, user_data))
             break; // end if callback returns zero
     }
 
@@ -192,8 +190,6 @@ int jzReadData(JZFile *zip, JZFileHeader *header, void *buffer)
             return Z_ERRNO;
 #ifdef HAVE_ZLIB
     } else if (header->compressionMethod == 8) { // Deflate - using zlib
-        unsigned char jzBuffer[JZ_BUFFER_SIZE];
-
         strm.zalloc = Z_NULL;
         strm.zfree = Z_NULL;
         strm.opaque = Z_NULL;
@@ -212,8 +208,8 @@ int jzReadData(JZFile *zip, JZFileHeader *header, void *buffer)
              compressedLeft -= strm.avail_in) {
             // Read next chunk
             strm.avail_in =
-                zip->read(zip, jzBuffer,
-                          (sizeof(jzBuffer) < compressedLeft) ? sizeof(jzBuffer)
+                zip->read(zip, zip->buffer,
+                          (sizeof(zip->buffer) < compressedLeft) ? sizeof(zip->buffer)
                                                               : compressedLeft);
 
             if (strm.avail_in == 0 || zip->error(zip)) {
@@ -221,7 +217,7 @@ int jzReadData(JZFile *zip, JZFileHeader *header, void *buffer)
                 return Z_ERRNO;
             }
 
-            strm.next_in = jzBuffer;
+            strm.next_in = zip->buffer;
             strm.avail_out = uncompressedLeft;
             strm.next_out = bytes;
 

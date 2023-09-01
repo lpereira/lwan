@@ -41,12 +41,15 @@ extern "C" {
 
 typedef struct JZFile JZFile;
 
+#define JZ_BUFFER_SIZE 65536
+
 struct JZFile {
     size_t (*read)(JZFile *file, void *buf, size_t size);
     size_t (*tell)(JZFile *file);
     int (*seek)(JZFile *file, size_t offset, int whence);
     int (*error)(JZFile *file);
     void (*close)(JZFile *file);
+    unsigned char buffer[JZ_BUFFER_SIZE];
 };
 
 JZFile *
@@ -114,7 +117,6 @@ typedef struct __attribute__ ((__packed__)) {
 typedef int (*JZRecordCallback)(JZFile *zip, int index, JZFileHeader *header,
         char *filename, void *user_data);
 
-#define JZ_BUFFER_SIZE 65536
 
 // Read ZIP file end record. Will move within file.
 int jzReadEndRecord(JZFile *zip, JZEndRecord *endRecord);
