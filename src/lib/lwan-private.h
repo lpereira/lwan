@@ -62,7 +62,7 @@ struct lwan_request_parser_helper {
     int urls_rewritten;			/* Times URLs have been rewritten */
 };
 
-#define DEFAULT_BUFFER_SIZE 32768
+#define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 2048
 
 #define N_HEADER_START 64
