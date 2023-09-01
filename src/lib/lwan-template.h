@@ -81,9 +81,18 @@ void lwan_append_double_to_strbuf(struct lwan_strbuf *buf, void *ptr);
 bool lwan_tpl_double_is_empty(void *ptr);
 
 struct lwan_tpl *
+lwan_tpl_compile_value_full(struct lwan_value value,
+                            const struct lwan_var_descriptor *descriptor,
+                            enum lwan_tpl_flag flags);
+static inline struct lwan_tpl *
 lwan_tpl_compile_string_full(const char *string,
                              const struct lwan_var_descriptor *descriptor,
-                             enum lwan_tpl_flag flags);
+                             enum lwan_tpl_flag flags)
+{
+    struct lwan_value value = {.value = (char *)string, .len = strlen(string)};
+    return lwan_tpl_compile_value_full(value, descriptor, flags);
+}
+
 struct lwan_tpl *
 lwan_tpl_compile_string(const char *string,
                         const struct lwan_var_descriptor *descriptor);

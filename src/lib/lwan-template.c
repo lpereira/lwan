@@ -525,11 +525,11 @@ static struct lexeme *lex_next(struct lexer *lexer)
     return lexeme;
 }
 
-static void lex_init(struct lexer *lexer, const char *input)
+static void lex_init(struct lexer *lexer, struct lwan_value input)
 {
     lexer->state = lex_text;
-    lexer->pos = lexer->start = input;
-    lexer->end = input + strlen(input);
+    lexer->pos = lexer->start = input.value;
+    lexer->end = input.value + input.len;
     lexeme_ring_buffer_init(&lexer->ring_buffer);
 }
 
@@ -1143,7 +1143,7 @@ error:
 
 static bool parser_init(struct parser *parser,
                         const struct lwan_var_descriptor *descriptor,
-                        const char *string)
+                        struct lwan_value value)
 {
     if (symtab_push(parser, descriptor) < 0)
         return false;
@@ -1151,7 +1151,7 @@ static bool parser_init(struct parser *parser,
     chunk_array_init(&parser->chunks);
     parser->tpl->chunks = parser->chunks;
 
-    lex_init(&parser->lexer, string);
+    lex_init(&parser->lexer, value);
     list_head_init(&parser->stack);
 
     return true;
@@ -1217,10 +1217,10 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     return success;
 }
 
-static bool parse_string(struct lwan_tpl *tpl,
-                         const char *string,
-                         const struct lwan_var_descriptor *descriptor,
-                         enum lwan_tpl_flag flags)
+static bool parse_value(struct lwan_tpl *tpl,
+                        struct lwan_value value,
+                        const struct lwan_var_descriptor *descriptor,
+                        enum lwan_tpl_flag flags)
 {
     struct parser parser = {
         .tpl = tpl,
@@ -1231,7 +1231,7 @@ static bool parse_string(struct lwan_tpl *tpl,
     void *(*state)(struct parser *parser, struct lexeme *lexeme) = parser_text;
     struct lexeme *lexeme;
 
-    if (!parser_init(&parser, descriptor, string))
+    if (!parser_init(&parser, descriptor, value))
         return false;
 
     while (state) {
@@ -1349,15 +1349,15 @@ static void dump_program(const struct lwan_tpl *tpl)
 #endif
 
 struct lwan_tpl *
-lwan_tpl_compile_string_full(const char *string,
-                             const struct lwan_var_descriptor *descriptor,
-                             enum lwan_tpl_flag flags)
+lwan_tpl_compile_value_full(struct lwan_value value,
+                            const struct lwan_var_descriptor *descriptor,
+                            enum lwan_tpl_flag flags)
 {
     struct lwan_tpl *tpl;
 
     tpl = calloc(1, sizeof(*tpl));
     if (tpl) {
-        if (parse_string(tpl, string, descriptor, flags)) {
+        if (parse_value(tpl, value, descriptor, flags)) {
 #if !defined(NDEBUG) && defined(TEMPLATE_DEBUG)
             dump_program(tpl);
 #endif
