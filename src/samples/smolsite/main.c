@@ -251,6 +251,8 @@ LWAN_HANDLER_ROUTE(view_root, "/")
             return HTTP_INTERNAL_ERROR;
 
         char *key = strdup(digest_str);
+        if (UNLIKELY(!key))
+            return HTTP_INTERNAL_ERROR;
         if (UNLIKELY(hash_add_unique(pending_sites(), key, zip))) {
             free(key);
             free(zip);
