@@ -225,6 +225,7 @@ LWAN_HANDLER_ROUTE(view_root, "/")
     if (!request->url.len) {
         const struct lwan_key_value redir_headers[] = {
             {"Location", smolsite_zip_base64.value},
+            {"Cache-Control", "no-cache, max-age=0, private, no-transform"},
             {},
         };
         response->headers = coro_memdup(request->conn->coro,
