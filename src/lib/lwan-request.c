@@ -2090,7 +2090,7 @@ ssize_t lwan_request_async_writev(struct lwan_request *request,
                                             vec->iov_len);
         }
 
-        written = writev(fd, iov + curr_iov, (size_t)remaining_len);
+        written = writev(fd, iov + curr_iov, remaining_len);
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
             tries--;
