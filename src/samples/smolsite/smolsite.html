@@ -1,0 +1,72 @@
+<html>
+  <head>
+    <title>🗜 omg it's a smolsite</title>
+    <style>
+      body {
+         font-family: sans-serif;
+         margin: 0;
+         padding: 0;
+         background-color: #4f2d51;
+         color: #ddd;
+         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23d7cbd9' fill-opacity='0.4' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E")
+      }
+      iframe {
+	width: 100%;
+	height: calc(100% - 32px);
+	padding: 0;
+	margin: 0;
+	border: 0;
+	border-bottom: 1px solid #170b19;
+	background-color: white;
+      }
+      p {
+	margin: 3px;
+	margin-right: 6px;
+	text-align: right;
+	font-size: 16px;
+	text-shadow: 0 0 16px black;
+      }
+    </style>
+  </head>
+  <body id="b">
+    <iframe id="i" allowfullscreen="false" sandbox="allow-scripts"    allowpaymentrequest="false" src="/s/{{digest}}/"></iframe>
+    <p>  Hosted in the URL by 🗜️
+      <b>smolsite.zip</b>. Powered by the 
+      <a style="color: white" href="https://lwan.ws">Lwan</a> web server.  
+    </p>
+    <script>let body = document.getElementById('b');
+body.addEventListener('dragenter', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        body.style.backgroundColor = '#2d4f51';
+}, false);
+body.addEventListener('dragleave', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        body.style.backgroundColor = '#4f2d51';
+}, false);
+body.addEventListener('dragover', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+}, false);
+body.addEventListener('drop', function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.dataTransfer.files.length == 0) {
+            alert('Drop a file!');
+    } else if (e.dataTransfer.files.length > 1) {
+            alert('Drop only one file!');
+    } else {
+            let reader = new FileReader();
+            reader.onload = (e) => {
+                    if (e.target.readyState == 2) {
+                            let base64 = e.target.result.slice('data:application/zip;base64,'.length);
+                            window.top.location = 'https://smolsite.zip/' + base64;
+                    }
+            };
+            reader.readAsDataURL(e.dataTransfer.files[0]);
+    }
+}, false);
+</script>
+  </body>
+</html>

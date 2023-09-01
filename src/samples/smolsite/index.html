@@ -1,0 +1,33 @@
+<html>
+<head><style>
+body {
+background-color: #ffffff;
+background-image: url("data:image/svg+xml,%3Csvg width='12' height='16' viewBox='0 0 12 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 .99C4 .445 4.444 0 5 0c.552 0 1 .45 1 .99v4.02C6 5.555 5.556 6 5 6c-.552 0-1-.45-1-.99V.99zm6 8c0-.546.444-.99 1-.99.552 0 1 .45 1 .99v4.02c0 .546-.444.99-1 .99-.552 0-1-.45-1-.99V8.99z' fill='%23d7d5da' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+font-family: sans-serif;
+margin: 128px;
+}
+center {
+	padding: 128px;
+}
+pre {
+	background: #202020;
+	color: #707070;
+	padding: 20px;
+	text-color: 20px;
+}
+</style></head>
+<body>
+<h1>It's a smolsite!</h1>
+
+<p>This whole site fits inside the URL!</p>
+
+<p>To host yours: use the command-line: put everything in a ZIP file, Base 64 encode it, and tack it after "https://smolsite.zip/":</p>
+
+<pre>
+$ zip -DXjq9 somesite.zip index.html mylogo.png
+$ echo "https://smolsite.zip/`cat somesite.zip | base64 --wrap 0`"
+</pre>
+</body>
+
+</html>
+
