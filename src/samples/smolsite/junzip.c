@@ -6,11 +6,10 @@
 
 #include "junzip.h"
 
-unsigned char jzBuffer[JZ_BUFFER_SIZE]; // limits maximum zip descriptor size
-
 // Read ZIP file end record. Will move within file.
 int jzReadEndRecord(JZFile *zip, JZEndRecord *endRecord)
 {
+    unsigned char jzBuffer[JZ_BUFFER_SIZE];
     size_t fileSize, readBytes, i;
     JZEndRecord *er;
 
@@ -64,6 +63,7 @@ int jzReadCentralDirectory(JZFile *zip,
                            JZRecordCallback callback,
                            void *user_data)
 {
+    unsigned char jzBuffer[JZ_BUFFER_SIZE];
     JZGlobalFileHeader fileHeader;
     JZFileHeader header;
     int i;
@@ -192,6 +192,8 @@ int jzReadData(JZFile *zip, JZFileHeader *header, void *buffer)
             return Z_ERRNO;
 #ifdef HAVE_ZLIB
     } else if (header->compressionMethod == 8) { // Deflate - using zlib
+        unsigned char jzBuffer[JZ_BUFFER_SIZE];
+
         strm.zalloc = Z_NULL;
         strm.zfree = Z_NULL;
         strm.opaque = Z_NULL;
