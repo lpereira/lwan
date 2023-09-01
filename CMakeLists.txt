@@ -5,6 +5,8 @@ message(STATUS "Running CMake for ${PROJECT_NAME} (${PROJECT_DESCRIPTION})")
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/src/cmake")
 
+include_directories(${CMAKE_BINARY_DIR})
+
 include(CheckCCompilerFlag)
 include(CheckCSourceCompiles)
 include(CheckFunctionExists)

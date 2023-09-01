@@ -32,8 +32,11 @@
 #include "sha1.h"
 #include "lwan-cache.h"
 #include "lwan-private.h"
+#include "lwan-template.h"
 
 #include "junzip.h"
+
+#include "smolsite.h"
 
 #define CACHE_FOR_MINUTES 15
 
@@ -51,6 +54,40 @@ struct site {
     struct lwan_value zipped;
     struct hash *files;
 };
+
+struct iframe_tpl_vars {
+    const char *digest;
+};
+
+#undef TPL_STRUCT
+#define TPL_STRUCT struct iframe_tpl_vars
+static const struct lwan_var_descriptor iframe_tpl_desc[] = {
+    TPL_VAR_STR(digest),
+    TPL_VAR_SENTINEL,
+};
+
+static struct lwan_tpl *iframe_tpl;
+static struct lwan_value smolsite_zip_base64;
+
+static void calc_hash(struct lwan_value value,
+                      char digest_str[static 41])
+{
+    /* FIXME: Is SHA-1 overkill? */
+    sha1_context ctx;
+    unsigned char digest[20];
+
+    sha1_init(&ctx);
+    sha1_update(&ctx, (const unsigned char *)value.value, value.len);
+    sha1_finalize(&ctx, digest);
+
+    snprintf(digest_str, 41,
+             "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
+             "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+             digest[0], digest[1], digest[2], digest[3], digest[4], digest[5],
+             digest[6], digest[7], digest[8], digest[9], digest[10], digest[11],
+             digest[12], digest[13], digest[14], digest[15], digest[16],
+             digest[17], digest[18], digest[19]);
+}
 
 static struct hash *pending_sites(void)
 {
@@ -179,26 +216,6 @@ static void remove_from_pending_defer(void *data)
     hash_del(pending_sites(), key);
 }
 
-static void calc_hash(const struct lwan_request *request,
-                      char digest_str[static 41])
-{
-    /* FIXME: Is SHA-1 overkill? */
-    sha1_context ctx;
-    unsigned char digest[20];
-
-    sha1_init(&ctx);
-    sha1_update(&ctx, (const unsigned char *)request->url.value,
-                request->url.len);
-    sha1_finalize(&ctx, digest);
-
-    snprintf(digest_str, 41,
-             "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
-             "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-             digest[0], digest[1], digest[2], digest[3], digest[4], digest[5],
-             digest[6], digest[7], digest[8], digest[9], digest[10], digest[11],
-             digest[12], digest[13], digest[14], digest[15], digest[16],
-             digest[17], digest[18], digest[19]);
-}
 
 LWAN_HANDLER_ROUTE(view_root, "/")
 {
@@ -206,47 +223,14 @@ LWAN_HANDLER_ROUTE(view_root, "/")
     struct site *site;
 
     if (!request->url.len) {
-        static const struct lwan_key_value redir_headers[] = {
-            {"Refresh",
-             "0; url=/"
-             "UEsDBBQAAgAIAFsCG1c3MTWu6QMAAAoIAAAKABwAaW5kZXguaHRtbFVUCQAD3vjqZ"
-             "OD46mR1eAsAAQToAwAABOgDAACtVW1v2zYQ/mz9iou3QA5qybJju/"
-             "GLDCwvAwJ0WNFl+7BhQGnxLHGjSIGkrahb/"
-             "vuOkoN6XbsV6CyYpu6Ozx0fPjyvC1dKEDztb/ubYF0g45u1dY3ETbDVvIE/"
-             "gi3Lfs+"
-             "N3iseZVpqs4Svdu1ndeoSJctxCXsjB33OHFu2hpE95C8eSzk8v7yhKdSCuyINx5MQ"
-             "ChR54Wg+D+EgsL7Wj2mYQALjCXgbrVI2DQvnquVoVNd1XF/"
-             "G2uSjSZIkHjc8v7wj2Iq5AngafjeFeLG4oXE6ncGUximBzSDJ4tls4nHJM/"
-             "PjYnGYxsnkZg4zcs3acQ70BvMs6oKjcUTBflwsfqLvu3IOV1lC3uncI3s7tN5PgGc"
-             "J+NjIB5Mtaj0fA7/y6CHshJRpeD655C/"
-             "5jLPOEOmKZcI1xEs8PZrMXmIa4gGV5jwcdRx4OmjWv1gFO61ctGOlkM0SLFM2smgE"
-             "nVXJTC7Ukui9qh5XwVOQoXJo6IB7FeNcqPzEVxn0jvfnS4c+SfyzCnrPKniZ+"
-             "Gd1sn6S+OU9h4/"
-             "uWSud6SlYjzpVrUetxoK1V5dX3Hhz70ILDGyppRUOzyhkvAmCdbV5KISFutASwXuI"
-             "AWdBKCs4gisQfnzz6gweTAOFto4qAK0oSBto9N5YlLsh/"
-             "La3DrhhOWX4+f61JxFJhqQZpmDt3EYojo+xvwbrEb2SLo0voeoq+"
-             "N4MgUniSTEnDiibIextlzzTZclI+VIoEn61d0CnYhpX+EKEOsk3hGtGi+"
-             "ZTQJVpql04QlUcHPFLL8B2/"
-             "iT6XuuWxP7MRPxOVKP+8rkYQ3fyayAbRAuwusTnGHi/"
-             "BygbqXMdVyqnWMwK3cF+iPo2Y+7vGH/"
-             "CloqkGqOoNqyC5G2fDq1NGqxtZkTlNoFEB21bSIHrbF+"
-             "ShOIc3Z1EP71u7vmAGgnJ0AfFJIs7Eqp7JaxDhWYQ+"
-             "oNoZRcOYbdXmRNaDfDCaw1j63T12pDmc9baCYasVIHHuMUd20vXGrdxq6V4qw0n3l"
-             "IIL0llVJFzyGEridWQNEcpmLT479VIZAf8n6tJPju7PnwZFZ+"
-             "TRVdftD2xgwHGvqU/"
-             "GGonOzSx17SNJaqcrlGaQtJi9phE4wb9W0Il8fugMy+F3hMglQj/"
-             "BbSB8T9xtJJNd6s/"
-             "hPORXo6G2klLu8IavqWoN62hrb3XOWNC0YxTjN9+"
-             "umnXHjfmqC2ii31g84Nj1GRoQ5OukC7B8VqkcBJsiZ3YSpHh8d+"
-             "OVRW9tVSO6DatukXD/nFzFy1aTfdU1zExH0vdBRPsJ649vDhm9vvoPdHwdLIj//"
-             "ONvaXU1AM/Susvya8tW6caoSZ8vMg07RowTXzf2AR/"
-             "AVBLAQIeAxQAAgAIAFsCG1c3MTWu6QMAAAoIAAAKABgAAAAAAAEAAACkgQAAAABpb"
-             "mRleC5odG1sVVQFAAPe+"
-             "OpkdXgLAAEE6AMAAAToAwAAUEsFBgAAAAABAAEAUAAAAC0EAAAAAA=="},
+        const struct lwan_key_value redir_headers[] = {
+            {"Location", smolsite_zip_base64.value},
             {},
         };
-        response->headers = redir_headers;
-        return HTTP_TEMPORARY_REDIRECT;
+        response->headers = coro_memdup(request->conn->coro,
+                                        redir_headers,
+                                        sizeof(redir_headers));
+        return response->headers ? HTTP_TEMPORARY_REDIRECT : HTTP_INTERNAL_ERROR;
     }
 
     /* Lwan gives us a percent-decoded URL, but '+' is part of the Base64
@@ -256,7 +240,7 @@ LWAN_HANDLER_ROUTE(view_root, "/")
             *p = '+';
     }
 
-    calc_hash(request, digest_str);
+    calc_hash(request->url, digest_str);
 
     site = (struct site *)cache_coro_get_and_ref_entry(
         sites, request->conn->coro, digest_str);
@@ -303,76 +287,10 @@ LWAN_HANDLER_ROUTE(view_root, "/")
 
     response->mime_type = "text/html; charset=utf-8";
 
-    /* FIXME: this should really be a template! */
-    lwan_strbuf_printf(
-        response->buffer,
-        "<html>\n"
-        "<head><title>🗜 omg it's a smolsite</title>"
-        "<style>"
-        "body {"
-        "font-family: sans-serif; margin: 0; padding: 0; "
-        "              background-color: #4f2d51; color: #ddd; "
-        "              background-image: url(\"data:image/svg+xml,%%3Csvg "
-        "xmlns='http://www.w3.org/2000/svg' width='4' height='4' "
-        "viewBox='0 0 4 4'%%3E%%3Cpath fill='%%23d7cbd9' "
-        "fill-opacity='0.4' d='M1 "
-        "3h1v1H1V3zm2-2h1v1H3V1z'%%3E%%3C/path%%3E%%3C/svg%%3E\")"
-        "}"
-        "</style>"
-        "</head>"
-        "<body id=\"b\">"
-        "  <iframe allowfullscreen=\"false\" sandbox=\"allow-scripts\" "
-        "   allowpaymentrequest=\"false\" "
-        "   style=\"width: 100%%; height: calc(100%% - 32px); padding: 0; "
-        "margin: 0; border: 0; border-bottom: 1px solid #170b19; "
-        "background-color: white\" "
-        "   src=\"/s/%s/\">\n"
-        "  </iframe>\n"
-        "  <p style=\"margin: 3px; margin-right: 6px; text-align: right; "
-        "font-size: 16px; text-shadow: 0 0 16px black\">"
-        "  Hosted in the URL by 🗜️<b>smolsite.zip</b>. Powered by the <a "
-        "style=\"color: white\" href=\"https://lwan.ws\">Lwan</a> web server."
-        "  </p>"
-        "<script>"
-        "let body = document.getElementById('b');"
-        "body.addEventListener('dragenter', function(e) {"
-        "        e.stopPropagation();"
-        "        e.preventDefault();"
-        "        b.style.border = '4px dotted black';"
-        "}, false);"
-        "body.addEventListener('dragleave', function(e) {"
-        "        e.stopPropagation();"
-        "        e.preventDefault();"
-        "        b.style.border = '0';"
-        "}, false);"
-        "body.addEventListener('dragover', function(e) {"
-        "        e.stopPropagation();"
-        "        e.preventDefault();"
-        "}, false);"
-        "body.addEventListener('drop', function(e) {"
-        "        e.stopPropagation();"
-        "        e.preventDefault();"
-        "        if (e.dataTransfer.files.length == 0) {"
-        "                alert('Drop a file!');"
-        "        } else if (e.dataTransfer.files.length > 1) {"
-        "                alert('Drop only one file!');"
-        "        } else {"
-        "                let reader = new FileReader();"
-        "                reader.onload = (e) => {"
-        "                        if (e.target.readyState == 2) {"
-        "                                let base64 = "
-        "e.target.result.slice('data:application/zip;base64,'.length);"
-        "                                window.top.location = "
-        "'https://smolsite.zip/' + base64;"
-        "                        }"
-        "                };"
-        "                reader.readAsDataURL(e.dataTransfer.files[0]);"
-        "        }"
-        "}, false);"
-        "</script>"
-        "</body>\n"
-        "</html>",
-        digest_str);
+    struct iframe_tpl_vars vars = {.digest = digest_str};
+    if (!lwan_tpl_apply_with_buffer(iframe_tpl, response->buffer, &vars))
+        return HTTP_INTERNAL_ERROR;
+
     return HTTP_OK;
 }
 
@@ -428,12 +346,30 @@ LWAN_HANDLER_ROUTE(view_site, "/s/")
     return HTTP_OK;
 }
 
+static struct lwan_value base64_encode_to_value(struct lwan_value input)
+{
+    size_t len;
+    unsigned char *encoded =
+        base64_encode((unsigned char *)input.value, input.len, &len);
+    if (!encoded)
+        lwan_status_critical("Could not base64-encode smolsite.zip!");
+    return (struct lwan_value){.value = (char *)encoded, .len = len};
+}
+
 int main(void)
 {
     struct lwan l;
 
     lwan_init(&l);
     lwan_detect_url_map(&l);
+
+    smolsite_zip_base64 = base64_encode_to_value(smolsite_zip_value);
+
+    iframe_tpl = lwan_tpl_compile_value_full(smolsite_html_value,
+                                             iframe_tpl_desc,
+                                             LWAN_TPL_FLAG_CONST_TEMPLATE);
+    if (!iframe_tpl)
+        lwan_status_critical("Could not compile template");
 
     sites = cache_create_full(create_site, destroy_site, hash_str_new, NULL,
                               CACHE_FOR_MINUTES * 60);
@@ -442,6 +378,9 @@ int main(void)
 
     lwan_main_loop(&l);
     lwan_shutdown(&l);
+    cache_destroy(sites);
+    lwan_tpl_free(iframe_tpl);
+    free(smolsite_zip_base64.value);
 
     return 0;
 }

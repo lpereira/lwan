@@ -107,8 +107,6 @@ add_custom_target(generate_auto_index_icons
 )
 add_dependencies(lwan-static generate_auto_index_icons)
 
-include_directories(${CMAKE_BINARY_DIR})
-
 if (NOT HAVE_BUILTIN_FPCLASSIFY)
 	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)
 endif ()
