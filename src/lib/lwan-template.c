@@ -854,17 +854,32 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         return parser_meta;
 
     if (lexeme->type == LEXEME_TEXT) {
-        if (lexeme->value.len <= sizeof(void *)) {
-            uintptr_t tmp = 0;
-
-            memcpy(&tmp, lexeme->value.value, lexeme->value.len);
-            emit_chunk(parser, ACTION_APPEND_SMALL, 0, (void*)tmp);
-        } else {
+        if (lexeme->value.len > 4 * sizeof(void *)) {
             struct lwan_strbuf *buf = lwan_strbuf_from_lexeme(parser, lexeme);
             if (!buf)
                 return error_lexeme(lexeme, "Out of memory");
 
             emit_chunk(parser, ACTION_APPEND, 0, buf);
+        } else {
+            struct lexeme copy = *lexeme;
+
+            while (copy.value.len) {
+                const size_t len = LWAN_MIN(sizeof(void *), copy.value.len);
+                uintptr_t tmp = 0;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+                /* strnlen(..., sizeof(void*)) is used for APPEND_SMALL,
+                 * so it's fine if no NUL is generated for strings with
+                 * sizeof(void *) characters. */
+                strncpy((char *)&tmp, copy.value.value, len);
+#pragma GCC diagnostic pop
+
+                emit_chunk(parser, ACTION_APPEND_SMALL, 0, (void *)tmp);
+
+                copy.value.len -= len;
+                copy.value.value += len;
+            }
         }
         parser->tpl->minimum_size += lexeme->value.len;
         return parser_text;
