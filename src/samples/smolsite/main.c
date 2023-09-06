@@ -130,6 +130,12 @@ static int file_cb(
     if ((size_t)data_offset > site->zipped.len)
         return 0;
 
+    uint32_t last_data_offset;
+    if (__builtin_add_overflow(local.compressedSize, data_offset, &last_data_offset))
+        return 0;
+    if (last_data_offset > site->zipped.len)
+        return 0;
+
     struct file *file = malloc(sizeof(*file));
     if (!file)
         return 0;
