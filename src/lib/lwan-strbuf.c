@@ -362,7 +362,10 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     if (UNLIKELY(fstat(fd, &st) < 0))
         goto error;
 
-    if (UNLIKELY(!lwan_strbuf_init_with_size(s, (size_t)st.st_size)))
+    size_t min_buf_size;
+    if (UNLIKELY(__builtin_add_overflow(st.st_size, 1, &min_buf_size)))
+        goto error;
+    if (UNLIKELY(!lwan_strbuf_init_with_size(s, min_buf_size)))
         goto error;
 
     s->used = (size_t)st.st_size;
@@ -377,6 +380,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
         }
 
         buffer += n_read;
+        *buffer = '\0';
         st.st_size -= (off_t)n_read;
     }
 
