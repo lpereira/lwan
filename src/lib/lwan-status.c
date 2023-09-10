@@ -63,8 +63,17 @@ void lwan_status_shutdown(struct lwan *l __attribute__((unused))) {}
 static bool can_use_colors(void)
 {
     const char *term;
+    const char *no_color;
 
     if (!isatty(fileno(stdout)))
+        return false;
+
+    /* From https://no-color.org: "Command-line software which adds ANSI
+     * color to its output by default should check for a NO_COLOR
+     * environment variable that, when present and not an empty string
+     * (regardless of its value), prevents the addition of ANSI color."  */
+    no_color = secure_getenv("NO_COLOR");
+    if (no_color && no_color[0])
         return false;
 
     term = secure_getenv("TERM");
