@@ -783,6 +783,7 @@ ignore_leading_whitespace(char *buffer)
 static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
+    struct lwan_connection *conn = request->conn;
     bool has_keep_alive = false;
     bool has_close = false;
 
@@ -801,7 +802,7 @@ static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
             break;
         case STR4_INT_L('u','p','g','r'):
         case STR4_INT_L(' ', 'u','p','g'):
-            request->conn->flags |= CONN_IS_UPGRADE;
+            conn->flags |= CONN_IS_UPGRADE;
             break;
         }
 
@@ -810,14 +811,16 @@ static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
     }
 
 out:
-    if (LIKELY(!(request->flags & REQUEST_IS_HTTP_1_0)))
+    if (LIKELY(!(request->flags & REQUEST_IS_HTTP_1_0))) {
         has_keep_alive = !has_close;
+        if (has_keep_alive)
+            conn->flags |= CONN_SENT_CONNECTION_HEADER;
+    }
 
     if (has_keep_alive) {
-        request->conn->flags |= CONN_IS_KEEP_ALIVE;
+        conn->flags |= CONN_IS_KEEP_ALIVE;
     } else {
-        request->conn->flags &=
-            ~(CONN_IS_KEEP_ALIVE | CONN_SENT_CONNECTION_HEADER);
+        conn->flags &= ~(CONN_IS_KEEP_ALIVE | CONN_SENT_CONNECTION_HEADER);
     }
 }
 
