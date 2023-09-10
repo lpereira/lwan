@@ -97,10 +97,15 @@ static const char *lexeme_type_str[TOTAL_LEXEMES] = {
 #undef GENERATE_ARRAY_ITEM
 
 struct chunk {
-    const void *instruction;
+    union {
+        /* `instruction` is filled when baking computed goto address
+         * from `action`.  This needs to be "unbaked" when freeing
+         * a template. */
+        const void *instruction;
+        enum action action;
+    };
     void *data;
     enum flags flags;
-    enum action action;
 };
 
 DEFINE_ARRAY_TYPE(chunk_array, struct chunk)
@@ -108,7 +113,7 @@ DEFINE_ARRAY_TYPE(chunk_array, struct chunk)
 struct lwan_tpl {
     struct chunk_array chunks;
     size_t minimum_size;
-    bool dispatch_table_direct;
+    const void *const *dispatch_table;
 };
 
 struct symtab {
@@ -1007,6 +1012,27 @@ bool lwan_tpl_str_is_empty(void *ptr)
     return !str || *str == '\0';
 }
 
+static void
+unbake_direct_addresses(struct lwan_tpl *tpl)
+{
+    struct chunk *iter;
+
+    assert(tpl->dispatch_table);
+
+    LWAN_ARRAY_FOREACH (&tpl->chunks, iter) {
+        for (enum action action = ACTION_APPEND; action <= ACTION_LAST; action++) {
+            if (iter->instruction != tpl->dispatch_table[action])
+                continue;
+
+            iter->action = action;
+            if (action == ACTION_APPLY_TPL)
+                unbake_direct_addresses(iter->data);
+
+            break;
+        }
+    }
+}
+
 static void free_chunk(struct chunk *chunk)
 {
     if (!chunk)
@@ -1049,6 +1075,7 @@ static void free_chunk_array(struct chunk_array *array)
 void lwan_tpl_free(struct lwan_tpl *tpl)
 {
     if (tpl) {
+        unbake_direct_addresses(tpl);
         free_chunk_array(&tpl->chunks);
         free(tpl);
     }
@@ -1437,8 +1464,9 @@ bake_direct_addresses(struct lwan_tpl *tpl,
         iter->instruction = dispatch_table[iter->action];
     }
 
-    tpl->dispatch_table_direct = true;
+    tpl->dispatch_table = dispatch_table;
 }
+
 
 static const struct chunk *apply(struct lwan_tpl *tpl,
                                  const struct chunk *chunks,
@@ -1453,7 +1481,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
     if (UNLIKELY(!chunk))
         return NULL;
 
-    if (!tpl->dispatch_table_direct) {
+    if (!tpl->dispatch_table) {
         static const void *const dispatch_table[] = {
             [ACTION_APPEND] = &&action_append,
             [ACTION_APPEND_SMALL] = &&action_append_small,
@@ -1675,17 +1703,19 @@ int main(int argc, char *argv[])
     }
 
     printf("*** Compiling template...\n");
+    #undef TPL_STRUCT
+    #define TPL_STRUCT struct test_struct
     struct lwan_var_descriptor desc[] = {
-        TPL_VAR_INT(struct test_struct, some_int),
-        TPL_VAR_STR(struct test_struct, a_string),
+        TPL_VAR_INT(some_int),
+        TPL_VAR_STR(a_string),
         TPL_VAR_SENTINEL
     };
     struct lwan_tpl *tpl = lwan_tpl_compile_file(argv[1], desc);
     if (!tpl)
         return 1;
 
-    printf("*** Applying template 100000 times...\n");
-    for (size_t i = 0; i < 100000; i++) {
+    printf("*** Applying template 10000000 times...\n");
+    for (size_t i = 0; i < 10000000; i++) {
         struct lwan_strbuf *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
             .some_int = 42,
             .a_string = "some string"
