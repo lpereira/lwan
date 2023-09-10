@@ -32,32 +32,9 @@
 #include "lwan-io-wrappers.h"
 #include "lwan-template.h"
 
-static struct lwan_tpl *error_template = NULL;
+#include "response-data.h"
 
-static const char *error_template_str = "<html><head><style>" \
-    "body{" \
-    "background:#627d4d;" \
-    "background:-moz-radial-gradient(center,ellipse cover,#627d4d 15\x25,#1f3b08 100\x25);" \
-    "background:-webkit-gradient(radial,center center,0px,center center,100\x25,color-stop(15\x25,#627d4d),color-stop(100\x25,#1f3b08));" \
-    "background:-webkit-radial-gradient(center,ellipse cover,#627d4d 15\x25,#1f3b08 100\x25);" \
-    "background:-o-radial-gradient(center,ellipse cover,#627d4d 15\x25,#1f3b08 100\x25);" \
-    "background:-ms-radial-gradient(center,ellipse cover,#627d4d 15\x25,#1f3b08 100\x25);" \
-    "background:radial-gradient(center,ellipse cover,#627d4d 15\x25,#1f3b08 100\x25);" \
-    "height:100\x25;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:center;border:0;letter-spacing:-1px;margin:0;padding:0}.sorry{color:#244837;font-size:18px;line-height:24px;text-shadow:0" \
-    "1px 1px rgba(255,255,255,0.33)}h1{color:#fff;font-size:30px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,0.68);letter-spacing:-1px;margin:0}" \
-    "</style>" \
-    "</head>" \
-    "<body>" \
-    "<table height=\"100\x25\" width=\"100\x25\"><tr><td align=\"center\" valign=\"middle\">" \
-    "<div>" \
-    "<h1>{{short_message}}</h1>" \
-    "<div class=\"sorry\">" \
-    "<p>{{long_message}}</p>" \
-    "</div>" \
-    "</div>" \
-    "</td></tr></table>" \
-    "</body>" \
-    "</html>";
+static struct lwan_tpl *error_template = NULL;
 
 struct error_template {
     const char *short_message;
@@ -80,8 +57,8 @@ void lwan_response_init(struct lwan *l)
         error_template =
             lwan_tpl_compile_file(l->config.error_template, error_descriptor);
     } else {
-        error_template = lwan_tpl_compile_string_full(
-            error_template_str, error_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
+        error_template = lwan_tpl_compile_value_full(
+            response_template_value, error_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
 
     if (UNLIKELY(!error_template))

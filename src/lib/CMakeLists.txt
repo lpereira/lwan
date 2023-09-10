@@ -89,23 +89,40 @@ add_custom_target(generate_mime_types_table
 add_dependencies(lwan-static generate_mime_types_table)
 
 add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/auto-index-icons.h
+        OUTPUT ${CMAKE_BINARY_DIR}/servefile-data.h
         COMMAND bin2hex
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif back_gif
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif file_gif
-                ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
-                folder_gif >
-                ${CMAKE_BINARY_DIR}/auto-index-icons.h
+                ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif folder_gif
+                ${CMAKE_SOURCE_DIR}/src/lib/servefile-template.html servefile_template
+		>
+                ${CMAKE_BINARY_DIR}/servefile-data.h
         DEPENDS ${CMAKE_SOURCE_DIR}/wwwroot/icons/back.gif
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/file.gif
                 ${CMAKE_SOURCE_DIR}/wwwroot/icons/folder.gif
+                ${CMAKE_SOURCE_DIR}/src/lib/servefile-template.html
                 bin2hex
-	COMMENT "Bundling auto-index icons"
+	COMMENT "Bundling data for serve-files module"
 )
-add_custom_target(generate_auto_index_icons
-        DEPENDS ${CMAKE_BINARY_DIR}/auto-index-icons.h
+add_custom_target(bundle_servefile_data
+        DEPENDS ${CMAKE_BINARY_DIR}/servefile-data.h
 )
-add_dependencies(lwan-static generate_auto_index_icons)
+add_dependencies(lwan-static bundle_servefile_data)
+
+add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/response-data.h
+        COMMAND bin2hex
+                ${CMAKE_SOURCE_DIR}/src/lib/response-template.html response_template
+		>
+                ${CMAKE_BINARY_DIR}/response-data.h
+        DEPENDS ${CMAKE_SOURCE_DIR}/src/lib/response-template.html
+                bin2hex
+	COMMENT "Bundling data for response"
+)
+add_custom_target(bundle_response_data
+        DEPENDS ${CMAKE_BINARY_DIR}/response-data.h
+)
+add_dependencies(lwan-static bundle_response_data)
 
 if (NOT HAVE_BUILTIN_FPCLASSIFY)
 	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)

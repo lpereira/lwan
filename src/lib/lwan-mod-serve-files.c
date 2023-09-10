@@ -40,7 +40,7 @@
 #include "lwan-template.h"
 #include "int-to-str.h"
 
-#include "auto-index-icons.h"
+#include "servefile-data.h"
 
 #if defined(LWAN_HAVE_BROTLI)
 #include <brotli/encode.h>
@@ -252,51 +252,6 @@ static const struct lwan_var_descriptor file_list_desc[] = {
                      })),
     TPL_VAR_SENTINEL,
 };
-
-
-static const char *directory_list_tpl_str =
-    "<html>\n"
-    "<head>\n"
-    "{{rel_path?}}  <title>Index of {{rel_path}}</title>{{/rel_path?}}\n"
-    "{{^rel_path?}}  <title>Index of /</title>{{/rel_path?}}\n"
-    "<style>\n"
-    "  body { background: #fff }\n"
-    "  tr.odd>td { background: #fff }\n"
-    "  tr.even>td { background: #eee }\n"
-    "</style>\n"
-    "</head>\n"
-    "<body>\n"
-    "{{rel_path?}}  <h1>Index of {{rel_path}}</h1>\n{{/rel_path?}}"
-    "{{^rel_path?}}  <h1>Index of /</h1>\n{{/rel_path?}}"
-    "{{readme?}}<pre>{{readme}}</pre>\n{{/readme?}}"
-    "  <table>\n"
-    "    <tr>\n"
-    "      <td><img src=\"?icon=back\"></td>\n"
-    "      <td colspan=\"3\"><a href=\"..\">Parent directory</a></td>\n"
-    "    </tr>\n"
-    "    <tr>\n"
-    "      <td>&nbsp;</td>\n"
-    "      <th>File name</th>\n"
-    "      <th>Type</th>\n"
-    "      <th>Size</th>\n"
-    "    </tr>\n"
-    "{{#file_list}}"
-    "    <tr class=\"{{file_list.zebra_class}}\">\n"
-    "      <td><img src=\"?icon={{file_list.icon}}\" "
-    "alt=\"{{file_list.icon_alt}}\"></td>\n"
-    "      <td><a href=\"{{{file_list.name}}}{{file_list.slash_if_dir}}\">{{{file_list.name}}}</a></td>\n"
-    "      <td>{{file_list.type}}</td>\n"
-    "      <td align=\"right\"><tt>{{file_list.size}}{{file_list.unit}}</tt></td>\n"
-    "    </tr>\n"
-    "{{/file_list}}"
-    "{{^#file_list}}"
-    "    <tr>\n"
-    "      <td colspan=\"4\">Empty directory.</td>\n"
-    "    </tr>\n"
-    "{{/file_list}}"
-    "  </table>\n"
-    "</body>\n"
-    "</html>\n";
 
 static int directory_list_generator(struct coro *coro, void *data)
 {
@@ -986,8 +941,9 @@ static void *serve_files_create(const char *prefix, void *args)
             settings->directory_list_template, file_list_desc);
     } else {
         priv->directory_list_tpl =
-            lwan_tpl_compile_string_full(directory_list_tpl_str, file_list_desc,
-                                         LWAN_TPL_FLAG_CONST_TEMPLATE);
+            lwan_tpl_compile_value_full(servefile_template_value,
+                                        file_list_desc,
+                                        LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
     if (!priv->directory_list_tpl) {
         lwan_status_error("Could not compile directory list template");
