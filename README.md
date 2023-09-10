@@ -306,6 +306,7 @@ can be decided automatically, so some configuration options are provided.
 | `max_put_data_size` | `int` | `40960` | Sets the maximum number of data size for PUT requests, in bytes |
 | `allow_temp_files` | `str` | `""` | Use temporary files; set to `post` for POST requests, `put` for PUT requests, or `all` (equivalent to setting to `post put`) for both.|
 | `error_template` | `str` | Default error template | Template for error codes. See variables below. |
+| `use_dynamic_buffer` | `bool` | `false` | **Experimental:** use a dynamically-allocated buffer for requests. |
 
 #### Variables for `error_template`
 

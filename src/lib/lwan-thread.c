@@ -57,8 +57,7 @@ static void lwan_strbuf_free_defer(void *data)
 }
 
 static void graceful_close(struct lwan *l,
-                           struct lwan_connection *conn,
-                           char buffer[static DEFAULT_BUFFER_SIZE])
+                           struct lwan_connection *conn)
 {
     int fd = lwan_connection_get_fd(l, conn);
 
@@ -82,8 +81,9 @@ static void graceful_close(struct lwan *l,
             return;
     }
 
+    char buffer[128];
     for (int tries = 0; tries < 20; tries++) {
-        ssize_t r = recv(fd, buffer, DEFAULT_BUFFER_SIZE, MSG_TRUNC);
+        ssize_t r = recv(fd, buffer, sizeof(buffer), MSG_TRUNC);
 
         if (!r)
             break;
@@ -371,17 +371,14 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     int fd = lwan_connection_get_fd(lwan, conn);
     enum lwan_request_flags flags = lwan->config.request_flags;
     struct lwan_strbuf strbuf = LWAN_STRBUF_STATIC_INIT;
-    char request_buffer[DEFAULT_BUFFER_SIZE];
-    struct lwan_value buffer = {.value = request_buffer, .len = 0};
+    struct lwan_value buffer;
     char *next_request = NULL;
     char *header_start[N_HEADER_START];
     struct lwan_proxy proxy;
     const int error_when_n_packets = lwan_calculate_n_packets(DEFAULT_BUFFER_SIZE);
+    size_t init_gen;
 
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
-
-    const size_t init_gen = 1; /* 1 call to coro_defer() */
-    assert(init_gen == coro_deferred_get_generation(coro));
 
 #if defined(LWAN_HAVE_MBEDTLS)
     if (conn->flags & CONN_TLS) {
@@ -393,6 +390,21 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 #else
     assert(!(conn->flags & CONN_TLS));
 #endif
+
+    if (conn->flags & CONN_USE_DYNAMIC_BUFFER) {
+        const size_t dynamic_buffer_len = DEFAULT_BUFFER_SIZE * 16;
+        buffer = (struct lwan_value){
+            .value = coro_malloc(conn->coro, dynamic_buffer_len),
+            .len = dynamic_buffer_len,
+        };
+        init_gen = 2;
+    } else {
+        buffer = (struct lwan_value){
+            .value = alloca(DEFAULT_BUFFER_SIZE),
+            .len = DEFAULT_BUFFER_SIZE,
+        };
+        init_gen = 1;
+    }
 
     while (true) {
         struct lwan_request_parser_helper helper = {
@@ -417,7 +429,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         coro_deferred_run(coro, init_gen);
 
         if (UNLIKELY(!(conn->flags & CONN_IS_KEEP_ALIVE))) {
-            graceful_close(lwan, conn, request_buffer);
+            graceful_close(lwan, conn);
             break;
         }
 
@@ -678,9 +690,9 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 {
     struct lwan_thread *t = conn->thread;
 #if defined(LWAN_HAVE_MBEDTLS)
-    const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_TLS;
+    const enum lwan_connection_flags flags_to_keep = conn->flags & (CONN_TLS | CONN_USE_DYNAMIC_BUFFER);
 #else
-    const enum lwan_connection_flags flags_to_keep = 0;
+    const enum lwan_connection_flags flags_to_keep = CONN_USE_DYNAMIC_BUFFER;
 #endif
 
     assert(!conn->coro);
@@ -1317,6 +1329,12 @@ void lwan_thread_init(struct lwan *l)
 
         schedtbl = NULL;
         adj_affinity = false;
+    }
+
+    if (l->config.use_dynamic_buffer) {
+        lwan_status_debug("Using dynamically-allocated buffers");
+        for (unsigned int i = 0; i < total_conns; i++)
+            l->conns[i].flags = CONN_USE_DYNAMIC_BUFFER;
     }
 
     for (unsigned int i = 0; i < l->thread.count; i++) {

@@ -316,6 +316,8 @@ enum lwan_connection_flags {
     /* Both are used to know if an epoll event pertains to a listener rather
      * than a client.  */
     CONN_LISTENER = 1 << 11,
+
+    CONN_USE_DYNAMIC_BUFFER = 1 << 12,
 };
 
 enum lwan_connection_coro_yield {
@@ -521,6 +523,7 @@ struct lwan_config {
     bool allow_cors;
     bool allow_post_temp_file;
     bool allow_put_temp_file;
+    bool use_dynamic_buffer;
 };
 
 struct lwan {
