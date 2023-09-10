@@ -242,10 +242,8 @@ LWAN_HANDLER_ROUTE(view_root, "/")
 
     /* Lwan gives us a percent-decoded URL, but '+' is part of the Base64
      * alphabet */
-    for (char *p = request->url.value; *p; p++) {
-        if (*p == ' ')
-            *p = '+';
-    }
+    for (char *p = strchr(request->url.value, ' '); p; p = strchr(p + 1, ' '))
+        *p = '+';
 
     calc_hash(request->url, digest_str);
 
@@ -314,10 +312,8 @@ LWAN_HANDLER_ROUTE(view_site, "/s/")
     if (slash - request->url.value < 40)
         return HTTP_NOT_FOUND;
     *slash = '\0';
-    for (const char *p = request->url.value; *p; p++) {
-        if (!isxdigit(*p))
-            return HTTP_NOT_FOUND;
-    }
+    if (strcspn(request->url.value, "0123456789abcdefABCDEF"))
+        return HTTP_NOT_FOUND;
 
     const char *file_name = slash + 1;
 
