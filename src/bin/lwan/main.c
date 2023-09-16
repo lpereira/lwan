@@ -47,10 +47,18 @@ static void
 print_handler_info(void)
 {
     const struct lwan_handler_info *handler;
+    int count = 0;
 
     printf("Built-in handlers:");
     LWAN_SECTION_FOREACH(lwan_handler, handler) {
+        if (!handler->route)
+            continue;
+
         printf(" %s", handler->name);
+        count++;
+    }
+    if (!count) {
+        printf(" (none)");
     }
     printf(".\n");
 }
