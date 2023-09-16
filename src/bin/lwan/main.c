@@ -114,7 +114,11 @@ print_help(const char *argv0, const struct lwan_config *config)
     const char *config_file = lwan_get_config_path(path_buf, sizeof(path_buf));
 
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
-    printf("       [--config] [--user username] [--chroot]\n");
+#ifdef LWAN_HAVE_MBEDTLS
+    printf("       [--tls-listen addr:port] [--cert-path /cert/path] [--cert-key /key/path]\n");
+#endif
+    printf("       [--config /path/to/config/file] [--user username]\n");
+    printf("       [--chroot /path/to/chroot/directory]\n");
     printf("\n");
 #ifdef LWAN_HAVE_MBEDTLS
     printf("Serve files through HTTP or HTTPS.\n\n");
