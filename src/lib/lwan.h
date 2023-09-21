@@ -318,7 +318,12 @@ enum lwan_connection_flags {
     CONN_LISTENER = 1 << 11,
 
     CONN_USE_DYNAMIC_BUFFER = 1 << 12,
+
+    CONN_FLAG_LAST = CONN_USE_DYNAMIC_BUFFER,
 };
+
+static_assert(CONN_FLAG_LAST < ((1 << 15) - 1),
+              "Enough space for epoll events in conn flags");
 
 enum lwan_connection_coro_yield {
     /* Returns to the event loop and terminates the coroutine, freeing
