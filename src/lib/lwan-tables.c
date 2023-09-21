@@ -95,17 +95,25 @@ void lwan_tables_init(void)
                  "application/octet-stream"));
     assert(streq(lwan_determine_mime_type_for_file_name(""),
                  "application/octet-stream"));
-    assert(streq(lwan_determine_mime_type_for_file_name(".gif"),
-                 "image/gif"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".gif"), "image/gif"));
     assert(streq(lwan_determine_mime_type_for_file_name(".JS"),
                  "text/javascript"));
     assert(streq(lwan_determine_mime_type_for_file_name(".BZ2"),
                  "application/x-bzip2"));
-}
 
-void
-lwan_tables_shutdown(void)
-{
+#ifndef NDEBUG
+#define ASSERT_STATUS(id, code, short, long)                                   \
+    do {                                                                       \
+        const char *status = lwan_http_status_as_string_with_code(HTTP_##id);  \
+        assert(!strncmp(status, #code, 3));                                    \
+        const char *status_as_str = lwan_http_status_as_string(HTTP_##id);     \
+        assert(!strcmp(status_as_str, short));                                 \
+        const char *descr = lwan_http_status_as_descriptive_string(HTTP_##id); \
+        assert(!strcmp(descr, long));                                          \
+    } while (0);
+FOR_EACH_HTTP_STATUS(ASSERT_STATUS)
+#undef ASSERT_STATUS
+#endif
 }
 
 static int
