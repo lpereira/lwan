@@ -2162,9 +2162,9 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
 
         /* FIXME: RFC7230/RFC3875 compliance */
         for (char *p = header_name; *p; p++) {
-            if (isalpha(*p))
+            if (lwan_char_isalpha(*p))
                 *p &= ~0x20;
-            else if (!isdigit(*p))
+            else if (!lwan_char_isdigit(*p))
                 *p = '_';
         }
 

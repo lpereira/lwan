@@ -202,9 +202,10 @@ lwan_http_status_as_descriptive_string(enum lwan_http_status status)
 }
 
 enum {
-    CHAR_PROP_SPACE = 1<<0,
-    CHAR_PROP_HEX = 1<<1,
-    CHAR_PROP_DIG = 1<<2,
+    CHAR_PROP_SPACE = 1 << 0,
+    CHAR_PROP_HEX = 1 << 1,
+    CHAR_PROP_DIG = 1 << 2,
+    CHAR_PROP_ALPHA = 1 << 3,
 };
 
 static const uint8_t char_prop_tbl[256] = {
@@ -222,18 +223,58 @@ static const uint8_t char_prop_tbl[256] = {
     ['7'] = CHAR_PROP_HEX | CHAR_PROP_DIG,
     ['8'] = CHAR_PROP_HEX | CHAR_PROP_DIG,
     ['9'] = CHAR_PROP_HEX | CHAR_PROP_DIG,
-    ['a'] = CHAR_PROP_HEX,
-    ['b'] = CHAR_PROP_HEX,
-    ['c'] = CHAR_PROP_HEX,
-    ['d'] = CHAR_PROP_HEX,
-    ['e'] = CHAR_PROP_HEX,
-    ['f'] = CHAR_PROP_HEX,
-    ['A'] = CHAR_PROP_HEX,
-    ['B'] = CHAR_PROP_HEX,
-    ['C'] = CHAR_PROP_HEX,
-    ['D'] = CHAR_PROP_HEX,
-    ['E'] = CHAR_PROP_HEX,
-    ['F'] = CHAR_PROP_HEX,
+    ['a'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['b'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['c'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['d'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['e'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['f'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['g'] = CHAR_PROP_ALPHA,
+    ['h'] = CHAR_PROP_ALPHA,
+    ['i'] = CHAR_PROP_ALPHA,
+    ['j'] = CHAR_PROP_ALPHA,
+    ['k'] = CHAR_PROP_ALPHA,
+    ['l'] = CHAR_PROP_ALPHA,
+    ['m'] = CHAR_PROP_ALPHA,
+    ['n'] = CHAR_PROP_ALPHA,
+    ['o'] = CHAR_PROP_ALPHA,
+    ['p'] = CHAR_PROP_ALPHA,
+    ['q'] = CHAR_PROP_ALPHA,
+    ['r'] = CHAR_PROP_ALPHA,
+    ['s'] = CHAR_PROP_ALPHA,
+    ['t'] = CHAR_PROP_ALPHA,
+    ['u'] = CHAR_PROP_ALPHA,
+    ['v'] = CHAR_PROP_ALPHA,
+    ['w'] = CHAR_PROP_ALPHA,
+    ['x'] = CHAR_PROP_ALPHA,
+    ['y'] = CHAR_PROP_ALPHA,
+    ['z'] = CHAR_PROP_ALPHA,
+    ['A'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['B'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['C'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['D'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['E'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['F'] = CHAR_PROP_HEX | CHAR_PROP_ALPHA,
+    ['G'] = CHAR_PROP_ALPHA,
+    ['H'] = CHAR_PROP_ALPHA,
+    ['I'] = CHAR_PROP_ALPHA,
+    ['J'] = CHAR_PROP_ALPHA,
+    ['K'] = CHAR_PROP_ALPHA,
+    ['L'] = CHAR_PROP_ALPHA,
+    ['M'] = CHAR_PROP_ALPHA,
+    ['N'] = CHAR_PROP_ALPHA,
+    ['O'] = CHAR_PROP_ALPHA,
+    ['P'] = CHAR_PROP_ALPHA,
+    ['Q'] = CHAR_PROP_ALPHA,
+    ['R'] = CHAR_PROP_ALPHA,
+    ['S'] = CHAR_PROP_ALPHA,
+    ['T'] = CHAR_PROP_ALPHA,
+    ['U'] = CHAR_PROP_ALPHA,
+    ['V'] = CHAR_PROP_ALPHA,
+    ['W'] = CHAR_PROP_ALPHA,
+    ['X'] = CHAR_PROP_ALPHA,
+    ['Y'] = CHAR_PROP_ALPHA,
+    ['Z'] = CHAR_PROP_ALPHA,
 };
 
 ALWAYS_INLINE uint8_t lwan_char_isspace(char ch)
@@ -249,4 +290,14 @@ ALWAYS_INLINE uint8_t lwan_char_isxdigit(char ch)
 ALWAYS_INLINE uint8_t lwan_char_isdigit(char ch)
 {
     return char_prop_tbl[(unsigned char)ch] & CHAR_PROP_DIG;
+}
+
+ALWAYS_INLINE uint8_t lwan_char_isalpha(char ch)
+{
+    return char_prop_tbl[(unsigned char)ch] & CHAR_PROP_ALPHA;
+}
+
+ALWAYS_INLINE uint8_t lwan_char_isalnum(char ch)
+{
+    return char_prop_tbl[(unsigned char)ch] & (CHAR_PROP_ALPHA | CHAR_PROP_DIG);
 }
