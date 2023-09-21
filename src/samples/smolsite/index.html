@@ -25,8 +25,36 @@ pre {
 
 <pre>
 $ zip -DXjq9 somesite.zip index.html mylogo.png
-$ echo "https://smolsite.zip/`cat somesite.zip | base64 --wrap 0`"
+$ echo "https://smolsite.zip/`base64 --wrap 0 < somesite.zip`"
 </pre>
+
+<h1 style="margin-top: 300px">FAQ</h1>
+<h2>I don't have a command line, can I still share a smolsite?</h2>
+<p>Sure, drag the ZIP file to the bottom purple bar.</p>
+
+<h2>Can I host a website on a piece of paper?</h2>
+<p>Yes! Click on the QR code below to see a printable/scannable version
+of this website.</p>
+
+<h2>Is this open source?</h2>
+<p><a href="https://github.com/lpereira/lwan">Yes, it is open source</a>.</p>
+
+<h2>Is the ZIP file unpacked in the server?</h2> <p>The contents are
+processed in the server and kept in RAM for 15 minutes.  The content is gone
+after that, unless someone opens the same link again.</p>
+
+<h2>Is this protected against ZIP bombs?</h2> <p>Deflated data is sent back
+unmodified to browsers, and no recursive unzipping happens.  So, yes, it's
+somewhat protected against ZIP bombs.</p>
+
+<h2>Can content be taken down?</h2> <p>We'll do our best to ensure exact URLs
+are blocked from being shared by smolsite. (We can't fully take the content
+down, as it is in the URL and that's something we do not control: if someone
+has a link to improper content, they can extract it without the need of
+smolsite.)
+Send the full link to <tt>abuse.smolsite&commat;tia.mat.br</tt>
+with the reason the content should be taken down and we'll take it from there.</p>
+
 </body>
 
 </html>
