@@ -1017,7 +1017,8 @@ unbake_direct_addresses(struct lwan_tpl *tpl)
 {
     struct chunk *iter;
 
-    assert(tpl->dispatch_table);
+    if (!tpl->dispatch_table)
+        return;
 
     LWAN_ARRAY_FOREACH (&tpl->chunks, iter) {
         for (enum action action = ACTION_APPEND; action <= ACTION_LAST; action++) {
