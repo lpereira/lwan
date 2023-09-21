@@ -35,12 +35,14 @@ enum args {
 static void print_module_info(void)
 {
     const struct lwan_module_info *module;
+    int count = 0;
 
     printf("Built-in modules:");
     LWAN_SECTION_FOREACH(lwan_module, module) {
         printf(" %s", module->name);
+        count++;
     }
-    printf(".\n");
+    printf(count ? ".\n" : " (none)\n");
 }
 
 static void
@@ -57,52 +59,55 @@ print_handler_info(void)
         printf(" %s", handler->name);
         count++;
     }
-    if (!count) {
-        printf(" (none)");
-    }
-    printf(".\n");
+    printf(count ? ".\n" : " (none)\n");
 }
 
 static void
 print_build_time_configuration(void)
 {
     printf("Build-time configuration:");
-#ifdef LWAN_HAVE_LUA
+
+#if defined(LWAN_HAVE_LUA_JIT)
+    printf(" LuaJIT");
+#elif defined(LWAN_HAVE_LUA)
     printf(" Lua");
 #endif
-#ifdef LWAN_HAVE_BROTLI
+
+#if defined(LWAN_HAVE_BROTLI)
     printf(" Brotli");
 #endif
-#ifdef LWAN_HAVE_ZSTD
+#if defined(LWAN_HAVE_ZSTD)
     printf(" zstd");
 #endif
-#ifdef LWAN_HAVE_MBEDTLS
+
+#if defined(LWAN_HAVE_MBEDTLS)
     printf(" mbedTLS");
 #endif
-#ifdef LWAN_HAVE_LIBUCONTEXT
+
+#if defined(LWAN_HAVE_LIBUCONTEXT)
     printf(" libucontext");
 #endif
-#ifdef LWAN_HAVE_EPOLL
+
+#if defined(LWAN_HAVE_EPOLL)
     printf(" epoll");
-#endif
-#ifdef LWAN_HAVE_KQUEUE
+#elif defined(LWAN_HAVE_KQUEUE)
     printf(" kqueue");
 #endif
-#ifdef LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF
+
+#if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
     printf(" sockopt-reuseport-CBPF");
-#endif
-#ifdef LWAN_HAVE_SO_INCOMING_CPU
+#elif defined(LWAN_HAVE_SO_INCOMING_CPU)
     printf(" sockopt-reuseport-incoming-cpu");
 #endif
-#ifdef LWAN_HAVE_VALGRIND
+
+#if defined(LWAN_HAVE_VALGRIND)
     printf(" valgrind");
 #endif
-#ifdef LWAN_HAVE_SYSLOG
+
+#if defined(LWAN_HAVE_SYSLOG)
     printf(" syslog");
 #endif
-#ifdef HAVE_PYTHON
-    printf(" python");
-#endif
+
     printf(".\n");
 }
 
@@ -114,13 +119,13 @@ print_help(const char *argv0, const struct lwan_config *config)
     const char *config_file = lwan_get_config_path(path_buf, sizeof(path_buf));
 
     printf("Usage: %s [--root /path/to/root/dir] [--listen addr:port]\n", argv0);
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
     printf("       [--tls-listen addr:port] [--cert-path /cert/path] [--cert-key /key/path]\n");
 #endif
     printf("       [--config /path/to/config/file] [--user username]\n");
     printf("       [--chroot /path/to/chroot/directory]\n");
     printf("\n");
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
     printf("Serve files through HTTP or HTTPS.\n\n");
 #else
     printf("Serve files through HTTP.\n\n");
@@ -129,7 +134,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("  -r, --root       Path to serve files from (default: ./wwwroot).\n");
     printf("\n");
     printf("  -l, --listen     Listener (default: %s).\n", config->listener);
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
     printf("  -L, --tls-listen TLS Listener (default: %s).\n",
             config->tls_listener ?
             config->tls_listener : "not listening");
@@ -138,7 +143,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("  -c, --config     Path to config file path.\n");
     printf("  -u, --user       Username to drop privileges to (root required).\n");
     printf("  -C, --chroot     Chroot to path passed to --root (root required).\n");
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
     printf("\n");
     printf("  -P, --cert-path  Path to TLS certificate.\n");
     printf("  -K, --cert-key   Path to TLS key.\n");
@@ -157,7 +162,7 @@ print_help(const char *argv0, const struct lwan_config *config)
     printf("    %s\n", argv0);
     printf("  Use /etc/%s:\n", config_file);
     printf("    %s -c /etc/%s\n", argv0, config_file);
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
     printf("  Serve system docs with HTTP and HTTPS:\n");
     printf("    %s -P /path/to/cert.pem -K /path/to/cert.key \\\n"
            "       -l '*:8080' -L '*:8081' -r /usr/share/doc\n", argv0);
@@ -184,7 +189,7 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
         { .name = "config", .has_arg = 1, .val = 'c' },
         { .name = "chroot", .val = 'C' },
         { .name = "user", .val = 'u', .has_arg = 1 },
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
         { .name = "tls-listen", .val = 'L', .has_arg = 1 },
         { .name = "cert-path", .val = 'P', .has_arg = 1 },
         { .name = "cert-key", .val = 'K', .has_arg = 1 },
@@ -196,7 +201,7 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
 
     while ((c = getopt_long(argc, argv, "L:P:K:hr:l:c:u:C", opts, &optidx)) != -1) {
         switch (c) {
-#ifdef LWAN_HAVE_MBEDTLS
+#if defined(LWAN_HAVE_MBEDTLS)
         case 'L':
             free(config->tls_listener);
             config->tls_listener = strdup(optarg);
