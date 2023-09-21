@@ -167,46 +167,32 @@ fallback:
     return "application/octet-stream";
 }
 
-#define GENERATE_ENTRY(id, code, short, long)                                  \
-    [HTTP_ ## id] = {.status = #code " " short, .description = long},
-static const struct {
-    const char *status;
-    const char *description;
-} status_table[] = {
-    FOR_EACH_HTTP_STATUS(GENERATE_ENTRY)
-};
+ALWAYS_INLINE const char *
+lwan_http_status_as_string_with_code(const enum lwan_http_status status)
+{
+#define ENTRY(id, code, short, long) [HTTP_##id] = #code " " short "\0" long,
+    static const char *table[] = {FOR_EACH_HTTP_STATUS(ENTRY)};
 #undef GENERATE_ENTRY
 
-const char *
-lwan_http_status_as_string_with_code(enum lwan_http_status status)
-{
-    if (LIKELY(status < N_ELEMENTS(status_table))) {
-        const char *ret = status_table[status].status;
-
-        if (LIKELY(ret))
-            return ret;
+    if (LIKELY((size_t)status < N_ELEMENTS(table))) {
+        const char *entry = table[status];
+        if (LIKELY(entry))
+            return entry;
     }
 
-    return "999 Invalid";
+    return "999 Invalid\0Unknown status code";
 }
 
-ALWAYS_INLINE const char *
-lwan_http_status_as_string(enum lwan_http_status status)
+const char *
+lwan_http_status_as_string(const enum lwan_http_status status)
 {
     return lwan_http_status_as_string_with_code(status) + 4;
 }
 
-const char *
-lwan_http_status_as_descriptive_string(enum lwan_http_status status)
+const char *lwan_http_status_as_descriptive_string(const enum lwan_http_status status)
 {
-    if (LIKELY(status < N_ELEMENTS(status_table))) {
-        const char *ret = status_table[status].description;
-
-        if (LIKELY(ret))
-            return ret;
-    }
-
-    return "Invalid";
+    const char *str = lwan_http_status_as_string_with_code(status);
+    return str + strlen(str) + 1;
 }
 
 enum {
