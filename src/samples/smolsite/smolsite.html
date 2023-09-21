@@ -25,15 +25,46 @@
 	text-align: right;
 	font-size: 16px;
 	text-shadow: 0 0 16px black;
+	float: right;
+      }
+      .darkened {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: rgba(255, 255, 255, .8);
+        backdrop-filter: blur(2px);
+        z-index: 998;
+      }
+      .big {
+        position: absolute;
+        width: auto;
+        height: calc(100% - 32px);
+        left: 16px;
+        top: 16px;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        z-index: 999;
       }
     </style>
   </head>
   <body id="b">
-    <iframe id="i" allowfullscreen="false" sandbox="allow-scripts"    allowpaymentrequest="false" src="/s/{{digest}}/"></iframe>
-    <p>  Hosted in the URL by 🗜️
-      <b>smolsite.zip</b>. Powered by the 
-      <a style="color: white" href="https://lwan.ws">Lwan</a> web server.  
-    </p>
+    <iframe id="i"
+            sandbox="allow-scripts"
+            allowfullscreen="false"
+            allowpaymentrequest="false"
+            credentialless="true"
+            src="/s/{{digest}}/">
+    </iframe>
+
+{{has_qr_code?}}
+    <div id="shadow"></div>
+    <img src="/q/{{digest}}" width="32" height="31" id="qr" alt="QR Code" title="QR code">
+{{/has_qr_code?}}
+
+    <p>The address of this site contains the whole website! Learn how it works on <a style="color: white; text-decoration: none; font-weight: bold" href="/">🗜️smolsite.zip</a>.</p>
     <script>let body = document.getElementById('b');
 body.addEventListener('dragenter', function(e) {
         e.stopPropagation();
@@ -67,6 +98,12 @@ body.addEventListener('drop', function(e) {
             reader.readAsDataURL(e.dataTransfer.files[0]);
     }
 }, false);
+
+let qr = document.getElementById('qr');
+let shadow = document.getElementById('shadow');
+let toggleQr = function(e) { qr.classList.toggle('big'); shadow.classList.toggle('darkened'); };
+qr.addEventListener('click', toggleQr);
+shadow.addEventListener('click', toggleQr);
 </script>
   </body>
 </html>

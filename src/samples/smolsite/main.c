@@ -35,6 +35,8 @@
 #include "lwan-template.h"
 
 #include "junzip.h"
+#include "qrcodegen.h"
+#include "../clock/gifenc.h"
 
 #include "smolsite.h"
 
@@ -53,16 +55,20 @@ struct site {
     struct cache_entry entry;
     struct lwan_value zipped;
     struct hash *files;
+    struct lwan_strbuf qr_code;
+    int has_qr_code;
 };
 
 struct iframe_tpl_vars {
     const char *digest;
+    int has_qr_code;
 };
 
 #undef TPL_STRUCT
 #define TPL_STRUCT struct iframe_tpl_vars
 static const struct lwan_var_descriptor iframe_tpl_desc[] = {
     TPL_VAR_STR(digest),
+    TPL_VAR_INT(has_qr_code),
     TPL_VAR_SENTINEL,
 };
 
@@ -100,7 +106,7 @@ static struct hash *pending_sites(void)
     static __thread struct hash *pending_sites;
 
     if (!pending_sites) {
-        pending_sites = hash_str_new(free, free);
+        pending_sites = hash_str_new(free, NULL);
         if (!pending_sites) {
             lwan_status_critical("Could not allocate pending sites hash table");
         }
@@ -158,21 +164,80 @@ static int file_cb(
     return 0;
 }
 
+static bool generate_qr_code_gif(const char *b64, struct lwan_strbuf *output)
+{
+    uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+    uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+    char *url;
+    bool ok;
+
+    if (!lwan_strbuf_init(output))
+        return false;
+
+    if (asprintf(&url, "https://smolsite.zip/%s", b64) < 0)
+        return false;
+
+    ok = qrcodegen_encodeText(url, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+                              qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+                              qrcodegen_Mask_AUTO, true);
+    free(url);
+    if (!ok)
+        return false;
+
+    int size = qrcodegen_getSize(qrcode);
+    if ((int)(uint16_t)size != size)
+        return false;
+
+    ge_GIF *gif =
+        ge_new_gif(output, (uint16_t)size, (uint16_t)size, NULL, 4, -1);
+    if (!gif) {
+        lwan_strbuf_free(output);
+        return false;
+    }
+
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            gif->frame[y * size + x] = qrcodegen_getModule(qrcode, x, y) ? 0 : 15;
+        }
+    }
+    ge_add_frame(gif, 0);
+    ge_close_gif(gif);
+
+    return true;
+}
+
 static struct cache_entry *create_site(const void *key, void *context)
 {
-    const struct lwan_value *zipped =
+    struct lwan_strbuf qr_code = LWAN_STRBUF_STATIC_INIT;
+    const struct lwan_value *base64_encoded =
         hash_find(pending_sites(), (const void *)key);
+    unsigned char *decoded = NULL;
+    size_t decoded_len;
 
-    if (!zipped)
+    if (!base64_encoded)
+        return NULL;
+
+    if (UNLIKELY(!base64_validate((unsigned char *)base64_encoded->value,
+                                  base64_encoded->len))) {
+        return NULL;
+    }
+
+    decoded = base64_decode((unsigned char *)base64_encoded->value,
+                            base64_encoded->len, &decoded_len);
+    if (UNLIKELY(!decoded))
         return NULL;
 
     struct site *site = malloc(sizeof(*site));
     if (!site)
         goto no_site;
 
-    site->zipped = *zipped;
+    site->has_qr_code =
+        generate_qr_code_gif((const char *)base64_encoded->value, &qr_code);
 
-    FILE *zip_mem = fmemopen(zipped->value, zipped->len, "rb");
+    site->qr_code = qr_code;
+    site->zipped = (struct lwan_value) {.value = (char *)decoded, .len = decoded_len};
+
+    FILE *zip_mem = fmemopen(decoded, decoded_len, "rb");
     if (!zip_mem)
         goto no_file;
 
@@ -194,6 +259,7 @@ static struct cache_entry *create_site(const void *key, void *context)
         goto no_central_dir;
 
     jzfile_free(zip);
+
     return (struct cache_entry *)site;
 
 no_central_dir:
@@ -204,13 +270,15 @@ no_end_record:
 no_file:
     free(site);
 no_site:
-    free(zipped->value);
+    free(decoded);
+    lwan_strbuf_free(&qr_code);
     return NULL;
 }
 
 static void destroy_site(struct cache_entry *entry, void *context)
 {
     struct site *site = (struct site *)entry;
+    lwan_strbuf_free(&site->qr_code);
     hash_free(site->files);
     free(site->zipped.value);
     free(site);
@@ -221,7 +289,6 @@ static void remove_from_pending_defer(void *data)
     char *key = data;
     hash_del(pending_sites(), key);
 }
-
 
 LWAN_HANDLER_ROUTE(view_root, "/")
 {
@@ -250,54 +317,52 @@ LWAN_HANDLER_ROUTE(view_root, "/")
     site = (struct site *)cache_coro_get_and_ref_entry(
         sites, request->conn->coro, digest_str);
     if (!site) {
-        struct lwan_value *zip = malloc(sizeof(*zip));
-        if (UNLIKELY(!zip))
-            return HTTP_INTERNAL_ERROR;
-
         char *key = strdup(digest_str);
-        if (UNLIKELY(!key))
+        if (!key) {
+        lwan_status_debug("a");
             return HTTP_INTERNAL_ERROR;
-        if (UNLIKELY(hash_add_unique(pending_sites(), key, zip))) {
-            free(key);
-            free(zip);
+           }
+
+        if (UNLIKELY(hash_add_unique(pending_sites(), key, &request->url))) {
+        lwan_status_debug("b");
             return HTTP_INTERNAL_ERROR;
-        }
+           }
 
         coro_defer(request->conn->coro, remove_from_pending_defer, key);
 
-        /* This base64 decoding stuff could go to create_site(), but
-         * then we'd need to allocate a new buffer, copy the encoded
-         * ZIP into that buffer, and free it inside create_site(). It's
-         * just more work than just decoding it.
-         */
-        unsigned char *decoded;
-        size_t decoded_len;
-
-        if (UNLIKELY(!base64_validate((unsigned char *)request->url.value,
-                                      request->url.len))) {
-            return HTTP_BAD_REQUEST;
-        }
-
-        decoded = base64_decode((unsigned char *)request->url.value,
-                                request->url.len, &decoded_len);
-        if (UNLIKELY(!decoded))
-            return HTTP_BAD_REQUEST;
-
-        zip->value = (char *)decoded;
-        zip->len = decoded_len;
-
         site = (struct site *)cache_coro_get_and_ref_entry(
-            sites, request->conn->coro, digest_str);
-        if (UNLIKELY(!site))
+            sites, request->conn->coro, key);
+        if (UNLIKELY(!site)) {
+        lwan_status_debug("c");
             return HTTP_INTERNAL_ERROR;
+}
     }
 
     response->mime_type = "text/html; charset=utf-8";
 
-    struct iframe_tpl_vars vars = {.digest = digest_str};
+    struct iframe_tpl_vars vars = {
+        .digest = digest_str,
+        .has_qr_code = site->has_qr_code,
+    };
     if (!lwan_tpl_apply_with_buffer(iframe_tpl, response->buffer, &vars))
         return HTTP_INTERNAL_ERROR;
 
+    return HTTP_OK;
+}
+
+LWAN_HANDLER_ROUTE(qr_code, "/q/")
+{
+    struct site *site = (struct site *)cache_coro_get_and_ref_entry(
+        sites, request->conn->coro, request->url.value);
+    if (!site)
+        return HTTP_NOT_FOUND;
+    if (!site->has_qr_code)
+        return HTTP_NOT_FOUND;
+
+    lwan_strbuf_set_static(response->buffer,
+                           lwan_strbuf_get_buffer(&site->qr_code),
+                           lwan_strbuf_get_length(&site->qr_code));
+    response->mime_type = "image/gif";
     return HTTP_OK;
 }
 
