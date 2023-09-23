@@ -167,20 +167,12 @@ fallback:
     return "application/octet-stream";
 }
 
+#include "lookup-http-status.h" /* genrated by statuslookupgen */
+
 ALWAYS_INLINE const char *
 lwan_http_status_as_string_with_code(const enum lwan_http_status status)
 {
-#define ENTRY(id, code, short, long) [HTTP_##id] = #code " " short "\0" long,
-    static const char *table[] = {FOR_EACH_HTTP_STATUS(ENTRY)};
-#undef GENERATE_ENTRY
-
-    if (LIKELY((size_t)status < N_ELEMENTS(table))) {
-        const char *entry = table[status];
-        if (LIKELY(entry))
-            return entry;
-    }
-
-    return "999 Invalid\0Unknown status code";
+    return lwan_lookup_http_status_impl(status);
 }
 
 const char *
@@ -191,7 +183,7 @@ lwan_http_status_as_string(const enum lwan_http_status status)
 
 const char *lwan_http_status_as_descriptive_string(const enum lwan_http_status status)
 {
-    const char *str = lwan_http_status_as_string_with_code(status);
+    const char *str = lwan_lookup_http_status_impl(status);
     return str + strlen(str) + 1;
 }
 

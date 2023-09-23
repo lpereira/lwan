@@ -88,6 +88,19 @@ add_custom_target(generate_mime_types_table
 )
 add_dependencies(lwan-static generate_mime_types_table)
 
+
+add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/lookup-http-status.h
+        COMMAND statuslookupgen > ${CMAKE_BINARY_DIR}/lookup-http-status.h
+        DEPENDS statuslookupgen
+	COMMENT "Building HTTP status lookup perfect hash table"
+)
+add_custom_target(generate_lookup_http_status
+        DEPENDS ${CMAKE_BINARY_DIR}/lookup-http-status.h
+)
+add_dependencies(lwan-static generate_lookup_http_status)
+
+
 add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/servefile-data.h
         COMMAND bin2hex
