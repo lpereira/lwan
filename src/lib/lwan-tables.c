@@ -38,6 +38,10 @@ static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static char *mime_types[MIME_ENTRIES];
 static bool mime_entries_initialized = false;
 
+void lwan_tables_shutdown(void)
+{
+}
+
 void lwan_tables_init(void)
 {
     if (mime_entries_initialized)
