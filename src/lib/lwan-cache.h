@@ -56,3 +56,5 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
 struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
       struct coro *coro, const void *key);
+
+void cache_make_read_only(struct cache *cache);

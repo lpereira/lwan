@@ -39,7 +39,8 @@ enum {
     FREE_KEY_ON_DESTROY = 1 << 2,
 
     /* Cache flags */
-    SHUTTING_DOWN = 1 << 0
+    SHUTTING_DOWN = 1 << 0,
+    READ_ONLY = 1 << 1,
 };
 
 struct cache {
@@ -201,6 +202,17 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 
     *error = 0;
 
+    if (cache->flags & READ_ONLY) {
+        entry = hash_find(cache->hash.table, key);
+#ifndef NDEBUG
+        if (LIKELY(entry))
+            ATOMIC_INC(cache->stats.hits);
+        else
+            ATOMIC_INC(cache->stats.misses);
+#endif
+        return entry;
+    }
+
     /* If the lock can't be obtained, return an error to allow, for instance,
      * yielding from the coroutine and trying to obtain the lock at a later
      * time. */
@@ -291,6 +303,9 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
 {
     assert(entry);
 
+    if (cache->flags & READ_ONLY)
+        return;
+
     /* FIXME: There's a race condition in this function: if the cache is
      * destroyed while there are either temporary or floating entries,
      * calling the destroy_entry callback function will dereference
@@ -324,6 +339,11 @@ static bool cache_pruner_job(void *data)
     bool shutting_down = cache->flags & SHUTTING_DOWN;
     struct list_head queue;
     unsigned int evicted = 0;
+
+    /* This job might start execution as we mark ourselves as read-only,
+     * and before this job is removed from the job thread. */
+    if (cache->flags & READ_ONLY)
+        return true;
 
     if (UNLIKELY(pthread_rwlock_trywrlock(&cache->queue.lock) == EBUSY))
         return false;
@@ -418,6 +438,10 @@ struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
                                                  struct coro *coro,
                                                  const void *key)
 {
+    /* If a cache is read-only, cache_get_and_ref_entry() should be
+     * used directly. */
+    assert(!(cache->flags & READ_ONLY));
+
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
         struct cache_entry *ce = cache_get_and_ref_entry(cache, key, &error);
@@ -443,4 +467,10 @@ struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
     }
 
     return NULL;
+}
+
+void cache_make_read_only(struct cache *cache)
+{
+    cache->flags |= READ_ONLY;
+    lwan_job_del(cache_pruner_job, cache);
 }

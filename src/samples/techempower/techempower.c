@@ -314,39 +314,6 @@ static void cached_queries_free(struct cache_entry *entry, void *context)
     free(entry);
 }
 
-static struct cache_entry *my_cache_coro_get_and_ref_entry(
-    struct cache *cache, struct lwan_request *request, int key)
-{
-    /* Using this function instead of cache_coro_get_and_ref_entry() will avoid
-     * calling coro_defer(), which, in cases where the number of cached queries
-     * is too high, will trigger reallocations of the coro_defer array (and the
-     * "demotion" from the storage inlined in the coro struct to somewhere in
-     * the heap).
-     *
-     * For large number of cached elements, too, this will reduce the number of
-     * indirect calls that are performed every time a request is serviced.
-     */
-
-    for (int tries = 64; tries; tries--) {
-        int error;
-        struct cache_entry *ce =
-            cache_get_and_ref_entry(cache, (void *)(uintptr_t)key, &error);
-
-        if (LIKELY(ce))
-            return ce;
-
-        if (error != EWOULDBLOCK)
-            break;
-
-        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
-
-        if (tries > 16)
-            lwan_request_sleep(request, (unsigned int)(tries / 8));
-    }
-
-    return NULL;
-}
-
 LWAN_HANDLER(cached_queries)
 {
     const char *queries_str = lwan_request_get_query_param(request, "count");
@@ -360,15 +327,15 @@ LWAN_HANDLER(cached_queries)
     for (long i = 0; i < queries; i++) {
         struct db_json_cached *jc;
         int key = (int)lwan_random_uint64() % 10000;
+        int error;
 
-        jc = (struct db_json_cached *)my_cache_coro_get_and_ref_entry(
-            cached_queries_cache, request, key);
-        if (UNLIKELY(!jc))
-            return HTTP_INTERNAL_ERROR;
+        jc = (struct db_json_cached *)cache_get_and_ref_entry(
+                cached_queries_cache, (void *)(intptr_t)key, &error);
 
         qj.queries[i] = jc->db_json;
 
-        cache_entry_unref(cached_queries_cache, (struct cache_entry *)jc);
+        /* No need to unref the cache entry here: cache is marked as read-only,
+         * so it would be a no-op. */
     }
 
     /* Avoid reallocations/copies while building response.  Each response
@@ -526,6 +493,14 @@ int main(void)
                                              3600 /* 1 hour */);
     if (!cached_queries_cache)
         lwan_status_critical("Could not create cached queries cache");
+    /* Pre-populate the cache and make it read-only to avoid locking in the fast
+     * path. */
+    for (int i = 0; i < 10000; i++) {
+        int error;
+        (void)cache_get_and_ref_entry(cached_queries_cache, (void *)(intptr_t)i,
+                                      &error);
+    }
+    cache_make_read_only(cached_queries_cache);
 
     lwan_main_loop(&l);
 
