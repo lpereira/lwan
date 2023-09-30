@@ -241,15 +241,18 @@ LWAN_HANDLER(db)
                          &db_json);
 }
 
+static long get_number_of_queries(struct lwan_request *request)
+{
+    const char *queries_str = lwan_request_get_query_param(request, "queries");
+    return LIKELY(queries_str)
+               ? LWAN_MIN(500, LWAN_MAX(1, parse_long(queries_str, -1)))
+               : 1;
+}
+
 LWAN_HANDLER(queries)
 {
     enum lwan_http_status ret = HTTP_INTERNAL_ERROR;
-    const char *queries_str = lwan_request_get_query_param(request, "queries");
-    long queries;
-
-    queries = LIKELY(queries_str)
-                  ? LWAN_MIN(500, LWAN_MAX(1, parse_long(queries_str, -1)))
-                  : 1;
+    long queries = get_number_of_queries(request);
 
     struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
                                            sizeof(random_number_query) - 1);
@@ -316,12 +319,7 @@ static void cached_queries_free(struct cache_entry *entry, void *context)
 
 LWAN_HANDLER(cached_queries)
 {
-    const char *queries_str = lwan_request_get_query_param(request, "count");
-    long queries;
-
-    queries = LIKELY(queries_str)
-                  ? LWAN_MIN(500, LWAN_MAX(1, parse_long(queries_str, -1)))
-                  : 1;
+    long queries = get_number_of_queries(request);
 
     struct queries_json qj = {.queries_len = (size_t)queries};
     for (long i = 0; i < queries; i++) {
