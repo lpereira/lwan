@@ -8,10 +8,9 @@
 
 #include "../../lib/lwan-http-status.h"
 
-static inline uint32_t rotate(int v, int n)
+static inline uint32_t rotate(uint32_t v, int n)
 {
-    uint32_t vv = (uint32_t)v;
-    return vv << (32 - n) | vv >> n;
+    return v << (32 - n) | v >> n;
 }
 
 int main(void)
@@ -50,7 +49,7 @@ int main(void)
                 int set_bits = 0;
 
                 for (int key = 0; key < N_KEYS; key++) {
-                    uint32_t k = rotate(keys[key] - subtract, rot) % mod;
+                    uint32_t k = rotate((uint32_t)keys[key] - (uint32_t)subtract, rot) % mod;
                     
                     if (!(set & 1ull<<k)) {
                         set |= 1ull<<k;
@@ -80,7 +79,7 @@ int main(void)
     printf("static ALWAYS_INLINE const char *lwan_lookup_http_status_impl(enum lwan_http_status status) {\n");
     printf("    static const char *table[] = {\n");
 #define PRINT_V(ignored1, key, short_desc, long_desc) do { \
-        uint32_t k = rotate(key - best_subtract, best_rot) % best_mod; \
+        uint32_t k = rotate((uint32_t)key - (uint32_t)best_subtract, best_rot) % best_mod; \
         set_values &= ~(1ull<<k); \
         printf("        [%d] = \"%d %s\\0%s\",\n", k, key, short_desc, long_desc); \
     } while(0);
