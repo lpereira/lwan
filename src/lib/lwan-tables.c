@@ -291,3 +291,19 @@ ALWAYS_INLINE uint8_t lwan_char_isalnum(char ch)
 {
     return char_prop_tbl[(unsigned char)ch] & (CHAR_PROP_ALPHA | CHAR_PROP_DIG);
 }
+
+#ifndef NDEBUG
+#include <ctype.h>
+__attribute__((constructor))
+static void test_lwan_char_tables(void)
+{
+    for (int i = 0; i < 256; i++) {
+        assert(!!isxdigit((char)i) == !!lwan_char_isxdigit((char)i));
+        assert(!!isdigit((char)i) == !!lwan_char_isdigit((char)i));
+        assert(!!isalpha((char)i) == !!lwan_char_isalpha((char)i));
+        assert(!!isalnum((char)i) == !!lwan_char_isalnum((char)i));
+
+        /* isspace() and lwan_char_isspace() differs on purpose */
+    }
+}
+#endif
