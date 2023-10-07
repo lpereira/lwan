@@ -1154,6 +1154,8 @@ in no particular order.  Contributions are appreciated:
 > source code for pure entertainment, it's so good.  *high five*" --
 > [@kwilczynski](https://twitter.com/kwilczynski/status/692881117003644929)
 
+> "mad science" -- [jwz](https://jwz.org/b/yjFZ)
+
 > "Nice work with Lwan! I haven't looked _that_ carefully yet but so far I
 > like what I saw.  You definitely have the right ideas." --
 > [@thinkingfish](https://twitter.com/thinkingfish/status/521574267612196864)
