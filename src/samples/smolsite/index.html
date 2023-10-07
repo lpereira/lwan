@@ -21,11 +21,11 @@ pre {
 
 <p>This whole site fits inside the URL!</p>
 
-<p>To host yours: use the command-line: put everything in a ZIP file, Base 64 encode it, and tack it after "https://smolsite.zip/":</p>
+<p>To host yours: use the command-line: put everything in a ZIP file, Base 64 encode it, and tack it after "https://smolsite.zip/".  For instance, if your
+smol site is comprised of two files, <tt>index.html</tt> and <tt>mylogo.png</tt>, you can generate a URL like so:</p>
 
 <pre>
-$ zip -DXjq9 somesite.zip index.html mylogo.png
-$ echo "https://smolsite.zip/`base64 --wrap 0 < somesite.zip`"
+$ echo "https://smolsite.zip/`zip -DXjq9 - index.html mylogo.png | base64 --wrap 0`"
 </pre>
 
 <h1 style="margin-top: 300px">FAQ</h1>
@@ -37,7 +37,7 @@ $ echo "https://smolsite.zip/`base64 --wrap 0 < somesite.zip`"
 of this website.</p>
 
 <h2>Is this open source?</h2>
-<p><a href="https://github.com/lpereira/lwan" target="_blank">Yes, it is open source</a>.</p>
+<p>Yes, it's open source, part of the <a href="https://lwan.ws">Lwan web server project</a>.</p>
 
 <h2>Is the ZIP file unpacked in the server?</h2> <p>The contents are
 processed in the server and kept in RAM for 15 minutes.  The content is gone
