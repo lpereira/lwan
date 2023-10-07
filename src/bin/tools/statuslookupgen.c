@@ -44,7 +44,7 @@ int main(void)
 
     for (int subtract = 0; subtract < min_key; subtract++) {
         for (int rot = 0; rot < 32; rot++) {
-            for (uint32_t mod = 1; mod < best_mod; mod++) {
+            for (uint32_t mod = N_KEYS; mod < best_mod; mod++) {
                 uint64_t set = 0;
                 int set_bits = 0;
 
