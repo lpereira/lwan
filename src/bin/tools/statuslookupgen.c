@@ -35,21 +35,21 @@ int main(void)
 
     int best_rot = INT_MAX;
     uint32_t best_mod = 64;
-    int best_subtract = INT_MAX;
+    uint32_t best_subtract = UINT_MAX;
 
     if (N_KEYS >= best_mod) {
         fprintf(stderr, "table too large!\n");
         return 1;
     }
 
-    for (int subtract = 0; subtract < min_key; subtract++) {
+    for (uint32_t subtract = 0; subtract < max_key; subtract++) {
         for (int rot = 0; rot < 32; rot++) {
             for (uint32_t mod = N_KEYS; mod < best_mod; mod++) {
                 uint64_t set = 0;
                 int set_bits = 0;
 
                 for (int key = 0; key < N_KEYS; key++) {
-                    uint32_t k = rotate((uint32_t)keys[key] - (uint32_t)subtract, rot) % mod;
+                    uint32_t k = rotate((uint32_t)keys[key] - subtract, rot) % mod;
                     
                     if (!(set & 1ull<<k)) {
                         set |= 1ull<<k;
