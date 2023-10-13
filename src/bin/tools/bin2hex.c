@@ -28,7 +28,7 @@
 
 #include "lwan.h"
 
-static int bin2hex(const char *path, const char *identifier)
+static int bin2hex_mmap(const char *path, const char *identifier)
 {
     int fd = open(path, O_RDONLY | O_CLOEXEC);
     struct stat st;
@@ -77,12 +77,41 @@ static int bin2hex(const char *path, const char *identifier)
     return 0;
 }
 
+static int bin2hex_incbin(const char *path, const char *identifier)
+{
+    printf("__asm__(\".section \\\".rodata\\\"\\n\"\n");
+    printf("        \"%s_start:\\n\"\n", identifier);
+    printf("        \".incbin \\\"%s\\\"\\n\"\n", path);
+    printf("        \"%s_end:\\n\"\n", identifier);
+    printf("        \".previous\\n\");\n");
+    printf("static struct lwan_value %s_value;\n", identifier);
+    printf("__attribute__((visibility(\"internal\"))) extern char %s_start[], %s_end[];\n", identifier, identifier);
+
+    return 0;
+}
+
+static int bin2hex(const char *path, const char *identifier)
+{
+    int r = 0;
+
+    printf("\n/* Contents of %s available through %s_value */\n", path, identifier);
+
+    printf("#if defined(__GNUC__) || defined(__clang__)\n");
+    r |= bin2hex_incbin(path, identifier);
+    printf("#else\n");
+    r |= bin2hex_mmap(path, identifier);
+    printf("#endif\n\n");
+
+    return r;
+}
+
 int main(int argc, char *argv[])
 {
     int arg;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s /path/to/file file_identifier [...]\n", argv[0]);
+        fprintf(stderr, "Usage: %s /path/to/file file_identifier [...]\n",
+                argv[0]);
         return 1;
     }
 
@@ -105,6 +134,20 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
+
+    printf("#if defined(__GNUC__) || defined(__clang__)\n");
+    printf("__attribute__((constructor (101))) static void\n");
+    printf("initialize_bin2hex_%016lx(void)\n", (uintptr_t)argv);
+    printf("{\n");
+    for (arg = 1; arg < argc; arg += 2) {
+        const char *identifier = argv[arg + 1];
+
+        printf("    %s_value = (struct lwan_value) {.value = (char *)%s_start, "
+               ".len = (size_t)(%s_end - %s_start)};\n",
+               identifier, identifier, identifier, identifier);
+    }
+    printf("}\n");
+    printf("#endif\n");
 
     return 0;
 }
