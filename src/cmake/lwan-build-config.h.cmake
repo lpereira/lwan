@@ -34,6 +34,7 @@
 #cmakedefine LWAN_HAVE_REALLOCARRAY
 #cmakedefine LWAN_HAVE_EPOLL
 #cmakedefine LWAN_HAVE_KQUEUE
+#cmakedefine LWAN_HAVE_KQUEUE1
 #cmakedefine LWAN_HAVE_DLADDR
 #cmakedefine LWAN_HAVE_POSIX_FADVISE
 #cmakedefine LWAN_HAVE_LINUX_CAPABILITY

@@ -160,6 +160,7 @@ if (LWAN_HAVE_SYS_EVENT)
 		sys/event.h sys/types.h sys/time.h
 	)
 	check_function_exists(kqueue LWAN_HAVE_KQUEUE)
+	check_function_exists(kqueue1 LWAN_HAVE_KQUEUE1)
 endif ()
 check_include_file(alloca.h LWAN_HAVE_ALLOCA_H)
 if (LWAN_HAVE_SYS_AUXV)

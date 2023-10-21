@@ -142,7 +142,27 @@ int clock_gettime(clockid_t clk_id, struct timespec *ts)
 
 #include "hash.h"
 
-int epoll_create1(int flags __attribute__((unused))) { return kqueue(); }
+int epoll_create1(int flags)
+{
+#if defined(LWAN_HAVE_KQUEUE1)
+    return kqueue1(flags & EPOLL_CLOEXEC ? O_CLOEXEC : 0);
+#else
+    int fd = kqueue();
+
+    if (flags & EPOLL_CLOEXEC) {
+        int flags;
+
+        flags = fcntl(fd, F_GETFD);
+        if (flags < 0)
+            return -1;
+
+        if (fcntl(fd, F_SETFD, flags | O_CLOEXEC) < 0)
+            return -1;
+    }
+
+    return fd;
+#endif
+}
 
 static int epoll_no_event_marker;
 
