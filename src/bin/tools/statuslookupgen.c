@@ -50,11 +50,12 @@ int main(void)
 
                 for (int key = 0; key < N_KEYS; key++) {
                     uint32_t k = rotate((uint32_t)keys[key] - subtract, rot) % mod;
+
+                    if (set & 1ull<<k)
+                        break;
                     
-                    if (!(set & 1ull<<k)) {
-                        set |= 1ull<<k;
-                        set_bits++;
-                    }
+                    set |= 1ull<<k;
+                    set_bits++;
                 }
 
                 if (set_bits == N_KEYS && mod < best_mod) {
