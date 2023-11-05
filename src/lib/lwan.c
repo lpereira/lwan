@@ -157,7 +157,7 @@ static bool can_override_header(const char *name)
         return false;
     if (strcaseequal_neutral(name, "Transfer-Encoding"))
         return false;
-    if (!strncasecmp(name, "Access-Control-Allow-",
+    if (strcaseequal_neutral_len(name, "Access-Control-Allow-",
                      sizeof("Access-Control-Allow-") - 1))
         return false;
 

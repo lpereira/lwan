@@ -690,9 +690,9 @@ static inline int isalpha_neutral(char c)
     return table[uc >> 3] & 1 << (uc & 7);
 }
 
-bool strcaseequal_neutral(const char *a, const char *b)
+bool strcaseequal_neutral_len(const char *a, const char *b, size_t len)
 {
-    for (;;) {
+    while (len--) {
         char ca = *a++;
         char cb = *b++;
 
@@ -715,6 +715,13 @@ bool strcaseequal_neutral(const char *a, const char *b)
             return false;
         }
     }
+
+    return false;
+}
+
+ALWAYS_INLINE bool strcaseequal_neutral(const char *a, const char *b)
+{
+    return strcaseequal_neutral_len(a, b, SIZE_MAX);
 }
 
 #ifndef NDEBUG
