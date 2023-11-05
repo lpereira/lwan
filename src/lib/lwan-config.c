@@ -125,6 +125,7 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
          * https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=44910 */
         if (isspace(*str)) {
             ignored_spaces++;
+            str++;
 
             if (ignored_spaces > 1024)
                 break;
