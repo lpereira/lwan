@@ -180,6 +180,7 @@ install(FILES
 	lwan-config.h
 	lwan-coro.h
 	lwan.h
+	lwan-http-status.h
 	lwan-mod-serve-files.h
 	lwan-mod-rewrite.h
 	lwan-mod-response.h
