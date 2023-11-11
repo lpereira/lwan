@@ -128,7 +128,7 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
             str++;
 
             if (ignored_spaces > 1024)
-                break;
+                return default_value;
 
             continue;
         }
