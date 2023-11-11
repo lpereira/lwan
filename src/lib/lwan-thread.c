@@ -866,6 +866,11 @@ static int create_listen_socket(struct lwan_thread *t,
 
      /* Ignore errors here, as this is just a hint */
 #if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
+    /* FIXME: this doesn't seem to work as expected.  if the program returns
+     * a fixed number, sockets are always accepted by a thread pinned to
+     * that particular CPU; if SKF_AD_CPU is used, sockets are accepted by
+     * random threads as if this BPF script weren't installed at all.  */
+
     /* From socket(7): "These  options may be set repeatedly at any time on
      * any socket in the group to replace the current BPF program used by
      * all sockets in the group." */
@@ -910,8 +915,15 @@ static void *thread_io_loop(void *data)
     struct coro_switcher switcher;
     struct timeout_queue tq;
 
-    lwan_status_debug("Worker thread #%zd starting",
-                      t - t->lwan->thread.threads + 1);
+    if (t->cpu == UINT_MAX) {
+        lwan_status_info("Worker thread #%zd starting",
+                         t - t->lwan->thread.threads + 1);
+    } else {
+        lwan_status_info("Worker thread #%zd starting on CPU %d",
+                         t - t->lwan->thread.threads + 1,
+                         t->cpu);
+    }
+
     lwan_set_thread_name("worker");
 
     events = calloc((size_t)max_events, sizeof(*events));
@@ -1290,8 +1302,10 @@ void lwan_thread_init(struct lwan *l)
     if (!l->thread.threads)
         lwan_status_critical("Could not allocate memory for threads");
 
+    for (unsigned int i = 0; i < l->thread.count; i++)
+        l->thread.threads[i].cpu = UINT_MAX;
+
     uint32_t *schedtbl;
-    bool adj_affinity;
 
 #if defined(__x86_64__) && defined(__linux__)
     if (l->online_cpus > 1) {
@@ -1313,10 +1327,17 @@ void lwan_thread_init(struct lwan *l)
          * a way that false sharing is avoided.
          */
         schedtbl = calloc(l->thread.count, sizeof(uint32_t));
-        adj_affinity = topology_to_schedtbl(l, schedtbl, l->thread.count);
+        bool adjust_affinity = topology_to_schedtbl(l, schedtbl, l->thread.count);
 
-        for (unsigned int i = 0; i < total_conns; i++)
-            l->conns[i].thread = &l->thread.threads[schedtbl[i % l->thread.count]];
+        for (unsigned int i = 0; i < total_conns; i++) {
+            unsigned int thread_id = schedtbl[i % l->thread.count];
+            l->conns[i].thread = &l->thread.threads[thread_id];
+        }
+
+        if (!adjust_affinity) {
+            free(schedtbl);
+            schedtbl = NULL;
+        }
     } else
 #endif /* __x86_64__ && __linux__ */
     {
@@ -1328,7 +1349,6 @@ void lwan_thread_init(struct lwan *l)
             l->conns[i].thread = &l->thread.threads[i % l->thread.count];
 
         schedtbl = NULL;
-        adj_affinity = false;
     }
 
     if (l->config.use_dynamic_buffer) {
@@ -1338,27 +1358,30 @@ void lwan_thread_init(struct lwan *l)
     }
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
-        struct lwan_thread *thread = NULL;
-
+        struct lwan_thread *thread;
+        
         if (schedtbl) {
-            /* This is not the most elegant thing, but this assures that the
-             * listening sockets are added to the SO_REUSEPORT group in a
-             * specific order, because that's what the CBPF program to direct
-             * the incoming connection to the right CPU will use. */
-            for (uint32_t thread_id = 0; thread_id < l->thread.count;
-                 thread_id++) {
-                if (schedtbl[thread_id % l->thread.count] == i) {
-                    thread = &l->thread.threads[thread_id];
-                    break;
-                }
-            }
-            if (!thread) {
-                /* FIXME: can this happen when we have a offline CPU? */
-                lwan_status_critical(
-                    "Could not figure out which CPU thread %d should go to", i);
-            }
+            /* For SO_ATTACH_REUSEPORT_CBPF to work with the program
+             * we provide the kernel, sockets have to be added to the
+             * reuseport group in an order consistent with the
+             * CPU ID (SKF_AD_CPU field): so group the threads
+             * according to the CPU topology to avoid false sharing
+             * the connections array, and pin the N-th thread to the
+             * N-th CPU. */
+
+            /* FIXME: I don't know why this isn't working as I intended:
+             * clients are still accepted by a thread that's not the
+             * worker thread that's supposed to handle that particular
+             * file descriptor.  According to socket(7), the plain
+             * SO_REUSEPORT mechanism might be used if the returned
+             * index is wrong, so maybe that's what's happening?  I don't
+             * know, gotta debug the kernel to figure this out. */
+            thread = &l->thread.threads[schedtbl[i]];
+
+            /* FIXME: figure out which CPUs are actually online */
+            thread->cpu = i;
         } else {
-            thread = &l->thread.threads[i % l->thread.count];
+            thread = &l->thread.threads[i];
         }
 
         if (pthread_barrier_init(&l->thread.barrier, NULL, 2))
@@ -1378,10 +1401,8 @@ void lwan_thread_init(struct lwan *l)
             thread->tls_listen_fd = -1;
         }
 
-        if (adj_affinity) {
-            l->thread.threads[i].cpu = schedtbl[i % l->thread.count];
+        if (schedtbl)
             adjust_thread_affinity(thread);
-        }
 
         pthread_barrier_wait(&l->thread.barrier);
     }
