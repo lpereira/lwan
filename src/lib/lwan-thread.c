@@ -864,7 +864,7 @@ static int create_listen_socket(struct lwan_thread *t,
     if (listen_fd < 0)
         lwan_status_critical("Could not create listen_fd");
 
-     /* Ignore errors here, as this is just a hint */
+    /* Ignore errors here, as this is just a hint */
 #if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
     /* FIXME: this doesn't seem to work as expected.  if the program returns
      * a fixed number, sockets are always accepted by a thread pinned to
@@ -875,20 +875,46 @@ static int create_listen_socket(struct lwan_thread *t,
      * any socket in the group to replace the current BPF program used by
      * all sockets in the group." */
     if (num == 0) {
-        /* From socket(7): "The  BPF program must return an index between 0 and
-         * N-1 representing the socket which should receive the packet (where N
-         * is the number of sockets in the group)." */
-        const uint32_t cpu_ad_off = (uint32_t)SKF_AD_OFF + SKF_AD_CPU;
+        /* From socket(7): "The  BPF program must return an index between 0
+         * and N-1 representing the socket which should receive the packet
+         * (where N is the number of sockets in the group)."
+         *
+         * This should work because sockets are created in the same
+         * reuseport group, in the same order as the logical CPU#, and the
+         * worker threads for these sockets are pinned to the same CPU#. The
+         * MOD operation is there for cases where we have more CPUs than
+         * threads (e.g. by setting the "threads" setting in the configuration
+         * file); this isn't strictly necessary as any invalid value returned
+         * by this program will direct the connection to a random socket in
+         * the group.
+         *
+         * Unfortunately, this program doesn't work that way.  Sockets seem
+         * to be delivered to a different thread every time.  Maybe if we
+         * change this to eBPF, we'll be able to fetch the file descriptor
+         * and feed that into our scheduling table. */
+        const uint32_t cpu_ad_cpu = (uint32_t)SKF_AD_OFF + SKF_AD_CPU;
+        const uint32_t n_sockets = lwan->thread.count;
         struct sock_filter filter[] = {
-            {BPF_LD | BPF_W | BPF_ABS, 0, 0, cpu_ad_off},   /* A = curr_cpu_index */
-            {BPF_RET | BPF_A, 0, 0, 0},                     /* return A */
+            {BPF_LD | BPF_W | BPF_ABS, 0, 0, cpu_ad_cpu}, /* A = current_cpu_idx */
+            {BPF_ALU | BPF_MOD, 0, 0, n_sockets},         /* A %= socket_count */
+            {BPF_RET | BPF_A, 0, 0, 0},                   /* return A */
         };
         struct sock_fprog fprog = {.filter = filter, .len = N_ELEMENTS(filter)};
 
+        if (n_sockets > 1 && (n_sockets & (n_sockets - 1)) == 0) {
+            /* Not sure if the kernel will perform strength reduction
+             * on CBPF, so do it here.  This is a common case. */
+            assert(filter[1].code == (BPF_ALU | BPF_MOD));
+            assert(filter[1].k == n_sockets);
+
+            filter[1].code = BPF_ALU | BPF_MOD;
+            filter[1].k = n_sockets - 1;
+        }
+
         (void)setsockopt(listen_fd, SOL_SOCKET, SO_ATTACH_REUSEPORT_CBPF,
                          &fprog, sizeof(fprog));
-        (void)setsockopt(listen_fd, SOL_SOCKET, SO_LOCK_FILTER,
-                         (int[]){1}, sizeof(int));
+        (void)setsockopt(listen_fd, SOL_SOCKET, SO_LOCK_FILTER, (int[]){1},
+                         sizeof(int));
     }
 #elif defined(LWAN_HAVE_SO_INCOMING_CPU) && defined(__x86_64__)
     (void)setsockopt(listen_fd, SOL_SOCKET, SO_INCOMING_CPU, &t->cpu,
@@ -897,7 +923,7 @@ static int create_listen_socket(struct lwan_thread *t,
 
     struct epoll_event event = {
         .events = EPOLLIN | EPOLLET | EPOLLERR,
-        .data.ptr = &t->lwan->conns[listen_fd],
+        .data.ptr = &lwan->conns[listen_fd],
     };
     if (epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event) < 0)
         lwan_status_critical_perror("Could not add socket to epoll");
