@@ -71,12 +71,8 @@ int main(void)
         fprintf(stderr, "could not figure out the hash table parameters!\n");
         return 1;
     }
-    if (best_mod >= 64) {
-        fprintf(stderr, "table would be larger than 64 items!\n");
-        return 1;
-    }
 
-    uint64_t set_values = 0xffffffffffffffffull;
+    uint64_t set_values = ~0ull;
     printf("static ALWAYS_INLINE const char *lwan_lookup_http_status_impl(enum lwan_http_status status) {\n");
     printf("    static const char *table[] = {\n");
 #define PRINT_V(ignored1, key, short_desc, long_desc) do { \
