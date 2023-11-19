@@ -907,7 +907,7 @@ static int create_listen_socket(struct lwan_thread *t,
             assert(filter[1].code == (BPF_ALU | BPF_MOD));
             assert(filter[1].k == n_sockets);
 
-            filter[1].code = BPF_ALU | BPF_MOD;
+            filter[1].code = BPF_ALU | BPF_AND;
             filter[1].k = n_sockets - 1;
         }
 
