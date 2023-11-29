@@ -716,7 +716,7 @@ bool strcaseequal_neutral_len(const char *a, const char *b, size_t len)
         }
     }
 
-    return false;
+    return (ssize_t)len < 0;
 }
 
 ALWAYS_INLINE bool strcaseequal_neutral(const char *a, const char *b)
@@ -734,6 +734,11 @@ __attribute__((constructor)) static void test_strcaseequal_neutral(void)
     assert(strcaseequal_neutral("SomE-HeaDeP", "some-header") == false);
     assert(strcaseequal_neutral("LwAN", "lwam") == false);
     assert(strcaseequal_neutral("LwAn", "lWaM") == false);
+
+    assert(strcaseequal_neutral_len("Host: localhost:8080", "Host", 4) == true);
+    assert(strcaseequal_neutral_len("Host", "Host: localhost:8080", 4) == true);
+    assert(strcaseequal_neutral_len("Host", "Hosh: not-localhost:1234", 4) == false);
+    assert(strcaseequal_neutral_len("Host: something-else:443", "Host: localhost:8080", 4) == true);
 
     static_assert(CHAR_BIT == 8, "sane CHAR_BIT value");
     static_assert('*' == 42, "ASCII character set");
