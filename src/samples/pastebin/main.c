@@ -29,8 +29,6 @@
 #include "lwan-cache.h"
 #include "lwan-private.h"
 
-#define SERVER_NAME "paste.lwan.ws"
-#define SERVER_PORT 443
 #define CACHE_FOR_HOURS 2
 
 static struct cache *pastes;
@@ -123,9 +121,15 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             cache_coro_get_and_ref_entry(pastes, request->conn->coro, key);
 
         if (paste) {
+            const char *host_hdr = lwan_request_get_header(request, "Host");
+
+            if (!host_hdr)
+                return HTTP_BAD_REQUEST;
+
             response->mime_type = "text/plain";
             lwan_strbuf_printf(response->buffer, "https://%s/p/%zu\n\n",
-                               SERVER_NAME, (uint64_t)(uintptr_t)key);
+                               host_hdr, (uint64_t)(uintptr_t)key);
+
             return HTTP_OK;
         }
     }
@@ -136,6 +140,11 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
 static enum lwan_http_status doc(struct lwan_request *request,
                                  struct lwan_response *response)
 {
+    const char *host_hdr = lwan_request_get_header(request, "Host");
+
+    if (!host_hdr)
+        return HTTP_BAD_REQUEST;
+
     response->mime_type = "text/plain";
 
     lwan_strbuf_printf(
@@ -152,7 +161,7 @@ static enum lwan_http_status doc(struct lwan_request *request,
         "response with different MIME-type.\n"
         "\n"
         "Items are cached for %d hours and are not stored on disk",
-        SERVER_NAME, SERVER_NAME, CACHE_FOR_HOURS);
+        host_hdr, host_hdr, CACHE_FOR_HOURS);
 
     return HTTP_OK;
 }
