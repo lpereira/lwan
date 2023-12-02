@@ -200,14 +200,36 @@ bool parse_bool(const char *value, bool default_value)
     if (!value)
         return default_value;
 
-    if (streq(value, "true") || streq(value, "on") || streq(value, "yes"))
+    if (strcaseequal_neutral(value, "true") ||
+        strcaseequal_neutral(value, "on") || strcaseequal_neutral(value, "yes"))
         return true;
 
-    if (streq(value, "false") || streq(value, "off") || streq(value, "no"))
+    if (strcaseequal_neutral(value, "false") ||
+        strcaseequal_neutral(value, "off") || strcaseequal_neutral(value, "no"))
         return false;
 
     return parse_int(value, default_value);
 }
+
+#ifndef NDEBUG
+__attribute__((constructor))
+static void test_parse_bool(void)
+{
+    assert(parse_bool("true", false) == true);
+    assert(parse_bool("on", false) == true);
+    assert(parse_bool("yes", false) == true);
+
+    assert(parse_bool("false", true) == false);
+    assert(parse_bool("off", true) == false);
+    assert(parse_bool("no", true) == false);
+
+    assert(parse_bool("0", 1) == false);
+    assert(parse_bool("1", 0) == true);
+
+    assert(parse_bool("abacate", true) == true);
+    assert(parse_bool("abacate", false) == false);
+}
+#endif
 
 bool config_error(struct config *conf, const char *fmt, ...)
 {
