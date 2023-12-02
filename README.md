@@ -117,14 +117,15 @@ To disable optimizations and build a more debugging-friendly version:
 This will generate a few binaries:
 
  - `src/bin/lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
- - `src/bin/testrunner/testrunner`: Contains code to execute the test suite.
+ - `src/bin/testrunner/testrunner`: Contains code to execute the test suite (`src/scripts/testsuite.py`).
  - `src/samples/freegeoip/freegeoip`: [FreeGeoIP sample implementation](https://freegeoip.lwan.ws). Requires SQLite.
  - `src/samples/techempower/techempower`: Code for the TechEmpower Web Framework benchmark. Requires SQLite and MySQL libraries.
  - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a GIF file that always shows the local time.
- - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during build process.
- - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include.
- - `src/bin/tools/configdump`: Dumps a configuration file using the configuration reader API.
+ - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during the build process.
+ - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include. Used during the build process.
+ - `src/bin/tools/configdump`: Dumps a configuration file using the configuration reader API. Used for testing.
  - `src/bin/tools/weighttp`: Rewrite of the `weighttp` HTTP benchmarking tool.
+ - `src/bin/tools/statuslookupgen`: Generates a perfect hash table for HTTP status codes and their descriptions. Used during the build process.
 
 #### Remarks
 
@@ -132,8 +133,8 @@ Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations (such as [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization))
 and tune the code for current architecture.
 
-> :exclamation: **Important:** *Please use the release build when benchmarking*, as
-> the default is the Debug build, which not only logs all requests to the
+> :exclamation: **Important:** *Please use the release build when benchmarking*.
+> The default is the Debug build, which not only logs all requests to the
 > standard output, but does so while holding a lock, severely holding down
 > the server.
 
@@ -143,7 +144,7 @@ Valgrind *(if its headers are present)* and includes debugging messages that
 are stripped in the release version.  Debugging messages are printed for
 each and every request.
 
-On debug builds, sanitizers can be enabled.  To select which one to build Lwan
+On these builds, sanitizers can be enabled.  To select which one to build Lwan
 with, specify one of the following options to the CMake invocation line:
 
  - `-DSANITIZER=ubsan` selects the Undefined Behavior Sanitizer.
@@ -163,6 +164,10 @@ in addition to the standard output.
 If you're building Lwan for a distribution, it might be wise to use the
 `-DMTUNE_NATIVE=OFF` option, otherwise the generated binary may fail to
 run on some computers.
+
+TLS support is enabled automatically in the presence of a suitable mbedTLS
+installation on Linux systems with headers new enough to support kTLS, but
+can be disabled by passing `-DENABLE_TLS=NO` to CMake.
 
 ### Tests
 
@@ -213,7 +218,7 @@ mess with them.
 > for help on that.
 
 Configuration File
-----------------
+------------------
 
 ### Format
 
