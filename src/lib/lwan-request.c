@@ -1428,7 +1428,7 @@ static inline bool request_has_body(const struct lwan_request *request)
 {
     /* 3rd bit set in method: request method has body. See lwan.h,
      * definition of FOR_EACH_REQUEST_METHOD() for more info. */
-    return lwan_request_get_method(request) & 1 << 3;
+    return lwan_request_get_method(request) & (1 << 3);
 }
 
 static enum lwan_http_status
