@@ -43,9 +43,11 @@ enum lwan_status_type {
 };
 
 static bool can_use_colors(void);
+static bool can_use_emojis(void);
 
 static volatile bool quiet = false;
 static bool use_colors;
+static bool use_emojis;
 
 void lwan_status_init(struct lwan *l)
 {
@@ -56,6 +58,7 @@ void lwan_status_init(struct lwan *l)
     (void)l;
 #endif
     use_colors = can_use_colors();
+    use_emojis = can_use_emojis();
 }
 
 void lwan_status_shutdown(struct lwan *l __attribute__((unused))) {}
@@ -78,6 +81,21 @@ static bool can_use_colors(void)
 
     term = secure_getenv("TERM");
     if (term && streq(term, "dumb"))
+        return false;
+
+    return true;
+}
+
+static bool can_use_emojis(void)
+{
+    if (!can_use_colors())
+        return false;
+
+    const char *lang = secure_getenv("LANG");
+    if (!lang)
+        return false;
+
+    if (!strstr(lang, ".UTF-8"))
         return false;
 
     return true;
@@ -140,6 +158,29 @@ static long gettid_cached(void)
 #endif
 }
 #endif
+
+static const char *get_thread_emoji(void)
+{
+    static const char *emojis[] = {
+        "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮",
+        "🐷", "🐽", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦆", "🦉", "🦇", "🐺",
+        "🐗", "🐴", "🦄", "🐝", "🪱", "🐛", "🦋", "🐌", "🐞", "🐜", "🪰", "🪲",
+        "🪳", "🦟", "🦗", "🦂", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑", "🦐",
+        "🦞", "🦀", "🐡", "🐠", "🐟", "🐬", "🐳", "🐋", "🦈", "🦭", "🐊", "🐅",
+        "🐆", "🦓", "🦍", "🦧", "🦣", "🐘", "🦛", "🦏", "🐪", "🐫", "🦒", "🦘",
+        "🦬", "🐃", "🐂", "🐄", "🐎", "🐖", "🐏", "🐑", "🦙", "🐐", "🦌", "🐕",
+        "🐩", "🐈", "🐓", "🦃", "🦤", "🦚", "🦜", "🦢", "🦩", "🕊", "🐇", "🦝",
+        "🦨", "🦡", "🦫", "🦦", "🦥", "🐁", "🐀", "🐿", "🦔", "🐉", "🐲",
+    };
+    static __thread const char *emoji;
+    static unsigned int last_emoji_id;
+
+    if (!emoji) {
+        emoji = emojis[ATOMIC_INC(last_emoji_id) % N_ELEMENTS(emojis)];
+    }
+
+    return emoji;
+}
 
 #define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
 
@@ -236,7 +277,10 @@ static void status_out(
 #ifndef NDEBUG
     char *base_name = basename(strdupa(file));
     if (LIKELY(use_colors)) {
-        printf(FORMAT_WITH_COLOR("%ld ", "32;1"), gettid_cached());
+        if (LIKELY(use_emojis))
+            printf("%s ", get_thread_emoji());
+        else
+            printf(FORMAT_WITH_COLOR("%ld ", "32;1"), gettid_cached());
         printf(FORMAT_WITH_COLOR("%s:%d ", "3"), base_name, line);
         printf(FORMAT_WITH_COLOR("%s() ", "33"), func);
     } else {
