@@ -716,7 +716,8 @@ bool strcaseequal_neutral_len(const char *a, const char *b, size_t len)
         }
     }
 
-    return (ssize_t)len < 0;
+    assert((ssize_t)len < 0);
+    return true;
 }
 
 ALWAYS_INLINE bool strcaseequal_neutral(const char *a, const char *b)
