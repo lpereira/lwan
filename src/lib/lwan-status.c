@@ -157,7 +157,6 @@ static long gettid_cached(void)
     return tid;
 #endif
 }
-#endif
 
 static const char *get_thread_emoji(void)
 {
@@ -176,11 +175,12 @@ static const char *get_thread_emoji(void)
     static unsigned int last_emoji_id;
 
     if (!emoji) {
-        emoji = emojis[ATOMIC_INC(last_emoji_id) % N_ELEMENTS(emojis)];
+        emoji = emojis[ATOMIC_INC(last_emoji_id) % (int)N_ELEMENTS(emojis)];
     }
 
     return emoji;
 }
+#endif
 
 #define FORMAT_WITH_COLOR(fmt, color) "\033[" color "m" fmt "\033[0m"
 
