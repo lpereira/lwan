@@ -43,4 +43,14 @@
 #endif
 #endif
 
+/* Macro to enable self-test on startup in debug builds.
+ * Details: https://tia.mat.br/posts/2023/12/11/self-test.html */
+#if defined(NDEBUG)
+#define LWAN_SELF_TEST(name)                                                   \
+    __attribute__((unused)) static void self_test_##name(void)
+#else
+#define LWAN_SELF_TEST(name)                                                   \
+    __attribute__((constructor)) static void self_test_##name(void)
+#endif
+
 #endif /* MISSING_ASSERT_H */

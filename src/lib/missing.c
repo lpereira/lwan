@@ -725,8 +725,7 @@ ALWAYS_INLINE bool strcaseequal_neutral(const char *a, const char *b)
     return strcaseequal_neutral_len(a, b, SIZE_MAX);
 }
 
-#ifndef NDEBUG
-__attribute__((constructor)) static void test_strcaseequal_neutral(void)
+LWAN_SELF_TEST(strcaseequal_neutral)
 {
     assert(strcaseequal_neutral("LWAN", "lwan") == true);
     assert(strcaseequal_neutral("LwAn", "lWaN") == true);
@@ -746,7 +745,6 @@ __attribute__((constructor)) static void test_strcaseequal_neutral(void)
     static_assert('0' == 48, "ASCII character set");
     static_assert('a' == 97, "ASCII character set");
 }
-#endif
 
 #ifndef LWAN_HAVE_STPCPY
 char *stpncpy(char *restrict dst, const char *restrict src, size_t sz)

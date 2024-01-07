@@ -71,8 +71,7 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #define ALLOCATE_STACK_WITH_MMAP
 #endif
 
-#ifndef NDEBUG
-__attribute__((constructor)) static void assert_sizes_are_sane(void)
+LWAN_SELF_TEST(sizes_are_same)
 {
     /* This is done in runtime rather than during compilation time because
      * in Glibc >= 2.34, SIGSTKSZ is defined as sysconf(_SC_MINSIGSTKSZ). */
@@ -86,7 +85,6 @@ __attribute__((constructor)) static void assert_sizes_are_sane(void)
     assert((CORO_STACK_SIZE >= PAGE_SIZE));
 #endif
 }
-#endif
 
 typedef void (*defer1_func)(void *data);
 typedef void (*defer2_func)(void *data1, void *data2);

@@ -211,9 +211,7 @@ bool parse_bool(const char *value, bool default_value)
     return parse_int(value, default_value);
 }
 
-#ifndef NDEBUG
-__attribute__((constructor))
-static void test_parse_bool(void)
+LWAN_SELF_TEST(parse_bool)
 {
     assert(parse_bool("true", false) == true);
     assert(parse_bool("on", false) == true);
@@ -229,7 +227,6 @@ static void test_parse_bool(void)
     assert(parse_bool("abacate", true) == true);
     assert(parse_bool("abacate", false) == false);
 }
-#endif
 
 bool config_error(struct config *conf, const char *fmt, ...)
 {

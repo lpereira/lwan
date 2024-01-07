@@ -104,8 +104,10 @@ void lwan_tables_init(void)
                  "text/javascript"));
     assert(streq(lwan_determine_mime_type_for_file_name(".BZ2"),
                  "application/x-bzip2"));
+}
 
-#ifndef NDEBUG
+LWAN_SELF_TEST(status_codes)
+{
 #define ASSERT_STATUS(id, code, short, long)                                   \
     do {                                                                       \
         const char *status = lwan_http_status_as_string_with_code(HTTP_##id);  \
@@ -115,9 +117,8 @@ void lwan_tables_init(void)
         const char *descr = lwan_http_status_as_descriptive_string(HTTP_##id); \
         assert(!strcmp(descr, long));                                          \
     } while (0);
-FOR_EACH_HTTP_STATUS(ASSERT_STATUS)
+    FOR_EACH_HTTP_STATUS(ASSERT_STATUS)
 #undef ASSERT_STATUS
-#endif
 }
 
 static int
@@ -292,10 +293,8 @@ ALWAYS_INLINE uint8_t lwan_char_isalnum(char ch)
     return char_prop_tbl[(unsigned char)ch] & (CHAR_PROP_ALPHA | CHAR_PROP_DIG);
 }
 
-#ifndef NDEBUG
 #include <ctype.h>
-__attribute__((constructor))
-static void test_lwan_char_tables(void)
+LWAN_SELF_TEST(compare_with_ctype)
 {
     for (int i = 0; i < 256; i++) {
         assert(!!isxdigit((char)i) == !!lwan_char_isxdigit((char)i));
@@ -306,4 +305,3 @@ static void test_lwan_char_tables(void)
         /* isspace() and lwan_char_isspace() differs on purpose */
     }
 }
-#endif
