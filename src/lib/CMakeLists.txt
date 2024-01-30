@@ -38,6 +38,7 @@ set(SOURCES
 	lwan-pubsub.c
 	missing.c
 	missing-pthread.c
+	missing-epoll.c
 	murmur3.c
 	patterns.c
 	realpathat.c
