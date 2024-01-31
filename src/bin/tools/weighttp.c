@@ -46,6 +46,9 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN 0
+#endif
 #ifndef MSG_DONTWAIT
 #define MSG_DONTWAIT 0
 #endif
