@@ -1371,8 +1371,36 @@ prepare_websocket_handshake(struct lwan_request *request, char **encoded)
         return HTTP_BAD_REQUEST;
 
     const char *upgrade = lwan_request_get_header(request, "Upgrade");
-    if (UNLIKELY(!upgrade || !streq(upgrade, "websocket")))
+    if (UNLIKELY(!upgrade)) {
+        /* Ugh. Some older versions of Safari do not send an Upgrade header
+         * when establishing websocket connections.  I don't want to ignore
+         * this header in the name of being as strict as possible, but if
+         * the handshake doesn't work in those browsers, this whole thing is
+         * useless.  Sniffing the user agent here for compatibility reasons
+         * makes me want to puke in my mouth a little bit, but seems to be
+         * the best way to workaround this, while being more strict for those
+         * user agents that are actually compliant with the RFC.  */
+        const char *user_agent = lwan_request_get_header(request, "User-Agent");
+        if (!user_agent)
+            return HTTP_BAD_REQUEST;
+
+        /* A bunch of browsers include the substring "Safari" in their user
+         * agent, so look for them first.  If we find "Chrome" or "Android"
+         * then it's not Safari.  Hopefully this catches other Chrome-based
+         * browsers too, where the handshake is correctly performed with the
+         * Upgrade header.  */
+        if (strstr(user_agent, "Chrome") || strstr(user_agent, "Android"))
+            return HTTP_BAD_REQUEST;
+
+        /* If we find a "Safari" string in the user agent at this point,
+         * then we're almost certain it's a Safari browser, and we can
+         * ignore the absence of an Upgrade header.  If it's not there, then
+         * they should've sent the Upgrade header.  Blergh.  */
+        if (!strstr(user_agent, "Safari"))
+            return HTTP_BAD_REQUEST;
+    } else if (UNLIKELY(!streq(upgrade, "websocket"))) {
         return HTTP_BAD_REQUEST;
+    }
 
     const char *sec_websocket_key =
         lwan_request_get_header(request, "Sec-WebSocket-Key");
