@@ -63,7 +63,9 @@ The build system will look for these libraries and enable/link if available.
     - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
 
-> :bulb: **Note:** On some systems,
+> [!NOTE]
+>
+> On some systems,
 > [libucontext](https://github.com/kaniini/libucontext) will be downloaded
 > and built alongside Lwan.  This will require a network connection, so keep
 > this in mind when packaging Lwan for non-x86_64 or non-aarch64
@@ -133,7 +135,9 @@ Passing `-DCMAKE_BUILD_TYPE=Release` will enable some compiler
 optimizations (such as [LTO](http://gcc.gnu.org/wiki/LinkTimeOptimization))
 and tune the code for current architecture.
 
-> :exclamation: **Important:** *Please use the release build when benchmarking*.
+> [!IMPORTANT]
+>
+> *Please use the release build when benchmarking*.
 > The default is the Debug build, which not only logs all requests to the
 > standard output, but does so while holding a lock, severely holding down
 > the server.
@@ -199,7 +203,9 @@ Running
 Set up the server by editing the provided `lwan.conf`; the format is
 explained in details below.
 
-> :bulb: **Note:** Lwan will try to find a configuration file based in the
+> [!NOTE]
+>
+> Lwan will try to find a configuration file based in the
 > executable name in the current directory; `testrunner.conf` will be used
 > for the `testrunner` binary, `lwan.conf` for the `lwan` binary, and so on.
 
@@ -213,7 +219,9 @@ settings for the environment it's running on.  Many of these settings can
 be tweaked in the configuration file, but it's usually a good idea to not
 mess with them.
 
-> :magic_wand: **Tip:** Optionally, the `lwan` binary can be used for one-shot
+> [!TIP]
+>
+>  Optionally, the `lwan` binary can be used for one-shot
 > static file serving without any configuration file.  Run it with `--help`
 > for help on that.
 
@@ -231,7 +239,9 @@ can be empty; in this case, curly brackets are optional.
 an implementation detail, code reading configuration options will only be
 given the version with underscores).
 
-> :magic_wand: **Tip:** Values can contain environment variables. Use the
+> [!TIP]
+>
+>  Values can contain environment variables. Use the
 > syntax `${VARIABLE_NAME}`.  Default values can be specified with a colon
 > (e.g.  `${VARIABLE_NAME:foo}`, which evaluates to `${VARIABLE_NAME}` if
 > it's set, or `foo` otherwise).
@@ -281,7 +291,9 @@ just added together; for instance, "1M 1w" specifies "1 month and 1 week"
 | `M`        | 30-day Months |
 | `y`        | 365-day Years |
 
-> :bulb: **Note:** A number with a multiplier not in this table is ignored; a
+> [!NOTE]
+>
+> A number with a multiplier not in this table is ignored; a
 > warning is issued while reading the configuration file.  No spaces must
 > exist between the number and its multiplier.
 
@@ -335,7 +347,9 @@ e.g.  instantiating the `serve_files` module, Lwan will refuse to
 start.  (This check is only performed on Linux as a safeguard for
 malconfiguration.)
 
-> :magic_wand: **Tip:** Declare a Straitjacket right before a `site` section
+> [!TIP]
+>
+>  Declare a Straitjacket right before a `site` section
 > in such a way that configuration files and private data (e.g. TLS keys)
 > are out of reach of the server after initialization has taken place.
 
@@ -375,7 +389,9 @@ actual values while servicing requests.  These include but is not limited to:
   - `Transfer-Encoding`
   - All `Access-Control-Allow-` headers
 
-> :bulb: **Note:** Header names are also case-insensitive (and case-preserving).  Overriding
+> [!NOTE]
+>
+> Header names are also case-insensitive (and case-preserving).  Overriding
 > `SeRVeR` will override the `Server` header, but send it the way it was
 > written in the configuration file.
 
@@ -385,11 +401,15 @@ Only two listeners are supported per Lwan process: the HTTP listener (`listener`
 section), and the HTTPS listener (`tls_listener` section).  Only one listener
 of each type is allowed.
 
-> :warning: **Warning:** TLS support is experimental.  Although it is stable
+> [!WARNING]
+>
+> TLS support is experimental.  Although it is stable
 > during initial testing, your mileage may vary. Only TLSv1.2 is supported
 > at this point, but TLSv1.3 is planned.
 
-> :bulb: **Note:** TLS support requires :penguin: Linux with the `tls.ko`
+> [!NOTE]
+>
+> TLS support requires :penguin: Linux with the `tls.ko`
 > module built-in or loaded.  Support for other operating systems may be
 > added in the future.  FreeBSD seems possible, other operating systems
 > do not seem to offer similar feature.  For unsupported operating systems,
@@ -409,11 +429,15 @@ where the TLS certificate and private key files are located) and takes an
 optional boolean `hsts` key, which controls if `Strict-Transport-Security`
 headers will be sent on HTTPS responses.
 
-> :magic_wand: **Tip:** To generate these keys for testing purposes, the
+> [!TIP]
+>
+>  To generate these keys for testing purposes, the
 > OpenSSL command-line tool can be used like the following:
 > `openssl req -nodes -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 7`
 
-> :bulb: **Note:** It's recommended that a [Straitjacket](#Straitjacket) with a `chroot` option is declared
+> [!NOTE]
+>
+> It's recommended that a [Straitjacket](#Straitjacket) with a `chroot` option is declared
 > right after a `tls_listener` section, in such a way that the paths to the
 > certificate and key are out of reach from that point on.
 
@@ -467,7 +491,9 @@ section can be present in the declaration of a module instance.  Handlers do
 not take any configuration options, but may include the `authorization`
 section.
 
-> :magic_wand: **Tip:** Executing Lwan with the `--help` command-line
+> [!TIP]
+>
+>  Executing Lwan with the `--help` command-line
 > argument will show a list of built-in modules and handlers.
 
 The following is some basic documentation for the modules shipped with Lwan.
@@ -490,7 +516,9 @@ best to serve files in the fastest way possible according to some heuristics.
 | `read_ahead`               | `int`  | `131702`     | Maximum amount of bytes to read ahead when caching open files.  A value of `0` disables readahead.  Readahead is performed by a low priority thread to not block the I/O threads while file extents are being read from the filesystem. |
 | `cache_for`                | `time` | `5s`         | Time to keep file metadata (size, compressed contents, open file descriptor, etc.) in cache |
 
-> :bulb: **Note:** Files smaller than 16KiB will be compressed in RAM for
+> [!NOTE]
+>
+> Files smaller than 16KiB will be compressed in RAM for
 > the duration specified in the `cache_for` setting.  Lwan will always try
 > to compress with deflate, and will optionally compress with Brotli and
 > zstd (if Lwan has been built with proper support).
@@ -534,7 +562,9 @@ Scripts can be served from files or embedded in the configuration file, and
 the results of loading them, the standard Lua modules, and (optionally, if
 using LuaJIT) optimizing the code will be cached for a while.
 
-> :bulb: **Note:** Lua scripts can't use global variables, as they may be not
+> [!NOTE]
+>
+> Lua scripts can't use global variables, as they may be not
 > only serviced by different threads, but the state will be available only
 > for the amount of time specified in the `cache_period` configuration
 > option.  This is because each I/O thread in Lwan will create an instance
@@ -549,7 +579,9 @@ the following signature: `handle_${METHOD}_${ENDPOINT}(req)`, where
 `${METHOD}` can be a HTTP method (i.e.  `get`, `post`, `head`, etc.), and
 `${ENDPOINT}` is the desired endpoint to be handled by that function.
 
-> :magic_wand: **Tip:** Use the `root` endpoint for a catchall. For example,
+> [!TIP]
+>
+>  Use the `root` endpoint for a catchall. For example,
 > the handler function `handle_get_root()` will be called if no other handler
 > could be found for that request.  If no catchall is specified, the server
 > will return a `404 Not Found` error.
@@ -599,7 +631,9 @@ The `rewrite` module will match
 to either redirect to another URL, or rewrite the request in a way that Lwan
 will handle the request as if it were made in that way originally.
 
-> :information_source: **Info:** Forked from Lua 5.3.1, the regular expresion
+> [!INFORMATION]
+>
+> Forked from Lua 5.3.1, the regular expresion
 > engine may not be as feature-packed as most general-purpose engines, but
 > has been chosen specifically because it is a [deterministic finite
 > automaton](https://en.wikipedia.org/wiki/Deterministic_finite_automaton)
@@ -609,7 +643,9 @@ will handle the request as if it were made in that way originally.
 
 The new URL can be specified using a simple text substitution syntax, or use Lua scripts.
 
-> :magic_wand: **Tip:** Lua scripts will contain the same metamethods
+> [!TIP]
+>
+>  Lua scripts will contain the same metamethods
 > available in the `req` metatable provided by the Lua module, so it can be
 > quite powerful.
 
@@ -686,7 +722,9 @@ pattern using the same substitution syntax used for the `rewrite as` or
 foo-%1-bar }` will substitute `%1` with the first match from the pattern
 this condition is related to.
 
-> :bulb: **Note:** Conditions that do not require a section have to be written
+> [!NOTE]
+>
+> Conditions that do not require a section have to be written
 > as a key; for instance, `condition has_query_string = yes`.
 
 For example, if one wants to send `site-dark-mode.css` if there is a
@@ -729,7 +767,9 @@ pattern (%g+) {
 }
 ```
 
-> :bulb: **Note:** In general, this is not necessary, as the file serving
+> [!NOTE]
+>
+> In general, this is not necessary, as the file serving
 > module will do this automatically and pick the smallest file available for
 > the requested encoding, but this shows it's possible to have a similar
 > feature by configuration alone.
@@ -775,7 +815,9 @@ Lwan and a [FastCGI](https://en.wikipedia.org/wiki/FastCGI) server
 accessible by Lwan.  This is useful, for instance, to serve pages from a
 scripting language such as PHP.
 
-> :bulb: **Note:** This is a preliminary version of this module, and
+> [!NOTE]
+>
+> This is a preliminary version of this module, and
 > as such, it's not well optimized, some features are missing, and
 > some values provided to the environment are hardcoded.
 
@@ -798,7 +840,9 @@ section with a `basic` parameter, and set one of its options.
 | `realm` | `str` | `Lwan` | Realm for authorization. This is usually shown in the user/password UI in browsers |
 | `password_file` | `str` | `NULL` | Path for a file containing username and passwords (in clear text).  The file format is the same as the configuration file format used by Lwan |
 
-> :warning: **Warning:** Not only passwords are stored in clear text in a file
+> [!WARNING]
+>
+> Not only passwords are stored in clear text in a file
 > that should be accessible by the server, they'll be kept in memory for a few
 > seconds.  Avoid using this feature if possible.
 
