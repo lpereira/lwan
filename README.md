@@ -631,7 +631,7 @@ The `rewrite` module will match
 to either redirect to another URL, or rewrite the request in a way that Lwan
 will handle the request as if it were made in that way originally.
 
-> [!INFORMATION]
+> [!NOTE]
 >
 > Forked from Lua 5.3.1, the regular expresion
 > engine may not be as feature-packed as most general-purpose engines, but
