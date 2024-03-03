@@ -30,24 +30,24 @@ struct db_row {
         char *s;
         int i;
     } u;
-    char kind; /* 's' = string, 'i' = 'int', '\0' = last */
     size_t buffer_length;
 };
 
-bool db_stmt_bind(const struct db_stmt *stmt,
-                  struct db_row *rows,
-                  size_t n_rows);
 
-bool db_stmt_step(const struct db_stmt *stmt, const char *signature, ...);
-
+struct db_stmt *db_prepare_stmt(const struct db *db,
+                                const char *sql,
+                                const char *param_signature,
+                                const char *result_signature);
 void db_stmt_finalize(struct db_stmt *stmt);
-void db_disconnect(struct db *db);
-struct db_stmt *
-db_prepare_stmt(const struct db *db, const char *sql, const size_t sql_len);
 
-struct db *
-db_connect_sqlite(const char *path, bool read_only, const char *pragmas[]);
+bool db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows);
+bool db_stmt_step(const struct db_stmt *stmt, ...);
+
+struct db *db_connect_sqlite(const char *path,
+                             bool read_only,
+                             const char *pragmas[]);
 struct db *db_connect_mysql(const char *host,
                             const char *user,
                             const char *pass,
                             const char *database);
+void db_disconnect(struct db *db);

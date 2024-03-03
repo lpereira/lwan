@@ -196,13 +196,13 @@ LWAN_HANDLER(json)
 
 static bool db_query_key(struct db_stmt *stmt, struct db_json *out, int key)
 {
-    struct db_row row = {.kind = 'i', .u.i = key + 1};
-    if (UNLIKELY(!db_stmt_bind(stmt, &row, 1)))
+    struct db_row row = {.u.i = key + 1};
+    if (UNLIKELY(!db_stmt_bind(stmt, &row)))
         return false;
 
     long random_number;
     long id;
-    if (UNLIKELY(!db_stmt_step(stmt, "ii", &random_number, &id)))
+    if (UNLIKELY(!db_stmt_step(stmt, &random_number, &id)))
         return false;
 
     out->id = (int)id;
@@ -219,8 +219,7 @@ static inline bool db_query(struct db_stmt *stmt, struct db_json *out)
 
 LWAN_HANDLER(db)
 {
-    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
-                                           sizeof(random_number_query) - 1);
+    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query, "i", "ii");
     struct db_json db_json;
 
     if (UNLIKELY(!stmt)) {
@@ -254,8 +253,7 @@ LWAN_HANDLER(queries)
     enum lwan_http_status ret = HTTP_INTERNAL_ERROR;
     long queries = get_number_of_queries(request);
 
-    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query,
-                                           sizeof(random_number_query) - 1);
+    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query, "i", "ii");
     if (UNLIKELY(!stmt))
         return HTTP_INTERNAL_ERROR;
 
@@ -295,8 +293,7 @@ static struct cache_entry *cached_queries_new(const void *keyptr, void *context)
     if (UNLIKELY(!entry))
         return NULL;
 
-    stmt = db_prepare_stmt(get_db(), cached_random_number_query,
-                           sizeof(cached_random_number_query) - 1);
+    stmt = db_prepare_stmt(get_db(), cached_random_number_query, "i", "ii");
     if (UNLIKELY(!stmt)) {
         free(entry);
         return NULL;
@@ -392,7 +389,7 @@ static int fortune_list_generator(struct coro *coro, void *data)
     struct fortune_array fortunes;
     struct db_stmt *stmt;
 
-    stmt = db_prepare_stmt(get_db(), fortune_query, sizeof(fortune_query) - 1);
+    stmt = db_prepare_stmt(get_db(), fortune_query, "", "is");
     if (UNLIKELY(!stmt))
         return 0;
 
@@ -400,7 +397,7 @@ static int fortune_list_generator(struct coro *coro, void *data)
 
     long id;
     char fortune_buffer[256];
-    while (db_stmt_step(stmt, "is", &id, &fortune_buffer, sizeof(fortune_buffer))) {
+    while (db_stmt_step(stmt, &id, &fortune_buffer, sizeof(fortune_buffer))) {
         if (!append_fortune(coro, &fortunes, (int)id, fortune_buffer))
             goto out;
     }

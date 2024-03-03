@@ -18,6 +18,7 @@
  * USA.
  */
 
+#include <assert.h>
 #include <string.h>
 #include <mysql.h>
 #include <sqlite3.h>
@@ -30,17 +31,19 @@
 
 struct db_stmt {
     bool (*bind)(const struct db_stmt *stmt,
-                 struct db_row *rows,
-                 size_t n_rows);
-    bool (*step)(const struct db_stmt *stmt, const char *signature, va_list ap);
+                 struct db_row *rows);
+    bool (*step)(const struct db_stmt *stmt, va_list ap);
     void (*finalize)(struct db_stmt *stmt);
+    const char *param_signature;
+    const char *result_signature;
 };
 
 struct db {
     void (*disconnect)(struct db *db);
     struct db_stmt *(*prepare)(const struct db *db,
                                const char *sql,
-                               const size_t sql_len);
+                               const char *param_signature,
+                               const char *result_signature);
 };
 
 /* MySQL */
@@ -56,28 +59,23 @@ struct db_stmt_mysql {
     MYSQL_BIND *param_bind;
     MYSQL_BIND *result_bind;
     bool must_execute_again;
+    bool results_are_bound;
+    MYSQL_BIND param_result_bind[];
 };
 
 static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
-                               struct db_row *rows,
-                               size_t n_rows)
+                               struct db_row *rows)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
+    const char *signature = stmt->param_signature;
 
     stmt_mysql->must_execute_again = true;
+    mysql_stmt_reset(stmt_mysql->stmt);
 
-    if (!stmt_mysql->param_bind) {
-        stmt_mysql->param_bind = calloc(n_rows, sizeof(MYSQL_BIND));
-        if (!stmt_mysql->param_bind)
-            return false;
-    } else {
-        mysql_stmt_reset(stmt_mysql->stmt);
-    }
-
-    for (size_t row = 0; row < n_rows && rows[row].kind; row++) {
+    for (size_t row = 0; signature[row]; row++) {
         MYSQL_BIND *param = &stmt_mysql->param_bind[row];
 
-        switch (rows[row].kind) {
+        switch (signature[row]) {
         case 's':
             param->buffer_type = MYSQL_TYPE_STRING;
             param->buffer = rows[row].u.s;
@@ -98,28 +96,24 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
 }
 
 static bool db_stmt_step_mysql(const struct db_stmt *stmt,
-                               const char *signature,
                                va_list ap)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
     if (stmt_mysql->must_execute_again) {
         stmt_mysql->must_execute_again = false;
+        stmt_mysql->results_are_bound = false;
         if (mysql_stmt_execute(stmt_mysql->stmt))
             return false;
     }
 
-    if (!stmt_mysql->result_bind) {
+    if (!stmt_mysql->results_are_bound) {
+        const char *signature = stmt->result_signature;
+
         if (*signature == '\0')
             return false;
 
-        stmt_mysql->result_bind =
-            calloc(strlen(signature), sizeof(*stmt_mysql->result_bind));
-        if (!stmt_mysql->result_bind)
-            return false;
-
-        free(stmt_mysql->param_bind);
-        stmt_mysql->param_bind = NULL;
+        stmt_mysql->results_are_bound = true;
 
         MYSQL_BIND *result = stmt_mysql->result_bind;
         for (size_t r = 0; signature[r]; r++) {
@@ -148,9 +142,7 @@ static bool db_stmt_step_mysql(const struct db_stmt *stmt,
     return mysql_stmt_fetch(stmt_mysql->stmt) == 0;
 
 out:
-    free(stmt_mysql->result_bind);
-    stmt_mysql->result_bind = NULL;
-
+    stmt_mysql->results_are_bound = false;
     return false;
 }
 
@@ -159,16 +151,18 @@ static void db_stmt_finalize_mysql(struct db_stmt *stmt)
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
     mysql_stmt_close(stmt_mysql->stmt);
-    free(stmt_mysql->result_bind);
-    free(stmt_mysql->param_bind);
     free(stmt_mysql);
 }
 
 static struct db_stmt *
-db_prepare_mysql(const struct db *db, const char *sql, const size_t sql_len)
+db_prepare_mysql(const struct db *db,
+                 const char *sql,
+                 const char *param_signature,
+                 const char *result_signature)
 {
     const struct db_mysql *db_mysql = (const struct db_mysql *)db;
-    struct db_stmt_mysql *stmt_mysql = malloc(sizeof(*stmt_mysql));
+    const size_t n_bounds = strlen(param_signature) + strlen(result_signature);
+    struct db_stmt_mysql *stmt_mysql = malloc(sizeof(*stmt_mysql) + n_bounds * sizeof(MYSQL_BIND));
 
     if (!stmt_mysql)
         return NULL;
@@ -177,15 +171,24 @@ db_prepare_mysql(const struct db *db, const char *sql, const size_t sql_len)
     if (!stmt_mysql->stmt)
         goto out_free_stmt;
 
-    if (mysql_stmt_prepare(stmt_mysql->stmt, sql, sql_len))
+    if (mysql_stmt_prepare(stmt_mysql->stmt, sql, strlen(sql)))
         goto out_close_stmt;
+
+    assert(strlen(param_signature) == mysql_stmt_param_count(stmt_mysql->stmt));
+    assert(strlen(result_signature) == mysql_stmt_field_count(stmt_mysql->stmt));
 
     stmt_mysql->base.bind = db_stmt_bind_mysql;
     stmt_mysql->base.step = db_stmt_step_mysql;
     stmt_mysql->base.finalize = db_stmt_finalize_mysql;
-    stmt_mysql->result_bind = NULL;
-    stmt_mysql->param_bind = NULL;
+    stmt_mysql->param_bind = &stmt_mysql->param_result_bind[0];
+    stmt_mysql->result_bind = &stmt_mysql->param_result_bind[strlen(param_signature)];
     stmt_mysql->must_execute_again = true;
+    stmt_mysql->results_are_bound = false;
+
+    stmt_mysql->base.param_signature = param_signature;
+    stmt_mysql->base.result_signature = result_signature;
+
+    memset(stmt_mysql->param_result_bind, 0, n_bounds * sizeof(MYSQL_BIND));
 
     return (struct db_stmt *)stmt_mysql;
 
@@ -252,26 +255,26 @@ struct db_stmt_sqlite {
 };
 
 static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
-                                struct db_row *rows,
-                                size_t n_rows)
+                                struct db_row *rows)
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
+    const char *signature = stmt->param_signature;
 
     sqlite3_reset(stmt_sqlite->sqlite);
     sqlite3_clear_bindings(stmt_sqlite->sqlite);
 
-    for (size_t row = 1; row <= n_rows; row++) {
-        const struct db_row *r = &rows[row - 1];
+    for (size_t row = 0; signature[row]; row++) {
+        const struct db_row *r = &rows[row];
         int ret;
 
-        switch (r->kind) {
+        switch (signature[row]) {
         case 's':
-            ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row, r->u.s, -1,
+            ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row + 1, r->u.s, -1,
                                     NULL);
             break;
         case 'i':
-            ret = sqlite3_bind_int(stmt_sqlite->sqlite, (int)row, r->u.i);
+            ret = sqlite3_bind_int(stmt_sqlite->sqlite, (int)row + 1, r->u.i);
             break;
         default:
             return false;
@@ -285,11 +288,11 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
 }
 
 static bool db_stmt_step_sqlite(const struct db_stmt *stmt,
-                                const char *signature,
                                 va_list ap)
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
+    const char *signature = stmt->result_signature;
 
     if (sqlite3_step(stmt_sqlite->sqlite) != SQLITE_ROW)
         return false;
@@ -326,7 +329,10 @@ static void db_stmt_finalize_sqlite(struct db_stmt *stmt)
 }
 
 static struct db_stmt *
-db_prepare_sqlite(const struct db *db, const char *sql, const size_t sql_len)
+db_prepare_sqlite(const struct db *db,
+                  const char *sql,
+                  const char *param_signature,
+                  const char *result_signature)
 {
     const struct db_sqlite *db_sqlite = (const struct db_sqlite *)db;
     struct db_stmt_sqlite *stmt_sqlite = malloc(sizeof(*stmt_sqlite));
@@ -334,7 +340,7 @@ db_prepare_sqlite(const struct db *db, const char *sql, const size_t sql_len)
     if (!stmt_sqlite)
         return NULL;
 
-    int ret = sqlite3_prepare_v2(db_sqlite->sqlite, sql, (int)sql_len,
+    int ret = sqlite3_prepare_v2(db_sqlite->sqlite, sql, (int)strlen(sql),
                                  &stmt_sqlite->sqlite, NULL);
     if (ret != SQLITE_OK) {
         free(stmt_sqlite);
@@ -344,6 +350,9 @@ db_prepare_sqlite(const struct db *db, const char *sql, const size_t sql_len)
     stmt_sqlite->base.bind = db_stmt_bind_sqlite;
     stmt_sqlite->base.step = db_stmt_step_sqlite;
     stmt_sqlite->base.finalize = db_stmt_finalize_sqlite;
+
+    stmt_sqlite->base.param_signature = param_signature;
+    stmt_sqlite->base.result_signature = result_signature;
 
     return (struct db_stmt *)stmt_sqlite;
 }
@@ -384,20 +393,18 @@ db_connect_sqlite(const char *path, bool read_only, const char *pragmas[])
 
 /* Generic */
 
-inline bool
-db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows, size_t n_rows)
+inline bool db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows)
 {
-    return stmt->bind(stmt, rows, n_rows);
+    return stmt->bind(stmt, rows);
 }
 
-inline bool
-db_stmt_step(const struct db_stmt *stmt, const char *signature, ...)
+inline bool db_stmt_step(const struct db_stmt *stmt, ...)
 {
     va_list ap;
     bool ret;
 
-    va_start(ap, signature);
-    ret = stmt->step(stmt, signature, ap);
+    va_start(ap, stmt);
+    ret = stmt->step(stmt, ap);
     va_end(ap);
 
     return ret;
@@ -407,8 +414,10 @@ inline void db_stmt_finalize(struct db_stmt *stmt) { stmt->finalize(stmt); }
 
 inline void db_disconnect(struct db *db) { db->disconnect(db); }
 
-inline struct db_stmt *
-db_prepare_stmt(const struct db *db, const char *sql, const size_t sql_len)
+inline struct db_stmt *db_prepare_stmt(const struct db *db,
+                                       const char *sql,
+                                       const char *param_signature,
+                                       const char *result_signature)
 {
-    return db->prepare(db, sql, sql_len);
+    return db->prepare(db, sql, param_signature, result_signature);
 }
