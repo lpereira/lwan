@@ -38,6 +38,8 @@ timeout_queue_idx_to_node(struct timeout_queue *tq, int idx)
 inline void timeout_queue_insert(struct timeout_queue *tq,
                                  struct lwan_connection *new_node)
 {
+    assert(!(new_node->flags & (CONN_HUNG_UP | CONN_ASYNC_AWAIT)));
+
     new_node->next = -1;
     new_node->prev = tq->head.prev;
     struct lwan_connection *prev = timeout_queue_idx_to_node(tq, tq->head.prev);
@@ -87,6 +89,8 @@ void timeout_queue_init(struct timeout_queue *tq, const struct lwan *lwan)
 void timeout_queue_expire(struct timeout_queue *tq,
                           struct lwan_connection *conn)
 {
+    assert(!(conn->flags & (CONN_HUNG_UP | CONN_ASYNC_AWAIT)));
+
     timeout_queue_remove(tq, conn);
 
     if (LIKELY(conn->coro)) {

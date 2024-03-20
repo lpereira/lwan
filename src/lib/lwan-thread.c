@@ -522,11 +522,23 @@ static void update_epoll_flags(const struct timeout_queue *tq,
         lwan_status_perror("epoll_ctl");
 }
 
-static void clear_async_await_flag(void *data)
+static void unasync_await_conn(void *data1, void *data2)
 {
-    struct lwan_connection *async_fd_conn = data;
+    struct lwan_connection *async_fd_conn = data1;
 
-    async_fd_conn->flags &= ~CONN_ASYNC_AWAIT;
+    async_fd_conn->flags &= ~(CONN_ASYNC_AWAIT | CONN_HUNG_UP);
+    async_fd_conn->thread = data2;
+
+    /* If this file descriptor number is used again in the future as an HTTP
+     * connection, we need the coro pointer to be NULL so a new coroutine is
+     * created!  */
+    async_fd_conn->coro = NULL;
+
+    /* While not strictly necessary, make sure that prev/next point to
+     * something valid rather than whatever junk was left from when their
+     * storage was used for the parent pointer.  */
+    async_fd_conn->prev = -1;
+    async_fd_conn->next = -1;
 }
 
 static enum lwan_connection_coro_yield
@@ -558,13 +570,31 @@ resume_async(const struct timeout_queue *tq,
 
         op = EPOLL_CTL_MOD;
     } else {
+        await_fd_conn->parent = conn;
+
+        /* We assert() in the timeout queue that we're not freeing a
+         * coroutine when CONN_ASYNC_AWAIT is set in the connection, and are
+         * careful to not ever do that.  This makes us get away with struct
+         * coro not being refcounted, even though this kinda feels like
+         * running with scissors.  */
+        assert(!await_fd_conn->coro);
+        await_fd_conn->coro = conn->coro;
+
+        /* Since scheduling is performed during startup, we gotta take note
+         * of which thread was originally supposed to handle this particular
+         * file descriptor once we're done borrowing this lwan_connection
+         * for the awaited file descriptor.  */
+        struct lwan_thread *old_thread = await_fd_conn->thread;
+        await_fd_conn->thread = conn->thread;
+
         op = EPOLL_CTL_ADD;
         flags |= CONN_ASYNC_AWAIT;
-        coro_defer(conn->coro, clear_async_await_flag, await_fd_conn);
+
+        coro_defer2(conn->coro, unasync_await_conn, await_fd_conn, old_thread);
     }
 
     struct epoll_event event = {.events = conn_flags_to_epoll_events(flags),
-                                .data.ptr = conn};
+                                .data.ptr = await_fd_conn};
     if (LIKELY(!epoll_ctl(epoll_fd, op, await_fd, &event))) {
         await_fd_conn->flags &= ~CONN_EVENTS_MASK;
         await_fd_conn->flags |= flags;
@@ -575,24 +605,27 @@ resume_async(const struct timeout_queue *tq,
 }
 
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
-                                      struct lwan_connection *conn,
+                                      struct lwan_connection *conn_to_resume,
+                                      struct lwan_connection *conn_to_yield,
                                       int epoll_fd)
 {
-    assert(conn->coro);
+    assert(conn_to_resume->coro);
+    assert(conn_to_yield->coro);
 
-    int64_t from_coro = coro_resume(conn->coro);
+    int64_t from_coro = coro_resume_value(conn_to_resume->coro,
+                                          (int64_t)(intptr_t)conn_to_yield);
     enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
 
     if (UNLIKELY(yield_result >= CONN_CORO_ASYNC)) {
         yield_result =
-            resume_async(tq, yield_result, from_coro, conn, epoll_fd);
+            resume_async(tq, yield_result, from_coro, conn_to_resume, epoll_fd);
     }
 
     if (UNLIKELY(yield_result == CONN_CORO_ABORT)) {
-        timeout_queue_expire(tq, conn);
+        timeout_queue_expire(tq, conn_to_resume);
     } else {
-        update_epoll_flags(tq, conn, epoll_fd, yield_result);
-        timeout_queue_move_to_last(tq, conn);
+        update_epoll_flags(tq, conn_to_resume, epoll_fd, yield_result);
+        timeout_queue_move_to_last(tq, conn_to_resume);
     }
 }
 
@@ -696,8 +729,7 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 #endif
 
     assert(!conn->coro);
-    assert(!(conn->flags & CONN_ASYNC_AWAIT));
-    assert(!(conn->flags & CONN_AWAITED_FD));
+    assert(!(conn->flags & (CONN_ASYNC_AWAIT | CONN_HUNG_UP)));
     assert(!(conn->flags & CONN_LISTENER));
     assert(t);
     assert((uintptr_t)t >= (uintptr_t)tq->lwan->thread.threads);
@@ -978,7 +1010,36 @@ static void *thread_io_loop(void *data)
         for (struct epoll_event *event = events; n_fds--; event++) {
             struct lwan_connection *conn = event->data.ptr;
 
-            assert(!(conn->flags & CONN_ASYNC_AWAIT));
+            if (conn->flags & CONN_ASYNC_AWAIT) {
+                /* Assert that the connection is part of the conns array,
+                 * since the storage for conn->parent is shared with
+                 * prev/next. */
+                assert(conn->parent >= lwan->conns);
+                assert(conn->parent <= &lwan->conns[lwan->thread.max_fd]);
+
+                /* Also validate that conn->parent is in fact a HTTP client
+                 * connection and not an awaited fd! */
+                assert(!(conn->parent->flags & CONN_ASYNC_AWAIT));
+
+                /* CONN_ASYNC_AWAIT conns *must* have a coro and thread as
+                 * it's the same as the HTTP client coro for API
+                 * consistency, as struct lwan_connection isn't opaque.  (If
+                 * it were opaque, or at least a private API, though, we
+                 * might be able to get away with reusing the space for
+                 * these two pointers for something else in some cases.
+                 * This has not been necessary yet, but might become useful
+                 * in the future.) */
+                assert(conn->coro);
+                assert(conn->coro == conn->parent->coro);
+                assert(conn->thread == conn->parent->thread);
+
+                if (UNLIKELY(events->events & (EPOLLRDHUP | EPOLLHUP)))
+                    conn->flags |= CONN_HUNG_UP;
+
+                resume_coro(&tq, conn->parent, conn, epoll_fd);
+
+                continue;
+            }
 
             if (conn->flags & CONN_LISTENER) {
                 if (LIKELY(accept_waiting_clients(t, conn)))
@@ -989,10 +1050,8 @@ static void *thread_io_loop(void *data)
             }
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
-                if ((conn->flags & CONN_AWAITED_FD) != CONN_SUSPENDED_MASK) {
-                    timeout_queue_expire(&tq, conn);
-                    continue;
-                }
+                timeout_queue_expire(&tq, conn);
+                continue;
             }
 
             if (!conn->coro) {
@@ -1004,7 +1063,7 @@ static void *thread_io_loop(void *data)
                 created_coros = true;
             }
 
-            resume_coro(&tq, conn, epoll_fd);
+            resume_coro(&tq, conn, conn, epoll_fd);
         }
 
         if (created_coros)

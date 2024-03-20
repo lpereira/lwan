@@ -2023,27 +2023,28 @@ make_async_yield_value(int fd, enum lwan_connection_coro_yield event)
     return (int64_t)(((uint64_t)fd << 32 | event));
 }
 
-static inline void async_await_fd(struct coro *coro,
-                                  int fd,
-                                  enum lwan_connection_coro_yield events)
+static inline struct lwan_connection *async_await_fd(
+    struct coro *coro, int fd, enum lwan_connection_coro_yield events)
 {
     assert(events >= CONN_CORO_ASYNC_AWAIT_READ &&
            events <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
 
-    return (void)coro_yield(coro, make_async_yield_value(fd, events));
+    int64_t from_coro = coro_yield(coro, make_async_yield_value(fd, events));
+    return (struct lwan_connection *)(intptr_t)from_coro;
 }
 
-void lwan_request_await_read(struct lwan_request *r, int fd)
+struct lwan_connection *lwan_request_await_read(struct lwan_request *r, int fd)
 {
     return async_await_fd(r->conn->coro, fd, CONN_CORO_ASYNC_AWAIT_READ);
 }
 
-void lwan_request_await_write(struct lwan_request *r, int fd)
+struct lwan_connection *lwan_request_await_write(struct lwan_request *r, int fd)
 {
     return async_await_fd(r->conn->coro, fd, CONN_CORO_ASYNC_AWAIT_WRITE);
 }
 
-void lwan_request_await_read_write(struct lwan_request *r, int fd)
+struct lwan_connection *lwan_request_await_read_write(struct lwan_request *r,
+                                                      int fd)
 {
     return async_await_fd(r->conn->coro, fd, CONN_CORO_ASYNC_AWAIT_READ_WRITE);
 }

@@ -275,7 +275,6 @@ enum lwan_connection_flags {
     CONN_SUSPENDED_MASK = 1 << 5,
     CONN_SUSPENDED = (EPOLLRDHUP << CONN_EPOLL_EVENT_SHIFT) | CONN_SUSPENDED_MASK,
     CONN_HAS_REMOVE_SLEEP_DEFER = 1 << 6,
-    CONN_AWAITED_FD = CONN_SUSPENDED_MASK | CONN_HAS_REMOVE_SLEEP_DEFER,
 
     /* Used when HTTP pipelining has been detected.  This enables usage of the
      * MSG_MORE flags when sending responses to batch as many short responses
@@ -298,7 +297,12 @@ enum lwan_connection_flags {
 
     CONN_USE_DYNAMIC_BUFFER = 1 << 12,
 
-    CONN_FLAG_LAST = CONN_USE_DYNAMIC_BUFFER,
+    /* Only valid when CONN_ASYNC_AWAIT is set. Set on file descriptors that
+     * got (EPOLLHUP|EPOLLRDHUP) events from epoll so that request handlers
+     * can deal with this fact.  */
+    CONN_HUNG_UP = 1 << 13,
+
+    CONN_FLAG_LAST = CONN_HUNG_UP,
 };
 
 static_assert(CONN_FLAG_LAST < ((1 << 15) - 1),
@@ -373,10 +377,35 @@ struct lwan_connection {
     /* This structure is exactly 32-bytes on x86-64. If it is changed,
      * make sure the scheduler (lwan-thread.c) is updated as well. */
     enum lwan_connection_flags flags;
+
     unsigned int time_to_expire;
+
     struct coro *coro;
     struct lwan_thread *thread;
-    int prev, next; /* for timeout queue */
+
+    /* This union is here to support async/await when a handler is waiting
+     * on multiple file descriptors.  By storing a pointer to the parent
+     * connection here, we're able to register the awaited file descriptor
+     * in epoll using a pointer to the awaited file descriptor struct,
+     * allowing us to yield to the handler this information and signal which
+     * file descriptor caused the handler to be awoken.  (We can yield just
+     * the file descriptor plus another integer with values to signal things
+     * like timeouts and whatnot.  Future problems!)
+     *
+     * Also, when CONN_ASYNC_AWAIT is set, `coro` points to parent->coro,
+     * so that conn->coro is consistently usable.  Gotta be careful though,
+     * because struct coros are not refcounted and this could explode with
+     * a double free. */
+    union {
+        /* For HTTP client connections handling inside the timeout queue */
+        struct {
+            int prev;
+            int next;
+        };
+
+        /* For awaited file descriptor, only valid if flags&CONN_ASYNC_AWAIT */
+        struct lwan_connection *parent;
+    };
 };
 
 struct lwan_proxy {
@@ -639,9 +668,11 @@ void lwan_response_websocket_write_binary(struct lwan_request *request);
 int lwan_response_websocket_read(struct lwan_request *request);
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint);
 
-void lwan_request_await_read(struct lwan_request *r, int fd);
-void lwan_request_await_write(struct lwan_request *r, int fd);
-void lwan_request_await_read_write(struct lwan_request *r, int fd);
+struct lwan_connection *lwan_request_await_read(struct lwan_request *r, int fd);
+struct lwan_connection *lwan_request_await_write(struct lwan_request *r,
+                                                 int fd);
+struct lwan_connection *lwan_request_await_read_write(struct lwan_request *r,
+                                                      int fd);
 ssize_t lwan_request_async_read(struct lwan_request *r, int fd, void *buf, size_t len);
 ssize_t lwan_request_async_read_flags(struct lwan_request *request, int fd, void *buf, size_t len, int flags);
 ssize_t lwan_request_async_write(struct lwan_request *r, int fd, const void *buf, size_t len);
