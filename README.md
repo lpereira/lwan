@@ -1020,7 +1020,9 @@ Lwan in the wild
 ----------------
 
 Here's a non-definitive list of third-party stuff that uses Lwan and have
-been seen in the wild.  *Help build this list!*
+been seen in the wild.  *If you see mentions of Lwan in the media or
+academia, however small it might be, please contact the author! It'll make
+her day!*
 
 * [This project uses Cython and Lwan](https://www.erp5.com/NXD-Blog.Multicore.Python.HTTP.Server) to make it possible to write handlers in Python.
 * [An experimental version of Node.js using Lwan](https://github.com/raadad/node-lwan) as its HTTP server is maintained by [@raadad](https://github.com/raadad).
@@ -1057,10 +1059,14 @@ Mentions in academic journals:
 * [A dynamic predictive race detector for C/C++ programs (in English, published 2017)](https://link.springer.com/article/10.1007/s11227-017-1996-8) uses Lwan as a "real world example".
 * [High-precision Data Race Detection Method for Large Scale Programs (in Chinese, published 2021)](http://www.jos.org.cn/jos/article/abstract/6260) also uses Lwan as one of the case studies.
 * [AGE: Automatic Performance Evaluation of API Gateways (in English, published 2023)](https://www.computer.org/csdl/proceedings-article/iscc/2023/10218286/1PYLvz6ihBm) mentions Lwan as part of its usage in the KrakenD benchmarks.
+* [Canary: Practical Static Detection of Inter-thread Value-Flow Bugs](https://rainoftime.github.io/files/PLDI21Canary.pdf) used Lwan as one of the pieces of software that have been analyzed.
+* [Uma análise comparativa de ferramentas de análise estática para deteção de erros de memória](https://arxiv.org/pdf/1807.08015.pdf) used Lwan as one of the evaluation softwares.
 
 Mentions in magazines:
 
 * [Linux-Magazin (Germany) mentions Lwan in their December/2021 issue](https://www.linux-magazin.de/ausgaben/2021/12/tooltipps/)
+* [Raspberry Pi Geek (Germany) mentions Lwan in their October/November 2022 issue)(https://www.discountmags.com/magazine/raspberry-pi-geek-october-6-2022-digital/in-this-issue/17)
+* [LinuxUser (Germany) mentions Lwan in their October 2022 issue)(https://www.linux-community.de/ausgaben/linuxuser/2022/10/aktuelle-software-im-kurztest-30/)
 
 Some talks mentioning Lwan:
 
