@@ -1065,8 +1065,8 @@ Mentions in academic journals:
 Mentions in magazines:
 
 * [Linux-Magazin (Germany) mentions Lwan in their December/2021 issue](https://www.linux-magazin.de/ausgaben/2021/12/tooltipps/)
-* [Raspberry Pi Geek (Germany) mentions Lwan in their October/November 2022 issue)(https://www.discountmags.com/magazine/raspberry-pi-geek-october-6-2022-digital/in-this-issue/17)
-* [LinuxUser (Germany) mentions Lwan in their October 2022 issue)(https://www.linux-community.de/ausgaben/linuxuser/2022/10/aktuelle-software-im-kurztest-30/)
+* [Raspberry Pi Geek (Germany) mentions Lwan in their October/November 2022 issue](https://www.discountmags.com/magazine/raspberry-pi-geek-october-6-2022-digital/in-this-issue/17)
+* [LinuxUser (Germany) mentions Lwan in their October 2022 issue](https://www.linux-community.de/ausgaben/linuxuser/2022/10/aktuelle-software-im-kurztest-30/)
 
 Some talks mentioning Lwan:
 
