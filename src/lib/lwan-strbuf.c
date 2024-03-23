@@ -33,6 +33,12 @@
 static const unsigned int BUFFER_MALLOCD = 1 << 0;
 static const unsigned int STRBUF_MALLOCD = 1 << 1;
 static const unsigned int BUFFER_FIXED = 1 << 2;
+static const unsigned int GROW_BUFFER_FAILED = 1 << 3;
+
+bool lwan_strbuf_has_grow_buffer_failed_flag(const struct lwan_strbuf *s)
+{
+    return s->flags & GROW_BUFFER_FAILED;
+}
 
 static inline size_t align_size(size_t unaligned_size)
 {
@@ -44,7 +50,8 @@ static inline size_t align_size(size_t unaligned_size)
     return aligned_size;
 }
 
-static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
+static ALWAYS_INLINE
+bool grow_buffer_if_needed_internal(struct lwan_strbuf *s, size_t size)
 {
     if (s->flags & BUFFER_FIXED)
         return size < s->capacity;
@@ -94,6 +101,16 @@ static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
 
         s->buffer = buffer;
         s->capacity = aligned_size;
+    }
+
+    return true;
+}
+
+static bool grow_buffer_if_needed(struct lwan_strbuf *s, size_t size)
+{
+    if (UNLIKELY(!grow_buffer_if_needed_internal(s, size))) {
+        s->flags |= GROW_BUFFER_FAILED;
+        return false;
     }
 
     return true;
