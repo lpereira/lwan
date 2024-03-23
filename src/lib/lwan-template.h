@@ -27,14 +27,29 @@ enum lwan_tpl_flag { LWAN_TPL_FLAG_CONST_TEMPLATE = 1 << 0 };
 
 struct lwan_var_descriptor {
     const char *name;
+
     const off_t offset;
 
-    void (*append_to_strbuf)(struct lwan_strbuf *buf, void *ptr);
-    bool (*get_is_empty)(void *ptr);
-
-    coro_function_t generator;
-    const struct lwan_var_descriptor *list_desc;
+    union {
+        struct {
+            void (*append_to_strbuf)(struct lwan_strbuf *buf, void *ptr);
+            bool (*get_is_empty)(void *ptr);
+        };
+        struct {
+            coro_function_t generator;
+            const struct lwan_var_descriptor *list_desc;
+        };
+        struct {
+            void (*lambda)(struct lwan_strbuf *buf, void *ptr);
+        };
+    };
 };
+
+#define TPL_LAMBDA(var_, lambda_)                                              \
+    {                                                                          \
+        .name = #var_, .offset = 0x1aabdacb, .lambda = lambda_,                \
+        /* 0x1aabdacb = lambda call back */                                    \
+    }
 
 #define TPL_VAR_SIMPLE(var_, append_to_lwan_strbuf_, get_is_empty_)            \
     {                                                                          \
@@ -64,7 +79,6 @@ struct lwan_var_descriptor {
 
 #define TPL_VAR_SENTINEL                                                       \
     {                                                                          \
-        NULL, 0, NULL, NULL, NULL, NULL                                        \
     }
 
 /*

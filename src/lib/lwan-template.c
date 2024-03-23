@@ -66,6 +66,7 @@ enum action {
     ACTION_IF_VARIABLE_NOT_EMPTY,
     ACTION_END_IF_VARIABLE_NOT_EMPTY,
     ACTION_APPLY_TPL,
+    ACTION_LAMBDA,
     ACTION_LAST
 };
 
@@ -74,6 +75,7 @@ enum flags {
     FLAGS_NEGATE = 1 << 0,
     FLAGS_QUOTE = 1 << 1,
     FLAGS_NO_FREE = 1 << 2,
+    FLAGS_LAMBDA = 1 << 3,
 };
 
 #define FOR_EACH_LEXEME(X)                                                     \
@@ -765,7 +767,13 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
                                 (int)lexeme->value.len, lexeme->value.value);
         }
 
-        emit_chunk(parser, ACTION_VARIABLE, parser->flags, symbol);
+        if (symbol->offset == 0x1aabdacb) {
+            emit_chunk(parser, ACTION_LAMBDA, parser->flags, symbol);
+            assert(!symbol->get_is_empty);
+            assert(!symbol->list_desc);
+        } else {
+            emit_chunk(parser, ACTION_VARIABLE, parser->flags, symbol);
+        }
 
         parser->flags &= ~FLAGS_QUOTE;
         parser->tpl->minimum_size += lexeme->value.len + 1;
@@ -782,6 +790,10 @@ static void *parser_identifier(struct parser *parser, struct lexeme *lexeme)
         }
 
         enum flags flags = FLAGS_NO_FREE | (parser->flags & FLAGS_NEGATE);
+
+        if (symbol->offset == 0x1aabdacb)
+            flags |= FLAGS_LAMBDA;
+
         emit_chunk(parser, ACTION_IF_VARIABLE_NOT_EMPTY, flags, symbol);
         parser_push_lexeme(parser, lexeme);
 
@@ -1042,6 +1054,7 @@ static void free_chunk(struct chunk *chunk)
         return;
 
     switch (chunk->action) {
+    case ACTION_LAMBDA:
     case ACTION_LAST:
     case ACTION_APPEND_SMALL:
     case ACTION_VARIABLE:
@@ -1335,6 +1348,12 @@ static void dump_program(const struct lwan_tpl *tpl)
             printf("%s (%zu) [%.*s]", instr("APPEND_SMALL", instr_buf), len, (int)len, (char *)&val);
             break;
         }
+        case ACTION_LAMBDA: {
+            struct lwan_var_descriptor *descriptor = iter->data;
+
+            printf("%s %s()", instr("APPEND_LAMBDA", instr_buf), descriptor->name);
+            break;
+        }
         case ACTION_VARIABLE: {
             struct lwan_var_descriptor *descriptor = iter->data;
 
@@ -1363,8 +1382,12 @@ static void dump_program(const struct lwan_tpl *tpl)
         case ACTION_IF_VARIABLE_NOT_EMPTY: {
             struct chunk_descriptor *cd = iter->data;
 
-            printf("%s [%s]", instr("IF_VAR_NOT_EMPTY", instr_buf),
+            printf("%s [%s]",
+                   instr((iter->flags & FLAGS_LAMBDA) ? "IF_LAMBDA_NOT_EMPTY"
+                                                      : "IF_VAR_NOT_EMPTY",
+                         instr_buf),
                    cd->descriptor->name);
+
             indent++;
             break;
         }
@@ -1494,6 +1517,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
             [ACTION_APPLY_TPL] = &&action_apply_tpl,
             [ACTION_START_ITER] = &&action_start_iter,
             [ACTION_END_ITER] = &&action_end_iter,
+            [ACTION_LAMBDA] = &&action_lambda,
             [ACTION_LAST] = &&finalize,
         };
 
@@ -1549,6 +1573,12 @@ action_variable: {
         DISPATCH_NEXT_ACTION_FAST();
     }
 
+action_lambda: {
+        struct lwan_var_descriptor *descriptor = chunk->data;
+        descriptor->lambda(buf, variables);
+        DISPATCH_NEXT_ACTION_FAST();
+    }
+
 action_variable_str:
     lwan_append_str_to_strbuf(buf, (char *)variables + (uintptr_t)chunk->data);
     DISPATCH_NEXT_ACTION_FAST();
@@ -1560,8 +1590,23 @@ action_variable_str_escape:
 
 action_if_variable_not_empty: {
         struct chunk_descriptor *cd = chunk->data;
-        bool empty = cd->descriptor->get_is_empty((char *)variables +
-                                                  cd->descriptor->offset);
+        bool empty;
+
+        if (chunk->flags & FLAGS_LAMBDA) {
+            struct lwan_strbuf temp_buf;
+            char trash[1];
+
+            lwan_strbuf_init_with_fixed_buffer(&temp_buf, trash, 0);
+
+            cd->descriptor->lambda(&temp_buf, variables);
+            empty = lwan_strbuf_has_grow_buffer_failed_flag(&temp_buf);
+
+            lwan_strbuf_free(&temp_buf);
+        } else {
+            empty = cd->descriptor->get_is_empty((char *)variables +
+                                                 cd->descriptor->offset);
+        }
+
         if (chunk->flags & FLAGS_NEGATE)
             empty = !empty;
         if (empty) {
@@ -1696,6 +1741,13 @@ struct test_struct {
     char *a_string;
 };
 
+static void hello_lambda(struct lwan_strbuf *b, void *v)
+{
+    struct test_struct *s = v;
+
+    lwan_strbuf_append_printf("hello from lambda func! appending <%d> from test_struct", s->some_int);
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 2) {
@@ -1709,6 +1761,7 @@ int main(int argc, char *argv[])
     struct lwan_var_descriptor desc[] = {
         TPL_VAR_INT(some_int),
         TPL_VAR_STR(a_string),
+        TPL_LAMBDA(hello, hello_lambda),
         TPL_VAR_SENTINEL
     };
     struct lwan_tpl *tpl = lwan_tpl_compile_file(argv[1], desc);
