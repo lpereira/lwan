@@ -18,6 +18,7 @@
     X(RANGE_UNSATISFIABLE, 416, "Requested range unsatisfiable", "The server can't supply the requested portion of the requested resource") \
     X(I_AM_A_TEAPOT, 418, "I'm a teapot", "Client requested to brew coffee but device is a teapot")                                         \
     X(CLIENT_TOO_HIGH, 420, "Client too high", "Client is too high to make a request")                                                      \
+    X(UNPROCESSABLE_CONTENT, 422, "Unprocessable content", "Request was understood by the server but it can't process the instructions")    \
     X(INTERNAL_ERROR, 500, "Internal server error", "The server encountered an internal error that couldn't be recovered from")             \
     X(NOT_IMPLEMENTED, 501, "Not implemented", "Server lacks the ability to fulfil the request")                                            \
     X(UNAVAILABLE, 503, "Service unavailable", "The server is either overloaded or down for maintenance")                                   \
