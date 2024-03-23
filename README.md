@@ -1202,6 +1202,8 @@ in no particular order.  Contributions are appreciated:
 > "Insane C thing" -- [Michael
 > Sproul](https://michaelsproul.github.io/iron-talk/)
 
+> "The best performer is LWAN, a newcomer" -- [InfoQ](https://www.infoq.com/news/2015/04/web-frameworks-benchmark-2015/)
+
 > "I've never had a chance to thank you for Lwan.  It inspired me a lot to
 > develop [Zewo](https://github.com/Zewo/Zero)" --
 > [@paulofariarl](https://twitter.com/paulofariarl/status/707926806373003265)
