@@ -27,8 +27,8 @@ enum lwan_tpl_flag { LWAN_TPL_FLAG_CONST_TEMPLATE = 1 << 0 };
 
 struct lwan_var_descriptor {
     const char *name;
-
     const off_t offset;
+    const struct lwan_var_descriptor *list_desc;
 
     union {
         struct {
@@ -37,7 +37,6 @@ struct lwan_var_descriptor {
         };
         struct {
             coro_function_t generator;
-            const struct lwan_var_descriptor *list_desc;
         };
         struct {
             void (*lambda)(struct lwan_strbuf *buf, void *ptr);
