@@ -79,6 +79,7 @@ struct lwan_var_descriptor {
 
 #define TPL_VAR_SENTINEL                                                       \
     {                                                                          \
+        .name = NULL, .offset = 0,                                             \
     }
 
 /*
