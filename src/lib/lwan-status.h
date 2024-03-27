@@ -26,7 +26,7 @@
                               __attribute__((noinline,cold))         \
                               __VA_ARGS__;
 
-#define lwan_status_debug(fmt, ...)
+#define lwan_status_debug(fmt, ...) do {} while(0)
 #else
 #define DECLARE_STATUS_PROTO(type_, ...)                             \
   void lwan_status_##type_##_debug(const char *file, const int line, \

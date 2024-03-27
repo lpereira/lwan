@@ -346,7 +346,9 @@ LWAN_LUA_METHOD(request_date)
     return 1;
 }
 
-#define IMPLEMENT_LOG_FUNCTION(name)                                           \
+#define FOR_EACH_LOG_FUNCTION(X) X(info) X(warning) X(error) X(critical) X(debug)
+
+#define IMPLEMENT_FUNCTION(name)                                               \
     static int lwan_lua_log_##name(lua_State *L)                               \
     {                                                                          \
         size_t log_str_len = 0;                                                \
@@ -355,26 +357,18 @@ LWAN_LUA_METHOD(request_date)
             lwan_status_##name("%.*s", (int)log_str_len, log_str);             \
         return 0;                                                              \
     }
-
-IMPLEMENT_LOG_FUNCTION(info)
-IMPLEMENT_LOG_FUNCTION(warning)
-IMPLEMENT_LOG_FUNCTION(error)
-IMPLEMENT_LOG_FUNCTION(critical)
-
-#undef IMPLEMENT_LOG_FUNCTION
+FOR_EACH_LOG_FUNCTION(IMPLEMENT_FUNCTION)
+#undef IMPLEMENT_FUNCTION
 
 static int luaopen_log(lua_State *L)
 {
     static const char *metatable_name = "Lwan.log";
+#define LOG_FUNCTION(name) {#name, lwan_lua_log_##name},
     static const struct luaL_Reg functions[] = {
-#define LOG_FUNCTION(name) {#name, lwan_lua_log_##name}
-        LOG_FUNCTION(info),
-        LOG_FUNCTION(warning),
-        LOG_FUNCTION(error),
-        LOG_FUNCTION(critical),
-        {},
-#undef LOG_FUNCTION
+        FOR_EACH_LOG_FUNCTION(LOG_FUNCTION)
+        {}
     };
+#undef LOG_FUNCTION
 
     luaL_newmetatable(L, metatable_name);
     luaL_register(L, metatable_name, functions);
