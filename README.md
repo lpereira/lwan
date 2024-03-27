@@ -562,6 +562,15 @@ Scripts can be served from files or embedded in the configuration file, and
 the results of loading them, the standard Lua modules, and (optionally, if
 using LuaJIT) optimizing the code will be cached for a while.
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default_type` | `str` | `text/plain` | Default MIME-Type for responses |
+| `script_file` | `str` | `NULL` | Path to Lua script|
+| `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
+| `script` | `str` | `NULL` | Inline lua script |
+
+##### Writing request handlers
+
 > [!NOTE]
 >
 > Lua scripts can't use global variables, as they may be not
@@ -617,12 +626,22 @@ is generated), or a number matching an HTTP status code.  Attempting to return
 an invalid HTTP status code or anything other than a number or `nil` will result
 in a `500 Internal Server Error` response being thrown.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `default_type` | `str` | `text/plain` | Default MIME-Type for responses |
-| `script_file` | `str` | `NULL` | Path to Lua script|
-| `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
-| `script` | `str` | `NULL` | Inline lua script |
+##### Logging
+
+In addition to the metamethods in the `req` parameter, one can also log messages
+with different logging levels by calling methods from `Lwan.log`:
+
+    - `Lwan.log:warning(str)`
+    - `Lwan.log:info(str)`
+    - `Lwan.log:error(str)`
+    - `Lwan.log:critical(str)` (Will also abort Lwan! Use with caution)
+    - `Lwan.log:debug(str)` (Only available in debug builds)
+
+> [!NOTE]
+>
+> If Lwan is built with syslog support, these messages will also be sent to the
+> system log, otherwise they'll be printed to the standard error.
+
 
 #### Rewrite
 
@@ -697,7 +716,8 @@ them must be specified at least.
 
 It's also possible to specify conditions to trigger a rewrite.  To specify one,
 open a `condition` block, specify the condition type, and then the parameters
-for that condition to be evaluated:
+for that condition to be evaluated.  Multiple conditions can be set per rewrite
+rule as long as there's one condition per type:
 
 |Condition          |Can use subst. syntax|Section required|Parameters|Description|
 |-------------------|---------------------|----------------|----------|-----------|
@@ -1068,6 +1088,10 @@ Mentions in magazines:
 * [Raspberry Pi Geek (Germany) mentions Lwan in their October/November 2022 issue](https://www.discountmags.com/magazine/raspberry-pi-geek-october-6-2022-digital/in-this-issue/17)
 * [LinuxUser (Germany) mentions Lwan in their October 2022 issue](https://www.linux-community.de/ausgaben/linuxuser/2022/10/aktuelle-software-im-kurztest-30/)
 
+Mentions in books:
+
+* [The Ascetic Programmer](https://asceticprogrammer.info/book) has a paragraph about Lwan.
+
 Some talks mentioning Lwan:
 
 * [Talk about Lwan](https://www.youtube.com/watch?v=cttY9FdCzUE) at Polyconf16, given by [@lpereira](https://github.com/lpereira).
@@ -1189,6 +1213,10 @@ Lwan quotes
 
 These are some of the quotes found in the wild about Lwan.  They're presented
 in no particular order.  Contributions are appreciated:
+
+> "Lwan is like a classic, according to the definition given by Italian
+> -- writer Italo Calvino: you can read it again and again" [Antonio
+> Piccolboni](https://asceticprogrammer.info/book)
 
 > "I read lwan's source code. Especially, the part of using coroutine was
 > very impressive and it was more interesting than a good novel.  Thank you
