@@ -581,6 +581,9 @@ static bool sendfile_init(struct file_cache_entry *ce,
 
         sd->compressed.fd = fd;
         sd->compressed.size = compressed_sz;
+    } else {
+        sd->compressed.fd = -ENOENT;
+        sd->compressed.size = 0;
     }
 
     sd->uncompressed.size = (size_t)st->st_size;
