@@ -458,6 +458,9 @@ void lwan_detect_url_map(struct lwan *l)
         if (!iter->route)
             continue;
 
+        lwan_status_debug("Using handler `%s' for route `%s'",
+                          iter->name, iter->route);
+
         const struct lwan_url_map map = {.prefix = iter->route,
                                          .handler = iter->handler};
         register_url_map(l, &map);
