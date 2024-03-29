@@ -266,6 +266,78 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
+/* has_zero() routines stolen from the Bit Twiddling Hacks page */
+static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
+{
+    return (v - 0x0101010101010101ull) & ~v & 0x8080808080808080ull;
+}
+
+static ALWAYS_INLINE uint32_t has_zero32(uint64_t v)
+{
+    return (v - 0x01010101u) & ~v & 0x80808080u;
+}
+
+static char *find_pct_or_plus(const char *input)
+{
+    const uint64_t mask_plus64 = '+' * 0x0101010101010101ull;
+    const uint64_t mask_pct64 = '%' * 0x0101010101010101ull;
+    const uint32_t mask_plus32 = '+' * 0x01010101u;
+    const uint32_t mask_pct32 = '%' * 0x01010101u;
+    char *str = (char *)input;
+
+    while (true) {
+        uint64_t v = string_as_uint64(str);
+        uint64_t has_plus = has_zero64(v ^ mask_plus64);
+        uint64_t has_pct = has_zero64(v ^ mask_pct64);
+        uint64_t has_zero = has_zero64(v);
+        uint64_t m = LWAN_MAX(has_plus, has_pct);
+
+        if (has_zero && LWAN_MAX(has_zero, m) == has_zero) {
+            switch (__builtin_ctzll(has_zero) / 8) {
+            case 1 ... 3:
+                goto check_small;
+            case 4 ... 7:
+                goto check_at_least_four;
+            default:
+                return NULL;
+            }
+        }
+
+        if (m) {
+            return str + __builtin_ctzll(m) / 8;
+        }
+
+        str += 8;
+    }
+
+check_at_least_four: {
+    uint32_t v = string_as_uint32(str);
+    uint32_t has_plus = has_zero32(v ^ mask_plus32);
+    uint32_t has_pct = has_zero32(v ^ mask_pct32);
+    uint32_t has_zero = has_zero32(v);
+    uint32_t m = LWAN_MAX(has_plus, has_pct);
+
+    if (has_zero && LWAN_MAX(has_zero, m) == has_zero) {
+        return NULL;
+    }
+
+    if (m) {
+        return str + __builtin_ctz(m) / 8;
+    }
+
+    str += 4;
+}
+
+check_small:
+    while (*str) {
+        if (*str == '%' || *str == '+')
+            return str;
+        str++;
+    }
+
+    return NULL;
+}
+
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
     static const unsigned char tbl1[256] = {
@@ -286,7 +358,7 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
     const char *inptr = str;
     char *outptr = str;
 
-    for (char *p = strpbrk(inptr, "+%"); p; p = strpbrk(inptr, "+%")) {
+    for (char *p = find_pct_or_plus(inptr); p; p = find_pct_or_plus(inptr)) {
         const ptrdiff_t diff = p - inptr;
         if (diff)
             outptr = mempmove(outptr, inptr, (size_t)diff);
