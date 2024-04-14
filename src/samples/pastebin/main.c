@@ -121,7 +121,7 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             cache_coro_get_and_ref_entry(pastes, request->conn->coro, key);
 
         if (paste) {
-            const char *host_hdr = lwan_request_get_header(request, "Host");
+            const char *host_hdr = lwan_request_get_host(request);
 
             if (!host_hdr)
                 return HTTP_BAD_REQUEST;
@@ -140,7 +140,7 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
 static enum lwan_http_status doc(struct lwan_request *request,
                                  struct lwan_response *response)
 {
-    const char *host_hdr = lwan_request_get_header(request, "Host");
+    const char *host_hdr = lwan_request_get_host(request);
 
     if (!host_hdr)
         return HTTP_BAD_REQUEST;
