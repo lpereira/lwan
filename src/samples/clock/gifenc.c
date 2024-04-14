@@ -93,9 +93,9 @@ ge_GIF *ge_new_gif(struct lwan_strbuf *buf,
                            3);
 
     if (palette) {
-        lwan_strbuf_append_str(buf, palette, 3 << depth);
+        lwan_strbuf_append_str(buf, palette, 3ull << depth);
     } else if (depth <= 4) {
-        lwan_strbuf_append_str(buf, vga, 3 << depth);
+        lwan_strbuf_append_str(buf, vga, 3ull << depth);
     } else {
         lwan_strbuf_append_str(buf, vga, sizeof(vga));
 
