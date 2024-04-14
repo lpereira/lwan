@@ -454,7 +454,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     struct lwan_strbuf strbuf = LWAN_STRBUF_STATIC_INIT;
     struct lwan_value buffer;
     char *next_request = NULL;
-    char *header_start[N_HEADER_START];
     struct lwan_proxy proxy;
     size_t init_gen;
 
@@ -506,7 +505,6 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             .buffer = &buffer,
             .next_request = next_request,
             .error_when_n_packets = error_when_n_packets,
-            .header_start = header_start,
         };
         struct lwan_request request = {.conn = conn,
                                        .global_response_headers = &lwan->headers,

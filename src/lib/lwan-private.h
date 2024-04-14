@@ -24,26 +24,30 @@
 
 #include "lwan.h"
 
+#define N_HEADER_START 64
+#define DEFAULT_BUFFER_SIZE 4096
+#define DEFAULT_HEADERS_SIZE 2048
+
 struct lwan_request_parser_helper {
-    struct lwan_value *buffer;		/* The whole request buffer */
-    char *next_request;			/* For pipelined requests */
+    struct lwan_value *buffer; /* The whole request buffer */
+    char *next_request;        /* For pipelined requests */
 
-    char **header_start;		/* Headers: n: start, n+1: end */
-    size_t n_header_start;		/* len(header_start) */
+    struct lwan_value accept_encoding; /* Accept-Encoding: */
 
-    struct lwan_value accept_encoding;	/* Accept-Encoding: */
+    struct lwan_value query_string; /* Stuff after ? and before # */
 
-    struct lwan_value query_string;	/* Stuff after ? and before # */
+    struct lwan_value body_data;      /* Request body for POST and PUT */
+    struct lwan_value content_type;   /* Content-Type: for POST and PUT */
+    struct lwan_value content_length; /* Content-Length: */
 
-    struct lwan_value body_data; /* Request body for POST and PUT */
-    struct lwan_value content_type;	/* Content-Type: for POST and PUT */
-    struct lwan_value content_length;	/* Content-Length: */
+    struct lwan_value connection; /* Connection: */
 
-    struct lwan_value connection;	/* Connection: */
-
-    struct lwan_value host;		/* Host: */
+    struct lwan_value host; /* Host: */
 
     struct lwan_key_value_array cookies, query_params, post_params;
+
+    char *header_start[N_HEADER_START]; /* Headers: n: start, n+1: end */
+    size_t n_header_start;              /* len(header_start) */
 
     struct { /* If-Modified-Since: */
         struct lwan_value raw;
@@ -55,17 +59,13 @@ struct lwan_request_parser_helper {
         off_t from, to;
     } range;
 
-    uint64_t request_id;		/* Request ID for debugging purposes */
+    uint64_t request_id; /* Request ID for debugging purposes */
 
-    time_t error_when_time;		/* Time to abort request read */
-    int error_when_n_packets;		/* Max. number of packets */
-    int urls_rewritten;			/* Times URLs have been rewritten */
+    time_t error_when_time;   /* Time to abort request read */
+    int error_when_n_packets; /* Max. number of packets */
+    int urls_rewritten;       /* Times URLs have been rewritten */
 };
 
-#define DEFAULT_BUFFER_SIZE 4096
-#define DEFAULT_HEADERS_SIZE 2048
-
-#define N_HEADER_START 64
 
 #define LWAN_CONCAT(a_, b_) a_ ## b_
 #define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)
