@@ -450,12 +450,12 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     int fd = lwan_connection_get_fd(lwan, conn);
     enum lwan_request_flags flags = lwan->config.request_flags;
     const size_t request_buffer_size = lwan->config.request_buffer_size;
+    const int error_when_n_packets = lwan_calculate_n_packets(request_buffer_size);
     struct lwan_strbuf strbuf = LWAN_STRBUF_STATIC_INIT;
     struct lwan_value buffer;
     char *next_request = NULL;
     char *header_start[N_HEADER_START];
     struct lwan_proxy proxy;
-    const int error_when_n_packets = lwan_calculate_n_packets(DEFAULT_BUFFER_SIZE);
     size_t init_gen;
 
     coro_defer(coro, lwan_strbuf_free_defer, &strbuf);
