@@ -385,7 +385,7 @@ static bool discard_unknown_record(struct lwan_request *request,
                                    int fd)
 {
     char buffer[256];
-    size_t to_read = record->len_content + record->len_padding;
+    size_t to_read = (size_t)record->len_content + (size_t)record->len_padding;
 
     if (record->type > 11) {
         /* Per the spec, 11 is the maximum (unknown type), so anything
