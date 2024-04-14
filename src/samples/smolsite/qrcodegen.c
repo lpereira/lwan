@@ -188,7 +188,7 @@ bool qrcodegen_encodeBinary(uint8_t dataAndTemp[], size_t dataLen, uint8_t qrcod
 testable void appendBitsToBuffer(unsigned int val, int numBits, uint8_t buffer[], int *bitLen) {
 	assert(0 <= numBits && numBits <= 16 && (unsigned long)val >> numBits == 0);
 	for (int i = numBits - 1; i >= 0; i--, (*bitLen)++)
-		buffer[*bitLen >> 3] |= ((val >> i) & 1) << (7 - (*bitLen & 7));
+		buffer[*bitLen >> 3] |= (uint8_t)(((val >> i) & 1) << (7 - (*bitLen & 7)));
 }
 
 
@@ -407,7 +407,7 @@ testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
 	uint8_t z = 0;
 	for (int i = 7; i >= 0; i--) {
 		z = (uint8_t)((z << 1) ^ ((z >> 7) * 0x11D));
-		z ^= ((y >> i) & 1) * x;
+		z ^= (uint8_t)(((y >> i) & 1) * x);
 	}
 	return z;
 }
@@ -786,9 +786,9 @@ testable void setModuleBounded(uint8_t qrcode[], int x, int y, bool isDark) {
 	int bitIndex = index & 7;
 	int byteIndex = (index >> 3) + 1;
 	if (isDark)
-		qrcode[byteIndex] |= 1 << bitIndex;
+		qrcode[byteIndex] |= (uint8_t)(1 << bitIndex);
 	else
-		qrcode[byteIndex] &= (1 << bitIndex) ^ 0xFF;
+		qrcode[byteIndex] &= (uint8_t)((1 << bitIndex) ^ 0xFF);
 }
 
 
