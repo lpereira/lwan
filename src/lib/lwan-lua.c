@@ -353,8 +353,11 @@ LWAN_LUA_METHOD(request_date)
     {                                                                          \
         size_t log_str_len = 0;                                                \
         const char *log_str = lua_tolstring(L, -1, &log_str_len);              \
-        if (log_str_len)                                                       \
+        if (log_str_len) {                                                     \
             lwan_status_##name("%.*s", (int)log_str_len, log_str);             \
+            (void)log_str_len;                                                 \
+            (void)log_str;                                                     \
+        }                                                                      \
         return 0;                                                              \
     }
 FOR_EACH_LOG_FUNCTION(IMPLEMENT_FUNCTION)
