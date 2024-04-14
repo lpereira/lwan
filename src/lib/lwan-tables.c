@@ -110,12 +110,11 @@ LWAN_SELF_TEST(status_codes)
 {
 #define ASSERT_STATUS(id, code, short, long)                                   \
     do {                                                                       \
-        const char *status = lwan_http_status_as_string_with_code(HTTP_##id);  \
-        assert(!strncmp(status, #code, 3));                                    \
-        const char *status_as_str = lwan_http_status_as_string(HTTP_##id);     \
-        assert(!strcmp(status_as_str, short));                                 \
-        const char *descr = lwan_http_status_as_descriptive_string(HTTP_##id); \
-        assert(!strcmp(descr, long));                                          \
+        assert(!strncmp(lwan_http_status_as_string_with_code(HTTP_##id),       \
+                        #code, 3));                                            \
+        assert(!strcmp(lwan_http_status_as_string(HTTP_##id), short));         \
+        assert(                                                                \
+            !strcmp(lwan_http_status_as_descriptive_string(HTTP_##id), long)); \
     } while (0);
     FOR_EACH_HTTP_STATUS(ASSERT_STATUS)
 #undef ASSERT_STATUS
