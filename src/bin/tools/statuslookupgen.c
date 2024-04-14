@@ -92,7 +92,11 @@ int main(void)
 
     printf("\n");
     printf("    const uint32_t k = (uint32_t)status - %d;\n", best_subtract);
-    printf("    return table[((k << %d) | (k >> %d)) %% %d];\n", 32 - best_rot, best_rot, best_mod);
+    printf("    const char *ret = table[((k << %d) | (k >> %d)) %% %d];\n", 32 - best_rot, best_rot, best_mod);
+    printf("    assert((uint32_t)(ret[2] - '0') == ((uint32_t)status %% 10));\n");
+    printf("    assert((uint32_t)(ret[1] - '0') == ((uint32_t)(status / 10) %% 10));\n");
+    printf("    assert((uint32_t)(ret[0] - '0') == ((uint32_t)(status / 100) %% 10));\n");
+    printf("    return ret;\n");
 
     printf("}\n");
 
