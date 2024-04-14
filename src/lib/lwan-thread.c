@@ -360,6 +360,85 @@ fail:
 }
 #endif
 
+__attribute__((cold))
+static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, int flags)
+{
+    size_t total_sent = 0;
+
+    for (int try = 0; try < 10; try++) {
+        size_t to_send = buf_len - total_sent;
+        if (!to_send)
+            return true;
+
+        ssize_t sent = send(fd, buf + total_sent, to_send, flags);
+        if (sent <= 0) {
+            if (errno == EINTR)
+                continue;
+            if (errno == EAGAIN)
+                continue;
+            break;
+        }
+
+        total_sent += (size_t)sent;
+    }
+
+    return false;
+}
+
+__attribute__((cold))
+static bool send_string_without_coro(int fd, const char *str, int flags)
+{
+    return send_buffer_without_coro(fd, str, strlen(str), flags);
+}
+
+__attribute__((cold)) static void
+send_last_response_without_coro(const struct lwan *l,
+                                const struct lwan_connection *conn,
+                                enum lwan_http_status status)
+{
+    int fd = lwan_connection_get_fd(l, conn);
+
+    if (conn->flags & CONN_TLS) {
+        /* There's nothing that can be done here if a client is expecting a
+         * TLS connection: the TLS handshake requires a coroutine as it
+         * might yield.  (In addition, the TLS handshake might allocate
+         * memory, and if you couldn't create a coroutine at this point,
+         * it's unlikely you'd be able to allocate memory for the TLS
+         * context anyway.) */
+        goto shutdown_and_close;
+    }
+
+    if (!send_string_without_coro(fd, "HTTP/1.0 ", MSG_MORE))
+        goto shutdown_and_close;
+
+    if (!send_string_without_coro(
+            fd, lwan_http_status_as_string_with_code(status), MSG_MORE))
+        goto shutdown_and_close;
+
+    if (!send_string_without_coro(fd, "\r\nConnection: close", MSG_MORE))
+        goto shutdown_and_close;
+
+    if (!send_string_without_coro(fd, "\r\nContent-Type: text/html", MSG_MORE))
+        goto shutdown_and_close;
+
+    if (send_buffer_without_coro(fd, l->headers.value, l->headers.len,
+                                 MSG_MORE)) {
+        struct lwan_strbuf buffer;
+
+        lwan_strbuf_init(&buffer);
+        lwan_fill_default_response(&buffer, status);
+
+        send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&buffer),
+                                 lwan_strbuf_get_length(&buffer), 0);
+
+        lwan_strbuf_free(&buffer);
+    }
+
+shutdown_and_close:
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+}
+
 __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
                                                           void *data)
 {
@@ -397,12 +476,28 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             .value = coro_malloc(conn->coro, request_buffer_size),
             .len = request_buffer_size,
         };
+
+        if (UNLIKELY(!buffer.value)) {
+            /* If CONN_TLS is set at this point, we can send responses just
+             * fine and they'll be encrypted by the kernel.  However,
+             * send_last_response_without_coro() can't send the response if
+             * this bit is set as it has been designed to be used in cases
+             * where coroutines were not created yet.  */
+            conn->flags &= ~CONN_TLS;
+
+            send_last_response_without_coro(lwan, conn, HTTP_UNAVAILABLE);
+
+            coro_yield(conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
         init_gen = 2;
     } else {
         buffer = (struct lwan_value){
             .value = alloca(request_buffer_size),
             .len = request_buffer_size,
         };
+
         init_gen = 1;
     }
 
@@ -636,85 +731,6 @@ static void update_date_cache(struct lwan_thread *thread)
     lwan_format_rfc_time(now, thread->date.date);
     lwan_format_rfc_time(now + (time_t)thread->lwan->config.expires,
                          thread->date.expires);
-}
-
-__attribute__((cold))
-static bool send_buffer_without_coro(int fd, const char *buf, size_t buf_len, int flags)
-{
-    size_t total_sent = 0;
-
-    for (int try = 0; try < 10; try++) {
-        size_t to_send = buf_len - total_sent;
-        if (!to_send)
-            return true;
-
-        ssize_t sent = send(fd, buf + total_sent, to_send, flags);
-        if (sent <= 0) {
-            if (errno == EINTR)
-                continue;
-            if (errno == EAGAIN)
-                continue;
-            break;
-        }
-
-        total_sent += (size_t)sent;
-    }
-
-    return false;
-}
-
-__attribute__((cold))
-static bool send_string_without_coro(int fd, const char *str, int flags)
-{
-    return send_buffer_without_coro(fd, str, strlen(str), flags);
-}
-
-__attribute__((cold)) static void
-send_last_response_without_coro(const struct lwan *l,
-                                const struct lwan_connection *conn,
-                                enum lwan_http_status status)
-{
-    int fd = lwan_connection_get_fd(l, conn);
-
-    if (conn->flags & CONN_TLS) {
-        /* There's nothing that can be done here if a client is expecting a
-         * TLS connection: the TLS handshake requires a coroutine as it
-         * might yield.  (In addition, the TLS handshake might allocate
-         * memory, and if you couldn't create a coroutine at this point,
-         * it's unlikely you'd be able to allocate memory for the TLS
-         * context anyway.) */
-        goto shutdown_and_close;
-    }
-
-    if (!send_string_without_coro(fd, "HTTP/1.0 ", MSG_MORE))
-        goto shutdown_and_close;
-
-    if (!send_string_without_coro(
-            fd, lwan_http_status_as_string_with_code(status), MSG_MORE))
-        goto shutdown_and_close;
-
-    if (!send_string_without_coro(fd, "\r\nConnection: close", MSG_MORE))
-        goto shutdown_and_close;
-
-    if (!send_string_without_coro(fd, "\r\nContent-Type: text/html", MSG_MORE))
-        goto shutdown_and_close;
-
-    if (send_buffer_without_coro(fd, l->headers.value, l->headers.len,
-                                 MSG_MORE)) {
-        struct lwan_strbuf buffer;
-
-        lwan_strbuf_init(&buffer);
-        lwan_fill_default_response(&buffer, status);
-
-        send_buffer_without_coro(fd, lwan_strbuf_get_buffer(&buffer),
-                                 lwan_strbuf_get_length(&buffer), 0);
-
-        lwan_strbuf_free(&buffer);
-    }
-
-shutdown_and_close:
-    shutdown(fd, SHUT_RDWR);
-    close(fd);
 }
 
 static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
