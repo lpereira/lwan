@@ -1373,10 +1373,14 @@ config_base64_encode_pad (char * const restrict dst, const size_t dstsz,
         return -1;
 
     int s = 0, d = 0;
-    unsigned int v;
     const unsigned char * const src = (const unsigned char *)ssrc;
     for (; s < tuplen; s += 3, d += 4) {
-        v = (src[s+0] << 16) | (src[s+1] << 8) | src[s+2];
+        unsigned int v;
+
+        v = (unsigned int)(src[s+0] << 16);
+        v |= (unsigned int)(src[s+1] << 8);
+        v |= (unsigned int)src[s+2];
+
         dst[d+0] = base64_table[(v >> 18) & 0x3f];
         dst[d+1] = base64_table[(v >> 12) & 0x3f];
         dst[d+2] = base64_table[(v >>  6) & 0x3f];
@@ -1384,12 +1388,15 @@ config_base64_encode_pad (char * const restrict dst, const size_t dstsz,
     }
 
     if (rem) {
+        unsigned int v;
+
         if (1 == rem) {
-            v = (src[s+0] << 4);
+            v = (unsigned int)(src[s+0] << 4);
             dst[d+2] = base64_table[64]; /* pad */
         }
         else { /*(2 == rem)*/
-            v = (src[s+0] << 10) | (src[s+1] << 2);
+            v = (unsigned int)(src[s+0] << 10);
+            v |= (unsigned int)(src[s+1] << 2);
             dst[d+2] = base64_table[v & 0x3f]; v >>= 6;
         }
         dst[d+0] = base64_table[(v >> 6) & 0x3f];
