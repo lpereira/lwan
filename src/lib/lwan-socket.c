@@ -170,18 +170,6 @@ sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port)
     return parse_listener_ipv4(listener, node, port);
 }
 
-static sa_family_t parse_listener(char *listener, char **node, char **port)
-{
-    if (streq(listener, "systemd")) {
-        lwan_status_critical(
-            "Listener configured to use systemd socket activation, "
-            "but started outside systemd.");
-        return AF_MAX;
-    }
-
-    return lwan_socket_parse_address(listener, node, port);
-}
-
 static int listen_addrinfo(int fd,
                            const struct addrinfo *addr,
                            bool print_listening_msg,
@@ -232,9 +220,7 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
 
     /* Try each address until we bind one successfully. */
     for (addr = addrs; addr; addr = addr->ai_next) {
-        int fd = socket(addr->ai_family,
-                        addr->ai_socktype,
-                        addr->ai_protocol);
+        int fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
         if (fd < 0)
             continue;
 
@@ -252,34 +238,6 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
     }
 
     lwan_status_critical("Could not bind socket");
-}
-
-static int setup_socket_normally(const struct lwan *l,
-                                 bool print_listening_msg,
-                                 bool is_https,
-                                 const char *listener_from_config)
-{
-    char *node, *port;
-    char *listener = strdupa(listener_from_config);
-    sa_family_t family = parse_listener(listener, &node, &port);
-
-    if (family == AF_MAX) {
-        lwan_status_critical("Could not parse listener: %s",
-                             l->config.listener);
-    }
-
-    struct addrinfo *addrs;
-    struct addrinfo hints = {.ai_family = family,
-                             .ai_socktype = SOCK_STREAM,
-                             .ai_flags = AI_PASSIVE};
-
-    int ret = getaddrinfo(node, port, &hints, &addrs);
-    if (ret)
-        lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
-
-    int fd = bind_and_listen_addrinfos(addrs, print_listening_msg, is_https);
-    freeaddrinfo(addrs);
-    return fd;
 }
 
 static int set_socket_options(const struct lwan *l, int fd)
@@ -306,6 +264,34 @@ static int set_socket_options(const struct lwan *l, int fd)
     return fd;
 }
 
+static int setup_socket_normally(const struct lwan *l,
+                                 bool print_listening_msg,
+                                 bool is_https,
+                                 const char *listener_from_config)
+{
+    char *node, *port;
+    char *listener = strdupa(listener_from_config);
+    sa_family_t family = lwan_socket_parse_address(listener, &node, &port);
+
+    if (family == AF_MAX) {
+        lwan_status_critical("Could not parse listener: %s",
+                             l->config.listener);
+    }
+
+    struct addrinfo *addrs;
+    struct addrinfo hints = {.ai_family = family,
+                             .ai_socktype = SOCK_STREAM,
+                             .ai_flags = AI_PASSIVE};
+
+    int ret = getaddrinfo(node, port, &hints, &addrs);
+    if (ret)
+        lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
+
+    int fd = bind_and_listen_addrinfos(addrs, print_listening_msg, is_https);
+    freeaddrinfo(addrs);
+    return set_socket_options(l, fd);
+}
+
 static int from_systemd_socket(const struct lwan *l, int fd)
 {
     if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0)) {
@@ -320,13 +306,15 @@ int lwan_create_listen_socket(const struct lwan *l,
                               bool print_listening_msg,
                               bool is_https)
 {
-    const char *listener = is_https ? l->config.tls_listener
-                                    : l->config.listener;
+    const char *listener =
+        is_https ? l->config.tls_listener : l->config.listener;
 
     if (!strncmp(listener, "systemd:", sizeof("systemd:") - 1)) {
         char **names = NULL;
         int n = sd_listen_fds_with_names(false, &names);
         int fd = -1;
+
+        listener += sizeof("systemd:") - 1;
 
         if (n < 0) {
             errno = -n;
@@ -335,7 +323,11 @@ int lwan_create_listen_socket(const struct lwan *l,
             return n;
         }
 
-        listener += sizeof("systemd:") - 1;
+        if (n == 0) {
+            lwan_status_critical("Not invoked from systemd "
+                                 "(expecting socket name %s)",
+                                 listener);
+        }
 
         for (int i = 0; i < n; i++) {
             if (!strcmp(names[i], listener)) {
@@ -363,6 +355,11 @@ int lwan_create_listen_socket(const struct lwan *l,
             return n;
         }
 
+        if (n == 0) {
+            lwan_status_critical(
+                "Not invoked from systemd (expecting 1 socket)");
+        }
+
         if (n != 1) {
             lwan_status_critical(
                 "%d listeners passed from systemd. Must specify listeners with "
@@ -373,8 +370,7 @@ int lwan_create_listen_socket(const struct lwan *l,
         return from_systemd_socket(l, SD_LISTEN_FDS_START);
     }
 
-    int fd = setup_socket_normally(l, print_listening_msg, is_https, listener);
-    return set_socket_options(l, fd);
+    return setup_socket_normally(l, print_listening_msg, is_https, listener);
 }
 
 #undef SET_SOCKET_OPTION
