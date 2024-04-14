@@ -1753,10 +1753,10 @@ const char *lwan_request_get_cookie(struct lwan_request *request,
     return value_lookup(lwan_request_get_cookies(request), key);
 }
 
-const char *
-lwan_request_get_header_from_helper(struct lwan_request_parser_helper *helper,
+const char *lwan_request_get_header(struct lwan_request *request,
                                     const char *header)
 {
+    const struct lwan_request_parser_helper *helper = request->helper;
     const size_t header_len = strlen(header);
     const size_t header_len_with_separator =
         header_len + HEADER_VALUE_SEPARATOR_LEN;
@@ -1779,12 +1779,6 @@ lwan_request_get_header_from_helper(struct lwan_request_parser_helper *helper,
     }
 
     return NULL;
-}
-
-inline const char *lwan_request_get_header(struct lwan_request *request,
-                                           const char *header)
-{
-    return lwan_request_get_header_from_helper(request->helper, header);
 }
 
 const char *lwan_request_get_host(struct lwan_request *request)
