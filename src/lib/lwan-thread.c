@@ -370,6 +370,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
     enum lwan_request_flags flags = lwan->config.request_flags;
+    const size_t request_buffer_size = lwan->config.request_buffer_size;
     struct lwan_strbuf strbuf = LWAN_STRBUF_STATIC_INIT;
     struct lwan_value buffer;
     char *next_request = NULL;
@@ -391,17 +392,16 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     assert(!(conn->flags & CONN_TLS));
 #endif
 
-    if (conn->flags & CONN_USE_DYNAMIC_BUFFER) {
-        const size_t dynamic_buffer_len = DEFAULT_BUFFER_SIZE * 16;
+    if (request_buffer_size > DEFAULT_BUFFER_SIZE) {
         buffer = (struct lwan_value){
-            .value = coro_malloc(conn->coro, dynamic_buffer_len),
-            .len = dynamic_buffer_len,
+            .value = coro_malloc(conn->coro, request_buffer_size),
+            .len = request_buffer_size,
         };
         init_gen = 2;
     } else {
         buffer = (struct lwan_value){
-            .value = alloca(DEFAULT_BUFFER_SIZE),
-            .len = DEFAULT_BUFFER_SIZE,
+            .value = alloca(request_buffer_size),
+            .len = request_buffer_size,
         };
         init_gen = 1;
     }
@@ -723,9 +723,9 @@ static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
 {
     struct lwan_thread *t = conn->thread;
 #if defined(LWAN_HAVE_MBEDTLS)
-    const enum lwan_connection_flags flags_to_keep = conn->flags & (CONN_TLS | CONN_USE_DYNAMIC_BUFFER);
+    const enum lwan_connection_flags flags_to_keep = conn->flags & CONN_TLS;
 #else
-    const enum lwan_connection_flags flags_to_keep = CONN_USE_DYNAMIC_BUFFER;
+    const enum lwan_connection_flags flags_to_keep = 0;
 #endif
 
     assert(!conn->coro);
@@ -1434,12 +1434,6 @@ void lwan_thread_init(struct lwan *l)
             l->conns[i].thread = &l->thread.threads[i % l->thread.count];
 
         schedtbl = NULL;
-    }
-
-    if (l->config.use_dynamic_buffer) {
-        lwan_status_debug("Using dynamically-allocated buffers");
-        for (unsigned int i = 0; i < total_conns; i++)
-            l->conns[i].flags = CONN_USE_DYNAMIC_BUFFER;
     }
 
     for (unsigned int i = 0; i < l->thread.count; i++) {

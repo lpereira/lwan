@@ -295,12 +295,10 @@ enum lwan_connection_flags {
      * than a client.  */
     CONN_LISTENER = 1 << 11,
 
-    CONN_USE_DYNAMIC_BUFFER = 1 << 12,
-
     /* Only valid when CONN_ASYNC_AWAIT is set. Set on file descriptors that
      * got (EPOLLHUP|EPOLLRDHUP) events from epoll so that request handlers
      * can deal with this fact.  */
-    CONN_HUNG_UP = 1 << 13,
+    CONN_HUNG_UP = 1 << 12,
 
     CONN_FLAG_LAST = CONN_HUNG_UP,
 };
@@ -526,6 +524,7 @@ struct lwan_config {
 
     size_t max_post_data_size;
     size_t max_put_data_size;
+    size_t request_buffer_size;
 
     unsigned int keep_alive_timeout;
     unsigned int expires;

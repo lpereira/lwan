@@ -60,6 +60,7 @@ static const struct lwan_config default_config = {
     .allow_cors = false,
     .expires = 1 * ONE_WEEK,
     .n_threads = 0,
+    .request_buffer_size = DEFAULT_BUFFER_SIZE,
     .max_post_data_size = 10 * DEFAULT_BUFFER_SIZE,
     .allow_post_temp_file = false,
     .max_put_data_size = 10 * DEFAULT_BUFFER_SIZE,
@@ -648,23 +649,46 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                     config_error(conf, "Invalid number of threads: %ld",
                                  n_threads);
                 lwan->config.n_threads = (unsigned int)n_threads;
+            } else if (streq(line->key, "request_buffer_size")) {
+                long request_buffer_size = parse_long(
+                    line->value, (long)default_config.request_buffer_size);
+
+                if (request_buffer_size < 0) {
+                    config_error(conf, "Negative request buffer size requested");
+                } else if (request_buffer_size > 16 * (1 << 20)) {
+                    config_error(conf,
+                                 "Request buffer can't be over 16MiB");
+                } else if (request_buffer_size < DEFAULT_BUFFER_SIZE) {
+                    lwan_status_warning("Request buffer size of %ld is smaller than the "
+                                        "recommended minimum of %d bytes. This might not "
+                                        "be sufficient!",
+                                        request_buffer_size,
+                                        DEFAULT_BUFFER_SIZE);
+                }
+
+                lwan->config.request_buffer_size = (size_t)request_buffer_size;
             } else if (streq(line->key, "max_post_data_size")) {
                 long max_post_data_size = parse_long(
                     line->value, (long)default_config.max_post_data_size);
-                if (max_post_data_size < 0)
+
+                if (max_post_data_size < 0) {
                     config_error(conf, "Negative maximum post data size");
-                else if (max_post_data_size > 128 * (1 << 20))
+                } else if (max_post_data_size > 128 * (1 << 20)) {
                     config_error(conf,
                                  "Maximum post data can't be over 128MiB");
+                }
+
                 lwan->config.max_post_data_size = (size_t)max_post_data_size;
             } else if (streq(line->key, "max_put_data_size")) {
                 long max_put_data_size = parse_long(
                     line->value, (long)default_config.max_put_data_size);
-                if (max_put_data_size < 0)
+
+                if (max_put_data_size < 0) {
                     config_error(conf, "Negative maximum put data size");
-                else if (max_put_data_size > 128 * (1 << 20))
+                } else if (max_put_data_size > 128 * (1 << 20)) {
                     config_error(conf,
                                  "Maximum put data can't be over 128MiB");
+                }
                 lwan->config.max_put_data_size = (size_t)max_put_data_size;
             } else if (streq(line->key, "allow_temp_files")) {
                 bool has_post, has_put;
