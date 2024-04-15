@@ -653,17 +653,16 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 long request_buffer_size = parse_long(
                     line->value, (long)default_config.request_buffer_size);
 
-                if (request_buffer_size < 0) {
-                    config_error(conf, "Negative request buffer size requested");
-                } else if (request_buffer_size > 16 * (1 << 20)) {
+                if (request_buffer_size > 16 * (1 << 20)) {
                     config_error(conf,
                                  "Request buffer can't be over 16MiB");
                 } else if (request_buffer_size < DEFAULT_BUFFER_SIZE) {
-                    lwan_status_warning("Request buffer size of %ld is smaller than the "
-                                        "recommended minimum of %d bytes. This might not "
-                                        "be sufficient!",
-                                        request_buffer_size,
-                                        DEFAULT_BUFFER_SIZE);
+                    lwan_status_warning("Using request buffer size of %d bytes instead of the "
+                                        "requested %ld bytes",
+                                        DEFAULT_BUFFER_SIZE,
+                                        request_buffer_size);
+
+                    request_buffer_size = DEFAULT_BUFFER_SIZE;
                 }
 
                 lwan->config.request_buffer_size = (size_t)request_buffer_size;
