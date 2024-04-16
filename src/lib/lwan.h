@@ -530,12 +530,11 @@ struct lwan_config {
     unsigned int expires;
     unsigned int n_threads;
 
-    bool quiet;
-    bool proxy_protocol;
-    bool allow_cors;
-    bool allow_post_temp_file;
-    bool allow_put_temp_file;
-    bool use_dynamic_buffer;
+    unsigned int quiet : 1;
+    unsigned int proxy_protocol : 1;
+    unsigned int allow_cors : 1;
+    unsigned int allow_post_temp_file : 1;
+    unsigned int allow_put_temp_file : 1;
 };
 
 struct lwan {

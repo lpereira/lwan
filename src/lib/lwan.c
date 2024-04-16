@@ -65,7 +65,6 @@ static const struct lwan_config default_config = {
     .allow_post_temp_file = false,
     .max_put_data_size = 10 * DEFAULT_BUFFER_SIZE,
     .allow_put_temp_file = false,
-    .use_dynamic_buffer = false,
 };
 
 LWAN_HANDLER_ROUTE(brew_coffee, NULL /* do not autodetect this route */)
@@ -633,9 +632,6 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
             } else if (streq(line->key, "allow_cors")) {
                 lwan->config.allow_cors =
                     parse_bool(line->value, default_config.allow_cors);
-            } else if (streq(line->key, "use_dynamic_buffer")) {
-                lwan->config.use_dynamic_buffer =
-                    parse_bool(line->value, default_config.use_dynamic_buffer);
             } else if (streq(line->key, "expires")) {
                 lwan->config.expires =
                     parse_time_period(line->value, default_config.expires);
