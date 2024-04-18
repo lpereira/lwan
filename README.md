@@ -266,6 +266,29 @@ playlist chiptune {
 
 Some examples can be found in `lwan.conf` and `techempower.conf`.
 
+#### Constants
+
+Constants can be defined and reused throughout the configuration file by
+specifying them in a `constants` section anywhere in the configuration
+file.  A constant will be available only after that section defines a
+particular constant. Constants can be re-defined.  If a constant isn't
+defined, its value will be obtained from an environment variable.  If
+it's not defined in either one `constants` section, or in the environment,
+Lwan will abort with an appropriate error message.
+
+```
+constants {
+    user_name = ${USER}
+    home_directory = ${HOME}
+    buffer_size = 1000000
+}
+```
+
+The same syntax for default values specified above is valid here (e.g.
+specifying `user_name` to be `${USER:nobody}` will set `${user_name} to
+`nobody` if `${USER}` isn't set in the environment variable or isn't
+another constant.)
+
 #### Value types
 
 | Type   | Description |

@@ -102,6 +102,7 @@ struct parser {
 struct config {
     struct parser parser;
     char *error_message;
+    struct hash *constants;
     struct {
         void *addr;
         size_t sz;
@@ -544,14 +545,17 @@ static void *parse_section_end(struct parser *parser);
 #define ENV_VAR_NAME_LEN_MAX 64
 
 static __attribute__((noinline)) const char *
-secure_getenv_len(struct parser *parser, const char *key, size_t len)
+get_constant(struct parser *parser, const char *key, size_t len)
 {
     if (UNLIKELY(len > ENV_VAR_NAME_LEN_MAX)) {
         return PARSER_ERROR(parser, "Variable name \"%.*s\" exceeds %d bytes",
                             (int)len, key, ENV_VAR_NAME_LEN_MAX);
     }
 
-    return secure_getenv(strndupa(key, len));
+    const char *key_copy = strndupa(key, len);
+    const char *value =
+        hash_find(config_from_parser(parser)->constants, key_copy);
+    return value ? value : secure_getenv(key_copy);
 }
 
 static void *parse_key_value(struct parser *parser)
@@ -577,11 +581,13 @@ static void *parse_key_value(struct parser *parser)
     while ((lexeme = lex_next(&parser->lexer))) {
         switch (lexeme->type) {
         case LEXEME_VARIABLE: {
-            const char *value = secure_getenv_len(parser, lexeme->value.value,
-                                                  lexeme->value.len);
+            const char *value =
+                get_constant(parser, lexeme->value.value, lexeme->value.len);
             if (!value) {
                 return PARSER_ERROR(
-                    parser, "Variable '$%.*s' not defined in environment",
+                    parser,
+                    "Variable '$%.*s' not defined in a constants section "
+                    "or as an environment variable",
                     (int)lexeme->value.len, lexeme->value.value);
             }
 
@@ -591,13 +597,13 @@ static void *parse_key_value(struct parser *parser)
         }
 
         case LEXEME_VARIABLE_DEFAULT: {
-            const char *value = secure_getenv_len(parser, lexeme->value.value,
-                                                  lexeme->value.len);
+            const char *value =
+                get_constant(parser, lexeme->value.value, lexeme->value.len);
             const struct lexeme *var_name = lexeme;
 
             if (!(lexeme = lex_next(&parser->lexer))) {
                 return PARSER_ERROR(
-                    parser, "Default value for variable '$%.*s' not given",
+                    parser, "Default value for constant '$%.*s' not given",
                     (int)var_name->value.len, var_name->value.value);
             }
 
@@ -794,7 +800,7 @@ static void *parse_config(struct parser *parser)
     return NULL;
 }
 
-static const struct config_line *parser_next(struct parser *parser)
+static const struct config_line *parser_next_internal(struct parser *parser)
 {
     while (parser->state) {
         const struct config_line *line;
@@ -808,6 +814,55 @@ static const struct config_line *parser_next(struct parser *parser)
     }
 
     return config_ring_buffer_get_ptr_or_null(&parser->items);
+}
+
+static bool parse_constants(struct config *config, const struct config_line *l)
+{
+    while ((l = config_read_line(config))) {
+        switch (l->type) {
+        case CONFIG_LINE_TYPE_LINE: {
+            char *k = strdup(l->key);
+            char *v = strdup(l->value);
+
+            if (!k || !v)
+                lwan_status_critical("Can't allocate memory for constant");
+
+            hash_add(config->constants, k, v);
+            break;
+        }
+
+        case CONFIG_LINE_TYPE_SECTION_END:
+            return true;
+
+        case CONFIG_LINE_TYPE_SECTION:
+            config_error(config, "Constants section can't be nested");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static const struct config_line *parser_next(struct parser *parser)
+{
+    while (true) {
+        const struct config_line *l = parser_next_internal(parser);
+
+        if (!l)
+            return NULL;
+
+        if (l->type == CONFIG_LINE_TYPE_SECTION && streq(l->key, "constants")) {
+            struct config *config = config_from_parser(parser);
+
+            if (parse_constants(config, l))
+                continue;
+
+            return PARSER_ERROR(parser, "Could not parse constants section: %s",
+                                config_last_error(config));
+        }
+
+        return l;
+    }
 }
 
 static struct config *
@@ -864,6 +919,8 @@ config_init_data(struct config *config, const void *data, size_t len)
     config->error_message = NULL;
     config->opened_brackets = 0;
 
+    config->constants = hash_str_new(free, free);
+
     lwan_strbuf_init(&config->parser.strbuf);
     config_ring_buffer_init(&config->parser.items);
     lexeme_ring_buffer_init(&config->parser.buffer);
@@ -906,6 +963,8 @@ void config_close(struct config *config)
     if (config->mapped.addr)
         munmap(config->mapped.addr, config->mapped.sz);
 #endif
+
+    hash_unref(config->constants);
 
     free(config->error_message);
     lwan_strbuf_free(&config->parser.strbuf);
@@ -956,6 +1015,8 @@ struct config *config_isolate_section(struct config *current_conf,
     memcpy(isolated, current_conf, sizeof(*isolated));
     lwan_strbuf_init(&isolated->parser.strbuf);
 
+    isolated->constants = hash_ref(current_conf->constants);
+
     isolated->mapped.addr = NULL;
     isolated->mapped.sz = 0;
     /* Keep opened_brackets from the original */
@@ -965,11 +1026,13 @@ struct config *config_isolate_section(struct config *current_conf,
 
     pos = isolated->parser.lexer.pos;
     if (!find_section_end(isolated)) {
+        config_error(current_conf,
+                     "Could not find section end while trying to isolate: %s",
+                     config_last_error(isolated));
+
+        hash_unref(isolated->constants);
         lwan_strbuf_free(&isolated->parser.strbuf);
         free(isolated);
-
-        config_error(current_conf,
-                     "Could not find section end while trying to isolate");
 
         return NULL;
     }
