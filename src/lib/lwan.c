@@ -111,7 +111,7 @@ static void destroy_urlmap(void *data)
         if (module->destroy)
             module->destroy(url_map->data);
     } else if (url_map->data && url_map->flags & HANDLER_DATA_IS_HASH_TABLE) {
-        hash_free(url_map->data);
+        hash_unref(url_map->data);
     }
 
     free(url_map->authorization.realm);
@@ -410,7 +410,7 @@ add_map:
     add_url_map(&lwan->url_map_trie, prefix, &url_map);
 
 out:
-    hash_free(hash);
+    hash_unref(hash);
     config_close(isolated);
 }
 

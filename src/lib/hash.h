@@ -17,7 +17,10 @@ struct hash *hash_int64_new(void (*free_key)(void *value),
                             void (*free_value)(void *value));
 struct hash *hash_str_new(void (*free_key)(void *value),
                           void (*free_value)(void *value));
-void hash_free(struct hash *hash);
+
+struct hash *hash_ref(struct hash *hash);
+void hash_unref(struct hash *hash);
+
 int hash_add(struct hash *hash, const void *key, const void *value);
 int hash_add_unique(struct hash *hash, const void *key, const void *value);
 int hash_del(struct hash *hash, const void *key);

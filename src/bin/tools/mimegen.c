@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
     free(compressed);
     free(output.ptr);
     free(exts);
-    hash_free(ext_mime);
+    hash_unref(ext_mime);
     fclose(fp);
 
     return 0;

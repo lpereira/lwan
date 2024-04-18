@@ -55,6 +55,8 @@ struct hash {
     void (*free_key)(void *value);
 
     struct hash_bucket *buckets;
+
+    unsigned int refs;
 };
 
 struct hash_entry {
@@ -251,6 +253,8 @@ hash_internal_new(unsigned int (*hash_value)(const void *key),
     hash->n_buckets_mask = MIN_BUCKETS - 1;
     hash->count = 0;
 
+    hash->refs = 1;
+
     return hash;
 }
 
@@ -284,11 +288,21 @@ hash_n_buckets(const struct hash *hash)
     return hash->n_buckets_mask + 1;
 }
 
-void hash_free(struct hash *hash)
+struct hash *hash_ref(struct hash *hash)
+{
+    hash->refs++;
+    return hash;
+}
+
+void hash_unref(struct hash *hash)
 {
     struct hash_bucket *bucket, *bucket_end;
 
     if (hash == NULL)
+        return;
+
+    hash->refs--;
+    if (hash->refs)
         return;
 
     bucket = hash->buckets;

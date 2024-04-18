@@ -263,7 +263,7 @@ static struct cache_entry *create_site(const void *key, void *context)
     return (struct cache_entry *)site;
 
 no_central_dir:
-    hash_free(site->files);
+    hash_unref(site->files);
 no_hash:
 no_end_record:
     jzfile_free(zip);
@@ -279,7 +279,7 @@ static void destroy_site(struct cache_entry *entry, void *context)
 {
     struct site *site = (struct site *)entry;
     lwan_strbuf_free(&site->qr_code);
-    hash_free(site->files);
+    hash_unref(site->files);
     free(site->zipped.value);
     free(site);
 }

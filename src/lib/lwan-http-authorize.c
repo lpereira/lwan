@@ -116,7 +116,7 @@ create_realm_file(const void *key, void *context __attribute__((unused)))
 error:
     config_close(f);
 error_no_close:
-    hash_free(rpf->entries);
+    hash_unref(rpf->entries);
     free(rpf);
     return NULL;
 }
@@ -125,7 +125,7 @@ static void destroy_realm_file(struct cache_entry *entry,
                                void *context __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = (struct realm_password_file_t *)entry;
-    hash_free(rpf->entries);
+    hash_unref(rpf->entries);
     free(rpf);
 }
 

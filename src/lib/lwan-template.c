@@ -245,7 +245,7 @@ static int symtab_push(struct parser *parser,
     return 0;
 
 hash_add_err:
-    hash_free(tab->hash);
+    hash_unref(tab->hash);
 hash_new_err:
     free(tab);
 
@@ -258,7 +258,7 @@ static void symtab_pop(struct parser *parser)
 
     assert(tab);
 
-    hash_free(tab->hash);
+    hash_unref(tab->hash);
     parser->symtab = tab->next;
     free(tab);
 }

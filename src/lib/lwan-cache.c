@@ -155,7 +155,7 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
 error_no_queue_lock:
     pthread_rwlock_destroy(&cache->hash.lock);
 error_no_hash_lock:
-    hash_free(cache->hash.table);
+    hash_unref(cache->hash.table);
 error_no_hash:
     free(cache);
 
@@ -186,7 +186,7 @@ void cache_destroy(struct cache *cache)
     cache_pruner_job(cache);
     pthread_rwlock_destroy(&cache->hash.lock);
     pthread_rwlock_destroy(&cache->queue.lock);
-    hash_free(cache->hash.table);
+    hash_unref(cache->hash.table);
     free(cache);
 }
 

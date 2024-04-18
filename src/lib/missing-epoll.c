@@ -129,7 +129,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
     r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
     if (UNLIKELY(r < 0)) {
-        hash_free(coalesce);
+        hash_unref(coalesce);
         return -1;
     }
 
@@ -168,7 +168,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         }
     }
 
-    hash_free(coalesce);
+    hash_unref(coalesce);
     return (int)(intptr_t)(ev - events);
 }
 #elif !defined(LWAN_HAVE_EPOLL)
