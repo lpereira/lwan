@@ -493,8 +493,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
         init_gen = 2;
     } else {
         buffer = (struct lwan_value){
-            .value = alloca(request_buffer_size),
-            .len = request_buffer_size,
+            .value = alloca(DEFAULT_BUFFER_SIZE),
+            .len = DEFAULT_BUFFER_SIZE,
         };
 
         init_gen = 1;
