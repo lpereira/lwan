@@ -851,7 +851,8 @@ static const struct config_line *parser_next(struct parser *parser)
         if (!l)
             return NULL;
 
-        if (l->type == CONFIG_LINE_TYPE_SECTION && streq(l->key, "constants")) {
+        if (l->type == CONFIG_LINE_TYPE_SECTION && streq(l->key, "constants") &&
+            config_from_parser(parser)->opened_brackets == 1) {
             struct config *config = config_from_parser(parser);
 
             if (parse_constants(config, l))
