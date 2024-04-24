@@ -579,6 +579,12 @@ static void *parse_key_value(struct parser *parser)
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
     while ((lexeme = lex_next(&parser->lexer))) {
+        if (UNLIKELY(lwan_strbuf_get_length(&parser->strbuf) > 1ull<<20)) {
+            /* 1MiB is more than sufficient for a value. (Without this validation
+             * here, fuzzers often generates values that are gigabite sized.) */
+            return PARSER_ERROR(parser, "Value too long");
+        }
+
         switch (lexeme->type) {
         case LEXEME_VARIABLE: {
             const char *value =
