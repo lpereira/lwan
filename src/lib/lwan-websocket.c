@@ -213,7 +213,11 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 
     if (msg_len >= 4) {
+#if defined(__SSE_4_1__)
+        const uint32_t mask32 = _mm_extract_epi32(mask128, 0);
+#else
         const uint32_t mask32 = string_as_uint32(mask);
+#endif
         do {
             uint32_t v = string_as_uint32(msg);
             v ^= (uint32_t)mask32;
