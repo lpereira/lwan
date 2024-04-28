@@ -182,33 +182,42 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 #endif
 
-    if (sizeof(void *) == 8 && msg_len >= 8) {
+#if __SIZEOF_POINTER__ == 8
+
 #if defined(__SSE_4_1__)
-        /* We're far away enough from the AVX2 path that it's
-         * probably better to use mask128 instead of mask256
-         * here. */
-        const __int64 mask64 = _mm_extract_epi64(mask128, 0);
+    /* We're far away enough from the AVX2 path that it's
+     * probably better to use mask128 instead of mask256
+     * here. */
+    const uint64_t mask64 = _mm_extract_epi64(mask128, 0);
 #else
-        const uint32_t mask32 = string_as_uint32(mask);
-        const uint64_t mask64 = (uint64_t)mask32 << 32 | (uint64_t)mask32;
+    const uint32_t mask32 = string_as_uint32(mask);
+    const uint64_t mask64 = (uint64_t)mask32 << 32 | (uint64_t)mask32;
+#define HAS_MASK32
 #endif
+
+    if (msg_len >= 8) {
         do {
             uint64_t v = string_as_uint64(msg);
-            v ^= (uint64_t)mask64;
+            v ^= mask64;
             msg = mempcpy(msg, &v, sizeof(v));
             msg_len -= 8;
         } while (msg_len >= 8);
     }
+#endif
 
     if (msg_len >= 4) {
-#if defined(__SSE_4_1__)
+#if defined(HAS_MASK32)
+        /* do nothing */
+#elif __SIZEOF_POINTER__ == 8
+        const uint32_t mask32 = (uint32_t)mask64;
+#elif defined(__SSE_4_1__)
         const uint32_t mask32 = _mm_extract_epi32(mask128, 0);
 #else
         const uint32_t mask32 = string_as_uint32(mask);
 #endif
         do {
             uint32_t v = string_as_uint32(msg);
-            v ^= (uint32_t)mask32;
+            v ^= mask32;
             msg = mempcpy(msg, &v, sizeof(v));
             msg_len -= 4;
         } while (msg_len >= 4);
@@ -225,7 +234,7 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     default:
         __builtin_unreachable();
     }
-#undef MASK32_SET
+#undef HAS_MASK32
 }
 
 static void send_websocket_pong(struct lwan_request *request, uint16_t header)
