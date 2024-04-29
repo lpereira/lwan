@@ -423,6 +423,13 @@ static void reset_additional_header(void *data)
 static enum lwan_http_status
 try_initiating_chunked_response(struct lwan_request *request)
 {
+    if (request->flags & REQUEST_IS_HTTP_1_0) {
+        /* Chunked encoding is not supported in HTTP/1.0.  We don't have a
+         * way to buffer the responses in this module yet, so return an
+         * error here.  */
+        return HTTP_NOT_IMPLEMENTED;
+    }
+
     struct lwan_response *response = &request->response;
     char *header_start[N_HEADER_START];
     char *next_request;
