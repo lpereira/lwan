@@ -28,6 +28,14 @@
 
 #include "lwan.h"
 
+static int constructor_attr_supported = 0;
+
+__attribute__((constructor))
+static void initialize_constructor_attr_supported(void)
+{
+    constructor_attr_supported = 1;
+}
+
 static int bin2hex_mmap(const char *path, const char *identifier)
 {
     int fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -96,12 +104,15 @@ static int bin2hex(const char *path, const char *identifier)
 
     printf("\n/* Contents of %s available through %s_value */\n", path, identifier);
 
-    printf("#if defined(__GNUC__) || defined(__clang__)\n");
-    r |= bin2hex_incbin(path, identifier);
-    printf("#else\n");
-    r |= bin2hex_mmap(path, identifier);
-    printf("#endif\n\n");
-
+    if (constructor_attr_supported) {
+        printf("#if defined(__GNUC__) || defined(__clang__)\n");
+        r |= bin2hex_incbin(path, identifier);
+        printf("#else\n");
+        r |= bin2hex_mmap(path, identifier);
+        printf("#endif\n\n");
+    } else {
+        r |= bin2hex_mmap(path, identifier);
+    }
     return r;
 }
 
@@ -135,19 +146,21 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("#if defined(__GNUC__) || defined(__clang__)\n");
-    printf("__attribute__((constructor (101))) static void\n");
-    printf("initialize_bin2hex_%016lx(void)\n", (uintptr_t)argv);
-    printf("{\n");
-    for (arg = 1; arg < argc; arg += 2) {
-        const char *identifier = argv[arg + 1];
+    if (constructor_attr_supported) {
+        printf("#if defined(__GNUC__) || defined(__clang__)\n");
+        printf("__attribute__((constructor (101))) static void\n");
+        printf("initialize_bin2hex_%016lx(void)\n", (uintptr_t)argv);
+        printf("{\n");
+        for (arg = 1; arg < argc; arg += 2) {
+            const char *identifier = argv[arg + 1];
 
-        printf("    %s_value = (struct lwan_value) {.value = (char *)%s_start, "
-               ".len = (size_t)(%s_end - %s_start)};\n",
-               identifier, identifier, identifier, identifier);
+            printf("    %s_value = (struct lwan_value) {.value = (char *)%s_start, "
+                   ".len = (size_t)(%s_end - %s_start)};\n",
+                   identifier, identifier, identifier, identifier);
+        }
+        printf("}\n");
+        printf("#endif\n");
     }
-    printf("}\n");
-    printf("#endif\n");
 
     return 0;
 }
