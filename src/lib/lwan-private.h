@@ -133,6 +133,7 @@ uint8_t lwan_char_isxdigit(char ch) __attribute__((pure));
 uint8_t lwan_char_isdigit(char ch) __attribute__((pure));
 uint8_t lwan_char_isalpha(char ch) __attribute__((pure));
 uint8_t lwan_char_isalnum(char ch) __attribute__((pure));
+uint8_t lwan_char_iscgiheader(char ch) __attribute__((pure));
 
 static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
 {
