@@ -85,7 +85,9 @@ print_build_time_configuration(void)
 #endif
 
 #if defined(LWAN_HAVE_LIBUCONTEXT)
-    printf(" libucontext");
+    printf(" libucontext-coroutine");
+#else
+    printf(" builtin-coroutine");
 #endif
 
 #if defined(LWAN_HAVE_EPOLL)
