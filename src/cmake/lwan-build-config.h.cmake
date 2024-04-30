@@ -71,3 +71,8 @@
 
 /* Valgrind support for coroutines */
 #cmakedefine LWAN_HAVE_VALGRIND
+
+/* Sanitizer */
+#cmakedefine LWAN_HAVE_UNDEFINED_SANITIZER
+#cmakedefine LWAN_HAVE_ADDRESS_SANITIZER
+#cmakedefine LWAN_HAVE_THREAD_SANITIZER

@@ -108,6 +108,18 @@ print_build_time_configuration(void)
     printf(" syslog");
 #endif
 
+#if defined(LWAN_HAVE_UNDEFINED_SANITIZER)
+    printf(" ubsan");
+#endif
+
+#if defined(LWAN_HAVE_ADDRESS_SANITIZER)
+    printf(" asan");
+#endif
+
+#if defined(LWAN_HAVE_THREAD_SANITIZER)
+    printf(" tsan");
+#endif
+
     printf(".\n");
 }
 

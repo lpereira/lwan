@@ -12,6 +12,9 @@ macro(try_sanitizer _type)
         if (HAVE_SANITIZER)
                 message(STATUS "Building with ${_type} sanitizer")
                 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${SANITIZER_FLAG}")
+
+                string(TOUPPER ${_type} SANITIZER_NAME)
+                set(LWAN_HAVE_${SANITIZER_NAME}_SANITIZER 1)
         endif ()
 
         unset(HAVE_SANITIZER)
