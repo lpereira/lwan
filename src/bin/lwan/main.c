@@ -120,6 +120,10 @@ print_build_time_configuration(void)
     printf(" tsan");
 #endif
 
+#if !defined(NDEBUG)
+    printf(" debug");
+#endif
+
     printf(".\n");
 }
 
