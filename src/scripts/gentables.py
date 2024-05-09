@@ -182,18 +182,17 @@ static inline uint32_t read32be(const void *ptr) {
 static inline uint8_t peek_byte(struct bit_reader *reader)
 {
     if (reader->bitcount < 8) {
-        const uint64_t adjust = reader->bitcount + (reader->bitcount & 1);
         if (reader->total_bitcount >= 64) {
             reader->bitbuf |= read64be(reader->bitptr) >> reader->bitcount;
-            reader->bitptr += (63 - adjust) >> 3;
+            reader->bitptr += (63 - reader->bitcount + (reader->bitcount & 1)) >> 3;
             reader->bitcount |= 56;
         } else if (reader->total_bitcount >= 32) {
             reader->bitbuf |= read32be(reader->bitptr) >> reader->bitcount;
-            reader->bitptr += (31 - adjust) >> 3;
+            reader->bitptr += (31 - reader->bitcount + (reader->bitcount & 1)) >> 3;
             reader->bitcount |= 24;
         } else {
             reader->bitbuf |= *reader->bitptr >> reader->bitcount;
-            reader->bitptr += (7 - adjust) >> 3;
+            reader->bitptr += (7 - reader->bitcount + (reader->bitcount & 1)) >> 3;
             reader->bitcount |= 8;
         }
     }
