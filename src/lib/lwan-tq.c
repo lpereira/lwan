@@ -112,7 +112,14 @@ void timeout_queue_expire_waiting(struct timeout_queue *tq)
         if (conn->time_to_expire > tq->current_time)
             return;
 
-        timeout_queue_expire(tq, conn);
+        if (LIKELY(!(conn->flags & CONN_IS_WEBSOCKET))) {
+            timeout_queue_expire(tq, conn);
+        } else {
+            if (LIKELY(lwan_send_websocket_ping_for_tq(conn)))
+                timeout_queue_move_to_last(tq, conn);
+            else
+                timeout_queue_expire(tq, conn);
+        }
     }
 
     /* Timeout queue exhausted: reset epoch */

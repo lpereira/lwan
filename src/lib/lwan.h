@@ -300,6 +300,11 @@ enum lwan_connection_flags {
      * can deal with this fact.  */
     CONN_HUNG_UP = 1 << 12,
 
+    /* Used to both implement lwan_request_awaitv_all() correctly, and to
+     * ensure that spurious resumes from fds that weren't in the multiple
+     * await call won't return to the request handler.  */
+    CONN_ASYNC_AWAIT_MULTIPLE = 1 << 13,
+
     CONN_FLAG_LAST = CONN_HUNG_UP,
 };
 
@@ -666,11 +671,11 @@ void lwan_response_websocket_write_binary(struct lwan_request *request);
 int lwan_response_websocket_read(struct lwan_request *request);
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint);
 
-struct lwan_connection *lwan_request_await_read(struct lwan_request *r, int fd);
-struct lwan_connection *lwan_request_await_write(struct lwan_request *r,
-                                                 int fd);
-struct lwan_connection *lwan_request_await_read_write(struct lwan_request *r,
-                                                      int fd);
+int lwan_request_await_read(struct lwan_request *r, int fd);
+int lwan_request_await_write(struct lwan_request *r, int fd);
+int lwan_request_await_read_write(struct lwan_request *r, int fd);
+int lwan_request_awaitv_any(struct lwan_request *r, ...);
+void lwan_request_awaitv_all(struct lwan_request *r, ...);
 ssize_t lwan_request_async_read(struct lwan_request *r, int fd, void *buf, size_t len);
 ssize_t lwan_request_async_read_flags(struct lwan_request *request, int fd, void *buf, size_t len, int flags);
 ssize_t lwan_request_async_write(struct lwan_request *r, int fd, const void *buf, size_t len);

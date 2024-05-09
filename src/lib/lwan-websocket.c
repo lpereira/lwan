@@ -55,12 +55,16 @@ enum ws_opcode {
     WS_OPCODE_INVALID = 16,
 };
 
-static void write_websocket_frame(struct lwan_request *request,
-                                  unsigned char header_byte,
-                                  char *msg,
-                                  size_t len)
+#define WS_MASKED 0x80
+
+static ALWAYS_INLINE bool
+write_websocket_frame_full(struct lwan_request *request,
+                           unsigned char header_byte,
+                           char *msg,
+                           size_t len,
+                           bool use_coro)
 {
-    uint8_t frame[10] = { header_byte };
+    uint8_t frame[10] = {header_byte};
     size_t frame_len;
 
     if (len <= 125) {
@@ -82,14 +86,51 @@ static void write_websocket_frame(struct lwan_request *request,
         {.iov_base = msg, .iov_len = len},
     };
 
-    lwan_writev(request, vec, N_ELEMENTS(vec));
+    if (LIKELY(use_coro)) {
+        lwan_writev(request, vec, N_ELEMENTS(vec));
+        return true;
+    }
+
+    size_t total_written = 0;
+    int curr_iov = 0;
+    for (int try = 0; try < 10; try++) {
+        ssize_t written = writev(request->fd, &vec[curr_iov],
+                                 (int)N_ELEMENTS(vec) - curr_iov);
+        if (written < 0) {
+            if (errno == EAGAIN || errno == EINTR)
+                continue;
+            return false;
+        }
+
+        total_written += (size_t)written;
+        while (curr_iov < (int)N_ELEMENTS(vec) &&
+               written >= (ssize_t)vec[curr_iov].iov_len) {
+            written -= (ssize_t)vec[curr_iov].iov_len;
+            curr_iov++;
+        }
+        if (curr_iov == (int)N_ELEMENTS(vec))
+            return true;
+
+        vec[curr_iov].iov_base = (char *)vec[curr_iov].iov_base + written;
+        vec[curr_iov].iov_len -= (size_t)written;
+    }
+
+    return false;
+}
+
+static bool write_websocket_frame(struct lwan_request *request,
+                                  unsigned char header_byte,
+                                  char *msg,
+                                  size_t len)
+{
+    return write_websocket_frame_full(request, header_byte, msg, len, true);
 }
 
 static inline void lwan_response_websocket_write(struct lwan_request *request, unsigned char op)
 {
     size_t len = lwan_strbuf_get_length(request->response.buffer);
     char *msg = lwan_strbuf_get_buffer(request->response.buffer);
-    unsigned char header = 0x80 | op;
+    unsigned char header = WS_MASKED | op;
 
     if (!(request->conn->flags & CONN_IS_WEBSOCKET))
         return;
@@ -233,18 +274,20 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 }
 
-static void send_websocket_pong(struct lwan_request *request, uint16_t header)
+static void
+ping_pong(struct lwan_request *request, uint16_t header, enum ws_opcode opcode)
 {
     const size_t len = header & 0x7f;
     char msg[128];
     char mask[4];
 
-    assert(header & 0x80);
+    assert(header & WS_MASKED);
+    assert(opcode == WS_OPCODE_PING || opcode == WS_OPCODE_PONG);
 
     if (UNLIKELY(len > 125)) {
-        lwan_status_debug("Received PING opcode with length %zu."
+        lwan_status_debug("Received %s frame with length %zu."
                           "Max is 125. Aborting connection.",
-                          len);
+                          opcode == WS_OPCODE_PING ? "PING" : "PONG", len);
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -254,10 +297,48 @@ static void send_websocket_pong(struct lwan_request *request, uint16_t header)
         {.iov_base = msg, .iov_len = len},
     };
 
-    lwan_readv(request, vec, N_ELEMENTS(vec));
-    unmask(msg, len, mask);
+    if (opcode == WS_OPCODE_PING) {
+        lwan_readv(request, vec, N_ELEMENTS(vec));
+        unmask(msg, len, mask);
+        write_websocket_frame(request, WS_MASKED | WS_OPCODE_PONG, msg, len);
+    } else {
+        /* From MDN: "You might also get a pong without ever sending a ping;
+         * ignore this if it happens." */
 
-    write_websocket_frame(request, 0x80 | WS_OPCODE_PONG, msg, len);
+        /* FIXME: should we care about the contents of PONG packets? */
+        /* FIXME: should we have a lwan_recvmsg() too that takes an iovec? */
+        const size_t total_len = vec[0].iov_len + vec[1].iov_len;
+        if (LIKELY(total_len < sizeof(msg))) {
+            lwan_recv(request, msg, total_len, MSG_TRUNC);
+        } else {
+            lwan_recv(request, vec[0].iov_base, vec[0].iov_len, MSG_TRUNC);
+            lwan_recv(request, vec[1].iov_base, vec[1].iov_len, MSG_TRUNC);
+        }
+    }
+}
+
+bool lwan_send_websocket_ping_for_tq(struct lwan_connection *conn)
+{
+    uint32_t mask32 = (uint32_t)lwan_random_uint64();
+    char mask[sizeof(mask32)];
+    struct timespec payload;
+
+    memcpy(mask, &mask32, sizeof(mask32));
+
+    if (UNLIKELY(clock_gettime(monotonic_clock_id, &payload) < 0))
+        return false;
+
+    unmask((char *)&payload, sizeof(payload), mask);
+
+    /* use_coro is set to false here because this function is called outside
+     * a connection coroutine and the I/O wrappers might yield, which of course
+     * wouldn't work */
+    struct lwan_request req = {
+        .conn = conn,
+        .fd = lwan_connection_get_fd(conn->thread->lwan, conn),
+    };
+    return write_websocket_frame_full(&req, WS_MASKED | WS_OPCODE_PING,
+                                      (char *)&payload, sizeof(payload), false);
 }
 
 int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint)
@@ -286,7 +367,7 @@ next_frame:
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
-    if (UNLIKELY(!(header & 0x80))) {
+    if (UNLIKELY(!(header & WS_MASKED))) {
         lwan_status_debug("Client sent an unmasked WebSockets frame, aborting");
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
@@ -312,11 +393,11 @@ next_frame:
         request->conn->flags &= ~CONN_IS_WEBSOCKET;
         break;
 
+    case WS_OPCODE_PONG:
     case WS_OPCODE_PING:
-        send_websocket_pong(request, header);
+        ping_pong(request, header, opcode);
         goto next_frame;
 
-    case WS_OPCODE_PONG:
     case WS_OPCODE_RSVD_1 ... WS_OPCODE_RSVD_5:
     case WS_OPCODE_RSVD_CONTROL_1 ... WS_OPCODE_RSVD_CONTROL_5:
     case WS_OPCODE_INVALID:

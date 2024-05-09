@@ -283,3 +283,5 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
                                                     size_t value_len,
                                                     void *user_data),
                                          void *user_data);
+
+bool lwan_send_websocket_ping_for_tq(struct lwan_connection *conn);

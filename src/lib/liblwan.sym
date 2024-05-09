@@ -73,6 +73,7 @@ global:
     lwan_handler_info_*;
 
     lwan_request_await_*;
+    lwan_request_awaitv_*;
     lwan_request_async_*;
 
     lwan_straitjacket_enforce*;

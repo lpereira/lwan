@@ -123,12 +123,12 @@ static void pub_depart_message(void *data1, void *data2)
 
 LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
 {
+    struct lwan *lwan = request->conn->thread->lwan;
     struct lwan_pubsub_subscriber *sub;
     struct lwan_pubsub_msg *msg;
     enum lwan_http_status status;
     static int total_user_count;
     int user_id;
-    uint64_t sleep_time = 1000;
 
     sub = lwan_pubsub_subscribe(chat);
     if (!sub)
@@ -149,13 +149,17 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
                 (void *)(intptr_t)user_id);
     lwan_pubsub_publishf(chat, "*** User%d has joined the chat!\n", user_id);
 
+    const int websocket_fd = request->fd;
+    const int sub_fd = lwan_pubsub_get_notification_fd(sub);
     while (true) {
-        switch (lwan_response_websocket_read(request)) {
-        case ENOTCONN:   /* read() called before connection is websocket */
-        case ECONNRESET: /* Client closed the connection */
+        int resumed_fd = lwan_request_awaitv_any(
+            request, websocket_fd, CONN_CORO_ASYNC_AWAIT_READ, sub_fd,
+            CONN_CORO_ASYNC_AWAIT_READ, -1);
+
+        if (lwan->conns[resumed_fd].flags & CONN_HUNG_UP)
             goto out;
 
-        case EAGAIN: /* Nothing is available from other clients */
+        if (resumed_fd == sub_fd) {
             while ((msg = lwan_pubsub_consume(sub))) {
                 const struct lwan_value *value = lwan_pubsub_msg_value(msg);
 
@@ -167,26 +171,23 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
                 lwan_pubsub_msg_done(msg);
 
                 lwan_response_websocket_write_text(request);
-                sleep_time = 500;
             }
+        } else if (resumed_fd == websocket_fd) {
+            switch (lwan_response_websocket_read(request)) {
+            case ENOTCONN:   /* read() called before connection is websocket */
+            case ECONNRESET: /* Client closed the connection */
+                goto out;
 
-            lwan_request_sleep(request, sleep_time);
-
-            /* We're receiving a lot of messages, wait up to 1s (500ms in the loop
-             * above, and 500ms in the increment below). Otherwise, wait 500ms every
-             * time we return from lwan_request_sleep() until we reach 8s.  This way,
-             * if a chat is pretty busy, we'll have a lag of at least 1s -- which is
-             * probably fine; if it's not busy, we can sleep a bit more and conserve
-             * some resources. */
-            if (sleep_time <= 8000)
-                sleep_time += 500;
-            break;
-
-        case 0: /* We got something! Copy it to echo it back */
-            lwan_pubsub_publishf(chat, "User%d: %.*s\n", user_id,
-                                 (int)lwan_strbuf_get_length(response->buffer),
-                                 lwan_strbuf_get_buffer(response->buffer));
-            break;
+            case 0: /* We got something! Copy it to echo it back */
+                lwan_pubsub_publishf(
+                    chat, "User%d: %.*s\n", user_id,
+                    (int)lwan_strbuf_get_length(response->buffer),
+                    lwan_strbuf_get_buffer(response->buffer));
+            }
+        } else {
+            lwan_status_error(
+                "lwan_request_awaitv_any() returned %d, but waiting on it",
+                resumed_fd);
         }
     }
 

@@ -559,7 +559,7 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
     return EPOLL_EVENTS(flags);
 }
 
-static void update_epoll_flags(const struct timeout_queue *tq,
+static void update_epoll_flags(const struct lwan *lwan,
                                struct lwan_connection *conn,
                                int epoll_fd,
                                enum lwan_connection_coro_yield yield_result)
@@ -609,7 +609,7 @@ static void update_epoll_flags(const struct timeout_queue *tq,
 
     struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
                                 .data.ptr = conn};
-    int fd = lwan_connection_get_fd(tq->lwan, conn);
+    int fd = lwan_connection_get_fd(lwan, conn);
 
     if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
         lwan_status_perror("epoll_ctl");
@@ -619,7 +619,11 @@ static void unasync_await_conn(void *data1, void *data2)
 {
     struct lwan_connection *async_fd_conn = data1;
 
-    async_fd_conn->flags &= ~(CONN_ASYNC_AWAIT | CONN_HUNG_UP);
+    async_fd_conn->flags &=
+        ~(CONN_ASYNC_AWAIT | CONN_HUNG_UP | CONN_ASYNC_AWAIT_MULTIPLE);
+    assert(async_fd_conn->parent);
+    async_fd_conn->parent->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+
     async_fd_conn->thread = data2;
 
     /* If this file descriptor number is used again in the future as an HTTP
@@ -635,9 +639,9 @@ static void unasync_await_conn(void *data1, void *data2)
 }
 
 static enum lwan_connection_coro_yield
-resume_async(const struct timeout_queue *tq,
+resume_async(const struct lwan *l,
              enum lwan_connection_coro_yield yield_result,
-             int64_t from_coro,
+             int await_fd,
              struct lwan_connection *conn,
              int epoll_fd)
 {
@@ -646,7 +650,6 @@ resume_async(const struct timeout_queue *tq,
         [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_EVENTS_WRITE,
         [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_EVENTS_READ_WRITE,
     };
-    int await_fd = (int)((uint64_t)from_coro >> 32);
     enum lwan_connection_flags flags;
     int op;
 
@@ -656,7 +659,7 @@ resume_async(const struct timeout_queue *tq,
 
     flags = to_connection_flags[yield_result];
 
-    struct lwan_connection *await_fd_conn = &tq->lwan->conns[await_fd];
+    struct lwan_connection *await_fd_conn = &l->conns[await_fd];
     if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
         if (LIKELY((await_fd_conn->flags & CONN_EVENTS_MASK) == flags))
             return CONN_CORO_SUSPEND;
@@ -697,6 +700,168 @@ resume_async(const struct timeout_queue *tq,
     return CONN_CORO_ABORT;
 }
 
+struct flag_update {
+    unsigned int num_awaiting;
+    enum lwan_connection_coro_yield request_conn_yield;
+};
+
+static struct flag_update
+update_flags_for_async_awaitv(struct lwan_request *r, struct lwan *l, va_list ap)
+{
+    int epoll_fd = r->conn->thread->epoll_fd;
+    struct flag_update update = {.num_awaiting = 0,
+                                 .request_conn_yield = CONN_CORO_YIELD};
+
+    while (true) {
+        int await_fd = va_arg(ap, int);
+        if (await_fd < 0) {
+            return update;
+        }
+
+        enum lwan_connection_coro_yield events =
+            va_arg(ap, enum lwan_connection_coro_yield);
+        if (UNLIKELY(events < CONN_CORO_ASYNC_AWAIT_READ ||
+                     events > CONN_CORO_ASYNC_AWAIT_READ_WRITE)) {
+            lwan_status_error("awaitv() called with invalid events");
+            coro_yield(r->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+
+        struct lwan_connection *conn = &l->conns[await_fd];
+
+        if (UNLIKELY(conn->flags & CONN_ASYNC_AWAIT_MULTIPLE)) {
+            lwan_status_debug("ignoring second awaitv call on same fd: %d",
+                              await_fd);
+            continue;
+        }
+
+        conn->flags |= CONN_ASYNC_AWAIT_MULTIPLE;
+        update.num_awaiting++;
+
+        if (await_fd == r->fd) {
+            static const enum lwan_connection_coro_yield to_request_yield[] = {
+                [CONN_CORO_ASYNC_AWAIT_READ] = CONN_CORO_WANT_READ,
+                [CONN_CORO_ASYNC_AWAIT_WRITE] = CONN_CORO_WANT_WRITE,
+                [CONN_CORO_ASYNC_AWAIT_READ_WRITE] = CONN_CORO_WANT_READ_WRITE,
+            };
+
+            update.request_conn_yield = to_request_yield[events];
+            continue;
+        }
+
+        events = resume_async(l, events, await_fd, r->conn, epoll_fd);
+        if (UNLIKELY(events == CONN_CORO_ABORT)) {
+            lwan_status_error("could not register fd for async operation");
+            coro_yield(r->conn->coro, CONN_CORO_ABORT);
+            __builtin_unreachable();
+        }
+    }
+}
+
+static void reset_conn_async_await_multiple_flag(struct lwan_connection *conns,
+                                                 va_list ap)
+{
+    while (true) {
+        int await_fd = va_arg(ap, int);
+        if (await_fd < 0)
+            return;
+
+        struct lwan_connection *conn = &conns[await_fd];
+        conn->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+
+        LWAN_NO_DISCARD(va_arg(ap, enum lwan_connection_coro_yield));
+    }
+}
+
+int lwan_request_awaitv_any(struct lwan_request *r, ...)
+{
+    struct lwan *l = r->conn->thread->lwan;
+    va_list ap;
+
+    va_start(ap, r);
+    reset_conn_async_await_multiple_flag(l->conns, ap);
+    va_end(ap);
+
+    va_start(ap, r);
+    struct flag_update update = update_flags_for_async_awaitv(r, l, ap);
+    va_end(ap);
+
+    while (true) {
+        int64_t v = coro_yield(r->conn->coro, update.request_conn_yield);
+        struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
+
+        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE) {
+            va_start(ap, r);
+            reset_conn_async_await_multiple_flag(l->conns, ap);
+            va_end(ap);
+
+            return lwan_connection_get_fd(l, conn);
+        }
+    }
+}
+
+void lwan_request_awaitv_all(struct lwan_request *r, ...)
+{
+    struct lwan *l = r->conn->thread->lwan;
+    va_list ap;
+
+    va_start(ap, r);
+    reset_conn_async_await_multiple_flag(l->conns, ap);
+    va_end(ap);
+
+    va_start(ap, r);
+    struct flag_update update = update_flags_for_async_awaitv(r, l, ap);
+    va_end(ap);
+
+    while (update.num_awaiting) {
+        int64_t v = coro_yield(r->conn->coro, update.request_conn_yield);
+        struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
+
+        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE) {
+            conn->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+            update.num_awaiting--;
+        }
+    }
+}
+
+static inline int64_t
+make_async_yield_value(int fd, enum lwan_connection_coro_yield event)
+{
+    assert(event >= CONN_CORO_ASYNC_AWAIT_READ &&
+           event <= CONN_CORO_ASYNC_AWAIT_READ_WRITE);
+
+    return (int64_t)(((uint64_t)fd << 32 | event));
+}
+
+static inline int async_await_fd(struct lwan_connection *conn,
+                                 int fd,
+                                 enum lwan_connection_coro_yield events)
+{
+    int64_t yield_value = make_async_yield_value(fd, events);
+    int64_t from_coro = coro_yield(conn->coro, yield_value);
+    struct lwan_connection *conn_from_coro =
+        (struct lwan_connection *)(intptr_t)from_coro;
+
+    assert(conn_from_coro->flags & CONN_ASYNC_AWAIT);
+
+    return lwan_connection_get_fd(conn->thread->lwan, conn_from_coro);
+}
+
+inline int lwan_request_await_read(struct lwan_request *r, int fd)
+{
+    return async_await_fd(r->conn, fd, CONN_CORO_ASYNC_AWAIT_READ);
+}
+
+inline int lwan_request_await_write(struct lwan_request *r, int fd)
+{
+    return async_await_fd(r->conn, fd, CONN_CORO_ASYNC_AWAIT_WRITE);
+}
+
+inline int lwan_request_await_read_write(struct lwan_request *r, int fd)
+{
+    return async_await_fd(r->conn, fd, CONN_CORO_ASYNC_AWAIT_READ_WRITE);
+}
+
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
                                       struct lwan_connection *conn_to_resume,
                                       struct lwan_connection *conn_to_yield,
@@ -710,14 +875,15 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     enum lwan_connection_coro_yield yield_result = from_coro & 0xffffffff;
 
     if (UNLIKELY(yield_result >= CONN_CORO_ASYNC)) {
-        yield_result =
-            resume_async(tq, yield_result, from_coro, conn_to_resume, epoll_fd);
+        int await_fd = (int)((uint64_t)from_coro >> 32);
+        yield_result = resume_async(tq->lwan, yield_result, await_fd,
+                                    conn_to_resume, epoll_fd);
     }
 
     if (UNLIKELY(yield_result == CONN_CORO_ABORT)) {
         timeout_queue_expire(tq, conn_to_resume);
     } else {
-        update_epoll_flags(tq, conn_to_resume, epoll_fd, yield_result);
+        update_epoll_flags(tq->lwan, conn_to_resume, epoll_fd, yield_result);
         timeout_queue_move_to_last(tq, conn_to_resume);
     }
 }
@@ -787,7 +953,7 @@ static bool process_pending_timers(struct timeout_queue *tq,
         }
 
         request = container_of(timeout, struct lwan_request, timeout);
-        update_epoll_flags(tq, request->conn, epoll_fd, CONN_CORO_RESUME);
+        update_epoll_flags(tq->lwan, request->conn, epoll_fd, CONN_CORO_RESUME);
     }
 
     if (should_expire_timers) {
@@ -1452,7 +1618,7 @@ void lwan_thread_init(struct lwan *l)
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *thread;
-        
+
         if (schedtbl) {
             /* For SO_ATTACH_REUSEPORT_CBPF to work with the program
              * we provide the kernel, sockets have to be added to the
