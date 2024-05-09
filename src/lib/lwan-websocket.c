@@ -150,52 +150,58 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
 
 static void unmask(char *msg, size_t msg_len, char mask[static 4])
 {
+    uint32_t mask32;
+
     /* TODO: handle alignment of `msg` to use (at least) NT loads
      *       as we're rewriting msg anyway.  (NT writes aren't that
      *       useful as the unmasked value will be used right after.) */
 
 #if defined(__AVX2__)
-    const __m256i mask256 =
-        _mm256_castps_si256(_mm256_broadcast_ss((const float *)mask));
-    for (; msg_len >= 32; msg_len -= 32, msg += 32) {
-        __m256i v = _mm256_lddqu_si256((const __m256i *)msg);
-        _mm256_storeu_si256((__m256i *)msg, _mm256_xor_si256(v, mask256));
-    }
-#endif
+    if (msg_len >= 32) {
+        const __m256i mask256 =
+            _mm256_castps_si256(_mm256_broadcast_ss((const float *)mask));
+        do {
+            const __m256i v = _mm256_lddqu_si256((const __m256i *)msg);
+            _mm256_storeu_si256((__m256i *)msg, _mm256_xor_si256(v, mask256));
+            msg += 32;
+            msg_len -= 32;
+        } while (msg_len >= 32);
 
-#if defined(__SSE2__)
-#if defined(__AVX2__)
-    const __m128i mask128 = _mm256_extracti128_si256(mask256, 0);
+        if (msg_len >= 16) {
+            const __m128i mask128 = _mm256_extracti128_si256(mask256, 0);
+            const __m128i v = _mm_lddqu_si128((const __m128i *)msg);
+            _mm_storeu_si128((__m128i *)msg, _mm_xor_si128(v, mask128));
+            msg += 16;
+            msg_len -= 16;
+        }
+
+        mask32 = (uint32_t)_mm256_extract_epi32(mask256, 0);
+    } else {
+        mask32 = string_as_uint32(mask);
+    }
 #elif defined(__SSE3__)
-    const __m128i mask128 = _mm_lddqu_si128((const float *)mask);
-#else
-    const __m128i mask128 = _mm_loadu_si128((const __m128i *)mask);
-#endif
-    for (; msg_len >= 16; msg_len -= 16, msg += 16) {
-#if defined(__SSE3__)
-        __m128i v = _mm_lddqu_si128((const __m128i *)msg);
-#else
-        __m128i v = _mm_loadu_si128((const __m128i *)msg);
-#endif
+    if (msg_len >= 16) {
+        const __m128i mask128 = _mm_lddqu_si128((const float *)mask);
 
-        _mm_storeu_si128((__m128i *)msg, _mm_xor_si128(v, mask128));
+        do {
+            const __m128i v = _mm_lddqu_si128((const __m128i *)msg);
+            _mm_storeu_si128((__m128i *)msg, _mm_xor_si128(v, mask128));
+            msg += 16;
+            msg_len -= 16;
+        } while (msg_len >= 16);
+
+        mask32 = _mm_extract_epi32(mask128, 0);
+    } else {
+        mask32 = string_as_uint32(mask);
     }
+#else
+    mask32 = string_as_uint32(mask);
 #endif
 
 #if __SIZEOF_POINTER__ == 8
-
-#if defined(__SSE_4_1__)
-    /* We're far away enough from the AVX2 path that it's
-     * probably better to use mask128 instead of mask256
-     * here. */
-    const uint64_t mask64 = _mm_extract_epi64(mask128, 0);
-#else
-    const uint32_t mask32 = string_as_uint32(mask);
-    const uint64_t mask64 = (uint64_t)mask32 << 32 | (uint64_t)mask32;
-#define HAS_MASK32
-#endif
-
     if (msg_len >= 8) {
+        const uint64_t mask64 = (uint64_t)mask32 << 32 | (uint64_t)mask32;
+
         do {
             uint64_t v = string_as_uint64(msg);
             v ^= mask64;
@@ -206,15 +212,6 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
 #endif
 
     if (msg_len >= 4) {
-#if defined(HAS_MASK32)
-        /* do nothing */
-#elif __SIZEOF_POINTER__ == 8
-        const uint32_t mask32 = (uint32_t)mask64;
-#elif defined(__SSE_4_1__)
-        const uint32_t mask32 = _mm_extract_epi32(mask128, 0);
-#else
-        const uint32_t mask32 = string_as_uint32(mask);
-#endif
         do {
             uint32_t v = string_as_uint32(msg);
             v ^= mask32;
@@ -234,7 +231,6 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     default:
         __builtin_unreachable();
     }
-#undef HAS_MASK32
 }
 
 static void send_websocket_pong(struct lwan_request *request, uint16_t header)
