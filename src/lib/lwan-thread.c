@@ -705,12 +705,34 @@ struct flag_update {
     enum lwan_connection_coro_yield request_conn_yield;
 };
 
+static void reset_conn_async_await_multiple_flag(struct lwan_connection *conns,
+                                                 va_list ap_orig)
+{
+    va_list ap;
+
+    va_copy(ap, ap_orig);
+
+    while (true) {
+        int await_fd = va_arg(ap, int);
+        if (await_fd < 0) {
+            va_end(ap);
+            break;
+        }
+
+        conns[await_fd].flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+
+        LWAN_NO_DISCARD(va_arg(ap, enum lwan_connection_coro_yield));
+    }
+}
+
 static struct flag_update
 update_flags_for_async_awaitv(struct lwan_request *r, struct lwan *l, va_list ap)
 {
     int epoll_fd = r->conn->thread->epoll_fd;
     struct flag_update update = {.num_awaiting = 0,
                                  .request_conn_yield = CONN_CORO_YIELD};
+
+    reset_conn_async_await_multiple_flag(l->conns, ap);
 
     while (true) {
         int await_fd = va_arg(ap, int);
@@ -758,29 +780,10 @@ update_flags_for_async_awaitv(struct lwan_request *r, struct lwan *l, va_list ap
     }
 }
 
-static void reset_conn_async_await_multiple_flag(struct lwan_connection *conns,
-                                                 va_list ap)
-{
-    while (true) {
-        int await_fd = va_arg(ap, int);
-        if (await_fd < 0)
-            return;
-
-        struct lwan_connection *conn = &conns[await_fd];
-        conn->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
-
-        LWAN_NO_DISCARD(va_arg(ap, enum lwan_connection_coro_yield));
-    }
-}
-
 int lwan_request_awaitv_any(struct lwan_request *r, ...)
 {
     struct lwan *l = r->conn->thread->lwan;
     va_list ap;
-
-    va_start(ap, r);
-    reset_conn_async_await_multiple_flag(l->conns, ap);
-    va_end(ap);
 
     va_start(ap, r);
     struct flag_update update = update_flags_for_async_awaitv(r, l, ap);
@@ -790,13 +793,8 @@ int lwan_request_awaitv_any(struct lwan_request *r, ...)
         int64_t v = coro_yield(r->conn->coro, update.request_conn_yield);
         struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
 
-        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE) {
-            va_start(ap, r);
-            reset_conn_async_await_multiple_flag(l->conns, ap);
-            va_end(ap);
-
+        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE)
             return lwan_connection_get_fd(l, conn);
-        }
     }
 }
 
@@ -804,10 +802,6 @@ void lwan_request_awaitv_all(struct lwan_request *r, ...)
 {
     struct lwan *l = r->conn->thread->lwan;
     va_list ap;
-
-    va_start(ap, r);
-    reset_conn_async_await_multiple_flag(l->conns, ap);
-    va_end(ap);
 
     va_start(ap, r);
     struct flag_update update = update_flags_for_async_awaitv(r, l, ap);
