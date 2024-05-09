@@ -286,24 +286,24 @@ enum lwan_connection_flags {
      * whenever associated client connection is closed. */
     CONN_ASYNC_AWAIT = 1 << 8,
 
-    CONN_SENT_CONNECTION_HEADER = 1 << 9,
+    /* Used to both implement lwan_request_awaitv_all() correctly, and to
+     * ensure that spurious resumes from fds that weren't in the multiple
+     * await call won't return to the request handler.  */
+    CONN_ASYNC_AWAITV = 1 << 9,
+
+    CONN_SENT_CONNECTION_HEADER = 1 << 10,
 
     /* Is this a TLS connection? */
-    CONN_TLS = 1 << 10,
+    CONN_TLS = 1 << 11,
 
     /* Both are used to know if an epoll event pertains to a listener rather
      * than a client.  */
-    CONN_LISTENER = 1 << 11,
+    CONN_LISTENER = 1 << 12,
 
     /* Only valid when CONN_ASYNC_AWAIT is set. Set on file descriptors that
      * got (EPOLLHUP|EPOLLRDHUP) events from epoll so that request handlers
      * can deal with this fact.  */
-    CONN_HUNG_UP = 1 << 12,
-
-    /* Used to both implement lwan_request_awaitv_all() correctly, and to
-     * ensure that spurious resumes from fds that weren't in the multiple
-     * await call won't return to the request handler.  */
-    CONN_ASYNC_AWAIT_MULTIPLE = 1 << 13,
+    CONN_HUNG_UP = 1 << 13,
 
     CONN_FLAG_LAST = CONN_HUNG_UP,
 };

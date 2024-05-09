@@ -620,9 +620,9 @@ static void unasync_await_conn(void *data1, void *data2)
     struct lwan_connection *async_fd_conn = data1;
 
     async_fd_conn->flags &=
-        ~(CONN_ASYNC_AWAIT | CONN_HUNG_UP | CONN_ASYNC_AWAIT_MULTIPLE);
+        ~(CONN_ASYNC_AWAIT | CONN_HUNG_UP | CONN_ASYNC_AWAITV);
     assert(async_fd_conn->parent);
-    async_fd_conn->parent->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+    async_fd_conn->parent->flags &= ~CONN_ASYNC_AWAITV;
 
     async_fd_conn->thread = data2;
 
@@ -705,8 +705,8 @@ struct flag_update {
     enum lwan_connection_coro_yield request_conn_yield;
 };
 
-static void reset_conn_async_await_multiple_flag(struct lwan_connection *conns,
-                                                 va_list ap_orig)
+static void reset_conn_async_awaitv_flag(struct lwan_connection *conns,
+                                         va_list ap_orig)
 {
     va_list ap;
 
@@ -719,7 +719,7 @@ static void reset_conn_async_await_multiple_flag(struct lwan_connection *conns,
             break;
         }
 
-        conns[await_fd].flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+        conns[await_fd].flags &= ~CONN_ASYNC_AWAITV;
 
         LWAN_NO_DISCARD(va_arg(ap, enum lwan_connection_coro_yield));
     }
@@ -732,7 +732,7 @@ update_flags_for_async_awaitv(struct lwan_request *r, struct lwan *l, va_list ap
     struct flag_update update = {.num_awaiting = 0,
                                  .request_conn_yield = CONN_CORO_YIELD};
 
-    reset_conn_async_await_multiple_flag(l->conns, ap);
+    reset_conn_async_awaitv_flag(l->conns, ap);
 
     while (true) {
         int await_fd = va_arg(ap, int);
@@ -751,13 +751,13 @@ update_flags_for_async_awaitv(struct lwan_request *r, struct lwan *l, va_list ap
 
         struct lwan_connection *conn = &l->conns[await_fd];
 
-        if (UNLIKELY(conn->flags & CONN_ASYNC_AWAIT_MULTIPLE)) {
+        if (UNLIKELY(conn->flags & CONN_ASYNC_AWAITV)) {
             lwan_status_debug("ignoring second awaitv call on same fd: %d",
                               await_fd);
             continue;
         }
 
-        conn->flags |= CONN_ASYNC_AWAIT_MULTIPLE;
+        conn->flags |= CONN_ASYNC_AWAITV;
         update.num_awaiting++;
 
         if (await_fd == r->fd) {
@@ -793,7 +793,7 @@ int lwan_request_awaitv_any(struct lwan_request *r, ...)
         int64_t v = coro_yield(r->conn->coro, update.request_conn_yield);
         struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
 
-        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE)
+        if (conn->flags & CONN_ASYNC_AWAITV)
             return lwan_connection_get_fd(l, conn);
     }
 }
@@ -811,8 +811,8 @@ void lwan_request_awaitv_all(struct lwan_request *r, ...)
         int64_t v = coro_yield(r->conn->coro, update.request_conn_yield);
         struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
 
-        if (conn->flags & CONN_ASYNC_AWAIT_MULTIPLE) {
-            conn->flags &= ~CONN_ASYNC_AWAIT_MULTIPLE;
+        if (conn->flags & CONN_ASYNC_AWAITV) {
+            conn->flags &= ~CONN_ASYNC_AWAITV;
             update.num_awaiting--;
         }
     }
