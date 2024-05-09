@@ -45,7 +45,8 @@ static void zero_and_free(void *str)
 }
 
 static struct cache_entry *
-create_realm_file(const void *key, void *context __attribute__((unused)))
+create_realm_file(const void *key, void *context __attribute__((unused)),
+                  void *create_contex __attribute__((unused)))
 {
     struct realm_password_file_t *rpf = malloc(sizeof(*rpf));
     const struct config_line *l;

@@ -190,8 +190,9 @@ void cache_destroy(struct cache *cache)
     free(cache);
 }
 
-struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
-                                            const void *key, int *error)
+struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
+                                            const void *key, void *create_ctx,
+                                            int *error)
 {
     struct cache_entry *entry;
     char *key_copy;
@@ -245,7 +246,7 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
         }
     }
 
-    entry = cache->cb.create_entry(key, cache->cb.context);
+    entry = cache->cb.create_entry(key, cache->cb.context, create_ctx);
     if (UNLIKELY(!entry)) {
         *error = ECANCELED;
         cache->key.free(key_copy);
@@ -297,6 +298,12 @@ struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
 
     pthread_rwlock_unlock(&cache->hash.lock);
     return entry;
+}
+
+ALWAYS_INLINE struct cache_entry *
+cache_get_and_ref_entry(struct cache *cache, const void *key, int *error)
+{
+    return cache_get_and_ref_entry_with_ctx(cache, key, NULL, error);
 }
 
 void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
@@ -434,9 +441,10 @@ static void cache_entry_unref_defer(void *data1, void *data2)
     cache_entry_unref((struct cache *)data1, (struct cache_entry *)data2);
 }
 
-struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
-                                                 struct coro *coro,
-                                                 const void *key)
+struct cache_entry *cache_coro_get_and_ref_entry_with_ctx(struct cache *cache,
+                                                          struct coro *coro,
+                                                          const void *key,
+                                                          void *create_ctx)
 {
     /* If a cache is read-only, cache_get_and_ref_entry() should be
      * used directly. */
@@ -444,7 +452,8 @@ struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
 
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
-        struct cache_entry *ce = cache_get_and_ref_entry(cache, key, &error);
+        struct cache_entry *ce =
+            cache_get_and_ref_entry_with_ctx(cache, key, &error, create_ctx);
 
         if (LIKELY(ce)) {
             /*
@@ -467,6 +476,12 @@ struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
     }
 
     return NULL;
+}
+
+ALWAYS_INLINE struct cache_entry *cache_coro_get_and_ref_entry(
+    struct cache *cache, struct coro *coro, const void *key)
+{
+    return cache_coro_get_and_ref_entry_with_ctx(cache, coro, key, NULL);
 }
 
 void cache_make_read_only(struct cache *cache)

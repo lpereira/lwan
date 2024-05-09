@@ -39,31 +39,10 @@ struct paste {
     char value[];
 };
 
-static struct hash *pending_pastes(void)
+static struct cache_entry *
+create_paste(const void *key, void *cache_ctx, void *create_ctx)
 {
-    /* This is kind of a hack: we can't have just a single thread-local
-     * for the current thread's pending paste because a coroutine might
-     * yield while trying to obtain an item from the pastes cache, which
-     * would override that value.  Store these in a thread-local hash
-     * table instead, which can be consulted by the create_paste() function.
-     * Items are removed from this table in a defer handler. */
-    static __thread struct hash *pending_pastes;
-
-    if (!pending_pastes) {
-        pending_pastes = hash_int64_new(NULL, NULL);
-        if (!pending_pastes) {
-            lwan_status_critical(
-                "Could not allocate pending pastes hash table");
-        }
-    }
-
-    return pending_pastes;
-}
-
-static struct cache_entry *create_paste(const void *key, void *context)
-{
-    const struct lwan_value *body =
-        hash_find(pending_pastes(), (const void *)key);
+    const struct lwan_value *body = create_ctx;
     size_t alloc_size;
 
     if (!body)
@@ -86,11 +65,6 @@ static void destroy_paste(struct cache_entry *entry, void *context)
     free(entry);
 }
 
-static void remove_from_pending(void *data)
-{
-    hash_del(pending_pastes(), data);
-}
-
 static enum lwan_http_status post_paste(struct lwan_request *request,
                                         struct lwan_response *response)
 {
@@ -106,19 +80,8 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             key = (void *)(uintptr_t)lwan_random_uint64();
         } while (!key);
 
-        switch (hash_add_unique(pending_pastes(), key, body)) {
-        case -EEXIST:
-            continue;
-        case 0:
-            break;
-        default:
-            return HTTP_UNAVAILABLE;
-        }
-
-        coro_defer(request->conn->coro, remove_from_pending, key);
-
-        struct cache_entry *paste =
-            cache_coro_get_and_ref_entry(pastes, request->conn->coro, key);
+        struct cache_entry *paste = cache_coro_get_and_ref_entry_with_ctx(
+            pastes, request->conn->coro, key, (void *)body);
 
         if (paste) {
             const char *host_hdr = lwan_request_get_host(request);

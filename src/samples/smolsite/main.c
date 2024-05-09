@@ -95,26 +95,6 @@ static void calc_hash(struct lwan_value value,
              digest[17], digest[18], digest[19]);
 }
 
-static struct hash *pending_sites(void)
-{
-    /* This is kind of a hack: we can't have just a single thread-local
-     * for the current thread's pending site because a coroutine might
-     * yield while trying to obtain an item from the sites cache, which
-     * would override that value.  Store these in a thread-local hash
-     * table instead, which can be consulted by the create_site() function.
-     * Items are removed from this table in a defer handler. */
-    static __thread struct hash *pending_sites;
-
-    if (!pending_sites) {
-        pending_sites = hash_str_new(free, NULL);
-        if (!pending_sites) {
-            lwan_status_critical("Could not allocate pending sites hash table");
-        }
-    }
-
-    return pending_sites;
-}
-
 static int file_cb(
     JZFile *zip, int idx, JZFileHeader *header, char *filename, void *user_data)
 {
@@ -206,11 +186,11 @@ static bool generate_qr_code_gif(const char *b64, struct lwan_strbuf *output)
     return true;
 }
 
-static struct cache_entry *create_site(const void *key, void *context)
+static struct cache_entry *
+create_site(const void *key, void *context, void *create_ctx)
 {
     struct lwan_strbuf qr_code = LWAN_STRBUF_STATIC_INIT;
-    const struct lwan_value *base64_encoded =
-        hash_find(pending_sites(), (const void *)key);
+    const struct lwan_value *base64_encoded = create_ctx;
     unsigned char *decoded = NULL;
     size_t decoded_len;
 
@@ -235,7 +215,8 @@ static struct cache_entry *create_site(const void *key, void *context)
         generate_qr_code_gif((const char *)base64_encoded->value, &qr_code);
 
     site->qr_code = qr_code;
-    site->zipped = (struct lwan_value) {.value = (char *)decoded, .len = decoded_len};
+    site->zipped =
+        (struct lwan_value){.value = (char *)decoded, .len = decoded_len};
 
     FILE *zip_mem = fmemopen(decoded, decoded_len, "rb");
     if (!zip_mem)
@@ -284,12 +265,6 @@ static void destroy_site(struct cache_entry *entry, void *context)
     free(site);
 }
 
-static void remove_from_pending_defer(void *data)
-{
-    char *key = data;
-    hash_del(pending_sites(), key);
-}
-
 LWAN_HANDLER_ROUTE(view_root, "/")
 {
     char digest_str[41];
@@ -301,10 +276,10 @@ LWAN_HANDLER_ROUTE(view_root, "/")
             {"Cache-Control", "no-cache, max-age=0, private, no-transform"},
             {},
         };
-        response->headers = coro_memdup(request->conn->coro,
-                                        redir_headers,
+        response->headers = coro_memdup(request->conn->coro, redir_headers,
                                         sizeof(redir_headers));
-        return response->headers ? HTTP_TEMPORARY_REDIRECT : HTTP_INTERNAL_ERROR;
+        return response->headers ? HTTP_TEMPORARY_REDIRECT
+                                 : HTTP_INTERNAL_ERROR;
     }
 
     /* Lwan gives us a percent-decoded URL, but '+' is part of the Base64
@@ -314,29 +289,10 @@ LWAN_HANDLER_ROUTE(view_root, "/")
 
     calc_hash(request->url, digest_str);
 
-    site = (struct site *)cache_coro_get_and_ref_entry(
-        sites, request->conn->coro, digest_str);
-    if (!site) {
-        char *key = strdup(digest_str);
-        if (!key) {
-        lwan_status_debug("a");
-            return HTTP_INTERNAL_ERROR;
-           }
-
-        if (UNLIKELY(hash_add_unique(pending_sites(), key, &request->url))) {
-        lwan_status_debug("b");
-            return HTTP_INTERNAL_ERROR;
-           }
-
-        coro_defer(request->conn->coro, remove_from_pending_defer, key);
-
-        site = (struct site *)cache_coro_get_and_ref_entry(
-            sites, request->conn->coro, key);
-        if (UNLIKELY(!site)) {
-        lwan_status_debug("c");
-            return HTTP_INTERNAL_ERROR;
-}
-    }
+    site = (struct site *)cache_coro_get_and_ref_entry_with_ctx(
+        sites, request->conn->coro, digest_str, &request->url);
+    if (!site)
+        return HTTP_INTERNAL_ERROR;
 
     response->mime_type = "text/html; charset=utf-8";
 

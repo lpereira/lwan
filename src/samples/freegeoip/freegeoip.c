@@ -234,7 +234,8 @@ static ALWAYS_INLINE char *text_column_helper(sqlite3_stmt *stmt, int ind)
 }
 
 static struct cache_entry *create_ipinfo(const void *key,
-                                         void *context __attribute__((unused)))
+                                         void *cache_ctx __attribute__((unused)),
+                                         void *create_ctx __attribute__((unused)))
 {
     sqlite3_stmt *stmt;
     struct ip_info *ip_info = NULL;
@@ -291,10 +292,10 @@ end_no_finalize:
 }
 
 #if QUERIES_PER_HOUR != 0
-static struct cache_entry *create_query_limit(const void *key
-                                              __attribute__((unused)),
-                                              void *context
-                                              __attribute__((unused)))
+static struct cache_entry *
+create_query_limit(const void *key __attribute__((unused)),
+                   void *cache_ctx __attribute__((unused)),
+                   void *create_ctx __attribute__((unused)))
 {
     struct query_limit *entry = malloc(sizeof(*entry));
     if (LIKELY(entry))

@@ -33,9 +33,10 @@ struct cache_entry {
 };
 
 typedef struct cache_entry *(*cache_create_entry_cb)(const void *key,
-                                                     void *context);
+                                                     void *cache_ctx,
+                                                     void *create_ctx);
 typedef void (*cache_destroy_entry_cb)(struct cache_entry *entry,
-                                       void *context);
+                                       void *cache_ctx);
 typedef struct hash *(*hash_create_func_cb)(void (*)(void *), void (*)(void *));
 
 struct cache;
@@ -53,8 +54,12 @@ void cache_destroy(struct cache *cache);
 
 struct cache_entry *cache_get_and_ref_entry(struct cache *cache,
       const void *key, int *error);
-void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
+struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
+      const void *key, void *create_ctx, int *error);
 struct cache_entry *cache_coro_get_and_ref_entry(struct cache *cache,
       struct coro *coro, const void *key);
+struct cache_entry *cache_coro_get_and_ref_entry_with_ctx(struct cache *cache,
+      struct coro *coro, const void *key, void *create_ctx);
+void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
 
 void cache_make_read_only(struct cache *cache);

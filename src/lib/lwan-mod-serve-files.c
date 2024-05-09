@@ -798,9 +798,12 @@ static void destroy_cache_entry(struct cache_entry *entry,
     free(fce);
 }
 
-static struct cache_entry *create_cache_entry(const void *key, void *context)
+static struct cache_entry *create_cache_entry(const void *key,
+                                              void *cache_ctx,
+                                              void *create_ctx
+                                              __attribute__((unused)))
 {
-    struct serve_files_priv *priv = context;
+    struct serve_files_priv *priv = cache_ctx;
     struct file_cache_entry *fce;
     struct stat st;
     const struct cache_funcs *funcs;

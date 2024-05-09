@@ -162,7 +162,8 @@ add_int_param(struct lwan_strbuf *strbuf, const char *key, ssize_t value)
     return add_param_len(strbuf, key, strlen(key), p, len);
 }
 
-static struct cache_entry *create_script_name(const void *keyptr, void *context)
+static struct cache_entry *
+create_script_name(const void *keyptr, void *context, void *create_contex)
 {
     struct private_data *pd = context;
     struct script_name_cache_entry *entry;

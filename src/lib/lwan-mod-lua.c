@@ -48,9 +48,10 @@ struct lwan_lua_state {
 };
 
 static struct cache_entry *state_create(const void *key __attribute__((unused)),
-                                        void *context)
+                                        void *cache_ctx,
+                                        void *create_ctx __attribute__((unused)))
 {
-    struct lwan_lua_priv *priv = context;
+    struct lwan_lua_priv *priv = cache_ctx;
     struct lwan_lua_state *state = malloc(sizeof(*state));
 
     if (UNLIKELY(!state))
