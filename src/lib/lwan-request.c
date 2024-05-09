@@ -1788,12 +1788,6 @@ const char *lwan_request_get_host(struct lwan_request *request)
     return helper->host.len ? helper->host.value : NULL;
 }
 
-ALWAYS_INLINE int
-lwan_connection_get_fd(const struct lwan *lwan, const struct lwan_connection *conn)
-{
-    return (int)(intptr_t)(conn - lwan->conns);
-}
-
 const char *
 lwan_request_get_remote_address_and_port(struct lwan_request *request,
                                          char buffer[static INET6_ADDRSTRLEN],
