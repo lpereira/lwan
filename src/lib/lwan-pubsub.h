@@ -44,3 +44,5 @@ void lwan_pubsub_unsubscribe(struct lwan_pubsub_topic *topic,
 struct lwan_pubsub_msg *lwan_pubsub_consume(struct lwan_pubsub_subscriber *sub);
 const struct lwan_value *lwan_pubsub_msg_value(const struct lwan_pubsub_msg *msg);
 void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg);
+
+int lwan_pubsub_get_notification_fd(struct lwan_pubsub_subscriber *sub);

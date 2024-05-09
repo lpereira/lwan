@@ -19,9 +19,16 @@
  */
 
 #define _GNU_SOURCE
+#include <errno.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <pthread.h>
+
+#if defined(LWAN_HAVE_EVENTFD)
+#include <sys/eventfd.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "list.h"
 #include "ringbuffer.h"
@@ -49,6 +56,8 @@ struct lwan_pubsub_subscriber {
 
     pthread_mutex_t lock;
     struct list_head msg_refs;
+
+    int event_fd[2];
 };
 
 static void lwan_pubsub_queue_init(struct lwan_pubsub_subscriber *sub)
@@ -196,6 +205,22 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
             ATOMIC_DEC(msg->refcount);
         }
         pthread_mutex_unlock(&sub->lock);
+
+        if (sub->event_fd[1] < 0) {
+            continue;
+        }
+        while (true) {
+            ssize_t written =
+                write(sub->event_fd[1], &(uint64_t){1}, sizeof(uint64_t));
+
+            if (LIKELY(written == (ssize_t)sizeof(uint64_t)))
+                break;
+
+            if (UNLIKELY(written < 0)) {
+                if (errno == EINTR)
+                    continue;
+            }
+        }
     }
     pthread_mutex_unlock(&topic->lock);
 
@@ -250,6 +275,9 @@ lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic)
     if (!sub)
         return NULL;
 
+    sub->event_fd[0] = -1;
+    sub->event_fd[1] = -1;
+
     pthread_mutex_init(&sub->lock, NULL);
     lwan_pubsub_queue_init(sub);
 
@@ -267,6 +295,11 @@ struct lwan_pubsub_msg *lwan_pubsub_consume(struct lwan_pubsub_subscriber *sub)
     pthread_mutex_lock(&sub->lock);
     msg = lwan_pubsub_queue_get(sub);
     pthread_mutex_unlock(&sub->lock);
+
+    if (msg && sub->event_fd[0] >= 0) {
+        uint64_t discard;
+        LWAN_NO_DISCARD(read(sub->event_fd[0], &discard, sizeof(uint64_t)));
+    }
 
     return msg;
 }
@@ -289,6 +322,14 @@ static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
     pthread_mutex_unlock(&sub->lock);
 
     pthread_mutex_destroy(&sub->lock);
+
+    if (sub->event_fd[0] != sub->event_fd[1]) {
+        close(sub->event_fd[0]);
+        close(sub->event_fd[1]);
+    } else if (LIKELY(sub->event_fd[0] >= 0)) {
+        close(sub->event_fd[0]);
+    }
+
     free(sub);
 }
 
@@ -301,4 +342,24 @@ void lwan_pubsub_unsubscribe(struct lwan_pubsub_topic *topic,
 const struct lwan_value *lwan_pubsub_msg_value(const struct lwan_pubsub_msg *msg)
 {
     return &msg->value;
+}
+
+int lwan_pubsub_get_notification_fd(struct lwan_pubsub_subscriber *sub)
+{
+    if (sub->event_fd[0] < 0) {
+#if defined(LWAN_HAVE_EVENTFD)
+        int efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK | EFD_SEMAPHORE);
+        if (efd < 0) {
+            return -1;
+        }
+
+        sub->event_fd[0] = sub->event_fd[1] = efd;
+#else
+        if (pipe2(sub->event_fd, O_CLOEXEC | O_NONBLOCK) < 0) {
+            return -1;
+        }
+#endif
+    }
+
+    return sub->event_fd[0];
 }
