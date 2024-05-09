@@ -311,10 +311,7 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
         while (pending & T->pending[wheel]) {
             /* ctz input cannot be zero: loop condition. */
             int slot = ctz(pending & T->pending[wheel]);
-
             list_append_list(&todo, &T->wheel[wheel][slot]);
-            list_head_init(&T->wheel[wheel][slot]);
-
             T->pending[wheel] &= ~(UINT64_C(1) << slot);
         }
 
