@@ -222,7 +222,8 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 #elif defined(__SSE3__)
     if (msg_len >= 16) {
-        const __m128i mask128 = _mm_lddqu_si128((const float *)mask);
+        const __m128i mask128 =
+            _mm_castps_si128(_mm_load_ps1((const float *)mask));
 
         do {
             const __m128i v = _mm_lddqu_si128((const __m128i *)msg);
