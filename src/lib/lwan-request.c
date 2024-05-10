@@ -1841,7 +1841,7 @@ lwan_request_get_remote_address(struct lwan_request *request,
 static void remove_sleep(void *data1, void *data2)
 {
     static const enum lwan_connection_flags suspended_sleep =
-        CONN_SUSPENDED | CONN_HAS_REMOVE_SLEEP_DEFER;
+        CONN_SUSPENDED_MASK | CONN_HAS_REMOVE_SLEEP_DEFER;
     struct timeouts *wheel = data1;
     struct timeout *timeout = data2;
     struct lwan_request *request =
