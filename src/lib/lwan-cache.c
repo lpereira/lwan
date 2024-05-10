@@ -453,7 +453,7 @@ struct cache_entry *cache_coro_get_and_ref_entry_with_ctx(struct cache *cache,
     for (int tries = GET_AND_REF_TRIES; tries; tries--) {
         int error;
         struct cache_entry *ce =
-            cache_get_and_ref_entry_with_ctx(cache, key, &error, create_ctx);
+            cache_get_and_ref_entry_with_ctx(cache, key, create_ctx, &error);
 
         if (LIKELY(ce)) {
             /*
