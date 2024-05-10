@@ -260,9 +260,12 @@ const char *lwan_http_status_as_string_with_code(enum lwan_http_status status)
 const char *lwan_http_status_as_descriptive_string(enum lwan_http_status status)
     __attribute__((const)) __attribute__((warn_unused_result));
 
-int lwan_connection_get_fd(const struct lwan *lwan,
-                           const struct lwan_connection *conn)
-    __attribute__((pure)) __attribute__((warn_unused_result));
+static ALWAYS_INLINE __attribute__((pure, warn_unused_result)) int
+lwan_connection_get_fd(const struct lwan *lwan,
+                       const struct lwan_connection *conn)
+{
+    return (int)(intptr_t)(conn - lwan->conns);
+}
 
 int lwan_format_rfc_time(const time_t in, char out LWAN_ARRAY_PARAM(30));
 int lwan_parse_rfc_time(const char in LWAN_ARRAY_PARAM(30), time_t *out);

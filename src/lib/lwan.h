@@ -686,13 +686,6 @@ ssize_t lwan_request_async_writev(struct lwan_request *request,
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj);
 
-static ALWAYS_INLINE int
-lwan_connection_get_fd(const struct lwan *lwan,
-                       const struct lwan_connection *conn)
-{
-    return (int)(intptr_t)(conn - lwan->conns);
-}
-
 #if defined(__cplusplus)
 }
 #endif
