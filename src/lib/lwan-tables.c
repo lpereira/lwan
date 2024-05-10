@@ -336,7 +336,6 @@ LWAN_SELF_TEST(compare_with_ctype)
         assert(!!isdigit((char)i) == !!lwan_char_isdigit((char)i));
         assert(!!isalpha((char)i) == !!lwan_char_isalpha((char)i));
         assert(!!isalnum((char)i) == !!lwan_char_isalnum((char)i));
-
-        /* isspace() and lwan_char_isspace() differs on purpose */
+        assert(!!memchr(" \t\n\r", i, 4) == !!lwan_char_isspace((char)i));
     }
 }
