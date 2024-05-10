@@ -36,7 +36,7 @@
 
 struct lwan_pubsub_topic {
     struct list_head subscribers;
-    pthread_mutex_t lock;
+    pthread_rwlock_t lock;
 };
 
 struct lwan_pubsub_msg {
@@ -153,7 +153,7 @@ struct lwan_pubsub_topic *lwan_pubsub_new_topic(void)
         return NULL;
 
     list_head_init(&topic->subscribers);
-    pthread_mutex_init(&topic->lock, NULL);
+    pthread_rwlock_init(&topic->lock, NULL);
 
     return topic;
 }
@@ -162,12 +162,12 @@ void lwan_pubsub_free_topic(struct lwan_pubsub_topic *topic)
 {
     struct lwan_pubsub_subscriber *iter, *next;
 
-    pthread_mutex_lock(&topic->lock);
+    pthread_rwlock_wrlock(&topic->lock);
     list_for_each_safe (&topic->subscribers, iter, next, subscriber)
         lwan_pubsub_unsubscribe_internal(topic, iter, false);
-    pthread_mutex_unlock(&topic->lock);
+    pthread_rwlock_unlock(&topic->lock);
 
-    pthread_mutex_destroy(&topic->lock);
+    pthread_rwlock_destroy(&topic->lock);
 
     free(topic);
 }
@@ -195,10 +195,11 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
     msg->refcount = 1;
     msg->value = value;
 
-    pthread_mutex_lock(&topic->lock);
+    pthread_rwlock_rdlock(&topic->lock);
     list_for_each (&topic->subscribers, sub, subscriber) {
         ATOMIC_INC(msg->refcount);
 
+        /* FIXME: use trylock and a local queue to try again? */
         pthread_mutex_lock(&sub->lock);
         if (!lwan_pubsub_queue_put(sub, msg)) {
             lwan_status_warning("Couldn't enqueue message, dropping");
@@ -222,7 +223,7 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
             }
         }
     }
-    pthread_mutex_unlock(&topic->lock);
+    pthread_rwlock_unlock(&topic->lock);
 
     lwan_pubsub_msg_done(msg);
 
@@ -281,9 +282,9 @@ lwan_pubsub_subscribe(struct lwan_pubsub_topic *topic)
     pthread_mutex_init(&sub->lock, NULL);
     lwan_pubsub_queue_init(sub);
 
-    pthread_mutex_lock(&topic->lock);
+    pthread_rwlock_wrlock(&topic->lock);
     list_add(&topic->subscribers, &sub->subscriber);
-    pthread_mutex_unlock(&topic->lock);
+    pthread_rwlock_unlock(&topic->lock);
 
     return sub;
 }
@@ -311,10 +312,10 @@ static void lwan_pubsub_unsubscribe_internal(struct lwan_pubsub_topic *topic,
     struct lwan_pubsub_msg *iter;
 
     if (take_topic_lock)
-        pthread_mutex_lock(&topic->lock);
+        pthread_rwlock_wrlock(&topic->lock);
     list_del(&sub->subscriber);
     if (take_topic_lock)
-        pthread_mutex_unlock(&topic->lock);
+        pthread_rwlock_unlock(&topic->lock);
 
     pthread_mutex_lock(&sub->lock);
     while ((iter = lwan_pubsub_queue_get(sub)))
