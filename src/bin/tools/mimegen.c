@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <endian.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -67,20 +68,9 @@ output_append_full(struct output *output, const char *str, size_t str_len)
     return 0;
 }
 
-static int output_append_padded(struct output *output, const char *str)
+static int output_append_u64(struct output *output, uint64_t value)
 {
-    size_t str_len = strlen(str);
-
-    assert(str_len <= 8);
-
-    int r = output_append_full(output, str, str_len);
-    if (r < 0)
-        return r;
-
-    if (str_len != 8)
-        return output_append_full(output, "\0\0\0\0\0\0\0\0", 8 - str_len);
-
-    return 0;
+    return output_append_full(output, (char *)&value, 8);
 }
 
 static int output_append(struct output *output, const char *str)
@@ -316,14 +306,18 @@ int main(int argc, char *argv[])
         return 1;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
-        char ext_lower[9] = {0};
+        uint64_t ext_lower = 0;
 
-        strncpy(ext_lower, exts[i], 8);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+        /* See lwan_determine_mime_type_for_file_name() in lwan-tables.c */
+        strncpy((char *)&ext_lower, exts[i], 8);
+#pragma GCC diagnostic pop
 
-        for (char *p = ext_lower; *p; p++)
-            *p &= ~0x20;
+        ext_lower &= ~0x2020202020202020ull;
+        ext_lower = htobe64(ext_lower);
 
-        if (output_append_padded(&output, ext_lower) < 0) {
+        if (output_append_u64(&output, ext_lower) < 0) {
             fprintf(stderr, "Could not append to output\n");
             fclose(fp);
             return 1;
