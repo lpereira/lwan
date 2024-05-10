@@ -13,6 +13,11 @@ static inline uint32_t rotate(uint32_t v, int n)
     return v << (32 - n) | v >> n;
 }
 
+static inline uint32_t map_0_to_n(uint32_t value, uint32_t n)
+{
+    return (uint32_t)(((uint64_t)value * (uint64_t)n) >> 32);
+}
+
 int main(void)
 {
     uint32_t max_key = 0;
@@ -49,7 +54,8 @@ int main(void)
                 int set_bits = 0;
 
                 for (int key = 0; key < N_KEYS; key++) {
-                    uint32_t k = rotate((uint32_t)keys[key] - subtract, rot) % mod;
+                    uint32_t k = map_0_to_n(
+                        rotate((uint32_t)keys[key] - subtract, rot), mod);
 
                     if (set & 1ull<<k)
                         break;
@@ -75,11 +81,17 @@ int main(void)
     uint64_t set_values = ~0ull;
     printf("static ALWAYS_INLINE const char *lwan_lookup_http_status_impl(enum lwan_http_status status) {\n");
     printf("    static const char *table[] = {\n");
-#define PRINT_V(ignored1, key, short_desc, long_desc) do { \
-        uint32_t k = rotate((uint32_t)key - (uint32_t)best_subtract, best_rot) % best_mod; \
-        set_values &= ~(1ull<<k); \
-        printf("        [%d] = \"%d %s\\0%s\",\n", k, key, short_desc, long_desc); \
-    } while(0);
+
+#define PRINT_V(ignored1, key, short_desc, long_desc)                          \
+    do {                                                                       \
+        uint32_t k = map_0_to_n(                                               \
+            rotate((uint32_t)key - (uint32_t)best_subtract, best_rot),         \
+            best_mod);                                                         \
+        set_values &= ~(1ull << k);                                            \
+        printf("        [%d] = \"%d %s\\0%s\",\n", k, key, short_desc,         \
+               long_desc);                                                     \
+    } while (0);
+
     FOR_EACH_HTTP_STATUS(PRINT_V)
 #undef PRINT_V
 
@@ -92,12 +104,12 @@ int main(void)
 
     printf("\n");
     printf("    const uint32_t k = (uint32_t)status - %d;\n", best_subtract);
-    printf("    const char *ret = table[((k << %d) | (k >> %d)) %% %d];\n", 32 - best_rot, best_rot, best_mod);
+    printf("    const uint32_t hash = (k << %d) | (k >> %d);\n", 32 - best_rot, best_rot);
+    printf("    const char *ret = table[(uint32_t)(((uint64_t)hash * (uint64_t)%d) >> 32)];\n", best_mod);
     printf("    assert((uint32_t)(ret[2] - '0') == ((uint32_t)status %% 10));\n");
     printf("    assert((uint32_t)(ret[1] - '0') == ((uint32_t)(status / 10) %% 10));\n");
     printf("    assert((uint32_t)(ret[0] - '0') == ((uint32_t)(status / 100) %% 10));\n");
     printf("    return ret;\n");
 
     printf("}\n");
-
 }
