@@ -122,25 +122,8 @@ LWAN_SELF_TEST(status_codes)
 
 static int compare_mime_entry(const void *a, const void *b)
 {
-    static const uintptr_t begin = (uintptr_t)uncompressed_mime_entries;
-    static const uintptr_t end = begin + 8 * MIME_ENTRIES;
-    const uintptr_t pa = (uintptr_t)a;
-    const uintptr_t pb = (uintptr_t)b;
-    uint64_t exta;
-    uint64_t extb;
-
-    if (end - pa >= begin && end - pb >= begin) {
-        /* If both keys are within the uncompressed mime entries range, then
-         * we don't need to load from memory, just compare the pointers: they're
-         * all stored sequentially in memory by construction. */
-        exta = pa;
-        extb = pb;
-    } else {
-        /* These are stored in big-endian so the comparison below works
-         * as expected. */
-        exta = string_as_uint64((const char *)a);
-        extb = string_as_uint64((const char *)b);
-    }
+    const uint64_t exta = string_as_uint64((const char *)a);
+    const uint64_t extb = string_as_uint64((const char *)b);
 
     return (exta > extb) - (exta < extb);
 }
