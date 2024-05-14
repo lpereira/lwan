@@ -161,29 +161,6 @@ static char *compress_output(const struct output *output, size_t *outlen)
     return compressed;
 }
 
-static bool is_builtin_ext(const char *ext)
-{
-    /* STRING_SWITCH_L() is not used here to not bring in lwan.h */
-    /* FIXME: maybe use an X-macro to keep in sync with lwan-tables.c? */
-    if (strcaseequal_neutral(ext, "css"))
-        return true;
-    if (strcaseequal_neutral(ext, "gif"))
-        return true;
-    if (strcaseequal_neutral(ext, "htm"))
-        return true;
-    if (strcaseequal_neutral(ext, "html"))
-        return true;
-    if (strcaseequal_neutral(ext, "jpg"))
-        return true;
-    if (strcaseequal_neutral(ext, "js"))
-        return true;
-    if (strcaseequal_neutral(ext, "png"))
-        return true;
-    if (strcaseequal_neutral(ext, "txt"))
-        return true;
-    return false;
-}
-
 int main(int argc, char *argv[])
 {
     /* 32k is sufficient for the provided mime.types, but we can reallocate
@@ -258,11 +235,6 @@ int main(int argc, char *argv[])
                 ext[8] = '\0';
             }
 
-            /* Lwan has a fast-path for some common extensions, so don't bundle them
-             * in this table if not really needed. */
-            if (is_builtin_ext(ext))
-                continue;
-
             k = strdup(ext);
             v = strdup(mime_type);
 
@@ -286,6 +258,22 @@ int main(int argc, char *argv[])
         }
     }
 
+    {
+        char *k = strdup("bin");
+        char *v = strdup("application/octet-stream");
+        if (!k || !v) {
+            fprintf(stderr, "Could not allocate memory\n");
+            fclose(fp);
+            return 1;
+        }
+        int r = hash_add_unique(ext_mime, k, v);
+        if (r != 0 && r != -EEXIST) {
+            fprintf(stderr, "Could not add fallback mime entry\n");
+            fclose(fp);
+            return 1;
+        }
+    }
+
     /* Get sorted list of extensions. */
     exts = calloc(hash_get_count(ext_mime), sizeof(char *));
     if (!exts) {
@@ -305,6 +293,7 @@ int main(int argc, char *argv[])
         fclose(fp);
         return 1;
     }
+    ssize_t bin_index = -1;
     for (i = 0; i < hash_get_count(ext_mime); i++) {
         uint64_t ext_lower = 0;
 
@@ -322,6 +311,9 @@ int main(int argc, char *argv[])
             fclose(fp);
             return 1;
         }
+
+        if (bin_index < 0 && streq(exts[i], "bin"))
+            bin_index = (ssize_t)i;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
         if (output_append(&output, hash_find(ext_mime, exts[i])) < 0) {
@@ -329,6 +321,12 @@ int main(int argc, char *argv[])
             fclose(fp);
             return 1;
         }
+    }
+
+    if (bin_index < 0) {
+        fprintf(stderr, "Could not find fallback item after sorting!\n");
+        fclose(fp);
+        return 1;
     }
 
     /* Compress blob. */
@@ -349,10 +347,15 @@ int main(int argc, char *argv[])
 #else
     printf("/* Compressed with zlib (deflate) */\n");
 #endif
+
+    unsigned int entries_floor = 1u << (31 - __builtin_clz(hash_get_count(ext_mime)));
+
     printf("#pragma once\n");
     printf("#define MIME_UNCOMPRESSED_LEN %zu\n", output.used);
     printf("#define MIME_COMPRESSED_LEN %lu\n", compressed_size);
     printf("#define MIME_ENTRIES %d\n", hash_get_count(ext_mime));
+    printf("#define MIME_ENTRIES_FLOOR %d\n", entries_floor);
+    printf("#define MIME_ENTRY_FALLBACK %ld\n", bin_index);
     printf("static const unsigned char mime_entries_compressed[] = {\n");
     for (i = 1; compressed_size; compressed_size--, i++)
         printf("0x%02x,%c", compressed[i - 1] & 0xff, " \n"[i % 13 == 0]);

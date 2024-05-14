@@ -36,6 +36,7 @@
 
 static unsigned char uncompressed_mime_entries[MIME_UNCOMPRESSED_LEN];
 static char *mime_types[MIME_ENTRIES];
+static uint64_t *mime_extensions;
 static bool mime_entries_initialized = false;
 
 void lwan_tables_shutdown(void)
@@ -86,6 +87,7 @@ void lwan_tables_init(void)
         mime_types[i] = (char *)ptr;
         ptr += strlen((const char *)ptr) + 1;
     }
+    mime_extensions = (uint64_t *)uncompressed_mime_entries;
 
     mime_entries_initialized = true;
 
@@ -120,34 +122,25 @@ LWAN_SELF_TEST(status_codes)
 #undef ASSERT_STATUS
 }
 
-static int compare_mime_entry(const void *a, const void *b)
+static ALWAYS_INLINE const char *bsearch_mime_type(uint64_t ext)
 {
-    const uint64_t exta = string_as_uint64((const char *)a);
-    const uint64_t extb = string_as_uint64((const char *)b);
-
-    return (exta > extb) - (exta < extb);
+    /* Based on https://orlp.net/blog/bitwise-binary-search/ */
+    int64_t b = ext > mime_extensions[MIME_ENTRIES / 2]
+                    ? MIME_ENTRIES - MIME_ENTRIES_FLOOR
+                    : -1;
+    for (uint64_t bit = MIME_ENTRIES_FLOOR >> 1; bit != 0; bit >>= 1) {
+        if (ext > mime_extensions[b + (int64_t)bit])
+            b += (int64_t)bit;
+    }
+    return mime_types[mime_extensions[b + 1] == ext ? b + 1
+                                                    : MIME_ENTRY_FALLBACK];
 }
 
-const char *
-lwan_determine_mime_type_for_file_name(const char *file_name)
+const char *lwan_determine_mime_type_for_file_name(const char *file_name)
 {
     char *last_dot = strrchr(file_name, '.');
-    if (UNLIKELY(!last_dot))
-        goto fallback;
-
-    STRING_SWITCH_L(last_dot) {
-    case STR4_INT_L('.','c','s','s'): return "text/css";
-    case STR4_INT_L('.','g','i','f'): return "image/gif";
-    case STR4_INT_L('.','h','t','m'): return "text/html";
-    case STR4_INT_L('.','j','p','g'): return "image/jpeg";
-    case STR4_INT_L('.','j','s',' '): return "text/javascript";
-    case STR4_INT_L('.','p','n','g'): return "image/png";
-    case STR4_INT_L('.','t','x','t'): return "text/plain";
-    }
-
-    if (LIKELY(*last_dot)) {
+    if (LIKELY(last_dot && *last_dot)) {
         uint64_t key = 0;
-        const unsigned char *extension;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
@@ -157,17 +150,11 @@ lwan_determine_mime_type_for_file_name(const char *file_name)
          * 8 bytes per extension. */
         strncpy((char *)&key, last_dot + 1, 8);
 #pragma GCC diagnostic pop
-        key &= ~0x2020202020202020ull;
-        key = htobe64(key);
 
-        extension = bsearch(&key, uncompressed_mime_entries, MIME_ENTRIES, 8,
-                            compare_mime_entry);
-        if (LIKELY(extension))
-            return mime_types[(extension - uncompressed_mime_entries) / 8];
+        return bsearch_mime_type(htobe64(key & ~0x2020202020202020ull));
     }
 
-fallback:
-    return "application/octet-stream";
+    return mime_types[MIME_ENTRY_FALLBACK];
 }
 
 #include "lookup-http-status.h" /* genrated by statuslookupgen */
