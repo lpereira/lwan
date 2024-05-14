@@ -18,34 +18,20 @@
  * USA.
  */
 
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
 
-#include "lwan.h"
-#include "hash.h"
-#include "ringbuffer.h"
 #include "../techempower/json.h"
+#include "hash.h"
+#include "lwan.h"
+#include "ringbuffer.h"
 
-struct sync_map {
-    struct hash *table;
-    pthread_mutex_t mutex;
+struct hub {
+    struct lwan_pub_sub_topic *topic;
+
+    pthread_rwlock_t clients_lock;
+    struct hash *clients;
 };
-
-#define SYNC_MAP_INITIALIZER(free_key_func_, free_value_func_)                 \
-    (struct sync_map)                                                          \
-    {                                                                          \
-        .mutex = PTHREAD_MUTEX_INITIALIZER,                                    \
-        .table = hash_str_new(free_key_func_, free_value_func_)                \
-    }
-
-DEFINE_RING_BUFFER_TYPE(msg_ring_buffer, char *, 32)
-struct msg_ring {
-    struct msg_ring_buffer rb;
-    pthread_mutex_t mutex;
-};
-
-#define MSG_RING_INITIALIZER                                                   \
-    (struct msg_ring) { .mutex = PTHREAD_MUTEX_INITIALIZER }
 
 struct available_transport {
     const char *transport;
@@ -53,7 +39,8 @@ struct available_transport {
     size_t numTransferFormats;
 };
 static const struct json_obj_descr available_transport_descr[] = {
-    JSON_OBJECT_DESCR_PRIM(struct available_transport, transport, JSON_TOK_STRING),
+    JSON_OBJECT_DESCR_PRIM(
+        struct available_transport, transport, JSON_TOK_STRING),
     JSON_OBJECT_DESCR_ARRAY(struct available_transport,
                             transferFormats,
                             1,
@@ -67,7 +54,8 @@ struct negotiate_response {
     size_t numAvailableTransports;
 };
 static const struct json_obj_descr negotiate_response_descr[] = {
-    JSON_OBJ_DESCR_PRIM(struct negotiate_response, connectionId, JSON_TOK_STRING),
+    JSON_OBJ_DESCR_PRIM(
+        struct negotiate_response, connectionId, JSON_TOK_STRING),
     JSON_OBJ_DESCR_OBJ_ARRAY(struct negotiate_response,
                              availableTransports,
                              4,
@@ -101,7 +89,8 @@ struct invocation_message {
 };
 static const struct json_obj_descr invocation_message[] = {
     JSON_OBJ_DESCR_PRIM(struct invocation_message, target, JSON_TOK_STRING),
-    JSON_OBJ_DESCR_PRIM(struct invocation_message, invocationId, JSON_TOK_STRING),
+    JSON_OBJ_DESCR_PRIM(
+        struct invocation_message, invocationId, JSON_TOK_STRING),
     JSON_OBJ_DESCR_ARRAY(struct invocation_message,
                          arguments,
                          10,
@@ -118,99 +107,37 @@ struct completion_message {
 };
 static const struct json_obj_descr invocation_message[] = {
     JSON_OBJ_DESCR_PRIM(struct completion_message, type, JSON_TOK_NUMBER),
-    JSON_OBJ_DESCR_PRIM(struct completion_message, invocationId, JSON_TOK_STRING),
+    JSON_OBJ_DESCR_PRIM(
+        struct completion_message, invocationId, JSON_TOK_STRING),
     JSON_OBJ_DESCR_PRIM(struct completion_message, result, JSON_TOK_STRING),
     JSON_OBJ_DESCR_PRIM(struct completion_message, error, JSON_TOK_STRING),
 };
 
-static bool msg_ring_try_put(struct msg_ring *ring, const char *msg)
+static const char *subscribe_and_get_conn_id(struct hub *hub)
 {
-    /* FIXME: find a way to use coro_strdup() here?  should make cleanup easier */
-    char *copy = strdup(msg);
-    bool ret;
+    lwan_pubsub_subscription *sub = lwan_pubsub_subscribe(hub->topic);
 
-    pthread_mutex_lock(&sync_map->mutex);
-    ret = msg_ring_buffer_try_put(&ring->rb, copy);
-    if (!ret)
-        free(copy);
-    pthread_mutex_unlock(&sync_map->mutex);
+    if (!sub)
+        return NULL;
 
-    return ret;
-}
+    pthread_rwlock_wrlock(&hub->clients_hash);
+    while (true) {
+        const uint64_t id[] = {lwan_random_uint64(), lwan_random_uint64()};
+        char *base64_id = base64_encode((char *)id, sizeof(id), NULL);
 
-static void msg_ring_consume(struct msg_ring *ring,
-                             bool (*iter_func)(char *msg, void *data),
-                             void *data)
-{
-    char *msg;
-
-    pthread_mutex_lock(&ring->mutex);
-
-    while ((msg = msg_ring_buffer_get_ptr_or_null(&ring->rb))) {
-        bool cont = iter(msg, data);
-
-        free(msg);
-        if (!cont)
-            break;
+        switch (hash_add_unique(hub->clients, base64_id, sub)) {
+        case -EEXIST:
+            free(base64_id);
+            continue;
+        case 0:
+            pthread_rwlock_unlock(&hub->clients_hash);
+            return base64_id;
+        default:
+            pthread_rwlock_unlock(&sub->clients_hash);
+            lwan_pubsub_unsubscribe(sub);
+            return NULL;
+        }
     }
-
-    pthread_mutex_unlock(&ring->mutex);
-}
-
-static bool free_ring_msg(char *msg, void *data)
-{
-    free(msg);
-    return true;
-}
-
-static void msg_ring_free(struct msg_ring *ring)
-{
-    msg_ring_consume(ring, free_ring_msg, NULL);
-    pthread_mutex_destroy(&ring->mutex);
-}
-
-static int sync_map_add(struct sync_map *sync_map, const char *key, const void *value)
-{
-    int ret;
-
-    pthread_mutex_lock(&sync_map->mutex);
-    ret = hash_add(sync_map->table, key, value);
-    pthread_mutex_unlock(&sync_map->mutex);
-
-    return ret;
-}
-
-static void
-sync_map_range(struct sync_map *sync_map,
-               bool (*iter_func)(const char *key, void *value, void *data),
-               void *data)
-{
-    struct hash_iter iter;
-    const void *key;
-    void *value;
-
-    pthread_mutex_lock(&sync_map->mutex);
-    hash_iter_init(&sync_map->table, &iter);
-    while (hash_iter_next(&iter, &key, &value)) {
-        if (!iter_func(key, value, data))
-            break;
-    }
-    pthread_mutex_unlock(&sync_map->mutex);
-}
-
-static const char *get_connection_id(char connection_id[static 17])
-{
-    /* FIXME: use a better PRNG */
-    /* FIXME: maybe base64? */
-    static const char alphabet[] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwvyz01234567890";
-
-    for (int i = 0; i < 16; i++)
-        connection_id[i] = alphabet[rand() % (sizeof(alphabet) - 1)];
-
-    connection_id[16] = '\0';
-
-    return connection_id;
 }
 
 static int append_to_strbuf(const char *bytes, size_t len, void *data)
@@ -222,23 +149,23 @@ static int append_to_strbuf(const char *bytes, size_t len, void *data)
 
 LWAN_HANDLER(negotiate)
 {
-    char connection_id[17];
+    struct hub *hub = data;
 
     if (lwan_request_get_method(request) != REQUEST_METHOD_POST)
         return HTTP_BAD_REQUEST;
 
     struct negotiate_response response = {
-        .connectionId = get_connection_id(connection_id),
-        .availableTransports =
-            (struct available_transport[]){
-                {
-                    .transport : "WebSockets",
-                    .transferFormats : (const char *[]){"Text", "Binary"},
-                    .numTransferFormats : 2,
-                },
-            },
+        .connectionId = subscribe_and_get_conn_id(hub),
+        .availableTransports = (struct available_transport[]){{
+            .transport : "WebSockets",
+            .transferFormats : (const char *[]){"Text", "Binary"},
+            .numTransferFormats : 2
+        }},
         .numAvailableTransports = 1,
     };
+
+    if (!response.connectionId)
+        return HTTP_INTERNAL_ERROR;
 
     if (json_obj_encode_full(negotiate_response_descr,
                              ARRAY_SIZE(negotiate_response_descr), &response,
@@ -293,8 +220,9 @@ static int send_json(struct lwan_response *request,
 
 static bool send_error(struct lwan_request *request, const char *error)
 {
-    lwan_strbuf_set_printf(request->response->buffer,
-                           "{\"error\":\"%s\"}\x1e", error);
+    /* FIXME: use proper json here because error might need escaping! */
+    lwan_strbuf_set_printf(request->response->buffer, "{\"error\":\"%s\"}\x1e",
+                           error);
     lwan_response_websocket_send(request);
     return false;
 }
@@ -332,27 +260,20 @@ static void handle_ping(struct lwan_request *request)
     lwan_response_websocket_send(request);
 }
 
-static bool broadcast_msg(const void *key, void *value, void *data)
-{
-    struct msg_ring *messages = value;
-
-    if (message->numArguments == 1)
-        return msg_ring_try_put(messages, message->arguments[0]);
-
-    return false;
-}
-
 static struct completion_message
 handle_invocation_send(struct lwan_request *request,
                        struct invocation_message *message,
-                       struct sync_map *clients)
+                       struct lwan_pubsub_topic *topic)
 {
     if (message->numArguments == 0)
         return (struct completion_message){.error = "No arguments were passed"};
 
-    sync_map_range(clients, broadcast_msg, NULL);
+    if (!lwan_pubsub_publish(topic, message, sizeof(*message)))
+        return (struct completion_messdage{.error = "Could not publish message"};
 
     return (struct completion_message){
+        /* FIXME: memory allocated by coro_printf() is only freed when
+         * coroutine finishes! */
         .result = coro_printf(request->conn->coro,
                               "Got your message with %d arguments",
                               message->numArguments),
@@ -375,7 +296,7 @@ static bool send_completion_response(struct lwan_request *request,
 }
 
 static bool handle_invocation(struct lwan_request *request,
-                              struct sync_map *clients)
+                              struct lwan_pub_sub_topic *topic)
 {
     struct invocation_message message;
     int ret = parse_json(request->response, invocation_message_descr,
@@ -393,32 +314,18 @@ static bool handle_invocation(struct lwan_request *request,
     if (streq(message.target, "send")) {
         return send_completion_response(
             request, message.invocationId,
-            handle_invocation_send(request, &message, clients));
+            handle_invocation_send(request, &message, topic));
     }
 
     return send_error(request, "Unknown target");
 }
 
-static bool hub_msg_ring_send_message(char *msg, void *data)
-{
-    struct lwan_request *request = data;
-    struct invocation_message invocation = {
-        .type = 1,
-        .target = "send",
-        .arguments[0] = msg,
-        .numArguments = 1,
-    };
-
-    return send_json(response, invocation_message_descr,
-                     ARRAY_SIZE(invocation_message_descr), &invocation) == 0;
-}
-
 static void parse_hub_msg(struct lwan_request *request,
-                          struct sync_map *clients)
+                          struct lwan_pub_sub_topic *topic)
 {
     struct message message;
-    int ret = parse_json(response, message_descr,
-                         ARRAY_SIZE(message_descr), &message);
+    int ret = parse_json(response, message_descr, ARRAY_SIZE(message_descr),
+                         &message);
     if (ret < 0)
         return;
     if (!(ret & 1 << 0)) /* `type` not present, ignore */
@@ -426,10 +333,22 @@ static void parse_hub_msg(struct lwan_request *request,
 
     switch (message.type) {
     case 1:
-        return handle_invocation(request, clients);
+        return handle_invocation(request, topic);
     case 6:
         return handle_ping(request);
     }
+}
+
+static void unsubscribe_client(void *data)
+{
+    struct lwan_pubsub_subscription *sub = data;
+    lwan_pubsub_unsubscribe(sub);
+}
+
+static void mark_msg_as_done(void *data)
+{
+    struct lwan_pub_sub_msg *msg = data;
+    lwan_pubsub_msg_done(msg);
 }
 
 static enum lwan_http_status
@@ -438,54 +357,75 @@ hub_connection_handler(struct lwan_request *request,
                        const char *connection_id,
                        void *data)
 {
-    struct sync_map *clients = data;
-    struct msg_ring msg_ring = MSG_RING_INITIALIZER;
+    struct hub *hub = data;
+    struct lwan_pub_subscriber *subscriber;
 
-    if (sync_map_add(clients, connection_id, &msg_ring) != 0) {
-        send_error(request, "Could not register client ID");
-        msg_ring_free(messages);
-        return HTTP_INTERNAL_ERROR;
-    }
-    coro_defer2(request->conn->coro, remove_client, clients, connection_id);
-    coro_defer(request->conn->coro, msg_ring_free, messages);
+    pthread_rwlock_rdlock(&hub->clients_lock);
+    subscriber = hash_find(hub->clients, connection_id);
+    pthread_rwlock_unlock(&hub->clients_lock);
+    if (!subscriber)
+        return HTTP_BAD_REQUEST;
 
+    coro_defer(request->conn->coro, unsubscribe_client, subscription);
+
+    const int websocket_fd = request->fd;
+    const int sub_fd = lwan_pubsub_get_notification_fd(sub);
     while (true) {
-        switch (lwan_response_websocket_read(request)) {
-        case ENOTCONN:
-            /* Shouldn't happen because if we get here, this connection
-             * has been upgraded to a websocket. */
-            return HTTP_INTERNAL_ERROR;
+        int resumed_fd = lwan_request_awaitv_any(
+            request, websocket_fd, CONN_CORO_ASYNC_AWAIT_READ, sub_fd,
+            CONN_CORO_ASYNC_AWAIT_READ, -1);
 
-        case ECONNRESET:
-            /* Connection has been closed by the peer. */
+        if (lwan->conns[resumed_fd].flags & CONN_HUNG_UP)
             return HTTP_UNAVAILABLE;
 
-        case EAGAIN:
-            msg_ring_consume(&msg_ring, hub_msg_ring_send_message, request);
+        if (resumed_fd == websocket_fd) {
+            switch (lwan_response_websocket_read(request)) {
+            case ENOTCONN:
+            case ECONNRESET:
+                return HTTP_UNAVAILABLE;
 
-            /* FIXME: ideally, websocket_read() should have a timeout; this is
-             * just a workaround */
-            lwan_request_sleep(1000);
-            break;
+            case 0:
+                parse_hub_msg(request, topic);
+                break;
+            }
+        } else if (resumed_fd == sub_fd) {
+            struct lwan_pubsub_msg *msg;
 
-        case 0:
-            parse_hub_msg(request, clients);
-            break;
+            while ((msg = lwan_pubsub_consume(sub))) {
+                const struct lwan_value *value = lwan_pubsub_msg_value(msg);
+                struct invocation_message invocation = {
+                    .type = 1,
+                    .target = "send",
+                    .arguments[0] = value->value,
+                    .numArguments = 1,
+                };
+                int64_t done_defer =
+                    coro_defer(request->conn->coro, mark_msg_as_done, msg);
+                if (send_json(response, invocation_message_descr,
+                              ARRAY_SIZE(invocation_message_descr),
+                              &invocation) != 0) {
+                    return HTTP_UNAVAILABLE;
+                }
+                coro_defer_fire_and_disarm(request->conn->coro, done_defer);
+            }
         }
     }
 }
 
 LWAN_HANDLER(chat)
 {
-    static const char handshake_response[] = "{}\x1e";
+    struct hub *hub = data;
     const char *connection_id;
 
     if (lwan_request_websocket_upgrade(request) != HTTP_SWITCHING_PROTOCOLS)
         return HTTP_BAD_REQUEST;
 
     connection_id = lwan_request_get_query_param(request, "id");
-    if (!connecton_id || *connection_id == '\0')
-        connection_id = get_connection_id(coro_malloc(request->conn->coro, 17));
+    if (!connecton_id || *connection_id == '\0') {
+        connection_id = subscribe_and_get_conn_id(hub);
+        if (!connection_id)
+            return HTTP_INTERNAL_ERROR;
+    }
 
     if (!process_handshake(request, response))
         return HTTP_BAD_REQUEST;
@@ -495,10 +435,22 @@ LWAN_HANDLER(chat)
 
 int main(void)
 {
-    struct sync_map clients = SYNC_MAP_INITIALIZER(NULL, NULL);
+    struct hub hub = {
+        .topic = lwan_pubsub_new_topic(),
+        .clients_lock = PTHREAD_RWLOCK_INITIALIZER,
+        .clients = hash_str_new(free, NULL),
+    };
+
+    if (!hub.topic)
+        lwan_status_critical("Could not create pubsub topic");
+    if (!hub.clients)
+        lwan_status_critical("Could not create clients hash table");
+
     const struct lwan_url_map default_map[] = {
-        {.prefix = "/chat", .handler = LWAN_HANDLER_REF(chat), .data = &clients},
-        {.prefix = "/chat/negotiate", .handler = LWAN_HANDLER_REF(negotiate)},
+        {.prefix = "/chat", .handler = LWAN_HANDLER_REF(chat), .data = &hub},
+        {.prefix = "/chat/negotiate",
+         .handler = LWAN_HANDLER_REF(negotiate),
+         .data = &hub},
         {.prefix = "/", .module = SERVE_FILES("wwwroot")},
         {},
     };
