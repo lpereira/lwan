@@ -126,7 +126,8 @@ static bool write_websocket_frame(struct lwan_request *request,
     return write_websocket_frame_full(request, header_byte, msg, len, true);
 }
 
-static inline void lwan_response_websocket_write(struct lwan_request *request, unsigned char op)
+static inline void lwan_response_websocket_write(struct lwan_request *request,
+                                                 unsigned char op)
 {
     size_t len = lwan_strbuf_get_length(request->response.buffer);
     char *msg = lwan_strbuf_get_buffer(request->response.buffer);
@@ -159,8 +160,8 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
         len = (uint64_t)ntohs((uint16_t)len);
 
         if (len < 0x7e) {
-            lwan_status_warning("Can't use 16-bit encoding for frame length of %zu",
-                                len);
+            lwan_status_warning(
+                "Can't use 16-bit encoding for frame length of %zu", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
@@ -171,14 +172,13 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
         len = be64toh(len);
 
         if (UNLIKELY(len > SSIZE_MAX)) {
-            lwan_status_warning("Frame length of %zu won't fit a ssize_t",
-                                len);
+            lwan_status_warning("Frame length of %zu won't fit a ssize_t", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
         if (UNLIKELY(len <= 0xffff)) {
-            lwan_status_warning("Can't use 64-bit encoding for frame length of %zu",
-                                len);
+            lwan_status_warning(
+                "Can't use 64-bit encoding for frame length of %zu", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
@@ -342,7 +342,8 @@ bool lwan_send_websocket_ping_for_tq(struct lwan_connection *conn)
                                       (char *)&payload, sizeof(payload), false);
 }
 
-int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_hint)
+int lwan_response_websocket_read_hint(struct lwan_request *request,
+                                      size_t size_hint)
 {
     enum ws_opcode opcode = WS_OPCODE_INVALID;
     enum ws_opcode last_opcode;
@@ -357,13 +358,15 @@ int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_
 next_frame:
     last_opcode = opcode;
 
-    if (!lwan_recv(request, &header, sizeof(header), continuation ? 0 : MSG_DONTWAIT))
+    if (!lwan_recv(request, &header, sizeof(header),
+                   continuation ? 0 : MSG_DONTWAIT))
         return EAGAIN;
     header = htons(header);
     continuation = false;
 
     if (UNLIKELY(header & 0x7000)) {
-        lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting", header & 0x7000);
+        lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting",
+                          header & 0x7000);
         /* No extensions are supported yet, so fail connection per RFC6455. */
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
@@ -402,7 +405,8 @@ next_frame:
     case WS_OPCODE_RSVD_1 ... WS_OPCODE_RSVD_5:
     case WS_OPCODE_RSVD_CONTROL_1 ... WS_OPCODE_RSVD_CONTROL_5:
     case WS_OPCODE_INVALID:
-        /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket Connection_ */
+        /* RFC6455: ...the receiving endpoint MUST _Fail the WebSocket
+         * Connection_ */
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -431,10 +435,10 @@ next_frame:
 inline int lwan_response_websocket_read(struct lwan_request *request)
 {
     /* Ensure that a rogue client won't keep increasing the memory usage in an
-     * uncontrolled manner by curbing the backing store to 1KB at most by default.
-     * If an application expects messages to be larger than 1024 bytes on average,
-     * they can call lwan_response_websocket_read_hint() directly with a larger
-     * value to avoid malloc chatter (things should still work, but will be
-     * slightly more inefficient). */
+     * uncontrolled manner by curbing the backing store to 1KB at most by
+     * default. If an application expects messages to be larger than 1024 bytes
+     * on average, they can call lwan_response_websocket_read_hint() directly
+     * with a larger value to avoid malloc chatter (things should still work,
+     * but will be slightly more inefficient). */
     return lwan_response_websocket_read_hint(request, 1024);
 }
