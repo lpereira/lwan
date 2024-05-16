@@ -218,8 +218,10 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
                 break;
 
             if (UNLIKELY(written < 0)) {
-                if (errno == EINTR)
+                if (errno == EINTR || errno == EAGAIN)
                     continue;
+                lwan_status_perror("write to eventfd failed, ignoring");
+                break;
             }
         }
     }
