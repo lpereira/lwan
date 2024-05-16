@@ -77,7 +77,7 @@
     }                                                                          \
                                                                                \
     __attribute__((unused)) static inline void type_name_##_put_copy(          \
-        struct type_name_ *rb, const element_type_ e)                          \
+        struct type_name_ *rb, element_type_ e)                                \
     {                                                                          \
         assert(!type_name_##_full(rb));                                        \
         rb->array[type_name_##_mask(rb->write++)] = e;                         \
