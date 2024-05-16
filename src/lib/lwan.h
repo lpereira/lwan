@@ -334,17 +334,7 @@ enum lwan_connection_coro_yield {
     CONN_CORO_SUSPEND,
     CONN_CORO_RESUME,
 
-    /* Group async stuff together to make it easier to check if a connection
-     * coroutine is yielding because of async reasons. */
-    CONN_CORO_ASYNC_AWAIT_READ,
-    CONN_CORO_ASYNC_AWAIT_WRITE,
-    CONN_CORO_ASYNC_AWAIT_READ_WRITE,
-
     CONN_CORO_MAX,
-
-    /* Private API used by the async/await mechanism.  Shouldn't be used
-     * by handlers. */
-    CONN_CORO_ASYNC = CONN_CORO_ASYNC_AWAIT_READ,
 };
 
 struct lwan_key_value {
@@ -675,7 +665,7 @@ int lwan_request_await_read(struct lwan_request *r, int fd);
 int lwan_request_await_write(struct lwan_request *r, int fd);
 int lwan_request_await_read_write(struct lwan_request *r, int fd);
 int lwan_request_awaitv_any(struct lwan_request *r, ...);
-void lwan_request_awaitv_all(struct lwan_request *r, ...);
+int lwan_request_awaitv_all(struct lwan_request *r, ...);
 ssize_t lwan_request_async_read(struct lwan_request *r, int fd, void *buf, size_t len);
 ssize_t lwan_request_async_read_flags(struct lwan_request *request, int fd, void *buf, size_t len, int flags);
 ssize_t lwan_request_async_write(struct lwan_request *r, int fd, const void *buf, size_t len);

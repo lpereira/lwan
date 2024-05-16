@@ -123,7 +123,6 @@ static void pub_depart_message(void *data1, void *data2)
 
 LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
 {
-    struct lwan *lwan = request->conn->thread->lwan;
     struct lwan_pubsub_subscriber *sub;
     struct lwan_pubsub_msg *msg;
     enum lwan_http_status status;
@@ -152,12 +151,9 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
     const int websocket_fd = request->fd;
     const int sub_fd = lwan_pubsub_get_notification_fd(sub);
     while (true) {
-        int resumed_fd = lwan_request_awaitv_any(
-            request, websocket_fd, CONN_CORO_ASYNC_AWAIT_READ, sub_fd,
-            CONN_CORO_ASYNC_AWAIT_READ, -1);
-
-        if (lwan->conns[resumed_fd].flags & CONN_HUNG_UP)
-            goto out;
+        int resumed_fd =
+            lwan_request_awaitv_any(request, websocket_fd, CONN_CORO_WANT_READ,
+                                    sub_fd, CONN_CORO_WANT_READ, -1);
 
         if (resumed_fd == sub_fd) {
             while ((msg = lwan_pubsub_consume(sub))) {
@@ -184,10 +180,11 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
                     (int)lwan_strbuf_get_length(response->buffer),
                     lwan_strbuf_get_buffer(response->buffer));
             }
+        } else if (resumed_fd < 0) {
+            lwan_status_error("error from fd %d", -resumed_fd);
+            goto out;
         } else {
-            lwan_status_error(
-                "lwan_request_awaitv_any() returned %d, but waiting on it",
-                resumed_fd);
+            lwan_status_warning("not awaiting on fd %d, ignoring", resumed_fd);
         }
     }
 
@@ -204,68 +201,107 @@ LWAN_HANDLER_ROUTE(index, "/")
         "<html>\n"
         "    <head>\n"
         "        <script type=\"text/javascript\">\n"
-        "            write_sock = new WebSocket(\"ws://localhost:8080/ws-write\")\n"
+        "            write_sock = new "
+        "WebSocket(\"ws://localhost:8080/ws-write\")\n"
         "            write_sock.onmessage = function (event) {\n"
-        "              document.getElementById(\"write-output\").innerText = event.data;\n"
+        "              document.getElementById(\"write-output\").innerText = "
+        "event.data;\n"
         "            }\n"
         "            write_sock.onerror = function(event) {\n"
-        "              document.getElementById(\"write-output\").innerText = \"Disconnected\";\n"
-        "              document.getElementById(\"write-output\").style.background = \"red\";\n"
+        "              document.getElementById(\"write-output\").innerText = "
+        "\"Disconnected\";\n"
+        "              "
+        "document.getElementById(\"write-output\").style.background = "
+        "\"red\";\n"
         "            }\n"
         "            write_sock.onopen = function(event) {\n"
-        "              document.getElementById(\"write-output\").style.background = \"blue\";\n"
+        "              "
+        "document.getElementById(\"write-output\").style.background = "
+        "\"blue\";\n"
         "            }\n"
-        "            read_sock = new WebSocket(\"ws://localhost:8080/ws-read\")\n"
+        "            read_sock = new "
+        "WebSocket(\"ws://localhost:8080/ws-read\")\n"
         "            read_sock.onmessage = function (event) {\n"
-        "              document.getElementById(\"read-output\").innerText = event.data;\n"
+        "              document.getElementById(\"read-output\").innerText = "
+        "event.data;\n"
         "            }\n"
         "            read_sock.onopen = function(event) {\n"
-        "              document.getElementById(\"read-button\").disabled = false;\n"
-        "              document.getElementById(\"read-input\").disabled = false;\n"
-        "              document.getElementById(\"read-output\").style.background = \"blue\";\n"
-        "              document.getElementById(\"read-output\").innerText = \"\";\n"
+        "              document.getElementById(\"read-button\").disabled = "
+        "false;\n"
+        "              document.getElementById(\"read-input\").disabled = "
+        "false;\n"
+        "              "
+        "document.getElementById(\"read-output\").style.background = "
+        "\"blue\";\n"
+        "              document.getElementById(\"read-output\").innerText = "
+        "\"\";\n"
         "            }\n"
         "            read_sock.onerror = function(event) {\n"
-        "              document.getElementById(\"read-button\").disabled = true;\n"
-        "              document.getElementById(\"read-input\").disabled = true;\n"
-        "              document.getElementById(\"read-output\").innerText = \"Disconnected\";\n"
-        "              document.getElementById(\"read-output\").style.background = \"red\";\n"
+        "              document.getElementById(\"read-button\").disabled = "
+        "true;\n"
+        "              document.getElementById(\"read-input\").disabled = "
+        "true;\n"
+        "              document.getElementById(\"read-output\").innerText = "
+        "\"Disconnected\";\n"
+        "              "
+        "document.getElementById(\"read-output\").style.background = \"red\";\n"
         "            }\n"
         "            send_to_read_sock = function() {\n"
-        "              read_sock.send(document.getElementById(\"read-input\").value);\n"
+        "              "
+        "read_sock.send(document.getElementById(\"read-input\").value);\n"
         "            }\n"
-        "            chat_sock = new WebSocket(\"ws://localhost:8080/ws-chat\")\n"
+        "            chat_sock = new "
+        "WebSocket(\"ws://localhost:8080/ws-chat\")\n"
         "            chat_sock.onopen = function(event) {\n"
-        "              document.getElementById(\"chat-button\").disabled = false;\n"
-        "              document.getElementById(\"chat-input\").disabled = false;\n"
-        "              document.getElementById(\"chat-textarea\").style.background = \"blue\";\n"
-        "              document.getElementById(\"chat-input\").innerText = \"\";\n"
+        "              document.getElementById(\"chat-button\").disabled = "
+        "false;\n"
+        "              document.getElementById(\"chat-input\").disabled = "
+        "false;\n"
+        "              "
+        "document.getElementById(\"chat-textarea\").style.background = "
+        "\"blue\";\n"
+        "              document.getElementById(\"chat-input\").innerText = "
+        "\"\";\n"
         "            }\n"
         "            chat_sock.onerror = function(event) {\n"
-        "              document.getElementById(\"chat-button\").disabled = true;\n"
-        "              document.getElementById(\"chat-input\").disabled = true;\n"
-        "              document.getElementById(\"chat-input\").innerText = \"Disconnected\";\n"
-        "              document.getElementById(\"chat-textarea\").style.background = \"red\";\n"
+        "              document.getElementById(\"chat-button\").disabled = "
+        "true;\n"
+        "              document.getElementById(\"chat-input\").disabled = "
+        "true;\n"
+        "              document.getElementById(\"chat-input\").innerText = "
+        "\"Disconnected\";\n"
+        "              "
+        "document.getElementById(\"chat-textarea\").style.background = "
+        "\"red\";\n"
         "            }\n"
         "            chat_sock.onmessage = function (event) {\n"
-        "              document.getElementById(\"chat-textarea\").value += event.data;\n"
+        "              document.getElementById(\"chat-textarea\").value += "
+        "event.data;\n"
         "            }\n"
         "            send_chat_msg = function() {\n"
-        "              chat_sock.send(document.getElementById(\"chat-input\").value);\n"
+        "              "
+        "chat_sock.send(document.getElementById(\"chat-input\").value);\n"
         "              document.getElementById(\"chat-input\").value = \"\";\n"
         "            }\n"
         "        </script>\n"
         "    </head>\n"
         "    <body>\n"
         "       <h1>Lwan WebSocket demo!</h1>\n"
-        "       <h2>Send-only sample: server is writing this continuously:</h2>\n"
-        "       <p><div id=\"write-output\" style=\"background: red; color: yellow\">Disconnected</div></p>\n"
+        "       <h2>Send-only sample: server is writing this "
+        "continuously:</h2>\n"
+        "       <p><div id=\"write-output\" style=\"background: red; color: "
+        "yellow\">Disconnected</div></p>\n"
         "       <h2>Echo server sample:</h2>\n"
-        "       <p><input id=\"read-input\" disabled><button disabled id=\"read-button\" onclick=\"send_to_read_sock()\">Send</button></p>\n"
-        "       <p>Server said this: <div id=\"read-output\" style=\"background: red; color: yellow\">Disconnected</div></p>\n"
+        "       <p><input id=\"read-input\" disabled><button disabled "
+        "id=\"read-button\" onclick=\"send_to_read_sock()\">Send</button></p>\n"
+        "       <p>Server said this: <div id=\"read-output\" "
+        "style=\"background: red; color: yellow\">Disconnected</div></p>\n"
         "       <h3>Chat sample:</h3>\n"
-        "       Send message: <input id=\"chat-input\" disabled><button disabled id=\"chat-button\" onclick=\"send_chat_msg()\">Send</button></p>\n"
-        "       <textarea id=\"chat-textarea\" rows=\"20\" cols=\"120\" style=\"color: yellow; background-color: red\"></textarea>\n"
+        "       Send message: <input id=\"chat-input\" disabled><button "
+        "disabled id=\"chat-button\" "
+        "onclick=\"send_chat_msg()\">Send</button></p>\n"
+        "       <textarea id=\"chat-textarea\" rows=\"20\" cols=\"120\" "
+        "style=\"color: yellow; background-color: red\"></textarea>\n"
         "    </body>\n"
         "</html>";
 
