@@ -76,6 +76,13 @@
         memcpy(&rb->array[type_name_##_mask(rb->write++)], e, sizeof(*e));     \
     }                                                                          \
                                                                                \
+    __attribute__((unused)) static inline void type_name_##_put_copy(          \
+        struct type_name_ *rb, const element_type_ e)                          \
+    {                                                                          \
+        assert(!type_name_##_full(rb));                                        \
+        rb->array[type_name_##_mask(rb->write++)] = e;                         \
+    }                                                                          \
+                                                                               \
     __attribute__((unused)) static inline bool type_name_##_try_put(           \
         struct type_name_ *rb, const element_type_ *e)                         \
     {                                                                          \
@@ -91,6 +98,21 @@
     {                                                                          \
         assert(!type_name_##_empty(rb));                                       \
         return rb->array[type_name_##_mask(rb->read++)];                       \
+    }                                                                          \
+                                                                               \
+    __attribute__((unused)) static inline void type_name_##_consume(           \
+        struct type_name_ *rb, element_type_ *buffer, uint32_t entries)        \
+    {                                                                          \
+        assert(type_name_##_size(rb) >= entries);                              \
+        const uint32_t mask = type_name_##_mask(rb->read);                     \
+        if (mask && entries > mask) {                                          \
+            memcpy(buffer, &rb->array[rb->read],                               \
+                   sizeof(*buffer) * (entries - mask));                        \
+            memcpy(buffer + mask, &rb->array[0], sizeof(*buffer) * mask);      \
+        } else {                                                               \
+            memcpy(buffer, &rb->array[rb->read], sizeof(*buffer) * entries);   \
+        }                                                                      \
+        rb->read += entries;                                                   \
     }                                                                          \
                                                                                \
     __attribute__((unused)) static inline element_type_ *type_name_##_get_ptr( \
