@@ -113,7 +113,7 @@ static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
 
 uint64_t lwan_random_uint64()
 {
-    static uint64_t value;
+    static uint64_t value = 1;
 
     return ATOMIC_INC(value);
 }
@@ -142,8 +142,14 @@ uint64_t lwan_request_get_id(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
-    if (helper->request_id == 0)
+    if (helper->request_id == 0) {
         helper->request_id = lwan_random_uint64();
+
+        if (UNLIKELY(helper->request_id == 0)) {
+            lwan_random_seed_prng_for_thread(request->conn->thread);
+            return lwan_request_get_id(request);
+        }
+    }
 
     return helper->request_id;
 }
