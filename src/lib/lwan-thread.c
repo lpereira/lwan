@@ -776,7 +776,7 @@ int lwan_request_awaitv_any(struct lwan_request *r, ...)
 
     if (UNLIKELY(ret < 0)) {
         errno = -ret;
-        lwan_status_critical_perror("prepare_awaitv()");
+        lwan_status_perror("prepare_awaitv()");
         coro_yield(r->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -810,7 +810,7 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
 
     if (UNLIKELY(ret < 0)) {
         errno = -ret;
-        lwan_status_critical_perror("prepare_awaitv()");
+        lwan_status_perror("prepare_awaitv()");
         coro_yield(r->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -857,7 +857,7 @@ static inline int async_await_fd(struct lwan_connection *conn,
         return UNLIKELY(conn->flags & CONN_HUNG_UP) ? -fd : fd;
     }
 
-    lwan_status_critical_perror("prepare_await(%d)", fd);
+    lwan_status_perror("prepare_await(%d)", fd);
     coro_yield(conn->coro, CONN_CORO_ABORT);
     __builtin_unreachable();
 }
