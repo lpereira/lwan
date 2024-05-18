@@ -2086,11 +2086,13 @@ ssize_t lwan_request_async_read_flags(
         if (r < 0) {
             switch (errno) {
             case EWOULDBLOCK:
-                lwan_request_await_read(request, fd);
+                r = lwan_request_await_read(request, fd);
+                if (UNLIKELY(r < 0))
+                    return (int)r;
                 /* Fallthrough */
             case EINTR:
                 continue;
-            case EPIPE:
+            default:
                 return -errno;
             }
         }
@@ -2118,11 +2120,13 @@ ssize_t lwan_request_async_write(struct lwan_request *request,
         if (r < 0) {
             switch (errno) {
             case EWOULDBLOCK:
-                lwan_request_await_write(request, fd);
+                r = lwan_request_await_write(request, fd);
+                if (UNLIKELY(r < 0))
+                    return (int)r;
                 /* Fallthrough */
             case EINTR:
                 continue;
-            case EPIPE:
+            default:
                 return -errno;
             }
         }
@@ -2142,6 +2146,7 @@ ssize_t lwan_request_async_writev(struct lwan_request *request,
     for (int tries = 10; tries;) {
         const int remaining_len = (int)(iov_count - curr_iov);
         ssize_t written;
+        int r;
 
         if (remaining_len == 1) {
             const struct iovec *vec = &iov[curr_iov];
@@ -2159,7 +2164,7 @@ ssize_t lwan_request_async_writev(struct lwan_request *request,
             case EINTR:
                 goto try_again;
             default:
-                goto out;
+                return -errno;
             }
         }
 
@@ -2178,12 +2183,12 @@ ssize_t lwan_request_async_writev(struct lwan_request *request,
         iov[curr_iov].iov_len -= (size_t)written;
 
     try_again:
-        lwan_request_await_write(request, fd);
+        r = lwan_request_await_write(request, fd);
+        if (UNLIKELY(r < 0))
+            return r;
     }
 
-out:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
 void lwan_request_foreach_header_for_cgi(struct lwan_request *request,

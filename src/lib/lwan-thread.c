@@ -644,12 +644,11 @@ static void unasync_await_conn(void *data1, void *data2)
     async_fd_conn->next = -1;
 }
 
-static enum lwan_connection_coro_yield
-prepare_await(const struct lwan *l,
-              enum lwan_connection_coro_yield yield_result,
-              int await_fd,
-              struct lwan_connection *conn,
-              int epoll_fd)
+static int prepare_await(const struct lwan *l,
+                         enum lwan_connection_coro_yield yield_result,
+                         int await_fd,
+                         struct lwan_connection *conn,
+                         int epoll_fd)
 {
     static const enum lwan_connection_flags to_connection_flags[] = {
         [CONN_CORO_WANT_READ] = CONN_EVENTS_READ,
@@ -668,7 +667,7 @@ prepare_await(const struct lwan *l,
     struct lwan_connection *await_fd_conn = &l->conns[await_fd];
     if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
         if (LIKELY((await_fd_conn->flags & CONN_EVENTS_MASK) == flags))
-            return CONN_CORO_SUSPEND;
+            return 0;
 
         op = EPOLL_CTL_MOD;
     } else {
@@ -700,10 +699,10 @@ prepare_await(const struct lwan *l,
     if (LIKELY(!epoll_ctl(epoll_fd, op, await_fd, &event))) {
         await_fd_conn->flags &= ~CONN_EVENTS_MASK;
         await_fd_conn->flags |= flags;
-        return CONN_CORO_SUSPEND;
+        return 0;
     }
 
-    return CONN_CORO_ABORT;
+    return -errno;
 }
 
 static void clear_awaitv_flags(struct lwan_connection *conns, va_list ap_orig)
@@ -760,10 +759,12 @@ static int prepare_awaitv(struct lwan_request *r,
             state->request_conn_yield = events;
             continue;
         }
-        if (UNLIKELY(prepare_await(l, events, await_fd, r->conn, epoll_fd) ==
-                     CONN_CORO_ABORT)) {
-            lwan_status_error("could not register fd for async operation");
-            return -EIO;
+
+        int ret = prepare_await(l, events, await_fd, r->conn, epoll_fd);
+        if (UNLIKELY(ret < 0)) {
+            errno = -ret;
+            lwan_status_perror("prepare_await(%d)", await_fd);
+            return ret;
         }
     }
 
@@ -814,12 +815,8 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
     int ret = prepare_awaitv(r, l, ap, &state);
     va_end(ap);
 
-    if (UNLIKELY(ret < 0)) {
-        errno = -ret;
-        lwan_status_perror("prepare_awaitv()");
-        coro_yield(r->conn->coro, CONN_CORO_ABORT);
-        __builtin_unreachable();
-    }
+    if (UNLIKELY(ret < 0))
+        return ret;
 
     for (ret = 0; state.num_awaiting;) {
         int64_t v = coro_yield(r->conn->coro, state.request_conn_yield);
@@ -842,7 +839,7 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
         }
     }
 
-    return -1;
+    return -EISCONN;
 }
 
 static inline int async_await_fd(struct lwan_connection *conn,
@@ -851,21 +848,16 @@ static inline int async_await_fd(struct lwan_connection *conn,
 {
     struct lwan_thread *thread = conn->thread;
     struct lwan *lwan = thread->lwan;
-    enum lwan_connection_coro_yield yield =
-        prepare_await(lwan, events, fd, conn, thread->epoll_fd);
+    int r = prepare_await(lwan, events, fd, conn, thread->epoll_fd);
 
-    if (LIKELY(yield == CONN_CORO_SUSPEND)) {
-        int64_t v = coro_yield(conn->coro, yield);
+    if (UNLIKELY(r < 0))
+        return r;
 
-        fd =
-            lwan_connection_get_fd(lwan, (struct lwan_connection *)(intptr_t)v);
-
-        return UNLIKELY(conn->flags & CONN_HUNG_UP) ? -fd : fd;
-    }
-
-    lwan_status_perror("prepare_await(%d)", fd);
-    coro_yield(conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    conn = (struct lwan_connection *)(intptr_t)coro_yield(conn->coro,
+                                                          CONN_CORO_SUSPEND);
+    return UNLIKELY(conn->flags & CONN_HUNG_UP)
+               ? -ECONNRESET
+               : lwan_connection_get_fd(lwan, conn);
 }
 
 int lwan_request_await_read(struct lwan_request *r, int fd)
