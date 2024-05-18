@@ -34,6 +34,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ringbuffer.h"
+
 #define LIKELY(x) x
 #define UNLIKELY(x) x
 
