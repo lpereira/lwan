@@ -6,6 +6,7 @@ else ()
 		mimegen.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
 	)
 	if (LWAN_HAVE_BROTLI)
 		message(STATUS "Using Brotli for mimegen")

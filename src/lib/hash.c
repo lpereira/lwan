@@ -80,11 +80,22 @@ struct hash_entry {
 static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
               "Bucket size is power of 2");
 
+#define DEFAULT_FNV1A_64_SEED 0xcbf29ce484222325ull
+#define DEFAULT_FNV1A_32_SEED 0x811c9dc5u
+
+uint64_t fnv1a_64_seed = DEFAULT_FNV1A_64_SEED;
+uint32_t fnv1a_32_seed = DEFAULT_FNV1A_32_SEED;
+
+#define ASSERT_SEED_INITIALIZED()                                              \
+    do {                                                                       \
+        assert(fnv1a_64_seed != DEFAULT_FNV1A_64_SEED);                        \
+        assert(fnv1a_32_seed != DEFAULT_FNV1A_32_SEED);                        \
+    } while (0)
+
 static inline unsigned int hash_fnv1a_32(const void *keyptr);
 static inline unsigned int hash_int_32(const void *keyptr);
 static inline unsigned int hash_int_64(const void *keyptr);
 
-static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
 static unsigned (*hash_str)(const void *key) = hash_fnv1a_32;
 static unsigned (*hash_int)(const void *key) = hash_int_32;
 static unsigned (*hash_int64)(const void *key) = hash_int_64;
@@ -135,9 +146,11 @@ static inline unsigned int hash_int_64(const void *keyptr)
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
 static inline unsigned int hash_str_crc32(const void *keyptr)
 {
-    unsigned int hash = odd_constant;
+    unsigned int hash = fnv1a_32_seed;
     const char *key = keyptr;
     size_t len = strlen(key);
+
+    ASSERT_SEED_INITIALIZED();
 
 #if __x86_64__
     while (len >= sizeof(uint64_t)) {
@@ -171,20 +184,24 @@ static inline unsigned int hash_str_crc32(const void *keyptr)
 
 static inline unsigned int hash_int_crc32(const void *keyptr)
 {
-    return __builtin_ia32_crc32si(odd_constant,
+    ASSERT_SEED_INITIALIZED();
+
+    return __builtin_ia32_crc32si(fnv1a_32_seed,
                                   (unsigned int)(uintptr_t)keyptr);
 }
 
 static inline unsigned int hash_int64_crc32(const void *keyptr)
 {
+    ASSERT_SEED_INITIALIZED();
+
 #ifdef __x86_64__
-    return (unsigned int)__builtin_ia32_crc32di(odd_constant,
+    return (unsigned int)__builtin_ia32_crc32di(fnv1a_32_seed,
                                                 (uint64_t)(uintptr_t)keyptr);
 #else
     const uint64_t key = (uint64_t)(uintptr_t)keyptr;
     uint32_t crc;
 
-    crc = __builtin_ia32_crc32si(odd_constant, (uint32_t)(key & 0xffffffff));
+    crc = __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)(key & 0xffffffff));
     crc = __builtin_ia32_crc32si(crc, (uint32_t)(key >> 32));
 
     return crc;
@@ -193,19 +210,20 @@ static inline unsigned int hash_int64_crc32(const void *keyptr)
 
 #endif
 
-uint64_t fnv1a_64_seed = 0xcbf29ce484222325ull;
-uint32_t fnv1a_32_seed = 0x811c9dc5u;
-
-__attribute__((constructor(65535))) static void initialize_odd_constant(void)
+__attribute__((constructor(65535))) static void initialize_fnv1a_seed(void)
 {
-    /* This constant is randomized in order to mitigate the DDoS attack
-     * described by Crosby and Wallach in UsenixSec2003.  */
-    if (lwan_getentropy(&odd_constant, sizeof(odd_constant), 0) < 0)
-        odd_constant = DEFAULT_ODD_CONSTANT;
-    odd_constant |= 1;
+    uint8_t entropy[128];
 
-    fnv1a_64_seed = fnv1a_64(&odd_constant, sizeof(odd_constant));
-    fnv1a_32_seed = fnv1a_32(&odd_constant, sizeof(odd_constant));
+    /* The seeds are randomized in order to mitigate the DDoS attack
+     * described by Crosby and Wallach in UsenixSec2003.  */
+    if (UNLIKELY(lwan_getentropy(entropy, sizeof(entropy), 0) < 0)) {
+        lwan_status_perror("Could not initialize FNV1a seed");
+        __builtin_unreachable();
+    }
+
+    fnv1a_64_seed = fnv1a_64(entropy, sizeof(entropy));
+    fnv1a_32_seed = fnv1a_32(entropy, sizeof(entropy));
+    lwan_always_bzero(entropy, sizeof(entropy));
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
     __builtin_cpu_init();
