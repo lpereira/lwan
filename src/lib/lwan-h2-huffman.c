@@ -338,7 +338,7 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         if (LIKELY(level0[peeked_byte].num_bits)) {
             uint8_ring_buffer_put_copy(buffer, level0[peeked_byte].symbol);
             consume(reader, level0[peeked_byte].num_bits);
-            assert(bit_reader.total_bitcount >= 0);
+            assert(reader->total_bitcount >= 0);
             continue;
         }
 
@@ -390,8 +390,8 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
     /* FIXME: ensure we're not promoting types unnecessarily here */
     if (reader->total_bitcount) {
         const uint8_t peeked_byte = peek_byte(reader);
-        const uint8_t eos_prefix = ((1 << bit_reader.total_bitcount) - 1)
-                                   << (8 - bit_reader.total_bitcount);
+        const uint8_t eos_prefix = ((1 << reader->total_bitcount) - 1)
+                                   << (8 - reader->total_bitcount);
 
         if ((peeked_byte & eos_prefix) == eos_prefix)
             goto done;
@@ -427,7 +427,7 @@ bool lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input, size_t input_len)
         if (n_decoded < 64)
             return true;
 
-        uint8_ring_buffer_init(&decoder->buffer);
+        uint8_ring_buffer_init(&decoder.buffer);
     }
 }
 #endif
