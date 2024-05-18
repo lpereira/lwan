@@ -272,8 +272,6 @@ else ()
 		LWAN_HAVE_READ_ONLY_GOT)
 	enable_c_flag_if_avail(-fno-plt CMAKE_C_FLAGS
 		LWAN_HAVE_NO_PLT)
-	enable_c_flag_if_avail(-no-pie CMAKE_C_FLAGS
-		LWAN_HAVE_NO_PIE)
 	enable_c_flag_if_avail(-Wl,-z,noexecstack CMAKE_EXE_LINKER_FLAGS
 		LWAN_HAVE_NOEXEC_STACK)
 endif ()
