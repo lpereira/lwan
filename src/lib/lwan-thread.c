@@ -561,7 +561,8 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 static ALWAYS_INLINE uint32_t
 conn_flags_to_epoll_events(enum lwan_connection_flags flags)
 {
-    assert((EPOLL_EVENTS(flags) & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
+    assert((EPOLL_EVENTS(flags) &
+            (uint32_t) ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP)) == 0);
     return EPOLL_EVENTS(flags);
 }
 
@@ -882,11 +883,12 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
     assert(conn_to_resume->coro);
     assert(conn_to_yield->coro);
 
-    enum lwan_connection_coro_yield from_coro = coro_resume_value(
-        conn_to_resume->coro, (int64_t)(intptr_t)conn_to_yield);
+    int64_t from_coro = coro_resume_value(conn_to_resume->coro,
+                                          (int64_t)(intptr_t)conn_to_yield);
     if (LIKELY(from_coro != CONN_CORO_ABORT)) {
-        int r =
-            update_epoll_flags(tq->lwan, conn_to_resume, epoll_fd, from_coro);
+        int r = update_epoll_flags(
+            tq->lwan, conn_to_resume, epoll_fd,
+            (enum lwan_connection_coro_yield)(uint32_t)from_coro);
         if (LIKELY(!r)) {
             timeout_queue_move_to_last(tq, conn_to_resume);
             return;
