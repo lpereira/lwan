@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -30,3 +31,30 @@ void hash_iter_init(const struct hash *hash, struct hash_iter *iter);
 bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value);
+
+extern uint64_t fnv1a_64_seed;
+extern uint32_t fnv1a_32_seed;
+
+static inline uint64_t fnv1a_64(const void *buffer, size_t len)
+{
+    const unsigned char *data = (unsigned char *)buffer;
+    uint64_t hash;
+
+    for (hash = fnv1a_64_seed; len--; data++) {
+        hash = (hash ^ *data) * 0x100000001b3ul;
+    }
+
+    return hash;
+}
+
+static inline uint32_t fnv1a_32(const void *buffer, size_t len)
+{
+    const unsigned char *data = (unsigned char *)buffer;
+    uint32_t hash;
+
+    for (hash = fnv1a_32_seed; len--; data++) {
+        hash = (hash ^ *data) * 0x1000193u;
+    }
+
+    return hash;
+}

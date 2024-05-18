@@ -47,7 +47,6 @@
 #endif
 
 #include "list.h"
-#include "murmur3.h"
 #include "lwan-private.h"
 #include "lwan-tq.h"
 
@@ -124,9 +123,10 @@ static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
 {
     if (lwan_getentropy(&lehmer64_state, sizeof(lehmer64_state), 0) < 0) {
         lwan_status_warning("Couldn't get proper entropy for PRNG, using fallback seed");
-        lehmer64_state |= murmur3_fmix64((uint64_t)(uintptr_t)t);
+        uintptr_t ptr = (uintptr_t)t;
+        lehmer64_state |= fnv1a_64(&ptr, sizeof(ptr));
         lehmer64_state <<= 64;
-        lehmer64_state |= murmur3_fmix64((uint64_t)t->epoll_fd);
+        lehmer64_state |= fnv1a_64(&t->epoll_fd, sizeof(t->epoll_fd));
     }
 }
 

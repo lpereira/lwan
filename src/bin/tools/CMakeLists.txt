@@ -5,7 +5,6 @@ else ()
 	add_executable(mimegen
 		mimegen.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
-		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 	if (LWAN_HAVE_BROTLI)
@@ -37,7 +36,6 @@ else ()
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-strbuf.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
-		${CMAKE_SOURCE_DIR}/src/lib/murmur3.c
 	)
 
 	add_executable(weighttp weighttp.c)

@@ -34,7 +34,6 @@
 
 #include "lwan-private.h"
 #include "hash.h"
-#include "murmur3.h"
 
 struct hash_bucket {
     void **keys;
@@ -81,11 +80,12 @@ struct hash_entry {
 static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
               "Bucket size is power of 2");
 
+static inline unsigned int hash_fnv1a_32(const void *keyptr);
 static inline unsigned int hash_int_shift_mult(const void *keyptr);
 static inline unsigned int hash_int64_shift_mult(const void *keyptr);
 
 static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
-static unsigned (*hash_str)(const void *key) = murmur3_simple;
+static unsigned (*hash_str)(const void *key) = hash_fnv1a_32;
 static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
 static unsigned (*hash_int64)(const void *key) = hash_int64_shift_mult;
 
@@ -115,28 +115,21 @@ static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
     return false;
 }
 
+static inline unsigned int hash_fnv1a_32(const void *keyptr)
+{
+    return fnv1a_32(keyptr, strlen(keyptr));
+}
+
 static inline unsigned int hash_int_shift_mult(const void *keyptr)
 {
-    /* http://www.concentric.net/~Ttwang/tech/inthash.htm */
     unsigned int key = (unsigned int)(long)keyptr;
-    unsigned int c2 = odd_constant;
-
-    key = (key ^ 61) ^ (key >> 16);
-    key += key << 3;
-    key ^= key >> 4;
-    key *= c2;
-    key ^= key >> 15;
-    return key;
+    return fnv1a_32(&key, sizeof(key));
 }
 
 static inline unsigned int hash_int64_shift_mult(const void *keyptr)
 {
     const uint64_t key = (uint64_t)(uintptr_t)keyptr;
-    uint32_t key_low = (uint32_t)(key & 0xffffffff);
-    uint32_t key_high = (uint32_t)(key >> 32);
-
-    return hash_int_shift_mult((void *)(uintptr_t)key_low) ^
-           hash_int_shift_mult((void *)(uintptr_t)key_high);
+    return fnv1a_32(&key, sizeof(key));
 }
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
@@ -200,6 +193,9 @@ static inline unsigned int hash_int64_crc32(const void *keyptr)
 
 #endif
 
+uint64_t fnv1a_64_seed = 0xcbf29ce484222325ull;
+uint32_t fnv1a_32_seed = 0x811c9dc5u;
+
 __attribute__((constructor(65535))) static void initialize_odd_constant(void)
 {
     /* This constant is randomized in order to mitigate the DDoS attack
@@ -207,7 +203,9 @@ __attribute__((constructor(65535))) static void initialize_odd_constant(void)
     if (lwan_getentropy(&odd_constant, sizeof(odd_constant), 0) < 0)
         odd_constant = DEFAULT_ODD_CONSTANT;
     odd_constant |= 1;
-    murmur3_set_seed(odd_constant);
+
+    fnv1a_64_seed = fnv1a_64(&odd_constant, sizeof(odd_constant));
+    fnv1a_32_seed = fnv1a_32(&odd_constant, sizeof(odd_constant));
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
     __builtin_cpu_init();
