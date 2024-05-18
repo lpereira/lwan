@@ -401,7 +401,7 @@ if (LUA_FOUND AND Python3_Interpreter_FOUND)
 		COMMAND ${Python3_EXECUTABLE}
 			${PROJECT_SOURCE_DIR}/src/scripts/benchmark.py
 			${CMAKE_BINARY_DIR}/src/bin/testrunner/testrunner
-		DEPENDS testrunner
+		DEPENDS testrunner weighttp
 		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 		COMMENT "Running benchmark.")
 endif()
