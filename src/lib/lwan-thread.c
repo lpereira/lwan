@@ -565,10 +565,10 @@ conn_flags_to_epoll_events(enum lwan_connection_flags flags)
     return EPOLL_EVENTS(flags);
 }
 
-static void update_epoll_flags(const struct lwan *lwan,
-                               struct lwan_connection *conn,
-                               int epoll_fd,
-                               enum lwan_connection_coro_yield yield_result)
+static int update_epoll_flags(const struct lwan *lwan,
+                              struct lwan_connection *conn,
+                              int epoll_fd,
+                              enum lwan_connection_coro_yield yield_result)
 {
     static const enum lwan_connection_flags or_mask[CONN_CORO_MAX] = {
         [CONN_CORO_YIELD] = 0,
@@ -611,14 +611,13 @@ static void update_epoll_flags(const struct lwan *lwan,
     assert((conn->flags & CONN_TLS) == (prev_flags & CONN_TLS));
 
     if (LWAN_EVENTS(conn->flags) == LWAN_EVENTS(prev_flags))
-        return;
+        return 0;
 
     struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
                                 .data.ptr = conn};
     int fd = lwan_connection_get_fd(lwan, conn);
 
-    if (UNLIKELY(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event) < 0))
-        lwan_status_perror("epoll_ctl");
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
 }
 
 static void unasync_await_conn(void *data1, void *data2)
@@ -885,12 +884,16 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
 
     enum lwan_connection_coro_yield from_coro = coro_resume_value(
         conn_to_resume->coro, (int64_t)(intptr_t)conn_to_yield);
-    if (UNLIKELY(from_coro == CONN_CORO_ABORT)) {
-        timeout_queue_expire(tq, conn_to_resume);
-    } else {
-        update_epoll_flags(tq->lwan, conn_to_resume, epoll_fd, from_coro);
-        timeout_queue_move_to_last(tq, conn_to_resume);
+    if (LIKELY(from_coro != CONN_CORO_ABORT)) {
+        int r =
+            update_epoll_flags(tq->lwan, conn_to_resume, epoll_fd, from_coro);
+        if (LIKELY(!r)) {
+            timeout_queue_move_to_last(tq, conn_to_resume);
+            return;
+        }
     }
+
+    timeout_queue_expire(tq, conn_to_resume);
 }
 
 static void update_date_cache(struct lwan_thread *thread)
@@ -950,15 +953,18 @@ static bool process_pending_timers(struct timeout_queue *tq,
     bool should_expire_timers = false;
 
     while ((timeout = timeouts_get(t->wheel))) {
-        struct lwan_request *request;
-
         if (timeout == &tq->timeout) {
             should_expire_timers = true;
             continue;
         }
 
-        request = container_of(timeout, struct lwan_request, timeout);
-        update_epoll_flags(tq->lwan, request->conn, epoll_fd, CONN_CORO_RESUME);
+        struct lwan_request *request =
+            container_of(timeout, struct lwan_request, timeout);
+        int r = update_epoll_flags(tq->lwan, request->conn, epoll_fd,
+                                   CONN_CORO_RESUME);
+        if (UNLIKELY(r < 0)) {
+            timeout_queue_expire(tq, request->conn);
+        }
     }
 
     if (should_expire_timers) {
