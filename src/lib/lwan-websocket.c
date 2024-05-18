@@ -91,7 +91,6 @@ write_websocket_frame_full(struct lwan_request *request,
         return true;
     }
 
-    size_t total_written = 0;
     int curr_iov = 0;
     for (int try = 0; try < 10; try++) {
         ssize_t written = writev(request->fd, &vec[curr_iov],
@@ -102,7 +101,6 @@ write_websocket_frame_full(struct lwan_request *request,
             return false;
         }
 
-        total_written += (size_t)written;
         while (curr_iov < (int)N_ELEMENTS(vec) &&
                written >= (ssize_t)vec[curr_iov].iov_len) {
             written -= (ssize_t)vec[curr_iov].iov_len;
