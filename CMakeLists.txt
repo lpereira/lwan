@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.20)
 project(lwan C)
 set(PROJECT_DESCRIPTION "Scalable, high performance, experimental web server")
 message(STATUS "Running CMake for ${PROJECT_NAME} (${PROJECT_DESCRIPTION})")
@@ -388,17 +388,17 @@ install(FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc" DESTINATION lib/pkgconfig
 #
 # Set up testsuite and benchmark targets
 #
-find_package(PythonInterp 3)
-if (LUA_FOUND AND PYTHONINTERP_FOUND)
+find_package(Python3 COMPONENTS Interpreter)
+if (LUA_FOUND AND Python3_Interpreter_FOUND)
 	add_custom_target(testsuite
-		COMMAND ${PYTHON_EXECUTABLE}
+		COMMAND ${Python3_EXECUTABLE}
 			${PROJECT_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}
 		DEPENDS testrunner techempower
 		WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 		COMMENT "Running test suite.")
 
 	add_custom_target(benchmark
-		COMMAND ${PYTHON_EXECUTABLE}
+		COMMAND ${Python3_EXECUTABLE}
 			${PROJECT_SOURCE_DIR}/src/scripts/benchmark.py
 			${CMAKE_BINARY_DIR}/src/bin/testrunner/testrunner
 		DEPENDS testrunner
