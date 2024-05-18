@@ -142,14 +142,11 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     if (LIKELY(last_dot && *last_dot)) {
         uint64_t key = 0;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
         /* Data is stored with NULs on strings up to 7 chars, and no NULs
          * for 8-char strings, because that's implicit.  So truncation is
          * intentional here: comparison in compare_mime_entry() always loads
          * 8 bytes per extension. */
         strncpy((char *)&key, last_dot + 1, 8);
-#pragma GCC diagnostic pop
 
         return bsearch_mime_type(htobe64(key & ~0x2020202020202020ull));
     }

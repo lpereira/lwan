@@ -297,11 +297,8 @@ int main(int argc, char *argv[])
     for (i = 0; i < hash_get_count(ext_mime); i++) {
         uint64_t ext_lower = 0;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
         /* See lwan_determine_mime_type_for_file_name() in lwan-tables.c */
         strncpy((char *)&ext_lower, exts[i], 8);
-#pragma GCC diagnostic pop
 
         ext_lower &= ~0x2020202020202020ull;
         ext_lower = htobe64(ext_lower);
