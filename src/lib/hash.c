@@ -81,13 +81,13 @@ static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
               "Bucket size is power of 2");
 
 static inline unsigned int hash_fnv1a_32(const void *keyptr);
-static inline unsigned int hash_int_shift_mult(const void *keyptr);
-static inline unsigned int hash_int64_shift_mult(const void *keyptr);
+static inline unsigned int hash_int_32(const void *keyptr);
+static inline unsigned int hash_int_64(const void *keyptr);
 
 static unsigned int odd_constant = DEFAULT_ODD_CONSTANT;
 static unsigned (*hash_str)(const void *key) = hash_fnv1a_32;
-static unsigned (*hash_int)(const void *key) = hash_int_shift_mult;
-static unsigned (*hash_int64)(const void *key) = hash_int64_shift_mult;
+static unsigned (*hash_int)(const void *key) = hash_int_32;
+static unsigned (*hash_int64)(const void *key) = hash_int_64;
 
 static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
 {
@@ -120,13 +120,13 @@ static inline unsigned int hash_fnv1a_32(const void *keyptr)
     return fnv1a_32(keyptr, strlen(keyptr));
 }
 
-static inline unsigned int hash_int_shift_mult(const void *keyptr)
+static inline unsigned int hash_int_32(const void *keyptr)
 {
     unsigned int key = (unsigned int)(long)keyptr;
     return fnv1a_32(&key, sizeof(key));
 }
 
-static inline unsigned int hash_int64_shift_mult(const void *keyptr)
+static inline unsigned int hash_int_64(const void *keyptr)
 {
     const uint64_t key = (uint64_t)(uintptr_t)keyptr;
     return fnv1a_32(&key, sizeof(key));
