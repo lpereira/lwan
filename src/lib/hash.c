@@ -217,7 +217,7 @@ __attribute__((constructor(65535))) static void initialize_fnv1a_seed(void)
     /* The seeds are randomized in order to mitigate the DDoS attack
      * described by Crosby and Wallach in UsenixSec2003.  */
     if (UNLIKELY(lwan_getentropy(entropy, sizeof(entropy), 0) < 0)) {
-        lwan_status_perror("Could not initialize FNV1a seed");
+        lwan_status_critical_perror("Could not initialize FNV1a seed");
         __builtin_unreachable();
     }
 
