@@ -29,7 +29,7 @@ response_handle_request(struct lwan_request *request __attribute__((unused)),
                         struct lwan_response *response __attribute__((unused)),
                         void *instance)
 {
-    return (enum lwan_http_status)instance;
+    return (enum lwan_http_status)(intptr_t)instance;
 }
 
 static void *response_create(const char *prefix __attribute__((unused)),
@@ -45,7 +45,7 @@ static void *response_create(const char *prefix __attribute__((unused)),
         return NULL;
     }
 
-    return (void *)settings->code;
+    return (void *)(uintptr_t)settings->code;
 }
 
 static void *response_create_from_hash(const char *prefix,
