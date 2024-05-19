@@ -102,7 +102,7 @@ print_build_time_configuration(void)
     printf(" sockopt-reuseport-incoming-cpu");
 #endif
 
-#if defined(LWAN_HAVE_VALGRIND)
+#if !defined(NDEBUG) && defined(LWAN_HAVE_VALGRIND)
     printf(" valgrind");
 #endif
 
