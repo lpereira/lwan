@@ -339,7 +339,7 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 
     if (record->len_padding) {
         char padding[256];
-        if (lwan_send_fd(request, fd, padding, (size_t)record->len_padding,
+        if (lwan_recv_fd(request, fd, padding, (size_t)record->len_padding,
                          MSG_TRUNC) < 0) {
             return false;
         }
