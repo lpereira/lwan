@@ -1177,12 +1177,12 @@ static void *thread_io_loop(void *data)
     struct timeout_queue tq;
 
     if (t->cpu == UINT_MAX) {
-        lwan_status_info("Worker thread #%zd starting",
-                         t - t->lwan->thread.threads + 1);
+        lwan_status_debug("Worker thread #%zd starting",
+                          t - t->lwan->thread.threads + 1);
     } else {
-        lwan_status_info("Worker thread #%zd starting on CPU %d",
-                         t - t->lwan->thread.threads + 1,
-                         t->cpu);
+        lwan_status_debug("Worker thread #%zd starting on CPU %d",
+                          t - t->lwan->thread.threads + 1,
+                          t->cpu);
     }
 
     lwan_set_thread_name("worker");
