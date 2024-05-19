@@ -1,15 +1,12 @@
 #!/usr/bin/python
 
-from __future__ import print_function
-
-import commands
 import json
 import os
 import subprocess
 import sys
 import time
 
-LWAN_PATH = './build/testrunner/testrunner'
+LWAN_PATH = './src/bin/testrunner/testrunner'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
     LWAN_PATH = arg
@@ -33,25 +30,25 @@ def clearstderrline():
 
 
 def weighttp(url, n_threads, n_connections, n_requests, keep_alive):
-  keep_alive = '-k' if keep_alive else ''
-  command = 'weighttp %(keep_alive)s ' \
-            '-t %(n_threads)d ' \
-            '-c %(n_connections)d ' \
-            '-n %(n_requests)d ' \
-            '-j ' \
-            '%(url)s 2> /dev/null' % locals()
-
   clearstderrline()
-  sys.stderr.write('*** %s\r' % command)
+  sys.stderr.write(f'*** Running weighttp on {url}: threads: {n_threads} ' \
+                   f'conns: {n_connections} reqs: {n_requests} ' \
+                   f'{"keep-alive" if keep_alive else ""} \r')
 
-  output = commands.getoutput(command)
+  command = [
+    './src/bin/tools/weighttp',
+    '-k' if keep_alive else '',
+    '-t', n_threads,
+    '-c', n_connections,
+    '-n', n_requests,
+    '-j',
+    url
+  ]
+  print(command)
+  output = subprocess.run(command, capture_output=True)
+  output.check_returncode()
 
-  return json.loads(output)
-
-
-def weighttp_has_json_output():
-  output = commands.getoutput('weighttp -j')
-  return not 'unknown option: -j' in output
+  return json.loads(output.stdout)
 
 
 def steprange(initial, final, steps=10):
@@ -151,11 +148,6 @@ class MatplotlibOutput:
 
 
 if __name__ == '__main__':
-  if not weighttp_has_json_output():
-    print('This script requires a special version of weighttp which supports JSON')
-    print('output. Get it at http://github.com/lpereira/weighttp')
-    sys.exit(1)
-
   plot = cmdlineboolarg('--plot')
   xkcd = cmdlineboolarg('--xkcd')
   n_threads = cmdlineintarg('--threads', 2)
@@ -183,7 +175,7 @@ if __name__ == '__main__':
       status = results['status_codes']
 
       output.log(keep_alive, n_connections, results['reqs_per_sec'],
-        results['kbyte_per_sec'], status['2xx'], status['3xx'],
+        results['kBps_per_sec'], status['2xx'], status['3xx'],
         status['4xx'], status['5xx'])
       sleepwithstatus('Waiting for keepalive connection timeout', keep_alive_timeout * 1.1)
 
