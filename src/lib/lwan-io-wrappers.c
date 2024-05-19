@@ -373,5 +373,7 @@ int lwan_sendfile_fd(struct lwan_request *request,
         count -= bytes_read;
         offset += bytes_read;
     }
+
+    return 0;
 }
 #endif
