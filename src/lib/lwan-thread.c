@@ -617,7 +617,6 @@ static int update_epoll_flags(const struct lwan *lwan,
     struct epoll_event event = {.events = conn_flags_to_epoll_events(conn->flags),
                                 .data.ptr = conn};
     int fd = lwan_connection_get_fd(lwan, conn);
-
     return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
 }
 
@@ -666,8 +665,9 @@ static int prepare_await(const struct lwan *l,
 
     struct lwan_connection *await_fd_conn = &l->conns[await_fd];
     if (LIKELY(await_fd_conn->flags & CONN_ASYNC_AWAIT)) {
-        if (LIKELY((await_fd_conn->flags & CONN_EVENTS_MASK) == flags))
+        if (LIKELY(LWAN_EVENTS(await_fd_conn->flags) == LWAN_EVENTS(flags))) {
             return 0;
+        }
 
         op = EPOLL_CTL_MOD;
     } else {
