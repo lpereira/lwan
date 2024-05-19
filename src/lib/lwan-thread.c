@@ -842,37 +842,47 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
     return -EISCONN;
 }
 
-static inline int async_await_fd(struct lwan_connection *conn,
+static inline int async_await_fd(struct lwan_request *request,
                                  int fd,
                                  enum lwan_connection_coro_yield events)
 {
-    struct lwan_thread *thread = conn->thread;
+    struct lwan_thread *thread = request->conn->thread;
     struct lwan *lwan = thread->lwan;
-    int r = prepare_await(lwan, events, fd, conn, thread->epoll_fd);
+    struct lwan_connection *awaited = &lwan->conns[fd];
 
+    if (request->conn == awaited) {
+        coro_yield(request->conn->coro, events);
+        return fd;
+    }
+
+    int r = prepare_await(lwan, events, fd, request->conn, thread->epoll_fd);
     if (UNLIKELY(r < 0))
         return r;
 
-    conn = (struct lwan_connection *)(intptr_t)coro_yield(conn->coro,
-                                                          CONN_CORO_SUSPEND);
-    return UNLIKELY(conn->flags & CONN_HUNG_UP)
-               ? -ECONNRESET
-               : lwan_connection_get_fd(lwan, conn);
+    while (true) {
+        int64_t from_coro = coro_yield(request->conn->coro, CONN_CORO_SUSPEND);
+
+        if ((struct lwan_connection *)(intptr_t)from_coro == awaited) {
+            return UNLIKELY(request->conn->flags & CONN_HUNG_UP)
+                       ? -ECONNRESET
+                       : lwan_connection_get_fd(lwan, awaited);
+        }
+    }
 }
 
 int lwan_request_await_read(struct lwan_request *r, int fd)
 {
-    return async_await_fd(r->conn, fd, CONN_CORO_WANT_READ);
+    return async_await_fd(r, fd, CONN_CORO_WANT_READ);
 }
 
 int lwan_request_await_write(struct lwan_request *r, int fd)
 {
-    return async_await_fd(r->conn, fd, CONN_CORO_WANT_WRITE);
+    return async_await_fd(r, fd, CONN_CORO_WANT_WRITE);
 }
 
 int lwan_request_await_read_write(struct lwan_request *r, int fd)
 {
-    return async_await_fd(r->conn, fd, CONN_CORO_WANT_READ_WRITE);
+    return async_await_fd(r, fd, CONN_CORO_WANT_READ_WRITE);
 }
 
 static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
