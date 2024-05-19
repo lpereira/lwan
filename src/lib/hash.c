@@ -75,8 +75,6 @@ struct hash_entry {
  * curb wasteful allocations */
 #define STEPS 4
 
-#define DEFAULT_ODD_CONSTANT 0x27d4eb2d
-
 static_assert((MIN_BUCKETS & (MIN_BUCKETS - 1)) == 0,
               "Bucket size is power of 2");
 
