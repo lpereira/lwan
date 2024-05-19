@@ -31,8 +31,10 @@
 
 static const int MAX_FAILED_TRIES = 5;
 
-ssize_t
-lwan_writev_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_count)
+ssize_t lwan_writev_fd(struct lwan_request *request,
+                       int fd,
+                       struct iovec *iov,
+                       int iov_count)
 {
     ssize_t total_written = 0;
     int curr_iov = 0;
@@ -44,7 +46,8 @@ lwan_writev_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_
 
         if (remaining_len == 1) {
             const struct iovec *vec = &iov[curr_iov];
-            return lwan_send_fd(request, fd, vec->iov_base, vec->iov_len, flags);
+            return lwan_send_fd(request, fd, vec->iov_base, vec->iov_len,
+                                flags);
         }
 
         struct msghdr hdr = {
@@ -60,35 +63,36 @@ lwan_writev_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                goto try_again;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            total_written += written;
+
+            while (curr_iov < iov_count &&
+                   written >= (ssize_t)iov[curr_iov].iov_len) {
+                written -= (ssize_t)iov[curr_iov].iov_len;
+                curr_iov++;
+            }
+
+            iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
+            iov[curr_iov].iov_len -= (size_t)written;
+
+            if (curr_iov == iov_count && iov[curr_iov].iov_len == 0)
+                return total_written;
         }
 
-        total_written += written;
-
-        while (curr_iov < iov_count &&
-               written >= (ssize_t)iov[curr_iov].iov_len) {
-            written -= (ssize_t)iov[curr_iov].iov_len;
-            curr_iov++;
-        }
-
-        if (curr_iov == iov_count)
-            return total_written;
-
-        iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
-        iov[curr_iov].iov_len -= (size_t)written;
-
-    try_again:
         lwan_request_await_read(request, fd);
     }
 
     return -ETIMEDOUT;
 }
 
-ssize_t
-lwan_readv_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_count)
+ssize_t lwan_readv_fd(struct lwan_request *request,
+                      int fd,
+                      struct iovec *iov,
+                      int iov_count)
 {
     ssize_t total_bytes_read = 0;
     int curr_iov = 0;
@@ -102,27 +106,27 @@ lwan_readv_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_c
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                goto try_again;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            total_bytes_read += bytes_read;
+
+            while (curr_iov < iov_count &&
+                   bytes_read >= (ssize_t)iov[curr_iov].iov_len) {
+                bytes_read -= (ssize_t)iov[curr_iov].iov_len;
+                curr_iov++;
+            }
+
+            iov[curr_iov].iov_base =
+                (char *)iov[curr_iov].iov_base + bytes_read;
+            iov[curr_iov].iov_len -= (size_t)bytes_read;
+
+            if (curr_iov == iov_count && iov[curr_iov].iov_len == 0)
+                return total_bytes_read;
         }
 
-        total_bytes_read += bytes_read;
-
-        while (curr_iov < iov_count &&
-               bytes_read >= (ssize_t)iov[curr_iov].iov_len) {
-            bytes_read -= (ssize_t)iov[curr_iov].iov_len;
-            curr_iov++;
-        }
-
-        if (curr_iov == iov_count)
-            return total_bytes_read;
-
-        iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + bytes_read;
-        iov[curr_iov].iov_len -= (size_t)bytes_read;
-
-    try_again:
         lwan_request_await_read(request, fd);
     }
 
@@ -135,32 +139,30 @@ ssize_t lwan_send_fd(struct lwan_request *request,
                      size_t count,
                      int flags)
 {
-    ssize_t total_sent = 0;
+    size_t to_send = count;
 
     if (request->conn->flags & CONN_CORK)
         flags |= MSG_MORE;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t written = send(fd, buf, count, flags);
+        ssize_t written = send(fd, buf, to_send, flags);
         if (UNLIKELY(written < 0)) {
             tries--;
 
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                goto try_again;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            to_send -= (size_t)written;
+            if (!to_send)
+                return count;
+            buf = (char *)buf + written;
         }
 
-        total_sent += written;
-        if ((size_t)total_sent == count)
-            return total_sent;
-        if ((size_t)total_sent < count)
-            buf = (char *)buf + written;
-
-    try_again:
         lwan_request_await_write(request, fd);
     }
 
@@ -170,32 +172,29 @@ ssize_t lwan_send_fd(struct lwan_request *request,
 ssize_t
 lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int flags)
 {
-    ssize_t total_recv = 0;
+    size_t to_recv = count;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t recvd = recv(fd, buf, count, flags);
+        ssize_t recvd = recv(fd, buf, to_recv, flags);
         if (UNLIKELY(recvd < 0)) {
             tries--;
 
             switch (errno) {
+            case EINTR:
             case EAGAIN:
                 if (flags & MSG_DONTWAIT)
-                    return total_recv;
-                /* Fallthrough */
-            case EINTR:
-                goto try_again;
+                    return count - to_recv;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            to_recv -= (size_t)recvd;
+            if (!to_recv)
+                return count;
+            buf = (char *)buf + recvd;
         }
 
-        total_recv += recvd;
-        if ((size_t)total_recv == count)
-            return total_recv;
-        if ((size_t)total_recv < count)
-            buf = (char *)buf + recvd;
-
-    try_again:
         lwan_request_await_read(request, fd);
     }
 
@@ -220,8 +219,7 @@ int lwan_sendfile_fd(struct lwan_request *request,
      * sent using MSG_MORE.  Subsequent chunks are sized 2^21 bytes.  (Do
      * this regardless of this connection being TLS or not for simplicity.)
      *
-     * [1]
-     * https://www.kernel.org/doc/html/v5.12/networking/tls.html#sending-tls-application-data
+     * [1] https://www.kernel.org/doc/html/v5.12/networking/tls.html#sending-tls-application-data
      * [2] https://github.com/lpereira/lwan/issues/334
      */
     size_t chunk_size = LWAN_MIN(count, (1ul << 21) - header_len);
@@ -236,24 +234,23 @@ int lwan_sendfile_fd(struct lwan_request *request,
 
     while (true) {
         ssize_t written = sendfile(out_fd, in_fd, &offset, chunk_size);
-        if (written < 0) {
+        if (UNLIKELY(written < 0)) {
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                goto try_again;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            to_be_written -= (size_t)written;
+            if (!to_be_written)
+                return 0;
+
+            chunk_size = LWAN_MIN(to_be_written, 1ul << 21);
+            lwan_readahead_queue(in_fd, offset, chunk_size);
         }
 
-        to_be_written -= (size_t)written;
-        if (!to_be_written)
-            return 0;
-
-        chunk_size = LWAN_MIN(to_be_written, 1ul << 21);
-        lwan_readahead_queue(in_fd, offset, chunk_size);
-
-    try_again:
         lwan_request_await_write(request, out_fd);
     }
 }
@@ -292,39 +289,41 @@ int lwan_sendfile(struct lwan_request *request,
             case EAGAIN:
             case EBUSY:
             case EINTR:
-                goto try_again;
+                break;
             default:
                 return -errno;
             }
+        } else {
+            count -= (size_t)sbytes;
+            if (!count)
+                return 0;
         }
 
-        count -= (size_t)sbytes;
-        if (!count)
-            return 0;
-
-    try_again:
         lwan_request_await_write(request, out_fd);
     }
 }
 #else
 static ssize_t try_pread_file(struct lwan_request *request,
-                             int fd,
-                             void *buffer,
-                             size_t len,
-                             off_t offset)
+                              int fd,
+                              void *buffer,
+                              size_t len,
+                              off_t offset)
 {
     size_t total_read = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t r = pread(fd, buffer, len, offset);
 
+        if (r == 0) {
+            return total_read;
+        }
         if (UNLIKELY(r < 0)) {
             tries--;
 
             switch (errno) {
             case EAGAIN:
             case EINTR:
-                /* fd is a file, re-read -- but give other coros some time, too */
+                /* fd is a file, re-read -- but give other coros some time */
                 coro_yield(request->conn->coro, CONN_CORO_YIELD);
                 continue;
             default:
@@ -333,9 +332,9 @@ static ssize_t try_pread_file(struct lwan_request *request,
         }
 
         total_read += (size_t)r;
-
-        if (r == 0 || total_read == len)
+        if (total_read == len) {
             return total_read;
+        }
 
         offset += r;
     }
@@ -362,11 +361,12 @@ int lwan_sendfile_fd(struct lwan_request *request,
     while (count) {
         r = try_pread_file(request, in_fd, buffer,
                            LWAN_MIN(count, sizeof(buffer)), offset);
-        if (UNLIKELY(r < 0))
+        if (UNLIKELY(r <= 0))
             return (int)r;
 
         size_t bytes_read = (size_t)r;
-        r = lwan_send_fd(request, out_fd, buffer, bytes_read, 0);
+        r = lwan_send_fd(request, out_fd, buffer, bytes_read,
+                         bytes_read < sizeof(buffer) ? 0 : MSG_MORE);
         if (UNLIKELY(r < 0))
             return (int)r;
 
