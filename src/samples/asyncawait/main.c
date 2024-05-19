@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "lwan.h"
+#include "lwan-io-wrappers.h"
 
 static void close_socket(void *data) { close((int)(intptr_t)data); }
 
@@ -48,7 +49,7 @@ LWAN_HANDLER_ROUTE(asyncawait, "/")
 
     while (true) {
         char buffer[128];
-        ssize_t r = lwan_request_async_read(request, fd, buffer, sizeof(buffer));
+        ssize_t r = lwan_recv_fd(request, fd, buffer, sizeof(buffer), 0);
 
         lwan_strbuf_set_static(response->buffer, buffer, (size_t)r);
         lwan_response_send_chunk(request);

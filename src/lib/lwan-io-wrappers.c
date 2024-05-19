@@ -32,7 +32,7 @@
 static const int MAX_FAILED_TRIES = 5;
 
 ssize_t
-lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
+lwan_writev_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_count)
 {
     ssize_t total_written = 0;
     int curr_iov = 0;
@@ -44,14 +44,14 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
 
         if (remaining_len == 1) {
             const struct iovec *vec = &iov[curr_iov];
-            return lwan_send(request, vec->iov_base, vec->iov_len, flags);
+            return lwan_send_fd(request, fd, vec->iov_base, vec->iov_len, flags);
         }
 
         struct msghdr hdr = {
             .msg_iov = iov + curr_iov,
             .msg_iovlen = (size_t)remaining_len,
         };
-        written = sendmsg(request->fd, &hdr, flags);
+        written = sendmsg(fd, &hdr, flags);
 
         if (UNLIKELY(written < 0)) {
             /* FIXME: Consider short writes as another try as well? */
@@ -62,7 +62,7 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
             case EINTR:
                 goto try_again;
             default:
-                goto out;
+                return -errno;
             }
         }
 
@@ -81,23 +81,20 @@ lwan_writev(struct lwan_request *request, struct iovec *iov, int iov_count)
         iov[curr_iov].iov_len -= (size_t)written;
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+        lwan_request_await_read(request, fd);
     }
 
-out:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
 ssize_t
-lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
+lwan_readv_fd(struct lwan_request *request, int fd, struct iovec *iov, int iov_count)
 {
     ssize_t total_bytes_read = 0;
     int curr_iov = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t bytes_read =
-            readv(request->fd, iov + curr_iov, iov_count - curr_iov);
+        ssize_t bytes_read = readv(fd, iov + curr_iov, iov_count - curr_iov);
         if (UNLIKELY(bytes_read < 0)) {
             /* FIXME: Consider short reads as another try as well? */
             tries--;
@@ -107,7 +104,7 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
             case EINTR:
                 goto try_again;
             default:
-                goto out;
+                return -errno;
             }
         }
 
@@ -126,18 +123,17 @@ lwan_readv(struct lwan_request *request, struct iovec *iov, int iov_count)
         iov[curr_iov].iov_len -= (size_t)bytes_read;
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+        lwan_request_await_read(request, fd);
     }
 
-out:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
-ssize_t lwan_send(struct lwan_request *request,
-                  const void *buf,
-                  size_t count,
-                  int flags)
+ssize_t lwan_send_fd(struct lwan_request *request,
+                     int fd,
+                     const void *buf,
+                     size_t count,
+                     int flags)
 {
     ssize_t total_sent = 0;
 
@@ -145,7 +141,7 @@ ssize_t lwan_send(struct lwan_request *request,
         flags |= MSG_MORE;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t written = send(request->fd, buf, count, flags);
+        ssize_t written = send(fd, buf, count, flags);
         if (UNLIKELY(written < 0)) {
             tries--;
 
@@ -154,7 +150,7 @@ ssize_t lwan_send(struct lwan_request *request,
             case EINTR:
                 goto try_again;
             default:
-                goto out;
+                return -errno;
             }
         }
 
@@ -165,21 +161,19 @@ ssize_t lwan_send(struct lwan_request *request,
             buf = (char *)buf + written;
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+        lwan_request_await_write(request, fd);
     }
 
-out:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
 ssize_t
-lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
+lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int flags)
 {
     ssize_t total_recv = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t recvd = recv(request->fd, buf, count, flags);
+        ssize_t recvd = recv(fd, buf, count, flags);
         if (UNLIKELY(recvd < 0)) {
             tries--;
 
@@ -191,7 +185,7 @@ lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
             case EINTR:
                 goto try_again;
             default:
-                goto out;
+                return -errno;
             }
         }
 
@@ -202,21 +196,20 @@ lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
             buf = (char *)buf + recvd;
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_READ);
+        lwan_request_await_read(request, fd);
     }
 
-out:
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
 #if defined(__linux__)
-void lwan_sendfile(struct lwan_request *request,
-                   int in_fd,
-                   off_t offset,
-                   size_t count,
-                   const char *header,
-                   size_t header_len)
+int lwan_sendfile_fd(struct lwan_request *request,
+                     int out_fd,
+                     int in_fd,
+                     off_t offset,
+                     size_t count,
+                     const char *header,
+                     size_t header_len)
 {
     /* Clamp each chunk to 2^21 bytes[1] to balance throughput and
      * scalability.  This used to be capped to 2^14 bytes, as that's the
@@ -227,47 +220,51 @@ void lwan_sendfile(struct lwan_request *request,
      * sent using MSG_MORE.  Subsequent chunks are sized 2^21 bytes.  (Do
      * this regardless of this connection being TLS or not for simplicity.)
      *
-     * [1] https://www.kernel.org/doc/html/v5.12/networking/tls.html#sending-tls-application-data
+     * [1]
+     * https://www.kernel.org/doc/html/v5.12/networking/tls.html#sending-tls-application-data
      * [2] https://github.com/lpereira/lwan/issues/334
      */
     size_t chunk_size = LWAN_MIN(count, (1ul << 21) - header_len);
     size_t to_be_written = count;
+    ssize_t r;
 
     assert(header_len < (1ul << 21));
 
-    lwan_send(request, header, header_len, MSG_MORE);
+    r = lwan_send_fd(request, out_fd, header, header_len, MSG_MORE);
+    if (r < 0)
+        return (int)r;
 
     while (true) {
-        ssize_t written = sendfile(request->fd, in_fd, &offset, chunk_size);
+        ssize_t written = sendfile(out_fd, in_fd, &offset, chunk_size);
         if (written < 0) {
             switch (errno) {
             case EAGAIN:
             case EINTR:
                 goto try_again;
             default:
-                coro_yield(request->conn->coro, CONN_CORO_ABORT);
-                __builtin_unreachable();
+                return -errno;
             }
         }
 
         to_be_written -= (size_t)written;
         if (!to_be_written)
-            break;
+            return 0;
 
         chunk_size = LWAN_MIN(to_be_written, 1ul << 21);
         lwan_readahead_queue(in_fd, offset, chunk_size);
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+        lwan_request_await_write(request, out_fd);
     }
 }
 #elif defined(__FreeBSD__) || defined(__APPLE__)
-void lwan_sendfile(struct lwan_request *request,
-                   int in_fd,
-                   off_t offset,
-                   size_t count,
-                   const char *header,
-                   size_t header_len)
+int lwan_sendfile(struct lwan_request *request,
+                  int out_fd,
+                  int in_fd,
+                  off_t offset,
+                  size_t count,
+                  const char *header,
+                  size_t header_len)
 {
     struct sf_hdtr headers = {.headers =
                                   (struct iovec[]){{.iov_base = (void *)header,
@@ -277,19 +274,19 @@ void lwan_sendfile(struct lwan_request *request,
 
     if (!count) {
         /* FreeBSD's sendfile() won't send the headers when count is 0. Why? */
-        return (void)lwan_writev(request, headers.headers, headers.hdr_cnt);
+        return lwan_writev_fd(request, out_fd, headers.headers,
+                              headers.hdr_cnt);
     }
 
     while (true) {
         int r;
 
 #ifdef __APPLE__
-        r = sendfile(in_fd, request->fd, offset, &sbytes, &headers, 0);
+        r = sendfile(in_fd, out_fd, offset, &sbytes, &headers, 0);
 #else
-        r = sendfile(in_fd, request->fd, offset, count, &headers, &sbytes,
+        r = sendfile(in_fd, out_fd, offset, count, &headers, &sbytes,
                      SF_MNOWAIT);
 #endif
-
         if (UNLIKELY(r < 0)) {
             switch (errno) {
             case EAGAIN:
@@ -297,21 +294,20 @@ void lwan_sendfile(struct lwan_request *request,
             case EINTR:
                 goto try_again;
             default:
-                coro_yield(request->conn->coro, CONN_CORO_ABORT);
-                __builtin_unreachable();
+                return -errno;
             }
         }
 
         count -= (size_t)sbytes;
         if (!count)
-            break;
+            return 0;
 
     try_again:
-        coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+        lwan_request_await_write(request, out_fd);
     }
 }
 #else
-static size_t try_pread_file(struct lwan_request *request,
+static ssize_t try_pread_file(struct lwan_request *request,
                              int fd,
                              void *buffer,
                              size_t len,
@@ -332,7 +328,7 @@ static size_t try_pread_file(struct lwan_request *request,
                 coro_yield(request->conn->coro, CONN_CORO_YIELD);
                 continue;
             default:
-                break;
+                return -errno;
             }
         }
 
@@ -344,25 +340,36 @@ static size_t try_pread_file(struct lwan_request *request,
         offset += r;
     }
 
-    coro_yield(request->conn->coro, CONN_CORO_ABORT);
-    __builtin_unreachable();
+    return -ETIMEDOUT;
 }
 
-void lwan_sendfile(struct lwan_request *request,
-                   int in_fd,
-                   off_t offset,
-                   size_t count,
-                   const char *header,
-                   size_t header_len)
+int lwan_sendfile_fd(struct lwan_request *request,
+                     int out_fd,
+                     int in_fd,
+                     off_t offset,
+                     size_t count,
+                     const char *header,
+                     size_t header_len)
 {
     unsigned char buffer[512];
+    ssize_t r;
 
-    lwan_send(request, header, header_len, MSG_MORE);
+    r = lwan_send_fd(request, out_fd, header, header_len, MSG_MORE);
+    if (UNLIKELY(r < 0)) {
+        return (int)r;
+    }
 
     while (count) {
-        size_t bytes_read = try_pread_file(
-            request, in_fd, buffer, LWAN_MIN(count, sizeof(buffer)), offset);
-        lwan_send(request, buffer, bytes_read, 0);
+        r = try_pread_file(request, in_fd, buffer,
+                           LWAN_MIN(count, sizeof(buffer)), offset);
+        if (UNLIKELY(r < 0))
+            return (int)r;
+
+        size_t bytes_read = (size_t)r;
+        r = lwan_send_fd(request, out_fd, buffer, bytes_read, 0);
+        if (UNLIKELY(r < 0))
+            return (int)r;
+
         count -= bytes_read;
         offset += bytes_read;
     }

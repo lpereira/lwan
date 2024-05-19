@@ -46,6 +46,7 @@
 #include "patterns.h"
 #include "realpathat.h"
 #include "lwan-cache.h"
+#include "lwan-io-wrappers.h"
 #include "lwan-mod-fastcgi.h"
 #include "lwan-strbuf.h"
 
@@ -327,7 +328,7 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
         return false;
 
     while (to_read) {
-        ssize_t r = lwan_request_async_read(request, fd, buffer, to_read);
+        ssize_t r = lwan_recv_fd(request, fd, buffer, to_read, 0);
 
         if (r < 0)
             return false;
@@ -338,8 +339,10 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 
     if (record->len_padding) {
         char padding[256];
-        lwan_request_async_read_flags(request, fd, padding,
-                                      (size_t)record->len_padding, MSG_TRUNC);
+        if (lwan_send_fd(request, fd, padding, (size_t)record->len_padding,
+                         MSG_TRUNC) < 0) {
+            return false;
+        }
     }
 
     return true;
@@ -354,10 +357,11 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
     if (!buffer)
         return false;
 
-    coro_deferred buffer_free_defer = coro_defer(request->conn->coro, free, buffer);
+    coro_deferred buffer_free_defer =
+        coro_defer(request->conn->coro, free, buffer);
 
     for (char *p = buffer; to_read;) {
-        ssize_t r = lwan_request_async_read(request, fd, p, to_read);
+        ssize_t r = lwan_recv_fd(request, fd, p, to_read, 0);
 
         if (r < 0)
             return false;
@@ -366,16 +370,17 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
         to_read -= (size_t)r;
     }
 
-    lwan_status_error("FastCGI stderr output: %.*s",
-                      (int)record->len_content, buffer);
+    lwan_status_error("FastCGI stderr output: %.*s", (int)record->len_content,
+                      buffer);
 
     coro_defer_fire_and_disarm(request->conn->coro, buffer_free_defer);
 
     if (record->len_padding) {
         char padding[256];
-        lwan_request_async_read_flags(request, fd, padding,
-                                      (size_t)record->len_padding,
-                                      MSG_TRUNC);
+        if (lwan_recv_fd(request, fd, padding, (size_t)record->len_padding,
+                         MSG_TRUNC) < 0) {
+            return false;
+        }
     }
 
     return true;
@@ -402,8 +407,8 @@ static bool discard_unknown_record(struct lwan_request *request,
     while (to_read) {
         ssize_t r;
 
-        r = lwan_request_async_read_flags(
-            request, fd, buffer, LWAN_MIN(sizeof(buffer), to_read), MSG_TRUNC);
+        r = lwan_recv_fd(request, fd, buffer, LWAN_MIN(sizeof(buffer), to_read),
+                         MSG_TRUNC);
         if (r < 0)
             return false;
 
@@ -574,9 +579,11 @@ static bool build_stdin_records(struct lwan_request *request,
         *iovec = (struct iovec){.iov_base = buffer, .iov_len = block_size};
 
         if (iovec_array_len(iovec_array) == LWAN_ARRAY_INCREMENT) {
-            lwan_request_async_writev(request, fcgi_fd,
-                                      iovec_array_get_array(iovec_array),
-                                      (int)iovec_array_len(iovec_array));
+            if (lwan_writev_fd(request, fcgi_fd,
+                               iovec_array_get_array(iovec_array),
+                               (int)iovec_array_len(iovec_array)) < 0) {
+                return false;
+            }
             iovec_array_reset(iovec_array);
             record_array_reset(record_array);
         }
@@ -631,8 +638,8 @@ static enum lwan_http_status send_request(struct private_data *pd,
                 .begin_request = {.version = 1,
                                   .type = FASTCGI_TYPE_BEGIN_REQUEST,
                                   .id = htons(1),
-                                  .len_content = htons(
-                                      (uint16_t)sizeof(struct begin_request_body))},
+                                  .len_content = htons((uint16_t)sizeof(
+                                      struct begin_request_body))},
                 .begin_request_body = {.role = htons(FASTCGI_ROLE_RESPONDER)},
                 .begin_params = {.version = 1,
                                  .type = FASTCGI_TYPE_PARAMS,
@@ -675,9 +682,10 @@ static enum lwan_http_status send_request(struct private_data *pd,
         .iov_len = sizeof(struct record),
     };
 
-    lwan_request_async_writev(request, fcgi_fd,
-                              iovec_array_get_array(&iovec_array),
-                              (int)iovec_array_len(&iovec_array));
+    if (lwan_writev_fd(request, fcgi_fd, iovec_array_get_array(&iovec_array),
+                       (int)iovec_array_len(&iovec_array)) < 0) {
+        return HTTP_INTERNAL_ERROR;
+    }
     iovec_array_reset(&iovec_array);
     record_array_reset(&record_array);
 
@@ -769,7 +777,7 @@ fastcgi_handle_request(struct lwan_request *request,
         struct record record;
         ssize_t r;
 
-        r = lwan_request_async_read(request, fcgi_fd, &record, sizeof(record));
+        r = lwan_recv_fd(request, fcgi_fd, &record, sizeof(record), 0);
         if (r < 0)
             return HTTP_UNAVAILABLE;
         if (r != (ssize_t)sizeof(record))
