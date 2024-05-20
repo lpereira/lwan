@@ -159,7 +159,7 @@ ssize_t lwan_send_fd(struct lwan_request *request,
         } else {
             to_send -= (size_t)written;
             if (!to_send)
-                return count;
+                return (ssize_t)count;
             buf = (char *)buf + written;
         }
 
@@ -183,7 +183,7 @@ lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int 
             case EINTR:
             case EAGAIN:
                 if (flags & MSG_DONTWAIT)
-                    return count - to_recv;
+                    return -EAGAIN;
                 break;
             default:
                 return -errno;
@@ -191,7 +191,7 @@ lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int 
         } else {
             to_recv -= (size_t)recvd;
             if (!to_recv)
-                return count;
+                return (ssize_t)count;
             buf = (char *)buf + recvd;
         }
 
