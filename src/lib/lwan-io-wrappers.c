@@ -79,7 +79,7 @@ ssize_t lwan_writev_fd(struct lwan_request *request,
             iov[curr_iov].iov_base = (char *)iov[curr_iov].iov_base + written;
             iov[curr_iov].iov_len -= (size_t)written;
 
-            if (curr_iov == iov_count && iov[curr_iov].iov_len == 0)
+            if (curr_iov == iov_count)
                 return total_written;
         }
 
@@ -123,7 +123,7 @@ ssize_t lwan_readv_fd(struct lwan_request *request,
                 (char *)iov[curr_iov].iov_base + bytes_read;
             iov[curr_iov].iov_len -= (size_t)bytes_read;
 
-            if (curr_iov == iov_count && iov[curr_iov].iov_len == 0)
+            if (curr_iov == iov_count)
                 return total_bytes_read;
         }
 
