@@ -67,6 +67,8 @@ ssize_t lwan_writev_fd(struct lwan_request *request,
             default:
                 return -errno;
             }
+        } else if (written == 0) {
+            return total_written;
         } else {
             total_written += written;
 
@@ -110,6 +112,8 @@ ssize_t lwan_readv_fd(struct lwan_request *request,
             default:
                 return -errno;
             }
+        } else if (bytes_read == 0) {
+            return total_bytes_read;
         } else {
             total_bytes_read += bytes_read;
 
