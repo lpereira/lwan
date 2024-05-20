@@ -100,7 +100,18 @@ ssize_t lwan_readv_fd(struct lwan_request *request,
     int curr_iov = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t bytes_read = readv(fd, iov + curr_iov, iov_count - curr_iov);
+        const int remaining_len = (int)(iov_count - curr_iov);
+
+        if (remaining_len == 1) {
+            const struct iovec *vec = &iov[curr_iov];
+            return lwan_recv_fd(request, fd, vec->iov_base, vec->iov_len, 0);
+        }
+
+        struct msghdr hdr = {
+            .msg_iov = iov + curr_iov,
+            .msg_iovlen = (size_t)remaining_len,
+        };
+        ssize_t bytes_read = recvmsg(fd, &hdr, 0);
         if (UNLIKELY(bytes_read < 0)) {
             /* FIXME: Consider short reads as another try as well? */
             tries--;
