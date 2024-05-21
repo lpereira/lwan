@@ -34,8 +34,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "hash.h"
-
 int epoll_create1(int flags)
 {
 #if defined(LWAN_HAVE_KQUEUE1)
@@ -115,63 +113,60 @@ static struct timespec *to_timespec(struct timespec *t, int ms)
     return t;
 }
 
+static int kevent_ident_cmp(const void *ptr0, const void *ptr1)
+{
+    struct kevent *ev0 = ptr0;
+    struct kevent *ev1 = ptr1;
+    return (ev0->ident > ev1->ident) - (ev0->ident < ev1->ident);
+}
+
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
     struct epoll_event *ev = events;
     struct kevent evs[maxevents];
     struct timespec tmspec;
-    struct hash *coalesce;
     int i, r;
-
-    coalesce = hash_int_new(NULL, NULL);
-    if (UNLIKELY(!coalesce))
-        return -1;
 
     r = kevent(epfd, NULL, 0, evs, maxevents, to_timespec(&tmspec, timeout));
     if (UNLIKELY(r < 0)) {
-        hash_unref(coalesce);
         return -1;
     }
 
+    qsort(evs, (size_t)r, sizeof(struct kevent), kevent_ident_cmp);
+
+    int last = -1;
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
-        uint32_t mask = (uint32_t)(uintptr_t)hash_find(
-            coalesce, (void *)(intptr_t)evs[i].ident);
 
-        if (kev->flags & EV_ERROR)
-            mask |= EPOLLERR;
-        if (kev->flags & EV_EOF)
-            mask |= EPOLLRDHUP;
-
-        if (kev->filter == EVFILT_READ)
-            mask |= EPOLLIN;
-        else if (kev->filter == EVFILT_WRITE && evs[i].udata != &epoll_no_event_marker)
-            mask |= EPOLLOUT;
-
-        hash_add(coalesce, (void *)(intptr_t)evs[i].ident,
-                 (void *)(uintptr_t)mask);
-    }
-
-    for (i = 0; i < r; i++) {
-        void *maskptr;
-
-        maskptr = hash_find(coalesce, (void *)(intptr_t)evs[i].ident);
-        if (maskptr) {
-            struct kevent *kev = &evs[i];
-
-            if (kev->udata == &epoll_no_event_marker)
-                continue;
-
-            ev->data.ptr = kev->udata;
-            ev->events = (uint32_t)(uintptr_t)maskptr;
-            ev++;
+        if (kev->udata == &epoll_no_event_marker) {
+            continue;
         }
+
+        if (last < 0) {
+            ev->mask = 0;
+        } else if (kev->ident != last) {
+            ev++;
+            ev->mask = 0;
+        }
+
+        if (kev->flags & EV_ERROR) {
+            ev->events |= EPOLLERR;
+        }
+        if (kev->flags & EV_EOF) {
+            ev->events |= EPOLLRDHUP;
+        }
+        if (kev->filter == EVFILT_READ) {
+            ev->events |= EPOLLIN;
+        } else if (kev->filter == EVFILT_WRITE) {
+            ev->events |= EPOLLOUT;
+        }
+        ev->data.ptr = kev->udata;
+
+        last = kev->ident;
     }
 
-    hash_unref(coalesce);
     return (int)(intptr_t)(ev - events);
 }
 #elif !defined(LWAN_HAVE_EPOLL)
 #error epoll() not implemented for this platform
 #endif
-
