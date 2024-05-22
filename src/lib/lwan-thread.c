@@ -863,7 +863,7 @@ static inline int async_await_fd(struct lwan_request *request,
         int64_t from_coro = coro_yield(request->conn->coro, CONN_CORO_SUSPEND);
 
         if ((struct lwan_connection *)(intptr_t)from_coro == awaited) {
-            return UNLIKELY(request->conn->flags & CONN_HUNG_UP)
+            return UNLIKELY(awaited->flags & CONN_HUNG_UP)
                        ? -ECONNRESET
                        : lwan_connection_get_fd(lwan, awaited);
         }
