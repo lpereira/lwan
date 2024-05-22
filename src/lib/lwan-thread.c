@@ -850,17 +850,17 @@ static inline int async_await_fd(struct lwan_request *request,
     struct lwan *lwan = thread->lwan;
     struct lwan_connection *awaited = &lwan->conns[fd];
 
-    if (request->conn == awaited) {
-        coro_yield(request->conn->coro, events);
-        return fd;
+    if (request->conn != awaited) {
+        int r =
+            prepare_await(lwan, events, fd, request->conn, thread->epoll_fd);
+        if (UNLIKELY(r < 0))
+            return r;
+
+        events = CONN_CORO_SUSPEND;
     }
 
-    int r = prepare_await(lwan, events, fd, request->conn, thread->epoll_fd);
-    if (UNLIKELY(r < 0))
-        return r;
-
     while (true) {
-        int64_t from_coro = coro_yield(request->conn->coro, CONN_CORO_SUSPEND);
+        int64_t from_coro = coro_yield(request->conn->coro, events);
 
         if ((struct lwan_connection *)(intptr_t)from_coro == awaited) {
             return UNLIKELY(awaited->flags & CONN_HUNG_UP)
