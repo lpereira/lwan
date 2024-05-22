@@ -329,9 +329,6 @@ static ssize_t try_pread_file(struct lwan_request *request,
     for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t r = pread(fd, buffer, len, offset);
 
-        if (r == 0) {
-            return total_read;
-        }
         if (UNLIKELY(r < 0)) {
             tries--;
 
@@ -366,6 +363,7 @@ int lwan_sendfile_fd(struct lwan_request *request,
                      size_t header_len)
 {
     unsigned char buffer[512];
+    unsigned int blocks_sent = 0;
     ssize_t r;
 
     r = lwan_send_fd(request, out_fd, header, header_len, MSG_MORE);
@@ -387,6 +385,11 @@ int lwan_sendfile_fd(struct lwan_request *request,
 
         count -= bytes_read;
         offset += bytes_read;
+
+        blocks_sent++;
+        if (blocks_sent & 3 == 0) {
+            coro_yield(request->conn->coro, CONN_CORO_WRITE);
+        }
     }
 
     return 0;
