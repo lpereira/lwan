@@ -118,8 +118,8 @@ static struct timespec *to_timespec(struct timespec *t, int ms)
 
 static int kevent_ident_cmp(const void *ptr0, const void *ptr1)
 {
-    struct kevent *ev0 = ptr0;
-    struct kevent *ev1 = ptr1;
+    const struct kevent *ev0 = ptr0;
+    const struct kevent *ev1 = ptr1;
     return (ev0->ident > ev1->ident) - (ev0->ident < ev1->ident);
 }
 
@@ -145,7 +145,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
             if (last >= 0)
                 ev++;
 
-            ev->mask = 0;
+            ev->events = 0;
             ev->data.ptr = kev->udata;
         }
 
