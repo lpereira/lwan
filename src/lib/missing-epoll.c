@@ -74,6 +74,9 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
         } else if (event->events & EPOLLOUT) {
             events = EVFILT_WRITE;
         } else {
+            /* kqueue needs an event filter to track a file descriptor,
+             * but epoll doesn't. So create a fake one here and check for
+             * it when converting from kevents to epoll_events. */
             events = EVFILT_WRITE;
             udata = &epoll_no_event_marker;
         }
@@ -138,15 +141,12 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
 
-        if (kev->udata == &epoll_no_event_marker) {
-            continue;
-        }
+        if (kev->ident != last) {
+            if (last >= 0)
+                ev++;
 
-        if (last < 0) {
             ev->mask = 0;
-        } else if (kev->ident != last) {
-            ev++;
-            ev->mask = 0;
+            ev->data.ptr = kev->udata;
         }
 
         if (kev->flags & EV_ERROR) {
@@ -157,10 +157,10 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         }
         if (kev->filter == EVFILT_READ) {
             ev->events |= EPOLLIN;
-        } else if (kev->filter == EVFILT_WRITE) {
+        } else if (kev->filter == EVFILT_WRITE &&
+                   kev->udata != &epoll_no_event_marker) {
             ev->events |= EPOLLOUT;
         }
-        ev->data.ptr = kev->udata;
 
         last = kev->ident;
     }
