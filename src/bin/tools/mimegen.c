@@ -356,6 +356,7 @@ int main(int argc, char *argv[])
     printf("#define MIME_ENTRIES %d\n", hash_get_count(ext_mime));
     printf("#define MIME_ENTRIES_FLOOR %d\n", entries_floor);
     printf("#define MIME_ENTRY_FALLBACK %ld\n", bin_index);
+    printf("#define MIME_EXT_FALLBACK \".%s\"\n", exts[bin_index]);
     printf("static const unsigned char mime_entries_compressed[] = {\n");
     for (i = 1; compressed_size; compressed_size--, i++)
         printf("0x%02x,%c", compressed[i - 1] & 0xff, " \n"[i % 13 == 0]);
