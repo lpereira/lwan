@@ -57,8 +57,12 @@ bool grow_buffer_if_needed_internal(struct lwan_strbuf *s, size_t size)
     if (s->flags & BUFFER_FIXED)
         return size < s->capacity;
 
+    /* Ensure we always have space for the NUL character! */
+    if (UNLIKELY(__builtin_add_overflow(size, 1, &size)))
+        return false;
+
     if (!(s->flags & BUFFER_MALLOCD)) {
-        const size_t aligned_size = align_size(LWAN_MAX(size + 1, s->used));
+        const size_t aligned_size = align_size(LWAN_MAX(size, s->used));
         if (UNLIKELY(!aligned_size))
             return false;
 
@@ -78,7 +82,7 @@ bool grow_buffer_if_needed_internal(struct lwan_strbuf *s, size_t size)
 
     if (UNLIKELY(s->capacity < size)) {
         char *buffer;
-        const size_t aligned_size = align_size(size + 1);
+        const size_t aligned_size = align_size(size);
 
         if (UNLIKELY(!aligned_size))
             return false;
@@ -173,11 +177,15 @@ struct lwan_strbuf *lwan_strbuf_new_with_size(size_t size)
 
 struct lwan_strbuf *lwan_strbuf_new_with_fixed_buffer(size_t size)
 {
-    struct lwan_strbuf *s = malloc(sizeof(*s) + size + 1);
+    struct lwan_strbuf *s;
+    size_t alloc_size;
 
+    if (UNLIKELY(__builtin_add_overflow(sizeof(*s) + 1, size, &alloc_size)))
+        return NULL;
+
+    s = malloc(alloc_size);
     if (UNLIKELY(!lwan_strbuf_init_with_fixed_buffer(s, s + 1, size))) {
         free(s);
-
         return NULL;
     }
 
@@ -223,7 +231,10 @@ void lwan_strbuf_free(struct lwan_strbuf *s)
 
 bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
 {
-    if (UNLIKELY(!grow_buffer_if_needed(s, s->used + 2)))
+    size_t grow_size;
+    if (UNLIKELY(__builtin_add_overflow(s->used, 1, &grow_size)))
+        return false;
+    if (UNLIKELY(!grow_buffer_if_needed(s, grow_size)))
         return false;
 
     s->buffer[s->used++] = c;
@@ -234,7 +245,10 @@ bool lwan_strbuf_append_char(struct lwan_strbuf *s, const char c)
 
 bool lwan_strbuf_append_str(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (UNLIKELY(!grow_buffer_if_needed(s1, s1->used + sz + 2)))
+    size_t grow_size;
+    if (UNLIKELY(__builtin_add_overflow(s1->used, sz, &grow_size)))
+        return false;
+    if (UNLIKELY(!grow_buffer_if_needed(s1, grow_size)))
         return false;
 
     memcpy(s1->buffer + s1->used, s2, sz);
@@ -258,7 +272,7 @@ bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz)
 
 bool lwan_strbuf_set(struct lwan_strbuf *s1, const char *s2, size_t sz)
 {
-    if (UNLIKELY(!grow_buffer_if_needed(s1, sz + 1)))
+    if (UNLIKELY(!grow_buffer_if_needed(s1, sz)))
         return false;
 
     memcpy(s1->buffer, s2, sz);
@@ -322,14 +336,14 @@ bool lwan_strbuf_append_printf(struct lwan_strbuf *s, const char *fmt, ...)
 
 bool lwan_strbuf_grow_to(struct lwan_strbuf *s, size_t new_size)
 {
-    return grow_buffer_if_needed(s, new_size + 1);
+    return grow_buffer_if_needed(s, new_size);
 }
 
 bool lwan_strbuf_grow_by(struct lwan_strbuf *s, size_t offset)
 {
     size_t new_size;
 
-    if (__builtin_add_overflow(offset, s->used, &new_size))
+    if (UNLIKELY(__builtin_add_overflow(offset, s->used, &new_size)))
         return false;
 
     return lwan_strbuf_grow_to(s, new_size);
@@ -380,10 +394,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     if (UNLIKELY(fstat(fd, &st) < 0))
         goto error_close;
 
-    size_t min_buf_size;
-    if (UNLIKELY(__builtin_add_overflow(st.st_size, 1, &min_buf_size)))
-        goto error_close;
-    if (UNLIKELY(!lwan_strbuf_init_with_size(s, min_buf_size)))
+    if (UNLIKELY(!lwan_strbuf_init_with_size(s, (size_t)st.st_size)))
         goto error_close;
 
     s->used = (size_t)st.st_size;
