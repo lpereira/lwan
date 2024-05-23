@@ -705,15 +705,16 @@ static int prepare_await(const struct lwan *l,
     return -errno;
 }
 
-#define FOR_EACH_FD(name_)                                                     \
-    for (int name_ = va_arg(ap, int); name_ >= 0; name_ = va_arg(ap, int))
-
-static void clear_awaitv_flags(struct lwan_connection *conns, va_list ap)
+static void clear_awaitv_flags(struct lwan_connection *conns, va_list ap_orig)
 {
-    FOR_EACH_FD(fd) {
+    va_list ap;
+
+    va_copy(ap, ap_orig);
+    for (int fd = va_arg(ap, int); fd >= 0; fd = va_arg(ap, int)) {
         conns[fd].flags &= ~CONN_ASYNC_AWAITV;
         LWAN_NO_DISCARD(va_arg(ap, enum lwan_connection_coro_yield));
     }
+    va_end(ap);
 }
 
 struct awaitv_state {
@@ -733,14 +734,10 @@ static int prepare_awaitv(struct lwan_request *r,
         .request_conn_yield = CONN_CORO_YIELD,
     };
 
-    {
-        va_list copy_to_clear;
-        va_copy(ap, copy_to_clear);
-        clear_awaitv_flags(l->conns, copy_to_clear);
-        va_end(copy_to_clear);
-    }
+    clear_awaitv_flags(l->conns, ap);
 
-    FOR_EACH_FD(await_fd) {
+    for (int await_fd = va_arg(ap, int); await_fd >= 0;
+         await_fd = va_arg(ap, int)) {
         struct lwan_connection *conn = &l->conns[await_fd];
         enum lwan_connection_coro_yield events =
             va_arg(ap, enum lwan_connection_coro_yield);
@@ -773,8 +770,6 @@ static int prepare_awaitv(struct lwan_request *r,
 
     return 0;
 }
-
-#undef FOR_EACH_FD
 
 int lwan_request_awaitv_any(struct lwan_request *r, ...)
 {
