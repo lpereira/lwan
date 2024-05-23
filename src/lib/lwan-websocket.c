@@ -343,9 +343,11 @@ int lwan_response_websocket_read_hint(struct lwan_request *request,
 next_frame:
     last_opcode = opcode;
 
-    if (!lwan_recv(request, &header, sizeof(header),
-                   continuation ? 0 : MSG_DONTWAIT))
-        return EAGAIN;
+    ssize_t r = lwan_recv(request, &header, sizeof(header),
+                      MSG_DONTWAIT | MSG_NOSIGNAL);
+    if (r < 0) {
+        return (int)-r;
+    }
     header = htons(header);
     continuation = false;
 

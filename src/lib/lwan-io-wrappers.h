@@ -14,13 +14,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #pragma once
 
-#include <unistd.h>
+#include <errno.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 #include "lwan.h"
 
@@ -40,11 +42,8 @@ int lwan_sendfile_fd(struct lwan_request *request,
                      size_t count,
                      const char *header,
                      size_t header_len);
-ssize_t lwan_recv_fd(struct lwan_request *request,
-                     int fd,
-                     void *buf,
-                     size_t count,
-                     int flags);
+ssize_t lwan_recv_fd(
+    struct lwan_request *request, int fd, void *buf, size_t count, int flags);
 ssize_t lwan_readv_fd(struct lwan_request *request,
                       int fd,
                       struct iovec *iov,
@@ -94,7 +93,7 @@ static inline ssize_t
 lwan_recv(struct lwan_request *request, void *buf, size_t count, int flags)
 {
     ssize_t r = lwan_recv_fd(request, request->fd, buf, count, flags);
-    if (UNLIKELY(r < 0)) {
+    if (UNLIKELY(r < 0 && !(flags & MSG_NOSIGNAL))) {
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
