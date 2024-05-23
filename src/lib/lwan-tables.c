@@ -106,6 +106,10 @@ void lwan_tables_init(void)
                  "text/javascript"));
     assert(streq(lwan_determine_mime_type_for_file_name(".BZ2"),
                  "application/x-bzip2"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".z1"),
+                 "application/x-zmachine"));
+    assert(streq(lwan_determine_mime_type_for_file_name(".asm"),
+                 "text/x-asm"));
 }
 
 LWAN_SELF_TEST(status_codes)
