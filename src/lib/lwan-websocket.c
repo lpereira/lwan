@@ -277,8 +277,7 @@ static void
 ping_pong(struct lwan_request *request, uint16_t header, enum ws_opcode opcode)
 {
     const size_t len = header & 0x7f;
-    char msg[128];
-    char mask[4];
+    char msg[4 + 128];
 
     assert(header & WS_MASKED);
     assert(opcode == WS_OPCODE_PING || opcode == WS_OPCODE_PONG);
@@ -291,28 +290,16 @@ ping_pong(struct lwan_request *request, uint16_t header, enum ws_opcode opcode)
         __builtin_unreachable();
     }
 
-    struct iovec vec[] = {
-        {.iov_base = mask, .iov_len = sizeof(mask)},
-        {.iov_base = msg, .iov_len = len},
-    };
-
     if (opcode == WS_OPCODE_PING) {
-        lwan_readv(request, vec, N_ELEMENTS(vec));
-        unmask(msg, len, mask);
+        lwan_recv(request, msg, len + 4, 0);
+        unmask(msg + 4, len, msg);
         write_websocket_frame(request, WS_MASKED | WS_OPCODE_PONG, msg, len);
     } else {
         /* From MDN: "You might also get a pong without ever sending a ping;
          * ignore this if it happens." */
 
         /* FIXME: should we care about the contents of PONG packets? */
-        /* FIXME: should we have a lwan_recvmsg() too that takes an iovec? */
-        const size_t total_len = vec[0].iov_len + vec[1].iov_len;
-        if (LIKELY(total_len < sizeof(msg))) {
-            lwan_recv(request, msg, total_len, MSG_TRUNC);
-        } else {
-            lwan_recv(request, vec[0].iov_base, vec[0].iov_len, MSG_TRUNC);
-            lwan_recv(request, vec[1].iov_base, vec[1].iov_len, MSG_TRUNC);
-        }
+        lwan_recv(request, msg, len + 4, MSG_TRUNC);
     }
 }
 
