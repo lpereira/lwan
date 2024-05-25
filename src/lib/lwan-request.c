@@ -1288,8 +1288,10 @@ get_remaining_body_data_length(struct lwan_request *request,
         return HTTP_BAD_REQUEST;
     if (UNLIKELY((size_t)parsed_size >= max_size))
         return HTTP_TOO_LARGE;
-    if (UNLIKELY(!parsed_size))
+    if (UNLIKELY(!parsed_size)) {
+        *total = *have = 0;
         return HTTP_OK;
+    }
 
     *total = (size_t)parsed_size;
 
@@ -1336,7 +1338,7 @@ static int read_body_data(struct lwan_request *request)
 
     status =
         get_remaining_body_data_length(request, max_data_size, &total, &have);
-    if (status != HTTP_PARTIAL_CONTENT)
+    if (status != HTTP_PARTIAL_CONTENT && status != HTTP_OK)
         return -(int)status;
 
     new_buffer =

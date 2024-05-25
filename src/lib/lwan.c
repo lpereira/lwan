@@ -462,7 +462,8 @@ void lwan_detect_url_map(struct lwan *l)
                           iter->name, iter->route);
 
         const struct lwan_url_map map = {.prefix = iter->route,
-                                         .handler = iter->handler};
+                                         .handler = iter->handler,
+                                         .flags = HANDLER_PARSE_MASK};
         register_url_map(l, &map);
     }
 }
