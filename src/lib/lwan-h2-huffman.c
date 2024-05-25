@@ -367,7 +367,7 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         }
 
         if (!consume(reader, 8))
-            goto fail;
+            return -1;
 
         const struct h2_huffman_code *level3 = next_level2(peeked_byte);
         if (LIKELY(level3)) {
@@ -390,8 +390,9 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
     /* FIXME: ensure we're not promoting types unnecessarily here */
     if (reader->total_bitcount) {
         const uint8_t peeked_byte = peek_byte(reader);
-        const uint8_t eos_prefix = ((1 << reader->total_bitcount) - 1)
-                                   << (8 - reader->total_bitcount);
+        const uint8_t eos_prefix =
+            (uint8_t)(((1u << reader->total_bitcount) - 1u)
+                      << (8u - reader->total_bitcount));
 
         if ((peeked_byte & eos_prefix) == eos_prefix)
             goto done;
