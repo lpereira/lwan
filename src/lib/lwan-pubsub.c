@@ -23,11 +23,10 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #if defined(LWAN_HAVE_EVENTFD)
 #include <sys/eventfd.h>
-#else
-#include <unistd.h>
 #endif
 
 #include "list.h"

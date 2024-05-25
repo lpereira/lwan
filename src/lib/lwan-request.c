@@ -930,7 +930,7 @@ try_another_file_name:
         }
 
         buffer_copy.value += r;
-        buffer_copy.len -= r;
+        buffer_copy.len -= (size_t)r;
     }
 
     close(fd);
