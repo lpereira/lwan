@@ -451,6 +451,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
     /* NOTE: This function should not return; coro_yield should be used
      * instead.  This ensures the storage for `strbuf` is alive when the
      * coroutine ends and lwan_strbuf_free() is called. */
+    char *header_start[N_HEADER_START];
     struct lwan_connection *conn = data;
     struct lwan *lwan = conn->thread->lwan;
     int fd = lwan_connection_get_fd(lwan, conn);
@@ -511,6 +512,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             .buffer = &buffer,
             .next_request = next_request,
             .error_when_n_packets = error_when_n_packets,
+            .header_start = header_start,
         };
         struct lwan_request request = {.conn = conn,
                                        .global_response_headers = &lwan->headers,
