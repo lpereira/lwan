@@ -46,8 +46,8 @@ struct lwan_request_parser_helper {
 
     struct lwan_key_value_array cookies, query_params, post_params;
 
-    char *header_start[N_HEADER_START]; /* Headers: n: start, n+1: end */
-    size_t n_header_start;              /* len(header_start) */
+    char **header_start;   /* Headers: n: start, n+1: end */
+    size_t n_header_start; /* len(header_start) */
 
     struct { /* If-Modified-Since: */
         struct lwan_value raw;
