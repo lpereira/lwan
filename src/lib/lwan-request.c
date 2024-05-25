@@ -293,14 +293,11 @@ static char *find_pct_or_plus(const char *input)
         uint64_t m = LWAN_MAX(has_plus, has_pct);
 
         if (has_zero && LWAN_MAX(has_zero, m) == has_zero) {
-            switch (__builtin_ctzll(has_zero) / 8) {
-            case 1 ... 3:
+            const int zero_pos = __builtin_ctzll(has_zero) / 8;
+            if (zero_pos >= 1 && zero_pos <= 3)
                 goto check_small;
-            case 4 ... 7:
+            if (zero_pos >= 4 && zero_pos <= 7)
                 goto check_at_least_four;
-            default:
-                return NULL;
-            }
         }
 
         if (m) {
