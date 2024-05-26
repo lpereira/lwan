@@ -331,12 +331,11 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
     struct uint8_ring_buffer *buffer = &huff->buffer;
 
     while (reader->total_bitcount > 7) {
-        if (uint8_ring_buffer_full(buffer))
-            goto done;
-
         uint8_t peeked_byte = peek_byte(reader);
         if (LIKELY(level0[peeked_byte].num_bits)) {
-            uint8_ring_buffer_put_copy(buffer, level0[peeked_byte].symbol);
+            if (!uint8_ring_buffer_try_put_copy(buffer,
+                                                level0[peeked_byte].symbol))
+                goto done;
             consume(reader, level0[peeked_byte].num_bits);
             assert(reader->total_bitcount >= 0);
             continue;
@@ -348,7 +347,9 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         const struct h2_huffman_code *level1 = next_level0(peeked_byte);
         peeked_byte = peek_byte(reader);
         if (level1[peeked_byte].num_bits) {
-            uint8_ring_buffer_put_copy(buffer, level1[peeked_byte].symbol);
+            if (!uint8_ring_buffer_try_put_copy(buffer,
+                                                level1[peeked_byte].symbol))
+                goto done;
             if (!consume(reader, level1[peeked_byte].num_bits))
                 return -1;
             continue;
@@ -360,7 +361,9 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         const struct h2_huffman_code *level2 = next_level1(peeked_byte);
         peeked_byte = peek_byte(reader);
         if (level2[peeked_byte].num_bits) {
-            uint8_ring_buffer_put_copy(buffer, level2[peeked_byte].symbol);
+            if (!uint8_ring_buffer_try_put_copy(buffer,
+                                                level2[peeked_byte].symbol))
+                goto done;
             if (!consume(reader, level2[peeked_byte].num_bits))
                 return -1;
             continue;
@@ -377,7 +380,9 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
                 goto done;
             }
             if (LIKELY(level3[peeked_byte].num_bits)) {
-                uint8_ring_buffer_put_copy(buffer, level3[peeked_byte].symbol);
+                if (!uint8_ring_buffer_try_put_copy(buffer,
+                                                    level3[peeked_byte].symbol))
+                    goto done;
                 if (!consume(reader, level3[peeked_byte].num_bits))
                     return -1;
                 continue;
@@ -398,7 +403,7 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
             goto done;
 
         if (level0[peeked_byte].num_bits == (int8_t)reader->total_bitcount) {
-            uint8_ring_buffer_put_copy(buffer, level0[peeked_byte].symbol);
+            uint8_ring_buffer_try_put_copy(buffer, level0[peeked_byte].symbol);
             goto done;
         }
 
