@@ -83,6 +83,15 @@
         rb->array[type_name_##_mask(rb->write++)] = e;                         \
     }                                                                          \
                                                                                \
+    __attribute__((unused)) static inline bool type_name_##_try_put_copy(      \
+        struct type_name_ *rb, element_type_ e)                                \
+    {                                                                          \
+        if (type_name_##_full(rb))                                             \
+            return false;                                                      \
+                                                                               \
+        rb->array[type_name_##_mask(rb->write++)] = e;                         \
+    }                                                                          \
+                                                                               \
     __attribute__((unused)) static inline bool type_name_##_try_put(           \
         struct type_name_ *rb, const element_type_ *e)                         \
     {                                                                          \
