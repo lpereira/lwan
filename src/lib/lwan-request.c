@@ -50,8 +50,6 @@
 #define HEADER_TERMINATOR_LEN (sizeof("\r\n") - 1)
 #define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
 
-static const char *next_request_empty = "";
-
 enum lwan_read_finalizer {
     FINALIZER_DONE,
     FINALIZER_TRY_AGAIN,
@@ -948,25 +946,20 @@ static enum lwan_http_status client_read(
     int n_packets = 0;
 
     if (helper->next_request) {
-        if (UNLIKELY(helper->next_request == next_request_empty)) {
-            helper->next_request = NULL;
-        } else {
-            const size_t next_request_len =
-                (size_t)(helper->next_request - buffer->value);
-            size_t new_len;
+        const size_t next_request_len =
+            (size_t)(helper->next_request - buffer->value);
+        size_t new_len;
 
-            if (__builtin_sub_overflow(buffer->len, next_request_len,
-                                       &new_len)) {
-                helper->next_request = NULL;
-            } else if (new_len) {
-                /* FIXME: This memmove() could be eventually removed if a better
-                 * stucture (maybe a ringbuffer, reading with readv(), and each
-                 * pointer is coro_strdup() if they wrap around?) were used for
-                 * the request buffer.  */
-                buffer->len = new_len;
-                memmove(buffer->value, helper->next_request, new_len);
-                goto try_to_finalize;
-            }
+        if (__builtin_sub_overflow(buffer->len, next_request_len, &new_len)) {
+            helper->next_request = NULL;
+        } else if (new_len) {
+            /* FIXME: This memmove() could be eventually removed if a better
+             * stucture (maybe a ringbuffer, reading with readv(), and each
+             * pointer is coro_strdup() if they wrap around?) were used for
+             * the request buffer.  */
+            buffer->len = new_len;
+            memmove(buffer->value, helper->next_request, new_len);
+            goto try_to_finalize;
         }
     }
 
@@ -1297,7 +1290,7 @@ get_remaining_body_data_length(struct lwan_request *request,
     if (UNLIKELY((size_t)parsed_size >= max_size))
         return HTTP_TOO_LARGE;
     if (UNLIKELY(!parsed_size)) {
-        helper->next_request = (char *)next_request_empty;
+        helper->next_request = NULL;
         *total = *have = 0;
     } else {
         *total = (size_t)parsed_size;
@@ -1313,11 +1306,12 @@ get_remaining_body_data_length(struct lwan_request *request,
 
         if (*have < *total)
             return HTTP_PARTIAL_CONTENT;
+
+        helper->next_request += *total;
     }
 
     helper->body_data.value = helper->next_request;
     helper->body_data.len = *total;
-    helper->next_request += *total;
     return HTTP_OK;
 }
 
