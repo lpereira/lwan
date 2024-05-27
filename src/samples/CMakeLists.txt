@@ -7,6 +7,7 @@ if (NOT ${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 	add_subdirectory(asyncawait)
 	add_subdirectory(pastebin)
 	add_subdirectory(smolsite)
+	add_subdirectory(send-money-json-api)
 endif()
 
 add_subdirectory(techempower)
