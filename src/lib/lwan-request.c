@@ -1290,7 +1290,7 @@ get_remaining_body_data_length(struct lwan_request *request,
     if (UNLIKELY((size_t)parsed_size >= max_size))
         return HTTP_TOO_LARGE;
     if (UNLIKELY(!parsed_size)) {
-        helper->next_request = NULL;
+        helper->body_data.value = helper->next_request = NULL;
         *total = *have = 0;
     } else {
         *total = (size_t)parsed_size;
@@ -1307,10 +1307,10 @@ get_remaining_body_data_length(struct lwan_request *request,
         if (*have < *total)
             return HTTP_PARTIAL_CONTENT;
 
+        helper->body_data.value = helper->next_request;
         helper->next_request += *total;
     }
 
-    helper->body_data.value = helper->next_request;
     helper->body_data.len = *total;
     return HTTP_OK;
 }
