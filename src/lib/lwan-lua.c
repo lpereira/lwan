@@ -44,6 +44,44 @@ ALWAYS_INLINE struct lwan_request *lwan_lua_get_request_from_userdata(lua_State 
     return *r;
 }
 
+LWAN_LUA_METHOD(http_version)
+{
+    if (request->flags & REQUEST_IS_HTTP_1_0)
+        lua_pushstring(L, "HTTP/1.0");
+    else
+        lua_pushstring(L, "HTTP/1.1");
+    return 1;
+}
+
+LWAN_LUA_METHOD(http_method)
+{
+    lua_pushstring(L, lwan_request_get_method_str(request));
+    return 1;
+}
+
+LWAN_LUA_METHOD(http_headers)
+{
+    const struct lwan_request_parser_helper *helper = request->helper;
+
+    lua_newtable(L);
+
+    for (size_t i = 0; i < helper->n_header_start; i++) {
+        const char *key = helper->header_start[i];
+        const char *key_end = strchr(key, ':');
+
+        if (!key_end)
+            break;
+
+        const char *value = key_end + 2;
+
+        lua_pushlstring(L, key, (size_t)(key_end - key));
+        lua_pushstring(L, value);
+        lua_rawset(L, -3);
+    }
+
+    return 1;
+}
+
 LWAN_LUA_METHOD(say)
 {
     size_t response_str_len;
