@@ -65,6 +65,7 @@ static const struct lwan_config default_config = {
     .allow_post_temp_file = false,
     .max_put_data_size = 10 * DEFAULT_BUFFER_SIZE,
     .allow_put_temp_file = false,
+    .max_file_descriptors = 524288,
 };
 
 LWAN_HANDLER_ROUTE(brew_coffee, NULL /* do not autodetect this route */)
@@ -663,6 +664,19 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 }
 
                 lwan->config.request_buffer_size = (size_t)request_buffer_size;
+            } else if (streq(line->key, "max_file_descriptors")) {
+                long max_file_descriptors = parse_long(
+                    line->value, (long)default_config.max_file_descriptors);
+
+                if (max_file_descriptors < 0) {
+                    config_error(conf, "Maximum number of file descriptors can't be negative");
+                } else if (max_file_descriptors > 2000000l) {
+                    config_error(conf, "2M file descriptors should be sufficient!");
+                } else if (max_file_descriptors == 0) {
+                    max_file_descriptors = default_config.max_file_descriptors;
+                }
+
+                lwan->config.max_file_descriptors = (unsigned int)max_file_descriptors;
             } else if (streq(line->key, "max_post_data_size")) {
                 long max_post_data_size = parse_long(
                     line->value, (long)default_config.max_post_data_size);
@@ -766,7 +780,7 @@ static void try_setup_from_config(struct lwan *l,
         (l->config.ssl.send_hsts_header ? REQUEST_WANTS_HSTS_HEADER : 0);
 }
 
-static rlim_t setup_open_file_count_limits(void)
+static rlim_t setup_open_file_count_limits(struct lwan *l)
 {
     struct rlimit r;
 
@@ -789,6 +803,9 @@ static rlim_t setup_open_file_count_limits(void)
             goto out;
         }
 
+        r.rlim_cur = LWAN_MIN(l->config.max_file_descriptors,
+                              r.rlim_cur);
+
         if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
             lwan_status_perror("Could not raise maximum number of file "
                                "descriptors to %" PRIu64 ". Leaving at "
@@ -798,7 +815,14 @@ static rlim_t setup_open_file_count_limits(void)
     }
 
 out:
-    return LWAN_MIN(655360ull, r.rlim_cur);
+    if (r.rlim_cur < 10 * l->thread.count) {
+        lwan_status_critical("Number of file descriptors (%ld) is smaller than 10x "
+                             "the number of threads (%d)\n",
+                             r.rlim_cur,
+                             10 * l->thread.count);
+    }
+
+    return r.rlim_cur;
 }
 
 static void allocate_connections(struct lwan *l, size_t max_open_files)
@@ -901,7 +925,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
         l->thread.count = l->config.n_threads;
     }
 
-    rlim_t max_open_files = setup_open_file_count_limits();
+    rlim_t max_open_files = setup_open_file_count_limits(l);
     allocate_connections(l, (size_t)max_open_files);
 
     l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;

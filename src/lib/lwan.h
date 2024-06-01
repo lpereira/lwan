@@ -524,6 +524,7 @@ struct lwan_config {
     unsigned int keep_alive_timeout;
     unsigned int expires;
     unsigned int n_threads;
+    unsigned int max_file_descriptors;
 
     unsigned int quiet : 1;
     unsigned int proxy_protocol : 1;

@@ -344,6 +344,7 @@ can be decided automatically, so some configuration options are provided.
 | `proxy_protocol` | `bool` | `false` | Enables the [PROXY protocol](https://www.haproxy.com/blog/haproxy/proxy-protocol/). Versions 1 and 2 are supported. Only enable this setting if using Lwan behind a proxy, and the proxy supports this protocol; otherwise, this allows anybody to spoof origin IP addresses |
 | `max_post_data_size` | `int` | `40960` | Sets the maximum number of data size for POST requests, in bytes |
 | `max_put_data_size` | `int` | `40960` | Sets the maximum number of data size for PUT requests, in bytes |
+| `max_file_descriptors` | `int` | `524288` | Maximum number of file descriptors. Needs to be at least 10x `threads` |
 | `request_buffer_size` | `int` | `4096` | Request buffer size length. If larger than the default of `4096`, it'll be dynamically allocated. |
 | `allow_temp_files` | `str` | `""` | Use temporary files; set to `post` for POST requests, `put` for PUT requests, or `all` (equivalent to setting to `post put`) for both.|
 | `error_template` | `str` | Default error template | Template for error codes. See variables below. |
