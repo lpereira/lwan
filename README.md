@@ -609,7 +609,8 @@ single script, embedded in the configuration file or otherwise, can service
 many different endpoints.  Scripts are supposed to implement functions with
 the following signature: `handle_${METHOD}_${ENDPOINT}(req)`, where
 `${METHOD}` can be a HTTP method (i.e.  `get`, `post`, `head`, etc.), and
-`${ENDPOINT}` is the desired endpoint to be handled by that function.
+`${ENDPOINT}` is the desired endpoint to be handled by that function.  A generic
+`handle(req)` function will be called if the specific version doesn't exist.
 
 > [!TIP]
 >
@@ -643,6 +644,9 @@ information from the request, or to set the response, as seen below:
    - `req:request_date()` returns the date as it'll be written in the `Date` response header.
    - `req:is_https()` returns `true` if this request is serviced through HTTPS, `false` otherwise.
    - `req:host()` returns the value of the `Host` header if present, otherwise `nil`.
+   - `req:http_version()` returns `HTTP/1.0` or `HTTP/1.1` depending on the request version.
+   - `req:http_method()` returns a string, in uppercase, with the HTTP method (e.g. `"GET"`).
+   - `req:http_headers()` returns a table with all headers and their values.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return

@@ -158,6 +158,11 @@ static bool get_handler_function(lua_State *L, struct lwan_request *request)
     memcpy(method_name, url, url_len + 1);
 
     lua_getglobal(L, handler_name);
+    if (lua_isfunction(L, -1))
+        return true;
+
+    lua_pop(L, 1);
+    lua_getglobal(L, "handle");
     return lua_isfunction(L, -1);
 }
 
