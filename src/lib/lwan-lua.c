@@ -73,9 +73,10 @@ LWAN_LUA_METHOD(http_headers)
             break;
 
         const char *value = key_end + 2;
+        const char *value_end = helper->header_start[i + 1];
 
         lua_pushlstring(L, key, (size_t)(key_end - key));
-        lua_pushstring(L, value);
+        lua_pushlstring(L, value, (size_t)(value_end - value - 2));
         lua_rawset(L, -3);
     }
 
