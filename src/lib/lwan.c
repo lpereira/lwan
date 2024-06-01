@@ -798,7 +798,7 @@ static rlim_t setup_open_file_count_limits(void)
     }
 
 out:
-    return r.rlim_cur;
+    return LWAN_MIN(655360ull, r.rlim_cur);
 }
 
 static void allocate_connections(struct lwan *l, size_t max_open_files)
