@@ -66,17 +66,21 @@ LWAN_LUA_METHOD(http_headers)
     lua_newtable(L);
 
     for (size_t i = 0; i < helper->n_header_start; i++) {
-        const char *key = helper->header_start[i];
-        const char *key_end = strchr(key, ':');
+        const char *header = helper->header_start[i];
+        const char *next_header = helper->header_start[i + 1];
+        const char *colon = memchr(header, ':', (size_t)(next_header - header));
 
-        if (!key_end)
-            break;
+        if (!colon)
+            continue;
 
-        const char *value = key_end + 2;
-        const char *value_end = helper->header_start[i + 1];
+        const ptrdiff_t header_len = colon - header;
+        const ptrdiff_t value_len = next_header - colon - 4;
 
-        lua_pushlstring(L, key, (size_t)(key_end - key));
-        lua_pushlstring(L, value, (size_t)(value_end - value - 2));
+        if (header_len < 0 || value_len < 0)
+            continue;
+
+        lua_pushlstring(L, header, (size_t)header_len);
+        lua_pushlstring(L, colon + 2, (size_t)value_len);
         lua_rawset(L, -3);
     }
 

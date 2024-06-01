@@ -2100,8 +2100,11 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
         if (!colon)
             continue;
 
-        const size_t header_len = (size_t)(colon - header);
-        const size_t value_len = (size_t)(next_header - colon - 4);
+        const ptrdiff_t header_len = colon - header;
+        const ptrdiff_t value_len = next_header - colon - 4;
+
+        if (header_len < 0 || value_len < 0)
+            continue;
 
         r = snprintf(header_name, sizeof(header_name), "HTTP_%.*s",
                      (int)header_len, header);
@@ -2120,7 +2123,7 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
             continue;
         }
 
-        cb(header_name, header_len + sizeof("HTTP_") - 1, colon + 2, value_len,
-           user_data);
+        cb(header_name, (size_t)header_len + sizeof("HTTP_") - 1, colon + 2,
+           (size_t)value_len, user_data);
     }
 }
