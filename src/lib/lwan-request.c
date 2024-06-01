@@ -1107,6 +1107,7 @@ body_data_finalizer(const struct lwan_value *buffer,
     return FINALIZER_TRY_AGAIN;
 }
 
+__attribute__((cold))
 static const char *is_dir_good_for_tmp(const char *v)
 {
     struct statfs sb;
@@ -1143,6 +1144,7 @@ static const char *is_dir_good_for_tmp(const char *v)
 static const char *temp_dir;
 static const size_t body_buffer_temp_file_thresh = 1<<20;
 
+__attribute__((cold))
 static const char *
 get_temp_dir(void)
 {
