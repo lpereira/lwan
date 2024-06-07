@@ -245,6 +245,63 @@ static void add_header_to_strbuf(const char *header,
     return add_param_len(strbuf, header, header_len, value, value_len);
 }
 
+static bool fill_addr_and_port(const struct lwan_request *r,
+                               struct lwan_strbuf *strbuf)
+{
+    const struct lwan_thread *t = r->conn->thread;
+    char local_addr_buf[INET6_ADDRSTRLEN], remote_addr_buf[INET6_ADDRSTRLEN];
+    struct sockaddr_storage sockaddr = {.ss_family = AF_UNSPEC};
+    uint16_t local_port, remote_port;
+    socklen_t len = sizeof(sockaddr);
+    const char *local_addr, *remote_addr;
+
+    if (r->conn->flags & CONN_TLS) {
+        struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&sockaddr;
+
+        if (getsockname(t->tls_listen_fd, (struct sockaddr *)&sockaddr, &len) <
+            0)
+            return false;
+
+        assert(len == sizeof(*sin6));
+
+        local_addr = inet_ntop(AF_INET6, &sin6->sin6_addr, local_addr_buf,
+                               sizeof(local_addr_buf));
+        local_port = ntohs(sin6->sin6_port);
+
+        add_param(strbuf, "HTTPS", "on");
+    } else {
+        struct sockaddr_in *sin = (struct sockaddr_in *)&sockaddr;
+
+        if (getsockname(t->listen_fd, (struct sockaddr *)&sockaddr, &len) < 0)
+            return false;
+
+        assert(len == sizeof(*sin));
+
+        local_addr = inet_ntop(AF_INET, &sin->sin_addr, local_addr_buf,
+                               sizeof(local_addr_buf));
+        local_port = ntohs(sin->sin_port);
+
+        add_param(strbuf, "HTTPS", "");
+    }
+
+    remote_addr = lwan_request_get_remote_address_and_port(r, remote_addr_buf,
+                                                           &remote_port);
+
+    if (!local_addr)
+        return false;
+
+    if (!remote_addr)
+        return false;
+
+    add_param(strbuf, "SERVER_ADDR", local_addr);
+    add_int_param(strbuf, "SERVER_PORT", local_port);
+
+    add_param(strbuf, "REMOTE_ADDR", remote_addr);
+    add_int_param(strbuf, "REMOTE_PORT", remote_port);
+
+    return true;
+}
+
 static enum lwan_http_status add_params(const struct private_data *pd,
                                         struct lwan_request *request,
                                         struct lwan_response *response)
@@ -252,31 +309,11 @@ static enum lwan_http_status add_params(const struct private_data *pd,
     const struct lwan_request_parser_helper *request_helper = request->helper;
     struct lwan_strbuf *strbuf = response->buffer;
 
-    char remote_addr[INET6_ADDRSTRLEN];
-    uint16_t remote_port;
-
-    /* FIXME: let's use some hardcoded values for now so that we can
-     *        verify that the implementation is working first */
-
     /* Very compliant. Much CGI. Wow. */
     add_param(strbuf, "GATEWAY_INTERFACE", "CGI/1.1");
 
-    add_param(strbuf, "REMOTE_ADDR",
-              lwan_request_get_remote_address_and_port(request, remote_addr,
-                                                       &remote_port));
-    add_int_param(strbuf, "REMOTE_PORT", remote_port);
-
-    add_param(strbuf, "SERVER_ADDR", "127.0.0.1");
-
-    /* FIXME: get the actual port from thread->listen_fd or
-     * thread->tls_listen_fd */
-    if (request->conn->flags & CONN_TLS) {
-        add_param(strbuf, "SERVER_PORT", "0");
-        add_param(strbuf, "HTTPS", "on");
-    } else {
-        add_param(strbuf, "SERVER_PORT", "0");
-        add_param(strbuf, "HTTPS", "");
-    }
+    if (!fill_addr_and_port(request, strbuf))
+        return HTTP_INTERNAL_ERROR;
 
     add_param(strbuf, "SERVER_SOFTWARE", "Lwan");
     add_param(strbuf, "SERVER_PROTOCOL",
