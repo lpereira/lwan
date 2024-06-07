@@ -27,7 +27,6 @@
 
 #define _GNU_SOURCE
 #include <arpa/inet.h>
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -43,7 +42,6 @@
 #include "lwan-private.h"
 
 #include "int-to-str.h"
-#include "patterns.h"
 #include "realpathat.h"
 #include "lwan-cache.h"
 #include "lwan-io-wrappers.h"
