@@ -254,34 +254,33 @@ static bool fill_addr_and_port(const struct lwan_request *r,
     uint16_t local_port, remote_port;
     socklen_t len = sizeof(sockaddr);
     const char *local_addr, *remote_addr;
+    int listen_fd;
 
     if (r->conn->flags & CONN_TLS) {
+        listen_fd = t->tls_listen_fd;
+        add_param(strbuf, "HTTPS", "on");
+    } else {
+        listen_fd = t->listen_fd;
+        add_param(strbuf, "HTTPS", "");
+    }
+
+    if (getsockname(listen_fd, (struct sockaddr *)&sockaddr, &len) < 0)
+        return false;
+
+    if (sockaddr.ss_family == AF_INET6) {
         struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&sockaddr;
-
-        if (getsockname(t->tls_listen_fd, (struct sockaddr *)&sockaddr, &len) <
-            0)
-            return false;
-
-        assert(len == sizeof(*sin6));
 
         local_addr = inet_ntop(AF_INET6, &sin6->sin6_addr, local_addr_buf,
                                sizeof(local_addr_buf));
         local_port = ntohs(sin6->sin6_port);
-
-        add_param(strbuf, "HTTPS", "on");
-    } else {
+    } else if (sockaddr.ss_family == AF_INET) {
         struct sockaddr_in *sin = (struct sockaddr_in *)&sockaddr;
-
-        if (getsockname(t->listen_fd, (struct sockaddr *)&sockaddr, &len) < 0)
-            return false;
-
-        assert(len == sizeof(*sin));
 
         local_addr = inet_ntop(AF_INET, &sin->sin_addr, local_addr_buf,
                                sizeof(local_addr_buf));
         local_port = ntohs(sin->sin_port);
-
-        add_param(strbuf, "HTTPS", "");
+    } else {
+        return false;
     }
 
     remote_addr = lwan_request_get_remote_address_and_port(r, remote_addr_buf,
