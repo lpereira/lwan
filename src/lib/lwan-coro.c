@@ -55,10 +55,12 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #ifdef LWAN_HAVE_BROTLI
-#define CORO_STACK_SIZE ((size_t)(8 * SIGSTKSZ))
+#define MIN_CORO_STACK_SIZE ((size_t)(8 * SIGSTKSZ))
 #else
-#define CORO_STACK_SIZE ((size_t)(4 * SIGSTKSZ))
+#define MIN_CORO_STACK_SIZE ((size_t)(4 * SIGSTKSZ))
 #endif
+
+#define CORO_STACK_SIZE ((MIN_CORO_STACK_SIZE + (size_t)PAGE_SIZE) & ~((size_t)PAGE_SIZE))
 
 #define CORO_BUMP_PTR_ALLOC_SIZE 1024
 
@@ -78,12 +80,6 @@ LWAN_SELF_TEST(sizes_are_same)
 
     /* Request buffer fits inside coroutine stack */
     assert(DEFAULT_BUFFER_SIZE < CORO_STACK_SIZE);
-#ifdef ALLOCATE_STACK_WITH_MMAP
-    /* Coroutine stack size is a multiple of page size */
-    assert((CORO_STACK_SIZE % PAGE_SIZE) == 0);
-    /* Coroutine stack size is at least a page long */
-    assert((CORO_STACK_SIZE >= PAGE_SIZE));
-#endif
 }
 
 typedef void (*defer1_func)(void *data);
