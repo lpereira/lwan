@@ -1721,18 +1721,31 @@ log_and_return:
     log_request(request, status, time_to_read_request, elapsed_time_ms(request_begin_time));
 }
 
-static inline void *
-value_lookup(const struct lwan_key_value_array *array, const char *key)
+static inline void *value_lookup(const struct lwan_key_value_array *array,
+                                 const char *key)
 {
+    /* Based on https://orlp.net/blog/bitwise-binary-search/ */
     const struct lwan_array *la = (const struct lwan_array *)array;
 
     if (LIKELY(la->elements)) {
-        struct lwan_key_value k = { .key = (char *)key };
-        struct lwan_key_value *entry;
+#if __SIZEOF_SIZE_T__ == 8
+        const size_t floor = 1ull << (64 - __builtin_clzll(la->elements));
+#else
+        const size_t floor = 1u << (32 - __builtin_clz(la->elements));
+#endif
+        struct lwan_value *base = (struct lwan_value *)la->base;
+        struct lwan_key_value k = {.key = (char *)key};
+        int64_t b = key_value_compare(&k, &base[la->elements / 2]) > 0
+                        ? (int64_t)(la->elements - floor)
+                        : -1;
 
-        entry = bsearch(&k, la->base, la->elements, sizeof(k), key_value_compare);
-        if (LIKELY(entry))
-            return entry->value;
+        for (uint64_t bit = floor >> 1; bit != 0; bit >>= 1) {
+            if (key_value_compare(&k, &base[b + (int64_t)bit]) > 0)
+                b += (int64_t)bit;
+        }
+
+        if (!key_value_compare(&k, &base[b + 1]))
+            return base[b + 1].value;
     }
 
     return NULL;
