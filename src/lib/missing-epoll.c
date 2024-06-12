@@ -160,6 +160,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         } else if (kev->filter == EVFILT_WRITE &&
                    kev->udata != &epoll_no_event_marker) {
             ev->events |= EPOLLOUT;
+            ev->data.ptr = kev->udata;
         }
 
         last = kev->ident;
