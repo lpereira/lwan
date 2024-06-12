@@ -1805,7 +1805,7 @@ const char *lwan_request_get_host(struct lwan_request *request)
 }
 
 const char *
-lwan_request_get_remote_address_and_port(struct lwan_request *request,
+lwan_request_get_remote_address_and_port(const struct lwan_request *request,
                                          char buffer[static INET6_ADDRSTRLEN],
                                          uint16_t *port)
 {
@@ -1847,7 +1847,7 @@ lwan_request_get_remote_address_and_port(struct lwan_request *request,
 }
 
 const char *
-lwan_request_get_remote_address(struct lwan_request *request,
+lwan_request_get_remote_address(const struct lwan_request *request,
                                 char buffer[static INET6_ADDRSTRLEN])
 {
     uint16_t port;
