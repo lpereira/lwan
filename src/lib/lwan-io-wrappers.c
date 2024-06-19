@@ -387,8 +387,8 @@ int lwan_sendfile_fd(struct lwan_request *request,
         offset += bytes_read;
 
         blocks_sent++;
-        if (blocks_sent & 3 == 0) {
-            coro_yield(request->conn->coro, CONN_CORO_WRITE);
+        if ((blocks_sent & 3) == 0) {
+            coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
         }
     }
 
