@@ -245,8 +245,6 @@ static int set_socket_options(const struct lwan *l, int fd)
     SET_SOCKET_OPTION(SOL_SOCKET, SO_LINGER,
                       (&(struct linger){.l_onoff = 1, .l_linger = 1}));
 
-    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_NODELAY, (int[]){1});
-
 #ifdef __linux__
 
 #ifndef TCP_FASTOPEN
@@ -254,6 +252,7 @@ static int set_socket_options(const struct lwan *l, int fd)
 #endif
 
     SET_SOCKET_OPTION_MAY_FAIL(SOL_SOCKET, SO_REUSEADDR, (int[]){1});
+    SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_NODELAY, (int[]){1});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_FASTOPEN, (int[]){5});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_QUICKACK, (int[]){0});
     SET_SOCKET_OPTION_MAY_FAIL(SOL_TCP, TCP_DEFER_ACCEPT,

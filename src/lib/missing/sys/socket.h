@@ -27,6 +27,10 @@
 #define MSG_MORE 0
 #endif
 
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 #ifndef SOCK_CLOEXEC
 #define SOCK_CLOEXEC 0
 #endif

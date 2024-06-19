@@ -21,6 +21,7 @@
 #pragma once
 
 #include <errno.h>
+#include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
 

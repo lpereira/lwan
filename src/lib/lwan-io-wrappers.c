@@ -270,13 +270,13 @@ int lwan_sendfile_fd(struct lwan_request *request,
     }
 }
 #elif defined(__FreeBSD__) || defined(__APPLE__)
-int lwan_sendfile(struct lwan_request *request,
-                  int out_fd,
-                  int in_fd,
-                  off_t offset,
-                  size_t count,
-                  const char *header,
-                  size_t header_len)
+int lwan_sendfile_fd(struct lwan_request *request,
+                     int out_fd,
+                     int in_fd,
+                     off_t offset,
+                     size_t count,
+                     const char *header,
+                     size_t header_len)
 {
     struct sf_hdtr headers = {.headers =
                                   (struct iovec[]){{.iov_base = (void *)header,
