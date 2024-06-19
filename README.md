@@ -12,9 +12,9 @@ Build status
 |-------------|--------|---------|-------|-----------------|------------|
 | Linux       | x86_64 | ![release](https://shield.lwan.ws/img/gycKbr/release "Release")  | ![debug](https://shield.lwan.ws/img/gycKbr/debug "Debug")     | ![static-analysis](https://shield.lwan.ws/img/gycKbr/clang-analyze "Static Analysis") ![coverity](https://scan.coverity.com/projects/375/badge.svg) [Report history](https://buildbot.lwan.ws/sa/) | ![tests](https://shield.lwan.ws/img/gycKbr/unit-tests "Test") [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/lwan.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:lwan)           |
 | Linux       | armv7  | ![release-arm](https://shield.lwan.ws/img/gycKbr/release-arm "Release")  | ![debug-arm](https://shield.lwan.ws/img/gycKbr/debug-arm "Debug")     |        |           |
-| FreeBSD     | x86_64 | ![freebsd-release](https://shield.lwan.ws/img/gycKbr/release-freebsd "Release FreeBSD") | ![freebsd-debug](https://shield.lwan.ws/img/gycKbr/debug-freebsd "Debug FreeBSD")     |                |           |
+| FreeBSD 14  | x86_64 | ![freebsd-release](https://shield.lwan.ws/img/gycKbr/release-freebsd "Release FreeBSD") | ![freebsd-debug](https://shield.lwan.ws/img/gycKbr/debug-freebsd "Debug FreeBSD")     |                |           |
 | macOS       | x86_64 | ![osx-release](https://shield.lwan.ws/img/gycKbr/release-sierra "Release macOS")       | ![osx-debug](https://shield.lwan.ws/img/gycKbr/debug-sierra "Debug macOS")     |               |          |
-| OpenBSD 6.6 | x86_64 | ![openbsd-release](https://shield.lwan.ws/img/gycKbr/release-openbsd "Release OpenBSD")       | ![openbsd-debug](https://shield.lwan.ws/img/gycKbr/debug-openbsd "Debug OpenBSD")     |               | ![openbsd-tests](https://shield.lwan.ws/img/gycKbr/openbsd-unit-tests "OpenBSD Tests")         |
+| OpenBSD 7.4 | x86_64 | ![openbsd-release](https://shield.lwan.ws/img/gycKbr/release-openbsd "Release OpenBSD")       | ![openbsd-debug](https://shield.lwan.ws/img/gycKbr/debug-openbsd "Debug OpenBSD")     |               | ![openbsd-tests](https://shield.lwan.ws/img/gycKbr/openbsd-unit-tests "OpenBSD Tests")         |
 
 Installing
 ----------
