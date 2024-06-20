@@ -897,17 +897,15 @@ static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
 
     int64_t from_coro = coro_resume_value(conn_to_resume->coro,
                                           (int64_t)(intptr_t)conn_to_yield);
-    if (LIKELY(from_coro != CONN_CORO_ABORT)) {
-        int r = update_epoll_flags(
-            tq->lwan, conn_to_resume, epoll_fd,
-            (enum lwan_connection_coro_yield)(uint32_t)from_coro);
-        if (LIKELY(!r)) {
-            timeout_queue_move_to_last(tq, conn_to_resume);
-            return;
-        }
+    if (UNLIKELY(from_coro == CONN_CORO_ABORT)) {
+        timeout_queue_expire(tq, conn_to_resume);
+        return;
     }
 
-    timeout_queue_expire(tq, conn_to_resume);
+    enum lwan_connection_coro_yield yield = (uint32_t)from_coro;
+    int r = update_epoll_flags(tq->lwan, conn_to_resume, epoll_fd, yield);
+    if (LIKELY(!r))
+        timeout_queue_move_to_last(tq, conn_to_resume);
 }
 
 static void update_date_cache(struct lwan_thread *thread)
