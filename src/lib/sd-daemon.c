@@ -216,7 +216,7 @@ int sd_listen_fds_with_names(int unset_environment, char ***names) {
         } else {
                 r = strv_extend_n(&l, "unknown", n_fds);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         *names = l;
