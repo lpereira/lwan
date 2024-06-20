@@ -27,7 +27,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 
 #if !defined(LWAN_HAVE_EPOLL) && defined(LWAN_HAVE_KQUEUE)
 #include <sys/event.h>
@@ -126,7 +126,7 @@ static int kevent_ident_cmp(const void *ptr0, const void *ptr1)
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 {
     struct epoll_event *ev = events;
-    struct kevent evs[maxevents];
+    struct kevent *evs = alloca(sizeof(*evs) * LWAN_MIN(1024, maxevents));
     struct timespec tmspec;
     int i, r;
 
@@ -137,7 +137,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
     qsort(evs, (size_t)r, sizeof(struct kevent), kevent_ident_cmp);
 
-    uintptr_t last = -1;
+    uintptr_t last = (uintptr_t)&epoll_no_event_marker;
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
 
