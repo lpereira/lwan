@@ -90,6 +90,7 @@
             return false;                                                      \
                                                                                \
         rb->array[type_name_##_mask(rb->write++)] = e;                         \
+        return true;                                                           \
     }                                                                          \
                                                                                \
     __attribute__((unused)) static inline bool type_name_##_try_put(           \
