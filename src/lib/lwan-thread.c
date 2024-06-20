@@ -820,7 +820,7 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
     if (UNLIKELY(ret < 0))
         return ret;
 
-    for (ret = 0; state.num_awaiting;) {
+    while (state.num_awaiting) {
         int64_t v = coro_yield(r->conn->coro, state.request_conn_yield);
         struct lwan_connection *conn = (struct lwan_connection *)(uintptr_t)v;
 
