@@ -46,11 +46,7 @@ global:
     lwan_append_*_to_strbuf;
     lwan_tpl_*_is_empty;
 
-    lwan_writev;
-    lwan_send;
-    lwan_sendfile;
-    lwan_recv;
-    lwan_readv;
+    lwan_*_fd;
 
     lwan_strbuf_append_char;
     lwan_strbuf_append_printf;
