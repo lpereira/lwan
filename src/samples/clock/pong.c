@@ -216,10 +216,10 @@ uint64_t pong_draw(struct pong *pong)
     if (pong->ball_y.pos >= 30.0 || pong->ball_y.pos <= 0.0)
         pong->ball_y.vel = -pong->ball_y.vel;
 
-    if (roundf(pong->ball_x.pos) == 40.0 + rand_double(13)) {
+    if (round(pong->ball_x.pos) == 40.0 + rand_double(13)) {
         pong->player_left.target_y = pong->ball_y.pos - 3.0;
         clamp(&pong->player_left.target_y, 0.0, 24.0);
-    } else if (roundf(pong->ball_x.pos) == 8 + rand_double(13)) {
+    } else if (round(pong->ball_x.pos) == 8 + rand_double(13)) {
         pong->player_right.target_y = pong->ball_y.pos - 3.0;
         clamp(&pong->player_right.target_y, 0.0, 24.0);
     }
@@ -236,7 +236,7 @@ uint64_t pong_draw(struct pong *pong)
 
     /* If the ball is in the middle, check if we need to lose and calculate
      * the endpoint to avoid/hit the ball */
-    if (roundf(pong->ball_x.pos) == 32.0) {
+    if (round(pong->ball_x.pos) == 32.0) {
         struct pong_time cur_time = {};
 
         pong_time_update(&cur_time);
@@ -280,8 +280,8 @@ draw:
     memset(pong->gif->frame, 0, 64 * 32);
     pong_draw_net(pong);
     pong_draw_time(pong);
-    pong_draw_player(pong, 0, pong->player_left.y);
-    pong_draw_player(pong, 62, pong->player_right.y);
+    pong_draw_player(pong, 0, (int)pong->player_left.y);
+    pong_draw_player(pong, 62, (int)pong->player_right.y);
     pong_draw_ball(pong);
 
     return 8;
