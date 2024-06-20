@@ -1110,7 +1110,6 @@ body_data_finalizer(const struct lwan_value *buffer,
 __attribute__((cold))
 static const char *is_dir_good_for_tmp(const char *v)
 {
-    struct statfs sb;
     struct stat st;
 
     if (!v)
@@ -1132,11 +1131,14 @@ static const char *is_dir_good_for_tmp(const char *v)
             v);
     }
 
+#ifndef __OpenBSD__ /* OpenBSD doesn't have f_type */
+    struct statfs sb;
     if (!statfs(v, &sb) && sb.f_type == TMPFS_MAGIC) {
         lwan_status_warning("%s is a tmpfs filesystem, "
                             "not considering it", v);
         return NULL;
     }
+#endif
 
     return v;
 }
