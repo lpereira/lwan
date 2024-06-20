@@ -32,9 +32,9 @@ extern const uint8_t digital_clock_font[10][5];
 
 struct tm* my_localtime(const time_t *t);
 
-static float rand_float(float scale)
+static double rand_double(double scale)
 {
-    return ((float)rand() / (float)(RAND_MAX)) * scale;
+    return ((double)rand() / (double)(RAND_MAX)) * scale;
 }
 
 static void pong_time_update(struct pong_time *pong_time)
@@ -58,9 +58,9 @@ static void pong_time_update(struct pong_time *pong_time)
 
 static void pong_init_internal(struct pong *pong, ge_GIF *gif, bool reset)
 {
-    float ball_y = rand_float(16.0f) + 8.0f;
+    double ball_y = rand_double(16.0f) + 8.0f;
     struct {
-        float y, target_y;
+        double y, target_y;
     } left, right;
 
     if (reset) {
@@ -138,12 +138,12 @@ static void pong_draw_time(const struct pong *pong)
     }
 }
 
-static float pong_calculate_end_point(const struct pong *pong, bool hit)
+static double pong_calculate_end_point(const struct pong *pong, bool hit)
 {
-    float x = pong->ball_x.pos;
-    float y = pong->ball_y.pos;
-    float vel_x = pong->ball_x.vel;
-    float vel_y = pong->ball_y.vel;
+    double x = pong->ball_x.pos;
+    double y = pong->ball_y.pos;
+    double vel_x = pong->ball_x.vel;
+    double vel_y = pong->ball_y.vel;
 
     for (;;) {
         x += vel_x;
@@ -160,7 +160,7 @@ static float pong_calculate_end_point(const struct pong *pong, bool hit)
     }
 }
 
-static void clamp(float *val, float min, float max)
+static void clamp(double *val, double min, double max)
 {
     if (*val < min) {
         *val = min;
@@ -190,9 +190,9 @@ uint64_t pong_draw(struct pong *pong)
                     pong->ball_y.vel -= 0.2f;
 
                 if (pong->ball_x.pos >= 60.0f)
-                    pong->player_right.target_y += 1.0f + rand_float(3);
+                    pong->player_right.target_y += 1.0f + rand_double(3);
                 else
-                    pong->player_left.target_y += 1.0f + rand_float(3);
+                    pong->player_left.target_y += 1.0f + rand_double(3);
             } else {
                 if (pong->ball_y.vel > 0.5f)
                     pong->ball_y.vel -= 0.2f;
@@ -200,9 +200,9 @@ uint64_t pong_draw(struct pong *pong)
                     pong->ball_y.vel += 0.2f;
 
                 if (pong->ball_x.pos >= 60.0f)
-                    pong->player_right.target_y -= 1.0f + rand_float(3);
+                    pong->player_right.target_y -= 1.0f + rand_double(3);
                 else
-                    pong->player_left.target_y -= 1.0f + rand_float(3);
+                    pong->player_left.target_y -= 1.0f + rand_double(3);
             }
 
             clamp(&pong->player_left.target_y, 0.0f, 24.0f);
@@ -216,10 +216,10 @@ uint64_t pong_draw(struct pong *pong)
     if (pong->ball_y.pos >= 30.0f || pong->ball_y.pos <= 0.0f)
         pong->ball_y.vel = -pong->ball_y.vel;
 
-    if (roundf(pong->ball_x.pos) == 40.0f + rand_float(13)) {
+    if (roundf(pong->ball_x.pos) == 40.0f + rand_double(13)) {
         pong->player_left.target_y = pong->ball_y.pos - 3.0f;
         clamp(&pong->player_left.target_y, 0.0f, 24.0f);
-    } else if (roundf(pong->ball_x.pos) == 8 + rand_float(13)) {
+    } else if (roundf(pong->ball_x.pos) == 8 + rand_double(13)) {
         pong->player_right.target_y = pong->ball_y.pos - 3.0f;
         clamp(&pong->player_right.target_y, 0.0f, 24.0f);
     }
@@ -254,9 +254,9 @@ uint64_t pong_draw(struct pong *pong)
                 pong_calculate_end_point(pong, pong->player_loss != -1) - 3;
             if (pong->player_loss == -1) { /* We need to lose */
                 if (pong->player_left.target_y < 16)
-                    pong->player_left.target_y = 19 + rand_float(5);
+                    pong->player_left.target_y = 19 + rand_double(5);
                 else
-                    pong->player_left.target_y = rand_float(5);
+                    pong->player_left.target_y = rand_double(5);
             }
 
             clamp(&pong->player_left.target_y, 0.0f, 24.0f);
@@ -265,9 +265,9 @@ uint64_t pong_draw(struct pong *pong)
                 pong_calculate_end_point(pong, pong->player_loss != 1) - 3;
             if (pong->player_loss == 1) { /* We need to lose */
                 if (pong->player_right.target_y < 16)
-                    pong->player_right.target_y = 19 + rand_float(5);
+                    pong->player_right.target_y = 19 + rand_double(5);
                 else
-                    pong->player_right.target_y = rand_float(5);
+                    pong->player_right.target_y = rand_double(5);
             }
 
             clamp(&pong->player_right.target_y, 0.0f, 24.0f);
