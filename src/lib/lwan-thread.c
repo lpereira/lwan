@@ -733,7 +733,7 @@ static int prepare_awaitv(struct lwan_request *r,
 
     *state = (struct awaitv_state){
         .num_awaiting = 0,
-        .request_conn_yield = CONN_CORO_YIELD,
+        .request_conn_yield = CONN_CORO_SUSPEND,
     };
 
     clear_awaitv_flags(l->conns, ap);
@@ -817,8 +817,12 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
     int ret = prepare_awaitv(r, l, ap, &state);
     va_end(ap);
 
-    if (UNLIKELY(ret < 0))
-        return ret;
+    if (UNLIKELY(ret < 0)) {
+        errno = -ret;
+        lwan_status_perror("prepare_awaitv()");
+        coro_yield(r->conn->coro, CONN_CORO_ABORT);
+        __builtin_unreachable();
+    }
 
     while (state.num_awaiting) {
         int64_t v = coro_yield(r->conn->coro, state.request_conn_yield);
