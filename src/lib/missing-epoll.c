@@ -137,7 +137,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 
     qsort(evs, (size_t)r, sizeof(struct kevent), kevent_ident_cmp);
 
-    int last = -1;
+    uintptr_t last = -1;
     for (i = 0; i < r; i++) {
         struct kevent *kev = &evs[i];
 
