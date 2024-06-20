@@ -37,12 +37,12 @@ struct pong_time {
 struct pong {
     ge_GIF *gif;
     struct {
-        float pos;
-        float vel;
+        double pos;
+        double vel;
     } ball_x, ball_y;
     struct {
-        int y;
-        float target_y;
+        double y;
+        double target_y;
     } player_left, player_right;
     int player_loss;
     int game_stopped;
