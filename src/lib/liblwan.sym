@@ -30,12 +30,12 @@ global:
 
     lwan_set_url_map;
 
-    lwan_status_critical;
-    lwan_status_critical_perror;
-    lwan_status_error;
-    lwan_status_info;
-    lwan_status_perror;
-    lwan_status_warning;
+    lwan_status_critical*;
+    lwan_status_critical_perror*;
+    lwan_status_error*;
+    lwan_status_info*;
+    lwan_status_perror*;
+    lwan_status_warning*;
 
     lwan_tpl_apply;
     lwan_tpl_apply_with_buffer;
