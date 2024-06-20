@@ -519,7 +519,7 @@ long int lwan_getentropy(void *buffer, size_t buffer_len, int flags)
     (void)flags;
 
     if (!getentropy(buffer, buffer_len))
-        return buffer_len;
+        return 0;
 
     return lwan_getentropy_fallback(buffer, buffer_len);
 }
