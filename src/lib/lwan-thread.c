@@ -1359,7 +1359,7 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
         fclose(sib);
     }
 
-    /* Perform a sanity check here, as some systems seem to filter out the
+    /* Perform some validation here, as some systems seem to filter out the
      * result of sysconf() to obtain the number of configured and online
      * CPUs but don't bother changing what's available through sysfs as far
      * as the CPU topology information goes.  It's better to fall back to a
@@ -1404,8 +1404,11 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
         }
     }
 
-    if (n_schedtbl != l->available_cpus)
-        memcpy(schedtbl, seen, l->available_cpus * sizeof(int));
+    for (uint32_t i = 0; i < l->available_cpus && n_schedtbl < l->available_cpus; i++) {
+        if (seen[i] == -1) {
+            schedtbl[n_schedtbl++] = i;
+        }
+    }
 
     free(seen);
 }
@@ -1414,31 +1417,21 @@ static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
     uint32_t *siblings = calloc(l->available_cpus, sizeof(uint32_t));
+    bool ret = false;
 
-    if (!siblings)
-        lwan_status_critical("Could not allocate siblings array");
+    if (siblings) {
+        if (read_cpu_topology(l, siblings)) {
+            siblings_to_schedtbl(l, siblings, schedtbl);
+            ret = true;
+        } else {
+            for (uint32_t i = 0; i < n_threads; i++)
+                schedtbl[i] = (i / 2) % l->thread.count;
+        }
 
-    if (read_cpu_topology(l, siblings)) {
-        uint32_t *affinity = calloc(l->available_cpus, sizeof(uint32_t));
-
-        if (!affinity)
-            lwan_status_critical("Could not allocate affinity array");
-
-        siblings_to_schedtbl(l, siblings, affinity);
-
-        for (uint32_t i = 0; i < n_threads; i++)
-            schedtbl[i] = affinity[i % l->available_cpus];
-
-        free(affinity);
         free(siblings);
-        return true;
     }
 
-    for (uint32_t i = 0; i < n_threads; i++)
-        schedtbl[i] = (i / 2) % l->thread.count;
-
-    free(siblings);
-    return false;
+    return ret;
 }
 
 static void
