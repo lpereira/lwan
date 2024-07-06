@@ -78,7 +78,7 @@ if (ZSTD_FOUND)
 	set(LWAN_HAVE_ZSTD 1)
 endif ()
 
-option(ENABLE_TLS "Enable support for TLS (Linux-only)" "ON")
+option(ENABLE_TLS "Enable support for TLS (Linux-only)" "OFF")
 if (ENABLE_TLS)
 	check_include_file(linux/tls.h LWAN_HAVE_LINUX_TLS_H)
 	if (LWAN_HAVE_LINUX_TLS_H)
