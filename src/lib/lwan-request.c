@@ -1723,33 +1723,45 @@ log_and_return:
     log_request(request, status, time_to_read_request, elapsed_time_ms(request_begin_time));
 }
 
-static inline void *value_lookup(const struct lwan_key_value_array *array,
-                                 const char *key)
+static inline const char *value_lookup(const struct lwan_key_value_array *array,
+                                       const char *key)
 {
     /* Based on https://orlp.net/blog/bitwise-binary-search/ */
     const struct lwan_array *la = (const struct lwan_array *)array;
+    struct lwan_key_value *base = (struct lwan_key_value *)la->base;
+    struct lwan_key_value k = { .key = (char *)key };
 
     if (LIKELY(la->elements)) {
+        size_t n = la->elements;
+        size_t b = 0;
+        size_t bit;
+
+        /*
+         * Determine highest power of 2 <= size of array, ensure n is non-zero.
+         * We use __builtin_clz* to calculate the position of highest set bit.
+         */
 #if __SIZEOF_SIZE_T__ == 8
-        const size_t floor = 1ull << (64 - __builtin_clzll(la->elements));
+        bit = 1ull << (63 - __builtin_clzll(n | 1));  // 64-bit systems
 #else
-        const size_t floor = 1u << (32 - __builtin_clz(la->elements));
+        bit = 1u << (31 - __builtin_clz(n | 1));      // 32-bit systems
 #endif
-        struct lwan_value *base = (struct lwan_value *)la->base;
-        struct lwan_key_value k = {.key = (char *)key};
-        int64_t b = key_value_compare(&k, &base[la->elements / 2]) > 0
-                        ? (int64_t)(la->elements - floor)
-                        : -1;
 
-        for (uint64_t bit = floor >> 1; bit != 0; bit >>= 1) {
-            if (key_value_compare(&k, &base[b + (int64_t)bit]) > 0)
-                b += (int64_t)bit;
+        /*
+         * Bitwise search for the key using a modified lower bound approach.
+         * The loop uses a bitmask to converge on the index of the correct key.
+         */
+        for (; bit != 0; bit >>= 1) {
+            size_t i = (b | bit) - 1;  // Calculate index using bitwise OR and decrement
+            if (i < n && key_value_compare(&k, &base[i]) >= 0) {
+                b |= bit;  // Set the bit in b if the condition is met
+            }
         }
-
-        if (!key_value_compare(&k, &base[b + 1]))
-            return base[b + 1].value;
+        // After finding potential index, check if it exactly matches the key.
+        if (key_value_compare(&k, &base[b]) == 0) {
+            return base[b].value;
+        }
     }
-
+    // If no match, return NULL.
     return NULL;
 }
 
