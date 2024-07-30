@@ -1751,15 +1751,14 @@ static inline const char *value_lookup(const struct lwan_key_value_array *array,
          * The loop uses a bitmask to converge on the index of the correct key.
          */
         for (; bit != 0; bit >>= 1) {
-            size_t i = (b | bit) - 1;  // Calculate index using bitwise OR and decrement
-            if (i < n && key_value_compare(&k, &base[i]) >= 0) {
-                b |= bit;  // Set the bit in b if the condition is met
-            }
+            size_t i = b | bit;
+            // Check boundary and compare
+            if (i <= n && key_value_compare(&k, &base[i - 1]) >= 0)
+                b = i; // Update index
         }
-        // After finding potential index, check if it exactly matches the key.
-        if (key_value_compare(&k, &base[b]) == 0) {
-            return base[b].value;
-        }
+        // Final match check
+        if (b <= n && key_value_compare(&k, &base[b - 1]) == 0)
+            return base[b - 1].value; // Return value
     }
     // If no match, return NULL.
     return NULL;
