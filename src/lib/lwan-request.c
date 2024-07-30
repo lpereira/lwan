@@ -1730,41 +1730,19 @@ log_and_return:
 static inline const char *value_lookup(const struct lwan_key_value_array *array,
                                        const char *key)
 {
-    /* Based on https://orlp.net/blog/bitwise-binary-search/ */
     const struct lwan_array *la = (const struct lwan_array *)array;
     struct lwan_key_value *base = (struct lwan_key_value *)la->base;
     struct lwan_key_value k = { .key = (char *)key };
 
     if (LIKELY(la->elements)) {
-        size_t n = la->elements;
-        size_t b = 0;
-        size_t bit;
+        struct lwan_key_value k = { .key = (char *)key };
+        struct lwan_key_value *entry;
 
-        /*
-         * Determine highest power of 2 <= size of array, ensure n is non-zero.
-         * We use __builtin_clz* to calculate the position of highest set bit.
-         */
-#if __SIZEOF_SIZE_T__ == 8
-        bit = 1ull << (63 - __builtin_clzll(n | 1));  // 64-bit systems
-#else
-        bit = 1u << (31 - __builtin_clz(n | 1));      // 32-bit systems
-#endif
-
-        /*
-         * Bitwise search for the key using a modified lower bound approach.
-         * The loop uses a bitmask to converge on the index of the correct key.
-         */
-        for (; bit != 0; bit >>= 1) {
-            size_t i = b | bit;
-            // Check boundary and compare
-            if (i <= n && key_value_compare(&k, &base[i - 1]) >= 0)
-                b = i; // Update index
-        }
-        // Final match check
-        if (b <= n && key_value_compare(&k, &base[b - 1]) == 0)
-            return base[b - 1].value; // Return value
+        entry = bsearch(&k, la->base, la->elements, sizeof(k), key_value_compare);
+        if (LIKELY(entry))
+            return entry->value;
     }
-    // If no match, return NULL.
+
     return NULL;
 }
 
