@@ -637,6 +637,10 @@ static ALWAYS_INLINE ssize_t find_headers(char **header_start,
         next_chr = next_header + HEADER_TERMINATOR_LEN;
         if (UNLIKELY(next_chr >= buffer_end))
             return -1;
+
+        /* Avoid request smuggling. More info: https://github.com/lpereira/lwan/issues/368 */
+        if (UNLIKELY(next_header[1] != '\n'))
+            return -1;
     }
 
 out:

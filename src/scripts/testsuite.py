@@ -908,6 +908,17 @@ class TestCache(LwanTest):
     requests.get('http://127.0.0.1:8080/100.html')
     self.assertEqual(self.count_mmaps('/100.html'), 1)
 
+
+class TestHeaderParsing(SocketTest):
+  def test_check_for_crlf(self):
+    # https://github.com/lpereira/lwan/issues/368
+    req = '''GET /hello HTTP/1.1\r\nHost: a\rXContent-Length: 31\r\n\r\nGET /evil HTTP/1.1\r\nHost: a\r\n\r\n'''
+
+    with self.connect() as sock:
+      sock.send(req)
+      response = sock.recv(4096)
+      self.assertTrue(response.startswith('HTTP/1.1 400 Bad request'))
+
 class TestProxyProtocolRequests(SocketTest):
   def test_proxy_version1(self):
     proxy = "PROXY TCP4 192.168.242.221 192.168.242.242 56324 31337\r\n"
