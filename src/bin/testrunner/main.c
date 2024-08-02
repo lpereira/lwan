@@ -80,6 +80,21 @@ LWAN_HANDLER(test_server_sent_event)
     return HTTP_OK;
 }
 
+LWAN_HANDLER(get_query_string)
+{
+    const char *q = lwan_request_get_query_param(request, "q");
+    if (!q)
+        return HTTP_BAD_REQUEST;
+
+    const char *v = lwan_request_get_query_param(request, q);
+    if (!v)
+        return HTTP_NOT_FOUND;
+
+    response->mime_type = "text/plain";
+    lwan_strbuf_printf(response->buffer, "%s = %s", q, v);
+    return HTTP_OK;
+}
+
 LWAN_HANDLER(test_proxy)
 {
     struct lwan_key_value *headers = coro_malloc(request->conn->coro, sizeof(*headers) * 2);

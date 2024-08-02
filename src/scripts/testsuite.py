@@ -708,6 +708,26 @@ class TestAuthentication(LwanTest):
       self.assertEqual(r.text, 'Hello, world!')
 
 
+class TestQueryString(LwanTest):
+  def test_query_string(self):
+    r = requests.get('http://localhost:8080/get-query-string')
+    self.assertEqual(r.status_code, 400)
+
+    r = requests.get('http://localhost:8080/get-query-string?q=a')
+    self.assertResponse404(r)
+
+    r = requests.get('http://localhost:8080/get-query-string?q=a&a=10&b=20')
+    self.assertHttpResponseValid(r, 200, 'text/plain')
+    self.assertEqual(r.text, 'a = 10')
+
+    r = requests.get('http://localhost:8080/get-query-string?b=20&q=b&a=10')
+    self.assertHttpResponseValid(r, 200, 'text/plain')
+    self.assertEqual(r.text, 'b = 20')
+
+    r = requests.get('http://localhost:8080/get-query-string?b=20&q=a&c=30')
+    self.assertResponse404(r)
+
+
 class TestHelloWorld(LwanTest):
   def test_request_id(self):
     all_request_ids = set()
