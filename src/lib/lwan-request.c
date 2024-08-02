@@ -614,12 +614,19 @@ static ALWAYS_INLINE ssize_t find_headers(char **header_start,
             return -1;
 
         if (next_chr == next_header) {
-            if (buffer_end - next_chr >= (ptrdiff_t)HEADER_TERMINATOR_LEN) {
-                STRING_SWITCH_SMALL (next_header) {
-                case STR2_INT('\r', '\n'):
-                    *next_request = next_header + HEADER_TERMINATOR_LEN;
-                }
-            }
+            ptrdiff_t remaining = buffer_end - next_chr;
+
+            if (UNLIKELY(remaining < (ptrdiff_t)HEADER_TERMINATOR_LEN))
+                return -1;
+
+            /* next_chr[0] is guaranteed to be '\r'. See comment below regarding
+             * request smuggling. */
+            if (UNLIKELY(next_chr[1] != '\n'))
+                return -1;
+
+            if (remaining > (ptrdiff_t)HEADER_TERMINATOR_LEN)
+                *next_request = next_header + HEADER_TERMINATOR_LEN;
+
             goto out;
         }
 
