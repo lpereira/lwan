@@ -199,7 +199,11 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
 
     assert(cache);
     assert(error);
-    assert(key);
+#ifndef NDEBUG
+    if (cache->key.copy != identity_key_copy) {
+        assert(key);
+    }
+#endif
 
     *error = 0;
 
