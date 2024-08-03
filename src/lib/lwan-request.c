@@ -1738,8 +1738,6 @@ static inline const char *value_lookup(const struct lwan_key_value_array *array,
                                        const char *key)
 {
     const struct lwan_array *la = (const struct lwan_array *)array;
-    struct lwan_key_value *base = (struct lwan_key_value *)la->base;
-    struct lwan_key_value k = { .key = (char *)key };
 
     if (LIKELY(la->elements)) {
         struct lwan_key_value k = { .key = (char *)key };
