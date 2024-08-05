@@ -21,9 +21,7 @@ if (MARIADB_FOUND AND SQLITE_FOUND)
         include_directories(BEFORE ${CMAKE_BINARY_DIR})
 
         if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
-                find_package(PythonInterp 3)
-
-                if (PYTHONINTERP_FOUND)
+                if (Python3_Interpreter_FOUND)
                        add_dependencies(generate-coverage techempower)
                 endif()
         endif ()

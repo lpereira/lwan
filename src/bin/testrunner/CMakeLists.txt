@@ -8,11 +8,9 @@ target_link_libraries(testrunner
 )
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
-	find_package(PythonInterp 3)
-
-	if (PYTHONINTERP_FOUND)
+	if (Python3_Interpreter_FOUND)
 		setup_target_for_coverage(generate-coverage
-			"${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}"
+			"${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}"
 			coverage
 		)
 		add_dependencies(generate-coverage testrunner)
