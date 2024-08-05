@@ -1,52 +1,32 @@
 include(FindPkgConfig)
 pkg_check_modules(SQLITE sqlite3>=3.6.20)
+pkg_check_modules(MARIADB mariadb>=3.3)
 
-find_path(MYSQL_INCLUDE_DIR mysql.h
-	/usr/local/include/mysql
-	/usr/include/mysql
-	/usr/local/include/mariadb
-	/usr/include/mariadb
-)
+if (MARIADB_FOUND AND SQLITE_FOUND)
+        add_executable(techempower
+                techempower.c
+                json.c
+                database.c
+        )
 
-if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
-	message(STATUS "Found MySQL includes at ${MYSQL_INCLUDE_DIR}")
-	include_directories(AFTER ${MYSQL_INCLUDE_DIR})
+        target_link_libraries(techempower
+                ${LWAN_COMMON_LIBS}
+                ${ADDITIONAL_LIBRARIES}
+                ${SQLITE_LIBRARIES}
+                ${SQLITE_LDFLAGS}
+                ${MARIADB_LDFLAGS}
+                ${MARIADB_LIBRARIES}
+        )
+        include_directories(${SQLITE_INCLUDE_DIRS} ${MARIADB_INCLUDE_DIRS})
+        include_directories(BEFORE ${CMAKE_BINARY_DIR})
 
-	set(MYSQL_NAMES mysqlclient mysqlclient_r)
-	find_library(MYSQL_LIBRARY
-		NAMES ${MYSQL_NAMES}
-		PATH_SUFFIXES mysql
-	)
+        if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
+                find_package(PythonInterp 3)
 
-	if (MYSQL_LIBRARY)
-		message(STATUS "Found MySQL client library at ${MYSQL_LIBRARY}")
-
-		add_executable(techempower
-			techempower.c
-			json.c
-			database.c
-		)
-
-		target_link_libraries(techempower
-			${LWAN_COMMON_LIBS}
-			${ADDITIONAL_LIBRARIES}
-			${SQLITE_LIBRARIES}
-			${SQLITE_LDFLAGS}
-			${MYSQL_LIBRARY}
-		)
-		include_directories(${SQLITE_INCLUDE_DIRS})
-		include_directories(BEFORE ${CMAKE_BINARY_DIR})
-
-		if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
-		        find_package(PythonInterp 3)
-
-		        if (PYTHONINTERP_FOUND)
-                               add_dependencies(generate-coverage techempower)
-		        endif()
-		endif ()
-	endif ()
-endif ()
-
-if (NOT MYSQL_LIBRARY)
+                if (PYTHONINTERP_FOUND)
+                       add_dependencies(generate-coverage techempower)
+                endif()
+        endif ()
+else ()
 	message(STATUS "Not building benchmark suite: database libraries not found.")
 endif ()
