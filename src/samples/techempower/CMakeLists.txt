@@ -4,6 +4,8 @@ pkg_check_modules(SQLITE sqlite3>=3.6.20)
 find_path(MYSQL_INCLUDE_DIR mysql.h
 	/usr/local/include/mysql
 	/usr/include/mysql
+	/usr/local/include/mariadb
+	/usr/include/mariadb
 )
 
 if (MYSQL_INCLUDE_DIR AND SQLITE_FOUND)
