@@ -24,6 +24,13 @@ for arg in sys.argv[1:]:
     BUILD_DIR = arg
     sys.argv.remove(arg)
 
+HOME_DIR = "."
+with open(f"{BUILD_DIR}/CMakeCache.txt", "r") as cache:
+  for line in cache.readlines():
+    if line.startswith("CMAKE_HOME_DIRECTORY:INTERNAL"):
+      _, HOME_DIR = line.strip().split("=")
+      break
+
 if os.getenv('REQUESTS_DEBUG'):
   logging.basicConfig()
   logging.getLogger().setLevel(logging.DEBUG)
@@ -62,7 +69,7 @@ class LwanTest(unittest.TestCase):
     self.files_to_remove = []
     for file_to_copy in self.files_to_copy[harness]:
       base = os.path.basename(file_to_copy)
-      shutil.copyfile(file_to_copy, base)
+      shutil.copyfile(f'{HOME_DIR}/{file_to_copy}', base)
       self.files_to_remove.append(base)
 
     open('htpasswd', 'w').close()
@@ -1041,14 +1048,14 @@ class TestFuzzRegressionBase(SocketTest):
 
   @staticmethod
   def wrap(name):
-    with open(os.path.join("fuzz", "regression", name), "rb") as f:
+    with open(os.path.join(HOME_DIR, "fuzz", "regression", name), "rb") as f:
       contents = str(f.read(), "latin-1")
     def run_test_wrapped(self):
       return self.run_test(contents)
     return run_test_wrapped
 
 def only_request_fuzzer_regression():
-  for path in os.listdir("fuzz/regression"):
+  for path in os.listdir(f"{HOME_DIR}/fuzz/regression"):
     if not "request_fuzzer" in path:
       continue
     if path.startswith(("clusterfuzz-", "crash-")):

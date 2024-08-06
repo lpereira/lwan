@@ -8,12 +8,15 @@ target_link_libraries(testrunner
 )
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
+	include(CodeCoverage)
+
 	if (Python3_Interpreter_FOUND)
-		setup_target_for_coverage(generate-coverage
-			"${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}"
-			coverage
+		setup_target_for_coverage_lcov(
+			NAME generate-coverage
+			EXECUTABLE ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}
+			DEPENDENCIES testrunner
+			BASE_DIRECTORY "${CMAKE_SOURCE_DIR}"
 		)
-		add_dependencies(generate-coverage testrunner)
 		message(STATUS "Python found; generate-coverage target enabled")
 	else ()
 		message(STATUS "Python not found; coverage report disabled")
