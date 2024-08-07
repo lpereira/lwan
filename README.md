@@ -61,14 +61,6 @@ The build system will look for these libraries and enable/link if available.
     - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
 
-> [!NOTE]
->
-> On some systems,
-> [libucontext](https://github.com/kaniini/libucontext) will be downloaded
-> and built alongside Lwan.  This will require a network connection, so keep
-> this in mind when packaging Lwan for non-x86_64 or non-aarch64
-> architectures.
-
 ### Common operating system package names
 
 #### Minimum to build

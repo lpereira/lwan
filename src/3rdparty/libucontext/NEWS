@@ -1,0 +1,133 @@
+Changes from 1.1 to 1.2
+-----------------------
+
+* Added Loongarch64 port.
+
+* Added OpenRISC (or1k) port.
+
+* Fixed various build system issues:
+  - libucontext_posix.so is no longer underlinked
+  - Executable stacks are now disabled when using GNU-like toolchains
+  - CPPFLAGS is used consistently
+  - Users may now build on Darwin without using Meson
+
+* aarch64 now implements the necessary SIMD register save/restore as
+  mandatory in AAPCS64.
+  Patches contributed by Richard Campbell.
+
+Changes from 1.0 to 1.1
+-----------------------
+
+* Added RISC-V RV32 port.
+
+* Cleaned up use of _GNU_SOURCE in C code.
+  Partially from patches contributed by osy.
+
+* Added automatic detection of armv7l architecture.
+  Patch contributed by Leandro Pereira.
+
+* Fixed installation path of libucontext_posix.a.
+
+* Work around deficiency in clang built-in assembler on AArch64 targets.
+  Patch contributed by osy.
+
+Changes from 0.13.1 to 1.0
+--------------------------
+
+* Implement common libucontext_trampoline, written in C with inline
+  assembly.
+
+* Added Renesas / Hitachi SH-2/SH-4 port (sh).
+
+* Added Meson build system, primarily for the convenience of using
+  libucontext with qemu as a subproject.
+
+* Added support for Mach-O ABI.
+
+* Fixed deficiencies in libucontext ABI, SONAME has been bumped due
+  to the ABI regressions in 0.13.
+
+Changes from 0.13 to 0.13.1
+---------------------------
+
+* Fix installation of libucontext.pc.
+  Patch contributed by Ömer Faruk IRMAK.
+
+Changes from 0.12 to 0.13
+-------------------------
+
+* Aligned RISC-V RV64 port's header usage with musl 1.2 to remove
+  warnings and ensure consistent register name usage.
+
+* Added Motorola 680X0 / NXP ColdFire port (m68k).
+
+* Added support for building for bare-metal targets with newlib via
+  make FREESTANDING=yes.  Other OS are also supported (for example,
+  the m68k freestanding port was tested on AmigaOS), PowerPC requires
+  kernel assistance and cannot be built with FREESTANDING=yes.  Not
+  all ports have support for FREESTANDING yet, patches welcome.
+
+Changes from 0.11 to 0.12
+-------------------------
+
+* Fixed compilation of RISC-V RV64 port with modern musl releases.
+
+Changes from 0.10 to 0.11
+-------------------------
+
+* Added RISC-V RV64 port.
+
+* Fixed compilation with clang.
+  Patch contributed by Khem Raj.
+
+* Add ${LIBDIR} variable to build system.
+  Patch contributed by Khem Raj.
+
+Changes from 0.9.0 to 0.10
+--------------------------
+
+* Added MIPS O32 and MIPS N64 ports.
+  MIPS N32 ABI is theoretically supported by ARCH=mips64 with
+  a MIPS N32 toolchain, but this has not been tested.
+
+* Improved test program (test_libucontext) verbosity.
+
+* Modernized all architectures to use common assembly
+  macros, such as REG_OFFSET(reg), FUNC() and ALIAS().
+
+* Added debugging hints to assembly functions for GDB.
+
+* Automatically alias i386/i686 to x86 in makefile.
+  Patch contributed by Gabriel Ivascu.
+
+Changes from 0.1.3 to 0.9.0
+---------------------------
+
+* Pass ${LDFLAGS} when linking the libucontext library.
+  Patch contributed by Khem Raj.
+
+* Fix clobbering of the first stack argument on x86.
+  Patch contributed by A. Wilcox.
+
+* Add support for building a static libucontext.
+  Patches contributed by Gabriel Ivascu.
+
+* Rewrite ppc/ppc64 implementation to fully use the
+  swapcontext(3) syscall.
+  Patches contributed by Bobby Bingham.
+
+Changes from 0.1.1 to 0.1.3
+---------------------------
+
+* Fix register clobbering on x86_64.
+  Patches contributed by A. Wilcox and Timo Teräs.
+
+Changes from 0.1.0 to 0.1.1
+---------------------------
+
+* Added S390X port.
+
+* Cleaned up the ppc/ppc64 trampoline.
+
+* Fixed up GOT clobbering and removed a textrel from the x86
+  trampoline.

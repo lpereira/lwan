@@ -147,13 +147,13 @@ if (LWAN_HAVE_LIBUCONTEXT)
 	include(ExternalProject)
 
 	ExternalProject_Add(libucontext
-		GIT_REPOSITORY https://github.com/kaniini/libucontext
+		SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/3rdparty/libucontext
 
 		BUILD_IN_SOURCE ON
 
 		CONFIGURE_COMMAND ""
-		BUILD_COMMAND make
-		INSTALL_COMMAND make install DESTDIR=${CMAKE_BINARY_DIR}
+		BUILD_COMMAND make libucontext.a FREESTANDING=yes
+		INSTALL_COMMAND make install-static install-headers DESTDIR=${CMAKE_BINARY_DIR} FREESTANDING=yes
 
 		BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/lib/libucontext.a
 
@@ -162,7 +162,7 @@ if (LWAN_HAVE_LIBUCONTEXT)
 	)
 	add_dependencies(lwan-static libucontext)
 
-	set(ADDITIONAL_LIBRARIES ${CMAKE_BINARY_DIR}/lib/libucontext.a ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
+	set(ADDITIONAL_LIBRARIES ${CMAKE_BINARY_DIR}/usr/lib/libucontext.a ${ADDITIONAL_LIBRARIES} PARENT_SCOPE)
 	include_directories(${CMAKE_BINARY_DIR}/usr/include)
 else ()
 	message(STATUS "Using built-in context switching routines for ${CMAKE_SYSTEM_PROCESSOR} processors")
