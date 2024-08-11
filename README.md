@@ -58,7 +58,7 @@ The build system will look for these libraries and enable/link if available.
     - [Weighttp](https://github.com/lpereira/weighttp) -- bundled and built alongside Lwan for convenience
     - [Matplotlib](https://github.com/matplotlib/matplotlib)
  - To build TechEmpower benchmark suite:
-    - Client libraries for either [MySQL](https://dev.mysql.com) or [MariaDB](https://mariadb.org)
+    - Client libraries for [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
 
 ### Common operating system package names
@@ -70,10 +70,10 @@ The build system will look for these libraries and enable/link if available.
  - macOS: `brew install cmake`
 
 #### Build with all optional features
- - ArchLinux: `pacman -S cmake zlib sqlite luajit libmariadbclient gperftools valgrind mbedtls`
+ - ArchLinux: `pacman -S cmake zlib sqlite luajit mariadb-libs gperftools valgrind mbedtls`
  - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
- - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmysqlclient-dev libmbedtls-dev`
- - macOS: `brew install cmake mysql-connector-c sqlite lua@5.1 pkg-config`
+ - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmariadb-dev libmbedtls-dev`
+ - macOS: `brew install cmake mariadb-connector-c sqlite lua@5.1 pkg-config`
 
 ### Build commands
 
@@ -111,7 +111,7 @@ This will generate a few binaries:
  - `src/bin/lwan/lwan`: The main Lwan executable. May be executed with `--help` for guidance.
  - `src/bin/testrunner/testrunner`: Contains code to execute the test suite (`src/scripts/testsuite.py`).
  - `src/samples/freegeoip/freegeoip`: [FreeGeoIP sample implementation](https://freegeoip.lwan.ws). Requires SQLite.
- - `src/samples/techempower/techempower`: Code for the TechEmpower Web Framework benchmark. Requires SQLite and MySQL libraries.
+ - `src/samples/techempower/techempower`: Code for the TechEmpower Web Framework benchmark. Requires SQLite and MariaDB libraries.
  - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a GIF file that always shows the local time.
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during the build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include. Used during the build process.
