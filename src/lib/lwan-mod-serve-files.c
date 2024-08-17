@@ -663,10 +663,7 @@ static bool dirlist_init(struct file_cache_entry *ce,
 
     ce->mime_type = "text/html";
 
-    struct lwan_value rendered = {
-        .value = lwan_strbuf_get_buffer(&dd->rendered),
-        .len = lwan_strbuf_get_length(&dd->rendered),
-    };
+    struct lwan_value rendered = lwan_strbuf_to_value(&dd->rendered);
     deflate_value(&rendered, &dd->deflated);
 #if defined(LWAN_HAVE_BROTLI)
     brotli_value(&rendered, &dd->brotli, &dd->deflated);

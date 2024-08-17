@@ -192,8 +192,7 @@ static void build_response_headers(struct lwan *l,
 
     lwan_strbuf_append_strz(&strbuf, "\r\n\r\n");
 
-    l->headers = (struct lwan_value){.value = lwan_strbuf_get_buffer(&strbuf),
-                                     .len = lwan_strbuf_get_length(&strbuf)};
+    l->headers = lwan_strbuf_to_value(&strbuf);
 }
 
 static void parse_global_headers(struct config *c,

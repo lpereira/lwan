@@ -475,10 +475,7 @@ try_initiating_chunked_response(struct lwan_request *request)
     char *header_start[N_HEADER_START];
     char *next_request;
     enum lwan_http_status status_code = HTTP_OK;
-    struct lwan_value buffer = {
-        .value = lwan_strbuf_get_buffer(response->buffer),
-        .len = lwan_strbuf_get_length(response->buffer),
-    };
+    struct lwan_value buffer = lwan_strbuf_to_value(response->buffer);
 
     assert(!(request->flags &
              (RESPONSE_CHUNKED_ENCODING | RESPONSE_SENT_HEADERS)));

@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "lwan-private.h"
@@ -437,4 +438,16 @@ struct lwan_strbuf *lwan_strbuf_new_from_file(const char *path)
 
     free(strbuf);
     return NULL;
+}
+
+struct lwan_value lwan_strbuf_to_value(const struct lwan_strbuf *s)
+{
+    return (struct lwan_value){.value = lwan_strbuf_get_buffer(s),
+                               .len = lwan_strbuf_get_length(s)};
+}
+
+struct iovec lwan_strbuf_to_iovec(const struct lwan_strbuf *s)
+{
+    return (struct iovec){.iov_base = lwan_strbuf_get_buffer(s),
+                          .iov_len = lwan_strbuf_get_length(s)};
 }
