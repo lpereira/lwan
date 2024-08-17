@@ -4,23 +4,17 @@ if (CMAKE_CROSSCOMPILING)
 endif ()
 
 set(SOURCES
-	base64.c
-	hash.c
-	int-to-str.c
-	list.c
+        lwan-arena.c
 	lwan-array.c
 	lwan.c
 	lwan-cache.c
 	lwan-config.c
 	lwan-coro.c
+	lwan-h2-huffman.c
 	lwan-http-authorize.c
 	lwan-io-wrappers.c
 	lwan-job.c
-	lwan-mod-redirect.c
-	lwan-mod-response.c
-	lwan-mod-rewrite.c
-	lwan-mod-serve-files.c
-	lwan-mod-fastcgi.c
+	lwan-pubsub.c
 	lwan-readahead.c
 	lwan-request.c
 	lwan-response.c
@@ -35,16 +29,26 @@ set(SOURCES
 	lwan-tq.c
 	lwan-trie.c
 	lwan-websocket.c
-	lwan-pubsub.c
+
+	lwan-mod-fastcgi.c
+	lwan-mod-redirect.c
+	lwan-mod-response.c
+	lwan-mod-rewrite.c
+	lwan-mod-serve-files.c
+
 	missing.c
-	missing-pthread.c
 	missing-epoll.c
+	missing-pthread.c
+
+	base64.c
+	hash.c
+	int-to-str.c
+	list.c
 	patterns.c
 	realpathat.c
 	sd-daemon.c
 	sha1.c
 	timeout.c
-	lwan-h2-huffman.c
 )
 
 if (LWAN_HAVE_LUA)

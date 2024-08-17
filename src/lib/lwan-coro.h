@@ -22,6 +22,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #if defined(__x86_64__)
 typedef uintptr_t coro_context[10];
