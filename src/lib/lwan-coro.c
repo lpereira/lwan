@@ -62,7 +62,7 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 
 #define CORO_STACK_SIZE ((MIN_CORO_STACK_SIZE + (size_t)PAGE_SIZE) & ~((size_t)PAGE_SIZE))
 
-#define CORO_BUMP_PTR_ALLOC_SIZE 1024
+#define CORO_BUMP_PTR_ALLOC_SIZE PAGE_SIZE
 
 #if (!defined(NDEBUG) && defined(MAP_STACK)) || defined(__OpenBSD__)
 /* As an exploit mitigation, OpenBSD requires any stacks to be allocated via
