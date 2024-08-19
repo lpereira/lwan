@@ -75,10 +75,7 @@ enum lexeme_type {
 
 struct lexeme {
     enum lexeme_type type;
-    struct {
-        const char *value;
-        size_t len;
-    } value;
+    struct lwan_value value;
 };
 
 DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)
@@ -266,7 +263,7 @@ static void emit(struct lexer *lexer, enum lexeme_type type)
 {
     struct lexeme lexeme = {
         .type = type,
-        .value = {.value = lexer->start, .len = current_len(lexer)},
+        .value = {.value = (char *)lexer->start, .len = current_len(lexer)},
     };
     emit_lexeme(lexer, &lexeme);
 }
@@ -569,8 +566,7 @@ static void *parse_key_value(struct parser *parser)
         if (lexeme->type != LEXEME_STRING)
             return PARSER_ERROR(parser, "Expecting string");
 
-        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                               lexeme->value.len);
+        lwan_strbuf_append_value(&parser->strbuf, &lexeme->value);
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, '_');
@@ -621,8 +617,7 @@ static void *parse_key_value(struct parser *parser)
                     "Using default value of '%.*s' for variable '${%.*s}'",
                     (int)lexeme->value.len, lexeme->value.value,
                     (int)var_name->value.len, var_name->value.value);
-                lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                                       lexeme->value.len);
+                lwan_strbuf_append_value(&parser->strbuf, &lexeme->value);
             } else {
                 lwan_strbuf_append_strz(&parser->strbuf, value);
             }
@@ -638,8 +633,7 @@ static void *parse_key_value(struct parser *parser)
             if (last_lexeme == LEXEME_STRING)
                 lwan_strbuf_append_char(&parser->strbuf, ' ');
 
-            lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                                   lexeme->value.len);
+            lwan_strbuf_append_value(&parser->strbuf, &lexeme->value);
 
             break;
 
@@ -683,8 +677,7 @@ static void *parse_section(struct parser *parser)
     if (!lexeme || lexeme->type != LEXEME_STRING)
         return PARSER_ERROR(parser, "Expecting a string");
 
-    lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                           lexeme->value.len);
+    lwan_strbuf_append_value(&parser->strbuf, &lexeme->value);
     name_len = lexeme->value.len;
     lwan_strbuf_append_char(&parser->strbuf, '\0');
 
@@ -692,8 +685,7 @@ static void *parse_section(struct parser *parser)
         if (lexeme->type != LEXEME_STRING)
             return PARSER_ERROR(parser, "Expecting a string");
 
-        lwan_strbuf_append_str(&parser->strbuf, lexeme->value.value,
-                               lexeme->value.len);
+        lwan_strbuf_append_value(&parser->strbuf, &lexeme->value);
 
         if (!lexeme_ring_buffer_empty(&parser->buffer))
             lwan_strbuf_append_char(&parser->strbuf, ' ');

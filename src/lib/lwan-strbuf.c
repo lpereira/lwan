@@ -451,3 +451,9 @@ struct iovec lwan_strbuf_to_iovec(const struct lwan_strbuf *s)
     return (struct iovec){.iov_base = lwan_strbuf_get_buffer(s),
                           .iov_len = lwan_strbuf_get_length(s)};
 }
+
+bool lwan_strbuf_append_value(struct lwan_strbuf *s1,
+                              const struct lwan_value *s2)
+{
+    return lwan_strbuf_append_str(s1, s2->value, s2->len);
+}
