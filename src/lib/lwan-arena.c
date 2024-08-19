@@ -39,7 +39,7 @@ void arena_destroy(struct arena *a)
     arena_init(a);
 }
 
-static void *arena_bump_ptr(struct arena *a, size_t sz)
+static inline void *arena_bump_ptr(struct arena *a, size_t sz)
 {
     void *ptr = a->bump_ptr_alloc.ptr;
 
@@ -56,7 +56,8 @@ void *arena_alloc(struct arena *a, size_t sz)
     sz = (sz + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
 
     if (a->bump_ptr_alloc.remaining < sz) {
-        void *ptr = malloc(LWAN_MAX((size_t)PAGE_SIZE, sz));
+        size_t alloc_sz = LWAN_MAX((size_t)PAGE_SIZE, sz);
+        void *ptr = malloc(alloc_sz);
 
         if (UNLIKELY(!ptr))
             return NULL;
@@ -70,7 +71,7 @@ void *arena_alloc(struct arena *a, size_t sz)
         *saved_ptr = ptr;
 
         a->bump_ptr_alloc.ptr = ptr;
-        a->bump_ptr_alloc.remaining = PAGE_SIZE;
+        a->bump_ptr_alloc.remaining = alloc_sz;
     }
 
     return arena_bump_ptr(a, sz);
