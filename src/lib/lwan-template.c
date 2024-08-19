@@ -1117,6 +1117,8 @@ static bool post_process_template(struct parser *parser)
                     break;
             }
 
+            assert(prev_chunk->flags & FLAGS_NO_FREE);
+
             struct chunk_descriptor *cd = malloc(sizeof(*cd));
             if (!cd)
                 lwan_status_critical_perror("malloc");
@@ -1151,6 +1153,8 @@ static bool post_process_template(struct parser *parser)
                     }
                 }
             }
+
+            assert(prev_chunk->flags & FLAGS_NO_FREE);
 
             struct chunk_descriptor *cd = malloc(sizeof(*cd));
             if (!cd)
