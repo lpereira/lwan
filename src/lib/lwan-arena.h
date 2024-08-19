@@ -23,7 +23,7 @@
 #include "lwan-array.h"
 #include "lwan-coro.h"
 
-DEFINE_ARRAY_TYPE(ptr_array, void *)
+DEFINE_ARRAY_TYPE_INLINEFIRST(ptr_array, void *)
 
 struct arena {
     struct ptr_array ptrs;
