@@ -616,7 +616,7 @@ static bool build_stdin_records(struct lwan_request *request,
                     return false;
                 }
                 iovec_array_reset(iovec_array);
-                arena_destroy(arena);
+                arena_reset(arena);
             }
 
             to_send -= block_size;

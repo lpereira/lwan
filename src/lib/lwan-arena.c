@@ -28,7 +28,7 @@ void arena_init(struct arena *a)
     a->bump_ptr_alloc.remaining = 0;
 }
 
-void arena_destroy(struct arena *a)
+void arena_reset(struct arena *a)
 {
     void **iter;
 
@@ -77,10 +77,10 @@ void *arena_alloc(struct arena *a, size_t sz)
     return arena_bump_ptr(a, sz);
 }
 
-static void destroy_arena(void *data)
+static void reset_arena(void *data)
 {
     struct arena *arena = data;
-    arena_destroy(arena);
+    arena_reset(arena);
 }
 
 struct arena *coro_arena_new(struct coro *coro)
@@ -89,7 +89,7 @@ struct arena *coro_arena_new(struct coro *coro)
 
     if (LIKELY(arena)) {
         arena_init(arena);
-        coro_defer(coro, destroy_arena, arena);
+        coro_defer(coro, reset_arena, arena);
     }
 
     return arena;
