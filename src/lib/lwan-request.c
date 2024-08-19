@@ -77,8 +77,6 @@ struct proxy_header_v2 {
     } addr;
 };
 
-static char *ignore_leading_whitespace(char *buffer) __attribute__((pure));
-
 
 static bool
 parse_ascii_port(char *port, unsigned short *out)
@@ -783,14 +781,6 @@ parse_accept_encoding(struct lwan_request *request)
     }
 }
 
-static ALWAYS_INLINE char *
-ignore_leading_whitespace(char *buffer)
-{
-    while (lwan_char_isspace(*buffer))
-        buffer++;
-    return buffer;
-}
-
 static ALWAYS_INLINE void parse_connection_header(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
@@ -1349,8 +1339,6 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
         if (UNLIKELY(!buffer))
             return HTTP_BAD_REQUEST;
     }
-
-    buffer = ignore_leading_whitespace(buffer);
 
     if (UNLIKELY(buffer > helper->buffer->value + helper->buffer->len -
                                MIN_REQUEST_SIZE))
