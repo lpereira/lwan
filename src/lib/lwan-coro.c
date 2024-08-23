@@ -164,6 +164,7 @@ asm(".text\n\t"
     "movq   %rcx,64(%rdi)\n\t"
     "leaq   0x8(%rsp),%rcx\n\t"
     "movq   %rcx,72(%rdi)\n\t"
+    "movq   72(%rsi),%rsp\n\t"
     "movq   0(%rsi),%rbx\n\t"
     "movq   8(%rsi),%rbp\n\t"
     "movq   16(%rsi),%r12\n\t"
@@ -171,9 +172,8 @@ asm(".text\n\t"
     "movq   32(%rsi),%r14\n\t"
     "movq   40(%rsi),%r15\n\t"
     "movq   48(%rsi),%rdi\n\t"
-    "movq   56(%rsi),%rsi\n\t"
     "movq   64(%rsi),%rcx\n\t"
-    "movq   72(%rsi),%rsp\n\t"
+    "movq   56(%rsi),%rsi\n\t"
     "jmpq   *%rcx\n\t");
 #elif defined(__aarch64__)
 void __attribute__((noinline, visibility("internal")))
