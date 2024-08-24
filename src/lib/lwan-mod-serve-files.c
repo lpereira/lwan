@@ -50,6 +50,10 @@
 #include <zstd.h>
 #endif
 
+#define MMAP_SIZE_THRESHOLD 16384
+#define MINCORE_CALL_THRESHOLD 10
+#define MINCORE_VEC_LEN(len) (((len) + PAGE_SIZE - 1) / PAGE_SIZE)
+
 static const struct lwan_key_value deflate_compression_hdr[] = {
     {"Content-Encoding", "deflate"}, {}
 };
@@ -113,6 +117,7 @@ struct mmap_cache_data {
 #if defined(LWAN_HAVE_ZSTD)
     struct lwan_value zstd;
 #endif
+    int mincore_call_threshold;
 };
 
 struct sendfile_cache_data {
@@ -544,6 +549,8 @@ static bool mmap_init(struct file_cache_entry *ce,
     ce->mime_type =
         lwan_determine_mime_type_for_file_name(full_path + priv->root_path_len);
 
+    md->mincore_call_threshold = MINCORE_CALL_THRESHOLD;
+
     return true;
 }
 
@@ -755,7 +762,7 @@ static const struct cache_funcs *get_funcs(struct serve_files_priv *priv,
 
     /* It's not a directory: choose the fastest way to serve the file
      * judging by its size. */
-    if (st->st_size < 16384)
+    if (st->st_size < MMAP_SIZE_THRESHOLD)
         return &mmap_funcs;
 
     return &sendfile_funcs;
@@ -1251,6 +1258,28 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
     if (compression_hdr)
         return serve_value_ok(request, fce->mime_type, to_serve,
                               compression_hdr);
+
+#ifdef LWAN_HAVE_MINCORE
+    if (md->mincore_call_threshold-- == 0) {
+        unsigned char mincore_vec[MINCORE_VEC_LEN(MMAP_SIZE_THRESHOLD)];
+
+        if (!mincore(to_serve->value, to_serve->len, mincore_vec)) {
+            const size_t pgs = MINCORE_VEC_LEN(to_serve->len);
+
+            for (size_t pg = 0; pg < pgs; pg++) {
+                if (mincore_vec[pg] & 0x01)
+                    continue;
+
+                /* FIXME: madvise only the page that's not in core */
+                lwan_madvise_queue(to_serve->value, to_serve->len);
+                coro_yield(request->conn->coro, CONN_CORO_WANT_WRITE);
+                break;
+            }
+        }
+
+        md->mincore_call_threshold = MINCORE_CALL_THRESHOLD;
+    }
+#endif
 
     off_t from, to;
     enum lwan_http_status status =

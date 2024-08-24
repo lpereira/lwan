@@ -49,6 +49,7 @@
 #cmakedefine LWAN_HAVE_SYSLOG
 #cmakedefine LWAN_HAVE_STPCPY
 #cmakedefine LWAN_HAVE_EVENTFD
+#cmakedefine LWAN_HAVE_MINCORE
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine LWAN_HAVE_BUILTIN_CLZLL
