@@ -723,7 +723,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                 } else {
                     config_error(conf, "Only one site may be configured");
                 }
-            } else if (streq(line->key, "straitjacket")) {
+            } else if (streq(line->key, "straitjacket") || streq(line->key, "straightjacket")) {
                 lwan_straitjacket_enforce_from_config(conf);
             } else if (streq(line->key, "headers")) {
                 parse_global_headers(conf, lwan);
