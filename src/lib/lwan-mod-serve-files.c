@@ -117,7 +117,7 @@ struct mmap_cache_data {
 #if defined(LWAN_HAVE_ZSTD)
     struct lwan_value zstd;
 #endif
-    int mincore_call_threshold;
+    unsigned int mincore_call_threshold;
 };
 
 struct sendfile_cache_data {
@@ -1260,8 +1260,10 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
                               compression_hdr);
 
 #ifdef LWAN_HAVE_MINCORE
-    if (md->mincore_call_threshold-- == 0) {
+    if (ATOMIC_DEC(md->mincore_call_threshold) == 0) {
         unsigned char mincore_vec[MINCORE_VEC_LEN(MMAP_SIZE_THRESHOLD)];
+
+        md->mincore_call_threshold = MINCORE_CALL_THRESHOLD;
 
         if (!mincore(to_serve->value, to_serve->len, mincore_vec)) {
             const size_t pgs = MINCORE_VEC_LEN(to_serve->len);
@@ -1276,8 +1278,6 @@ static enum lwan_http_status mmap_serve(struct lwan_request *request,
                 break;
             }
         }
-
-        md->mincore_call_threshold = MINCORE_CALL_THRESHOLD;
     }
 #endif
 
