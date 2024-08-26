@@ -21,6 +21,23 @@
 #include "lwan-private.h"
 #include "lwan-arena.h"
 
+#if !defined(NDEBUG) && defined(LWAN_HAVE_VALGRIND)
+#define INSTRUMENT_FOR_VALGRIND
+#include <valgrind.h>
+#include <memcheck.h>
+#endif
+
+#if defined(__clang__)
+# if defined(__has_feature) && __has_feature(address_sanitizer)
+#  define __SANITIZE_ADDRESS__
+# endif
+#endif
+#if defined(__SANITIZE_ADDRESS__)
+#define INSTRUMENT_FOR_ASAN
+void __asan_poison_memory_region(void const volatile *addr, size_t size);
+void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
+#endif
+
 void arena_init(struct arena *a)
 {
     ptr_array_init(&a->ptrs);
@@ -39,24 +56,12 @@ void arena_reset(struct arena *a)
     arena_init(a);
 }
 
-static inline void *arena_bump_ptr(struct arena *a, size_t sz)
+void *arena_alloc(struct arena *a, const size_t sz)
 {
-    void *ptr = a->bump_ptr_alloc.ptr;
+    const size_t aligned_sz = (sz + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
 
-    assert(a->bump_ptr_alloc.remaining >= sz);
-
-    a->bump_ptr_alloc.remaining -= sz;
-    a->bump_ptr_alloc.ptr = (char *)a->bump_ptr_alloc.ptr + sz;
-
-    return ptr;
-}
-
-void *arena_alloc(struct arena *a, size_t sz)
-{
-    sz = (sz + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
-
-    if (a->bump_ptr_alloc.remaining < sz) {
-        size_t alloc_sz = LWAN_MAX((size_t)PAGE_SIZE, sz);
+    if (a->bump_ptr_alloc.remaining < aligned_sz) {
+        const size_t alloc_sz = LWAN_MAX((size_t)PAGE_SIZE, aligned_sz);
         void *ptr = malloc(alloc_sz);
 
         if (UNLIKELY(!ptr))
@@ -72,9 +77,28 @@ void *arena_alloc(struct arena *a, size_t sz)
 
         a->bump_ptr_alloc.ptr = ptr;
         a->bump_ptr_alloc.remaining = alloc_sz;
+
+#if defined(INSTRUMENT_FOR_ASAN)
+        __asan_poison_memory_region(ptr, alloc_sz);
+#endif
+#if defined(INSTRUMENT_FOR_VALGRIND)
+        VALGRIND_MAKE_MEM_NOACCESS(ptr, alloc_sz);
+#endif
     }
 
-    return arena_bump_ptr(a, sz);
+    void *ptr = a->bump_ptr_alloc.ptr;
+
+#if defined(INSTRUMENT_FOR_VALGRIND)
+    VALGRIND_MAKE_MEM_UNDEFINED(ptr, sz);
+#endif
+#if defined(INSTRUMENT_FOR_ASAN)
+    __asan_unpoison_memory_region(ptr, sz);
+#endif
+
+    a->bump_ptr_alloc.remaining -= aligned_sz;
+    a->bump_ptr_alloc.ptr = (char *)ptr + aligned_sz;
+
+    return ptr;
 }
 
 static void reset_arena(void *data)

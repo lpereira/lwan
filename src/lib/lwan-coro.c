@@ -30,6 +30,7 @@
 
 #include "lwan-private.h"
 
+#include "lwan-arena.h"
 #include "lwan-array.h"
 #include "lwan-coro.h"
 
@@ -37,17 +38,6 @@
 #define INSTRUMENT_FOR_VALGRIND
 #include <valgrind.h>
 #include <memcheck.h>
-#endif
-
-#if defined(__clang__)
-# if defined(__has_feature) && __has_feature(address_sanitizer)
-#  define __SANITIZE_ADDRESS__
-# endif
-#endif
-#if defined(__SANITIZE_ADDRESS__)
-#define INSTRUMENT_FOR_ASAN
-void __asan_poison_memory_region(void const volatile *addr, size_t size);
-void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #if !defined(SIGSTKSZ)
@@ -61,8 +51,6 @@ void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
 #endif
 
 #define CORO_STACK_SIZE ((MIN_CORO_STACK_SIZE + (size_t)PAGE_SIZE) & ~((size_t)PAGE_SIZE))
-
-#define CORO_BUMP_PTR_ALLOC_SIZE PAGE_SIZE
 
 #if (!defined(NDEBUG) && defined(MAP_STACK)) || defined(__OpenBSD__)
 /* As an exploit mitigation, OpenBSD requires any stacks to be allocated via
@@ -109,12 +97,7 @@ struct coro {
 
     int64_t yield_value;
 
-    struct {
-        /* This allocator is instrumented on debug builds using asan and/or valgrind, if
-         * enabled during configuration time.  See coro_malloc_bump_ptr() for details. */
-        void *ptr;
-        size_t remaining;
-    } bump_ptr_alloc;
+    struct arena arena;
 
 #if defined(INSTRUMENT_FOR_VALGRIND)
     unsigned int vg_stack_id;
@@ -271,8 +254,8 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
     unsigned char *stack = coro->stack;
 
     coro_deferred_run(coro, 0);
+    arena_reset(&coro->arena);
     coro_defer_array_reset(&coro->defer);
-    coro->bump_ptr_alloc.remaining = 0;
 
 #if defined(__x86_64__)
     /* coro_entry_point() for x86-64 has 3 arguments, but RDX isn't
@@ -340,6 +323,7 @@ coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
 #endif
 
     coro_defer_array_init(&coro->defer);
+    arena_init(&coro->arena);
 
     coro->switcher = switcher;
     coro_reset(coro, function, data);
@@ -390,6 +374,7 @@ void coro_free(struct coro *coro)
     assert(coro);
 
     coro_deferred_run(coro, 0);
+    arena_reset(&coro->arena);
     coro_defer_array_reset(&coro->defer);
 
 #if defined(INSTRUMENT_FOR_VALGRIND)
@@ -498,121 +483,9 @@ void *coro_malloc_full(struct coro *coro,
     return ptr;
 }
 
-#if defined(INSTRUMENT_FOR_VALGRIND) || defined(INSTRUMENT_FOR_ASAN)
-static void instrument_bpa_free(void *ptr, void *size)
-{
-#if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MAKE_MEM_NOACCESS(ptr, (size_t)(uintptr_t)size);
-#endif
-
-#if defined(INSTRUMENT_FOR_ASAN)
-    __asan_poison_memory_region(ptr, (size_t)(uintptr_t)size);
-#endif
-}
-#endif
-
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-static inline void *coro_malloc_bump_ptr(struct coro *coro,
-                                         size_t aligned_size,
-                                         size_t requested_size)
-#else
-static inline void *coro_malloc_bump_ptr(struct coro *coro, size_t aligned_size)
-#endif
-{
-    void *ptr = coro->bump_ptr_alloc.ptr;
-
-    coro->bump_ptr_alloc.remaining -= aligned_size;
-    coro->bump_ptr_alloc.ptr = (char *)ptr + aligned_size;
-
-    /* This instrumentation is desirable to find buffer overflows, but it's not
-     * cheap. Enable it only in debug builds (for Valgrind) or when using
-     * address sanitizer (always the case when fuzz-testing on OSS-Fuzz). See:
-     * https://blog.fuzzing-project.org/65-When-your-Memory-Allocator-hides-Security-Bugs.html
-     */
-
-#if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MAKE_MEM_UNDEFINED(ptr, requested_size);
-#endif
-#if defined(INSTRUMENT_FOR_ASAN)
-    __asan_unpoison_memory_region(ptr, requested_size);
-#endif
-#if defined(INSTRUMENT_FOR_VALGRIND) || defined(INSTRUMENT_FOR_ASAN)
-    coro_defer2(coro, instrument_bpa_free, ptr,
-                (void *)(uintptr_t)requested_size);
-#endif
-
-    return ptr;
-}
-
-#if defined(INSTRUMENT_FOR_ASAN) || defined(INSTRUMENT_FOR_VALGRIND)
-#define CORO_MALLOC_BUMP_PTR(coro_, aligned_size_, requested_size_)            \
-    coro_malloc_bump_ptr(coro_, aligned_size_, requested_size_)
-#else
-#define CORO_MALLOC_BUMP_PTR(coro_, aligned_size_, requested_size_)            \
-    coro_malloc_bump_ptr(coro_, aligned_size_)
-#endif
-
-static void free_bump_ptr(void *arg1, void *arg2)
-{
-    struct coro *coro = arg1;
-
-#if defined(INSTRUMENT_FOR_VALGRIND)
-    VALGRIND_MAKE_MEM_UNDEFINED(arg2, CORO_BUMP_PTR_ALLOC_SIZE);
-#endif
-#if defined(INSTRUMENT_FOR_ASAN)
-    __asan_unpoison_memory_region(arg2, CORO_BUMP_PTR_ALLOC_SIZE);
-#endif
-
-    /* Instead of checking if bump_ptr_alloc.ptr is part of the allocation
-     * with base in arg2, just zero out the arena for this coroutine to
-     * prevent coro_malloc() from carving up this and any other
-     * (potentially) freed arenas.  */
-    coro->bump_ptr_alloc.remaining = 0;
-
-    return free(arg2);
-}
-
 void *coro_malloc(struct coro *coro, size_t size)
 {
-    /* The bump pointer allocator can't be in the generic coro_malloc_full()
-     * since destroy_funcs are supposed to free the memory. In this function, we
-     * guarantee that the destroy_func is free(), so that if an allocation goes
-     * through the bump pointer allocator, there's nothing that needs to be done
-     * to free the memory (other than freeing the whole bump pointer arena with
-     * the defer call below).  */
-
-    const size_t aligned_size =
-        (size + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
-
-    if (LIKELY(coro->bump_ptr_alloc.remaining >= aligned_size))
-        return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
-
-    /* This will allocate as many "bump pointer arenas" as necessary; the
-     * old ones will be freed automatically as each allocations coro_defers
-     * the free() call.   Just don't bother allocating an arena larger than
-     * CORO_BUMP_PTR_ALLOC.  */
-    if (LIKELY(aligned_size <= CORO_BUMP_PTR_ALLOC_SIZE)) {
-        coro->bump_ptr_alloc.ptr = malloc(CORO_BUMP_PTR_ALLOC_SIZE);
-        if (UNLIKELY(!coro->bump_ptr_alloc.ptr))
-            return NULL;
-
-        coro->bump_ptr_alloc.remaining = CORO_BUMP_PTR_ALLOC_SIZE;
-
-#if defined(INSTRUMENT_FOR_ASAN)
-        __asan_poison_memory_region(coro->bump_ptr_alloc.ptr,
-                                    CORO_BUMP_PTR_ALLOC_SIZE);
-#endif
-#if defined(INSTRUMENT_FOR_VALGRIND)
-        VALGRIND_MAKE_MEM_NOACCESS(coro->bump_ptr_alloc.ptr,
-                                   CORO_BUMP_PTR_ALLOC_SIZE);
-#endif
-
-        coro_defer2(coro, free_bump_ptr, coro, coro->bump_ptr_alloc.ptr);
-
-        return CORO_MALLOC_BUMP_PTR(coro, aligned_size, size);
-    }
-
-    return coro_malloc_full(coro, size, free);
+    return arena_alloc(&coro->arena, size);
 }
 
 char *coro_strndup(struct coro *coro, const char *str, size_t max_len)

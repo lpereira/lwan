@@ -38,4 +38,4 @@ void arena_init(struct arena *a);
 struct arena *coro_arena_new(struct coro *coro);
 void arena_reset(struct arena *a);
 
-void *arena_alloc(struct arena *a, size_t sz);
+void *arena_alloc(struct arena *a, const size_t sz);

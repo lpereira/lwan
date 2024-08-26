@@ -479,7 +479,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
 
     if (request_buffer_size > DEFAULT_BUFFER_SIZE) {
         buffer = (struct lwan_value){
-            .value = coro_malloc(conn->coro, request_buffer_size),
+            .value = coro_malloc_full(conn->coro, request_buffer_size, free),
             .len = request_buffer_size,
         };
 
