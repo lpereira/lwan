@@ -60,7 +60,8 @@ static pthread_t readahead_self;
 static long page_size = PAGE_SIZE;
 
 #ifdef _SC_PAGESIZE
-__attribute__((constructor)) static void get_page_size(void)
+LWAN_CONSTRUCTOR()
+static void get_page_size(void)
 {
     long ps = sysconf(_SC_PAGESIZE);
 

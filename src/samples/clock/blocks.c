@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "lwan-private.h"
 #include "blocks.h"
 
 enum shape {
@@ -175,7 +176,7 @@ static const struct fall *fall[] = {
 
 static int block_sizes[10];
 
-__attribute__((constructor)) void calculate_block_sizes(void)
+LWAN_CONSTRUCTOR() void calculate_block_sizes(void)
 {
     for (int i = 0; i < 10; i++) {
         const struct fall *instr = fall[i];

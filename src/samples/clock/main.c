@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <limits.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-template.h"
 #include "lwan-mod-redirect.h"
 #include "gifenc.h"
@@ -245,7 +245,7 @@ static const struct lwan_var_descriptor index_desc[] = {
 
 static struct lwan_tpl *index_tpl;
 
-__attribute__((constructor)) static void initialize_template(void)
+LWAN_CONSTRUCTOR() static void initialize_template(void)
 {
     static const char index[] =
         "<html>\n"

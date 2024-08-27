@@ -1112,7 +1112,8 @@ get_temp_dir(void)
     return NULL;
 }
 
-__attribute__((constructor)) static void initialize_temp_dir(void)
+LWAN_CONSTRUCTOR()
+static void initialize_temp_dir(void)
 {
     temp_dir = get_temp_dir();
 }

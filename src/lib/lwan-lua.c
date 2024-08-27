@@ -425,7 +425,7 @@ static int luaopen_log(lua_State *L)
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
 static struct lwan_lua_method_array lua_methods;
 
-__attribute__((constructor))
+LWAN_CONSTRUCTOR()
 __attribute__((no_sanitize_address))
 static void register_lua_methods(void)
 {

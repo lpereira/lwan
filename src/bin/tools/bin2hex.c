@@ -26,11 +26,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 
 static int constructor_attr_supported = 0;
 
-__attribute__((constructor))
+LWAN_CONSTRUCTOR()
 static void initialize_constructor_attr_supported(void)
 {
     constructor_attr_supported = 1;

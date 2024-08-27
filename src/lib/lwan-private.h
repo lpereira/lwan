@@ -28,6 +28,12 @@
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 2048
 
+#if defined(__APPLE__)
+# define LWAN_CONSTRUCTOR(prio_)	__attribute__((constructor))
+#else
+# define LWAN_CONSTRUCTOR(prio_)	__attribute__((constructor(prio_)))
+#endif
+
 struct lwan_request_parser_helper {
     struct lwan_value *buffer; /* The whole request buffer */
     char *next_request;        /* For pipelined requests */

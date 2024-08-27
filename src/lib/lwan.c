@@ -975,7 +975,8 @@ void lwan_main_loop(struct lwan *l)
 }
 
 #ifdef CLOCK_MONOTONIC_COARSE
-__attribute__((constructor)) static void detect_fastest_monotonic_clock(void)
+LWAN_CONSTRUCTOR()
+static void detect_fastest_monotonic_clock(void)
 {
     struct timespec ts;
 

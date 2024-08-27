@@ -243,7 +243,8 @@ out:
     lwan_strbuf_free(&buf);
 }
 
-__attribute__((constructor)) static void register_lwan_to_syslog(void)
+LWAN_CONSTRUCTOR()
+static void register_lwan_to_syslog(void)
 {
     openlog("lwan", LOG_NDELAY | LOG_PID | LOG_CONS, LOG_USER);
 }
