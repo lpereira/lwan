@@ -869,6 +869,39 @@ static char *dup_or_null(const char *s)
     return s ? strdup(s) : NULL;
 }
 
+DEFINE_ARRAY_TYPE(constructor_array, struct lwan_constructor_callback_info)
+
+static int constructor_sort(const void *a, const void *b)
+{
+    const struct lwan_constructor_callback_info *ca = a;
+    const struct lwan_constructor_callback_info *cb = b;
+    return (ca->prio < cb->prio) - (ca->prio > cb->prio);
+}
+
+__attribute__((no_sanitize_address)) static void
+call_constructors(struct lwan *l)
+{
+    struct constructor_array constructors;
+    const struct lwan_constructor_callback_info *iter;
+
+    constructor_array_init(&constructors);
+    LWAN_SECTION_FOREACH(lwan_constructor, iter)
+    {
+        struct lwan_constructor_callback_info *info =
+            constructor_array_append(&constructors);
+        if (!info)
+            lwan_status_critical("Could not append to constructor array");
+        *info = *iter;
+    }
+    constructor_array_sort(&constructors, constructor_sort);
+
+    LWAN_ARRAY_FOREACH (&constructors, iter) {
+        iter->func(l);
+    }
+
+    constructor_array_reset(&constructors);
+}
+
 void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 {
     /* Load defaults */
@@ -882,6 +915,8 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Initialize status first, as it is used by other things during
      * their initialization. */
     lwan_status_init(l);
+
+    call_constructors(l);
 
     /* These will only print debugging messages. Debug messages are always
      * printed if we're on a debug build, so the quiet setting will be
@@ -975,8 +1010,7 @@ void lwan_main_loop(struct lwan *l)
 }
 
 #ifdef CLOCK_MONOTONIC_COARSE
-LWAN_CONSTRUCTOR()
-static void detect_fastest_monotonic_clock(void)
+LWAN_CONSTRUCTOR(detect_fastest_monotonic_clock, 0)
 {
     struct timespec ts;
 

@@ -245,7 +245,7 @@ static const struct lwan_var_descriptor index_desc[] = {
 
 static struct lwan_tpl *index_tpl;
 
-LWAN_CONSTRUCTOR() static void initialize_template(void)
+LWAN_CONSTRUCTOR(initialize_template, 0)
 {
     static const char index[] =
         "<html>\n"

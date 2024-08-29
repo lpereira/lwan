@@ -28,11 +28,21 @@
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 2048
 
-#if defined(__APPLE__)
-# define LWAN_CONSTRUCTOR(prio_)	__attribute__((constructor))
-#else
-# define LWAN_CONSTRUCTOR(prio_)	__attribute__((constructor(prio_)))
-#endif
+struct lwan_constructor_callback_info {
+    void (*func)(struct lwan *);
+    int prio;
+};
+
+#define LWAN_CONSTRUCTOR(name_, prio_)                                         \
+    __attribute__((no_sanitize_address)) static void lwan_constructor_##name_( \
+        struct lwan *l __attribute__((unused)));                               \
+    static const struct lwan_constructor_callback_info __attribute__((         \
+        used, section(LWAN_SECTION_NAME(                                       \
+                  lwan_constructor)))) lwan_constructor_info_##name_ = {       \
+        .func = lwan_constructor_##name_,                                      \
+        .prio = (prio_),                                                       \
+    };                                                                         \
+    static ALWAYS_INLINE void lwan_constructor_##name_(struct lwan *l)
 
 struct lwan_request_parser_helper {
     struct lwan_value *buffer; /* The whole request buffer */

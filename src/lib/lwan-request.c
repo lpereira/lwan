@@ -1112,8 +1112,7 @@ get_temp_dir(void)
     return NULL;
 }
 
-LWAN_CONSTRUCTOR()
-static void initialize_temp_dir(void)
+LWAN_CONSTRUCTOR(initialize_temp_dir, 0)
 {
     temp_dir = get_temp_dir();
 }

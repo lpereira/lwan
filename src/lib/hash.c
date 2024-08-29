@@ -208,8 +208,7 @@ static inline unsigned int hash_int64_crc32(const void *keyptr)
 
 #endif
 
-LWAN_CONSTRUCTOR(65535)
-static void initialize_fnv1a_seed(void)
+LWAN_CONSTRUCTOR(fnv1a_seed, 65535)
 {
     uint8_t entropy[128];
 

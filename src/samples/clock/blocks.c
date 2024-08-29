@@ -176,7 +176,7 @@ static const struct fall *fall[] = {
 
 static int block_sizes[10];
 
-LWAN_CONSTRUCTOR() void calculate_block_sizes(void)
+LWAN_CONSTRUCTOR(calculate_block_sizes, 0)
 {
     for (int i = 0; i < 10; i++) {
         const struct fall *instr = fall[i];

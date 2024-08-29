@@ -155,7 +155,7 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
     return frame;
 }
 
-LWAN_CONSTRUCTOR() static void initialize_numbers(void)
+LWAN_CONSTRUCTOR(initialize_numbers, 0)
 {
     const struct raw_number *raw = get_raw_numbers();
 
