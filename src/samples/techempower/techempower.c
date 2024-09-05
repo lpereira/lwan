@@ -22,12 +22,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan-private.h"
+#include "int-to-str.h"
 #include "lwan-cache.h"
 #include "lwan-config.h"
-#include "lwan-template.h"
 #include "lwan-mod-lua.h"
-#include "int-to-str.h"
+#include "lwan-private.h"
+#include "lwan-template.h"
 
 #include "database.h"
 #include "json.h"
@@ -63,6 +63,8 @@ struct Fortune {
         int id;
         char *message;
     } item;
+
+    struct lwan_request *request;
 };
 
 DEFINE_ARRAY_TYPE_INLINEFIRST(fortune_array, struct Fortune)
@@ -219,7 +221,8 @@ static inline bool db_query(struct db_stmt *stmt, struct db_json *out)
 
 LWAN_HANDLER(db)
 {
-    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query, "i", "ii");
+    struct db_stmt *stmt =
+        db_prepare_stmt_ctx(get_db(), request, random_number_query, "i", "ii");
     struct db_json db_json;
 
     if (UNLIKELY(!stmt)) {
@@ -237,7 +240,7 @@ LWAN_HANDLER(db)
     request->flags |= RESPONSE_NO_EXPIRES;
 
     return json_response_obj(response, db_json_desc, N_ELEMENTS(db_json_desc),
-                         &db_json);
+                             &db_json);
 }
 
 static long get_number_of_queries(struct lwan_request *request)
@@ -253,7 +256,8 @@ LWAN_HANDLER(queries)
     enum lwan_http_status ret = HTTP_INTERNAL_ERROR;
     long queries = get_number_of_queries(request);
 
-    struct db_stmt *stmt = db_prepare_stmt(get_db(), random_number_query, "i", "ii");
+    struct db_stmt *stmt =
+        db_prepare_stmt_ctx(get_db(), request, random_number_query, "i", "ii");
     if (UNLIKELY(!stmt))
         return HTTP_INTERNAL_ERROR;
 
@@ -283,10 +287,8 @@ struct db_json_cached {
     struct db_json db_json;
 };
 
-static struct cache_entry *cached_queries_new(const void *keyptr,
-                                              void *context,
-                                              void *create_ctx
-                                              __attribute__((unused)))
+static struct cache_entry *
+cached_queries_new(const void *keyptr, void *context, void *create_ctx)
 {
     struct db_json_cached *entry;
     struct db_stmt *stmt;
@@ -296,7 +298,8 @@ static struct cache_entry *cached_queries_new(const void *keyptr,
     if (UNLIKELY(!entry))
         return NULL;
 
-    stmt = db_prepare_stmt(get_db(), cached_random_number_query, "i", "ii");
+    stmt = db_prepare_stmt_ctx(get_db(), create_ctx, cached_random_number_query,
+                               "i", "ii");
     if (UNLIKELY(!stmt)) {
         free(entry);
         return NULL;
@@ -327,8 +330,8 @@ LWAN_HANDLER(cached_queries)
         int key = (int)lwan_random_uint64() % 10000;
         int error;
 
-        jc = (struct db_json_cached *)cache_get_and_ref_entry(
-                cached_queries_cache, (void *)(intptr_t)key, &error);
+        jc = (struct db_json_cached *)cache_get_and_ref_entry_with_ctx(
+            cached_queries_cache, (void *)(intptr_t)key, request, &error);
 
         qj.queries[i] = jc->db_json;
 
@@ -392,7 +395,8 @@ static int fortune_list_generator(struct coro *coro, void *data)
     struct fortune_array fortunes;
     struct db_stmt *stmt;
 
-    stmt = db_prepare_stmt(get_db(), fortune_query, "", "is");
+    stmt = db_prepare_stmt_ctx(get_db(), fortune->request, fortune_query, "",
+                               "is");
     if (UNLIKELY(!stmt))
         return 0;
 
@@ -426,7 +430,7 @@ out:
 
 LWAN_HANDLER(fortunes)
 {
-    struct Fortune fortune;
+    struct Fortune fortune = {.request = request};
 
     lwan_strbuf_grow_to(response->buffer, 1500);
 
@@ -484,11 +488,9 @@ int main(void)
     if (!fortune_tpl)
         lwan_status_critical("Could not compile fortune templates");
 
-    cached_queries_cache = cache_create_full(cached_queries_new,
-                                             cached_queries_free,
-                                             hash_int_new,
-                                             NULL,
-                                             3600 /* 1 hour */);
+    cached_queries_cache =
+        cache_create_full(cached_queries_new, cached_queries_free, hash_int_new,
+                          NULL, 3600 /* 1 hour */);
     if (!cached_queries_cache)
         lwan_status_critical("Could not create cached queries cache");
     /* Pre-populate the cache and make it read-only to avoid locking in the fast

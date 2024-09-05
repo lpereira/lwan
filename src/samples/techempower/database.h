@@ -34,10 +34,21 @@ struct db_row {
 };
 
 
-struct db_stmt *db_prepare_stmt(const struct db *db,
+struct db_stmt *db_prepare_stmt_ctx(const struct db *db,
+                                void *ctx,
                                 const char *sql,
                                 const char *param_signature,
                                 const char *result_signature);
+
+static inline struct db_stmt *db_prepare_stmt(const struct db *db,
+                                              const char *sql,
+                                              const char *param_signature,
+                                              const char *result_signature)
+{
+    return db_prepare_stmt_ctx(db, NULL, sql, param_signature,
+                               result_signature);
+}
+
 void db_stmt_finalize(struct db_stmt *stmt);
 
 bool db_stmt_bind(const struct db_stmt *stmt, struct db_row *rows);

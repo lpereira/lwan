@@ -19,28 +19,36 @@
  */
 
 #include <assert.h>
-#include <string.h>
 #include <mysql.h>
 #include <sqlite3.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <stdarg.h>
+#include <string.h>
 
 #include "database.h"
 #include "lwan-status.h"
 
+/* Including "lwan.h" introduces namespace conflicts (linked-list
+ * functions from CCAN and MySQL headers.) */
+struct lwan_request;
+int lwan_request_await_read(struct lwan_request *r, int fd);
+int lwan_request_await_write(struct lwan_request *r, int fd);
+int lwan_request_await_read_write(struct lwan_request *r, int fd);
+
 struct db_stmt {
-    bool (*bind)(const struct db_stmt *stmt,
-                 struct db_row *rows);
+    bool (*bind)(const struct db_stmt *stmt, struct db_row *rows);
     bool (*step)(const struct db_stmt *stmt, va_list ap);
     void (*finalize)(struct db_stmt *stmt);
     const char *param_signature;
     const char *result_signature;
+    void *ctx;
 };
 
 struct db {
     void (*disconnect)(struct db *db);
     struct db_stmt *(*prepare)(const struct db *db,
+                               void *ctx,
                                const char *sql,
                                const char *param_signature,
                                const char *result_signature);
@@ -58,13 +66,13 @@ struct db_stmt_mysql {
     MYSQL_STMT *stmt;
     MYSQL_BIND *param_bind;
     MYSQL_BIND *result_bind;
+    int db_fd;
     bool must_execute_again;
     bool results_are_bound;
     MYSQL_BIND param_result_bind[];
 };
 
-static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
-                               struct db_row *rows)
+static bool db_stmt_bind_mysql(const struct db_stmt *stmt, struct db_row *rows)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
     const char *signature = stmt->param_signature;
@@ -95,16 +103,55 @@ static bool db_stmt_bind_mysql(const struct db_stmt *stmt,
     return !mysql_stmt_bind_param(stmt_mysql->stmt, stmt_mysql->param_bind);
 }
 
-static bool db_stmt_step_mysql(const struct db_stmt *stmt,
-                               va_list ap)
+static bool db_stmt_step_mysql(const struct db_stmt *stmt, va_list ap)
 {
     struct db_stmt_mysql *stmt_mysql = (struct db_stmt_mysql *)stmt;
 
     if (stmt_mysql->must_execute_again) {
         stmt_mysql->must_execute_again = false;
         stmt_mysql->results_are_bound = false;
-        if (mysql_stmt_execute(stmt_mysql->stmt))
-            return false;
+
+        int status;
+
+        mysql_stmt_execute_start(&status, stmt_mysql->stmt);
+        while (status) {
+            /* FIXME: Handle MYSQL_WAIT_TIMEOUT and MYSQL_WAIT_EXCEPT
+             * properly.
+             *
+             * TIMEOUT is handled by calling mysql_get_timeout_value()
+             * and passing it to the await functions; that's not currently
+             * supported in Lwan, at least not easily (one could set a 
+             * timeout by hand, similar to how lwan_request_sleep() does,
+             * but instead of yielding with CONN_CORO_SUSPEND, one would
+             * forward the arguments to the actual called await function;
+             * upon return, one would check what caused the coroutine to
+             * be resumed, and return -ETIMEDOUT or something.
+             *
+             * EXCEPT is handled like EPOLLPRI. Currently unsupported
+             * in Lwan too, although it's easier to implement than timeout.
+             *
+             * For now, ignore both flags. */
+            status &= ~(MYSQL_WAIT_TIMEOUT | MYSQL_WAIT_EXCEPT);
+
+            switch (status) {
+            case MYSQL_WAIT_READ:
+                lwan_request_await_read(stmt_mysql->base.ctx,
+                                        stmt_mysql->db_fd);
+                break;
+            case MYSQL_WAIT_WRITE:
+                lwan_request_await_write(stmt_mysql->base.ctx,
+                                         stmt_mysql->db_fd);
+                break;
+            case MYSQL_WAIT_READ | MYSQL_WAIT_WRITE:
+                /* FIXME: how do we know what will cause the coroutine
+                 * to resume, a read or a write? */
+                lwan_request_await_read_write(stmt_mysql->base.ctx,
+                                              stmt_mysql->db_fd);
+                break;
+            }
+
+            status = mysql_stmt_execute_cont(&status, stmt_mysql->stmt, status);
+        }
     }
 
     if (!stmt_mysql->results_are_bound) {
@@ -154,15 +201,16 @@ static void db_stmt_finalize_mysql(struct db_stmt *stmt)
     free(stmt_mysql);
 }
 
-static struct db_stmt *
-db_prepare_mysql(const struct db *db,
-                 const char *sql,
-                 const char *param_signature,
-                 const char *result_signature)
+static struct db_stmt *db_prepare_mysql(const struct db *db,
+                                        void *ctx,
+                                        const char *sql,
+                                        const char *param_signature,
+                                        const char *result_signature)
 {
     const struct db_mysql *db_mysql = (const struct db_mysql *)db;
     const size_t n_bounds = strlen(param_signature) + strlen(result_signature);
-    struct db_stmt_mysql *stmt_mysql = malloc(sizeof(*stmt_mysql) + n_bounds * sizeof(MYSQL_BIND));
+    struct db_stmt_mysql *stmt_mysql =
+        malloc(sizeof(*stmt_mysql) + n_bounds * sizeof(MYSQL_BIND));
 
     if (!stmt_mysql)
         return NULL;
@@ -175,18 +223,23 @@ db_prepare_mysql(const struct db *db,
         goto out_close_stmt;
 
     assert(strlen(param_signature) == mysql_stmt_param_count(stmt_mysql->stmt));
-    assert(strlen(result_signature) == mysql_stmt_field_count(stmt_mysql->stmt));
+    assert(strlen(result_signature) ==
+           mysql_stmt_field_count(stmt_mysql->stmt));
 
     stmt_mysql->base.bind = db_stmt_bind_mysql;
     stmt_mysql->base.step = db_stmt_step_mysql;
     stmt_mysql->base.finalize = db_stmt_finalize_mysql;
     stmt_mysql->param_bind = &stmt_mysql->param_result_bind[0];
-    stmt_mysql->result_bind = &stmt_mysql->param_result_bind[strlen(param_signature)];
+    stmt_mysql->result_bind =
+        &stmt_mysql->param_result_bind[strlen(param_signature)];
     stmt_mysql->must_execute_again = true;
     stmt_mysql->results_are_bound = false;
 
     stmt_mysql->base.param_signature = param_signature;
     stmt_mysql->base.result_signature = result_signature;
+
+    stmt_mysql->db_fd = mysql_get_socket(db_mysql->con);
+    stmt_mysql->base.ctx = ctx;
 
     memset(stmt_mysql->param_result_bind, 0, n_bounds * sizeof(MYSQL_BIND));
 
@@ -231,6 +284,11 @@ struct db *db_connect_mysql(const char *host,
     if (mysql_set_character_set(db_mysql->con, "utf8"))
         goto error;
 
+    if (mysql_optionsv(db_mysql->con, MYSQL_OPT_NONBLOCK, 0)) {
+        lwan_status_error("Could not enable non-blocking mode");
+        goto error;
+    }
+
     db_mysql->base.disconnect = db_disconnect_mysql;
     db_mysql->base.prepare = db_prepare_mysql;
 
@@ -254,8 +312,7 @@ struct db_stmt_sqlite {
     sqlite3_stmt *sqlite;
 };
 
-static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
-                                struct db_row *rows)
+static bool db_stmt_bind_sqlite(const struct db_stmt *stmt, struct db_row *rows)
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
@@ -270,8 +327,8 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
 
         switch (signature[row]) {
         case 's':
-            ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row + 1, r->u.s, -1,
-                                    NULL);
+            ret = sqlite3_bind_text(stmt_sqlite->sqlite, (int)row + 1, r->u.s,
+                                    -1, NULL);
             break;
         case 'i':
             ret = sqlite3_bind_int(stmt_sqlite->sqlite, (int)row + 1, r->u.i);
@@ -287,8 +344,7 @@ static bool db_stmt_bind_sqlite(const struct db_stmt *stmt,
     return true;
 }
 
-static bool db_stmt_step_sqlite(const struct db_stmt *stmt,
-                                va_list ap)
+static bool db_stmt_step_sqlite(const struct db_stmt *stmt, va_list ap)
 {
     const struct db_stmt_sqlite *stmt_sqlite =
         (const struct db_stmt_sqlite *)stmt;
@@ -328,11 +384,11 @@ static void db_stmt_finalize_sqlite(struct db_stmt *stmt)
     free(stmt_sqlite);
 }
 
-static struct db_stmt *
-db_prepare_sqlite(const struct db *db,
-                  const char *sql,
-                  const char *param_signature,
-                  const char *result_signature)
+static struct db_stmt *db_prepare_sqlite(const struct db *db,
+                                         void *ctx,
+                                         const char *sql,
+                                         const char *param_signature,
+                                         const char *result_signature)
 {
     const struct db_sqlite *db_sqlite = (const struct db_sqlite *)db;
     struct db_stmt_sqlite *stmt_sqlite = malloc(sizeof(*stmt_sqlite));
@@ -353,6 +409,8 @@ db_prepare_sqlite(const struct db *db,
 
     stmt_sqlite->base.param_signature = param_signature;
     stmt_sqlite->base.result_signature = result_signature;
+
+    stmt_sqlite->base.ctx = ctx;
 
     return (struct db_stmt *)stmt_sqlite;
 }
@@ -414,10 +472,11 @@ inline void db_stmt_finalize(struct db_stmt *stmt) { stmt->finalize(stmt); }
 
 inline void db_disconnect(struct db *db) { db->disconnect(db); }
 
-inline struct db_stmt *db_prepare_stmt(const struct db *db,
-                                       const char *sql,
-                                       const char *param_signature,
-                                       const char *result_signature)
+inline struct db_stmt *db_prepare_stmt_ctx(const struct db *db,
+                                           void *ctx,
+                                           const char *sql,
+                                           const char *param_signature,
+                                           const char *result_signature)
 {
-    return db->prepare(db, sql, param_signature, result_signature);
+    return db->prepare(db, ctx, sql, param_signature, result_signature);
 }
