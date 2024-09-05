@@ -352,8 +352,8 @@ Lwan can drop its privileges to a user in the system, and limit its
 filesystem view with a chroot.  While not bulletproof, this provides a
 first layer of security in the case there's a bug in Lwan.
 
-In order to use this feature, declare a `straitjacket` section, and set
-some options.  This requires Lwan to be executed as `root`.
+In order to use this feature, declare a `straitjacket` (or `straightjacket`)
+section, and set some options.  This requires Lwan to be executed as `root`.
 
 Although this section can be written anywhere in the file (as long as
 it is a top level declaration), if any directories are open, due to
