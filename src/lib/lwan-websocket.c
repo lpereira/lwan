@@ -335,7 +335,7 @@ int lwan_response_websocket_read_hint(struct lwan_request *request,
     uint16_t header;
     bool continuation = false;
 
-    if (!(request->conn->flags & CONN_IS_WEBSOCKET))
+    if (UNLIKELY(!(request->conn->flags & CONN_IS_WEBSOCKET)))
         return ENOTCONN;
 
     lwan_strbuf_reset_trim(request->response.buffer, size_hint);
@@ -345,9 +345,8 @@ next_frame:
 
     ssize_t r = lwan_recv(request, &header, sizeof(header),
                       MSG_DONTWAIT | MSG_NOSIGNAL);
-    if (r < 0) {
-        return (int)-r;
-    }
+    if (UNLIKELY(r < 0))
+        return errno;
     header = htons(header);
     continuation = false;
 
