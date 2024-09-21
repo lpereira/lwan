@@ -275,7 +275,7 @@ constants {
 ```
 
 The same syntax for default values specified above is valid here (e.g.
-specifying `user_name` to be `${USER:nobody}` will set `${user_name} to
+specifying `user_name` to be `${USER:nobody}` will set `${user_name}` to
 `nobody` if `${USER}` isn't set in the environment variable or isn't
 another constant.)
 
