@@ -37,6 +37,7 @@ enum {
     FLOATING = 1 << 0,
     TEMPORARY = 1 << 1,
     FREE_KEY_ON_DESTROY = 1 << 2,
+    EXISTING_ITEM = 1 << 3,
 
     /* Cache flags */
     SHUTTING_DOWN = 1 << 0,
@@ -190,6 +191,11 @@ void cache_destroy(struct cache *cache)
     free(cache);
 }
 
+bool cache_entry_is_new(const struct cache_entry *entry)
+{
+    return !(entry->flags & EXISTING_ITEM);
+}
+
 struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
                                             const void *key, void *create_ctx,
                                             int *error)
@@ -209,12 +215,14 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
 
     if (cache->flags & READ_ONLY) {
         entry = hash_find(cache->hash.table, key);
+        if (LIKELY(entry)) {
+            entry->flags |= EXISTING_ITEM;
 #ifndef NDEBUG
-        if (LIKELY(entry))
             ATOMIC_INC(cache->stats.hits);
-        else
+        } else {
             ATOMIC_INC(cache->stats.misses);
 #endif
+        }
         return entry;
     }
 

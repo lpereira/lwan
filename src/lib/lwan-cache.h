@@ -63,3 +63,5 @@ struct cache_entry *cache_coro_get_and_ref_entry_with_ctx(struct cache *cache,
 void cache_entry_unref(struct cache *cache, struct cache_entry *entry);
 
 void cache_make_read_only(struct cache *cache);
+
+bool cache_entry_is_new(const struct cache_entry *entry);
