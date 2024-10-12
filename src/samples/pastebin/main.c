@@ -84,6 +84,9 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             pastes, request->conn->coro, key, (void *)body);
 
         if (paste) {
+            if (!cache_entry_is_new(paste))
+                continue;
+
             const char *host_hdr = lwan_request_get_host(request);
 
             if (!host_hdr)
