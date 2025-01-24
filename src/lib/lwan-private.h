@@ -26,7 +26,7 @@
 
 #define N_HEADER_START 64
 #define DEFAULT_BUFFER_SIZE 4096
-#define DEFAULT_HEADERS_SIZE 2048
+#define DEFAULT_HEADERS_SIZE 4096
 
 struct lwan_constructor_callback_info {
     void (*func)(struct lwan *);
