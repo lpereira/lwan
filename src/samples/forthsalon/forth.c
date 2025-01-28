@@ -70,6 +70,7 @@ DEFINE_ARRAY_TYPE(forth_code, struct forth_inst)
 struct forth_word {
     union {
         bool (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
+        const char *(*callback_compiler)(struct forth_ctx *ctx, const char *code);
         struct forth_code code;
     };
     bool is_builtin;
@@ -296,48 +297,6 @@ static bool emit_nop(struct forth_ctx *ctx)
     return true;
 }
 
-static const char* parse_single_line_comment(struct forth_ctx *ctx,
-                                             const char *code)
-{
-    while (*code && *code != '\n')
-        code++;
-    return code;
-}
-
-static const char *parse_begin_parens_comment(struct forth_ctx *ctx,
-                                              const char *code)
-{
-    if (UNLIKELY(ctx->flags & IS_INSIDE_COMMENT))
-        return NULL;
-
-    ctx->flags |= IS_INSIDE_COMMENT;
-    return code;
-}
-
-static const char *parse_begin_word_def(struct forth_ctx *ctx, const char *code)
-{
-    if (UNLIKELY(ctx->flags & IS_INSIDE_WORD_DEF))
-        return NULL;
-
-    ctx->flags |= IS_INSIDE_WORD_DEF;
-    ctx->defining_word = NULL;
-    return code;
-}
-
-static const char *parse_end_word_def(struct forth_ctx *ctx, const char *code)
-{
-    if (UNLIKELY(!(ctx->flags & IS_INSIDE_WORD_DEF)))
-        return NULL;
-
-    ctx->flags &= ~IS_INSIDE_WORD_DEF;
-
-    if (UNLIKELY(!ctx->defining_word))
-        return NULL;
-
-    ctx->defining_word = ctx->main;
-    return code;
-}
-
 static bool parse_number(const char *ptr, size_t len, double *number)
 {
     char *endptr;
@@ -357,8 +316,7 @@ static bool parse_number(const char *ptr, size_t len, double *number)
 static struct forth_word *new_word(struct forth_ctx *ctx,
                                    const char *name,
                                    size_t len,
-                                   bool (*callback)(struct forth_ctx *,
-                                                    struct forth_vars *),
+                                   void *callback,
                                    bool compiler)
 {
     struct forth_word *word = malloc(sizeof(*word) + len + 1);
@@ -367,7 +325,11 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
 
     if (callback) {
         word->is_builtin = true;
-        word->callback = callback;
+        if (compiler) {
+            word->callback_compiler = callback;
+        } else {
+            word->callback = callback;
+        }
     } else {
         word->is_builtin = false;
         forth_code_init(&word->code);
@@ -391,19 +353,6 @@ lookup_word(struct forth_ctx *ctx, const char *name, size_t len)
     return hash_find(ctx->words, strndupa(name, len));
 }
 
-static bool is_redefining_word(const struct forth_ctx *ctx,
-                               const char *word,
-                               const size_t word_len)
-{
-    if (UNLIKELY(!ctx->defining_word)) {
-        lwan_status_error("Can't redefine word \"%.*s\"", (int)word_len,
-                          word);
-        return true;
-    }
-
-    return false;
-}
-
 static const char *found_word(struct forth_ctx *ctx,
                               const char *code,
                               const char *word,
@@ -413,31 +362,6 @@ static const char *found_word(struct forth_ctx *ctx,
         if (word_len == 1 && *word == ')')
             ctx->flags &= ~IS_INSIDE_COMMENT;
         return code;
-    }
-
-    if (word_len == 1) {
-        if (UNLIKELY(is_redefining_word(ctx, word, word_len)))
-            return NULL;
-
-        switch (*word) {
-        case '\\':
-            return parse_single_line_comment(ctx, code);
-        case ':':
-            return parse_begin_word_def(ctx, code);
-        case ';':
-            if (ctx->r_stack.pos) {
-                lwan_status_error("Unmatched if/then/else");
-                return false;
-            }
-
-            return parse_end_word_def(ctx, code);
-        case '(':
-            return parse_begin_parens_comment(ctx, code);
-        case ')':
-            lwan_status_error("Comment closed without opening");
-            return NULL; /* handled above; can't reuse word for non-comment
-                            purposes */
-        }
     }
 
     double number;
@@ -452,8 +376,9 @@ static const char *found_word(struct forth_ctx *ctx,
     struct forth_word *w = lookup_word(ctx, word, word_len);
     if (ctx->defining_word) {
         if (LIKELY(w)) {
-            bool success = w->is_compiler ? w->callback(ctx, NULL) : emit_word_call(ctx, w);
-            return success ? code : NULL;
+            if (w->is_compiler)
+                return w->callback_compiler(ctx, code);
+            return emit_word_call(ctx, w) ? code : NULL;
         }
 
         lwan_status_error("Word \"%.*s\" not defined yet, can't call",
@@ -499,7 +424,6 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
             code++;
         }
 
-        assert(code > word_ptr);
 
         code = found_word(ctx, code, word_ptr, (size_t)(code - word_ptr));
         if (!code)
@@ -517,47 +441,105 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 struct forth_builtin {
     const char *name;
     size_t name_len;
-    bool (*callback)(struct forth_ctx *, struct forth_vars *vars);
+    union {
+        bool (*callback)(struct forth_ctx *, struct forth_vars *vars);
+        const char *(*callback_compiler)(struct forth_ctx *, const char *);
+    };
     bool compiler;
-
-    void *padding; /* FIXME LWAN_SECTION_FOREACH needs this */
 };
 
-#define BUILTIN_DETAIL(name_, id_, struct_id_, compiler_)                      \
+#define BUILTIN_DETAIL(name_, id_, struct_id_)                                 \
     static bool id_(struct forth_ctx *, struct forth_vars *);                  \
-    static const struct forth_builtin __attribute__((                          \
-        used, section(LWAN_SECTION_NAME(forth_builtin)))) struct_id_ = {       \
+    static const struct forth_builtin __attribute__((used))                    \
+    __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
+    __attribute__((aligned(8))) struct_id_ = {                                 \
         .name = name_,                                                         \
         .name_len = sizeof(name_) - 1,                                         \
         .callback = id_,                                                       \
-        .compiler = compiler_,                                                 \
     };                                                                         \
     static bool id_(struct forth_ctx *ctx, struct forth_vars *vars)
 
-#define BUILTIN(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID, false)
-#define BUILTIN_COMPILER(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID, true)
+#define BUILTIN_COMPILER_DETAIL(name_, id_, struct_id_)                        \
+    static const char *id_(struct forth_ctx *, const char *);                  \
+    static const struct forth_builtin __attribute__((used))                    \
+    __attribute__((section(LWAN_SECTION_NAME(forth_compiler_builtin))))        \
+    __attribute__((aligned(8))) struct_id_ = {                                 \
+        .name = name_,                                                         \
+        .name_len = sizeof(name_) - 1,                                         \
+        .callback_compiler = id_,                                              \
+    };                                                                         \
+    static const char *id_(struct forth_ctx *ctx, const char *code)
+
+#define BUILTIN(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
+#define BUILTIN_COMPILER(name_) BUILTIN_COMPILER_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
+
+BUILTIN_COMPILER("\\")
+{
+    while (*code && *code != '\n')
+        code++;
+    return code;
+}
+
+BUILTIN_COMPILER(":")
+{
+    if (UNLIKELY(ctx->flags & IS_INSIDE_WORD_DEF))
+        return NULL;
+
+    ctx->flags |= IS_INSIDE_WORD_DEF;
+    ctx->defining_word = NULL;
+    return code;
+}
+
+BUILTIN_COMPILER(";")
+{
+    if (ctx->r_stack.pos) {
+        lwan_status_error("Unmatched if/then/else");
+        return NULL;
+    }
+
+    if (UNLIKELY(!(ctx->flags & IS_INSIDE_WORD_DEF)))
+        return NULL;
+
+    ctx->flags &= ~IS_INSIDE_WORD_DEF;
+
+    if (UNLIKELY(!ctx->defining_word))
+        return NULL;
+
+    ctx->defining_word = ctx->main;
+    return code;
+}
+
+BUILTIN_COMPILER("(")
+{
+    if (UNLIKELY(ctx->flags & IS_INSIDE_COMMENT))
+        return NULL;
+
+    ctx->flags |= IS_INSIDE_COMMENT;
+    return code;
+}
+
+BUILTIN_COMPILER(")")
+{
+    lwan_status_error("Comment closed without opening");
+    return NULL; /* handled above; can't reuse word for non-comment
+                    purposes */
+}
 
 BUILTIN_COMPILER("if")
 {
-    if (UNLIKELY(is_redefining_word(ctx, "if", 4)))
-        return false;
-
     PUSH_R((int32_t)forth_code_len(&ctx->defining_word->code));
 
     emit_jump_if(ctx);
 
-    return true;
+    return code;
 }
 
-static bool builtin_else_then(struct forth_ctx *ctx, struct forth_vars *vars, bool is_then)
+static const char* builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
-    if (UNLIKELY(is_redefining_word(ctx, is_then ? "then" : "else", 4)))
-        return false;
-
     double v = POP_R();
     if (UNLIKELY(v != v)) {
         lwan_status_error("Unbalanced if/else/then");
-        return false;
+        return NULL;
     }
 
     struct forth_inst *inst =
@@ -572,12 +554,12 @@ static bool builtin_else_then(struct forth_ctx *ctx, struct forth_vars *vars, bo
         emit_jump(ctx);
     }
 
-    return true;
+    return code;
 }
 
-BUILTIN_COMPILER("else") { return builtin_else_then(ctx, vars, false); }
+BUILTIN_COMPILER("else") { return builtin_else_then(ctx, code, false); }
 
-BUILTIN_COMPILER("then") { return builtin_else_then(ctx, vars, true); }
+BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
 
 BUILTIN("x")
 {
@@ -1010,7 +992,13 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter->callback, iter->compiler)) {
+        if (!new_word(ctx, iter->name, iter->name_len, iter->callback, false)) {
+            lwan_status_critical("could not register forth word: %s",
+                                 iter->name);
+        }
+    }
+    LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
+        if (!new_word(ctx, iter->name, iter->name_len, iter->callback_compiler, true)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
