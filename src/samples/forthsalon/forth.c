@@ -73,6 +73,7 @@ struct forth_word {
         struct forth_code code;
     };
     bool is_builtin;
+    bool is_compiler;
     char name[];
 };
 
@@ -357,7 +358,8 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
                                    const char *name,
                                    size_t len,
                                    bool (*callback)(struct forth_ctx *,
-                                                    struct forth_vars *))
+                                                    struct forth_vars *),
+                                   bool compiler)
 {
     struct forth_word *word = malloc(sizeof(*word) + len + 1);
     if (UNLIKELY(!word))
@@ -370,6 +372,8 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
         word->is_builtin = false;
         forth_code_init(&word->code);
     }
+
+    word->is_compiler = compiler;
 
     strncpy(word->name, name, len);
     word->name[len] = '\0';
@@ -436,41 +440,6 @@ static const char *found_word(struct forth_ctx *ctx,
         }
     }
 
-    if (word_len == 2 && !strncmp(word, "if", 2)) {
-        if (UNLIKELY(is_redefining_word(ctx, word, word_len)))
-            return NULL;
-
-        PUSH_R((int32_t)forth_code_len(&ctx->defining_word->code));
-
-        emit_jump_if(ctx);
-
-        return code;
-    }
-    if (word_len == 4 && (!strncmp(word, "else", 4) || !strncmp(word, "then", 4))) {
-        if (UNLIKELY(is_redefining_word(ctx, word, word_len)))
-            return NULL;
-
-        double v = POP_R();
-        if (UNLIKELY(v != v)) {
-            lwan_status_error("Unbalanced if/else/then");
-            return NULL;
-        }
-
-        struct forth_inst *inst =
-            forth_code_get_elem(&ctx->defining_word->code, (int32_t)v);
-
-        inst->pc = forth_code_len(&ctx->defining_word->code);
-
-        if (*word == 'e') {
-            PUSH_R((int32_t)inst->pc);
-            emit_jump(ctx);
-        } else {
-            emit_nop(ctx);
-        }
-
-        return code;
-    }
-
     double number;
     if (parse_number(word, word_len, &number)) {
         if (LIKELY(ctx->defining_word))
@@ -482,8 +451,10 @@ static const char *found_word(struct forth_ctx *ctx,
 
     struct forth_word *w = lookup_word(ctx, word, word_len);
     if (ctx->defining_word) {
-        if (LIKELY(w))
-            return emit_word_call(ctx, w) ? code : NULL;
+        if (LIKELY(w)) {
+            bool success = w->is_compiler ? w->callback(ctx, NULL) : emit_word_call(ctx, w);
+            return success ? code : NULL;
+        }
 
         lwan_status_error("Word \"%.*s\" not defined yet, can't call",
                           (int)word_len, word);
@@ -495,7 +466,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return NULL;
     }
 
-    w = new_word(ctx, word, word_len, NULL);
+    w = new_word(ctx, word, word_len, NULL, false);
     if (UNLIKELY(!w)) { /* can't create new word */
         lwan_status_error("Can't create new word");
         return NULL;
@@ -547,21 +518,66 @@ struct forth_builtin {
     const char *name;
     size_t name_len;
     bool (*callback)(struct forth_ctx *, struct forth_vars *vars);
+    bool compiler;
 
     void *padding; /* FIXME LWAN_SECTION_FOREACH needs this */
 };
 
-#define BUILTIN_DETAIL(name_, id_, struct_id_)                                 \
+#define BUILTIN_DETAIL(name_, id_, struct_id_, compiler_)                      \
     static bool id_(struct forth_ctx *, struct forth_vars *);                  \
     static const struct forth_builtin __attribute__((                          \
         used, section(LWAN_SECTION_NAME(forth_builtin)))) struct_id_ = {       \
         .name = name_,                                                         \
         .name_len = sizeof(name_) - 1,                                         \
         .callback = id_,                                                       \
+        .compiler = compiler_,                                                 \
     };                                                                         \
     static bool id_(struct forth_ctx *ctx, struct forth_vars *vars)
 
-#define BUILTIN(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
+#define BUILTIN(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID, false)
+#define BUILTIN_COMPILER(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID, true)
+
+BUILTIN_COMPILER("if")
+{
+    if (UNLIKELY(is_redefining_word(ctx, "if", 4)))
+        return false;
+
+    PUSH_R((int32_t)forth_code_len(&ctx->defining_word->code));
+
+    emit_jump_if(ctx);
+
+    return true;
+}
+
+static bool builtin_else_then(struct forth_ctx *ctx, struct forth_vars *vars, bool is_then)
+{
+    if (UNLIKELY(is_redefining_word(ctx, is_then ? "then" : "else", 4)))
+        return false;
+
+    double v = POP_R();
+    if (UNLIKELY(v != v)) {
+        lwan_status_error("Unbalanced if/else/then");
+        return false;
+    }
+
+    struct forth_inst *inst =
+        forth_code_get_elem(&ctx->defining_word->code, (int32_t)v);
+
+    inst->pc = forth_code_len(&ctx->defining_word->code);
+
+    if (is_then) {
+        emit_nop(ctx);
+    } else {
+        PUSH_R((int32_t)inst->pc);
+        emit_jump(ctx);
+    }
+
+    return true;
+}
+
+BUILTIN_COMPILER("else") { return builtin_else_then(ctx, vars, false); }
+
+BUILTIN_COMPILER("then") { return builtin_else_then(ctx, vars, true); }
 
 BUILTIN("x")
 {
@@ -994,7 +1010,7 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter->callback)) {
+        if (!new_word(ctx, iter->name, iter->name_len, iter->callback, iter->compiler)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
@@ -1025,7 +1041,7 @@ struct forth_ctx *forth_new(void)
         return NULL;
     }
 
-    struct forth_word *word = new_word(ctx, " ", 1, NULL);
+    struct forth_word *word = new_word(ctx, " ", 1, NULL, false);
     if (!word) {
         free(ctx);
         return NULL;
