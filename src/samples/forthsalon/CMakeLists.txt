@@ -1,8 +1,11 @@
-add_executable(forthsalon
-	main.c
+add_executable(forth
+	forth.c
 )
 
-target_link_libraries(forthsalon
+target_compile_options(forth PRIVATE -DMAIN)
+
+target_link_libraries(forth
 	${LWAN_COMMON_LIBS}
 	${ADDITIONAL_LIBRARIES}
+	m
 )
