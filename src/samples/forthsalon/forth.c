@@ -316,6 +316,9 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
                                    void *callback,
                                    bool compiler)
 {
+    if (len > 64)
+        return NULL;
+
     struct forth_word *word = malloc(sizeof(*word) + len + 1);
     if (UNLIKELY(!word))
         return NULL;
