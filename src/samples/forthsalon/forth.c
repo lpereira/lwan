@@ -100,32 +100,32 @@ struct forth_vars {
             return false;                                                      \
         ctx->d_stack.values[ctx->d_stack.pos++] = (value_);                    \
     })
-#define POP_D(value_)                                                          \
-    ({                                                                         \
-        double v;                                                              \
-        if (LIKELY(ctx->d_stack.pos > 0)) {                                    \
-            v = ctx->d_stack.values[--ctx->d_stack.pos];                       \
-        } else {                                                               \
-            v = NAN;                                                           \
-        }                                                                      \
-        v;                                                                     \
-    })
+
 #define PUSH_R(value_)                                                         \
     ({                                                                         \
         if (UNLIKELY(ctx->r_stack.pos >= N_ELEMENTS(ctx->r_stack.values)))     \
             return false;                                                      \
         ctx->r_stack.values[ctx->r_stack.pos++] = (value_);                    \
     })
-#define POP_R(value_)                                                          \
-    ({                                                                         \
-        double v;                                                              \
-        if (LIKELY(ctx->r_stack.pos > 0)) {                                    \
-            v = ctx->r_stack.values[--ctx->r_stack.pos];                       \
-        } else {                                                               \
-            v = NAN;                                                           \
-        }                                                                      \
-        v;                                                                     \
-    })
+
+#define POP_D() pop_d(ctx)
+
+#define POP_R() pop_r(ctx)
+
+static inline double pop_d(struct forth_ctx *ctx)
+{
+    if (ctx->d_stack.pos > 0)
+        return ctx->d_stack.values[--ctx->d_stack.pos];
+    return (double)NAN;
+}
+
+static inline double pop_r(struct forth_ctx *ctx)
+{
+    if (ctx->r_stack.pos > 0)
+        return ctx->r_stack.values[--ctx->r_stack.pos];
+    return (double)NAN;
+}
+
 
 #if DUMP_CODE
 static void dump_code(const struct forth_code *code)
@@ -514,13 +514,13 @@ BUILTIN_COMPILER("if")
 static const char* builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
     double v = POP_R();
-    if (UNLIKELY(v != v)) {
+    if (UNLIKELY(isnan(v))) {
         lwan_status_error("Unbalanced if/else/then");
         return NULL;
     }
 
     struct forth_inst *inst =
-        forth_code_get_elem(&ctx->defining_word->code, (int32_t)v);
+        forth_code_get_elem(&ctx->defining_word->code, (size_t)(int32_t)v);
 
     inst->pc = forth_code_len(&ctx->defining_word->code);
 
