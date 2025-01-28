@@ -84,7 +84,7 @@ struct forth_ctx {
         size_t pos;
     } r_stack, d_stack;
 
-    double memory[64];
+    double memory[16];
 
     bool is_inside_word_def;
 };
@@ -125,20 +125,6 @@ struct forth_vars {
             v = NAN;                                                           \
         }                                                                      \
         v;                                                                     \
-    })
-#define LOAD(addr_)                                                            \
-    ({                                                                         \
-        size_t v = (size_t)(int32_t)(addr_);                                   \
-        if (v > N_ELEMENTS(ctx->memory))                                       \
-            return false;                                                      \
-        ctx->memory[v];                                                        \
-    })
-#define STORE(addr_, value_)                                                   \
-    ({                                                                         \
-        size_t v = (size_t)(int32_t)(addr_);                                   \
-        if (v > N_ELEMENTS(ctx->memory))                                       \
-            return false;                                                      \
-        ctx->memory[v] = (value_);                                             \
     })
 
 #if DUMP_CODE
@@ -662,16 +648,20 @@ BUILTIN("r@")
 
 BUILTIN("@")
 {
-    double slot = POP_D();
-    PUSH_D(LOAD(slot));
+    int32_t slot = (int32_t)POP_D();
+    if (UNLIKELY(slot < 0))
+        return false;
+    PUSH_D(ctx->memory[slot % (int32_t)N_ELEMENTS(ctx->memory)]);
     return true;
 }
 
 BUILTIN("!")
 {
-    double v1 = POP_D();
-    double v2 = POP_D();
-    STORE(v2, v1);
+    double v = POP_D();
+    int32_t slot = (int32_t)POP_D();
+    if (UNLIKELY(slot < 0))
+        return false;
+    ctx->memory[slot % (int32_t)N_ELEMENTS(ctx->memory)] = v;
     return true;
 }
 
