@@ -242,6 +242,8 @@ static struct forth_inst *new_inst(struct forth_ctx *ctx)
 
 static bool emit_word_call(struct forth_ctx *ctx, struct forth_word *word)
 {
+    assert(!word->is_compiler);
+
     struct forth_inst *inst = new_inst(ctx);
     if (UNLIKELY(!inst))
         return false;
