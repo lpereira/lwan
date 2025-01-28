@@ -37,11 +37,6 @@
 #include "lwan-array.h"
 #include "lwan-private.h"
 
-enum flags {
-    IS_INSIDE_COMMENT = 1 << 0,
-    IS_INSIDE_WORD_DEF = 1 << 1,
-};
-
 enum forth_opcode {
     OP_CALL_BUILTIN,
     OP_EVAL_CODE,
@@ -91,7 +86,7 @@ struct forth_ctx {
 
     double memory[64];
 
-    enum flags flags;
+    bool is_inside_word_def;
 };
 
 struct forth_vars {
@@ -360,12 +355,6 @@ static const char *found_word(struct forth_ctx *ctx,
                               const char *word,
                               size_t word_len)
 {
-    if (ctx->flags & IS_INSIDE_COMMENT) {
-        if (word_len == 1 && *word == ')')
-            ctx->flags &= ~IS_INSIDE_COMMENT;
-        return code;
-    }
-
     double number;
     if (parse_number(word, word_len, &number)) {
         if (LIKELY(ctx->defining_word))
@@ -484,10 +473,12 @@ BUILTIN_COMPILER("\\")
 
 BUILTIN_COMPILER(":")
 {
-    if (UNLIKELY(ctx->flags & IS_INSIDE_WORD_DEF))
+    if (UNLIKELY(ctx->is_inside_word_def)) {
+        lwan_status_error("Already defining word");
         return NULL;
+    }
 
-    ctx->flags |= IS_INSIDE_WORD_DEF;
+    ctx->is_inside_word_def = true;
     ctx->defining_word = NULL;
     return code;
 }
@@ -499,13 +490,17 @@ BUILTIN_COMPILER(";")
         return NULL;
     }
 
-    if (UNLIKELY(!(ctx->flags & IS_INSIDE_WORD_DEF)))
+    if (UNLIKELY(!ctx->is_inside_word_def)) {
+        lwan_status_error("Ending word without defining one");
         return NULL;
+    }
 
-    ctx->flags &= ~IS_INSIDE_WORD_DEF;
+    ctx->is_inside_word_def = false;
 
-    if (UNLIKELY(!ctx->defining_word))
+    if (UNLIKELY(!ctx->defining_word)) {
+        lwan_status_error("No word provided");
         return NULL;
+    }
 
     ctx->defining_word = ctx->main;
     return code;
@@ -513,18 +508,9 @@ BUILTIN_COMPILER(";")
 
 BUILTIN_COMPILER("(")
 {
-    if (UNLIKELY(ctx->flags & IS_INSIDE_COMMENT))
-        return NULL;
-
-    ctx->flags |= IS_INSIDE_COMMENT;
+    while (*code && *code != ')')
+        code++;
     return code;
-}
-
-BUILTIN_COMPILER(")")
-{
-    lwan_status_error("Comment closed without opening");
-    return NULL; /* handled above; can't reuse word for non-comment
-                    purposes */
 }
 
 BUILTIN_COMPILER("if")
@@ -1023,7 +1009,7 @@ struct forth_ctx *forth_new(void)
     if (!ctx)
         return NULL;
 
-    ctx->flags = 0;
+    ctx->is_inside_word_def = false;
 
     ctx->words = hash_str_new(NULL, word_free);
     if (!ctx->words) {
