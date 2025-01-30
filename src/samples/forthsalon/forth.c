@@ -404,7 +404,6 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
             code++;
         }
 
-
         code = found_word(ctx, code, word_ptr, (size_t)(code - word_ptr));
         if (!code)
             return false;
@@ -451,13 +450,19 @@ struct forth_builtin {
     static const char *id_(struct forth_ctx *ctx, const char *code)
 
 #define BUILTIN(name_) BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
-#define BUILTIN_COMPILER(name_) BUILTIN_COMPILER_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
+#define BUILTIN_COMPILER(name_)                                                \
+    BUILTIN_COMPILER_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID)
 
 BUILTIN_COMPILER("\\")
 {
-    while (*code && *code != '\n')
-        code++;
-    return code;
+    code = strchr(code, '\n');
+    return code ? code + 1 : NULL;
+}
+
+BUILTIN_COMPILER("(")
+{
+    code = strchr(code, ')');
+    return code ? code + 1 : NULL;
 }
 
 BUILTIN_COMPILER(":")
@@ -492,13 +497,6 @@ BUILTIN_COMPILER(";")
     }
 
     ctx->defining_word = ctx->main;
-    return code;
-}
-
-BUILTIN_COMPILER("(")
-{
-    while (*code && *code != ')')
-        code++;
     return code;
 }
 
