@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 /*
@@ -36,6 +37,8 @@
 #include "hash.h"
 #include "lwan-array.h"
 #include "lwan-private.h"
+
+#include "forth.h"
 
 enum forth_opcode {
     OP_CALL_BUILTIN,
@@ -65,7 +68,8 @@ DEFINE_ARRAY_TYPE(forth_code, struct forth_inst)
 struct forth_word {
     union {
         bool (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
-        const char *(*callback_compiler)(struct forth_ctx *ctx, const char *code);
+        const char *(*callback_compiler)(struct forth_ctx *ctx,
+                                         const char *code);
         struct forth_code code;
     };
     bool is_builtin;
@@ -87,11 +91,6 @@ struct forth_ctx {
     double memory[16];
 
     bool is_inside_word_def;
-};
-
-struct forth_vars {
-    double x, y;
-    int t, dt;
 };
 
 #define PUSH_D(value_)                                                         \
@@ -125,7 +124,6 @@ static inline double pop_r(struct forth_ctx *ctx)
         return ctx->r_stack.values[--ctx->r_stack.pos];
     return (double)NAN;
 }
-
 
 #if DUMP_CODE
 static void dump_code(const struct forth_code *code)
@@ -181,7 +179,8 @@ static bool eval_code(struct forth_ctx *ctx,
     LWAN_ARRAY_FOREACH (code, inst) {
         switch (inst->opcode) {
         case OP_EVAL_CODE:
-            if (UNLIKELY(!eval_code(ctx, inst->code, vars, recursion_limit - 1)))
+            if (UNLIKELY(
+                    !eval_code(ctx, inst->code, vars, recursion_limit - 1)))
                 return false;
             break;
         case OP_CALL_BUILTIN:
@@ -509,7 +508,8 @@ BUILTIN_COMPILER("if")
     return code;
 }
 
-static const char* builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
+static const char *
+builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
     double v = POP_R();
     if (UNLIKELY(isnan(v))) {
@@ -1034,6 +1034,16 @@ void forth_free(struct forth_ctx *ctx)
     free(ctx);
 }
 
+size_t forth_d_stack_len(const struct forth_ctx *ctx)
+{
+    return ctx->d_stack.pos;
+}
+
+double forth_d_stack_pop(struct forth_ctx *ctx)
+{
+    return POP_D();
+}
+
 #if defined(FUZZ_TEST)
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
@@ -1069,7 +1079,9 @@ int main(int argc, char *argv[])
     if (!ctx)
         return 1;
 
-    if (!forth_parse_string(ctx, ": nice 60 5 4 + + ; : juanita 400 10 5 5 + + + ; x if nice  else juanita then 2 * 4 / 2 *")) {
+    if (!forth_parse_string(ctx,
+                            ": nice 60 5 4 + + ; : juanita 400 10 5 5 + + + ; "
+                            "x if nice  else juanita then 2 * 4 / 2 *")) {
         lwan_status_critical("could not parse forth program");
         forth_free(ctx);
         return 1;
