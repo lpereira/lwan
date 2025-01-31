@@ -86,17 +86,16 @@ struct forth_word {
 };
 
 struct forth_ctx {
-    struct forth_word *defining_word;
-    struct forth_word *main;
-
-    struct hash *words;
-
     struct {
-        double values[256];
         size_t pos;
+        double values[256];
     } r_stack, d_stack;
 
     double memory[16];
+
+    struct forth_word *defining_word;
+    struct forth_word *main;
+    struct hash *words;
 
     bool is_inside_word_def;
 };
