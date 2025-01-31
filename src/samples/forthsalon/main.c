@@ -36,7 +36,11 @@ static const char twister[] = ": t' t pi * 2 / ;\n"
 "0 d a v a b v b c v c d v 0.1 0.2";
 
 static void destroy_forth_ctx(void *p) { forth_free(p); }
-static void destroy_gif_writer(void *p) { GifEnd(p); }
+static void destroy_gif_writer(void *p)
+{
+    GifEnd(p);
+    free(p);
+}
 
 LWAN_HANDLER_ROUTE(twister, "/")
 {
@@ -57,10 +61,10 @@ LWAN_HANDLER_ROUTE(twister, "/")
     if (!lwan_response_set_chunked(request, HTTP_OK))
         return HTTP_INTERNAL_ERROR;
 
-    GifWriter writer = {};
-    coro_defer(request->conn->coro, destroy_gif_writer, &writer);
+    GifWriter *writer = coro_malloc_full(request->conn->coro, sizeof(*writer),
+                                         destroy_gif_writer);
 
-    GifBegin(&writer, response->buffer, 64, 64, 2, 8, true);
+    GifBegin(writer, response->buffer, 64, 64, 2, 8, true);
 
     for (int frame = 0; frame < 1000; frame++) {
         for (int x = 0; x < 64; x++) {
@@ -93,7 +97,7 @@ LWAN_HANDLER_ROUTE(twister, "/")
             }
         }
 
-        GifWriteFrame(&writer, frame_buffer, 64, 64, 2, 8, true);
+        GifWriteFrame(writer, frame_buffer, 64, 64, 2, 8, true);
         lwan_response_send_chunk(request);
         lwan_request_sleep(request, 16);
         current_time += .016;
