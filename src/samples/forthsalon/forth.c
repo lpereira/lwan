@@ -57,7 +57,7 @@ struct forth_inst {
     union {
         double number;
         struct forth_code *code;
-        bool (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
+        void (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
         size_t pc;
     };
     enum forth_opcode opcode;
@@ -69,7 +69,7 @@ struct forth_builtin {
     const char *name;
     size_t name_len;
     union {
-        bool (*callback)(struct forth_ctx *, struct forth_vars *vars);
+        void (*callback)(struct forth_ctx *, struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *, const char *);
     };
     int d_pushes;
@@ -80,7 +80,7 @@ struct forth_builtin {
 
 struct forth_word {
     union {
-        bool (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
+        void (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *ctx,
                                          const char *code);
         struct forth_code code;
@@ -516,7 +516,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
-    static bool id_(struct forth_ctx *, struct forth_vars *);                  \
+    static void id_(struct forth_ctx *, struct forth_vars *);                  \
     static const struct forth_builtin __attribute__((used))                    \
     __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
     __attribute__((aligned(8))) struct_id_ = {                                 \
@@ -528,7 +528,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         .r_pushes = r_pushes_,                                                 \
         .r_pops = r_pops_,                                                     \
     };                                                                         \
-    static bool id_(struct forth_ctx *ctx, struct forth_vars *vars)
+    static void id_(struct forth_ctx *ctx, struct forth_vars *vars)
 
 #define BUILTIN_COMPILER_DETAIL(name_, id_, struct_id_)                        \
     static const char *id_(struct forth_ctx *, const char *);                  \
@@ -639,39 +639,21 @@ BUILTIN_COMPILER("else") { return builtin_else_then(ctx, code, false); }
 
 BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
 
-BUILTIN("x", 1, 0)
-{
-    PUSH_D(vars->x);
-    return true;
-}
-BUILTIN("y", 1, 0)
-{
-    PUSH_D(vars->y);
-    return true;
-}
-BUILTIN("t", 1, 0)
-{
-    PUSH_D(vars->t);
-    return true;
-}
-BUILTIN("dt", 1, 0)
-{
-    PUSH_D(vars->dt);
-    return true;
-}
+BUILTIN("x", 1, 0) { PUSH_D(vars->x); }
+BUILTIN("y", 1, 0) { PUSH_D(vars->y); }
+BUILTIN("t", 1, 0) { PUSH_D(vars->t); }
+BUILTIN("dt", 1, 0) { PUSH_D(vars->dt); }
 
 BUILTIN("mx", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
-    return true;
 }
 
 BUILTIN("my", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
-    return true;
 }
 
 BUILTIN("button", 1, 1)
@@ -679,21 +661,18 @@ BUILTIN("button", 1, 1)
     /* stub */
     DROP_D();
     PUSH_D(0.0);
-    return true;
 }
 
 BUILTIN("buttons", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
-    return true;
 }
 
 BUILTIN("audio", 0, 1)
 {
     /* stub */
     DROP_D();
-    return true;
 }
 
 BUILTIN("sample", 3, 2)
@@ -704,7 +683,6 @@ BUILTIN("sample", 3, 2)
     PUSH_D(0);
     PUSH_D(0);
     PUSH_D(0);
-    return true;
 }
 
 BUILTIN("bwsample", 1, 2)
@@ -713,58 +691,34 @@ BUILTIN("bwsample", 1, 2)
     DROP_D();
     DROP_D();
     PUSH_D(0);
-    return true;
 }
 
-BUILTIN_R("push", 0, 1, 1, 0)
-{
-    PUSH_R(POP_D());
-    return true;
-}
+BUILTIN_R("push", 0, 1, 1, 0) { PUSH_R(POP_D()); }
 
-BUILTIN_R("pop", 1, 0, 0, 1)
-{
-    PUSH_D(POP_R());
-    return true;
-}
+BUILTIN_R("pop", 1, 0, 0, 1) { PUSH_D(POP_R()); }
 
-BUILTIN_R(">r", 0, 1, 1, 0)
-{
-    PUSH_R(POP_D());
-    return true;
-}
+BUILTIN_R(">r", 0, 1, 1, 0) { PUSH_R(POP_D()); }
 
-BUILTIN_R("r>", 1, 0, 0, 1)
-{
-    PUSH_D(POP_R());
-    return true;
-}
+BUILTIN_R("r>", 1, 0, 0, 1) { PUSH_D(POP_R()); }
 
 BUILTIN_R("r@", 1, 0, 1, 1)
 {
     double v = POP_R();
     PUSH_R(v);
     PUSH_D(v);
-    return true;
 }
 
 BUILTIN("@", 1, 1)
 {
-    int32_t slot = (int32_t)POP_D();
-    if (UNLIKELY(slot < 0))
-        return false;
-    PUSH_D(ctx->memory[slot % (int32_t)N_ELEMENTS(ctx->memory)]);
-    return true;
+    uint32_t slot = (uint32_t)POP_D();
+    PUSH_D(ctx->memory[slot % (uint32_t)N_ELEMENTS(ctx->memory)]);
 }
 
 BUILTIN("!", 0, 2)
 {
     double v = POP_D();
-    int32_t slot = (int32_t)POP_D();
-    if (UNLIKELY(slot < 0))
-        return false;
-    ctx->memory[slot % (int32_t)N_ELEMENTS(ctx->memory)] = v;
-    return true;
+    uint32_t slot = (uint32_t)POP_D();
+    ctx->memory[slot % (uint32_t)N_ELEMENTS(ctx->memory)] = v;
 }
 
 BUILTIN("dup", 2, 1)
@@ -772,7 +726,6 @@ BUILTIN("dup", 2, 1)
     double v = POP_D();
     PUSH_D(v);
     PUSH_D(v);
-    return true;
 }
 
 BUILTIN("over", 3, 2)
@@ -782,7 +735,6 @@ BUILTIN("over", 3, 2)
     PUSH_D(v2);
     PUSH_D(v1);
     PUSH_D(v2);
-    return true;
 }
 
 BUILTIN("2dup", 4, 2)
@@ -793,7 +745,6 @@ BUILTIN("2dup", 4, 2)
     PUSH_D(v1);
     PUSH_D(v2);
     PUSH_D(v1);
-    return true;
 }
 
 BUILTIN("z+", 2, 4)
@@ -804,7 +755,6 @@ BUILTIN("z+", 2, 4)
     double v4 = POP_D();
     PUSH_D(v2 + v4);
     PUSH_D(v1 + v3);
-    return true;
 }
 
 BUILTIN("z*", 2, 4)
@@ -815,14 +765,9 @@ BUILTIN("z*", 2, 4)
     double v4 = POP_D();
     PUSH_D(v4 * v2 - v3 * v1);
     PUSH_D(v4 * v1 + v3 * v2);
-    return true;
 }
 
-BUILTIN("drop", 0, 1)
-{
-    DROP_D();
-    return true;
-}
+BUILTIN("drop", 0, 1) { DROP_D(); }
 
 BUILTIN("swap", 2, 2)
 {
@@ -830,7 +775,6 @@ BUILTIN("swap", 2, 2)
     double v2 = POP_D();
     PUSH_D(v1);
     PUSH_D(v2);
-    return true;
 }
 
 BUILTIN("rot", 3, 3)
@@ -841,7 +785,6 @@ BUILTIN("rot", 3, 3)
     PUSH_D(v2);
     PUSH_D(v1);
     PUSH_D(v3);
-    return true;
 }
 
 BUILTIN("-rot", 3, 3)
@@ -852,7 +795,6 @@ BUILTIN("-rot", 3, 3)
     PUSH_D(v1);
     PUSH_D(v3);
     PUSH_D(v2);
-    return true;
 }
 
 BUILTIN("=", 1, 2)
@@ -860,7 +802,6 @@ BUILTIN("=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 == v2 ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN("<>", 1, 2)
@@ -868,7 +809,6 @@ BUILTIN("<>", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 != v2 ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN(">", 1, 2)
@@ -876,7 +816,6 @@ BUILTIN(">", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN("<", 1, 2)
@@ -884,7 +823,6 @@ BUILTIN("<", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 < v2 ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN(">=", 1, 2)
@@ -892,7 +830,6 @@ BUILTIN(">=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 >= v2 ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN("<=", 1, 2)
@@ -900,26 +837,16 @@ BUILTIN("<=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 <= v2 ? 1.0 : 0.0);
-    return true;
 }
 
-BUILTIN("+", 1, 2)
-{
-    PUSH_D(POP_D() + POP_D());
-    return true;
-}
+BUILTIN("+", 1, 2) { PUSH_D(POP_D() + POP_D()); }
 
-BUILTIN("*", 1, 2)
-{
-    PUSH_D(POP_D() * POP_D());
-    return true;
-}
+BUILTIN("*", 1, 2) { PUSH_D(POP_D() * POP_D()); }
 
 BUILTIN("-", 1, 2)
 {
     double v = POP_D();
     PUSH_D(POP_D() - v);
-    return true;
 }
 
 BUILTIN("/", 1, 2)
@@ -931,64 +858,51 @@ BUILTIN("/", 1, 2)
     } else {
         PUSH_D(POP_D() / v);
     }
-
-    return true;
 }
 
 BUILTIN("mod", 1, 2)
 {
     double v = POP_D();
     PUSH_D(fmod(POP_D(), v));
-    return true;
 }
 
 BUILTIN("pow", 1, 2)
 {
     double v = POP_D();
     PUSH_D(pow(fabs(POP_D()), v));
-    return true;
 }
 
 BUILTIN("**", 1, 2)
 {
     double v = POP_D();
     PUSH_D(pow(fabs(POP_D()), v));
-    return true;
 }
 
 BUILTIN("atan2", 1, 2)
 {
     double v = POP_D();
     PUSH_D(atan2(POP_D(), v));
-    return true;
 }
 
 BUILTIN("and", 1, 2)
 {
     double v = POP_D();
     PUSH_D((POP_D() != 0.0 && v != 0.0) ? 1.0 : 0.0);
-    return true;
 }
 
 BUILTIN("or", 1, 2)
 {
     double v = POP_D();
     PUSH_D((POP_D() != 0.0 || v != 0.0) ? 1.0 : 0.0);
-    return true;
 }
 
-BUILTIN("not", 1, 1)
-{
-    PUSH_D(POP_D() != 0.0 ? 0.0 : 1.0);
-    return true;
-}
+BUILTIN("not", 1, 1) { PUSH_D(POP_D() != 0.0 ? 0.0 : 1.0); }
 
 BUILTIN("min", 1, 2)
 {
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? v2 : v1);
-    return true;
 }
 
 BUILTIN("max", 1, 2)
@@ -996,80 +910,31 @@ BUILTIN("max", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? v1 : v2);
-    return true;
 }
 
-BUILTIN("negate", 1, 1)
-{
-    PUSH_D(-POP_D());
-    return true;
-}
+BUILTIN("negate", 1, 1) { PUSH_D(-POP_D()); }
 
-BUILTIN("sin", 1, 1)
-{
-    PUSH_D(sin(POP_D()));
-    return true;
-}
+BUILTIN("sin", 1, 1) { PUSH_D(sin(POP_D())); }
 
-BUILTIN("cos", 1, 1)
-{
-    PUSH_D(cos(POP_D()));
-    return true;
-}
+BUILTIN("cos", 1, 1) { PUSH_D(cos(POP_D())); }
 
-BUILTIN("tan", 1, 1)
-{
-    PUSH_D(tan(POP_D()));
-    return true;
-}
+BUILTIN("tan", 1, 1) { PUSH_D(tan(POP_D())); }
 
-BUILTIN("log", 1, 1)
-{
-    PUSH_D(log(fabs(POP_D())));
-    return true;
-}
+BUILTIN("log", 1, 1) { PUSH_D(log(fabs(POP_D()))); }
 
-BUILTIN("exp", 1, 1)
-{
-    PUSH_D(log(POP_D()));
-    return true;
-}
+BUILTIN("exp", 1, 1) { PUSH_D(log(POP_D())); }
 
-BUILTIN("sqrt", 1, 1)
-{
-    PUSH_D(sqrt(fabs(POP_D())));
-    return true;
-}
+BUILTIN("sqrt", 1, 1) { PUSH_D(sqrt(fabs(POP_D()))); }
 
-BUILTIN("floor", 1, 1)
-{
-    PUSH_D(floor(POP_D()));
-    return true;
-}
+BUILTIN("floor", 1, 1) { PUSH_D(floor(POP_D())); }
 
-BUILTIN("ceil", 1, 1)
-{
-    PUSH_D(ceil(POP_D()));
-    return true;
-}
+BUILTIN("ceil", 1, 1) { PUSH_D(ceil(POP_D())); }
 
-BUILTIN("abs", 1, 1)
-{
-    PUSH_D(fabs(POP_D()));
-    return true;
-}
+BUILTIN("abs", 1, 1) { PUSH_D(fabs(POP_D())); }
 
-BUILTIN("pi", 1, 0)
-{
-    PUSH_D(M_PI);
-    return true;
-}
+BUILTIN("pi", 1, 0) { PUSH_D(M_PI); }
 
-BUILTIN("random", 1, 0)
-{
-    PUSH_D(drand48());
-    return true;
-}
+BUILTIN("random", 1, 0) { PUSH_D(drand48()); }
 
 __attribute__((no_sanitize_address)) static void
 register_builtins(struct forth_ctx *ctx)
