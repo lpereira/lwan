@@ -821,10 +821,12 @@ BUILTIN("-")
 BUILTIN("/")
 {
     double v = POP_D();
-    if (v == 0.0)
+    if (v == 0.0) {
+        POP_D();
         PUSH_D(INFINITY);
-    else
+    } else {
         PUSH_D(POP_D() / v);
+    }
 
     return true;
 }
