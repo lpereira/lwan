@@ -106,37 +106,12 @@ struct forth_ctx {
     bool is_inside_word_def;
 };
 
-#define PUSH_D(value_)                                                         \
-    ({                                                                         \
-        if (UNLIKELY(ctx->d_stack.pos >= N_ELEMENTS(ctx->d_stack.values)))     \
-            return false;                                                      \
-        ctx->d_stack.values[ctx->d_stack.pos++] = (value_);                    \
-    })
-
-#define PUSH_R(value_)                                                         \
-    ({                                                                         \
-        if (UNLIKELY(ctx->r_stack.pos >= N_ELEMENTS(ctx->r_stack.values)))     \
-            return false;                                                      \
-        ctx->r_stack.values[ctx->r_stack.pos++] = (value_);                    \
-    })
-
-#define POP_D() pop_d(ctx)
-
-#define POP_R() pop_r(ctx)
-
-static inline double pop_d(struct forth_ctx *ctx)
-{
-    if (ctx->d_stack.pos > 0)
-        return ctx->d_stack.values[--ctx->d_stack.pos];
-    return (double)NAN;
-}
-
-static inline double pop_r(struct forth_ctx *ctx)
-{
-    if (ctx->r_stack.pos > 0)
-        return ctx->r_stack.values[--ctx->r_stack.pos];
-    return (double)NAN;
-}
+#define PUSH_D(value_) ({ ctx->d_stack.values[ctx->d_stack.pos++] = (value_); })
+#define PUSH_R(value_) ({ ctx->r_stack.values[ctx->r_stack.pos++] = (value_); })
+#define DROP_D() ({ ctx->d_stack.pos--; })
+#define DROP_R() ({ ctx->r_stack.pos--; })
+#define POP_D() ({ DROP_D(); ctx->d_stack.values[ctx->d_stack.pos]; })
+#define POP_R() ({ DROP_R(); ctx->r_stack.values[ctx->r_stack.pos]; })
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
@@ -702,7 +677,7 @@ BUILTIN("my", 1, 0)
 BUILTIN("button", 1, 1)
 {
     /* stub */
-    POP_D();
+    DROP_D();
     PUSH_D(0.0);
     return true;
 }
@@ -717,15 +692,15 @@ BUILTIN("buttons", 1, 0)
 BUILTIN("audio", 0, 1)
 {
     /* stub */
-    POP_D();
+    DROP_D();
     return true;
 }
 
 BUILTIN("sample", 3, 2)
 {
     /* stub */
-    POP_D();
-    POP_D();
+    DROP_D();
+    DROP_D();
     PUSH_D(0);
     PUSH_D(0);
     PUSH_D(0);
@@ -735,8 +710,8 @@ BUILTIN("sample", 3, 2)
 BUILTIN("bwsample", 1, 2)
 {
     /* stub */
-    POP_D();
-    POP_D();
+    DROP_D();
+    DROP_D();
     PUSH_D(0);
     return true;
 }
@@ -845,7 +820,7 @@ BUILTIN("z*", 2, 4)
 
 BUILTIN("drop", 0, 1)
 {
-    POP_D();
+    DROP_D();
     return true;
 }
 
@@ -951,7 +926,7 @@ BUILTIN("/", 1, 2)
 {
     double v = POP_D();
     if (v == 0.0) {
-        POP_D();
+        DROP_D();
         PUSH_D(INFINITY);
     } else {
         PUSH_D(POP_D() / v);
