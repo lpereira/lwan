@@ -298,6 +298,8 @@ static bool eval_code(struct forth_ctx *ctx,
 
 bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
 {
+    ctx->d_stack.pos = 0;
+    ctx->r_stack.pos = 0;
     return eval_code(ctx, &ctx->main->code, vars);
 }
 
