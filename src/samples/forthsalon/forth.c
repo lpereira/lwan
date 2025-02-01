@@ -186,12 +186,12 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
                 return false;
             }
 
-            if (items_in_d_stack < b->d_pops) {
+            if (UNLIKELY(items_in_d_stack < b->d_pops)) {
                 lwan_status_error("Word `%.*s' requires %d item(s) in the D stack",
                         (int)b->name_len, b->name, b->d_pops);
                 return false;
             }
-            if (items_in_r_stack < b->r_pops) {
+            if (UNLIKELY(items_in_r_stack < b->r_pops)) {
                 lwan_status_error("Word `%.*s' requires %d item(s) in the R stack",
                         (int)b->name_len, b->name, b->r_pops);
                 return false;
@@ -207,7 +207,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             items_in_d_stack++;
             break;
         case OP_JUMP_IF:
-            if (!items_in_d_stack) {
+            if (UNLIKELY(!items_in_d_stack)) {
                 lwan_status_error("Word `if' requires 1 item(s) in the D stack");
                 return false;
             }
