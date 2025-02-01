@@ -217,6 +217,15 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         case OP_JUMP:
             continue;
         }
+
+        if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack.values))) {
+            lwan_status_error("Program would cause a stack overflow in the D stack");
+            return false;
+        }
+        if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->d_stack.values))) {
+            lwan_status_error("Program would cause a stack overflow in the R stack");
+            return false;
+        }
     }
 
     w->d_stack_len = items_in_d_stack;
