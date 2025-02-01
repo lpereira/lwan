@@ -1101,7 +1101,15 @@ int main(int argc, char *argv[])
 
     struct forth_vars vars = {.x = 1, .y = 0};
     if (forth_run(ctx, &vars)) {
-        lwan_status_debug("top of d-stack: %lf", POP_D());
+        lwan_status_debug("D stack:");
+        for (size_t i = 0; i < ctx->d_stack.pos; i++) {
+            lwan_status_debug("   %lf", POP_D());
+        }
+
+        lwan_status_debug("R stack:");
+        for (size_t i = 0; i < ctx->r_stack.pos; i++) {
+            lwan_status_debug("   %lf", POP_R());
+        }
     }
 
     forth_free(ctx);
