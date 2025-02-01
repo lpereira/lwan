@@ -262,15 +262,9 @@ static void dump_code(const struct forth_code *code)
 
 static bool eval_code(struct forth_ctx *ctx,
                       const struct forth_code *code,
-                      struct forth_vars *vars,
-                      int recursion_limit)
+                      struct forth_vars *vars)
 {
     const struct forth_inst *inst;
-
-    if (recursion_limit == 0) {
-        lwan_status_error("recursion limit reached");
-        return false;
-    }
 
 #if DUMP_CODE
     dump_code(code);
@@ -279,10 +273,8 @@ static bool eval_code(struct forth_ctx *ctx,
     LWAN_ARRAY_FOREACH (code, inst) {
         switch (inst->opcode) {
         case OP_EVAL_CODE:
-            if (UNLIKELY(
-                    !eval_code(ctx, inst->code, vars, recursion_limit - 1)))
-                return false;
-            break;
+            lwan_status_critical("Unreachable");
+            __builtin_unreachable();
         case OP_CALL_BUILTIN:
             inst->callback(ctx, vars);
             break;
@@ -306,7 +298,7 @@ static bool eval_code(struct forth_ctx *ctx,
 
 bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
 {
-    return eval_code(ctx, &ctx->main->code, vars, 100);
+    return eval_code(ctx, &ctx->main->code, vars);
 }
 
 static struct forth_inst *new_inst(struct forth_ctx *ctx)
@@ -475,6 +467,57 @@ static const char *found_word(struct forth_ctx *ctx,
     return code;
 }
 
+static bool inline_calls_code(struct forth_ctx *ctx,
+                              const struct forth_code *orig_code,
+                              struct forth_code *new_code)
+{
+    const struct forth_inst *inst;
+
+    LWAN_ARRAY_FOREACH (orig_code, inst) {
+        if (inst->opcode == OP_EVAL_CODE) {
+            if (!inline_calls_code(ctx, inst->code, new_code))
+                return false;
+        } else {
+            struct forth_inst *new_inst = forth_code_append(new_code);
+            if (!new_inst)
+                return false;
+
+            *new_inst = *inst;
+
+            if (inst->opcode == OP_JUMP_IF) {
+                PUSH_R((uint32_t)forth_code_len(new_code) - 1);
+            } else if (inst->opcode == OP_JUMP) {
+                struct forth_inst *if_inst =
+                    forth_code_get_elem(new_code, (uint32_t)POP_R());
+                if_inst->pc = forth_code_len(new_code) - 1;
+                PUSH_R((int32_t)forth_code_len(new_code) - 1);
+            } else if (inst->opcode == OP_NOP) {
+                struct forth_inst *else_inst =
+                    forth_code_get_elem(new_code, (uint32_t)POP_R());
+                else_inst->pc = forth_code_len(new_code) - 1;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool inline_calls(struct forth_ctx *ctx)
+{
+    struct forth_code new_main;
+
+    forth_code_init(&new_main);
+    if (!inline_calls_code(ctx, &ctx->main->code, &new_main)) {
+        forth_code_reset(&new_main);
+        return false;
+    }
+
+    forth_code_reset(&ctx->main->code);
+    ctx->main->code = new_main;
+
+    return true;
+}
+
 bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 {
     assert(ctx);
@@ -507,6 +550,9 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 
         code++;
     }
+
+    if (!inline_calls(ctx))
+        return false;
 
     if (!check_stack_effects(ctx, ctx->main))
         return false;
@@ -583,11 +629,6 @@ BUILTIN_COMPILER(";")
 
     if (UNLIKELY(!ctx->is_inside_word_def)) {
         lwan_status_error("Ending word without defining one");
-        return NULL;
-    }
-
-    if (UNLIKELY(!check_stack_effects(ctx, ctx->defining_word))) {
-        lwan_status_error("Stack effect checks failed");
         return NULL;
     }
 
