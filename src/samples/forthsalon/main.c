@@ -42,6 +42,60 @@ static void destroy_gif_writer(void *p)
     free(p);
 }
 
+static struct timespec current_precise_monotonic_timespec(void)
+{
+    struct timespec now;
+
+    if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0)) {
+        lwan_status_perror("clock_gettime");
+        return (struct timespec){};
+    }
+
+    return now;
+}
+
+static double elapsed_time_ms(const struct timespec then)
+{
+    const struct timespec now = current_precise_monotonic_timespec();
+    struct timespec diff = {
+        .tv_sec = now.tv_sec - then.tv_sec,
+        .tv_nsec = now.tv_nsec - then.tv_nsec,
+    };
+
+    if (diff.tv_nsec < 0) {
+        diff.tv_sec--;
+        diff.tv_nsec += 1000000000l;
+    }
+
+    return (double)diff.tv_sec / 1000.0 + (double)diff.tv_nsec / 1000000.0;
+}
+
+LWAN_HANDLER_ROUTE(benchmark, "/benchmark")
+{
+    struct forth_ctx *f = forth_new();
+    coro_defer(request->conn->coro, destroy_forth_ctx, f);
+
+    if (!forth_parse_string(f, twister))
+        return HTTP_INTERNAL_ERROR;
+
+    struct timespec before = current_precise_monotonic_timespec();
+    for (int i = 0; i < 100000; i++) {
+        struct forth_vars vars = {
+            .x = i / 64.,
+            .y = i / 64.,
+            .t = 0,
+        };
+        if (!forth_run(f, &vars))
+            return HTTP_INTERNAL_ERROR;
+    }
+
+    response->mime_type = "text/plain";
+    lwan_strbuf_printf(response->buffer, "elapsed time: %lfms",
+                       elapsed_time_ms(before));
+
+    return HTTP_OK;
+}
+
 LWAN_HANDLER_ROUTE(twister, "/")
 {
     struct forth_ctx *f = forth_new();
