@@ -472,11 +472,27 @@ static bool inline_calls_code(struct forth_ctx *ctx,
                               struct forth_code *new_code)
 {
     const struct forth_inst *inst;
+    size_t jump_stack[64];
+    size_t *j = jump_stack;
+
+#define JS_PUSH(val_)                                                          \
+    ({                                                                         \
+        if (j > (jump_stack + 64))                                             \
+            return false;                                                      \
+        *j++ = (val_);                                                         \
+    })
+#define JS_POP(val_)                                                           \
+    ({                                                                         \
+        if (j <= jump_stack)                                                   \
+            return false;                                                      \
+        *--j;                                                                  \
+    })
 
     LWAN_ARRAY_FOREACH (orig_code, inst) {
         if (inst->opcode == OP_EVAL_CODE) {
-            if (!inline_calls_code(ctx, inst->code, new_code))
+            if (!inline_calls_code(ctx, inst->code, new_code)) {
                 return false;
+            }
         } else {
             struct forth_inst *new_inst = forth_code_append(new_code);
             if (!new_inst)
@@ -485,19 +501,22 @@ static bool inline_calls_code(struct forth_ctx *ctx,
             *new_inst = *inst;
 
             if (inst->opcode == OP_JUMP_IF) {
-                PUSH_R((uint32_t)forth_code_len(new_code) - 1);
+                JS_PUSH(forth_code_len(new_code) - 1);
             } else if (inst->opcode == OP_JUMP) {
                 struct forth_inst *if_inst =
-                    forth_code_get_elem(new_code, (uint32_t)POP_R());
+                    forth_code_get_elem(new_code, JS_POP());
                 if_inst->pc = forth_code_len(new_code) - 1;
-                PUSH_R((int32_t)forth_code_len(new_code) - 1);
+                JS_PUSH(forth_code_len(new_code) - 1);
             } else if (inst->opcode == OP_NOP) {
                 struct forth_inst *else_inst =
-                    forth_code_get_elem(new_code, (uint32_t)POP_R());
+                    forth_code_get_elem(new_code, JS_POP());
                 else_inst->pc = forth_code_len(new_code) - 1;
             }
         }
     }
+
+#undef JS_PUSH
+#undef JS_POP
 
     return true;
 }
