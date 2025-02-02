@@ -114,8 +114,8 @@ struct forth_word {
 struct forth_ctx {
     union {
         struct {
-            double d_stack[256];
-            double r_stack[256];
+            double d_stack[32];
+            double r_stack[32];
         };
         struct {
             size_t j_stack[32];
@@ -247,11 +247,11 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             continue;
         }
 
-        if (UNLIKELY(items_in_d_stack >= 256)) {
+        if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack))) {
             lwan_status_error("Program would cause a stack overflow in the D stack");
             return false;
         }
-        if (UNLIKELY(items_in_r_stack >= 256)) {
+        if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->r_stack))) {
             lwan_status_error("Program would cause a stack overflow in the R stack");
             return false;
         }
