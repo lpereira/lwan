@@ -315,64 +315,13 @@ static struct forth_ir *new_ir(struct forth_ctx *ctx)
     return forth_ir_code_append(&ctx->defining_word->code);
 }
 
-static bool emit_word_call(struct forth_ctx *ctx, struct forth_word *word)
-{
-    assert(!is_word_compiler(word));
-
-    struct forth_ir *ir = new_ir(ctx);
-    if (UNLIKELY(!ir))
-        return false;
-
-    if (is_word_builtin(word)) {
-        *ir = (struct forth_ir){.callback = word->callback,
-                                .opcode = OP_CALL_BUILTIN};
-    } else {
-        *ir =
-            (struct forth_ir){.code = &word->code, .opcode = OP_EVAL_CODE};
-    }
-
-    return true;
-}
-
-static bool emit_number(struct forth_ctx *ctx, double number)
-{
-    struct forth_ir *ir = new_ir(ctx);
-    if (UNLIKELY(!ir))
-        return false;
-
-    *ir = (struct forth_ir){.number = number, .opcode = OP_NUMBER};
-    return true;
-}
-
-static bool emit_jump_if(struct forth_ctx *ctx)
-{
-    struct forth_ir *ir = new_ir(ctx);
-    if (UNLIKELY(!ir))
-        return false;
-
-    *ir = (struct forth_ir){.opcode = OP_JUMP_IF};
-    return true;
-}
-
-static bool emit_jump(struct forth_ctx *ctx)
-{
-    struct forth_ir *ir = new_ir(ctx);
-    if (UNLIKELY(!ir))
-        return false;
-
-    *ir = (struct forth_ir){.opcode = OP_JUMP};
-    return true;
-}
-
-static bool emit_nop(struct forth_ctx *ctx)
-{
-    struct forth_ir *ir = new_ir(ctx);
-    if (UNLIKELY(!ir))
-        return false;
-
-    *ir = (struct forth_ir){.opcode = OP_NOP};
-    return true;
-}
+#define EMIT_IR(...)                                                           \
+    do {                                                                       \
+        struct forth_ir *ir_inst = new_ir(ctx);                                \
+        if (UNLIKELY(!ir_inst))                                                \
+            return NULL;                                                       \
+        *ir_inst = (struct forth_ir){__VA_ARGS__};                             \
+    } while (0)
 
 static bool parse_number(const char *ptr, size_t len, double *number)
 {
@@ -436,8 +385,10 @@ static const char *found_word(struct forth_ctx *ctx,
 {
     double number;
     if (parse_number(word, word_len, &number)) {
-        if (LIKELY(ctx->defining_word))
-            return emit_number(ctx, number) ? code : NULL;
+        if (LIKELY(ctx->defining_word)) {
+            EMIT_IR(.number = number, .opcode = OP_NUMBER);
+            return code;
+        }
 
         lwan_status_error("Can't redefine number %lf", number);
         return NULL;
@@ -448,7 +399,12 @@ static const char *found_word(struct forth_ctx *ctx,
         if (LIKELY(w)) {
             if (is_word_compiler(w))
                 return w->callback_compiler(ctx, code);
-            return emit_word_call(ctx, w) ? code : NULL;
+
+            if (is_word_builtin(w))
+                EMIT_IR(.callback = w->callback, .opcode = OP_CALL_BUILTIN);
+            else
+                EMIT_IR(.code = &w->code, .opcode = OP_EVAL_CODE);
+            return code;
         }
 
         lwan_status_error("Word \"%.*s\" not defined yet, can't call",
@@ -779,7 +735,7 @@ BUILTIN_COMPILER("if")
 {
     *ctx->j++ = forth_ir_code_len(&ctx->defining_word->code);
 
-    emit_jump_if(ctx);
+    EMIT_IR(.opcode = OP_JUMP_IF);
 
     return code;
 }
@@ -793,10 +749,10 @@ builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
     ir->pc = forth_ir_code_len(&ctx->defining_word->code);
 
     if (is_then) {
-        emit_nop(ctx);
+        EMIT_IR(.opcode = OP_NOP);
     } else {
         *ctx->j++ = ir->pc;
-        emit_jump(ctx);
+        EMIT_IR(.opcode = OP_JUMP);
     }
 
     return code;
