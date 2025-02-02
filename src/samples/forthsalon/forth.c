@@ -1318,9 +1318,9 @@ int main(int argc, char *argv[])
 
     struct forth_vars vars = {.x = 1, .y = 0};
     if (forth_run(ctx, &vars)) {
-        lwan_status_debug("D stack: %zu elems", forth_d_stack_len(ctx, &vars));
+        printf("D stack: %zu elems", forth_d_stack_len(ctx, &vars));
         for (size_t len = forth_d_stack_len(ctx, &vars); len; len--) {
-            lwan_status_debug("   %lf", forth_d_stack_pop(&vars));
+            printf("   %lf", forth_d_stack_pop(&vars));
         }
     }
 
