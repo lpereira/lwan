@@ -132,18 +132,18 @@ LWAN_HANDLER_ROUTE(twister, "/")
                 };
                 if (!forth_run(f, &vars))
                     return HTTP_INTERNAL_ERROR;
-                switch (forth_d_stack_len(f)) {
+                switch (forth_d_stack_len(f, &vars)) {
                 case 3:
                     pixel[3] = 0;
-                    pixel[2] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
-                    pixel[1] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
-                    pixel[0] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
+                    pixel[2] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
+                    pixel[1] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
+                    pixel[0] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
                     break;
                 case 4:
-                    pixel[3] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
-                    pixel[2] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
-                    pixel[1] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
-                    pixel[0] = (uint8_t)(round(forth_d_stack_pop(f) * 255.));
+                    pixel[3] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
+                    pixel[2] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
+                    pixel[1] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
+                    pixel[0] = (uint8_t)(round(forth_d_stack_pop(&vars) * 255.));
                     break;
                 default:
                     return HTTP_INTERNAL_ERROR;

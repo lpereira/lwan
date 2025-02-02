@@ -51,25 +51,42 @@ enum forth_opcode {
 
 struct forth_ctx;
 struct forth_vars;
-struct forth_code;
+struct forth_ir_code;
+union forth_inst;
 
-struct forth_inst {
+struct forth_ir {
     union {
         double number;
-        struct forth_code *code;
-        void (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
+        struct forth_ir_code *code;
+        void (*callback)(union forth_inst *,
+                         double *d_stack,
+                         double *r_stack,
+                         struct forth_vars *vars);
         size_t pc;
     };
     enum forth_opcode opcode;
 };
 
-DEFINE_ARRAY_TYPE(forth_code, struct forth_inst)
+union forth_inst {
+    void (*callback)(union forth_inst *,
+                     double *d_stack,
+                     double *r_stack,
+                     struct forth_vars *vars);
+    double number;
+    size_t pc;
+};
+
+DEFINE_ARRAY_TYPE(forth_ir_code, struct forth_ir)
+DEFINE_ARRAY_TYPE(forth_code, union forth_inst)
 
 struct forth_builtin {
     const char *name;
     size_t name_len;
     union {
-        void (*callback)(struct forth_ctx *, struct forth_vars *vars);
+        void (*callback)(union forth_inst *,
+                         double *d_stack,
+                         double *r_stack,
+                         struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *, const char *);
     };
     int d_pushes;
@@ -80,10 +97,13 @@ struct forth_builtin {
 
 struct forth_word {
     union {
-        void (*callback)(struct forth_ctx *ctx, struct forth_vars *vars);
+        void (*callback)(union forth_inst *,
+                         double *d_stack,
+                         double *r_stack,
+                         struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *ctx,
                                          const char *code);
-        struct forth_code code;
+        struct forth_ir_code code;
     };
     const struct forth_builtin *builtin;
     int d_stack_len;
@@ -92,12 +112,18 @@ struct forth_word {
 };
 
 struct forth_ctx {
-    struct {
-        size_t pos;
-        double values[256];
-    } r_stack, d_stack;
+    union {
+        struct {
+            double d_stack[256];
+            double r_stack[256];
+        };
+        struct {
+            size_t j_stack[32];
+            size_t *j;
+        };
+    };
 
-    double memory[16];
+    struct forth_code main_code;
 
     struct forth_word *defining_word;
     struct forth_word *main;
@@ -106,12 +132,12 @@ struct forth_ctx {
     bool is_inside_word_def;
 };
 
-#define PUSH_D(value_) ({ ctx->d_stack.values[ctx->d_stack.pos++] = (value_); })
-#define PUSH_R(value_) ({ ctx->r_stack.values[ctx->r_stack.pos++] = (value_); })
-#define DROP_D() ({ ctx->d_stack.pos--; })
-#define DROP_R() ({ ctx->r_stack.pos--; })
-#define POP_D() ({ DROP_D(); ctx->d_stack.values[ctx->d_stack.pos]; })
-#define POP_R() ({ DROP_R(); ctx->r_stack.values[ctx->r_stack.pos]; })
+#define PUSH_D(value_) ({ *d_stack = (value_); d_stack++; })
+#define PUSH_R(value_) ({ *r_stack = (value_); r_stack++; })
+#define DROP_D() ({ d_stack--; })
+#define DROP_R() ({ r_stack--; })
+#define POP_D() ({ DROP_D(); *d_stack; })
+#define POP_R() ({ DROP_R(); *r_stack; })
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
@@ -142,7 +168,7 @@ static const struct forth_builtin *find_builtin_by_callback(void *callback)
 }
 
 static const struct forth_word *find_word_by_code(const struct forth_ctx *ctx,
-                                                  const struct forth_code *code)
+                                                  const struct forth_ir_code *code)
 {
     struct hash_iter iter;
     const void *name, *value;
@@ -160,16 +186,19 @@ static const struct forth_word *find_word_by_code(const struct forth_ctx *ctx,
 static bool check_stack_effects(const struct forth_ctx *ctx,
                                 struct forth_word *w)
 {
-    const struct forth_inst *inst;
+    /* FIXME: this isn't correct when we have JUMP_IF and JUMP
+     * instructions: the number of items in the stacks isn't reset
+     * to the beginning of either if/else block. */
+    const struct forth_ir *ir;
     int items_in_d_stack = 0;
     int items_in_r_stack = 0;
 
     assert(!is_word_builtin(w));
 
-    LWAN_ARRAY_FOREACH(&w->code, inst) {
-        switch (inst->opcode) {
+    LWAN_ARRAY_FOREACH(&w->code, ir) {
+        switch (ir->opcode) {
         case OP_EVAL_CODE: {
-            const struct forth_word *cw = find_word_by_code(ctx, inst->code);
+            const struct forth_word *cw = find_word_by_code(ctx, ir->code);
             if (UNLIKELY(!cw)) {
                 lwan_status_critical("Can't find builtin word by user code");
                 return false;
@@ -180,7 +209,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             break;
         }
         case OP_CALL_BUILTIN: {
-            const struct forth_builtin *b = find_builtin_by_callback(inst->callback);
+            const struct forth_builtin *b = find_builtin_by_callback(ir->callback);
             if (UNLIKELY(!b)) {
                 lwan_status_critical("Can't find builtin word by callback");
                 return false;
@@ -218,11 +247,11 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             continue;
         }
 
-        if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack.values))) {
+        if (UNLIKELY(items_in_d_stack >= 256)) {
             lwan_status_error("Program would cause a stack overflow in the D stack");
             return false;
         }
-        if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->d_stack.values))) {
+        if (UNLIKELY(items_in_r_stack >= 256)) {
             lwan_status_error("Program would cause a stack overflow in the R stack");
             return false;
         }
@@ -234,33 +263,33 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
     return true;
 }
 
-#if DUMP_CODE
-static void dump_code(const struct forth_code *code)
+#if defined(DUMP_CODE)
+static void dump_code(const struct forth_ir_code *code)
 {
-    const struct forth_inst *inst;
+    const struct forth_ir *ir;
     size_t i = 0;
 
     printf("dumping code @ %p\n", code);
 
-    LWAN_ARRAY_FOREACH (code, inst) {
+    LWAN_ARRAY_FOREACH (code, ir) {
         printf("%08zu    ", i);
         i++;
 
-        switch (inst->opcode) {
+        switch (ir->opcode) {
         case OP_EVAL_CODE:
-            printf("eval code %p\n", inst->code);
+            printf("eval code %p\n", ir->code);
             break;
         case OP_CALL_BUILTIN:
-            printf("call builtin %p\n", inst->callback);
+            printf("call builtin %p\n", ir->callback);
             break;
         case OP_NUMBER:
-            printf("number %lf\n", inst->number);
+            printf("number %lf\n", ir->number);
             break;
         case OP_JUMP_IF:
-            printf("if [next %zu]\n", inst->pc);
+            printf("if [next %zu]\n", ir->pc);
             break;
         case OP_JUMP:
-            printf("jump to %zu\n", inst->pc);
+            printf("jump to %zu\n", ir->pc);
             break;
         case OP_NOP:
             printf("nop\n");
@@ -269,73 +298,37 @@ static void dump_code(const struct forth_code *code)
 }
 #endif
 
-static bool eval_code(struct forth_ctx *ctx,
-                      const struct forth_code *code,
-                      struct forth_vars *vars)
+bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
 {
-    const struct forth_inst *inst;
-
-#if DUMP_CODE
-    dump_code(code);
-#endif
-
-    LWAN_ARRAY_FOREACH (code, inst) {
-        switch (inst->opcode) {
-        case OP_EVAL_CODE:
-            lwan_status_critical("Unreachable");
-            __builtin_unreachable();
-        case OP_CALL_BUILTIN:
-            inst->callback(ctx, vars);
-            break;
-        case OP_NUMBER:
-            PUSH_D(inst->number);
-            break;
-        case OP_JUMP_IF:
-            if (POP_D() == 0.0)
-                inst = forth_code_get_elem(code, inst->pc);
-            break;
-        case OP_JUMP:
-            inst = forth_code_get_elem(code, inst->pc);
-            break;
-        case OP_NOP:
-            break;
-        }
-    }
-
+    union forth_inst *instr = forth_code_get_elem(&ctx->main_code, 0);
+    instr->callback(instr, ctx->d_stack, ctx->r_stack, vars);
     return true;
 }
 
-bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
+static struct forth_ir *new_ir(struct forth_ctx *ctx)
 {
-    ctx->d_stack.pos = 0;
-    ctx->r_stack.pos = 0;
-    return eval_code(ctx, &ctx->main->code, vars);
-}
-
-static struct forth_inst *new_inst(struct forth_ctx *ctx)
-{
-    /* FIXME: if last instruction is NOP, maybe we can reuse it? */
+    /* FIXME: if last irruction is NOP, maybe we can reuse it? */
 
     if (UNLIKELY(!ctx->defining_word))
         return NULL;
 
-    return forth_code_append(&ctx->defining_word->code);
+    return forth_ir_code_append(&ctx->defining_word->code);
 }
 
 static bool emit_word_call(struct forth_ctx *ctx, struct forth_word *word)
 {
     assert(!is_word_compiler(word));
 
-    struct forth_inst *inst = new_inst(ctx);
-    if (UNLIKELY(!inst))
+    struct forth_ir *ir = new_ir(ctx);
+    if (UNLIKELY(!ir))
         return false;
 
     if (is_word_builtin(word)) {
-        *inst = (struct forth_inst){.callback = word->callback,
-                                    .opcode = OP_CALL_BUILTIN};
+        *ir = (struct forth_ir){.callback = word->callback,
+                                .opcode = OP_CALL_BUILTIN};
     } else {
-        *inst =
-            (struct forth_inst){.code = &word->code, .opcode = OP_EVAL_CODE};
+        *ir =
+            (struct forth_ir){.code = &word->code, .opcode = OP_EVAL_CODE};
     }
 
     return true;
@@ -343,41 +336,41 @@ static bool emit_word_call(struct forth_ctx *ctx, struct forth_word *word)
 
 static bool emit_number(struct forth_ctx *ctx, double number)
 {
-    struct forth_inst *inst = new_inst(ctx);
-    if (UNLIKELY(!inst))
+    struct forth_ir *ir = new_ir(ctx);
+    if (UNLIKELY(!ir))
         return false;
 
-    *inst = (struct forth_inst){.number = number, .opcode = OP_NUMBER};
+    *ir = (struct forth_ir){.number = number, .opcode = OP_NUMBER};
     return true;
 }
 
 static bool emit_jump_if(struct forth_ctx *ctx)
 {
-    struct forth_inst *inst = new_inst(ctx);
-    if (UNLIKELY(!inst))
+    struct forth_ir *ir = new_ir(ctx);
+    if (UNLIKELY(!ir))
         return false;
 
-    *inst = (struct forth_inst){.opcode = OP_JUMP_IF};
+    *ir = (struct forth_ir){.opcode = OP_JUMP_IF};
     return true;
 }
 
 static bool emit_jump(struct forth_ctx *ctx)
 {
-    struct forth_inst *inst = new_inst(ctx);
-    if (UNLIKELY(!inst))
+    struct forth_ir *ir = new_ir(ctx);
+    if (UNLIKELY(!ir))
         return false;
 
-    *inst = (struct forth_inst){.opcode = OP_JUMP};
+    *ir = (struct forth_ir){.opcode = OP_JUMP};
     return true;
 }
 
 static bool emit_nop(struct forth_ctx *ctx)
 {
-    struct forth_inst *inst = new_inst(ctx);
-    if (UNLIKELY(!inst))
+    struct forth_ir *ir = new_ir(ctx);
+    if (UNLIKELY(!ir))
         return false;
 
-    *inst = (struct forth_inst){.opcode = OP_NOP};
+    *ir = (struct forth_ir){.opcode = OP_NOP};
     return true;
 }
 
@@ -413,7 +406,7 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
     if (callback) {
         word->callback = callback;
     } else {
-        forth_code_init(&word->code);
+        forth_ir_code_init(&word->code);
     }
 
     word->builtin = builtin;
@@ -460,16 +453,16 @@ static const char *found_word(struct forth_ctx *ctx,
 
         lwan_status_error("Word \"%.*s\" not defined yet, can't call",
                           (int)word_len, word);
-        return NULL; /* word not defined yet */
+        return NULL;
     }
 
-    if (LIKELY(w != NULL)) { /* redefining word not supported */
+    if (LIKELY(w != NULL)) {
         lwan_status_error("Can't redefine word \"%.*s\"", (int)word_len, word);
         return NULL;
     }
 
     w = new_word(ctx, word, word_len, NULL, NULL);
-    if (UNLIKELY(!w)) { /* can't create new word */
+    if (UNLIKELY(!w)) {
         lwan_status_error("Can't create new word");
         return NULL;
     }
@@ -479,10 +472,10 @@ static const char *found_word(struct forth_ctx *ctx,
 }
 
 static bool inline_calls_code(struct forth_ctx *ctx,
-                              const struct forth_code *orig_code,
-                              struct forth_code *new_code)
+                              const struct forth_ir_code *orig_code,
+                              struct forth_ir_code *new_code)
 {
-    const struct forth_inst *inst;
+    const struct forth_ir *ir;
     size_t jump_stack[64];
     size_t *j = jump_stack;
 
@@ -499,29 +492,29 @@ static bool inline_calls_code(struct forth_ctx *ctx,
         *--j;                                                                  \
     })
 
-    LWAN_ARRAY_FOREACH (orig_code, inst) {
-        if (inst->opcode == OP_EVAL_CODE) {
-            if (!inline_calls_code(ctx, inst->code, new_code)) {
+    LWAN_ARRAY_FOREACH (orig_code, ir) {
+        if (ir->opcode == OP_EVAL_CODE) {
+            if (!inline_calls_code(ctx, ir->code, new_code)) {
                 return false;
             }
         } else {
-            struct forth_inst *new_inst = forth_code_append(new_code);
-            if (!new_inst)
+            struct forth_ir *new_ir = forth_ir_code_append(new_code);
+            if (!new_ir)
                 return false;
 
-            *new_inst = *inst;
+            *new_ir = *ir;
 
-            if (inst->opcode == OP_JUMP_IF) {
-                JS_PUSH(forth_code_len(new_code) - 1);
-            } else if (inst->opcode == OP_JUMP) {
-                struct forth_inst *if_inst =
-                    forth_code_get_elem(new_code, JS_POP());
-                if_inst->pc = forth_code_len(new_code) - 1;
-                JS_PUSH(forth_code_len(new_code) - 1);
-            } else if (inst->opcode == OP_NOP) {
-                struct forth_inst *else_inst =
-                    forth_code_get_elem(new_code, JS_POP());
-                else_inst->pc = forth_code_len(new_code) - 1;
+            if (ir->opcode == OP_JUMP_IF) {
+                JS_PUSH(forth_ir_code_len(new_code) - 1);
+            } else if (ir->opcode == OP_JUMP) {
+                struct forth_ir *if_ir =
+                    forth_ir_code_get_elem(new_code, JS_POP());
+                if_ir->pc = forth_ir_code_len(new_code) - 1;
+                JS_PUSH(forth_ir_code_len(new_code) - 1);
+            } else if (ir->opcode == OP_NOP) {
+                struct forth_ir *else_ir =
+                    forth_ir_code_get_elem(new_code, JS_POP());
+                else_ir->pc = forth_ir_code_len(new_code) - 1;
             }
         }
     }
@@ -534,23 +527,123 @@ static bool inline_calls_code(struct forth_ctx *ctx,
 
 static bool inline_calls(struct forth_ctx *ctx)
 {
-    struct forth_code new_main;
+    struct forth_ir_code new_main;
 
-    forth_code_init(&new_main);
+    forth_ir_code_init(&new_main);
     if (!inline_calls_code(ctx, &ctx->main->code, &new_main)) {
-        forth_code_reset(&new_main);
+        forth_ir_code_reset(&new_main);
         return false;
     }
 
-    forth_code_reset(&ctx->main->code);
+    forth_ir_code_reset(&ctx->main->code);
     ctx->main->code = new_main;
 
     return true;
 }
 
+static void op_number(union forth_inst *inst,
+                      double *d_stack,
+                      double *r_stack,
+                      struct forth_vars *vars)
+{
+    *d_stack++ = inst[1].number;
+    return inst[2].callback(&inst[2], d_stack, r_stack, vars);
+}
+
+static void op_jump_if(union forth_inst *inst,
+                       double *d_stack,
+                       double *r_stack,
+                       struct forth_vars *vars)
+{
+    size_t pc = (*--d_stack == 0.0) ? inst[1].pc : 2;
+    return inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+}
+
+static void op_jump(union forth_inst *inst,
+                    double *d_stack,
+                    double *r_stack,
+                    struct forth_vars *vars)
+{
+    size_t pc = inst[1].pc;
+    return inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+}
+
+static void op_nop(union forth_inst *inst,
+                   double *d_stack,
+                   double *r_stack,
+                   struct forth_vars *vars)
+{
+    return inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+static void op_halt(union forth_inst *inst,
+                    double *d_stack,
+                    double *r_stack,
+                    struct forth_vars *vars)
+{
+    vars->final_d_stack_ptr = d_stack;
+    vars->final_r_stack_ptr = r_stack;
+}
+
+#define EMIT(arg)                                                              \
+    do {                                                                       \
+        union forth_inst *inst = forth_code_append(&ctx->main_code);           \
+        if (UNLIKELY(!inst))                                                   \
+            goto out;                                                          \
+        *inst = (union forth_inst){arg};                                       \
+    } while (0)
+
+static bool ir_to_inst(struct forth_ctx *ctx)
+{
+    const struct forth_ir *ir;
+    
+    forth_code_init(&ctx->main_code);
+
+    LWAN_ARRAY_FOREACH (&ctx->main->code, ir) {
+        switch (ir->opcode) {
+        case OP_NUMBER:
+            EMIT(.callback = op_number);
+            EMIT(.number = ir->number);
+            break;
+        case OP_JUMP_IF:
+            assert(ir->pc);
+            EMIT(.callback = op_jump_if);
+            EMIT(.pc = ir->pc - 1);
+            break;
+        case OP_JUMP:
+            assert(ir->pc);
+            EMIT(.callback = op_jump);
+            EMIT(.pc = ir->pc - 1);
+            break;
+        case OP_NOP:
+            EMIT(.callback = op_nop);
+            break;
+        case OP_CALL_BUILTIN:
+            EMIT(.callback = ir->callback);
+            break;
+        case OP_EVAL_CODE:
+            __builtin_unreachable();
+        }
+    }
+
+    EMIT(.callback = op_halt);
+
+    forth_ir_code_reset(&ctx->main->code);
+
+    return true;
+
+out:
+    forth_code_reset(&ctx->main_code);
+    return false;
+}
+
+#undef EMIT
+
 bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 {
     assert(ctx);
+
+    ctx->j = ctx->j_stack;
 
     while (*code) {
         while (isspace(*code))
@@ -584,7 +677,14 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     if (!inline_calls(ctx))
         return false;
 
+#if defined(DUMP_CODE)
+    dump_code(&ctx->main->code);
+#endif
+
     if (!check_stack_effects(ctx, ctx->main))
+        return false;
+
+    if (!ir_to_inst(ctx))
         return false;
 
     return true;
@@ -592,7 +692,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
-    static void id_(struct forth_ctx *, struct forth_vars *);                  \
+    static ALWAYS_INLINE void id_(union forth_inst *inst, double *d_stack,     \
+                                  double *r_stack, struct forth_vars *vars);   \
     static const struct forth_builtin __attribute__((used))                    \
     __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
     __attribute__((aligned(8))) struct_id_ = {                                 \
@@ -604,7 +705,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         .r_pushes = r_pushes_,                                                 \
         .r_pops = r_pops_,                                                     \
     };                                                                         \
-    static void id_(struct forth_ctx *ctx, struct forth_vars *vars)
+    static ALWAYS_INLINE void id_(union forth_inst *inst, double *d_stack,     \
+                                  double *r_stack, struct forth_vars *vars)
 
 #define BUILTIN_COMPILER_DETAIL(name_, id_, struct_id_)                        \
     static const char *id_(struct forth_ctx *, const char *);                  \
@@ -652,7 +754,7 @@ BUILTIN_COMPILER(":")
 
 BUILTIN_COMPILER(";")
 {
-    if (ctx->r_stack.pos) {
+    if (ctx->j != ctx->j_stack) {
         lwan_status_error("Unmatched if/then/else");
         return NULL;
     }
@@ -675,7 +777,7 @@ BUILTIN_COMPILER(";")
 
 BUILTIN_COMPILER("if")
 {
-    PUSH_R((int32_t)forth_code_len(&ctx->defining_word->code));
+    *ctx->j++ = forth_ir_code_len(&ctx->defining_word->code);
 
     emit_jump_if(ctx);
 
@@ -685,21 +787,15 @@ BUILTIN_COMPILER("if")
 static const char *
 builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
-    double v = POP_R();
-    if (UNLIKELY(isnan(v))) {
-        lwan_status_error("Unbalanced if/else/then");
-        return NULL;
-    }
+    struct forth_ir *ir =
+        forth_ir_code_get_elem(&ctx->defining_word->code, *--ctx->j);
 
-    struct forth_inst *inst =
-        forth_code_get_elem(&ctx->defining_word->code, (size_t)(int32_t)v);
-
-    inst->pc = forth_code_len(&ctx->defining_word->code);
+    ir->pc = forth_ir_code_len(&ctx->defining_word->code);
 
     if (is_then) {
         emit_nop(ctx);
     } else {
-        PUSH_R((int32_t)inst->pc);
+        *ctx->j++ = ir->pc;
         emit_jump(ctx);
     }
 
@@ -710,21 +806,41 @@ BUILTIN_COMPILER("else") { return builtin_else_then(ctx, code, false); }
 
 BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
 
-BUILTIN("x", 1, 0) { PUSH_D(vars->x); }
-BUILTIN("y", 1, 0) { PUSH_D(vars->y); }
-BUILTIN("t", 1, 0) { PUSH_D(vars->t); }
-BUILTIN("dt", 1, 0) { PUSH_D(vars->dt); }
+#define NEXT() return inst[1].callback(&inst[1], d_stack, r_stack, vars)
+
+BUILTIN("x", 1, 0)
+{
+    PUSH_D(vars->x);
+    NEXT();
+}
+BUILTIN("y", 1, 0)
+{
+    PUSH_D(vars->y);
+    NEXT();
+}
+BUILTIN("t", 1, 0)
+{
+    PUSH_D(vars->t);
+    NEXT();
+}
+BUILTIN("dt", 1, 0)
+{
+    PUSH_D(vars->dt);
+    NEXT();
+}
 
 BUILTIN("mx", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
+    NEXT();
 }
 
 BUILTIN("my", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
+    NEXT();
 }
 
 BUILTIN("button", 1, 1)
@@ -732,18 +848,21 @@ BUILTIN("button", 1, 1)
     /* stub */
     DROP_D();
     PUSH_D(0.0);
+    NEXT();
 }
 
 BUILTIN("buttons", 1, 0)
 {
     /* stub */
     PUSH_D(0.0);
+    NEXT();
 }
 
 BUILTIN("audio", 0, 1)
 {
     /* stub */
     DROP_D();
+    NEXT();
 }
 
 BUILTIN("sample", 3, 2)
@@ -754,6 +873,7 @@ BUILTIN("sample", 3, 2)
     PUSH_D(0);
     PUSH_D(0);
     PUSH_D(0);
+    NEXT();
 }
 
 BUILTIN("bwsample", 1, 2)
@@ -762,34 +882,54 @@ BUILTIN("bwsample", 1, 2)
     DROP_D();
     DROP_D();
     PUSH_D(0);
+    NEXT();
 }
 
-BUILTIN_R("push", 0, 1, 1, 0) { PUSH_R(POP_D()); }
+BUILTIN_R("push", 0, 1, 1, 0)
+{
+    PUSH_R(POP_D());
+    NEXT();
+}
 
-BUILTIN_R("pop", 1, 0, 0, 1) { PUSH_D(POP_R()); }
+BUILTIN_R("pop", 1, 0, 0, 1)
+{
+    PUSH_D(POP_R());
+    NEXT();
+}
 
-BUILTIN_R(">r", 0, 1, 1, 0) { PUSH_R(POP_D()); }
+BUILTIN_R(">r", 0, 1, 1, 0)
+{
+    PUSH_R(POP_D());
+    NEXT();
+}
 
-BUILTIN_R("r>", 1, 0, 0, 1) { PUSH_D(POP_R()); }
+BUILTIN_R("r>", 1, 0, 0, 1)
+{
+    PUSH_D(POP_R());
+    NEXT();
+}
 
 BUILTIN_R("r@", 1, 0, 1, 1)
 {
     double v = POP_R();
     PUSH_R(v);
     PUSH_D(v);
+    NEXT();
 }
 
 BUILTIN("@", 1, 1)
 {
     uint32_t slot = (uint32_t)POP_D();
-    PUSH_D(ctx->memory[slot % (uint32_t)N_ELEMENTS(ctx->memory)]);
+    PUSH_D(vars->memory[slot % (uint32_t)N_ELEMENTS(vars->memory)]);
+    NEXT();
 }
 
 BUILTIN("!", 0, 2)
 {
     double v = POP_D();
     uint32_t slot = (uint32_t)POP_D();
-    ctx->memory[slot % (uint32_t)N_ELEMENTS(ctx->memory)] = v;
+    vars->memory[slot % (uint32_t)N_ELEMENTS(vars->memory)] = v;
+    NEXT();
 }
 
 BUILTIN("dup", 2, 1)
@@ -797,6 +937,7 @@ BUILTIN("dup", 2, 1)
     double v = POP_D();
     PUSH_D(v);
     PUSH_D(v);
+    NEXT();
 }
 
 BUILTIN("over", 3, 2)
@@ -806,6 +947,7 @@ BUILTIN("over", 3, 2)
     PUSH_D(v2);
     PUSH_D(v1);
     PUSH_D(v2);
+    NEXT();
 }
 
 BUILTIN("2dup", 4, 2)
@@ -816,6 +958,7 @@ BUILTIN("2dup", 4, 2)
     PUSH_D(v1);
     PUSH_D(v2);
     PUSH_D(v1);
+    NEXT();
 }
 
 BUILTIN("z+", 2, 4)
@@ -826,6 +969,7 @@ BUILTIN("z+", 2, 4)
     double v4 = POP_D();
     PUSH_D(v2 + v4);
     PUSH_D(v1 + v3);
+    NEXT();
 }
 
 BUILTIN("z*", 2, 4)
@@ -836,9 +980,14 @@ BUILTIN("z*", 2, 4)
     double v4 = POP_D();
     PUSH_D(v4 * v2 - v3 * v1);
     PUSH_D(v4 * v1 + v3 * v2);
+    NEXT();
 }
 
-BUILTIN("drop", 0, 1) { DROP_D(); }
+BUILTIN("drop", 0, 1)
+{
+    DROP_D();
+    NEXT();
+}
 
 BUILTIN("swap", 2, 2)
 {
@@ -846,6 +995,7 @@ BUILTIN("swap", 2, 2)
     double v2 = POP_D();
     PUSH_D(v1);
     PUSH_D(v2);
+    NEXT();
 }
 
 BUILTIN("rot", 3, 3)
@@ -856,6 +1006,7 @@ BUILTIN("rot", 3, 3)
     PUSH_D(v2);
     PUSH_D(v1);
     PUSH_D(v3);
+    NEXT();
 }
 
 BUILTIN("-rot", 3, 3)
@@ -866,6 +1017,7 @@ BUILTIN("-rot", 3, 3)
     PUSH_D(v1);
     PUSH_D(v3);
     PUSH_D(v2);
+    NEXT();
 }
 
 BUILTIN("=", 1, 2)
@@ -873,6 +1025,7 @@ BUILTIN("=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 == v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN("<>", 1, 2)
@@ -880,6 +1033,7 @@ BUILTIN("<>", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 != v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN(">", 1, 2)
@@ -887,6 +1041,7 @@ BUILTIN(">", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN("<", 1, 2)
@@ -894,6 +1049,7 @@ BUILTIN("<", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 < v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN(">=", 1, 2)
@@ -901,6 +1057,7 @@ BUILTIN(">=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 >= v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN("<=", 1, 2)
@@ -908,16 +1065,26 @@ BUILTIN("<=", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 <= v2 ? 1.0 : 0.0);
+    NEXT();
 }
 
-BUILTIN("+", 1, 2) { PUSH_D(POP_D() + POP_D()); }
+BUILTIN("+", 1, 2)
+{
+    PUSH_D(POP_D() + POP_D());
+    NEXT();
+}
 
-BUILTIN("*", 1, 2) { PUSH_D(POP_D() * POP_D()); }
+BUILTIN("*", 1, 2)
+{
+    PUSH_D(POP_D() * POP_D());
+    NEXT();
+}
 
 BUILTIN("-", 1, 2)
 {
     double v = POP_D();
     PUSH_D(POP_D() - v);
+    NEXT();
 }
 
 BUILTIN("/", 1, 2)
@@ -929,51 +1096,63 @@ BUILTIN("/", 1, 2)
     } else {
         PUSH_D(POP_D() / v);
     }
+    NEXT();
 }
 
 BUILTIN("mod", 1, 2)
 {
     double v = POP_D();
     PUSH_D(fmod(POP_D(), v));
+    NEXT();
 }
 
 BUILTIN("pow", 1, 2)
 {
     double v = POP_D();
     PUSH_D(pow(fabs(POP_D()), v));
+    NEXT();
 }
 
 BUILTIN("**", 1, 2)
 {
     double v = POP_D();
     PUSH_D(pow(fabs(POP_D()), v));
+    NEXT();
 }
 
 BUILTIN("atan2", 1, 2)
 {
     double v = POP_D();
     PUSH_D(atan2(POP_D(), v));
+    NEXT();
 }
 
 BUILTIN("and", 1, 2)
 {
     double v = POP_D();
     PUSH_D((POP_D() != 0.0 && v != 0.0) ? 1.0 : 0.0);
+    NEXT();
 }
 
 BUILTIN("or", 1, 2)
 {
     double v = POP_D();
     PUSH_D((POP_D() != 0.0 || v != 0.0) ? 1.0 : 0.0);
+    NEXT();
 }
 
-BUILTIN("not", 1, 1) { PUSH_D(POP_D() != 0.0 ? 0.0 : 1.0); }
+BUILTIN("not", 1, 1)
+{
+    PUSH_D(POP_D() != 0.0 ? 0.0 : 1.0);
+    NEXT();
+}
 
 BUILTIN("min", 1, 2)
 {
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? v2 : v1);
+    NEXT();
 }
 
 BUILTIN("max", 1, 2)
@@ -981,31 +1160,82 @@ BUILTIN("max", 1, 2)
     double v1 = POP_D();
     double v2 = POP_D();
     PUSH_D(v1 > v2 ? v1 : v2);
+    NEXT();
 }
 
-BUILTIN("negate", 1, 1) { PUSH_D(-POP_D()); }
+BUILTIN("negate", 1, 1)
+{
+    PUSH_D(-POP_D());
+    NEXT();
+}
 
-BUILTIN("sin", 1, 1) { PUSH_D(sin(POP_D())); }
+BUILTIN("sin", 1, 1)
+{
+    PUSH_D(sin(POP_D()));
+    NEXT();
+}
 
-BUILTIN("cos", 1, 1) { PUSH_D(cos(POP_D())); }
+BUILTIN("cos", 1, 1)
+{
+    PUSH_D(cos(POP_D()));
+    NEXT();
+}
 
-BUILTIN("tan", 1, 1) { PUSH_D(tan(POP_D())); }
+BUILTIN("tan", 1, 1)
+{
+    PUSH_D(tan(POP_D()));
+    NEXT();
+}
 
-BUILTIN("log", 1, 1) { PUSH_D(log(fabs(POP_D()))); }
+BUILTIN("log", 1, 1)
+{
+    PUSH_D(log(fabs(POP_D())));
+    NEXT();
+}
 
-BUILTIN("exp", 1, 1) { PUSH_D(log(POP_D())); }
+BUILTIN("exp", 1, 1)
+{
+    PUSH_D(log(POP_D()));
+    NEXT();
+}
 
-BUILTIN("sqrt", 1, 1) { PUSH_D(sqrt(fabs(POP_D()))); }
+BUILTIN("sqrt", 1, 1)
+{
+    PUSH_D(sqrt(fabs(POP_D())));
+    NEXT();
+}
 
-BUILTIN("floor", 1, 1) { PUSH_D(floor(POP_D())); }
+BUILTIN("floor", 1, 1)
+{
+    PUSH_D(floor(POP_D()));
+    NEXT();
+}
 
-BUILTIN("ceil", 1, 1) { PUSH_D(ceil(POP_D())); }
+BUILTIN("ceil", 1, 1)
+{
+    PUSH_D(ceil(POP_D()));
+    NEXT();
+}
 
-BUILTIN("abs", 1, 1) { PUSH_D(fabs(POP_D())); }
+BUILTIN("abs", 1, 1)
+{
+    PUSH_D(fabs(POP_D()));
+    NEXT();
+}
 
-BUILTIN("pi", 1, 0) { PUSH_D(M_PI); }
+BUILTIN("pi", 1, 0)
+{
+    PUSH_D(M_PI);
+    NEXT();
+}
 
-BUILTIN("random", 1, 0) { PUSH_D(drand48()); }
+BUILTIN("random", 1, 0)
+{
+    PUSH_D(drand48());
+    NEXT();
+}
+
+#undef NEXT
 
 __attribute__((no_sanitize_address)) static void
 register_builtins(struct forth_ctx *ctx)
@@ -1031,7 +1261,7 @@ static void word_free(void *ptr)
     struct forth_word *word = ptr;
 
     if (!is_word_builtin(word))
-        forth_code_reset(&word->code);
+        forth_ir_code_reset(&word->code);
     free(word);
 }
 
@@ -1059,9 +1289,6 @@ struct forth_ctx *forth_new(void)
     ctx->main = word;
     ctx->defining_word = word;
 
-    ctx->r_stack.pos = 0;
-    ctx->d_stack.pos = 0;
-
     register_builtins(ctx);
 
     return ctx;
@@ -1073,17 +1300,21 @@ void forth_free(struct forth_ctx *ctx)
         return;
 
     hash_unref(ctx->words);
+    forth_code_reset(&ctx->main_code);
     free(ctx);
 }
 
-size_t forth_d_stack_len(const struct forth_ctx *ctx)
+size_t forth_d_stack_len(const struct forth_ctx *ctx,
+        const struct forth_vars *vars)
 {
-    return ctx->d_stack.pos;
+    return (size_t)(vars->final_d_stack_ptr - ctx->d_stack);
 }
 
-double forth_d_stack_pop(struct forth_ctx *ctx)
+double forth_d_stack_pop(struct forth_vars *vars)
 {
-    return POP_D();
+    vars->final_d_stack_ptr--;
+    double v = *vars->final_d_stack_ptr;
+    return v;
 }
 
 #if defined(FUZZ_TEST)
@@ -1131,14 +1362,9 @@ int main(int argc, char *argv[])
 
     struct forth_vars vars = {.x = 1, .y = 0};
     if (forth_run(ctx, &vars)) {
-        lwan_status_debug("D stack:");
-        for (size_t i = 0; i < ctx->d_stack.pos; i++) {
-            lwan_status_debug("   %lf", POP_D());
-        }
-
-        lwan_status_debug("R stack:");
-        for (size_t i = 0; i < ctx->r_stack.pos; i++) {
-            lwan_status_debug("   %lf", POP_R());
+        lwan_status_debug("D stack: %zu elems", forth_d_stack_len(ctx, &vars));
+        for (size_t len = forth_d_stack_len(ctx, &vars); len; len--) {
+            lwan_status_debug("   %lf", forth_d_stack_pop(&vars));
         }
     }
 

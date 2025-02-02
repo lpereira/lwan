@@ -25,15 +25,17 @@ struct forth_ctx;
 struct forth_vars {
     double x, y;
     double t, dt;
+
+    double memory[16];
+
+    double *final_r_stack_ptr;
+    double *final_d_stack_ptr;
 };
 
 bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars);
 bool forth_parse_string(struct forth_ctx *ctx, const char *code);
 void forth_free(struct forth_ctx *ctx);
 struct forth_ctx *forth_new(void);
-size_t forth_d_stack_len(const struct forth_ctx *ctx);
-double forth_d_stack_pop(struct forth_ctx *ctx);
-
-
-
-
+size_t forth_d_stack_len(const struct forth_ctx *ctx,
+                         const struct forth_vars *vars);
+double forth_d_stack_pop(struct forth_vars *vars);
