@@ -309,14 +309,6 @@ static struct forth_ir *new_ir(struct forth_ctx *ctx)
     return forth_ir_code_append(&ctx->defining_word->code);
 }
 
-#define EMIT_IR(...)                                                           \
-    do {                                                                       \
-        struct forth_ir *ir_inst = new_ir(ctx);                                \
-        if (UNLIKELY(!ir_inst))                                                \
-            return NULL;                                                       \
-        *ir_inst = (struct forth_ir){__VA_ARGS__};                             \
-    } while (0)
-
 static bool parse_number(const char *ptr, size_t len, double *number)
 {
     char *endptr;
@@ -371,6 +363,14 @@ lookup_word(struct forth_ctx *ctx, const char *name, size_t len)
 {
     return hash_find(ctx->words, strndupa(name, len));
 }
+
+#define EMIT_IR(...)                                                           \
+    do {                                                                       \
+        struct forth_ir *ir_inst = new_ir(ctx);                                \
+        if (UNLIKELY(!ir_inst))                                                \
+            return NULL;                                                       \
+        *ir_inst = (struct forth_ir){__VA_ARGS__};                             \
+    } while (0)
 
 static const char *found_word(struct forth_ctx *ctx,
                               const char *code,
