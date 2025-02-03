@@ -132,12 +132,6 @@ struct forth_ctx {
     bool is_inside_word_def;
 };
 
-#define PUSH_D(value_) ({ *d_stack = (value_); d_stack++; })
-#define PUSH_R(value_) ({ *r_stack = (value_); r_stack++; })
-#define DROP_D() ({ d_stack--; })
-#define DROP_R() ({ r_stack--; })
-#define POP_D() ({ DROP_D(); *d_stack; })
-#define POP_R() ({ DROP_R(); *r_stack; })
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
@@ -761,6 +755,13 @@ builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 BUILTIN_COMPILER("else") { return builtin_else_then(ctx, code, false); }
 
 BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
+
+#define PUSH_D(value_) ({ *d_stack = (value_); d_stack++; })
+#define PUSH_R(value_) ({ *r_stack = (value_); r_stack++; })
+#define DROP_D() ({ d_stack--; })
+#define DROP_R() ({ r_stack--; })
+#define POP_D() ({ DROP_D(); *d_stack; })
+#define POP_R() ({ DROP_R(); *r_stack; })
 
 #define NEXT() return inst[1].callback(&inst[1], d_stack, r_stack, vars)
 
