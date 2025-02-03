@@ -401,13 +401,13 @@ static const char *found_word(struct forth_ctx *ctx,
             return code;
         }
 
-        lwan_status_error("Word \"%.*s\" not defined yet, can't call",
+        lwan_status_error("Undefined word: \"%.*s\"",
                           (int)word_len, word);
         return NULL;
     }
 
     if (LIKELY(w != NULL)) {
-        lwan_status_error("Can't redefine word \"%.*s\"", (int)word_len, word);
+        lwan_status_error("Word already defined: \"%.*s\"", (int)word_len, word);
         return NULL;
     }
 
