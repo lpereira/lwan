@@ -642,8 +642,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
-    static ALWAYS_INLINE void id_(union forth_inst *inst, double *d_stack,     \
-                                  double *r_stack, struct forth_vars *vars);   \
+    static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
+                    struct forth_vars *vars);                                  \
     static const struct forth_builtin __attribute__((used))                    \
     __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
     __attribute__((aligned(8))) struct_id_ = {                                 \
@@ -655,8 +655,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         .r_pushes = r_pushes_,                                                 \
         .r_pops = r_pops_,                                                     \
     };                                                                         \
-    static ALWAYS_INLINE void id_(union forth_inst *inst, double *d_stack,     \
-                                  double *r_stack, struct forth_vars *vars)
+    static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
+                    struct forth_vars *vars)
 
 #define BUILTIN_COMPILER_DETAIL(name_, id_, struct_id_)                        \
     static const char *id_(struct forth_ctx *, const char *);                  \
