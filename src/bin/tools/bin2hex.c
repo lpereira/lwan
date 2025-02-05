@@ -96,7 +96,7 @@ static int bin2hex(const char *path, const char *identifier)
 
     printf("\n/* Contents of %s available through %s_value */\n", path, identifier);
 
-    printf("#if defined(__GNUC__) || defined(__clang__)\n");
+    printf("#if !defined(NO_INCBIN)\n");
     r |= bin2hex_incbin(path, identifier);
     printf("#else\n");
     r |= bin2hex_mmap(path, identifier);
@@ -124,6 +124,12 @@ int main(int argc, char *argv[])
     printf("#pragma once\n\n");
     printf("#include \"lwan-private.h\"\n");
 
+    printf("#if defined(NO_INCBIN)\n");
+    printf("  /* do nothing */\n");
+    printf("#elif defined(__GNUC__) || defined(__clang__)\n");
+    printf("#define WANT_INCBIN\n");
+    printf("#endif\n");
+
     for (arg = 1; arg < argc; arg += 2) {
         const char *path = argv[arg];
         const char *identifier = argv[arg + 1];
@@ -135,7 +141,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("#if defined(__GNUC__) || defined(__clang__)\n");
+    printf("#if !defined(NO_INCBIN)\n");
     printf("LWAN_CONSTRUCTOR(bin2hex_%016lx, 0)\n", (uintptr_t)argv);
     printf("{\n");
     for (arg = 1; arg < argc; arg += 2) {
