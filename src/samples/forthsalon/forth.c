@@ -1152,7 +1152,7 @@ BUILTIN("log", 1, 1)
 
 BUILTIN("exp", 1, 1)
 {
-    PUSH_D(log(POP_D()));
+    PUSH_D(exp(POP_D()));
     NEXT();
 }
 
