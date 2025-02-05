@@ -40,6 +40,9 @@
 
 #include "forth.h"
 
+#define NO_INCBIN
+#include "forth-jit-inc.h"
+
 enum forth_opcode {
     OP_CALL_BUILTIN,
     OP_EVAL_CODE,
@@ -82,6 +85,7 @@ DEFINE_ARRAY_TYPE(forth_code, union forth_inst)
 struct forth_builtin {
     const char *name;
     size_t name_len;
+    const char *c_name;
     union {
         void (*callback)(union forth_inst *,
                          double *d_stack,
@@ -258,7 +262,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
 }
 
 #if defined(DUMP_CODE)
-static void dump_code(const struct forth_ir_code *code)
+static void dump_code_ir(const struct forth_ir_code *code)
 {
     const struct forth_ir *ir;
     size_t i = 0;
@@ -289,6 +293,202 @@ static void dump_code(const struct forth_ir_code *code)
             printf("nop\n");
         }
     }
+}
+
+#define JS_PUSH(val_)                                                          \
+    ({                                                                         \
+        if (j > (jump_stack + 64))                                             \
+            return false;                                                      \
+        *j++ = (val_);                                                         \
+    })
+#define JS_POP(val_)                                                           \
+    ({                                                                         \
+        if (j <= jump_stack)                                                   \
+            return false;                                                      \
+        *--j;                                                                  \
+    })
+
+static const char *c_builtin_name(const struct forth_builtin *b,
+                                  char buffer[static 64])
+{
+    /* FIXME add op_* names to forth_builtin; maybe do this during new_word()? */
+    if (streq(b->name, "+"))
+        return "op_add";
+    if (streq(b->name, "-"))
+        return "op_sub";
+    if (streq(b->name, "/"))
+        return "op_div";
+    if (streq(b->name, "*"))
+        return "op_mult";
+    if (streq(b->name, "<>"))
+        return "op_diff";
+    if (streq(b->name, "="))
+        return "op_eq";
+    if (streq(b->name, ">"))
+        return "op_gt";
+    if (streq(b->name, ">="))
+        return "op_gte";
+    if (streq(b->name, "<"))
+        return "op_lt";
+    if (streq(b->name, "<="))
+        return "op_lte";
+    if (streq(b->name, "**"))
+        return "op_pow";
+    if (streq(b->name, "%"))
+        return "op_mod";
+    if (streq(b->name, ">r"))
+        return "op_tor";
+    if (streq(b->name, "r>"))
+        return "op_fromr";
+    if (streq(b->name, "r@"))
+        return "op_rtord";
+    if (streq(b->name, "@"))
+        return "op_recall";
+    if (streq(b->name, "!"))
+        return "op_store";
+    if (streq(b->name, "2dup"))
+        return "op_2dup";
+    if (streq(b->name, "z+"))
+        return "op_zplus";
+    if (streq(b->name, "z*"))
+        return "op_zmult";
+    if (streq(b->name, "-rot"))
+        return "op_minusrot";
+    int ret = snprintf(buffer, 64, "op_%s", b->name);
+    return (ret < 0 || ret > 64) ? NULL : buffer;
+}
+
+
+#define GET_TMP(num_)                                                          \
+    ({                                                                         \
+        int n = (num_);                                                        \
+        const char *out;                                                       \
+        if (n > last_undeclared) {                                             \
+            out = "double tmp";                                                \
+            last_undeclared = n;                                               \
+        } else {                                                               \
+            out = "tmp";                                                       \
+        }                                                                      \
+        out;                                                                   \
+    })
+
+static bool dump_code_c(const struct forth_ir_code *code)
+{
+    size_t jump_stack[64];
+    size_t *j = jump_stack;
+    char name_buffer[64];
+    int last_tmp = 0;
+    int last_undeclared = -1;
+    const struct forth_ir *ir;
+    size_t i = 0;
+
+    printf("dumping code @ %p\n", code);
+
+    fwrite(forth_jit_value.value, forth_jit_value.len, 1, stdout);
+    printf("void compute(double x, double y, double t, double *r, double *g, "
+           "double *b) {\n");
+
+    LWAN_ARRAY_FOREACH (code, ir) {
+        switch (ir->opcode) {
+        case OP_EVAL_CODE:
+            __builtin_unreachable();
+        case OP_CALL_BUILTIN: {
+            const struct forth_builtin *b =
+                find_builtin_by_callback(ir->callback);
+            last_tmp -= b->d_pops;
+
+            if (b->d_pushes == 0) {
+                printf("    %s(", c_builtin_name(b, name_buffer));
+                for (int arg = 0; arg < b->d_pops; arg++) {
+                    printf("tmp%d, ", last_tmp + arg - 1);
+                }
+                printf(");\n");
+            } else if (b->d_pushes == 1) {
+                if (streq(b->name, "t") || streq(b->name, "x") ||
+                    streq(b->name, "y")) {
+                    int t = last_tmp++;
+                    printf("    %s%d = %s;\n", GET_TMP(t), t, b->name);
+                } else {
+                    int t = last_tmp++;
+                    printf("    %s%d = %s(", GET_TMP(t), t,
+                           c_builtin_name(b, name_buffer));
+                    for (int arg = 0; arg < b->d_pops; arg++) {
+                        t = last_tmp + arg - 1;
+                        if (arg == b->d_pops - 1) {
+                            printf("tmp%d", t);
+                        } else {
+                            printf("tmp%d, ", t);
+                        }
+                    }
+                    printf(");\n");
+                }
+
+            } else {
+                printf("    %s(", c_builtin_name(b, name_buffer));
+                for (int arg = 0; arg < b->d_pops; arg++) {
+                    printf("tmp%d, ", last_tmp + arg - 1);
+                }
+                for (int out_arg = 0; out_arg < b->d_pushes; out_arg++) {
+                    int t = last_tmp + out_arg - 1;
+                    if (out_arg == b->d_pushes - 1) {
+                        printf("&tmp%d", t);
+                    } else {
+                        printf("&tmp%d, ", t);
+                    }
+                }
+                last_tmp += b->d_pushes;
+                printf(");\n");
+            }
+
+            break;
+        }
+        case OP_NUMBER: {
+            int t = last_tmp++;
+            printf("    %s%d = %lf;\n", GET_TMP(t), t, ir->number);
+            break;
+        }
+        case OP_JUMP_IF:
+            printf("    if (tmp%d == 0.0) {\n", --last_tmp);
+            JS_PUSH((size_t)last_tmp);
+            JS_PUSH((size_t)last_undeclared);
+            break;
+        case OP_JUMP:
+            printf("    } else {\n");
+            last_undeclared = (int)JS_POP();
+            last_tmp = (int)JS_POP();
+            break;
+        case OP_NOP:
+            printf("    }\n");
+            break;
+        }
+
+        i++;
+    }
+
+    switch (last_tmp) {
+    case 3:
+        printf("    *r = tmp2;\n");
+        printf("    *g = tmp1;\n");
+        printf("    *b = tmp0;\n");
+        break;
+    case 4:
+        printf("    *r = tmp3;\n");
+        printf("    *g = tmp2;\n");
+        printf("    *b = tmp1;\n");
+        break;
+    default:
+        printf("    *r = *g = *b = 0.0;\n");
+    }
+
+    printf("}\n");
+
+    return true;
+}
+
+static void dump_code(const struct forth_ir_code *code)
+{
+    dump_code_ir(code);
+    dump_code_c(code);
 }
 #endif
 
@@ -429,19 +629,6 @@ static bool inline_calls_code(struct forth_ctx *ctx,
     size_t jump_stack[64];
     size_t *j = jump_stack;
 
-#define JS_PUSH(val_)                                                          \
-    ({                                                                         \
-        if (j > (jump_stack + 64))                                             \
-            return false;                                                      \
-        *j++ = (val_);                                                         \
-    })
-#define JS_POP(val_)                                                           \
-    ({                                                                         \
-        if (j <= jump_stack)                                                   \
-            return false;                                                      \
-        *--j;                                                                  \
-    })
-
     LWAN_ARRAY_FOREACH (orig_code, ir) {
         if (ir->opcode == OP_EVAL_CODE) {
             if (!inline_calls_code(ctx, ir->code, new_code)) {
@@ -468,9 +655,6 @@ static bool inline_calls_code(struct forth_ctx *ctx,
             }
         }
     }
-
-#undef JS_PUSH
-#undef JS_POP
 
     return true;
 }
@@ -640,6 +824,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     return true;
 }
 
+#define C_NAME(id_) #id_
+
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
     static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
@@ -649,6 +835,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     __attribute__((aligned(8))) struct_id_ = {                                 \
         .name = name_,                                                         \
         .name_len = sizeof(name_) - 1,                                         \
+        .c_name = C_NAME(id_),                                                 \
         .callback = id_,                                                       \
         .d_pushes = d_pushes_,                                                 \
         .d_pops = d_pops_,                                                     \
