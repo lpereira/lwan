@@ -12,7 +12,9 @@ static inline double op_my(void) { return 0; }
 static inline double op_button(double b) { return 0; }
 static inline double op_buttons() { return 0; }
 static inline double op_audio(double a) { return 0; }
-static inline void op_sample(double a, double b, double *aa, double *bb, double *cc) {}
+static inline void op_sample(double a, double b, double *aa, double *bb, double *cc) {
+    *aa = *bb = *cc = 0;
+}
 static inline double op_bwsample(double a, double b) { return 0; }
 
 static inline void op_dup(double a, double *aa, double *bb) { *aa = *bb = a; }
