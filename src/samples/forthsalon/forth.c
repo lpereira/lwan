@@ -456,9 +456,11 @@ static bool dump_code_c(const struct forth_ir_code *code)
             printf("    } else {\n");
             last_undeclared = (int)JS_POP();
             last_tmp = (int)JS_POP();
+            JS_PUSH((size_t)last_undeclared);
             break;
         case OP_NOP:
             printf("    }\n");
+            last_undeclared = (int)JS_POP();
             break;
         }
 
