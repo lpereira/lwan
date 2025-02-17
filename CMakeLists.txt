@@ -286,6 +286,8 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 
 	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL LWAN_HAVE_LTO_FAT_OBJS)
 	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL LWAN_HAVE_BUILTIN_IA32_CRC32)
+
+	enable_c_flag_if_avail(-mtls-dialect=gnu2 C_FLAGS_REL LWAN_HAVE_GNU2_TLS_DIALECT)
 endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Deb")
