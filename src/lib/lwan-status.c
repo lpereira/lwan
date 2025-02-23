@@ -142,23 +142,13 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 }
 
 #ifndef NDEBUG
-static long gettid_cached(void)
+
+LWAN_LAZY_THREAD_LOCAL(long, gettid_cached)
 {
-#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-    /* Workaround for:
-     * https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=15216 */
     return gettid();
-#else
-    static __thread long tid;
-
-    if (!tid)
-        tid = gettid();
-
-    return tid;
-#endif
 }
 
-static const char *get_thread_emoji(void)
+LWAN_LAZY_THREAD_LOCAL(const char *, get_thread_emoji)
 {
     static const char *emojis[] = {
         "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮",
@@ -171,14 +161,8 @@ static const char *get_thread_emoji(void)
         "🐩", "🐈", "🐓", "🦃", "🦤", "🦚", "🦜", "🦢", "🦩", "🕊", "🐇", "🦝",
         "🦨", "🦡", "🦫", "🦦", "🦥", "🐁", "🐀", "🐿", "🦔", "🐉", "🐲",
     };
-    static __thread const char *emoji;
     static unsigned int last_emoji_id;
-
-    if (!emoji) {
-        emoji = emojis[ATOMIC_INC(last_emoji_id) % (int)N_ELEMENTS(emojis)];
-    }
-
-    return emoji;
+    return emojis[ATOMIC_INC(last_emoji_id) % (int)N_ELEMENTS(emojis)];
 }
 #endif
 

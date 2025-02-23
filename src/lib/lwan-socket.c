@@ -38,37 +38,29 @@
 #include "sd-daemon.h"
 
 #ifdef __linux__
-
-static bool reno_supported;
-static void init_reno_supported(void)
+LWAN_LAZY_GLOBAL(bool, is_reno_supported)
 {
     FILE *allowed;
-
-    reno_supported = false;
+    bool supported = false;
 
     allowed = fopen("/proc/sys/net/ipv4/tcp_allowed_congestion_control", "re");
-    if (!allowed)
-        return;
-
-    char line[4096];
-    if (fgets(line, sizeof(line), allowed)) {
-        if (strstr(line, "reno"))
-            reno_supported = true;
+    if (allowed) {
+        char line[4096];
+        if (fgets(line, sizeof(line), allowed)) {
+            if (strstr(line, "reno"))
+                supported = true;
+        }
+        fclose(allowed);
     }
-    fclose(allowed);
-}
 
-static bool is_reno_supported(void)
-{
-    static pthread_once_t reno_supported_once = PTHREAD_ONCE_INIT;
-    pthread_once(&reno_supported_once, init_reno_supported);
-    return reno_supported;
+    return supported;
 }
 #endif
 
-static int backlog_size;
-static void init_backlog_size(void)
+LWAN_LAZY_GLOBAL(int, get_backlog_size)
 {
+    int backlog_size = SOMAXCONN;
+
 #ifdef __linux__
     FILE *somaxconn;
 
@@ -81,14 +73,6 @@ static void init_backlog_size(void)
     }
 #endif
 
-    if (!backlog_size)
-        backlog_size = SOMAXCONN;
-}
-
-static int get_backlog_size(void)
-{
-    static pthread_once_t backlog_size_once = PTHREAD_ONCE_INIT;
-    pthread_once(&backlog_size_once, init_backlog_size);
     return backlog_size;
 }
 

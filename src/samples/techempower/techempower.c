@@ -126,28 +126,22 @@ static const struct json_obj_descr queries_array_desc =
                              db_json_desc,
                              N_ELEMENTS(db_json_desc));
 
-static struct db *get_db(void)
+LWAN_LAZY_THREAD_LOCAL(struct db *, get_db)
 {
-    static __thread struct db *database;
+    switch (db_connection_params.type) {
+    case DB_CONN_MYSQL:
+        return db_connect_mysql(db_connection_params.mysql.hostname,
+                                db_connection_params.mysql.user,
+                                db_connection_params.mysql.password,
+                                db_connection_params.mysql.database);
 
-    if (!database) {
-        switch (db_connection_params.type) {
-        case DB_CONN_MYSQL:
-            database = db_connect_mysql(db_connection_params.mysql.hostname,
-                                        db_connection_params.mysql.user,
-                                        db_connection_params.mysql.password,
-                                        db_connection_params.mysql.database);
-            break;
-        case DB_CONN_SQLITE:
-            database = db_connect_sqlite(db_connection_params.sqlite.path, true,
-                                         db_connection_params.sqlite.pragmas);
-            break;
-        }
-        if (!database)
-            lwan_status_critical("Could not connect to the database");
+    case DB_CONN_SQLITE:
+        return db_connect_sqlite(db_connection_params.sqlite.path, true,
+                                 db_connection_params.sqlite.pragmas);
     }
 
-    return database;
+    lwan_status_critical("Could not connect to the database");
+    __builtin_unreachable();
 }
 
 static int append_to_strbuf(const char *bytes, size_t len, void *data)

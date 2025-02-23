@@ -28,6 +28,39 @@
 #define DEFAULT_BUFFER_SIZE 4096
 #define DEFAULT_HEADERS_SIZE 4096
 
+#define LWAN_LAZY_GLOBAL(type_, name_)                                         \
+    static type_ lazy_global_##name_;                                          \
+    static type_ new_lazy_global_##name_(void);                                \
+    static inline void initialize_lazy_global_##name_(void)                    \
+    {                                                                          \
+        lazy_global_##name_ = new_lazy_global_##name_();                       \
+    }                                                                          \
+    static inline type_ name_(void)                                            \
+    {                                                                          \
+        static pthread_once_t once = PTHREAD_ONCE_INIT;                        \
+        pthread_once(&once, initialize_lazy_global_##name_);                   \
+        return lazy_global_##name_;                                            \
+    }                                                                          \
+    static inline type_ new_lazy_global_##name_(void)
+
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+/* Workaround for:
+ * https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=15216 */
+#define LWAN_LAZY_THREAD_LOCAL(type_, name_) static inline type_ name_(void)
+#else
+#define LWAN_LAZY_THREAD_LOCAL(type_, name_)                                   \
+    static type_ new_lazy_thread_local_##name_(void);                          \
+    static inline type_ name_(void)                                            \
+    {                                                                          \
+        static __thread type_ val;                                             \
+        static __thread bool initialized;                                      \
+        if (!initialized)                                                      \
+            val = new_lazy_thread_local_##name_();                             \
+        return val;                                                            \
+    }                                                                          \
+    static inline type_ new_lazy_thread_local_##name_(void)
+#endif
+
 struct lwan_constructor_callback_info {
     void (*func)(struct lwan *);
     int prio;
