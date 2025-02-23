@@ -54,8 +54,10 @@
     {                                                                          \
         static __thread type_ val;                                             \
         static __thread bool initialized;                                      \
-        if (!initialized)                                                      \
+        if (UNLIKELY(!initialized)) {                                          \
             val = new_lazy_thread_local_##name_();                             \
+            initialized = true;                                                \
+        }                                                                      \
         return val;                                                            \
     }                                                                          \
     static inline type_ new_lazy_thread_local_##name_(void)
