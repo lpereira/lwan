@@ -31,7 +31,7 @@
 #define LWAN_LAZY_GLOBAL(type_, name_)                                         \
     static type_ lazy_global_##name_;                                          \
     static type_ new_lazy_global_##name_(void);                                \
-    static inline void initialize_lazy_global_##name_(void)                    \
+    __attribute__((cold)) static void initialize_lazy_global_##name_(void)     \
     {                                                                          \
         lazy_global_##name_ = new_lazy_global_##name_();                       \
     }                                                                          \
@@ -41,7 +41,9 @@
         pthread_once(&once, initialize_lazy_global_##name_);                   \
         return lazy_global_##name_;                                            \
     }                                                                          \
-    __attribute__((cold, noinline)) static type_ new_lazy_global_##name_(void)
+    __attribute__((                                                            \
+        cold,                                                                  \
+        always_inline)) static inline type_ new_lazy_global_##name_(void)
 
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 /* Workaround for:
