@@ -1077,12 +1077,9 @@ static const char *is_dir_good_for_tmp(const char *v)
     return v;
 }
 
-static const char *temp_dir;
 static const size_t body_buffer_temp_file_thresh = 1<<20;
 
-__attribute__((cold))
-static const char *
-get_temp_dir(void)
+LWAN_LAZY_GLOBAL(const char *, get_temp_dir)
 {
     const char *tmpdir;
 
@@ -1112,22 +1109,17 @@ get_temp_dir(void)
     return NULL;
 }
 
-LWAN_CONSTRUCTOR(initialize_temp_dir, 0)
-{
-    temp_dir = get_temp_dir();
-}
-
 static int create_temp_file(void)
 {
     char template[PATH_MAX];
     mode_t prev_mask;
     int ret;
 
-    if (UNLIKELY(!temp_dir))
+    if (UNLIKELY(!get_temp_dir()))
         return -ENOENT;
 
 #if defined(O_TMPFILE)
-    int fd = open(temp_dir,
+    int fd = open(get_temp_dir(),
                   O_TMPFILE | O_CREAT | O_RDWR | O_EXCL | O_CLOEXEC |
                       O_NOFOLLOW | O_NOATIME,
                   S_IRUSR | S_IWUSR);
@@ -1135,7 +1127,7 @@ static int create_temp_file(void)
         return fd;
 #endif
 
-    ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", temp_dir);
+    ret = snprintf(template, sizeof(template), "%s/lwanXXXXXX", get_temp_dir());
     if (UNLIKELY(ret < 0 || ret >= (int)sizeof(template)))
         return -EOVERFLOW;
 
