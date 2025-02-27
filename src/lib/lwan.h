@@ -570,11 +570,13 @@ size_t lwan_prepare_response_header(struct lwan_request *request,
                                     enum lwan_http_status status,
                                     char header_buffer[],
                                     size_t header_buffer_size)
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result))
+    LWAN_ACCESS_PARAM(write_only, 3, 4);
 
 const char *lwan_request_get_post_param(struct lwan_request *request,
                                         const char *key)
     __attribute__((warn_unused_result, pure));
+
 const char *lwan_request_get_query_param(struct lwan_request *request,
                                          const char *key)
     __attribute__((warn_unused_result, pure));
@@ -628,12 +630,15 @@ const char *lwan_request_get_host(struct lwan_request *request);
 const char *
 lwan_request_get_remote_address(const struct lwan_request *request,
                                 char buffer LWAN_ARRAY_PARAM(INET6_ADDRSTRLEN))
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result))
+    LWAN_ACCESS_PARAM(write_only, 2);
 
 const char *lwan_request_get_remote_address_and_port(
     const struct lwan_request *request,
     char buffer LWAN_ARRAY_PARAM(INET6_ADDRSTRLEN), uint16_t *port)
-    __attribute__((warn_unused_result));
+    __attribute__((warn_unused_result))
+    LWAN_ACCESS_PARAM(write_only, 2)
+    LWAN_ACCESS_PARAM(write_only, 3);
 
 static inline enum lwan_request_flags
 lwan_request_get_method(const struct lwan_request *request)

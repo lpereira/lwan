@@ -78,6 +78,7 @@ struct proxy_header_v2 {
 };
 
 
+LWAN_ACCESS_PARAM(read_only, 1)
 static bool
 parse_ascii_port(char *port, unsigned short *out)
 {
@@ -100,6 +101,7 @@ parse_ascii_port(char *port, unsigned short *out)
     return true;
 }
 
+LWAN_ACCESS_PARAM(read_write, 1)
 static char *
 strsep_char(char *strp, const char *end, char delim)
 {
@@ -119,6 +121,7 @@ strsep_char(char *strp, const char *end, char delim)
     return ptr + 1;
 }
 
+LWAN_ACCESS_PARAM(read_only, 2)
 static char *
 parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
 {
@@ -185,6 +188,7 @@ parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)
     return buffer + size;
 }
 
+LWAN_ACCESS_PARAM(read_only, 2)
 static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
 {
     struct proxy_header_v2 *hdr = (struct proxy_header_v2 *)buffer;
@@ -245,6 +249,7 @@ static char *parse_proxy_protocol_v2(struct lwan_request *request, char *buffer)
     __builtin_expect(value1, value2)
 #endif
 
+LWAN_ACCESS_PARAM(read_only, 2)
 static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
                                                 char *buffer)
 {
@@ -264,6 +269,7 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
+LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
     static const unsigned char tbl1[256] = {
@@ -331,6 +337,8 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
     return (ssize_t)strlen(str);
 }
 
+LWAN_ACCESS_PARAM(read_only, 1)
+LWAN_ACCESS_PARAM(read_only, 2)
 static int key_value_compare(const void *a, const void *b)
 {
     return strcmp(((const struct lwan_key_value *)a)->key,
