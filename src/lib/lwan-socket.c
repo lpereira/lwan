@@ -71,8 +71,13 @@ LWAN_LAZY_GLOBAL(int, get_backlog_size)
             backlog_size = tmp;
         fclose(somaxconn);
     }
-#elifdef KIPC_SOMAXCONN
+#elif defined(KIPC_SOMAXCONN) || defined(KERN_SOMAXCONN)
+
+#if defined(KERN_SOMAXCONN) /* OpenBSD */
+    int mib[] = {CTL_KERN, KERN_SOMAXCONN, -1};
+#else /* FreeBSD, macOS */
     int mib[] = {CTL_KERN, KERN_IPC, KIPC_SOMAXCONN, -1};
+#endif
     int tmp;
 
     if (!sysctl(mib, N_ELEMENTS(mib), NULL, NULL, &tmp, sizeof(tmp)))
