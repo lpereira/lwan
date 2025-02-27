@@ -78,7 +78,7 @@ LWAN_LAZY_GLOBAL(int, get_backlog_size)
 #else /* FreeBSD, macOS */
     int mib[] = {CTL_KERN, KERN_IPC, KIPC_SOMAXCONN, -1};
 #endif
-    int tmp;
+    int tmp = 0;
 
     if (!sysctl(mib, N_ELEMENTS(mib), NULL, NULL, &tmp, sizeof(tmp)))
         backlog_size = tmp;
@@ -255,6 +255,8 @@ static int set_socket_options(const struct lwan *l, int fd)
 
     if (is_reno_supported())
         setsockopt(fd, IPPROTO_TCP, TCP_CONGESTION, "reno", 4);
+#else
+    (void)l;
 #endif
 
     return fd;
