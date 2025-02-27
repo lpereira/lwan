@@ -292,12 +292,13 @@ static int setup_socket_normally(const struct lwan *l,
 
 static int from_systemd_socket(const struct lwan *l, int fd)
 {
-    if (!sd_is_socket_inet(fd, AF_UNSPEC, SOCK_STREAM, 1, 0)) {
-        lwan_status_critical("Passed file descriptor is not a "
-                             "listening TCP socket");
+    if (sd_is_socket_inet(fd, AF_INET, SOCK_STREAM, 1, 0) == 1 ||
+        sd_is_socket_inet(fd, AF_INET6, SOCK_STREAM, 1, 0) == 1) {
+        return set_socket_options(l, set_socket_flags(fd));
     }
 
-    return set_socket_options(l, set_socket_flags(fd));
+    lwan_status_critical("Passed file descriptor is not a "
+                         "listening TCP socket");
 }
 
 int lwan_create_listen_socket(const struct lwan *l,
