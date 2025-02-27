@@ -423,15 +423,17 @@ static int luaopen_log(lua_State *L)
 }
 
 DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
-static struct lwan_lua_method_array lua_methods;
 
-LWAN_CONSTRUCTOR(register_lua_methods, 0)
+LWAN_LAZY_GLOBAL(luaL_reg *, lua_methods)
 {
+    struct lwan_lua_method_array methods;
     const struct lwan_lua_method_info *info;
     luaL_reg *r;
 
+    lwan_lua_method_array_init(&methods);
+
     LWAN_SECTION_FOREACH(lwan_lua_method, info) {
-        r = lwan_lua_method_array_append(&lua_methods);
+        r = lwan_lua_method_array_append(&methods);
         if (!r) {
             lwan_status_critical("Could not register Lua method `%s`",
                                  info->name);
@@ -441,12 +443,14 @@ LWAN_CONSTRUCTOR(register_lua_methods, 0)
         r->func = info->func;
     }
 
-    r = lwan_lua_method_array_append(&lua_methods);
+    r = lwan_lua_method_array_append(&methods);
     if (!r)
         lwan_status_critical("Could not add Lua method sentinel");
 
     r->name = NULL;
     r->func = NULL;
+
+    return lwan_lua_method_array_get_array(&methods);
 }
 
 const char *lwan_lua_state_last_error(lua_State *L)
@@ -466,7 +470,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
     luaopen_log(L);
 
     luaL_newmetatable(L, request_metatable_name);
-    luaL_register(L, NULL, lwan_lua_method_array_get_array(&lua_methods));
+    luaL_register(L, NULL, lua_methods());
     lua_setfield(L, -1, "__index");
 
     if (script_file) {
