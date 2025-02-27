@@ -163,6 +163,12 @@ static ALWAYS_INLINE uint64_t string_as_uint64(const char *s)
 #define LWAN_ARRAY_PARAM(length) [static length]
 #endif
 
+#if defined(LWAN_HAVE_ACCESS_ATTRIBUTE)
+#define LWAN_ACCESS_PARAM(...) __attribute__((access(__VA_ARGS__)))
+#else
+#define LWAN_ACCESS_PARAM(...)
+#endif
+
 #include "lwan-http-status.h"
 
 #define GENERATE_ENUM_ITEM(id, code, short, long) HTTP_ ## id = code,

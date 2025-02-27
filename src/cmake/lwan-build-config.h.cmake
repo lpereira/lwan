@@ -60,6 +60,9 @@
 #cmakedefine LWAN_HAVE_BUILTIN_FPCLASSIFY
 #cmakedefine LWAN_HAVE_BUILTIN_EXPECT_PROBABILITY
 
+/* GCC extensions */
+#cmakedefine LWAN_HAVE_ACCESS_ATTRIBUTE
+
 /* C11 _Static_assert() */
 #cmakedefine LWAN_HAVE_STATIC_ASSERT
 

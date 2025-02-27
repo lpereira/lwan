@@ -217,6 +217,7 @@ endif()
 #
 # Check for GCC builtin functions
 #
+check_c_source_compiles("__attribute__((access(read_only, 1))) int main(char *p) { return 0; }" LWAN_HAVE_ACCESS_ATTRIBUTE)
 check_c_source_compiles("int main(void) { __builtin_cpu_init(); }" LWAN_HAVE_BUILTIN_CPU_INIT)
 check_c_source_compiles("int main(void) { __builtin_expect_with_probability(0, 0, 0); }" LWAN_HAVE_BUILTIN_EXPECT_PROBABILITY)
 check_c_source_compiles("int main(void) { __builtin_clzll(0); }" LWAN_HAVE_BUILTIN_CLZLL)
