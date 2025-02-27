@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -62,15 +63,20 @@ LWAN_LAZY_GLOBAL(int, get_backlog_size)
     int backlog_size = SOMAXCONN;
 
 #ifdef __linux__
-    FILE *somaxconn;
+    FILE *somaxconn = fopen("/proc/sys/net/core/somaxconn", "re");
 
-    somaxconn = fopen("/proc/sys/net/core/somaxconn", "re");
     if (somaxconn) {
         int tmp;
         if (fscanf(somaxconn, "%d", &tmp) == 1)
             backlog_size = tmp;
         fclose(somaxconn);
     }
+#elifdef KIPC_SOMAXCONN
+    int mib[] = {CTL_KERN, KERN_IPC, KIPC_SOMAXCONN, -1};
+    int tmp;
+
+    if (!sysctl(mib, N_ELEMENTS(mib), NULL, NULL, &tmp, sizeof(tmp)))
+        backlog_size = tmp;
 #endif
 
     return backlog_size;
