@@ -80,7 +80,8 @@ struct lwan_constructor_callback_info {
         .func = lwan_constructor_##name_,                                      \
         .prio = (prio_),                                                       \
     };                                                                         \
-    static ALWAYS_INLINE void lwan_constructor_##name_(struct lwan *l)
+    static ALWAYS_INLINE void lwan_constructor_##name_(                        \
+        struct lwan *l __attribute__((unused)))
 
 struct lwan_request_parser_helper {
     struct lwan_value *buffer; /* The whole request buffer */

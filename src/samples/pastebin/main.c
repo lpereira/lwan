@@ -39,8 +39,9 @@ struct paste {
     char value[];
 };
 
-static struct cache_entry *
-create_paste(const void *key, void *cache_ctx, void *create_ctx)
+static struct cache_entry *create_paste(const void *key __attribute__((unused)),
+                                        void *cache_ctx __attribute__((unused)),
+                                        void *create_ctx)
 {
     const struct lwan_value *body = create_ctx;
     size_t alloc_size;
@@ -60,7 +61,8 @@ create_paste(const void *key, void *cache_ctx, void *create_ctx)
     return (struct cache_entry *)paste;
 }
 
-static void destroy_paste(struct cache_entry *entry, void *context)
+static void destroy_paste(struct cache_entry *entry,
+                          void *context __attribute__((unused)))
 {
     free(entry);
 }

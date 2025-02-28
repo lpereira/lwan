@@ -380,7 +380,6 @@ static bool dump_code_c(const struct forth_ir_code *code)
     int last_tmp = 0;
     int last_undeclared = -1;
     const struct forth_ir *ir;
-    size_t i = 0;
 
     printf("dumping code @ %p\n", code);
 
@@ -463,8 +462,6 @@ static bool dump_code_c(const struct forth_ir_code *code)
             last_undeclared = (int)JS_POP();
             break;
         }
-
-        i++;
     }
 
     switch (last_tmp) {
@@ -712,7 +709,7 @@ static void op_nop(union forth_inst *inst,
     return inst[1].callback(&inst[1], d_stack, r_stack, vars);
 }
 
-static void op_halt(union forth_inst *inst,
+static void op_halt(union forth_inst *inst __attribute__((unused)),
                     double *d_stack,
                     double *r_stack,
                     struct forth_vars *vars)
@@ -856,7 +853,8 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         .name_len = sizeof(name_) - 1,                                         \
         .callback_compiler = id_,                                              \
     };                                                                         \
-    static const char *id_(struct forth_ctx *ctx, const char *code)
+    static const char *id_(struct forth_ctx *ctx __attribute__((unused)),      \
+                           const char *code)
 
 #define BUILTIN(name_, d_pushes_, d_pops_)                                     \
     BUILTIN_DETAIL(name_, LWAN_TMP_ID, LWAN_TMP_ID, d_pushes_, d_pops_, 0, 0)
@@ -1238,7 +1236,7 @@ BUILTIN("/", 1, 2)
     double v = POP_D();
     if (v == 0.0) {
         DROP_D();
-        PUSH_D(INFINITY);
+        PUSH_D(__builtin_inf());
     } else {
         PUSH_D(POP_D() / v);
     }
@@ -1494,6 +1492,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 #elif defined(MAIN)
 int main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
+
     struct forth_ctx *ctx = forth_new();
     if (!ctx)
         return 1;

@@ -489,7 +489,7 @@ out:
     return -ENOENT;
 }
 
-static bool mmap_fd(const struct serve_files_priv *priv,
+static bool mmap_fd(const struct serve_files_priv *priv __attribute__((unused)),
                     int fd,
                     const size_t size,
                     struct lwan_value *value)

@@ -162,8 +162,10 @@ add_int_param(struct lwan_strbuf *strbuf, const char *key, ssize_t value)
     return add_param_len(strbuf, key, strlen(key), p, len);
 }
 
-static struct cache_entry *
-create_script_name(const void *keyptr, void *context, void *create_contex)
+static struct cache_entry *create_script_name(const void *keyptr,
+                                              void *context,
+                                              void *create_contex
+                                              __attribute__((unused)))
 {
     struct private_data *pd = context;
     struct script_name_cache_entry *entry;
@@ -194,7 +196,8 @@ create_script_name(const void *keyptr, void *context, void *create_contex)
     if (!entry->script_filename)
         goto free_script_name;
 
-    if (strncmp(entry->script_filename, pd->script_path, strlen(pd->script_path)))
+    if (strncmp(entry->script_filename, pd->script_path,
+                strlen(pd->script_path)))
         goto free_script_filename;
 
     return &entry->base;
@@ -209,7 +212,8 @@ free_entry:
     return NULL;
 }
 
-static void destroy_script_name(struct cache_entry *entry, void *context)
+static void destroy_script_name(struct cache_entry *entry,
+                                void *context __attribute__((unused)))
 {
     struct script_name_cache_entry *snce =
         (struct script_name_cache_entry *)entry;

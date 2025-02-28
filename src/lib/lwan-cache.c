@@ -90,7 +90,7 @@ static ALWAYS_INLINE void *identity_key_copy(const void *key)
     return (void *)key;
 }
 
-static void identity_key_free(void *key)
+static void identity_key_free(void *key __attribute__((unused)))
 {
 }
 

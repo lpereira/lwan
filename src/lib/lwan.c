@@ -1002,7 +1002,7 @@ void lwan_shutdown(struct lwan *l)
     lwan_readahead_shutdown();
 }
 
-void lwan_main_loop(struct lwan *l)
+void lwan_main_loop(struct lwan *l __attribute__((unused)))
 {
     lwan_status_info("Ready to serve");
 

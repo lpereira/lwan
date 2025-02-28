@@ -272,6 +272,8 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
 LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winitializer-overrides"
     static const unsigned char tbl1[256] = {
         [0 ... 255] = 255, ['0'] = 0 << 4,  ['1'] = 1 << 4,  ['2'] = 2 << 4,
         ['3'] = 3 << 4,    ['4'] = 4 << 4,  ['5'] = 5 << 4,  ['6'] = 6 << 4,
@@ -287,6 +289,7 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
         ['e'] = 14,       ['f'] = 15, ['A'] = 10, ['B'] = 11, ['C'] = 12,
         ['D'] = 13,       ['E'] = 14, ['F'] = 15,
     };
+#pragma GCC diagnostic pop
     const char *inptr = str;
     char *outptr = str;
 
