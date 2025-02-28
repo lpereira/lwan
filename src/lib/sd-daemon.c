@@ -121,7 +121,7 @@ static int strv_extend_n(char ***p, const char *s, int n) {
                 return -EINVAL;
 
         *p = calloc((size_t)n, sizeof(char *));
-        if (!p)
+        if (!*p)
                 return -ENOMEM;
 
         size_t s_size = strlen(s) + 1;
