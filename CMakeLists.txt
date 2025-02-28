@@ -236,6 +236,10 @@ check_c_source_compiles("#include <sys/socket.h>
 int main(void) {
 	setsockopt(0, SOL_SOCKET, SO_INCOMING_CPU, NULL, 0);
 }" LWAN_HAVE_SO_INCOMING_CPU)
+check_c_source_compiles("#include <sys/vfs.h>
+int main(void) {
+	struct statfs sfs = {.f_type = 0};
+}" LWAN_HAVE_STATFS_F_TYPE)
 
 #
 # Look for Valgrind header

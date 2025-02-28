@@ -1076,7 +1076,7 @@ static const char *is_dir_good_for_tmp(const char *v)
             v);
     }
 
-#ifndef __OpenBSD__ /* OpenBSD doesn't have f_type */
+#ifdef LWAN_HAVE_STATFS_F_TYPE
     struct statfs sb;
     if (!statfs(v, &sb) && sb.f_type == TMPFS_MAGIC) {
         lwan_status_warning("%s is a tmpfs filesystem, "

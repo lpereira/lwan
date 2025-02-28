@@ -50,6 +50,7 @@
 #cmakedefine LWAN_HAVE_STPCPY
 #cmakedefine LWAN_HAVE_EVENTFD
 #cmakedefine LWAN_HAVE_MINCORE
+#cmakedefine LWAN_HAVE_STATFS_F_TYPE
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine LWAN_HAVE_BUILTIN_CLZLL
