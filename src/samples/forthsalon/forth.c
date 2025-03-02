@@ -299,41 +299,32 @@ static void dump_code(const struct forth_code *code)
         if (inst->callback == op_number) {
             inst++;
             printf("number %lf\n", inst->number);
-            continue;
-        }
-        if (inst->callback == op_jump_if) {
+        } else if (inst->callback == op_jump_if) {
             printf("if [next +%zu, abs %zu]\n", inst[1].pc,
                    forth_code_get_elem_index(code, (union forth_inst *)inst) +
                        inst[1].pc);
             inst++;
-            continue;
-        }
-        if (inst->callback == op_jump) {
+        } else if (inst->callback == op_jump) {
             printf("jump to +%zu, abs %zu\n", inst[1].pc,
                    forth_code_get_elem_index(code, (union forth_inst *)inst) +
                        inst[1].pc);
             inst++;
-            continue;
-        }
-        if (inst->callback == op_nop) {
-            printf("nop\n");
-            continue;
-        }
-        if (inst->callback == op_halt) {
+        } else if (inst->callback == op_halt) {
             printf("halt\n");
-            continue;
-        }
-        if (UNLIKELY(inst->callback == op_eval_code)) {
+        } else if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code shouldn't exist here");
             __builtin_unreachable();
-        }
-
-        const struct forth_builtin *b =
-            find_builtin_by_callback(inst->callback);
-        if (b) {
-            printf("call builtin '%s'\n", b->name);
+        } else if (UNLIKELY(inst->callback == op_nop)) {
+            lwan_status_critical("nop shouldn't exist here");
+            __builtin_unreachable();
         } else {
-            printf("*** inconsistency; value = %zu ***\n", inst->pc);
+            const struct forth_builtin *b =
+                find_builtin_by_callback(inst->callback);
+            if (b) {
+                printf("call builtin '%s'\n", b->name);
+            } else {
+                printf("*** inconsistency; value = %zu ***\n", inst->pc);
+            }
         }
     }
 }
