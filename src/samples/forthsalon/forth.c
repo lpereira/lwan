@@ -302,7 +302,8 @@ static void dump_code(const struct forth_code *code)
     printf("dumping code @ %p\n", code);
 
     LWAN_ARRAY_FOREACH (code, inst) {
-        printf("%08zu    ", forth_code_get_elem_index(code, (union forth_inst *)inst));
+        printf("%08zu    ",
+               forth_code_get_elem_index(code, (union forth_inst *)inst));
 
         if (inst->callback == op_number) {
             inst++;
@@ -311,12 +312,16 @@ static void dump_code(const struct forth_code *code)
         }
         if (inst->callback == op_jump_if) {
             inst++;
-            printf("if [next %zu]\n", inst->pc);
+            printf("if [next +%zu, abs %zu]\n", inst->pc,
+                   forth_code_get_elem_index(code, (union forth_inst *)inst) +
+                       inst->pc);
             continue;
         }
         if (inst->callback == op_jump) {
             inst++;
-            printf("jump to %zu\n", inst->pc);
+            printf("jump to +%zu, abs %zu\n", inst->pc,
+                   forth_code_get_elem_index(code, (union forth_inst *)inst) +
+                       inst->pc);
             continue;
         }
         if (inst->callback == op_nop) {
@@ -332,7 +337,8 @@ static void dump_code(const struct forth_code *code)
             __builtin_unreachable();
         }
 
-        const struct forth_builtin *b = find_builtin_by_callback(inst->callback);
+        const struct forth_builtin *b =
+            find_builtin_by_callback(inst->callback);
         if (b) {
             printf("call builtin '%s'\n", b->name);
         } else {
@@ -650,8 +656,7 @@ static const char *found_word(struct forth_ctx *ctx,
     return code;
 }
 
-static bool inline_calls_code(struct forth_ctx *ctx,
-                              const struct forth_code *orig_code,
+static bool inline_calls_code(const struct forth_code *orig_code,
                               struct forth_code *new_code)
 {
     const union forth_inst *inst;
@@ -661,7 +666,7 @@ static bool inline_calls_code(struct forth_ctx *ctx,
     LWAN_ARRAY_FOREACH (orig_code, inst) {
         if (inst->callback == op_eval_code) {
             inst++;
-            if (!inline_calls_code(ctx, inst->code, new_code))
+            if (!inline_calls_code(inst->code, new_code))
                 return false;
         } else {
             bool has_imm = false;
@@ -677,13 +682,16 @@ static bool inline_calls_code(struct forth_ctx *ctx,
             } else if (inst->callback == op_jump) {
                 union forth_inst *if_inst =
                     forth_code_get_elem(new_code, JS_POP());
-                if_inst->pc = forth_code_len(new_code) + 1 /* jump imm */;
+                if_inst->pc = forth_code_len(new_code) + 1 /* jump imm */ -
+                              forth_code_get_elem_index(new_code, if_inst);
+
                 JS_PUSH(forth_code_len(new_code));
                 has_imm = true;
             } else if (inst->callback == op_nop) {
                 union forth_inst *else_inst =
                     forth_code_get_elem(new_code, JS_POP());
-                else_inst->pc = forth_code_len(new_code);
+                else_inst->pc = forth_code_len(new_code) -
+                                forth_code_get_elem_index(new_code, else_inst);
             } else if (inst->callback == op_number) {
                 has_imm = true;
             }
@@ -707,7 +715,7 @@ static bool inline_calls(struct forth_ctx *ctx)
     struct forth_code new_main;
 
     forth_code_init(&new_main);
-    if (!inline_calls_code(ctx, &ctx->main->code, &new_main)) {
+    if (!inline_calls_code(&ctx->main->code, &new_main)) {
         forth_code_reset(&new_main);
         return false;
     }
