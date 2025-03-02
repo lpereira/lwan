@@ -311,17 +311,17 @@ static void dump_code(const struct forth_code *code)
             continue;
         }
         if (inst->callback == op_jump_if) {
-            inst++;
-            printf("if [next +%zu, abs %zu]\n", inst->pc,
+            printf("if [next +%zu, abs %zu]\n", inst[1].pc,
                    forth_code_get_elem_index(code, (union forth_inst *)inst) +
-                       inst->pc);
+                       inst[1].pc);
+            inst++;
             continue;
         }
         if (inst->callback == op_jump) {
-            inst++;
-            printf("jump to +%zu, abs %zu\n", inst->pc,
+            printf("jump to +%zu, abs %zu\n", inst[1].pc,
                    forth_code_get_elem_index(code, (union forth_inst *)inst) +
-                       inst->pc);
+                       inst[1].pc);
+            inst++;
             continue;
         }
         if (inst->callback == op_nop) {
