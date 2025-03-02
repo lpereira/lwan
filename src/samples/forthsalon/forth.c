@@ -456,16 +456,22 @@ static const char *found_word(struct forth_ctx *ctx,
 }
 
 static bool inline_calls_code(const struct forth_code *orig_code,
-                              struct forth_code *new_code)
+                              struct forth_code *new_code,
+                              int nested)
 {
     const union forth_inst *inst;
     size_t jump_stack[64];
     size_t *j = jump_stack;
 
+    if (!nested) {
+        lwan_status_error("Recursion limit reached while inlining");
+        return false;
+    }
+
     LWAN_ARRAY_FOREACH (orig_code, inst) {
         if (inst->callback == op_eval_code) {
             inst++;
-            if (!inline_calls_code(inst->code, new_code))
+            if (!inline_calls_code(inst->code, new_code, nested - 1))
                 return false;
         } else {
             bool has_imm = false;
@@ -518,7 +524,7 @@ static bool inline_calls(struct forth_ctx *ctx)
     struct forth_code new_main;
 
     forth_code_init(&new_main);
-    if (!inline_calls_code(&ctx->main->code, &new_main)) {
+    if (!inline_calls_code(&ctx->main->code, &new_main, 100)) {
         forth_code_reset(&new_main);
         return false;
     }
@@ -660,13 +666,12 @@ BUILTIN_COMPILER(";")
         return NULL;
     }
 
-    ctx->is_inside_word_def = false;
-
     if (UNLIKELY(!ctx->defining_word)) {
         lwan_status_error("No word provided");
         return NULL;
     }
 
+    ctx->is_inside_word_def = false;
     ctx->defining_word = ctx->main;
     return code;
 }
