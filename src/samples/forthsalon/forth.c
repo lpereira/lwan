@@ -226,18 +226,18 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code after inlining");
-            return false;
+            __builtin_unreachable();
         }
         if (UNLIKELY(inst->callback == op_nop)) {
             lwan_status_critical("nop after inlining");
-            return false;
+            __builtin_unreachable();
         }
 
         /* all other built-ins */
         const struct forth_builtin *b = find_builtin_by_callback(inst->callback);
         if (UNLIKELY(!b)) {
             lwan_status_critical("Can't find builtin word by callback");
-            return false;
+            __builtin_unreachable();
         }
 
         if (UNLIKELY(items_in_d_stack < b->d_pops)) {
@@ -1267,8 +1267,7 @@ int main(int argc, char *argv[])
                             ": nice 60 5 4 + + ; : juanita 400 10 5 5 + + + ; "
                             "x if nice else juanita then 2 * 4 / 2 *")) {
         lwan_status_critical("could not parse forth program");
-        forth_free(ctx);
-        return 1;
+        __builtin_unreachable();
     }
 
     printf("running with x=0\n");
