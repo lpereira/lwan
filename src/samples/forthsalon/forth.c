@@ -565,6 +565,11 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     }
 
 finish:
+    if (ctx->is_inside_word_def) {
+        lwan_status_error("Word definition not finished");
+        return false;
+    }
+
     EMIT(.callback = op_halt);
 
     if (!inline_calls(ctx))
