@@ -71,7 +71,6 @@ DEFINE_ARRAY_TYPE(forth_code, union forth_inst)
 struct forth_builtin {
     const char *name;
     size_t name_len;
-    const char *c_name;
     union {
         void (*callback)(union forth_inst *,
                          double *d_stack,
@@ -776,8 +775,6 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     return true;
 }
 
-#define C_NAME(id_) #id_
-
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
     static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
@@ -787,7 +784,6 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     __attribute__((aligned(8))) struct_id_ = {                                 \
         .name = name_,                                                         \
         .name_len = sizeof(name_) - 1,                                         \
-        .c_name = C_NAME(id_),                                                 \
         .callback = id_,                                                       \
         .d_pushes = d_pushes_,                                                 \
         .d_pops = d_pops_,                                                     \
