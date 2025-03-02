@@ -1199,7 +1199,7 @@ BUILTIN("-", 1, 2)
 BUILTIN("/", 1, 2)
 {
     double v = POP_D();
-    if (v == 0.0) {
+    if (UNLIKELY(v == 0.0)) {
         DROP_D();
         PUSH_D(__builtin_inf());
     } else {
