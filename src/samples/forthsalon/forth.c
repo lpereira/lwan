@@ -40,6 +40,14 @@
 
 #include "forth.h"
 
+#define TAIL_CALL return
+#if defined __has_attribute
+#  if __has_attribute (musttail)
+#    undef TAIL_CALL
+#    define TAIL_CALL __attribute__((musttail)) return
+#  endif
+#endif
+
 struct forth_ctx;
 struct forth_vars;
 union forth_inst;
@@ -142,7 +150,7 @@ static void op_number(union forth_inst *inst,
                       struct forth_vars *vars)
 {
     *d_stack++ = inst[1].number;
-    return inst[2].callback(&inst[2], d_stack, r_stack, vars);
+    TAIL_CALL inst[2].callback(&inst[2], d_stack, r_stack, vars);
 }
 
 static void op_jump_if(union forth_inst *inst,
@@ -151,7 +159,7 @@ static void op_jump_if(union forth_inst *inst,
                        struct forth_vars *vars)
 {
     size_t pc = (*--d_stack == 0.0) ? inst[1].pc : 2;
-    return inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
 }
 
 static void op_jump(union forth_inst *inst,
@@ -160,7 +168,7 @@ static void op_jump(union forth_inst *inst,
                     struct forth_vars *vars)
 {
     size_t pc = inst[1].pc;
-    return inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
 }
 
 static void op_nop(union forth_inst *inst,
@@ -715,7 +723,7 @@ BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
 #define POP_D() ({ DROP_D(); *d_stack; })
 #define POP_R() ({ DROP_R(); *r_stack; })
 
-#define NEXT() return inst[1].callback(&inst[1], d_stack, r_stack, vars)
+#define NEXT() TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars)
 
 BUILTIN("x", 1, 0)
 {
