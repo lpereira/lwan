@@ -81,8 +81,10 @@ struct forth_builtin {
 };
 
 struct forth_word {
-    struct forth_code code;
-    const struct forth_builtin *builtin;
+    union {
+        struct forth_code code;
+        const struct forth_builtin *builtin;
+    };
     int d_stack_len;
     int r_stack_len;
     char name[];
@@ -110,13 +112,14 @@ struct forth_ctx {
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
-    return !!w->builtin;
+    return w->d_stack_len < 0 && w->r_stack_len < 0;
 }
 
 static inline bool is_word_compiler(const struct forth_word *w)
 {
     const struct forth_builtin *b = w->builtin;
-    return b && b >= SECTION_START_SYMBOL(forth_compiler_builtin, b) &&
+    return is_word_builtin(w) &&
+           b >= SECTION_START_SYMBOL(forth_compiler_builtin, b) &&
            b < SECTION_STOP_SYMBOL(forth_compiler_builtin, b);
 }
 
@@ -371,8 +374,8 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
     }
 
     word->builtin = builtin;
-    word->d_stack_len = 0;
-    word->r_stack_len = 0;
+    word->d_stack_len = builtin ? -1 : 0;
+    word->r_stack_len = builtin ? -1 : 0;
 
     strncpy(word->name, name, len);
     word->name[len] = '\0';
