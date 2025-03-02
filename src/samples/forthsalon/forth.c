@@ -682,8 +682,8 @@ static bool inline_calls_code(const struct forth_code *orig_code,
             } else if (inst->callback == op_jump) {
                 union forth_inst *if_inst =
                     forth_code_get_elem(new_code, JS_POP());
-                if_inst->pc = forth_code_len(new_code) + 1 /* jump imm */ -
-                              forth_code_get_elem_index(new_code, if_inst);
+                if_inst->pc = forth_code_len(new_code) +
+                              forth_code_get_elem_index(new_code, if_inst) - 2;
 
                 JS_PUSH(forth_code_len(new_code));
                 has_imm = true;
