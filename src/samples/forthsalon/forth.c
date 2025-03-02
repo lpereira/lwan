@@ -867,6 +867,11 @@ BUILTIN_COMPILER(";")
 
 BUILTIN_COMPILER("if")
 {
+    if ((size_t)(ctx->j - ctx->j_stack) >= N_ELEMENTS(ctx->j_stack)) {
+        lwan_status_error("Too many nested 'if' words");
+        return NULL;
+    }
+
     EMIT(.callback = op_jump_if);
     *ctx->j++ = EMIT(.pc = 0);
     return code;
@@ -875,12 +880,23 @@ BUILTIN_COMPILER("if")
 static const char *
 builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
+    if (ctx->j == ctx->j_stack) {
+        lwan_status_error("'%s' before 'if'", is_then ? "then" : "else");
+        return NULL;
+    }
+
     union forth_inst *prev_pc_imm = *--ctx->j;
 
     if (is_then) {
         EMIT(.callback = op_nop);
     } else {
         EMIT(.callback = op_jump);
+
+        if ((size_t)(ctx->j - ctx->j_stack) >= N_ELEMENTS(ctx->j_stack)) {
+            lwan_status_error("Else is too deep");
+            return NULL;
+        }
+
         *ctx->j++ = EMIT(.pc = 0);
     }
 
