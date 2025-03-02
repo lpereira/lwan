@@ -544,7 +544,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         while (true) {
             if (*code == '\0') {
                 if (word_ptr == code)
-                    return true;
+                    goto finish;
                 break;
             }
             if (isspace(*code))
@@ -564,6 +564,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
         code++;
     }
 
+finish:
     EMIT(.callback = op_halt);
 
     if (!inline_calls(ctx))
