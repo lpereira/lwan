@@ -1471,7 +1471,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    struct forth_vars vars = {.x = 1, .y = 0};
+    printf("running with x=0\n");
+    struct forth_vars vars = {.x = 0, .y = 0};
+    if (forth_run(ctx, &vars)) {
+        printf("D stack: %zu elems", forth_d_stack_len(ctx, &vars));
+        for (size_t len = forth_d_stack_len(ctx, &vars); len; len--) {
+            printf("   %lf", forth_d_stack_pop(&vars));
+        }
+    }
+
+    printf("\nrunning with x=1\n");
+    vars = (struct forth_vars){.x = 1, .y = 0};
     if (forth_run(ctx, &vars)) {
         printf("D stack: %zu elems", forth_d_stack_len(ctx, &vars));
         for (size_t len = forth_d_stack_len(ctx, &vars); len; len--) {
