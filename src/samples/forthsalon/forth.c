@@ -171,7 +171,8 @@ static void op_nop(union forth_inst *inst,
                    double *r_stack,
                    struct forth_vars *vars)
 {
-    return inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    lwan_status_critical("nop instruction executed after inlining");
+    __builtin_unreachable();
 }
 
 static void op_halt(union forth_inst *inst __attribute__((unused)),
@@ -660,11 +661,15 @@ static bool inline_calls_code(const struct forth_code *orig_code,
                 return false;
         } else {
             bool has_imm = false;
-            union forth_inst *new_inst = forth_code_append(new_code);
-            if (!new_inst)
-                return false;
+            union forth_inst *new_inst;
 
-            *new_inst = *inst;
+            if (inst->callback != op_nop) {
+                new_inst = forth_code_append(new_code);
+                if (!new_inst)
+                    return false;
+
+                *new_inst = *inst;
+            }
 
             if (inst->callback == op_jump_if) {
                 JS_PUSH(forth_code_len(new_code));
@@ -681,7 +686,7 @@ static bool inline_calls_code(const struct forth_code *orig_code,
                 union forth_inst *else_inst =
                     forth_code_get_elem(new_code, JS_POP());
                 else_inst->pc = forth_code_len(new_code) -
-                                forth_code_get_elem_index(new_code, else_inst);
+                                forth_code_get_elem_index(new_code, else_inst) + 1;
             } else if (inst->callback == op_number) {
                 has_imm = true;
             }
