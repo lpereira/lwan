@@ -98,8 +98,8 @@ struct forth_ctx {
             double r_stack[32];
         };
         struct {
-            union forth_inst *j_stack[32];
-            union forth_inst **j;
+            size_t j_stack[63];
+            size_t *j;
         };
     };
 
@@ -591,7 +591,7 @@ lookup_word(struct forth_ctx *ctx, const char *name, size_t len)
         if (UNLIKELY(!emitted))                                                \
             return NULL;                                                       \
         *emitted = (union forth_inst){arg};                                    \
-        emitted;                                                               \
+        forth_code_get_elem_index(&ctx->defining_word->code, emitted);         \
     })
 
 static const char *found_word(struct forth_ctx *ctx,
@@ -872,7 +872,8 @@ builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
         return NULL;
     }
 
-    union forth_inst *prev_pc_imm = *--ctx->j;
+    union forth_inst *prev_pc_imm =
+        forth_code_get_elem(&ctx->defining_word->code, *--ctx->j);
 
     if (is_then) {
         EMIT(.callback = op_nop);
