@@ -43,15 +43,6 @@
 #define NO_INCBIN
 #include "forth-jit-inc.h"
 
-enum forth_opcode {
-    OP_CALL_BUILTIN,
-    OP_EVAL_CODE,
-    OP_NUMBER,
-    OP_JUMP_IF,
-    OP_JUMP,
-    OP_NOP,
-};
-
 struct forth_ctx;
 struct forth_vars;
 union forth_inst;
