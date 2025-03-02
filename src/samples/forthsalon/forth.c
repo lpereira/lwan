@@ -221,12 +221,15 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             inst++; /* skip pc immediate */
             continue;
         }
-        if (inst->callback == op_halt || inst->callback == op_nop) {
-            /* no immediates for these operations */
-            continue;
+        if (inst->callback == op_halt) {
+            continue; /* no immediate for halt */
         }
-        if (inst->callback == op_eval_code) {
-            lwan_status_critical("eval_code instruction shouldn't appear here");
+        if (UNLIKELY(inst->callback == op_eval_code)) {
+            lwan_status_critical("eval_code after inlining");
+            return false;
+        }
+        if (UNLIKELY(inst->callback == op_nop)) {
+            lwan_status_critical("nop after inlining");
             return false;
         }
 
