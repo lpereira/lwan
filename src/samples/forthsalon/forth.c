@@ -81,15 +81,7 @@ struct forth_builtin {
 };
 
 struct forth_word {
-    union {
-        void (*callback)(union forth_inst *,
-                         double *d_stack,
-                         double *r_stack,
-                         struct forth_vars *vars);
-        const char *(*callback_compiler)(struct forth_ctx *ctx,
-                                         const char *code);
-        struct forth_code code;
-    };
+    struct forth_code code;
     const struct forth_builtin *builtin;
     int d_stack_len;
     int r_stack_len;
@@ -374,9 +366,7 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
     if (UNLIKELY(!word))
         return NULL;
 
-    if (callback) {
-        word->callback = callback;
-    } else {
+    if (!callback) {
         forth_code_init(&word->code);
     }
 
@@ -430,11 +420,11 @@ static const char *found_word(struct forth_ctx *ctx,
     struct forth_word *w = lookup_word(ctx, word, word_len);
     if (ctx->defining_word) {
         if (LIKELY(w)) {
-            if (is_word_compiler(w))
-                return w->callback_compiler(ctx, code);
-
             if (is_word_builtin(w)) {
-                EMIT(.callback = w->callback);
+                if (is_word_compiler(w))
+                    return w->builtin->callback_compiler(ctx, code);
+
+                EMIT(.callback = w->builtin->callback);
             } else {
                 EMIT(.callback = op_eval_code);
                 EMIT(.code = &w->code);
