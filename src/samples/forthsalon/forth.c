@@ -1188,13 +1188,13 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter)) {
+        if (!new_word(ctx, NULL, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
     LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter)) {
+        if (!new_word(ctx, NULL, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
