@@ -376,9 +376,10 @@ static struct forth_word *new_builtin_word(struct forth_ctx *ctx,
 }
 
 static struct forth_word *
-new_user_word(struct forth_ctx *ctx, const char *name, size_t len)
+new_user_word(struct forth_ctx *ctx, const char *name)
 {
-    if (len > 64)
+    const size_t len = strlen(name);
+    if (UNLIKELY(len > 64))
         return NULL;
 
     struct forth_word *word = malloc(sizeof(*word) + len + 1);
@@ -406,7 +407,7 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
                                    const struct forth_builtin *builtin)
 {
     return builtin ? new_builtin_word(ctx, builtin)
-                   : new_user_word(ctx, name, strlen(name));
+                   : new_user_word(ctx, name);
 }
 
 static struct forth_word *
