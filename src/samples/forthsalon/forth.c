@@ -62,7 +62,7 @@ DEFINE_ARRAY_TYPE(forth_code, union forth_inst)
 
 struct forth_builtin {
     const char *name;
-    size_t name_len;
+
     union {
         void (*callback)(union forth_inst *,
                          double *d_stack,
@@ -70,6 +70,7 @@ struct forth_builtin {
                          struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *, const char *);
     };
+
     int d_pushes;
     int d_pops;
     int r_pushes;
@@ -81,6 +82,7 @@ struct forth_word {
         struct forth_code code;
         const struct forth_builtin *builtin;
     };
+
     int d_stack_len;
     int r_stack_len;
 
@@ -243,13 +245,13 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
 
         if (UNLIKELY(items_in_d_stack < b->d_pops)) {
-            lwan_status_error("Word `%.*s' requires %d item(s) in the D stack",
-                    (int)b->name_len, b->name, b->d_pops);
+            lwan_status_error("Word `%s' requires %d item(s) in the D stack",
+                              b->name, b->d_pops);
             return false;
         }
         if (UNLIKELY(items_in_r_stack < b->r_pops)) {
-            lwan_status_error("Word `%.*s' requires %d item(s) in the R stack",
-                    (int)b->name_len, b->name, b->r_pops);
+            lwan_status_error("Word `%s' requires %d item(s) in the R stack",
+                              b->name, b->r_pops);
             return false;
         }
 
@@ -401,11 +403,10 @@ new_user_word(struct forth_ctx *ctx, const char *name, size_t len)
 
 static struct forth_word *new_word(struct forth_ctx *ctx,
                                    const char *name,
-                                   size_t len,
                                    const struct forth_builtin *builtin)
 {
     return builtin ? new_builtin_word(ctx, builtin)
-                   : new_user_word(ctx, name, len);
+                   : new_user_word(ctx, name, strlen(name));
 }
 
 static struct forth_word *
@@ -466,7 +467,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return NULL;
     }
 
-    w = new_word(ctx, word, word_len, NULL);
+    w = new_word(ctx, strndupa(word, word_len), NULL);
     if (UNLIKELY(!w)) {
         lwan_status_error("Can't create new word");
         return NULL;
@@ -620,7 +621,6 @@ finish:
     __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
     __attribute__((aligned(8))) struct_id_ = {                                 \
         .name = name_,                                                         \
-        .name_len = sizeof(name_) - 1,                                         \
         .callback = id_,                                                       \
         .d_pushes = d_pushes_,                                                 \
         .d_pops = d_pops_,                                                     \
@@ -636,7 +636,6 @@ finish:
     __attribute__((section(LWAN_SECTION_NAME(forth_compiler_builtin))))        \
     __attribute__((aligned(8))) struct_id_ = {                                 \
         .name = name_,                                                         \
-        .name_len = sizeof(name_) - 1,                                         \
         .callback_compiler = id_,                                              \
     };                                                                         \
     static const char *id_(struct forth_ctx *ctx __attribute__((unused)),      \
@@ -1185,13 +1184,13 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter)) {
+        if (!new_word(ctx, iter->name, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
     LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter)) {
+        if (!new_word(ctx, iter->name, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
@@ -1222,7 +1221,7 @@ struct forth_ctx *forth_new(void)
         return NULL;
     }
 
-    struct forth_word *word = new_word(ctx, " ", 1, NULL);
+    struct forth_word *word = new_word(ctx, " ", NULL);
     if (!word) {
         free(ctx);
         return NULL;
