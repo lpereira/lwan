@@ -48,10 +48,6 @@
 #  endif
 #endif
 
-struct forth_ctx;
-struct forth_vars;
-union forth_inst;
-
 union forth_inst {
     void (*callback)(union forth_inst *,
                      double *d_stack,
@@ -87,6 +83,9 @@ struct forth_word {
     };
     int d_stack_len;
     int r_stack_len;
+
+    /* This is only valid if !is_word_builtin(word); otherwise,
+     * access the name through builtin->name. */
     char name[];
 };
 
@@ -356,11 +355,26 @@ static bool parse_number(const char *ptr, size_t len, double *number)
     return true;
 }
 
-static struct forth_word *new_word(struct forth_ctx *ctx,
-                                   const char *name,
-                                   size_t len,
-                                   void *callback,
-                                   const struct forth_builtin *builtin)
+static struct forth_word *new_builtin_word(struct forth_ctx *ctx,
+                                           const struct forth_builtin *builtin)
+{
+    struct forth_word *word = malloc(sizeof(*word));
+    if (UNLIKELY(!word))
+        return NULL;
+
+    word->builtin = builtin;
+    word->d_stack_len = -1;
+    word->r_stack_len = -1;
+
+    if (!hash_add(ctx->words, builtin->name, word))
+        return word;
+
+    free(word);
+    return NULL;
+}
+
+static struct forth_word *
+new_user_word(struct forth_ctx *ctx, const char *name, size_t len)
 {
     if (len > 64)
         return NULL;
@@ -369,22 +383,29 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
     if (UNLIKELY(!word))
         return NULL;
 
-    if (!callback) {
-        forth_code_init(&word->code);
-    }
-
-    word->builtin = builtin;
-    word->d_stack_len = builtin ? -1 : 0;
-    word->r_stack_len = builtin ? -1 : 0;
+    forth_code_init(&word->code);
 
     strncpy(word->name, name, len);
     word->name[len] = '\0';
+
+    word->d_stack_len = 0;
+    word->r_stack_len = 0;
+    word->builtin = NULL;
 
     if (!hash_add(ctx->words, word->name, word))
         return word;
 
     free(word);
     return NULL;
+}
+
+static struct forth_word *new_word(struct forth_ctx *ctx,
+                                   const char *name,
+                                   size_t len,
+                                   const struct forth_builtin *builtin)
+{
+    return builtin ? new_builtin_word(ctx, builtin)
+                   : new_user_word(ctx, name, len);
 }
 
 static struct forth_word *
@@ -445,7 +466,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return NULL;
     }
 
-    w = new_word(ctx, word, word_len, NULL, NULL);
+    w = new_word(ctx, word, word_len, NULL);
     if (UNLIKELY(!w)) {
         lwan_status_error("Can't create new word");
         return NULL;
@@ -1164,13 +1185,13 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter->callback, iter)) {
+        if (!new_word(ctx, iter->name, iter->name_len, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
     LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
-        if (!new_word(ctx, iter->name, iter->name_len, iter->callback_compiler, iter)) {
+        if (!new_word(ctx, iter->name, iter->name_len, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
@@ -1201,7 +1222,7 @@ struct forth_ctx *forth_new(void)
         return NULL;
     }
 
-    struct forth_word *word = new_word(ctx, " ", 1, NULL, NULL);
+    struct forth_word *word = new_word(ctx, " ", 1, NULL);
     if (!word) {
         free(ctx);
         return NULL;
