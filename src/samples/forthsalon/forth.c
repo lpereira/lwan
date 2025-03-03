@@ -270,6 +270,9 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
     }
 
+    assert(items_in_d_stack >= 0);
+    assert(items_in_r_stack >= 0);
+
     w->d_stack_len = items_in_d_stack;
     w->r_stack_len = items_in_r_stack;
 
