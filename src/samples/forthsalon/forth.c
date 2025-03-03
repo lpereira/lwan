@@ -344,12 +344,12 @@ bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
     return true;
 }
 
-static bool parse_number(const char *ptr, size_t len, double *number)
+static bool parse_number(const char *ptr, double *number)
 {
     char *endptr;
 
     errno = 0;
-    *number = strtod(strndupa(ptr, len), &endptr);
+    *number = strtod(ptr, &endptr);
 
     if (errno != 0)
         return false;
@@ -413,12 +413,6 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
                    : new_user_word(ctx, name);
 }
 
-static struct forth_word *
-lookup_word(struct forth_ctx *ctx, const char *name, size_t len)
-{
-    return hash_find(ctx->words, strndupa(name, len));
-}
-
 #define EMIT(arg)                                                              \
     ({                                                                         \
         union forth_inst *emitted =                                            \
@@ -434,8 +428,10 @@ static const char *found_word(struct forth_ctx *ctx,
                               const char *word,
                               size_t word_len)
 {
+    const char *word_copy = strndupa(word, word_len);
+
     double number;
-    if (parse_number(word, word_len, &number)) {
+    if (parse_number(word_copy, &number)) {
         if (UNLIKELY(!ctx->defining_word)) {
             lwan_status_error("Can't redefine number %lf", number);
             return NULL;
@@ -447,7 +443,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return code;
     }
 
-    struct forth_word *w = lookup_word(ctx, word, word_len);
+    struct forth_word *w = hash_find(ctx->words, word_copy);
     if (ctx->defining_word) {
         if (UNLIKELY(!w)) {
             lwan_status_error("Undefined word: \"%.*s\"", (int)word_len, word);
@@ -474,7 +470,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return NULL;
     }
 
-    w = new_word(ctx, strndupa(word, word_len), NULL);
+    w = new_word(ctx, word_copy, NULL);
     if (UNLIKELY(!w)) {
         lwan_status_error("Can't create new word");
         return NULL;
