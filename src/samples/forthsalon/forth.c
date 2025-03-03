@@ -391,7 +391,7 @@ new_user_word(struct forth_ctx *ctx, const char *name)
 
     forth_code_init(&word->code);
 
-    strncpy(word->name, name, len);
+    memcpy(word->name, name, len);
     word->name[len] = '\0';
 
     word->d_stack_len = 0;
