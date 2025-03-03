@@ -436,38 +436,41 @@ static const char *found_word(struct forth_ctx *ctx,
 {
     double number;
     if (parse_number(word, word_len, &number)) {
-        if (LIKELY(ctx->defining_word)) {
-            EMIT(.callback = op_number);
-            EMIT(.number = number);
-            return code;
+        if (UNLIKELY(!ctx->defining_word)) {
+            lwan_status_error("Can't redefine number %lf", number);
+            return NULL;
         }
 
-        lwan_status_error("Can't redefine number %lf", number);
-        return NULL;
+        EMIT(.callback = op_number);
+        EMIT(.number = number);
+
+        return code;
     }
 
     struct forth_word *w = lookup_word(ctx, word, word_len);
     if (ctx->defining_word) {
-        if (LIKELY(w)) {
-            if (is_word_builtin(w)) {
-                if (is_word_compiler(w))
-                    return w->builtin->callback_compiler(ctx, code);
-
-                EMIT(.callback = w->builtin->callback);
-            } else {
-                EMIT(.callback = op_eval_code);
-                EMIT(.code = &w->code);
-            }
-            return code;
+        if (UNLIKELY(!w)) {
+            lwan_status_error("Undefined word: \"%.*s\"", (int)word_len, word);
+            return NULL;
         }
 
-        lwan_status_error("Undefined word: \"%.*s\"",
-                          (int)word_len, word);
-        return NULL;
+        if (is_word_builtin(w)) {
+            if (is_word_compiler(w))
+                return w->builtin->callback_compiler(ctx, code);
+
+            EMIT(.callback = w->builtin->callback);
+        } else {
+            EMIT(.callback = op_eval_code);
+            EMIT(.code = &w->code);
+        }
+
+        return code;
     }
 
-    if (LIKELY(w != NULL)) {
-        lwan_status_error("Word already defined: \"%.*s\"", (int)word_len, word);
+    if (UNLIKELY(w != NULL)) {
+        lwan_status_error("Can't redefine %sword \"%.*s\"",
+                          is_word_builtin(w) ? "built-in " : "",
+                          (int)word_len, word);
         return NULL;
     }
 
