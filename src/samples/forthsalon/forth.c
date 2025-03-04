@@ -106,10 +106,12 @@ struct forth_ctx {
     struct forth_word *defining_word;
     struct forth_word *main;
     struct hash *words;
-
-    bool is_inside_word_def;
 };
 
+static inline bool is_inside_word_def(const struct forth_ctx *ctx)
+{
+    return !ctx->defining_word || ctx->defining_word != ctx->main;
+}
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
@@ -594,7 +596,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
     }
 
 finish:
-    if (ctx->is_inside_word_def) {
+    if (is_inside_word_def(ctx)) {
         lwan_status_error("Word definition not finished");
         return false;
     }
@@ -665,12 +667,11 @@ BUILTIN_COMPILER("(")
 
 BUILTIN_COMPILER(":")
 {
-    if (UNLIKELY(ctx->is_inside_word_def)) {
+    if (UNLIKELY(is_inside_word_def(ctx))) {
         lwan_status_error("Already defining word");
         return NULL;
     }
 
-    ctx->is_inside_word_def = true;
     ctx->defining_word = NULL;
     return code;
 }
@@ -682,17 +683,11 @@ BUILTIN_COMPILER(";")
         return NULL;
     }
 
-    if (UNLIKELY(!ctx->is_inside_word_def)) {
+    if (UNLIKELY(!is_inside_word_def(ctx))) {
         lwan_status_error("Ending word without defining one");
         return NULL;
     }
 
-    if (UNLIKELY(!ctx->defining_word)) {
-        lwan_status_error("No word provided");
-        return NULL;
-    }
-
-    ctx->is_inside_word_def = false;
     ctx->defining_word = ctx->main;
     return code;
 }
@@ -1213,8 +1208,6 @@ struct forth_ctx *forth_new(void)
 
     if (!ctx)
         return NULL;
-
-    ctx->is_inside_word_def = false;
 
     ctx->words = hash_str_new(NULL, word_free);
     if (!ctx->words) {
