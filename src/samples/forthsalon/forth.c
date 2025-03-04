@@ -389,14 +389,12 @@ new_user_word(struct forth_ctx *ctx, const char *name)
     if (UNLIKELY(!word))
         return NULL;
 
-    forth_code_init(&word->code);
-
     memcpy(word->name, name, len);
     word->name[len] = '\0';
 
+    forth_code_init(&word->code);
     word->d_stack_len = 0;
     word->r_stack_len = 0;
-    word->builtin = NULL;
 
     if (!hash_add(ctx->words, word->name, word))
         return word;
