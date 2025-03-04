@@ -83,11 +83,8 @@ struct forth_word {
         const struct forth_builtin *builtin;
     };
 
-    int d_stack_len;
-    int r_stack_len;
-
-    /* This is only valid if !is_word_builtin(word); otherwise,
-     * access the name through builtin->name. */
+    /* name[0] is '\0' for built-in words; to get the name for those, go through
+     * the builtin pointer. */
     char name[];
 };
 
@@ -115,7 +112,7 @@ static inline bool is_inside_word_def(const struct forth_ctx *ctx)
 
 static inline bool is_word_builtin(const struct forth_word *w)
 {
-    return w->d_stack_len < 0 && w->r_stack_len < 0;
+    return w->name[0] == '\0';
 }
 
 static inline bool is_word_compiler(const struct forth_word *w)
@@ -272,11 +269,14 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
     }
 
-    assert(items_in_d_stack >= 0);
-    assert(items_in_r_stack >= 0);
-
-    w->d_stack_len = items_in_d_stack;
-    w->r_stack_len = items_in_r_stack;
+    if (UNLIKELY(items_in_d_stack < 0)) {
+        lwan_status_error("Program would underflow the D stack");
+        return false;
+    }
+    if (UNLIKELY(items_in_r_stack < 0)) {
+        lwan_status_error("Program would underflow the R stack");
+        return false;
+    }
 
     return true;
 }
@@ -365,13 +365,12 @@ static bool parse_number(const char *ptr, double *number)
 static struct forth_word *new_builtin_word(struct forth_ctx *ctx,
                                            const struct forth_builtin *builtin)
 {
-    struct forth_word *word = malloc(sizeof(*word));
+    struct forth_word *word = malloc(sizeof(*word) + 1);
     if (UNLIKELY(!word))
         return NULL;
 
     word->builtin = builtin;
-    word->d_stack_len = -1;
-    word->r_stack_len = -1;
+    word->name[0] = '\0';
 
     if (!hash_add(ctx->words, builtin->name, word))
         return word;
@@ -395,8 +394,6 @@ new_user_word(struct forth_ctx *ctx, const char *name)
     word->name[len] = '\0';
 
     forth_code_init(&word->code);
-    word->d_stack_len = 0;
-    word->r_stack_len = 0;
 
     if (!hash_add(ctx->words, word->name, word))
         return word;
