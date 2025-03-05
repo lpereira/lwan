@@ -48,6 +48,8 @@
 #  endif
 #endif
 
+#define MAX_WORD_LEN 64
+
 union forth_inst {
     void (*callback)(union forth_inst *,
                      double *d_stack,
@@ -383,7 +385,7 @@ static struct forth_word *
 new_user_word(struct forth_ctx *ctx, const char *name)
 {
     const size_t len = strlen(name);
-    if (UNLIKELY(len > 64))
+    if (UNLIKELY(len > MAX_WORD_LEN))
         return NULL;
 
     struct forth_word *word = malloc(sizeof(*word) + len + 1);
@@ -425,6 +427,12 @@ static const char *found_word(struct forth_ctx *ctx,
                               const char *word,
                               size_t word_len)
 {
+    if (UNLIKELY(word_len > MAX_WORD_LEN)) {
+        lwan_status_error("Word too long: %zu characters, expecting at most 64",
+                          word_len);
+        return NULL;
+    }
+
     const char *word_copy = strndupa(word, word_len);
 
     double number;
@@ -462,8 +470,8 @@ static const char *found_word(struct forth_ctx *ctx,
 
     if (UNLIKELY(w != NULL)) {
         lwan_status_error("Can't redefine %sword \"%.*s\"",
-                          is_word_builtin(w) ? "built-in " : "",
-                          (int)word_len, word);
+                          is_word_builtin(w) ? "built-in " : "", (int)word_len,
+                          word);
         return NULL;
     }
 
