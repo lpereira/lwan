@@ -113,7 +113,7 @@ This will generate a few binaries:
  - `src/samples/freegeoip/freegeoip`: [FreeGeoIP sample implementation](https://freegeoip.lwan.ws). Requires SQLite.
  - `src/samples/techempower/techempower`: Code for the TechEmpower Web Framework benchmark. Requires SQLite and MariaDB libraries.
  - `src/samples/clock/clock`: [Clock sample](https://time.lwan.ws). Generates a never-ending animated GIF file that always shows the local time.
- - `src/samples/forthsalon/forthsalon`: Generates a never-ending animated GIF from a program written in the [Forth Salon](https://forthsalon.appspot.com/) dialect of the [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language) programming language. *In construction!*
+ - `src/samples/forthsalon/forthsalon`: Generates a never-ending animated GIF from a program written in the [Forth Salon](https://forthsalon.appspot.com/) dialect of the [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language)) programming language. *In construction!*
  - `src/samples/forthsalon/forth`: Test harness for the Forth dialect used in the `forthsalon` sample.
  - `src/bin/tools/mimegen`: Builds the extension-MIME type table. Used during the build process.
  - `src/bin/tools/bin2hex`: Generates a C file from a binary file, suitable for use with #include. Used during the build process.
