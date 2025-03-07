@@ -195,6 +195,16 @@ static void op_mult2(union forth_inst *inst,
     TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
 }
 
+
+static void op_pow2(union forth_inst *inst,
+                     double *d_stack,
+                     double *r_stack,
+                     struct forth_vars *vars)
+{
+    *(d_stack - 1) *= *(d_stack - 1);
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
 static void op_div2(union forth_inst *inst,
                     double *d_stack,
                     double *r_stack,
@@ -258,6 +268,9 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (inst->callback == op_mult2) {
             continue; /* no immediate for mult2 */
+        }
+        if (inst->callback == op_pow2) {
+            continue; /* no immediate for pow2 */
         }
         if (inst->callback == op_div2) {
             continue; /* no immediate for div2 */
@@ -360,6 +373,8 @@ static void dump_code(const struct forth_code *code)
             printf("halt\n");
         } else if (inst->callback == op_mult2) {
             printf("mult2\n");
+        } else if (inst->callback == op_pow2) {
+            printf("pow2\n");
         } else if (inst->callback == op_div2) {
             printf("div2\n");
         } else if (inst->callback == op_multpi) {
@@ -492,6 +507,20 @@ static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
         if (prev_b && streq(prev_b->name, "pi")) {
             last[0].callback = op_multpi;
             code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "**")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_pow2;
+            code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "dup")) {
+        if (last[0].callback == b->callback) {
+            struct forth_word *w = hash_find(ctx->words, "dupdup");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[0].callback = w->builtin->callback;
             return true;
         }
     }
@@ -955,6 +984,16 @@ BUILTIN("!", 0, 2)
 BUILTIN("dup", 2, 1)
 {
     double v = POP_D();
+    PUSH_D(v);
+    PUSH_D(v);
+    NEXT();
+}
+
+BUILTIN("dupdup", 4, 1)
+{
+    double v = POP_D();
+    PUSH_D(v);
+    PUSH_D(v);
     PUSH_D(v);
     PUSH_D(v);
     NEXT();
