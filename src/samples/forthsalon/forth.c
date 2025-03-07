@@ -186,6 +186,33 @@ static void op_halt(union forth_inst *inst __attribute__((unused)),
     vars->final_r_stack_ptr = r_stack;
 }
 
+static void op_mult2(union forth_inst *inst,
+                     double *d_stack,
+                     double *r_stack,
+                     struct forth_vars *vars)
+{
+    *(d_stack - 1) *= 2.0;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+static void op_div2(union forth_inst *inst,
+                    double *d_stack,
+                    double *r_stack,
+                    struct forth_vars *vars)
+{
+    *(d_stack - 1) /= 2.0;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+static void op_multpi(union forth_inst *inst,
+                      double *d_stack,
+                      double *r_stack,
+                      struct forth_vars *vars)
+{
+    *(d_stack - 1) *= M_PI;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
 static void op_eval_code(union forth_inst *inst __attribute__((unused)),
                          double *d_stack,
                          double *r_stack,
@@ -228,6 +255,15 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (inst->callback == op_halt) {
             continue; /* no immediate for halt */
+        }
+        if (inst->callback == op_mult2) {
+            continue; /* no immediate for mult2 */
+        }
+        if (inst->callback == op_div2) {
+            continue; /* no immediate for div2 */
+        }
+        if (inst->callback == op_multpi) {
+            continue; /* no immediate for multpi */
         }
         if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code after inlining");
@@ -322,6 +358,12 @@ static void dump_code(const struct forth_code *code)
             inst++;
         } else if (inst->callback == op_halt) {
             printf("halt\n");
+        } else if (inst->callback == op_mult2) {
+            printf("mult2\n");
+        } else if (inst->callback == op_div2) {
+            printf("div2\n");
+        } else if (inst->callback == op_multpi) {
+            printf("multpi\n");
         } else if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code shouldn't exist here");
             __builtin_unreachable();
@@ -422,6 +464,41 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
         forth_code_get_elem_index(&ctx->defining_word->code, emitted);         \
     })
 
+static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
+{
+    struct forth_code *code = &ctx->defining_word->code;
+
+    if (forth_code_len(code) < 2)
+        return false;
+
+    union forth_inst *last =
+        forth_code_get_elem(code, forth_code_len(code) - 1);
+
+    if (streq(b->name, "/")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_div2;
+            code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "*")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_mult2;
+            code->base.elements--;
+            return true;
+        }
+
+        const struct forth_builtin *prev_b =
+            find_builtin_by_callback(last[0].callback);
+        if (prev_b && streq(prev_b->name, "pi")) {
+            last[0].callback = op_multpi;
+            code->base.elements--;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static const char *found_word(struct forth_ctx *ctx,
                               const char *code,
                               const char *word,
@@ -459,7 +536,8 @@ static const char *found_word(struct forth_ctx *ctx,
             if (is_word_compiler(w))
                 return w->builtin->callback_compiler(ctx, code);
 
-            EMIT(.callback = w->builtin->callback);
+            if (!peephole(ctx, w->builtin))
+                EMIT(.callback = w->builtin->callback);
         } else {
             EMIT(.callback = op_eval_code);
             EMIT(.code = &w->code);
