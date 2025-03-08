@@ -452,7 +452,6 @@ static bool peephole1(struct forth_ctx *ctx,
             assert(w != NULL);
             assert(is_word_builtin(w));
             last[0].callback = w->builtin->callback;
-            code->base.elements--;
             return true;
         }
     } else if (streq(b->name, "dup")) {
