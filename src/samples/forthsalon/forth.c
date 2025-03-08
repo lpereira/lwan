@@ -481,8 +481,25 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
 
 static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
 {
+    /* FIXME: This is small enough that the current implementation is
+     * fine, but if we end up adding quite a bit more rules, we should
+     * look into making the rule declaration a bit better. */
+    /* FIXME: This should look at the generated code after inlining to
+     * match code between words.  This isn't currently possible because
+     * of branching with if/else/then, but we can make it work by
+     * peepholing the op_nop instruction instead of handling it inside
+     * the inliner. */
+    /* FIXME: Other optimizations are possible -- for instance, a
+     * constant folding step seems trivial to do.  However, things like
+     * strength reduction are a bit tricky considering all numbers are
+     * floating pointing numbers (even if they're double precision).
+     * More sophisticated techniques could be employed but with the
+     * simplistic implementation of this compiler, it might not be
+     * worth the trouble.  */
     struct forth_code *code = &ctx->defining_word->code;
 
+    /* We look at the last instruction generated and the one before
+     * that.  */
     if (forth_code_len(code) < 2)
         return false;
 
