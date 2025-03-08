@@ -186,43 +186,6 @@ static void op_halt(union forth_inst *inst __attribute__((unused)),
     vars->final_r_stack_ptr = r_stack;
 }
 
-static void op_mult2(union forth_inst *inst,
-                     double *d_stack,
-                     double *r_stack,
-                     struct forth_vars *vars)
-{
-    *(d_stack - 1) *= 2.0;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
-}
-
-
-static void op_pow2(union forth_inst *inst,
-                     double *d_stack,
-                     double *r_stack,
-                     struct forth_vars *vars)
-{
-    *(d_stack - 1) *= *(d_stack - 1);
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
-}
-
-static void op_div2(union forth_inst *inst,
-                    double *d_stack,
-                    double *r_stack,
-                    struct forth_vars *vars)
-{
-    *(d_stack - 1) /= 2.0;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
-}
-
-static void op_multpi(union forth_inst *inst,
-                      double *d_stack,
-                      double *r_stack,
-                      struct forth_vars *vars)
-{
-    *(d_stack - 1) *= M_PI;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
-}
-
 static void op_eval_code(union forth_inst *inst __attribute__((unused)),
                          double *d_stack,
                          double *r_stack,
@@ -265,18 +228,6 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (inst->callback == op_halt) {
             continue; /* no immediate for halt */
-        }
-        if (inst->callback == op_mult2) {
-            continue; /* no immediate for mult2 */
-        }
-        if (inst->callback == op_pow2) {
-            continue; /* no immediate for pow2 */
-        }
-        if (inst->callback == op_div2) {
-            continue; /* no immediate for div2 */
-        }
-        if (inst->callback == op_multpi) {
-            continue; /* no immediate for multpi */
         }
         if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code after inlining");
@@ -371,14 +322,6 @@ static void dump_code(const struct forth_code *code)
             inst++;
         } else if (inst->callback == op_halt) {
             printf("halt\n");
-        } else if (inst->callback == op_mult2) {
-            printf("mult2\n");
-        } else if (inst->callback == op_pow2) {
-            printf("pow2\n");
-        } else if (inst->callback == op_div2) {
-            printf("div2\n");
-        } else if (inst->callback == op_multpi) {
-            printf("multpi\n");
         } else if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code shouldn't exist here");
             __builtin_unreachable();
@@ -505,7 +448,10 @@ static bool peephole1(struct forth_ctx *ctx,
         const struct forth_builtin *prev_b =
             find_builtin_by_callback(last[0].callback);
         if (prev_b && streq(prev_b->name, "pi")) {
-            last[0].callback = op_multpi;
+            const struct forth_word *w = hash_find(ctx->words, " multpi");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[0].callback = w->builtin->callback;
             code->base.elements--;
             return true;
         }
@@ -549,19 +495,28 @@ static bool peephole_n(struct forth_ctx *ctx,
 
     if (streq(b->name, "/")) {
         if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_div2;
+            const struct forth_word *w = hash_find(ctx->words, " div2");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[-1].callback = w->builtin->callback;
             code->base.elements--;
             return true;
         }
     } else if (streq(b->name, "*")) {
         if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_mult2;
+            const struct forth_word *w = hash_find(ctx->words, " mult2");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[-1].callback = w->builtin->callback;
             code->base.elements--;
             return true;
         }
     } else if (streq(b->name, "**")) {
         if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_pow2;
+            const struct forth_word *w = hash_find(ctx->words, " pow2");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[-1].callback = w->builtin->callback;
             code->base.elements--;
             return true;
         }
@@ -1397,6 +1352,31 @@ BUILTIN("random", 1, 0)
     PUSH_D(drand48());
     NEXT();
 }
+
+BUILTIN(" mult2", 1, 1)
+{
+    *(d_stack - 1) *= 2.0;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+BUILTIN(" pow2", 1, 1)
+{
+    *(d_stack - 1) *= *(d_stack - 1);
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+BUILTIN(" div2", 1, 1)
+{
+    *(d_stack - 1) /= 2.0;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
+BUILTIN(" multpi", 1, 1)
+{
+    *(d_stack - 1) *= M_PI;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
+
 
 #undef NEXT
 
