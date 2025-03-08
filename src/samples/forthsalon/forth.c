@@ -389,7 +389,11 @@ static void dump_code(const struct forth_code *code)
             const struct forth_builtin *b =
                 find_builtin_by_callback(inst->callback);
             if (b) {
-                printf("call builtin '%s'\n", b->name);
+                if (b->name[0] == ' ') {
+                    printf("call private builtin '%s'\n", b->name + 1);
+                } else {
+                    printf("call builtin '%s'\n", b->name);
+                }
             } else {
                 printf("*** inconsistency; value = %zu ***\n", inst->pc);
             }
@@ -479,6 +483,93 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
         forth_code_get_elem_index(&ctx->defining_word->code, emitted);         \
     })
 
+static bool peephole1(struct forth_ctx *ctx,
+                      struct forth_code *code,
+                      const struct forth_builtin *b)
+{
+    union forth_inst *last =
+        forth_code_get_elem(code, forth_code_len(code) - 1);
+
+    if (streq(b->name, "+")) {
+        const struct forth_word *w = hash_find(ctx->words, "*");
+        assert(w != NULL);
+        assert(is_word_builtin(w));
+        if (last[0].callback == w->builtin->callback) {
+            w = hash_find(ctx->words, " fma");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[0].callback = w->builtin->callback;
+            return true;
+        }
+    } else if (streq(b->name, "*")) {
+        const struct forth_builtin *prev_b =
+            find_builtin_by_callback(last[0].callback);
+        if (prev_b && streq(prev_b->name, "pi")) {
+            last[0].callback = op_multpi;
+            code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "dup")) {
+        if (last[0].callback == b->callback) {
+            const struct forth_word *w = hash_find(ctx->words, " dupdup");
+            assert(w != NULL);
+            assert(is_word_builtin(w));
+            last[0].callback = w->builtin->callback;
+            return true;
+        }
+    } else if (streq(b->name, "swap")) {
+        const struct forth_word *w = hash_find(ctx->words, "-rot");
+        assert(w != NULL);
+        assert(is_word_builtin(w));
+        if (last[0].callback == w->builtin->callback) {
+            w = hash_find(ctx->words, " -rotswap");
+            last[0].callback = w->builtin->callback;
+            return true;
+        }
+
+        w = hash_find(ctx->words, ">=");
+        assert(w != NULL);
+        assert(is_word_builtin(w));
+        if (last[0].callback == w->builtin->callback) {
+            w = hash_find(ctx->words, " >=swap");
+            last[0].callback = w->builtin->callback;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool peephole_n(struct forth_ctx *ctx,
+                       struct forth_code *code,
+                       const struct forth_builtin *b)
+{
+    union forth_inst *last =
+        forth_code_get_elem(code, forth_code_len(code) - 1);
+
+    if (streq(b->name, "/")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_div2;
+            code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "*")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_mult2;
+            code->base.elements--;
+            return true;
+        }
+    } else if (streq(b->name, "**")) {
+        if (last[-1].callback == op_number && last[0].number == 2.0) {
+            last[-1].callback = op_pow2;
+            code->base.elements--;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
 {
     /* FIXME: This is small enough that the current implementation is
@@ -498,48 +589,13 @@ static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
      * worth the trouble.  */
     struct forth_code *code = &ctx->defining_word->code;
 
-    /* We look at the last instruction generated and the one before
-     * that.  */
-    if (forth_code_len(code) < 2)
-        return false;
-
-    union forth_inst *last =
-        forth_code_get_elem(code, forth_code_len(code) - 1);
-
-    if (streq(b->name, "/")) {
-        if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_div2;
-            code->base.elements--;
+    if (forth_code_len(code) >= 1) {
+        if (peephole1(ctx, code, b))
             return true;
-        }
-    } else if (streq(b->name, "*")) {
-        if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_mult2;
-            code->base.elements--;
+    }
+    if (forth_code_len(code) >= 2) {
+        if (peephole_n(ctx, code, b))
             return true;
-        }
-
-        const struct forth_builtin *prev_b =
-            find_builtin_by_callback(last[0].callback);
-        if (prev_b && streq(prev_b->name, "pi")) {
-            last[0].callback = op_multpi;
-            code->base.elements--;
-            return true;
-        }
-    } else if (streq(b->name, "**")) {
-        if (last[-1].callback == op_number && last[0].number == 2.0) {
-            last[-1].callback = op_pow2;
-            code->base.elements--;
-            return true;
-        }
-    } else if (streq(b->name, "dup")) {
-        if (last[0].callback == b->callback) {
-            struct forth_word *w = hash_find(ctx->words, "dupdup");
-            assert(w != NULL);
-            assert(is_word_builtin(w));
-            last[0].callback = w->builtin->callback;
-            return true;
-        }
     }
 
     return false;
@@ -1006,7 +1062,7 @@ BUILTIN("dup", 2, 1)
     NEXT();
 }
 
-BUILTIN("dupdup", 4, 1)
+BUILTIN(" dupdup", 4, 1)
 {
     double v = POP_D();
     PUSH_D(v);
@@ -1096,6 +1152,17 @@ BUILTIN("-rot", 3, 3)
     NEXT();
 }
 
+BUILTIN(" -rotswap", 3, 3)
+{
+    double v1 = POP_D();
+    double v2 = POP_D();
+    double v3 = POP_D();
+    PUSH_D(v1);
+    PUSH_D(v2);
+    PUSH_D(v3);
+    NEXT();
+}
+
 BUILTIN("=", 1, 2)
 {
     double v1 = POP_D();
@@ -1136,6 +1203,17 @@ BUILTIN(">=", 1, 2)
     NEXT();
 }
 
+BUILTIN(" >=swap", 2, 3)
+{
+    double v1 = POP_D();
+    double v2 = POP_D();
+    double v3 = POP_D();
+
+    PUSH_D(v1 >= v2 ? 1.0 : 0.0);
+    PUSH_D(v3);
+    NEXT();
+}
+
 BUILTIN("<=", 1, 2)
 {
     double v1 = POP_D();
@@ -1147,6 +1225,15 @@ BUILTIN("<=", 1, 2)
 BUILTIN("+", 1, 2)
 {
     PUSH_D(POP_D() + POP_D());
+    NEXT();
+}
+
+BUILTIN(" fma", 1, 3)
+{
+    double m1 = POP_D();
+    double m2 = POP_D();
+    double a = POP_D();
+    PUSH_D(fma(m1, m2, a));
     NEXT();
 }
 
