@@ -173,8 +173,7 @@ static void op_nop(union forth_inst *inst,
                    double *r_stack,
                    struct forth_vars *vars)
 {
-    lwan_status_critical("nop instruction executed after inlining");
-    __builtin_unreachable();
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
 }
 
 static void op_halt(union forth_inst *inst __attribute__((unused)),
@@ -229,12 +228,11 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         if (inst->callback == op_halt) {
             continue; /* no immediate for halt */
         }
+        if (inst->callback == op_nop) {
+            continue; /* no immediate for nop */
+        }
         if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code after inlining");
-            __builtin_unreachable();
-        }
-        if (UNLIKELY(inst->callback == op_nop)) {
-            lwan_status_critical("nop after inlining");
             __builtin_unreachable();
         }
 
@@ -322,11 +320,10 @@ static void dump_code(const struct forth_code *code)
             inst++;
         } else if (inst->callback == op_halt) {
             printf("halt\n");
+        } else if (inst->callback == op_nop) {
+            printf("nop\n");
         } else if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code shouldn't exist here");
-            __builtin_unreachable();
-        } else if (UNLIKELY(inst->callback == op_nop)) {
-            lwan_status_critical("nop shouldn't exist here");
             __builtin_unreachable();
         } else {
             const struct forth_builtin *b =
@@ -426,9 +423,9 @@ static struct forth_word *new_word(struct forth_ctx *ctx,
         forth_code_get_elem_index(&ctx->defining_word->code, emitted);         \
     })
 
-static bool peephole1(struct forth_ctx *ctx,
-                      struct forth_code *code,
-                      const struct forth_builtin *b)
+static bool peephole_1(struct forth_ctx *ctx,
+                       struct forth_code *code,
+                       const struct forth_builtin *b)
 {
     union forth_inst *last =
         forth_code_get_elem(code, forth_code_len(code) - 1);
@@ -480,6 +477,15 @@ static bool peephole1(struct forth_ctx *ctx,
             last[0].callback = w->builtin->callback;
             return true;
         }
+    } else if (streq(b->name, " div2")) {
+        const struct forth_word *w = hash_find(ctx->words, " multpi");
+        assert(w != NULL);
+        assert(is_word_builtin(w));
+        if (last[0].callback == w->builtin->callback) {
+            w = hash_find(ctx->words, " multhalfpi");
+            last[0].callback = w->builtin->callback;
+            return true;
+        }
     }
 
     return false;
@@ -501,6 +507,37 @@ static bool peephole_n(struct forth_ctx *ctx,
             code->base.elements--;
             return true;
         }
+    } else if (streq(b->name, "+")) {
+        if (forth_code_len(code) >= 4) {
+            if (last[-1].callback == op_number &&
+                last[-3].callback == op_number) {
+                last[-2].number += last[0].number;
+                code->base.elements -= 2;
+                return true;
+            }
+        }
+    } else if (streq(b->name, "-")) {
+        if (forth_code_len(code) >= 4) {
+            if (last[-1].callback == op_number &&
+                last[-3].callback == op_number) {
+                last[-2].number -= last[0].number;
+                code->base.elements -= 2;
+                return true;
+            }
+        }
+    } else if (streq(b->name, "/")) {
+        if (forth_code_len(code) >= 4) {
+            if (last[-1].callback == op_number &&
+                last[-3].callback == op_number) {
+                if (last[0].number == 0.0) {
+                    last[-2].number = __builtin_inf();
+                } else {
+                    last[-2].number /= last[0].number;
+                }
+                code->base.elements -= 2;
+                return true;
+            }
+        }
     } else if (streq(b->name, "*")) {
         if (last[-1].callback == op_number && last[0].number == 2.0) {
             const struct forth_word *w = hash_find(ctx->words, " mult2");
@@ -509,6 +546,15 @@ static bool peephole_n(struct forth_ctx *ctx,
             last[-1].callback = w->builtin->callback;
             code->base.elements--;
             return true;
+        }
+
+        if (forth_code_len(code) >= 4) {
+            if (last[-1].callback == op_number &&
+                last[-3].callback == op_number) {
+                last[-2].number *= last[0].number;
+                code->base.elements -= 2;
+                return true;
+            }
         }
     } else if (streq(b->name, "**")) {
         if (last[-1].callback == op_number && last[0].number == 2.0) {
@@ -519,13 +565,19 @@ static bool peephole_n(struct forth_ctx *ctx,
             code->base.elements--;
             return true;
         }
+    } else if (streq(b->name, " mult2")) {
+        if (last[-1].callback == op_number) {
+            last[0].number *= 2;
+            return true;
+        }
     }
 
     return false;
 }
 
-static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
+static bool peephole(struct forth_ctx *ctx)
 {
+    /* FIXME: constprop? */
     /* FIXME: This is small enough that the current implementation is
      * fine, but if we end up adding quite a bit more rules, we should
      * look into making the rule declaration a bit better. */
@@ -542,16 +594,75 @@ static bool peephole(struct forth_ctx *ctx, const struct forth_builtin *b)
      * simplistic implementation of this compiler, it might not be
      * worth the trouble.  */
     struct forth_code *code = &ctx->defining_word->code;
+    struct forth_code orig_code = *code;
+    union forth_inst *inst;
+    bool modified = false;
+    union forth_inst *new_inst;
+    size_t jump_stack[64];
+    size_t *j = jump_stack;
 
-    if (forth_code_len(code) >= 1) {
-        if (peephole1(ctx, code, b))
-            return true;
-    }
-    if (forth_code_len(code) >= 2) {
-        if (peephole_n(ctx, code, b))
-            return true;
+    forth_code_init(code);
+
+    LWAN_ARRAY_FOREACH (&orig_code, inst) {
+        const struct forth_builtin *b =
+            find_builtin_by_callback(inst->callback);
+        if (b) {
+            if (forth_code_len(code) > 1) {
+                if (peephole_1(ctx, code, b)) {
+                    modified = true;
+                    continue;
+                }
+            }
+            if (forth_code_len(code) > 2) {
+                if (peephole_n(ctx, code, b)) {
+                    modified = true;
+                    continue;
+                }
+            }
+        }
+
+        new_inst = forth_code_append(code);
+        if (!new_inst)
+            goto out;
+
+        *new_inst = *inst;
+
+        bool has_imm = false;
+        if (inst->callback == op_jump_if) {
+            JS_PUSH(forth_code_len(code));
+            has_imm = true;
+        } else if (inst->callback == op_jump) {
+            union forth_inst *if_inst = forth_code_get_elem(code, JS_POP());
+            if_inst->pc = forth_code_len(code) +
+                          forth_code_get_elem_index(code, if_inst) - 2;
+
+            JS_PUSH(forth_code_len(code));
+            has_imm = true;
+        } else if (inst->callback == op_nop) {
+            union forth_inst *else_inst =
+                forth_code_get_elem(code, JS_POP());
+            else_inst->pc = forth_code_len(code) -
+                            forth_code_get_elem_index(code, else_inst) + 1;
+        } else if (inst->callback == op_number) {
+            has_imm = true;
+        }
+
+        if (has_imm) {
+            new_inst = forth_code_append(code);
+            if (!new_inst)
+                goto out;
+
+            inst++;
+            *new_inst = *inst;
+        }
     }
 
+    forth_code_reset(&orig_code);
+    return modified;
+
+out:
+    forth_code_reset(code);
+    lwan_status_error("Could not run peephole optimizer");
     return false;
 }
 
@@ -592,8 +703,7 @@ static const char *found_word(struct forth_ctx *ctx,
             if (is_word_compiler(w))
                 return w->builtin->callback_compiler(ctx, code);
 
-            if (!peephole(ctx, w->builtin))
-                EMIT(.callback = w->builtin->callback);
+            EMIT(.callback = w->builtin->callback);
         } else {
             EMIT(.callback = op_eval_code);
             EMIT(.code = &w->code);
@@ -638,17 +748,13 @@ static bool inline_calls_code(const struct forth_code *orig_code,
             if (!inline_calls_code(inst->code, new_code, nested - 1))
                 return false;
         } else {
+            union forth_inst *new_inst = forth_code_append(new_code);
+            if (!new_inst)
+                return false;
+
+            *new_inst = *inst;
+
             bool has_imm = false;
-            union forth_inst *new_inst;
-
-            if (inst->callback != op_nop) {
-                new_inst = forth_code_append(new_code);
-                if (!new_inst)
-                    return false;
-
-                *new_inst = *inst;
-            }
-
             if (inst->callback == op_jump_if) {
                 JS_PUSH(forth_code_len(new_code));
                 has_imm = true;
@@ -745,6 +851,9 @@ finish:
     if (!inline_calls(ctx))
         return false;
 
+    if (peephole(ctx))
+        peephole(ctx);
+
 #if defined(DUMP_CODE)
     dump_code(&ctx->main->code);
 #endif
@@ -755,6 +864,7 @@ finish:
     return true;
 }
 
+/* FIXME: mark a builtin as "constant" for constprop? */
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
     static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
@@ -1376,6 +1486,11 @@ BUILTIN(" multpi", 1, 1)
     TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
 }
 
+BUILTIN(" multhalfpi", 1, 1)
+{
+    *(d_stack - 1) *= M_PI / 2.0;
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+}
 
 #undef NEXT
 
@@ -1444,7 +1559,7 @@ void forth_free(struct forth_ctx *ctx)
 }
 
 size_t forth_d_stack_len(const struct forth_ctx *ctx,
-        const struct forth_vars *vars)
+                         const struct forth_vars *vars)
 {
     return (size_t)(vars->final_d_stack_ptr - ctx->d_stack);
 }
