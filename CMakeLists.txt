@@ -17,6 +17,11 @@ include(EnableCFlag)
 include(FindPkgConfig)
 include(TrySanitizer)
 include(GNUInstallDirs)
+include(GitVersionDetect)
+
+
+message(STATUS "Lwan version ${GITVERSIONDETECT_VERSION}")
+set(LWAN_VERSION ${GITVERSIONDETECT_VERSION})
 
 if (NOT CMAKE_BUILD_TYPE)
 	message(STATUS "No build type selected, defaulting to Debug")

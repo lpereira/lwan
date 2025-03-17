@@ -19,6 +19,8 @@
 
 #pragma once
 
+#cmakedefine LWAN_VERSION "@LWAN_VERSION@"
+
 /* API available in Glibc/Linux, but possibly not elsewhere */
 #cmakedefine LWAN_HAVE_ACCEPT4
 #cmakedefine LWAN_HAVE_ALLOCA_H

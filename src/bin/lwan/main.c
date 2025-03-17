@@ -168,6 +168,7 @@ print_help(const char *argv0, const struct lwan_config *config)
 #endif
     printf("\n");
     printf("  -h, --help       This.\n");
+    printf("  -v, --version    Print the Lwan version and exits.\n");
     printf("\n");
     printf("Examples:\n");
     if (!access("/usr/share/doc", R_OK)) {
@@ -196,6 +197,11 @@ print_help(const char *argv0, const struct lwan_config *config)
     free(current_dir);
 }
 
+static void print_version(void)
+{
+    printf("Lwan version %s\n", LWAN_VERSION);
+}
+
 static enum args
 parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
     struct lwan_straitjacket *sj)
@@ -204,6 +210,7 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
         { .name = "root", .has_arg = 1, .val = 'r' },
         { .name = "listen", .has_arg = 1, .val = 'l' },
         { .name = "help", .val = 'h' },
+        { .name = "version", .val = 'v' },
         { .name = "config", .has_arg = 1, .val = 'c' },
         { .name = "chroot", .val = 'C' },
         { .name = "user", .val = 'u', .has_arg = 1 },
@@ -217,7 +224,7 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
     int c, optidx = 0;
     enum args result = ARGS_USE_CONFIG;
 
-    while ((c = getopt_long(argc, argv, "L:P:K:hr:l:c:u:C", opts, &optidx)) != -1) {
+    while ((c = getopt_long(argc, argv, "L:P:K:hvr:l:c:u:C", opts, &optidx)) != -1) {
         switch (c) {
 #if defined(LWAN_HAVE_MBEDTLS)
         case 'L':
@@ -272,6 +279,10 @@ parse_args(int argc, char *argv[], struct lwan_config *config, char *root,
 
         case 'h':
             print_help(argv[0], config);
+            return ARGS_FAILED;
+
+        case 'v':
+            print_version();
             return ARGS_FAILED;
 
         default:
