@@ -55,18 +55,19 @@ ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
 ForEachMacros:   
   - list_for_each
+  - list_for_each_off
   - list_for_each_rev
   - list_for_each_safe
-  - list_for_each_off
   - list_for_each_safe_off
-  - LWAN_ARRAY_FOREACH_REVERSE
   - LWAN_ARRAY_FOREACH
+  - LWAN_ARRAY_FOREACH_REVERSE
+  - LWAN_SECTION_FOREACH
   - STRING_SWITCH
   - STRING_SWITCH_L
-  - STRING_SWITCH_SMALL
-  - STRING_SWITCH_SMALL_L
   - STRING_SWITCH_LARGE
   - STRING_SWITCH_LARGE_L
+  - STRING_SWITCH_SMALL
+  - STRING_SWITCH_SMALL_L
 IncludeCategories: 
   - Regex:           '^"lwan-.*'
     Priority:        2
