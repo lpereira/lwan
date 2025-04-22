@@ -121,6 +121,19 @@ struct lwan_request_parser_helper {
     int urls_rewritten;       /* Times URLs have been rewritten */
 };
 
+struct lwan_thread {
+    struct lwan *lwan;
+    struct {
+        char date[30];
+        char expires[30];
+    } date;
+    int epoll_fd;
+    struct timeouts *wheel;
+    int listen_fd;
+    int tls_listen_fd;
+    unsigned int cpu;
+    pthread_t self;
+};
 
 #define LWAN_CONCAT(a_, b_) a_ ## b_
 #define LWAN_TMP_ID_DETAIL(n_) LWAN_CONCAT(lwan_tmp_id, n_)

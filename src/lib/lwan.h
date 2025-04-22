@@ -487,20 +487,6 @@ struct lwan_url_map {
     } authorization;
 };
 
-struct lwan_thread {
-    struct lwan *lwan;
-    struct {
-        char date[30];
-        char expires[30];
-    } date;
-    int epoll_fd;
-    struct timeouts *wheel;
-    int listen_fd;
-    int tls_listen_fd;
-    unsigned int cpu;
-    pthread_t self;
-};
-
 struct lwan_straitjacket {
     const char *user_name;
     const char *chroot_path;
