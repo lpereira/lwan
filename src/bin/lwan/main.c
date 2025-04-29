@@ -168,7 +168,7 @@ print_help(const char *argv0, const struct lwan_config *config)
 #endif
     printf("\n");
     printf("  -h, --help       This.\n");
-    printf("  -v, --version    Print the Lwan version and exits.\n");
+    printf("  -v, --version    Print the Lwan version & build info, and exits.\n");
     printf("\n");
     printf("Examples:\n");
     if (!access("/usr/share/doc", R_OK)) {
@@ -187,10 +187,6 @@ print_help(const char *argv0, const struct lwan_config *config)
            "       -l '*:8080' -L '*:8081' -r /usr/share/doc\n", argv0);
 #endif
     printf("\n");
-    print_build_time_configuration();
-    print_module_info();
-    print_handler_info();
-    printf("\n");
     printf("Report bugs at <https://github.com/lpereira/lwan>.\n");
     printf("For security-related reports, mail them to <security@tia.mat.br>.\n");
 
@@ -200,6 +196,10 @@ print_help(const char *argv0, const struct lwan_config *config)
 static void print_version(void)
 {
     printf("Lwan version %s\n", LWAN_VERSION);
+    printf("\n");
+    print_build_time_configuration();
+    print_module_info();
+    print_handler_info();
 }
 
 static enum args
