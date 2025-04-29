@@ -1537,6 +1537,7 @@ struct forth_ctx *forth_new(void)
 
     struct forth_word *word = new_word(ctx, " ", NULL);
     if (!word) {
+        hash_unref(ctx->words);
         free(ctx);
         return NULL;
     }
