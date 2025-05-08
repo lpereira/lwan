@@ -492,8 +492,8 @@ In order to route URLs, Lwan matches the largest common prefix from the request
 URI with a set of prefixes specified in the listener section.  How a request to
 a particular prefix will be handled depends on which handler or module has been
 declared in the listener section.  Handlers and modules are similar internally;
-handlers are merely functions and hold no state, and modules holds state (named
-instance).  Multiple instances of a module can appear in a listener section.
+handlers are merely functions and hold no state, and modules holds state
+("instance").  Multiple instances of a module can appear in a listener section.
 
 There is no special syntax to attach a prefix to a handler or module; all the
 configuration parser rules apply here.  Use `${NAME} ${PREFIX}` to link the
@@ -509,7 +509,7 @@ section.
 
 > [!TIP]
 >
->  Executing Lwan with the `--help` command-line
+>  Executing Lwan with the `--version` command-line
 > argument will show a list of built-in modules and handlers.
 
 The following is some basic documentation for the modules shipped with Lwan.
