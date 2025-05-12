@@ -1385,17 +1385,13 @@ BUILTIN("not", 1, 1)
 
 BUILTIN("min", 1, 2)
 {
-    double v1 = POP_D();
-    double v2 = POP_D();
-    PUSH_D(v1 > v2 ? v2 : v1);
+    PUSH_D(fmin(POP_D(), POP_D()));
     NEXT();
 }
 
 BUILTIN("max", 1, 2)
 {
-    double v1 = POP_D();
-    double v2 = POP_D();
-    PUSH_D(v1 > v2 ? v1 : v2);
+    PUSH_D(fmax(POP_D(), POP_D()));
     NEXT();
 }
 
