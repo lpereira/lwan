@@ -922,7 +922,7 @@ static void update_date_cache(struct lwan_thread *thread)
 }
 
 static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
-                                     struct coro_switcher *switcher,
+                                     coro_context *switcher,
                                      struct timeout_queue *tq)
 {
     struct lwan_thread *t = conn->thread;
@@ -1177,7 +1177,7 @@ static void *thread_io_loop(void *data)
     const int max_events = LWAN_MIN((int)t->lwan->thread.max_fd, 1024);
     struct lwan *lwan = t->lwan;
     struct epoll_event *events;
-    struct coro_switcher switcher;
+    coro_context switcher;
     struct timeout_queue tq;
 
     if (t->cpu == UINT_MAX) {

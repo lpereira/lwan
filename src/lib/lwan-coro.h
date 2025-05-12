@@ -40,12 +40,8 @@ typedef ssize_t coro_deferred;
 
 typedef int (*coro_function_t)(struct coro *coro, void *data);
 
-struct coro_switcher {
-    coro_context caller;
-};
-
 struct coro *
-coro_new(struct coro_switcher *switcher, coro_function_t function, void *data);
+coro_new(coro_context *switcher, coro_function_t function, void *data);
 void coro_free(struct coro *coro);
 
 void coro_reset(struct coro *coro, coro_function_t func, void *data);

@@ -91,7 +91,7 @@ struct coro_defer {
 DEFINE_ARRAY_TYPE_INLINEFIRST(coro_defer_array, struct coro_defer)
 
 struct coro {
-    struct coro_switcher *switcher;
+    coro_context *switcher;
     coro_context context;
     struct coro_defer_array defer;
 
@@ -298,7 +298,7 @@ void coro_reset(struct coro *coro, coro_function_t func, void *data)
 }
 
 ALWAYS_INLINE struct coro *
-coro_new(struct coro_switcher *switcher, coro_function_t function, void *data)
+coro_new(coro_context *switcher, coro_function_t function, void *data)
 {
     struct coro *coro;
 
@@ -346,7 +346,7 @@ ALWAYS_INLINE int64_t coro_resume(struct coro *coro)
                (uintptr_t)(coro->stack + CORO_STACK_SIZE));
 #endif
 
-    coro_swapcontext(&coro->switcher->caller, &coro->context);
+    coro_swapcontext(coro->switcher, &coro->context);
 
     return coro->yield_value;
 }
@@ -364,7 +364,7 @@ inline int64_t coro_yield(struct coro *coro, int64_t value)
     assert(coro);
 
     coro->yield_value = value;
-    coro_swapcontext(&coro->context, &coro->switcher->caller);
+    coro_swapcontext(&coro->context, coro->switcher);
 
     return coro->yield_value;
 }

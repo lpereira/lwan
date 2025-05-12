@@ -1502,7 +1502,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
                                  void *variables,
                                  const void *data)
 {
-    struct coro_switcher switcher;
+    coro_context switcher;
     struct coro *coro = NULL;
     const struct chunk *chunk = chunks;
 
