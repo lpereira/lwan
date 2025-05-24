@@ -1470,31 +1470,31 @@ BUILTIN("random", 1, 0)
 BUILTIN(" mult2", 1, 1)
 {
     *(d_stack - 1) *= 2.0;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    NEXT();
 }
 
 BUILTIN(" pow2", 1, 1)
 {
     *(d_stack - 1) *= *(d_stack - 1);
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    NEXT();
 }
 
 BUILTIN(" div2", 1, 1)
 {
     *(d_stack - 1) /= 2.0;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    NEXT();
 }
 
 BUILTIN(" multpi", 1, 1)
 {
     *(d_stack - 1) *= M_PI;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    NEXT();
 }
 
 BUILTIN(" multhalfpi", 1, 1)
 {
     *(d_stack - 1) *= M_PI / 2.0;
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    NEXT();
 }
 
 #undef NEXT
