@@ -278,17 +278,16 @@ int lwan_sendfile_fd(struct lwan_request *request,
                      const char *header,
                      size_t header_len)
 {
+    if (!count) {
+        /* FreeBSD sendfile() won't send the headers when count is 0. Why? */
+        return lwan_send_fd(request, out_fd, header, header_len, 0);
+    }
+
     struct sf_hdtr headers = {.headers =
                                   (struct iovec[]){{.iov_base = (void *)header,
                                                     .iov_len = header_len}},
                               .hdr_cnt = 1};
     off_t sbytes = (off_t)count;
-
-    if (!count) {
-        /* FreeBSD's sendfile() won't send the headers when count is 0. Why? */
-        return lwan_writev_fd(request, out_fd, headers.headers,
-                              headers.hdr_cnt);
-    }
 
     while (true) {
         int r;
