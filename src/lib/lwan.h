@@ -383,18 +383,29 @@ struct lwan_connection {
     struct lwan_thread *thread;
 
     /* This union is here to support async/await when a handler is waiting
-     * on multiple file descriptors.  By storing a pointer to the parent
-     * connection here, we're able to register the awaited file descriptor
-     * in epoll using a pointer to the awaited file descriptor struct,
-     * allowing us to yield to the handler this information and signal which
-     * file descriptor caused the handler to be awoken.  (We can yield just
-     * the file descriptor plus another integer with values to signal things
-     * like timeouts and whatnot.  Future problems!)
+     * on a file descriptor.  When a client HTTP connection awaits on a FD,
+     * one entry in the `conns' array is borrowed to represent the awaited
+     * FD, and the meaning in some of the members of this struct change
+     * slightly.
      *
-     * Also, when CONN_ASYNC_AWAIT is set, `coro` points to parent->coro,
-     * so that conn->coro is consistently usable.  Gotta be careful though,
-     * because struct coros are not refcounted and this could explode with
-     * a double free. */
+     * If flags&CONN_ASYNC_AWAIT, `parent' points to the client HTTP
+     * connection that is interested in this particular file descriptor.
+     * Otherwise, `prev' and `next' are used as pointers in a circular,
+     * intrusive, doubly-linked linked list (where -1 is the end-of-list
+     * marker, other values are file descriptors).
+     *
+     * When `parent' points to a connection, `coro' points to
+     * `parent->coro', and `thread' above points to `parent->thread'.  This
+     * is so both of these values can be consistently used.
+     *
+     * This union works because when a lwan_connection struct refers to an
+     * awaited file descriptor, it's not included in the timeout queue used
+     * by client HTTP connections.  Values are reset to whatever they were
+     * before in a deferred handler tied to the connection coroutine.
+     *
+     * Care  must be taken before using any of the values in it depending on
+     * whether `flags&CONN_ASYNC_AWAIT' is set.  It is recommended that
+     * this invariant is checked with an assertion. */
     union {
         /* For HTTP client connections handling inside the timeout queue */
         struct {
