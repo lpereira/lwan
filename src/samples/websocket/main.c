@@ -126,7 +126,6 @@ static void pub_depart_message(void *data1, void *data2)
 LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
 {
     struct lwan_pubsub_subscriber *sub;
-    struct lwan_pubsub_msg *msg;
     enum lwan_http_status status;
     static int total_user_count;
     int user_id;
@@ -158,10 +157,10 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
                                     sub_fd, CONN_CORO_WANT_READ, -1);
 
         if (resumed_fd == sub_fd) {
-            while ((msg = lwan_pubsub_consume(sub))) {
-                const struct lwan_value *value = lwan_pubsub_msg_value(msg);
-
-                lwan_strbuf_set(response->buffer, value->value, value->len);
+            struct lwan_pubsub_msg *msg;
+            LWAN_PUBSUB_FOREACH_MSG(sub, msg) {
+                lwan_strbuf_set_value(response->buffer,
+                                      lwan_pubsub_msg_value(msg));
 
                 /* Mark as done before writing: websocket_write() can abort the
                  * coroutine and we want to drop the reference before this

@@ -457,3 +457,8 @@ bool lwan_strbuf_append_value(struct lwan_strbuf *s1,
 {
     return lwan_strbuf_append_str(s1, s2->value, s2->len);
 }
+
+bool lwan_strbuf_set_value(struct lwan_strbuf *s1, const struct lwan_value *s2)
+{
+    return lwan_strbuf_set(s1, s2->value, s2->len);
+}

@@ -46,3 +46,7 @@ const struct lwan_value *lwan_pubsub_msg_value(const struct lwan_pubsub_msg *msg
 void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg);
 
 int lwan_pubsub_get_notification_fd(struct lwan_pubsub_subscriber *sub);
+
+#define LWAN_PUBSUB_FOREACH_MSG(sub_, msg_)                                    \
+    for (msg_ = lwan_pubsub_consume(sub_); msg_;                               \
+         msg_ = lwan_pubsub_consume(sub_))

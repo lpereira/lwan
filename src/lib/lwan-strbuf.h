@@ -68,6 +68,8 @@ static inline bool lwan_strbuf_append_strz(struct lwan_strbuf *s1,
 struct lwan_value;
 bool lwan_strbuf_append_value(struct lwan_strbuf *s1, const struct lwan_value *s2);
 
+bool lwan_strbuf_set_value(struct lwan_strbuf *s1, const struct lwan_value *s2);
+
 bool lwan_strbuf_set_static(struct lwan_strbuf *s1, const char *s2, size_t sz);
 static inline bool lwan_strbuf_set_staticz(struct lwan_strbuf *s1,
                                            const char *s2)
