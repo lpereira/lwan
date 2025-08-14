@@ -891,10 +891,10 @@ int lwan_request_await_read_write(struct lwan_request *r, int fd)
     return async_await_fd(r, fd, CONN_CORO_WANT_READ_WRITE);
 }
 
-static ALWAYS_INLINE void resume_coro(struct timeout_queue *tq,
-                                      struct lwan_connection *conn_to_resume,
-                                      struct lwan_connection *conn_to_yield,
-                                      int epoll_fd)
+static void resume_coro(struct timeout_queue *tq,
+                        struct lwan_connection *conn_to_resume,
+                        struct lwan_connection *conn_to_yield,
+                        int epoll_fd)
 {
     assert(conn_to_resume->coro);
     assert(conn_to_yield->coro);
@@ -921,9 +921,9 @@ static void update_date_cache(struct lwan_thread *thread)
                          thread->date.expires);
 }
 
-static ALWAYS_INLINE bool spawn_coro(struct lwan_connection *conn,
-                                     coro_context *switcher,
-                                     struct timeout_queue *tq)
+static bool spawn_coro(struct lwan_connection *conn,
+                       coro_context *switcher,
+                       struct timeout_queue *tq)
 {
     struct lwan_thread *t = conn->thread;
 #if defined(LWAN_HAVE_MBEDTLS)
