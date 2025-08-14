@@ -357,6 +357,23 @@ static enum lwan_http_status add_params(const struct private_data *pd,
     return HTTP_OK;
 }
 
+static bool discard(struct lwan_request *request, int fd, size_t to_read)
+{
+    while (to_read) {
+        char buffer[256];
+        const size_t recv_len = LWAN_MIN(sizeof(buffer), to_read);
+        ssize_t r;
+
+        r = lwan_recv_fd(request, fd, buffer, recv_len, MSG_TRUNC);
+        if (UNLIKELY(r < 0))
+            return false;
+
+        to_read -= (size_t)r;
+    }
+
+    return true;
+}
+
 static bool
 handle_stdout(struct lwan_request *request, const struct record *record, int fd)
 {
@@ -376,15 +393,7 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
         buffer += r;
     }
 
-    if (record->len_padding) {
-        char padding[256];
-        if (lwan_recv_fd(request, fd, padding, (size_t)record->len_padding,
-                         MSG_TRUNC) < 0) {
-            return false;
-        }
-    }
-
-    return true;
+    return discard(request, fd, record->len_padding);
 }
 
 static bool
@@ -414,22 +423,13 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
 
     coro_defer_fire_and_disarm(request->conn->coro, buffer_free_defer);
 
-    if (record->len_padding) {
-        char padding[256];
-        if (lwan_recv_fd(request, fd, padding, (size_t)record->len_padding,
-                         MSG_TRUNC) < 0) {
-            return false;
-        }
-    }
-
-    return true;
+    return discard(request, fd, record->len_padding);
 }
 
 static bool discard_unknown_record(struct lwan_request *request,
                                    const struct record *record,
                                    int fd)
 {
-    char buffer[256];
     size_t to_read = (size_t)record->len_content + (size_t)record->len_padding;
 
     if (record->type > 11) {
@@ -443,18 +443,7 @@ static bool discard_unknown_record(struct lwan_request *request,
     lwan_status_debug("Discarding record of type %d (%zu bytes incl. padding)",
                       record->type, to_read);
 
-    while (to_read) {
-        ssize_t r;
-
-        r = lwan_recv_fd(request, fd, buffer, LWAN_MIN(sizeof(buffer), to_read),
-                         MSG_TRUNC);
-        if (r < 0)
-            return false;
-
-        to_read -= (size_t)r;
-    }
-
-    return true;
+    return discard(request, fd, to_read);
 }
 
 DEFINE_ARRAY_TYPE_INLINEFIRST(header_array, struct lwan_key_value)
