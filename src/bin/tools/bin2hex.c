@@ -80,12 +80,15 @@ static int bin2hex_mmap(const char *path, const char *identifier)
 static int bin2hex_incbin(const char *path, const char *identifier)
 {
     printf("__asm__(\".section \\\".rodata\\\"\\n\"\n");
+    printf("        \".global %s_start\\n\"\n", identifier);
     printf("        \"%s_start:\\n\"\n", identifier);
     printf("        \".incbin \\\"%s\\\"\\n\"\n", path);
+    printf("        \".global %s_end\\n\"\n", identifier);
     printf("        \"%s_end:\\n\"\n", identifier);
     printf("        \".previous\\n\");\n");
     printf("static struct lwan_value %s_value;\n", identifier);
-    printf("__attribute__((visibility(\"internal\"))) extern char %s_start[], %s_end[];\n", identifier, identifier);
+    printf("__attribute__((visibility(\"internal\"))) ");
+    printf("extern char %s_start[], %s_end[];\n", identifier, identifier);
 
     return 0;
 }

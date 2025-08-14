@@ -292,7 +292,8 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	enable_c_flag_if_avail(-malign-data=abi C_FLAGS_REL LWAN_HAVE_ALIGN_DATA)
 	enable_c_flag_if_avail(-fno-asynchronous-unwind-tables C_FLAGS_REL LWAN_HAVE_NO_ASYNC_UNWIND_TABLES)
 
-	enable_c_flag_if_avail(-fPIC -flto C_FLAGS_REL LWAN_HAVE_LTO)
+	enable_c_flag_if_avail(-fPIC C_FLAGS_REL LWAN_HAVE_PIC)
+	enable_c_flag_if_avail(-flto=auto C_FLAGS_REL LWAN_HAVE_LTO)
 
 	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL LWAN_HAVE_LTO_FAT_OBJS)
 	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL LWAN_HAVE_BUILTIN_IA32_CRC32)
