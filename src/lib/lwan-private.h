@@ -205,31 +205,16 @@ uint8_t lwan_char_iscgiheader(char ch) __attribute__((pure));
 
 static ALWAYS_INLINE __attribute__((pure)) size_t lwan_nextpow2(size_t number)
 {
-#if defined(LWAN_HAVE_BUILTIN_CLZLL)
     static const int size_bits = (int)sizeof(number) * CHAR_BIT;
 
-    if (sizeof(size_t) == sizeof(unsigned int)) {
+    if (sizeof(size_t) == sizeof(unsigned int))
         return (size_t)1 << (size_bits - __builtin_clz((unsigned int)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long)) {
+    if (sizeof(size_t) == sizeof(unsigned long))
         return (size_t)1 << (size_bits - __builtin_clzl((unsigned long)number));
-    } else if (sizeof(size_t) == sizeof(unsigned long long)) {
+    if (sizeof(size_t) == sizeof(unsigned long long))
         return (size_t)1 << (size_bits - __builtin_clzll((unsigned long long)number));
-    } else {
-        (void)size_bits;
-    }
-#endif
 
-    number--;
-    number |= number >> 1;
-    number |= number >> 2;
-    number |= number >> 4;
-    number |= number >> 8;
-    number |= number >> 16;
-#if __SIZE_WIDTH__ == 64
-    number |= number >> 32;
-#endif
-
-    return number + 1;
+    __builtin_unreachable();
 }
 
 #if defined(LWAN_HAVE_MBEDTLS)

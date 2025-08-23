@@ -55,7 +55,6 @@
 #cmakedefine LWAN_HAVE_STATFS_F_TYPE
 
 /* Compiler builtins for specific CPU instruction support */
-#cmakedefine LWAN_HAVE_BUILTIN_CLZLL
 #cmakedefine LWAN_HAVE_BUILTIN_CPU_INIT
 #cmakedefine LWAN_HAVE_BUILTIN_IA32_CRC32
 #cmakedefine LWAN_HAVE_BUILTIN_MUL_OVERFLOW
