@@ -258,6 +258,13 @@ static const struct lwan_var_descriptor file_list_desc[] = {
     TPL_VAR_SENTINEL,
 };
 
+static inline bool is_world_readable(mode_t mode)
+{
+    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
+
+    return (mode & world_readable) == world_readable;
+}
+
 static int directory_list_generator(struct coro *coro, void *data)
 {
     static const char *zebra_classes[] = {"odd", "even"};
@@ -282,6 +289,9 @@ static int directory_list_generator(struct coro *coro, void *data)
             continue;
 
         if (fstatat(fd, entry->d_name, &st, 0) < 0)
+            continue;
+
+        if (!is_world_readable(st.st_mode))
             continue;
 
         if (S_ISDIR(st.st_mode)) {
@@ -436,13 +446,6 @@ static void
 try_readahead(const struct serve_files_priv *priv, int fd, size_t size)
 {
     lwan_readahead_queue(fd, 0, LWAN_MIN(size, priv->read_ahead));
-}
-
-static inline bool is_world_readable(mode_t mode)
-{
-    const mode_t world_readable = S_IRUSR | S_IRGRP | S_IROTH;
-
-    return (mode & world_readable) == world_readable;
 }
 
 static int try_open_compressed(const char *relpath,
