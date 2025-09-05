@@ -30,6 +30,7 @@ struct forth_vars {
 
     double *final_r_stack_ptr;
     double *final_d_stack_ptr;
+    double *r_stack;
 };
 
 bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars);

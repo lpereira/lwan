@@ -53,7 +53,6 @@
 union forth_inst {
     void (*callback)(union forth_inst *,
                      double *d_stack,
-                     double *r_stack,
                      struct forth_vars *vars);
     struct forth_code *code;
     double number;
@@ -68,7 +67,6 @@ struct forth_builtin {
     union {
         void (*callback)(union forth_inst *,
                          double *d_stack,
-                         double *r_stack,
                          struct forth_vars *vars);
         const char *(*callback_compiler)(struct forth_ctx *, const char *);
     };
@@ -143,51 +141,45 @@ static const struct forth_builtin *find_builtin_by_callback(void *callback)
 
 static void op_number(union forth_inst *inst,
                       double *d_stack,
-                      double *r_stack,
                       struct forth_vars *vars)
 {
     *d_stack++ = inst[1].number;
-    TAIL_CALL inst[2].callback(&inst[2], d_stack, r_stack, vars);
+    TAIL_CALL inst[2].callback(&inst[2], d_stack, vars);
 }
 
 static void op_jump_if(union forth_inst *inst,
                        double *d_stack,
-                       double *r_stack,
                        struct forth_vars *vars)
 {
     size_t pc = (*--d_stack == 0.0) ? inst[1].pc : 2;
-    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, vars);
 }
 
 static void op_jump(union forth_inst *inst,
                     double *d_stack,
-                    double *r_stack,
                     struct forth_vars *vars)
 {
     size_t pc = inst[1].pc;
-    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, r_stack, vars);
+    TAIL_CALL inst[pc].callback(&inst[pc], d_stack, vars);
 }
 
 static void op_nop(union forth_inst *inst,
                    double *d_stack,
-                   double *r_stack,
                    struct forth_vars *vars)
 {
-    TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars);
+    TAIL_CALL inst[1].callback(&inst[1], d_stack, vars);
 }
 
 static void op_halt(union forth_inst *inst __attribute__((unused)),
                     double *d_stack,
-                    double *r_stack,
                     struct forth_vars *vars)
 {
     vars->final_d_stack_ptr = d_stack;
-    vars->final_r_stack_ptr = r_stack;
+    vars->final_r_stack_ptr = vars->r_stack;
 }
 
 static void op_eval_code(union forth_inst *inst __attribute__((unused)),
                          double *d_stack,
-                         double *r_stack,
                          struct forth_vars *vars)
 {
     lwan_status_critical("eval_code instruction executed after inlining");
@@ -354,7 +346,8 @@ static void dump_code(const struct forth_code *code)
 bool forth_run(struct forth_ctx *ctx, struct forth_vars *vars)
 {
     union forth_inst *instr = forth_code_get_elem(&ctx->main->code, 0);
-    instr->callback(instr, ctx->d_stack, ctx->r_stack, vars);
+    vars->r_stack = ctx->r_stack;
+    instr->callback(instr, ctx->d_stack, vars);
     return true;
 }
 
@@ -876,7 +869,7 @@ finish:
 /* FIXME: mark a builtin as "constant" for constprop? */
 #define BUILTIN_DETAIL(name_, id_, struct_id_, d_pushes_, d_pops_, r_pushes_,  \
                        r_pops_)                                                \
-    static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
+    static void id_(union forth_inst *inst, double *d_stack,                   \
                     struct forth_vars *vars);                                  \
     static const struct forth_builtin __attribute__((used))                    \
     __attribute__((section(LWAN_SECTION_NAME(forth_builtin))))                 \
@@ -888,7 +881,7 @@ finish:
         .r_pushes = r_pushes_,                                                 \
         .r_pops = r_pops_,                                                     \
     };                                                                         \
-    static void id_(union forth_inst *inst, double *d_stack, double *r_stack,  \
+    static void id_(union forth_inst *inst, double *d_stack,                   \
                     struct forth_vars *vars)
 
 #define BUILTIN_COMPILER_DETAIL(name_, id_, struct_id_)                        \
@@ -995,13 +988,13 @@ BUILTIN_COMPILER("else") { return builtin_else_then(ctx, code, false); }
 BUILTIN_COMPILER("then") { return builtin_else_then(ctx, code, true); }
 
 #define PUSH_D(value_) ({ *d_stack = (value_); d_stack++; })
-#define PUSH_R(value_) ({ *r_stack = (value_); r_stack++; })
+#define PUSH_R(value_) ({ *vars->r_stack = (value_); vars->r_stack++; })
 #define DROP_D() ({ d_stack--; })
-#define DROP_R() ({ r_stack--; })
+#define DROP_R() ({ vars->r_stack--; })
 #define POP_D() ({ DROP_D(); *d_stack; })
-#define POP_R() ({ DROP_R(); *r_stack; })
+#define POP_R() ({ DROP_R(); *vars->r_stack; })
 
-#define NEXT() TAIL_CALL inst[1].callback(&inst[1], d_stack, r_stack, vars)
+#define NEXT() TAIL_CALL inst[1].callback(&inst[1], d_stack, vars)
 
 BUILTIN("x", 1, 0)
 {
