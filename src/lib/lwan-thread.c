@@ -110,7 +110,7 @@ static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
     (void)t;
 }
 
-uint64_t lwan_random_uint64()
+uint64_t lwan_random_uint64(void)
 {
     static uint64_t value = 1;
 
@@ -130,7 +130,7 @@ static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
     }
 }
 
-uint64_t lwan_random_uint64()
+uint64_t lwan_random_uint64(void)
 {
     /* https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/ */
     lehmer64_state *= 0xda942042e4dd58b5ull;

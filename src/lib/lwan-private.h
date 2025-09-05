@@ -304,7 +304,7 @@ static ALWAYS_INLINE int lwan_calculate_n_packets(size_t total)
 }
 
 long int lwan_getentropy(void *buffer, size_t buffer_len, int flags);
-uint64_t lwan_random_uint64();
+uint64_t lwan_random_uint64(void);
 
 const char *lwan_http_status_as_string(enum lwan_http_status status)
     __attribute__((const)) __attribute__((warn_unused_result));
