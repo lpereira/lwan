@@ -318,9 +318,12 @@ static int directory_list_generator(struct coro *coro, void *data)
         } else if (st.st_size < 1024 * 1024 * 1024) {
             fl->file_list.size = (int)(st.st_size / (1024 * 1024));
             fl->file_list.unit = "MiB";
-        } else {
+        } else if (st.st_size < 1024l * 1024l * 1024l * 1024l) {
             fl->file_list.size = (int)(st.st_size / (1024 * 1024 * 1024));
             fl->file_list.unit = "GiB";
+        } else {
+            fl->file_list.size = (int)(st.st_size / (1024l * 1024l * 1024l * 1024l));
+            fl->file_list.unit = "TiB";
         }
 
         fl->file_list.name = entry->d_name;
