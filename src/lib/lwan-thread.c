@@ -1032,7 +1032,9 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
 }
 
 static bool accept_waiting_clients(const struct lwan_thread *t,
-                                   const struct lwan_connection *listen_socket)
+                                   const struct lwan_connection *listen_socket,
+                                   coro_context *switcher,
+                                   struct timeout_queue *tq)
 {
     const uint32_t read_events = conn_flags_to_epoll_events(CONN_EVENTS_READ);
     struct lwan_connection *conns = t->lwan->conns;
@@ -1066,6 +1068,11 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
                 lwan_status_perror("Could not add file descriptor %d to epoll "
                                    "set %d. Dropping connection",
                                    fd, conn->thread->epoll_fd);
+                send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
+                conn->flags = 0;
+            }
+
+            if (UNLIKELY(!spawn_coro(conn, switcher, tq))) {
                 send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
                 conn->flags = 0;
             }
@@ -1249,8 +1256,10 @@ static void *thread_io_loop(void *data)
             }
 
             if (conn->flags & CONN_LISTENER) {
-                if (LIKELY(accept_waiting_clients(t, conn)))
+                if (LIKELY(accept_waiting_clients(t, conn, &switcher, &tq))) {
+                    created_coros = true;
                     continue;
+                }
                 close(epoll_fd);
                 epoll_fd = -1;
                 break;
@@ -1259,15 +1268,6 @@ static void *thread_io_loop(void *data)
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
                 timeout_queue_expire(&tq, conn);
                 continue;
-            }
-
-            if (!conn->coro) {
-                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq))) {
-                    send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
-                    continue;
-                }
-
-                created_coros = true;
             }
 
             resume_coro(&tq, conn, conn, epoll_fd);
