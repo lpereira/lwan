@@ -907,7 +907,8 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto free_default_index;
     }
 
-    pd->script_path_fd = open(pd->script_path, O_PATH | O_DIRECTORY | O_CLOEXEC);
+    pd->script_path_fd =
+        open(pd->script_path, O_PATH | O_DIRECTORY | O_CLOEXEC);
     if (pd->script_path_fd < 0) {
         lwan_status_perror("FastCGI: Could not open `script_path` at '%s'",
                            pd->script_path);
@@ -951,6 +952,11 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto free_address_copy;
 
     pd->addr_family = lwan_socket_parse_address(address_copy, &node, &port);
+    if (pd->addr_family == AF_MAX) {
+        lwan_status_error("FastCGI: Could not parse '%s' as 'address:port'",
+                          settings->address);
+        goto free_address_copy;
+    }
 
     int int_port = parse_int(port, -1);
     if (int_port < 0 || int_port > 0xffff) {
@@ -959,13 +965,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto free_address_copy;
     }
 
-    switch (pd->addr_family) {
-    case AF_MAX:
-        lwan_status_error("FastCGI: Could not parse '%s' as 'address:port'",
-                          settings->address);
-        goto free_address_copy;
-
-    case AF_INET: {
+    if (pd->addr_family == AF_INET) {
         struct in_addr in_addr;
 
         if (inet_pton(AF_INET, node, &in_addr) < 0) {
@@ -979,11 +979,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
                                  .sin_addr = in_addr,
                                  .sin_port = htons((uint16_t)int_port)};
         pd->addr_size = sizeof(in_addr);
-        free(address_copy);
-        return pd;
-    }
-
-    case AF_INET6: {
+    } else if (pd->addr_family == AF_INET6) {
         struct in6_addr in6_addr;
 
         if (inet_pton(AF_INET6, node, &in6_addr) < 0) {
@@ -997,13 +993,15 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
                                   .sin6_addr = in6_addr,
                                   .sin6_port = htons((uint16_t)int_port)};
         pd->addr_size = sizeof(in6_addr);
-        free(address_copy);
-        return pd;
-    }
+    } else {
+        lwan_status_error("FastCGI: Address '%s' isn't a valid Unix Domain "
+                          "Socket, IPv4, or IPv6 address",
+                          settings->address);
+        goto free_address_copy;
     }
 
-    lwan_status_error("FastCGI: Address '%s' isn't a valid Unix Domain Socket, IPv4, or IPv6 address",
-                      settings->address);
+    free(address_copy);
+    return pd;
 
 free_address_copy:
     free(address_copy);
