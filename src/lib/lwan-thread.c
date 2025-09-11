@@ -1192,8 +1192,7 @@ static void *thread_io_loop(void *data)
                           t - t->lwan->thread.threads + 1);
     } else {
         lwan_status_debug("Worker thread #%zd starting on CPU %d",
-                          t - t->lwan->thread.threads + 1,
-                          t->cpu);
+                          t - t->lwan->thread.threads + 1, t->cpu);
     }
 
     lwan_set_thread_name("worker");
@@ -1224,42 +1223,43 @@ static void *thread_io_loop(void *data)
         for (struct epoll_event *event = events; n_fds--; event++) {
             struct lwan_connection *conn = event->data.ptr;
 
-            if (conn->flags & CONN_ASYNC_AWAIT) {
-                /* Assert that the connection is part of the conns array,
-                 * since the storage for conn->parent is shared with
-                 * prev/next. */
-                assert(conn->parent >= lwan->conns);
-                assert(conn->parent <= &lwan->conns[lwan->thread.max_fd]);
+            if (conn->flags & (CONN_ASYNC_AWAIT | CONN_LISTENER)) {
+                if (conn->flags & CONN_ASYNC_AWAIT) {
+                    /* Assert that the connection is part of the conns array,
+                     * since the storage for conn->parent is shared with
+                     * prev/next. */
+                    assert(conn->parent >= lwan->conns);
+                    assert(conn->parent <= &lwan->conns[lwan->thread.max_fd]);
 
-                /* Also validate that conn->parent is in fact a HTTP client
-                 * connection and not an awaited fd! */
-                assert(!(conn->parent->flags & CONN_ASYNC_AWAIT));
+                    /* Also validate that conn->parent is in fact a HTTP client
+                     * connection and not an awaited fd! */
+                    assert(!(conn->parent->flags & CONN_ASYNC_AWAIT));
 
-                /* CONN_ASYNC_AWAIT conns *must* have a coro and thread as
-                 * it's the same as the HTTP client coro for API
-                 * consistency, as struct lwan_connection isn't opaque.  (If
-                 * it were opaque, or at least a private API, though, we
-                 * might be able to get away with reusing the space for
-                 * these two pointers for something else in some cases.
-                 * This has not been necessary yet, but might become useful
-                 * in the future.) */
-                assert(conn->coro);
-                assert(conn->coro == conn->parent->coro);
-                assert(conn->thread == conn->parent->thread);
+                    /* CONN_ASYNC_AWAIT conns *must* have a coro and thread as
+                     * it's the same as the HTTP client coro for API
+                     * consistency, as struct lwan_connection isn't opaque.  (If
+                     * it were opaque, or at least a private API, though, we
+                     * might be able to get away with reusing the space for
+                     * these two pointers for something else in some cases.
+                     * This has not been necessary yet, but might become useful
+                     * in the future.) */
+                    assert(conn->coro);
+                    assert(conn->coro == conn->parent->coro);
+                    assert(conn->thread == conn->parent->thread);
 
-                if (UNLIKELY(events->events & (EPOLLRDHUP | EPOLLHUP)))
-                    conn->flags |= CONN_HUNG_UP;
+                    if (UNLIKELY(events->events & (EPOLLRDHUP | EPOLLHUP)))
+                        conn->flags |= CONN_HUNG_UP;
 
-                resume_coro(&tq, conn->parent, conn, epoll_fd);
+                    resume_coro(&tq, conn->parent, conn, epoll_fd);
 
-                continue;
-            }
+                    continue;
+                }
 
-            if (conn->flags & CONN_LISTENER) {
                 if (LIKELY(accept_waiting_clients(t, conn, &switcher, &tq))) {
                     created_coros = true;
                     continue;
                 }
+
                 close(epoll_fd);
                 epoll_fd = -1;
                 break;
