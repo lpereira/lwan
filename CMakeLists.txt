@@ -332,7 +332,6 @@ enable_warning_if_supported(-Wno-unused-parameter)
 enable_warning_if_supported(-Wrestrict)
 enable_warning_if_supported(-Wstringop-overflow)
 enable_warning_if_supported(-Wstringop-overread)
-enable_warning_if_supported(-Wstringop-truncation)
 enable_warning_if_supported(-Wunsequenced)
 enable_warning_if_supported(-Wvla)
 
