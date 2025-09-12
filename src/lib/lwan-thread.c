@@ -1252,10 +1252,8 @@ static void *thread_io_loop(void *data)
 
                 assert(conn->flags & CONN_LISTENER);
 
-                if (LIKELY(accept_waiting_clients(t, conn, &switcher, &tq))) {
-                    created_coros = true;
+                if (LIKELY(accept_waiting_clients(t, conn, &switcher, &tq)))
                     continue;
-                }
 
                 close(epoll_fd);
                 epoll_fd = -1;
