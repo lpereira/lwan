@@ -10,7 +10,7 @@
 
 static inline uint32_t rotate(uint32_t v, int n)
 {
-    return v << (32 - n) | v >> n;
+    return v << (31 - n) | v >> n;
 }
 
 static inline uint32_t map_0_to_n(uint32_t value, uint32_t n)
@@ -104,7 +104,7 @@ int main(void)
 
     printf("\n");
     printf("    const uint32_t k = (uint32_t)status - %d;\n", best_subtract);
-    printf("    const uint32_t hash = (k << %d) | (k >> %d);\n", 32 - best_rot, best_rot);
+    printf("    const uint32_t hash = (k << %d) | (k >> %d);\n", 31 - best_rot, best_rot);
     printf("    const char *ret = table[(uint32_t)(((uint64_t)hash * (uint64_t)%d) >> 32)];\n", best_mod);
     printf("    assert((uint32_t)(ret[2] - '0') == ((uint32_t)status %% 10));\n");
     printf("    assert((uint32_t)(ret[1] - '0') == ((uint32_t)(status / 10) %% 10));\n");
