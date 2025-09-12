@@ -1250,6 +1250,8 @@ static void *thread_io_loop(void *data)
                     continue;
                 }
 
+                assert(conn->flags & CONN_LISTENER);
+
                 if (LIKELY(accept_waiting_clients(t, conn, &switcher, &tq))) {
                     created_coros = true;
                     continue;
