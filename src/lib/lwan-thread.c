@@ -1072,11 +1072,6 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
                 conn->flags = 0;
             }
 
-            if (UNLIKELY(!spawn_coro(conn, switcher, tq))) {
-                send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
-                conn->flags = 0;
-            }
-
             continue;
         }
 
@@ -1268,6 +1263,12 @@ static void *thread_io_loop(void *data)
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
                 timeout_queue_expire(&tq, conn);
                 continue;
+            }
+
+            if (!conn->coro) {
+                if (UNLIKELY(!spawn_coro(conn, &switcher, &tq)))
+                    continue;
+                created_coros = true;
             }
 
             resume_coro(&tq, conn, conn, epoll_fd);
