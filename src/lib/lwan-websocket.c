@@ -266,7 +266,8 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     case 2:
         msg[1] ^= mask[1]; /* fallthrough */
     case 1:
-        msg[0] ^= mask[0];
+        msg[0] ^= mask[0]; /* fallthrough */
+    case 0:
         break;
     default:
         __builtin_unreachable();
