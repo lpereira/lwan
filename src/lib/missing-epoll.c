@@ -142,7 +142,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         struct kevent *kev = &evs[i];
 
         if (kev->ident != last) {
-            if (last >= 0)
+            if (last != (uintptr_t)&epoll_no_event_marker)
                 ev++;
 
             ev->events = 0;
