@@ -18,6 +18,15 @@
  * USA.
  */
 
+/*
+ * FIXME: Maybe change the implementation so it works roughly like Segment
+ * Array, as described in this blog post[1], drawing inspiration from Zig's
+ * SegmentedList[2] for INLINEFIRST arrays?
+ *
+ * [1] https://danielchasehooper.com/posts/segment_array/
+ * [2] https://github.com/ziglang/zig/blob/e17a050bc695f7d117b89adb1d258813593ca111/lib/std/segmented_list.zig
+ */
+
 #pragma once
 
 #include <assert.h>
