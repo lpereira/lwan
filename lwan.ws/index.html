@@ -253,15 +253,16 @@ internals, as they're very tightly-coupled.</p>
 
 LWAN_HANDLER_ROUTE(hello_world, "/")
 {
-    static const char message[] = "Hello, World!";
-
+    lwan_strbuf_set_staticz(response->buffer, "Hello, World!");
     response->mime_type = "text/plain";
-    lwan_strbuf_set_static(response->buffer, message, sizeof(message) - 1);
 
     return HTTP_OK;
 }
 
-int main(void) { return lwan_main(); }
+int main(void)
+{
+    return lwan_main();
+}
 </code></pre>
 
 <p><b>Lua</b> is also available to write handlers, but support is still
