@@ -31,12 +31,23 @@ endif ()
 #
 # Find libraries
 #
-find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
-set(ADDITIONAL_LIBRARIES ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-if (NOT ZLIB_INCLUDES STREQUAL "")
-	include_directories(${ZLIB_INCLUDES})
-endif ()
+set(ADDITIONAL_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+
+pkg_check_modules(ZLIBNG zlib-ng)
+if (ZLIBNG_FOUND)
+    message(STATUS "Using zlib-ng for deflate compression")
+    list(APPEND ADDITIONAL_LIBRARIES "${ZLIBNG_LDFLAGS}")
+    include_directories(${ZLIBNG_INCLUDE_DIRS})
+    set(LWAN_HAVE_ZLIB_NG 1)
+else ()
+    find_package(ZLIB REQUIRED)
+    message(STATUS "Using zlib for deflate compression")
+    list(APPEND ADDITIONAL_LIBRARIES "${ZLIB_LIBRARIES}")
+    if (NOT ZLIB_INCLUDES STREQUAL "")
+        include_directories(${ZLIB_INCLUDES})
+    endif ()
+endif()
 
 foreach (pc_file luajit lua lua51 lua5.1 lua-5.1)
 	if (${pc_file} STREQUAL "luajit")

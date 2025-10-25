@@ -32,7 +32,7 @@ package management tool that's used by your distribution.
 ### Required dependencies
 
  - [CMake](https://cmake.org/), at least version 2.8
- - [ZLib](http://zlib.net)
+ - [zlib-ng](https://github.com/zlib-ng/zlib-ng) (preferably) or [ZLib](http://zlib.net)
 
 ### Optional dependencies
 
@@ -64,15 +64,15 @@ The build system will look for these libraries and enable/link if available.
 ### Common operating system package names
 
 #### Minimum to build
- - ArchLinux: `pacman -S cmake zlib`
+ - ArchLinux: `pacman -S cmake zlib-ng pkgconf`
  - FreeBSD: `pkg install cmake pkgconf`
- - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config`
+ - Debian and Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config`
  - macOS: `brew install cmake`
 
 #### Build with all optional features
- - ArchLinux: `pacman -S cmake zlib sqlite luajit mariadb-libs gperftools valgrind mbedtls`
+ - ArchLinux: `pacman -S cmake zlib-ng pkgconf sqlite luajit mariadb-libs gperftools valgrind mbedtls`
  - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
- - Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmariadb-dev libmbedtls-dev`
+ - Debian and Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmariadb-dev libmbedtls-dev`
  - macOS: `brew install cmake mariadb-connector-c sqlite lua@5.1 pkg-config`
 
 ### Build commands

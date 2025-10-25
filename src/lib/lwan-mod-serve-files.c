@@ -27,7 +27,6 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <zlib.h>
 
 #include "lwan-private.h"
 
@@ -48,6 +47,14 @@
 
 #if defined(LWAN_HAVE_ZSTD)
 #include <zstd.h>
+#endif
+
+#if defined(LWAN_HAVE_ZLIB_NG)
+#include <zlib-ng.h>
+#define Z(symbol_) zng_ ## symbol_
+#else
+#include <zlib.h>
+#define Z(symbol_) symbol_
 #endif
 
 #define MMAP_SIZE_THRESHOLD 16384
@@ -360,16 +367,16 @@ static void realloc_if_needed(struct lwan_value *value, size_t bound)
 static void deflate_value(const struct lwan_value *uncompressed,
                           struct lwan_value *compressed)
 {
-    const unsigned long bound = compressBound(uncompressed->len);
+    const unsigned long bound = Z(compressBound)(uncompressed->len);
 
     compressed->len = bound;
 
     if (UNLIKELY(!(compressed->value = malloc(bound))))
         goto error_zero_out;
 
-    if (UNLIKELY(compress((Bytef *)compressed->value, &compressed->len,
-                          (Bytef *)uncompressed->value,
-                          uncompressed->len) != Z_OK))
+    if (UNLIKELY(Z(compress)((Bytef *)compressed->value, &compressed->len,
+                             (Bytef *)uncompressed->value,
+                             uncompressed->len) != Z_OK))
         goto error_free_compressed;
 
     if (is_compression_worthy(compressed->len, uncompressed->len))

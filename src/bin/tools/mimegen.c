@@ -33,8 +33,12 @@
 #include <zstd.h>
 #elif defined(LWAN_HAVE_ZOPFLI)
 #include <zopfli/zopfli.h>
+#elif defined(LWAN_HAVE_ZLIB_NG)
+#include <zlib-ng.h>
+#define Z(symbol_) zng_ ## symbol_
 #else
 #include <zlib.h>
+#define Z(symbol_) symbol_
 #endif
 
 #include "../../lib/hash.h"
@@ -141,14 +145,14 @@ static char *compress_output(const struct output *output, size_t *outlen)
                    (const unsigned char *)output->ptr, output->used,
                    (unsigned char **)&compressed, outlen);
 #else
-    *outlen = compressBound((uLong)output->used);
+    *outlen = Z(compressBound)((uLong)output->used);
     compressed = malloc(*outlen);
     if (!compressed) {
         fprintf(stderr, "Could not allocate memory for compressed data\n");
         exit(1);
     }
-    if (compress2((Bytef *)compressed, outlen, (const Bytef *)output->ptr,
-                  output->used, 9) != Z_OK) {
+    if (Z(compress2)((Bytef *)compressed, outlen, (const Bytef *)output->ptr,
+                     output->used, 9) != Z_OK) {
         fprintf(stderr, "Could not compress data with zlib\n");
         exit(1);
     }
@@ -344,6 +348,8 @@ int main(int argc, char *argv[])
     printf("/* Compressed with zstd */\n");
 #elif defined(LWAN_HAVE_ZOPFLI)
     printf("/* Compressed with zopfli (deflate) */\n");
+#elif defined(LWAN_HAVE_ZLIB_NG)
+    printf("/* Compressed with zlib_ng (deflate) */\n");
 #else
     printf("/* Compressed with zlib (deflate) */\n");
 #endif
