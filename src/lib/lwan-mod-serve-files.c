@@ -435,7 +435,7 @@ static void zstd_value(const struct lwan_value *uncompressed,
         goto error_zero_out;
 
     zstd->len = ZSTD_compress(zstd->value, zstd->len, uncompressed->value,
-                              uncompressed->len, 1);
+                              uncompressed->len, ZSTD_defaultCLevel());
     if (UNLIKELY(ZSTD_isError(zstd->len)))
         goto error_free_compressed;
 
