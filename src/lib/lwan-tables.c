@@ -26,6 +26,8 @@
 #include <brotli/decode.h>
 #elif defined(LWAN_HAVE_ZSTD)
 #include <zstd.h>
+#elif defined(LWAN_HAVE_LIBDEFLATE)
+#include <libdeflate.h>
 #elif defined(LWAN_HAVE_ZLIB_NG)
 #include <zlib-ng.h>
 #define Z(symbol_) zng_ ## symbol_
@@ -70,6 +72,21 @@ void lwan_tables_init(void)
                         mime_entries_compressed, MIME_COMPRESSED_LEN);
     if (ZSTD_isError(uncompressed_length))
         lwan_status_critical("Error while uncompressing table with Zstd");
+#elif defined(LWAN_HAVE_LIBDEFLATE)
+    struct libdeflate_decompressor *decompressor = libdeflate_alloc_decompressor();
+    size_t uncompressed_length;
+    enum libdeflate_result ret =
+        libdeflate_deflate_decompress(decompressor,
+                                      mime_entries_compressed,
+                                      MIME_COMPRESSED_LEN,
+                                      uncompressed_mime_entries,
+                                      MIME_UNCOMPRESSED_LEN,
+                                      &uncompressed_length);
+    if (ret != LIBDEFLATE_SUCCESS) {
+        lwan_status_critical("Error while uncompressing table: libdeflate error %d",
+                             ret);
+    }
+    libdeflate_free_decompressor(decompressor);
 #else
     uLongf uncompressed_length = MIME_UNCOMPRESSED_LEN;
     int ret =

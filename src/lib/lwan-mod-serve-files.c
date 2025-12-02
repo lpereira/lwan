@@ -49,7 +49,9 @@
 #include <zstd.h>
 #endif
 
-#if defined(LWAN_HAVE_ZLIB_NG)
+#if defined(LWAN_HAVE_LIBDEFLATE)
+#include <libdeflate.h>
+#elif defined(LWAN_HAVE_ZLIB_NG)
 #include <zlib-ng.h>
 #define Z(symbol_) zng_ ## symbol_
 #else
@@ -359,11 +361,47 @@ static void realloc_if_needed(struct lwan_value *value, size_t bound)
     if (bound > value->len) {
         char *tmp = realloc(value->value, value->len);
 
-        if (tmp)
+        if (tmp) {
             value->value = tmp;
+        }
     }
 }
 
+#if defined(LWAN_HAVE_LIBDEFLATE)
+LWAN_LAZY_THREAD_LOCAL(struct libdeflate_compressor *, libdeflate_compressor)
+{
+    return libdeflate_alloc_compressor(6);
+}
+
+static void deflate_value(const struct lwan_value *uncompressed,
+                          struct lwan_value *compressed)
+{
+    struct libdeflate_compressor *compressor = libdeflate_compressor();
+
+    size_t bound =
+        libdeflate_deflate_compress_bound(compressor, uncompressed->len);
+    compressed->value = malloc(bound);
+    if (!compressed->value)
+        goto error;
+
+    size_t ret = libdeflate_deflate_compress(
+        compressor, uncompressed->value, uncompressed->len, &compressed->value,
+        bound);
+
+    if (ret && is_compression_worthy(ret, uncompressed->len)) {
+        compressed->len = ret;
+        return;
+    }
+
+    free(compressed->value);
+
+error:
+    *compressed = (struct lwan_value){
+        .value = NULL,
+        .len = 0,
+    };
+}
+#else
 static void deflate_value(const struct lwan_value *uncompressed,
                           struct lwan_value *compressed)
 {
@@ -388,6 +426,7 @@ error_free_compressed:
 error_zero_out:
     compressed->len = 0;
 }
+#endif
 
 #if defined(LWAN_HAVE_BROTLI)
 static void brotli_value(const struct lwan_value *uncompressed,

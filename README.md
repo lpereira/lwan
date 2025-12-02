@@ -32,7 +32,7 @@ package management tool that's used by your distribution.
 ### Required dependencies
 
  - [CMake](https://cmake.org/), at least version 2.8
- - [zlib-ng](https://github.com/zlib-ng/zlib-ng) (preferably) or [ZLib](http://zlib.net)
+ - [libdeflate](https://github.com/ebiggers/libdeflate), [zlib-ng](https://github.com/zlib-ng/zlib-ng) or [ZLib](http://zlib.net)
 
 ### Optional dependencies
 

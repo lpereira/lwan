@@ -79,7 +79,10 @@ print_build_time_configuration(void)
 #if defined(LWAN_HAVE_ZSTD)
     printf(" zstd");
 #endif
-#if defined(LWAN_HAVE_ZLIB_NG)
+
+#if defined(LWAN_HAVE_LIBDEFLATE)
+    printf(" libdeflate");
+#elif defined(LWAN_HAVE_ZLIB_NG)
     printf(" zlib-ng");
 #else
     printf(" zlib");
