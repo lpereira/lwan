@@ -33,6 +33,8 @@
 #include <zstd.h>
 #elif defined(LWAN_HAVE_ZOPFLI)
 #include <zopfli/zopfli.h>
+#elif defined(LWAN_HAVE_LIBDEFLATE)
+#include <libdeflate.h>
 #elif defined(LWAN_HAVE_ZLIB_NG)
 #include <zlib-ng.h>
 #define Z(symbol_) zng_ ## symbol_
@@ -144,6 +146,25 @@ static char *compress_output(const struct output *output, size_t *outlen)
     ZopfliCompress(&opts, ZOPFLI_FORMAT_ZLIB,
                    (const unsigned char *)output->ptr, output->used,
                    (unsigned char **)&compressed, outlen);
+#elif defined(LWAN_HAVE_LIBDEFLATE)
+    struct libdeflate_compressor *compressor = libdeflate_alloc_compressor(12);
+    *outlen = libdeflate_deflate_compress_bound(compressor, output->used);
+
+    compressed = malloc(*outlen);
+    if (!compressed) {
+        fprintf(stderr, "Could not allocate memory for compressed data\n");
+        exit(1);
+    }
+
+    size_t ret = libdeflate_deflate_compress(compressor, output->ptr,
+                                             output->used, compressed, *outlen);
+    if (!ret) {
+        fprintf(stderr, "Could not compress\n");
+        exit(1);
+    }
+    *outlen = ret;
+
+    libdeflate_free_compressor(compressor);
 #else
     *outlen = Z(compressBound)((uLong)output->used);
     compressed = malloc(*outlen);
