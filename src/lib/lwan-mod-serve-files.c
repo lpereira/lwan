@@ -385,7 +385,7 @@ static void deflate_value(const struct lwan_value *uncompressed,
         goto error;
 
     size_t ret = libdeflate_deflate_compress(
-        compressor, uncompressed->value, uncompressed->len, &compressed->value,
+        compressor, uncompressed->value, uncompressed->len, compressed->value,
         bound);
 
     if (ret && is_compression_worthy(ret, uncompressed->len)) {
@@ -396,10 +396,8 @@ static void deflate_value(const struct lwan_value *uncompressed,
     free(compressed->value);
 
 error:
-    *compressed = (struct lwan_value){
-        .value = NULL,
-        .len = 0,
-    };
+    compressed->value = NULL;
+    compressed->len = 0;
 }
 #else
 static void deflate_value(const struct lwan_value *uncompressed,
