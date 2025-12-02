@@ -109,18 +109,18 @@ static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
     new_hashvals =
         reallocarray(bucket->hashvals, new_size, STEPS * sizeof(unsigned int));
 
-    if (new_keys)
+    if (new_keys && new_values && new_hashvals) {
         bucket->keys = new_keys;
-    if (new_values)
         bucket->values = new_values;
-    if (new_hashvals)
         bucket->hashvals = new_hashvals;
 
-    if (new_keys && new_values && new_hashvals) {
         bucket->total = new_size * STEPS;
         return true;
     }
 
+    free(new_keys);
+    free(new_values);
+    free(new_hashvals);
     return false;
 }
 
