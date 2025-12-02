@@ -153,44 +153,80 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
     return total ? total : default_value;
 }
 
-long long parse_long_long(const char *value, long long default_value)
+static bool _parse_i64(const char *s, int64_t *out)
 {
-    char *endptr;
-    long long parsed;
+    /* FIXME: we only need overflow checks if strlen(s) > thresh */
+    const char *orig_s = s;
+    int64_t r = 0;
+    bool negative = false;
 
-    if (!value)
-        return default_value;
+    if (*s == '-') {
+        s++;
+        negative = true;
+    }
 
-    errno = 0;
-    parsed = strtoll(value, &endptr, 0);
+    if (UNLIKELY(*s < '0' && *s > '9'))
+        return false;
 
-    if (errno != 0)
-        return default_value;
+    goto elide_mult_for_first_iter;
 
-    if (*endptr != '\0' || value == endptr)
-        return default_value;
+    while (*s >= '0' && *s <= '9') {
+        if (UNLIKELY(__builtin_mul_overflow(r, 10, &r)))
+            return false;
+elide_mult_for_first_iter:
+        if (UNLIKELY(__builtin_add_overflow(r, *s - '0', &r)))
+            return false;
+        s++;
+    }
 
-    return parsed;
+    if (negative) {
+        *out = -r;
+    } else if (r <= 1ll<<62) {
+        *out = r;
+    } else {
+        return false;
+    }
+
+    return s != orig_s && *s == '\0';
 }
 
-long parse_long(const char *value, long default_value)
+static bool _parse_i32(const char *s, int32_t *out)
 {
-    long long long_long_value = parse_long_long(value, default_value);
+    int64_t parsed;
 
-    if ((long long)(long)long_long_value != long_long_value)
-        return default_value;
+    if (_parse_i64(s, &parsed) && (int64_t)(int32_t)parsed == parsed) {
+        *out = (int32_t)parsed;
+        return true;
+    }
 
-    return (long)long_long_value;
+    return false;
+}
+
+long long parse_long_long(const char *value, long long default_value)
+{
+    int64_t out;
+
+    if (_parse_i64(value, &out))
+        return (long long)out;
+
+    return default_value;
 }
 
 int parse_int(const char *value, int default_value)
 {
-    long long_value = parse_long(value, default_value);
+    int32_t out;
 
-    if ((long)(int)long_value != long_value)
-        return default_value;
+    if (_parse_i32(value, &out))
+        return out;
 
-    return (int)long_value;
+    return default_value;
+}
+
+long parse_long(const char *value, long default_value)
+{
+    if (sizeof(long) == sizeof(long long))
+        return (long)parse_long_long(value, default_value);
+    return (long)parse_int(value, (int)default_value);
 }
 
 bool parse_bool(const char *value, bool default_value)
