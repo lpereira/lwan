@@ -576,21 +576,8 @@ int hash_del(struct hash *hash, const void *key)
     bucket->used--;
     hash->count--;
 
-    if (need_rehash_shrink(hash)) {
+    if (need_rehash_shrink(hash))
         rehash(hash, hash_n_buckets(hash) / 2);
-    } else {
-        unsigned int steps_used = bucket->used / STEPS;
-        unsigned int steps_total = bucket->total / STEPS;
-
-        if (steps_used + 1 < steps_total) {
-            unsigned int new_total;
-
-            if (__builtin_add_overflow(steps_used, 1, &new_total))
-                return -EOVERFLOW;
-
-            resize_bucket(bucket, new_total);
-        }
-    }
 
     return 0;
 }
