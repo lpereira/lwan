@@ -206,7 +206,7 @@ long long parse_long_long(const char *value, long long default_value)
 {
     int64_t out;
 
-    if (_parse_i64(value, &out))
+    if (value && _parse_i64(value, &out))
         return (long long)out;
 
     return default_value;
@@ -216,7 +216,7 @@ int parse_int(const char *value, int default_value)
 {
     int32_t out;
 
-    if (_parse_i32(value, &out))
+    if (value && _parse_i32(value, &out))
         return out;
 
     return default_value;
@@ -224,6 +224,8 @@ int parse_int(const char *value, int default_value)
 
 long parse_long(const char *value, long default_value)
 {
+    if (!value)
+        return default_value;
     if (sizeof(long) == sizeof(long long))
         return (long)parse_long_long(value, default_value);
     return (long)parse_int(value, (int)default_value);
