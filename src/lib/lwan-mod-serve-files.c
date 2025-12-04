@@ -356,17 +356,6 @@ static ALWAYS_INLINE bool is_compression_worthy(const size_t compressed_sz,
     return ((compressed_sz + deflated_header_size) < uncompressed_sz);
 }
 
-static void realloc_if_needed(struct lwan_value *value, size_t bound)
-{
-    if (bound > value->len) {
-        char *tmp = realloc(value->value, value->len);
-
-        if (tmp) {
-            value->value = tmp;
-        }
-    }
-}
-
 #if defined(LWAN_HAVE_LIBDEFLATE)
 LWAN_LAZY_THREAD_LOCAL(struct libdeflate_compressor *, libdeflate_compressor)
 {
@@ -416,7 +405,7 @@ static void deflate_value(const struct lwan_value *uncompressed,
         goto error_free_compressed;
 
     if (is_compression_worthy(compressed->len, uncompressed->len))
-        return realloc_if_needed(compressed, bound);
+        return;
 
 error_free_compressed:
     free(compressed->value);
@@ -449,7 +438,7 @@ static void brotli_value(const struct lwan_value *uncompressed,
     /* is_compression_worthy() is already called for deflate-compressed data,
      * so only consider brotli-compressed data if it's worth it WRT deflate */
     if (LIKELY(brotli->len < deflated->len))
-        return realloc_if_needed(brotli, bound);
+        return;
 
 error_free_compressed:
     free(brotli->value);
@@ -479,7 +468,7 @@ static void zstd_value(const struct lwan_value *uncompressed,
     /* is_compression_worthy() is already called for deflate-compressed data,
      * so only consider zstd-compressed data if it's worth it WRT deflate */
     if (LIKELY(zstd->len < deflated->len))
-        return realloc_if_needed(zstd, bound);
+        return;
 
 error_free_compressed:
     free(zstd->value);
