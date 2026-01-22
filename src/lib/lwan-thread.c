@@ -848,9 +848,9 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
     return -EISCONN;
 }
 
-static inline int async_await_fd(struct lwan_request *request,
-                                 int fd,
-                                 enum lwan_connection_coro_yield events)
+static int async_await_fd(struct lwan_request *request,
+                          int fd,
+                          enum lwan_connection_coro_yield events)
 {
     struct lwan_thread *thread = request->conn->thread;
     struct lwan *lwan = thread->lwan;
@@ -876,17 +876,17 @@ static inline int async_await_fd(struct lwan_request *request,
     }
 }
 
-int lwan_request_await_read(struct lwan_request *r, int fd)
+inline int lwan_request_await_read(struct lwan_request *r, int fd)
 {
     return async_await_fd(r, fd, CONN_CORO_WANT_READ);
 }
 
-int lwan_request_await_write(struct lwan_request *r, int fd)
+inline int lwan_request_await_write(struct lwan_request *r, int fd)
 {
     return async_await_fd(r, fd, CONN_CORO_WANT_WRITE);
 }
 
-int lwan_request_await_read_write(struct lwan_request *r, int fd)
+inline int lwan_request_await_read_write(struct lwan_request *r, int fd)
 {
     return async_await_fd(r, fd, CONN_CORO_WANT_READ_WRITE);
 }
