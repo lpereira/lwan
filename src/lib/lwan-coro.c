@@ -308,6 +308,8 @@ coro_new(coro_context *switcher, coro_function_t function, void *data)
     if (UNLIKELY(stack == MAP_FAILED))
         return NULL;
 
+    set_vma_anon_name(stack, CORO_STACK_SIZE, "coro stack");
+
     coro = lwan_aligned_alloc(sizeof(*coro), 64);
     if (UNLIKELY(!coro)) {
         munmap(stack, CORO_STACK_SIZE);

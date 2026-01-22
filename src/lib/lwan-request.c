@@ -1199,6 +1199,8 @@ alloc_body_buffer(struct coro *coro, size_t size, bool allow_file)
     if (UNLIKELY(ptr == MAP_FAILED))
         return NULL;
 
+    set_vma_anon_name(ptr, size, "body buffer");
+
     buf = coro_malloc_full(coro, sizeof(*buf), free_body_buffer);
     if (UNLIKELY(!buf)) {
         munmap(ptr, size);

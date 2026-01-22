@@ -1468,6 +1468,8 @@ lwan_tpl_compile_file(const char *filename,
     if (mapped == MAP_FAILED)
         goto close_file;
 
+    set_vma_anon_name(mapped, (size_t)st.st_size, "template file");
+
     tpl = lwan_tpl_compile_string(mapped, descriptor);
 
     if (munmap(mapped, (size_t)st.st_size) < 0)

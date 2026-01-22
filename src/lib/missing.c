@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/prctl.h>
 #include <sys/vfs.h>
 #include <unistd.h>
 
@@ -613,3 +614,16 @@ char *stpcpy(char *restrict dst, const char *restrict src)
     return stpncpy(dst, src, strlen(src));
 }
 #endif
+
+#ifdef __linux__
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#endif
+void set_vma_anon_name(const void *ptr, size_t size, const char *name)
+{
+#if defined(__linux__) && defined(PR_SET_VMA) && defined(PR_SET_VMA_ANON_NAME)
+    int saved_errno = errno;
+    prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, (unsigned long)ptr, size, name);
+    errno = saved_errno;
+#endif
+}

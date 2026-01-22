@@ -926,6 +926,8 @@ config_open_path(const char *path, void **data, size_t *size)
     if (mapped == MAP_FAILED)
         return NULL;
 
+    set_vma_anon_name(mapped, (size_t)st.st_size, "config file");
+
     config = malloc(sizeof(*config));
     if (!config) {
         munmap(mapped, (size_t)st.st_size);

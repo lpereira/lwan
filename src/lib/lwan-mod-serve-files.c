@@ -543,6 +543,8 @@ static bool mmap_fd(const struct serve_files_priv *priv __attribute__((unused)),
     if (UNLIKELY(ptr == MAP_FAILED))
         goto fail;
 
+    set_vma_anon_name(ptr, size, "mapped file");
+
     *value = (struct lwan_value){.value = ptr, .len = size};
     return true;
 

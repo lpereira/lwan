@@ -27,4 +27,6 @@
 #define MAP_HUGETLB 0
 #endif
 
+void set_vma_anon_name(const void *ptr, size_t size, const char *name);
+
 #endif /* _MISSING_MMAN_H_ */
