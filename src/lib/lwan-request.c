@@ -420,6 +420,8 @@ static void parse_cookies(struct lwan_request *request)
 {
     const char *cookies = lwan_request_get_header(request, "Cookie");
 
+    assert(!(request->flags & REQUEST_PARSED_COOKIES));
+
     if (!cookies)
         return;
 
@@ -433,6 +435,8 @@ static void parse_query_string(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
 
+    assert(!(request->flags & REQUEST_PARSED_QUERY_STRING));
+
     parse_key_values(request, &helper->query_string, &helper->query_params,
                      url_decode, '&');
 }
@@ -441,6 +445,8 @@ static void parse_form_data(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
     static const char content_type[] = "application/x-www-form-urlencoded";
+
+    assert(!(request->flags & REQUEST_PARSED_FORM_DATA));
 
     if (helper->content_type.len < sizeof(content_type) - 1)
         return;
@@ -751,6 +757,8 @@ static void
 parse_accept_encoding(struct lwan_request *request)
 {
     struct lwan_request_parser_helper *helper = request->helper;
+
+    assert(!(request->flags & REQUEST_PARSED_ACCEPT_ENCODING));
 
     if (!helper->accept_encoding.len)
         return;
