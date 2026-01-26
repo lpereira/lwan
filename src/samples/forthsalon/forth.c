@@ -407,14 +407,6 @@ new_user_word(struct forth_ctx *ctx, const char *name)
     return NULL;
 }
 
-static struct forth_word *new_word(struct forth_ctx *ctx,
-                                   const char *name,
-                                   const struct forth_builtin *builtin)
-{
-    return builtin ? new_builtin_word(ctx, builtin)
-                   : new_user_word(ctx, name);
-}
-
 #define EMIT(arg)                                                              \
     ({                                                                         \
         union forth_inst *emitted =                                            \
@@ -721,7 +713,7 @@ static const char *found_word(struct forth_ctx *ctx,
         return NULL;
     }
 
-    w = new_word(ctx, word_copy, NULL);
+    w = new_user_word(ctx, word_copy);
     if (UNLIKELY(!w)) {
         lwan_status_error("Can't create new word");
         return NULL;
@@ -1498,13 +1490,13 @@ register_builtins(struct forth_ctx *ctx)
     const struct forth_builtin *iter;
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
-        if (!new_word(ctx, NULL, iter)) {
+        if (!new_builtin_word(ctx, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
     LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
-        if (!new_word(ctx, NULL, iter)) {
+        if (!new_builtin_word(ctx, iter)) {
             lwan_status_critical("could not register forth word: %s",
                                  iter->name);
         }
@@ -1533,7 +1525,7 @@ struct forth_ctx *forth_new(void)
         return NULL;
     }
 
-    struct forth_word *word = new_word(ctx, " ", NULL);
+    struct forth_word *word = new_user_word(ctx, " ");
     if (!word) {
         hash_unref(ctx->words);
         free(ctx);
