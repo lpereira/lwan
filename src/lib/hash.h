@@ -18,6 +18,10 @@ struct hash *hash_int64_new(void (*free_key)(void *value),
                             void (*free_value)(void *value));
 struct hash *hash_str_new(void (*free_key)(void *value),
                           void (*free_value)(void *value));
+struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
+                             int (*key_equal)(const void *k1, const void *k2),
+                             void (*free_key)(void *value),
+                             void (*free_value)(void *value));
 
 struct hash *hash_ref(struct hash *hash);
 void hash_unref(struct hash *hash);

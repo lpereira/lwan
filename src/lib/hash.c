@@ -296,6 +296,23 @@ struct hash *hash_str_new(void (*free_key)(void *value),
         free_key ? free_key : no_op, free_value ? free_value : no_op);
 }
 
+struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
+                             int (*key_equal)(const void *k1, const void *k2),
+                             void (*free_key)(void *value),
+                             void (*free_value)(void *value))
+{
+    if (UNLIKELY(!hash_value)) {
+        lwan_status_critical("hash_value() not provided to hash_custom_new()");
+        __builtin_unreachable();
+    }
+    if (UNLIKELY(!key_equal)) {
+        lwan_status_critical("key_equal() not provided to hash_custom_new()");
+        __builtin_unreachable();
+    }
+    return hash_internal_new(hash_value, key_equal, free_key ? free_key : no_op,
+                             free_value ? free_value : no_op);
+}
+
 static __attribute__((pure)) inline unsigned int
 hash_n_buckets(const struct hash *hash)
 {
