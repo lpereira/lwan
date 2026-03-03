@@ -189,16 +189,32 @@ static void op_eval_code(union forth_inst *inst __attribute__((unused)),
 static bool check_stack_effects(const struct forth_ctx *ctx,
                                 struct forth_word *w)
 {
-    /* FIXME: this isn't correct when we have JUMP_IF and JUMP
-     * instructions: the number of items in the stacks isn't reset
-     * to the beginning of either if/else block. */
     const union forth_inst *inst;
     int items_in_d_stack = 0;
     int items_in_r_stack = 0;
+    int items_stack[16];
+    int n_items_stack = 0;
+
+#define PUSH(item_)                                                            \
+    do {                                                                       \
+        if ((size_t)n_items_stack >= N_ELEMENTS(items_stack)) {                \
+            lwan_status_error("if..else..then chain too deep");                \
+            return false;                                                      \
+        }                                                                      \
+        items_stack[n_items_stack++] = (item_);                                \
+    } while (0)
+#define POP()                                                                  \
+    ({                                                                         \
+        if (UNLIKELY(!n_items_stack)) {                                        \
+            lwan_status_error("Unbalanced if..else..then");                    \
+            return false;                                                      \
+        }                                                                      \
+        items_stack[--n_items_stack];                                          \
+    })
 
     assert(!is_word_builtin(w));
 
-    LWAN_ARRAY_FOREACH(&w->code, inst) {
+    LWAN_ARRAY_FOREACH (&w->code, inst) {
         if (inst->callback == op_number) {
             items_in_d_stack++;
             inst++; /* skip number immediate */
@@ -206,22 +222,51 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (inst->callback == op_jump_if) {
             if (UNLIKELY(!items_in_d_stack)) {
-                lwan_status_error("Word `if' requires 1 item(s) in the D stack");
+                lwan_status_error(
+                    "Word `if' requires 1 item(s) in the D stack");
                 return false;
             }
             items_in_d_stack--;
             inst++; /* skip pc immediate */
+
+            PUSH(items_in_d_stack);
+            PUSH(items_in_r_stack);
+
             continue;
         }
         if (inst->callback == op_jump) {
             inst++; /* skip pc immediate */
+
+            int else_items_in_d_stack = items_in_d_stack;
+            int else_items_in_r_stack = items_in_r_stack;
+            items_in_r_stack = POP();
+            items_in_d_stack = POP();
+            PUSH(else_items_in_d_stack);
+            PUSH(else_items_in_r_stack);
+
             continue;
+        }
+        if (inst->callback == op_nop) {
+            int else_items_in_r_stack = POP();
+            int else_items_in_d_stack = POP();
+            if (UNLIKELY(items_in_r_stack != else_items_in_r_stack)) {
+                lwan_status_error(
+                    "Mismatch in number of items in the R stack for each "
+                    "if..else..then block (%d vs %d items)",
+                    items_in_r_stack, else_items_in_r_stack);
+                return false;
+            }
+            if (UNLIKELY(items_in_d_stack != else_items_in_d_stack)) {
+                lwan_status_error(
+                    "Mismatch in number of items in the D stack for each "
+                    "if..else..then block (%d vs %d items)",
+                    items_in_d_stack, else_items_in_d_stack);
+                return false;
+            }
+            continue; /* no immediate for nop */
         }
         if (inst->callback == op_halt) {
             continue; /* no immediate for halt */
-        }
-        if (inst->callback == op_nop) {
-            continue; /* no immediate for nop */
         }
         if (UNLIKELY(inst->callback == op_eval_code)) {
             lwan_status_critical("eval_code after inlining");
@@ -229,7 +274,8 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
 
         /* all other built-ins */
-        const struct forth_builtin *b = find_builtin_by_callback(inst->callback);
+        const struct forth_builtin *b =
+            find_builtin_by_callback(inst->callback);
         if (UNLIKELY(!b)) {
             lwan_status_critical("Can't find builtin word by callback");
             __builtin_unreachable();
@@ -252,21 +298,25 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         items_in_r_stack += b->r_pushes;
 
         if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack))) {
-            lwan_status_error("Program would cause a stack overflow in the D stack");
+            lwan_status_error(
+                "Program would cause a stack overflow in the D stack");
             return false;
         }
         if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->r_stack))) {
-            lwan_status_error("Program would cause a stack overflow in the R stack");
+            lwan_status_error(
+                "Program would cause a stack overflow in the R stack");
             return false;
         }
     }
 
     if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack))) {
-        lwan_status_error("Program would cause a stack overflow in the D stack");
+        lwan_status_error(
+            "Program would cause a stack overflow in the D stack");
         return false;
     }
     if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->r_stack))) {
-        lwan_status_error("Program would cause a stack overflow in the R stack");
+        lwan_status_error(
+            "Program would cause a stack overflow in the R stack");
         return false;
     }
 
@@ -280,6 +330,9 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
     }
 
     return true;
+
+#undef POP
+#undef PUSH
 }
 
 #define JS_PUSH(val_)                                                          \
