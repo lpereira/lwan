@@ -290,7 +290,7 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
     const char *inptr = str;
     char *outptr = str;
 
-    for (char *p = strpbrk(inptr, "%+"); p; p = strpbrk(inptr, "%+")) {
+    for (const char *p = strpbrk(inptr, "%+"); p; p = strpbrk(inptr, "%+")) {
         const ptrdiff_t diff = p - inptr;
         if (diff)
             outptr = mempmove(outptr, inptr, (size_t)diff);
