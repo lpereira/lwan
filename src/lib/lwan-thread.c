@@ -867,28 +867,72 @@ static int async_await_fd(struct lwan_request *request,
 
     while (true) {
         int64_t from_coro = coro_yield(request->conn->coro, events);
+        struct lwan_connection *conn_from_coro =
+            (struct lwan_connection *)(intptr_t)from_coro;
 
-        if ((struct lwan_connection *)(intptr_t)from_coro == awaited) {
+        if (conn_from_coro == awaited) {
             return UNLIKELY(awaited->flags & CONN_HUNG_UP)
                        ? -ECONNRESET
                        : lwan_connection_get_fd(lwan, awaited);
+        }
+        if (conn_from_coro == request->conn) {
+            return -ETIMEDOUT;
         }
     }
 }
 
 inline int lwan_request_await_read(struct lwan_request *r, int fd)
 {
+    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
+        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_READ);
 }
 
 inline int lwan_request_await_write(struct lwan_request *r, int fd)
 {
+    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
+        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_WRITE);
 }
 
 inline int lwan_request_await_read_write(struct lwan_request *r, int fd)
 {
+    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
+        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_READ_WRITE);
+}
+
+static int async_await_fd_timeout(struct lwan_request *r,
+                                  int fd,
+                                  enum lwan_connection_coro_yield events,
+                                  uint64_t ms)
+{
+    coro_deferred defer = lwan_request_sleep_internal(r, ms);
+    int ret = async_await_fd(r, fd, CONN_CORO_WANT_READ);
+    if (ret != -ETIMEDOUT) {
+        if (defer > 0)
+            coro_defer_fire_and_disarm(r->conn->coro, defer);
+    }
+    return ret;
+}
+
+inline int
+lwan_request_await_read_timeout(struct lwan_request *r, int fd, uint64_t ms)
+{
+    return async_await_fd_timeout(r, fd, CONN_CORO_WANT_READ, ms);
+}
+
+inline int
+lwan_request_await_write_timeout(struct lwan_request *r, int fd, uint64_t ms)
+{
+    return async_await_fd_timeout(r, fd, CONN_CORO_WANT_WRITE, ms);
+}
+
+inline int lwan_request_await_read_write_timeout(struct lwan_request *r,
+                                                 int fd,
+                                                 uint64_t ms)
+{
+    return async_await_fd_timeout(r, fd, CONN_CORO_WANT_READ_WRITE, ms);
 }
 
 static void resume_coro(struct timeout_queue *tq,

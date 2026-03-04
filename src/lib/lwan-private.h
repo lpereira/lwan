@@ -341,3 +341,7 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
                                          void *user_data);
 
 bool lwan_send_websocket_ping_for_tq(struct lwan_connection *conn);
+
+coro_deferred lwan_request_sleep_internal(struct lwan_request *request,
+                                          uint64_t ms);
+

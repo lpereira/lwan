@@ -672,6 +672,10 @@ int lwan_response_websocket_read_hint(struct lwan_request *request, size_t size_
 int lwan_request_await_read(struct lwan_request *r, int fd);
 int lwan_request_await_write(struct lwan_request *r, int fd);
 int lwan_request_await_read_write(struct lwan_request *r, int fd);
+int lwan_request_await_read_timeout(struct lwan_request *r, int fd, uint64_t ms);
+int lwan_request_await_write_timeout(struct lwan_request *r, int fd, uint64_t ms);
+int lwan_request_await_read_write_timeout(struct lwan_request *r, int fd, uint64_t ms);
+
 int lwan_request_awaitv_any(struct lwan_request *r, ...);
 int lwan_request_awaitv_all(struct lwan_request *r, ...);
 
