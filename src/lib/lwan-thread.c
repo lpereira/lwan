@@ -910,10 +910,10 @@ static int async_await_fd_timeout(struct lwan_request *r,
 {
     coro_deferred defer = lwan_request_sleep_internal(r, ms);
     int ret = async_await_fd(r, fd, CONN_CORO_WANT_READ);
-    if (ret != -ETIMEDOUT) {
-        if (defer > 0)
-            coro_defer_fire_and_disarm(r->conn->coro, defer);
-    }
+
+    if (defer > 0)
+        coro_defer_fire_and_disarm(r->conn->coro, defer);
+
     return ret;
 }
 
