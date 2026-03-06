@@ -854,8 +854,15 @@ static int async_await_fd(struct lwan_request *request,
 {
     struct lwan_thread *thread = request->conn->thread;
     struct lwan *lwan = thread->lwan;
-    struct lwan_connection *awaited = &lwan->conns[fd];
 
+    if (UNLIKELY(fd < 0))
+        return -EINVAL;
+    if (UNLIKELY(fd > (int)lwan->thread.max_fd))
+        return -EINVAL;
+    if (UNLIKELY(lwan_connection_get_fd(lwan, request->conn) == fd))
+        return -EINVAL;
+
+    struct lwan_connection *awaited = &lwan->conns[fd];
     if (request->conn != awaited) {
         int r =
             prepare_await(lwan, events, fd, request->conn, thread->epoll_fd);
@@ -883,22 +890,16 @@ static int async_await_fd(struct lwan_request *request,
 
 inline int lwan_request_await_read(struct lwan_request *r, int fd)
 {
-    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
-        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_READ);
 }
 
 inline int lwan_request_await_write(struct lwan_request *r, int fd)
 {
-    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
-        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_WRITE);
 }
 
 inline int lwan_request_await_read_write(struct lwan_request *r, int fd)
 {
-    if (lwan_connection_get_fd(r->conn->thread->lwan, r->conn) == fd)
-        return -EINVAL;
     return async_await_fd(r, fd, CONN_CORO_WANT_READ_WRITE);
 }
 
