@@ -883,6 +883,10 @@ static int async_await_fd(struct lwan_request *request,
                        : lwan_connection_get_fd(lwan, awaited);
         }
         if (conn_from_coro == request->conn) {
+            // Although it's impossible to await on the request fd, this
+            // condition will be true when a suspended coroutine is resumed
+            // for any reason other than awaiting an arbitrary fd.  Which,
+            // in this case, means that the timer expired.
             return -ETIMEDOUT;
         }
     }
