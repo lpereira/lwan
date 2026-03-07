@@ -859,10 +859,12 @@ static int async_await_fd(struct lwan_request *request,
         return -EINVAL;
     if (UNLIKELY(fd > (int)lwan->thread.max_fd))
         return -EINVAL;
-    if (UNLIKELY(lwan_connection_get_fd(lwan, request->conn) == fd))
-        return -EINVAL;
 
     struct lwan_connection *awaited = &lwan->conns[fd];
+
+    if (UNLIKELY(awaited == request->conn))
+        return -EINVAL;
+
     if (request->conn != awaited) {
         int r =
             prepare_await(lwan, events, fd, request->conn, thread->epoll_fd);
