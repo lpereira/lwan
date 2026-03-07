@@ -249,6 +249,23 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         if (inst->callback == op_nop) {
             int else_items_in_r_stack = POP();
             int else_items_in_d_stack = POP();
+
+            /* FIXME: this analysis is incomplete: some valid programs might
+             * cause this error to be thrown.  For instance, the following
+             * program:
+             *
+             *    condition if 10 then
+             *    condition not if 20 then
+             *
+             * Is a perfectly valid program, and equivalent to the following
+             * program if `condition` is side-effect free:
+             *
+             *    condition if 10 else 20 then
+             *
+             * Detecting this kind of analysis without building a control
+             * flow graph or something of the sort is pretty hard, and I
+             * don't feel like this is really necessary right now.
+             */
             if (UNLIKELY(items_in_r_stack != else_items_in_r_stack)) {
                 lwan_status_error(
                     "Mismatch in number of items in the R stack for each "
