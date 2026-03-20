@@ -774,7 +774,7 @@ __attribute_noinline__
 static int
 client_parse (Client * const restrict client)
 {
-    char *end;
+    const char *end;
     uint32_t len;
 
     /* future: might combine PARSER_START and PARSER_HEADER states by
