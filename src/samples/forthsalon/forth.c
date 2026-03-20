@@ -262,7 +262,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
              *
              *    condition if 10 else 20 then
              *
-             * Detecting this kind of analysis without building a control
+             * Performing this kind of analysis without building a control
              * flow graph or something of the sort is pretty hard, and I
              * don't feel like this is really necessary right now.
              */
