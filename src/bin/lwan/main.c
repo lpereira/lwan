@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
+#include <sys/syscall.h>
 
 #include "lwan-private.h"
 #include "lwan-mod-serve-files.h"
@@ -132,6 +133,14 @@ print_build_time_configuration(void)
 
 #if !defined(NDEBUG)
     printf(" debug");
+#endif
+
+#if defined(SYS_getrandom)
+    printf(" getrandom");
+#elif defined(LWAN_HAVE_GETENTROPY)
+    printf(" getentropy");
+#else
+    printf(" devrandom");
 #endif
 
     printf(".\n");
