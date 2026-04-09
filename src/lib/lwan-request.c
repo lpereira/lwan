@@ -1948,7 +1948,7 @@ static bool request_seems_complete(struct lwan_request_parser_helper *helper)
 __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
                                                   size_t length)
 {
-    static struct coro_switcher switcher;
+    static coro_context switcher;
     static struct coro *coro;
     static char *header_start[N_HEADER_START];
     static char data_copy[32767] = {0};
