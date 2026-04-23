@@ -104,6 +104,23 @@ static ALWAYS_INLINE void str_key_free(void *key)
     free(key);
 }
 
+static ALWAYS_INLINE void *lwan_value_key_copy(const void *key)
+{
+    const struct lwan_value *value = key;
+    struct lwan_value *v = malloc(sizeof(*v) + value->len);
+    if (v) {
+        v->data = v + 1;
+        v->len = value->len;
+        memcpy(v->data, value->data, v->len);
+    }
+    return v;
+}
+
+static ALWAYS_INLINE void lwan_value_key_free(void *key)
+{
+    free(key);
+}
+
 struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
                                 cache_destroy_entry_cb destroy_entry_cb,
                                 hash_create_func_cb hash_create_func,
@@ -121,6 +138,8 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
         return NULL;
 
     if (hash_create_func == hash_str_new) {
+        cache->hash.table = hash_create_func(free, NULL);
+    } else if (hash_create_func == hash_lwan_value_new) {
         cache->hash.table = hash_create_func(free, NULL);
     } else {
         cache->hash.table = hash_create_func(NULL, NULL);
@@ -140,6 +159,9 @@ struct cache *cache_create_full(cache_create_entry_cb create_entry_cb,
     if (hash_create_func == hash_str_new) {
         cache->key.copy = str_key_copy;
         cache->key.free = str_key_free;
+    } else if (hash_create_func == hash_lwan_value_new) {
+        cache->key.copy = lwan_value_key_copy;
+        cache->key.free = lwan_value_key_free;
     } else {
         cache->key.copy = identity_key_copy;
         cache->key.free = identity_key_free;
