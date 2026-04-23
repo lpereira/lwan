@@ -477,7 +477,7 @@ try_initiating_chunked_response(struct lwan_request *request)
         return HTTP_OK;
 
     ssize_t n_headers = lwan_find_headers(header_start, &buffer, &next_request);
-    if (n_headers < 0)
+    if (UNLIKELY(n_headers < 0))
         return HTTP_BAD_REQUEST;
 
     struct header_array additional_headers;
@@ -492,8 +492,10 @@ try_initiating_chunked_response(struct lwan_request *request)
         char *p;
 
         p = strchr(begin, ':');
-        if (!p) /* Shouldn't happen, but... */
-            continue;
+        if (UNLIKELY(!p)) {
+            /* lwan_find_headers() should ensure this doesn't happen, but check anyway */
+            return HTTP_BAD_REQUEST;
+        }
         *p = '\0';
 
         *(end - 2) = '\0';
