@@ -108,6 +108,268 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
     return true;
 }
 
+#ifdef LWAN_HAVE_LANDLOCK
+#include <linux/landlock.h>
+#include <linux/prctl.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <fcntl.h>
+
+struct lwan_landlock {
+    struct landlock_ruleset_attr attr;
+    uint32_t restrict_flags;
+    int ruleset_fd;
+};
+
+static inline int
+lwan_landlock_create_ruleset(const struct landlock_ruleset_attr *attr,
+                             const size_t size,
+                             uint32_t flags)
+{
+    return (int)syscall(SYS_landlock_create_ruleset, attr, size, flags);
+}
+
+static inline int lwan_landlock_add_rule(int fd,
+                                         enum landlock_rule_type type,
+                                         const void *rule_attr,
+                                         uint32_t flags)
+{
+    return (int)syscall(SYS_landlock_add_rule, fd, type, rule_attr, flags);
+}
+
+static inline int lwan_landlock_restrict_self(int fd, uint32_t flags)
+{
+    return (int)syscall(SYS_landlock_restrict_self, fd, flags);
+}
+
+LWAN_LAZY_GLOBAL(struct lwan_landlock *, get_landlock_ruleset)
+{
+    struct lwan_landlock *ll;
+
+    ll = malloc(sizeof(*ll));
+    if (!ll)
+        return NULL;
+
+    ll->attr = (struct landlock_ruleset_attr){
+        .handled_access_fs =
+            LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_WRITE_FILE |
+            LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR |
+            LANDLOCK_ACCESS_FS_REMOVE_DIR | LANDLOCK_ACCESS_FS_REMOVE_FILE |
+            LANDLOCK_ACCESS_FS_MAKE_CHAR | LANDLOCK_ACCESS_FS_MAKE_DIR |
+            LANDLOCK_ACCESS_FS_MAKE_REG | LANDLOCK_ACCESS_FS_MAKE_SOCK |
+            LANDLOCK_ACCESS_FS_MAKE_FIFO | LANDLOCK_ACCESS_FS_MAKE_BLOCK |
+            LANDLOCK_ACCESS_FS_MAKE_SYM | LANDLOCK_ACCESS_FS_REFER |
+            LANDLOCK_ACCESS_FS_TRUNCATE | LANDLOCK_ACCESS_FS_IOCTL_DEV,
+        .handled_access_net =
+            LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP,
+        .scoped = LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | LANDLOCK_SCOPE_SIGNAL,
+    };
+
+    int abi =
+        lwan_landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+    if (abi <= 0) {
+        /* From landlock_create_ruleset(2): "If attr is NULL and size is 0,
+         * then the returned value is the highest supported Landlock ABI
+         * version (starting at 1)." */
+        switch (errno) {
+        case EOPNOTSUPP:
+            lwan_status_error("Landlock disabled on this kernel");
+            break;
+        case ENOSYS:
+            lwan_status_error("Landlock not present in this kernel");
+            break;
+        default:
+            lwan_status_perror("Unknown error determining Landlock ABI version");
+        }
+        goto err;
+    }
+
+    ll->restrict_flags = 0;
+#if defined(LANDLOCK_RESTRICT_SELF_TSYNC)
+    if (abi >= 7)
+        ll->restrict_flags = LANDLOCK_RESTRICT_SELF_TSYNC;
+#endif
+
+    /* From the Linux kernel doc: "To be compatible with older Linux
+     * versions, we detect the available Landlock ABI version, and only use
+     * the available subset of access rights" */
+    switch (abi) {
+    case 1:
+        /* Removes LANDLOCK_ACCESS_FS_REFER for ABI < 2 */
+        ll->attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_REFER;
+        /* fallthrough */
+    case 2:
+        /* Removes LANDLOCK_ACCESS_FS_TRUNCATE for ABI < 3 */
+        ll->attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
+        /* fallthrough */
+    case 3:
+        /* Removes network support for ABI < 4 */
+        ll->attr.handled_access_net &=
+            ~(LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP);
+        /* fallthrough */
+    case 4:
+        /* Removes LANDLOCK_ACCESS_FS_IOCTL_DEV for ABI < 5 */
+        ll->attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_IOCTL_DEV;
+        /* fallthrough */
+    case 5:
+        /* Removes LANDLOCK_SCOPE_* for ABI < 6 */
+        ll->attr.scoped &=
+            ~(LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | LANDLOCK_SCOPE_SIGNAL);
+    }
+
+    int ruleset_fd =
+        lwan_landlock_create_ruleset(&ll->attr, sizeof(ll->attr), 0);
+    if (ruleset_fd < 0) {
+        lwan_status_perror("Failed to create a Landlock ruleset");
+        goto err;
+    }
+
+    ll->ruleset_fd = ruleset_fd;
+
+    return ll;
+
+err:
+    free(ll);
+    return NULL;
+}
+
+static inline struct lwan_landlock *get_landlock(void)
+{
+    struct lwan_landlock *ll = get_landlock_ruleset();
+
+    if (!ll) {
+        lwan_status_debug("Could not get Landlock ruleset");
+        return NULL;
+    }
+
+    if (ll->ruleset_fd < 0) {
+        lwan_status_debug("Landlock already in enforcing mode");
+        return NULL;
+    }
+
+    return ll;
+}
+
+static bool lwan_straitjacket_allow_path(uint64_t allowed_access, int fd)
+{
+    struct lwan_landlock *ll = get_landlock();
+
+    if (!ll)
+        return false;
+
+    if (!(ll->attr.handled_access_fs & allowed_access))
+        return false;
+
+    struct landlock_path_beneath_attr path_beneath = {
+        .parent_fd = fd,
+        .allowed_access = allowed_access,
+    };
+
+    return lwan_landlock_add_rule(ll->ruleset_fd, LANDLOCK_RULE_PATH_BENEATH,
+                                  &path_beneath, 0) == 0;
+}
+
+bool lwan_straitjacket_allow_dirfd_ro(int fd)
+{
+    return lwan_straitjacket_allow_path(
+        LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR, fd);
+}
+
+bool lwan_straitjacket_allow_dirfd_rw(int fd)
+{
+    return lwan_straitjacket_allow_path(
+        LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR |
+        LANDLOCK_ACCESS_FS_WRITE_FILE | LANDLOCK_ACCESS_FS_MAKE_REG, fd);
+}
+
+static bool lwan_straitjacket_allow_net(uint64_t allowed_access, int port)
+{
+    struct lwan_landlock *ll = get_landlock();
+
+    if (!ll)
+        return false;
+
+    if (!(ll->attr.handled_access_net & allowed_access)) {
+        lwan_status_debug("Kernel doesn't support requested access");
+        return false;
+    }
+
+    struct landlock_net_port_attr net_port = {
+        .allowed_access = allowed_access,
+        .port = (__u64)port,
+    };
+
+    return lwan_landlock_add_rule(ll->ruleset_fd, LANDLOCK_RULE_NET_PORT,
+                                  &net_port, 0) == 0;
+}
+
+bool lwan_straitjacket_allow_bind(int port)
+{
+    return lwan_straitjacket_allow_net(LANDLOCK_ACCESS_NET_BIND_TCP, port);
+}
+
+bool lwan_straitjacket_allow_connect(int port)
+{
+    return lwan_straitjacket_allow_net(LANDLOCK_ACCESS_NET_CONNECT_TCP, port);
+}
+
+bool lwan_straitjacket_allow_dir_path_ro(const char *path)
+{
+    int fd = open(path, O_CLOEXEC | O_DIRECTORY);
+    if (fd < 0)
+        return false;
+    bool allow = lwan_straitjacket_allow_dirfd_ro(fd);
+    close(fd);
+    return allow;
+}
+
+bool lwan_straitjacket_allow_dir_path_rw(const char *path)
+{
+    int fd = open(path, O_CLOEXEC | O_DIRECTORY);
+    if (fd < 0)
+        return false;
+    bool allow = lwan_straitjacket_allow_dirfd_rw(fd);
+    close(fd);
+    return allow;
+}
+
+bool lwan_landlock_enforce(void)
+{
+    struct lwan_landlock *ll = get_landlock();
+
+    if (!ll)
+        return false;
+
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
+        lwan_status_perror("Failed to restrict privileges");
+        return false;
+    }
+
+    if (lwan_landlock_restrict_self(ll->ruleset_fd, ll->restrict_flags)) {
+        lwan_status_perror("Couldn't enable Landlock ruleset");
+        return false;
+    }
+
+    close(ll->ruleset_fd);
+    lwan_always_bzero(ll, sizeof(*ll));
+    ll->ruleset_fd = -1;
+
+    lwan_status_debug("Landlock in enforcement mode");
+    return true;
+}
+
+static inline bool lwan_landlock_available(void) {
+    return !!get_landlock();
+}
+#else
+static inline bool lwan_landlock_available(void) { return false; }
+bool lwan_landlock_enforce(void) { return false; }
+
+bool lwan_straitjacket_allow_dirfd(int fd) { return false; }
+bool lwan_straitjacket_allow_dir_path(const char *path) { return false; }
+bool lwan_straitjacket_allow_bind(int port) { return false; }
+#endif /* LWAN_HAVE_LANDLOCK */
+
 #ifdef __linux__
 static void abort_on_open_directories(void)
 {
@@ -176,17 +438,41 @@ static void abort_on_open_directories(void)
 static void abort_on_open_directories(void) {}
 #endif
 
-void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
+static void add_base_landlock_rules(const struct lwan_straitjacket *sj)
+{
+    if (sj->chroot_path)
+        lwan_straitjacket_allow_dir_path_ro(sj->chroot_path);
+
+    /* FIXME: this is too broad, but it's kinda hard to know
+     * which files libc will open; on my system, only /etc/localtime
+     * is needed, but others might be necessary. */
+    lwan_straitjacket_allow_dir_path_ro("/etc");
+
+#if defined(__linux__)
+    /* Required to query somaxconn and tcp_allowed_congestion_control */
+    lwan_straitjacket_allow_dir_path_ro("/proc/sys/net");
+
+    /* Required for proc_pidpath if getauxval(AT_EXECFN) fails */
+    lwan_straitjacket_allow_dir_path_ro("/proc/self");
+#endif
+
+#if defined(__x86_64__)
+    /* Required to read the CPU topology */
+    lwan_straitjacket_allow_dir_path_ro("/sys/devices/system/cpu");
+#endif
+}
+
+static void enforce_with_chroot(const struct lwan_straitjacket *sj)
 {
     uid_t uid = 0;
     gid_t gid = 0;
     bool got_uid_gid = false;
 
     if (!sj->user_name && !sj->chroot_path)
-        goto out;
+        return;
 
     if (geteuid() != 0)
-        lwan_status_critical("Straitjacket requires root privileges");
+        lwan_status_critical("Straitjacket with chroot(2) requires root privileges");
 
     if (sj->user_name && *sj->user_name) {
         if (!get_user_uid_gid(sj->user_name, &uid, &gid))
@@ -212,8 +498,16 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
         lwan_status_critical("Could not drop privileges to %s, aborting",
                              sj->user_name);
     }
+}
 
-out:
+void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
+{
+    if (lwan_landlock_available()) {
+        add_base_landlock_rules(sj);
+    } else {
+        enforce_with_chroot(sj);
+    }
+
     if (sj->drop_capabilities) {
         struct __user_cap_header_struct header = {
             .version = _LINUX_CAPABILITY_VERSION_1,

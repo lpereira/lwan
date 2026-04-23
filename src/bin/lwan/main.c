@@ -143,6 +143,10 @@ print_build_time_configuration(void)
     printf(" devrandom");
 #endif
 
+#if defined(LWAN_HAVE_LANDLOCK)
+    printf(" landlock");
+#endif
+
     printf(".\n");
 }
 

@@ -917,6 +917,11 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto free_script_path;
     }
 
+    if (!lwan_straitjacket_allow_dirfd_ro(pd->script_path_fd)) {
+        lwan_status_perror("FastCGI: Can't add Landlock rule");
+        goto close_script_path_fd;
+    }
+
     if (*settings->address == '/') {
         struct stat st;
 
@@ -964,6 +969,11 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
     if (int_port < 0 || int_port > 0xffff) {
         lwan_status_error("FastCGI: Port %d is not in valid range [0-65535]",
                           int_port);
+        goto free_address_copy;
+    }
+
+    if (!lwan_straitjacket_allow_connect(int_port)) {
+        lwan_status_error("FastCGI: Could not remove restriction to connect to port %d", int_port);
         goto free_address_copy;
     }
 

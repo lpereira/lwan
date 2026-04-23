@@ -53,6 +53,7 @@
 #cmakedefine LWAN_HAVE_EVENTFD
 #cmakedefine LWAN_HAVE_MINCORE
 #cmakedefine LWAN_HAVE_STATFS_F_TYPE
+#cmakedefine LWAN_HAVE_LANDLOCK
 
 /* Compiler builtins for specific CPU instruction support */
 #cmakedefine LWAN_HAVE_BUILTIN_CPU_INIT

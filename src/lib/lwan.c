@@ -538,11 +538,37 @@ static void parse_tls_listener(struct config *conf, const struct config_line *li
 }
 
 static void
+allow_bind_for_listener(const char *listener)
+{
+    char *l = strdupa(listener);
+    char *node, *port;
+
+    if (!strncmp(l, "systemd", sizeof("systemd") - 1))
+        return;
+
+    if (lwan_socket_parse_address(l, &node, &port) != AF_MAX) {
+        int int_port = parse_int(port, -1);
+
+        if (int_port < 0 || int_port > 0xffff) {
+            lwan_status_critical("Port out of range 0...65535: %d", int_port);
+            __builtin_unreachable();
+        }
+
+        if (!lwan_straitjacket_allow_bind(int_port)) {
+            lwan_status_critical("Cannot add Landlock rule");
+            __builtin_unreachable();
+        }
+    }
+}
+
+static void
 parse_listener(struct config *c, const struct config_line *l, struct lwan *lwan)
 {
     lwan->config.listener = strdup(l->value);
-    if (!lwan->config.listener)
+    if (!lwan->config.listener) {
         config_error(c, "Could not allocate memory for listener");
+        return;
+    }
 
     while ((l = config_read_line(c))) {
         switch (l->type) {
@@ -939,6 +965,16 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     /* Continue initialization as normal. */
     lwan_status_debug("Initializing lwan web server");
 
+#if defined(LWAN_HAVE_LANDLOCK)
+    if (config->tls_listener)
+        allow_bind_for_listener(config->tls_listener);
+    allow_bind_for_listener(config->listener);
+
+    if (!lwan_landlock_enforce()) {
+        lwan_status_critical("Could not enable Landlock");
+    }
+#endif
+
     if (!l->config.n_threads) {
         l->thread.count = l->online_cpus;
         if (l->thread.count == 1)
@@ -969,8 +1005,8 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     signal(SIGPIPE, SIG_IGN);
 
     lwan_readahead_init();
-    lwan_thread_init(l);
     lwan_http_authorize_init();
+    lwan_thread_init(l);
 }
 
 void lwan_shutdown(struct lwan *l)

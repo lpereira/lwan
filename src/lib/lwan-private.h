@@ -347,3 +347,10 @@ coro_deferred lwan_request_sleep_internal(struct lwan_request *request,
 
 char *lwan_get_real_root_path(const char *root_path);
 
+bool lwan_straitjacket_allow_bind(int port);
+bool lwan_straitjacket_allow_connect(int port);
+bool lwan_straitjacket_allow_dirfd_ro(int fd);
+bool lwan_straitjacket_allow_dirfd_rw(int fd);
+bool lwan_straitjacket_allow_dir_path_ro(const char *path);
+bool lwan_straitjacket_allow_dir_path_rw(const char *path);
+bool lwan_landlock_enforce(void);

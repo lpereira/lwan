@@ -277,6 +277,18 @@ else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
 
+#
+# Look for Landlock headers
+#
+find_path(LANDLOCK_HEADER landlock.h /usr/include/linux)
+if (LANDLOCK_HEADER)
+	message(STATUS "Enabling Landlock support")
+	set(LWAN_HAVE_LANDLOCK 1)
+else ()
+	message(STATUS "No Landlock headers found; disabling Landlock
+support")
+endif ()
+
 option(MTUNE_NATIVE "Build with -mtune=native/-march=native" "ON")
 if (MTUNE_NATIVE)
     enable_c_flag_if_avail(-mtune=native C_FLAGS_REL LWAN_HAVE_MTUNE_NATIVE)

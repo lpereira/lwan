@@ -1090,6 +1090,11 @@ static const char *is_dir_good_for_tmp(const char *v)
     }
 #endif
 
+    if (!lwan_straitjacket_allow_dir_path_rw(v)) {
+        lwan_status_error("Can't add Landlock rule");
+        return NULL;
+    }
+
     return v;
 }
 

@@ -974,6 +974,11 @@ static void *serve_files_create(const char *prefix, void *args)
         goto out_open;
     }
 
+    if (!lwan_straitjacket_allow_dirfd_ro(root_fd)) {
+        lwan_status_error("Could not add Landlock rule");
+        goto out_landlock;
+    }
+
     priv = malloc(sizeof(*priv));
     if (!priv) {
         lwan_status_perror("malloc");
@@ -1029,6 +1034,7 @@ out_tpl_compile:
     cache_destroy(priv->cache);
 out_cache_create:
     free(priv);
+out_landlock:
 out_malloc:
     close(root_fd);
 out_open:
