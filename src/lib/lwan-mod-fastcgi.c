@@ -902,7 +902,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         goto destroy_cache;
     }
 
-    pd->script_path = realpath(settings->script_path, NULL);
+    pd->script_path = lwan_get_real_root_path(settings->script_path);
     if (!pd->script_path) {
         lwan_status_perror("FastCGI: `script_path` of '%s' is invalid",
                            settings->script_path);
