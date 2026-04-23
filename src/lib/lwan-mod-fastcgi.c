@@ -886,8 +886,8 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         return NULL;
     }
 
-    pd->script_name_cache =
-        cache_create(create_script_name, destroy_script_name, pd, 60);
+    pd->script_name_cache = cache_create_full(
+        create_script_name, destroy_script_name, hash_lwan_value_new, pd, 60);
     if (!pd->script_name_cache) {
         lwan_status_error("FastCGI: could not create cache for script_name");
         goto free_pd;
