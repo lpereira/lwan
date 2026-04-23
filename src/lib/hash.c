@@ -93,10 +93,12 @@ uint32_t fnv1a_32_seed = DEFAULT_FNV1A_32_SEED;
 static inline unsigned int hash_fnv1a_32(const void *keyptr);
 static inline unsigned int hash_int_32(const void *keyptr);
 static inline unsigned int hash_int_64(const void *keyptr);
+static inline uint32_t hash_fnv1a_32_len(const void *keyptr, size_t len);
 
 static unsigned (*hash_str)(const void *key) = hash_fnv1a_32;
 static unsigned (*hash_int)(const void *key) = hash_int_32;
 static unsigned (*hash_int64)(const void *key) = hash_int_64;
+static uint32_t (*hash_len)(const void *key, size_t len) = fnv1a_32;
 
 static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
 {
@@ -124,6 +126,11 @@ static bool resize_bucket(struct hash_bucket *bucket, unsigned int new_size)
     return false;
 }
 
+static inline uint32_t hash_fnv1a_32_len(const void *keyptr, size_t len)
+{
+    return fnv1a_32(keyptr, len);
+}
+
 static inline unsigned int hash_fnv1a_32(const void *keyptr)
 {
     return fnv1a_32(keyptr, strlen(keyptr));
@@ -142,11 +149,10 @@ static inline unsigned int hash_int_64(const void *keyptr)
 }
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
-static inline unsigned int hash_str_crc32(const void *keyptr)
+static inline uint32_t hash_str_crc32_len(const void *keyptr, size_t len)
 {
     unsigned int hash = fnv1a_32_seed;
     const char *key = keyptr;
-    size_t len = strlen(key);
 
     ASSERT_SEED_INITIALIZED();
 
@@ -178,6 +184,12 @@ static inline unsigned int hash_str_crc32(const void *keyptr)
     hash = __builtin_ia32_crc32qi(hash, (unsigned char)*key);
 
     return hash;
+}
+
+static inline unsigned int hash_str_crc32(const void *keyptr)
+{
+    const char *key = keyptr;
+    return hash_str_crc32_len(key, strlen(key));
 }
 
 static inline unsigned int hash_int_crc32(const void *keyptr)
@@ -230,6 +242,7 @@ LWAN_CONSTRUCTOR(fnv1a_seed, 65535)
         hash_str = hash_str_crc32;
         hash_int = hash_int_crc32;
         hash_int64 = hash_int64_crc32;
+        hash_len = hash_str_crc32_len;
     }
 #endif
 }
@@ -296,11 +309,10 @@ struct hash *hash_str_new(void (*free_key)(void *value),
         free_key ? free_key : no_op, free_value ? free_value : no_op);
 }
 
-static unsigned hash_lwan_value_hash(const void *key)
+static inline unsigned hash_lwan_value_hash(const void *key)
 {
     const struct lwan_value *v = key;
-    /* FIXME: use CRC32 when available? */
-    return fnv1a_32(v->value, v->len);
+    return hash_len(v->value, v->len);
 }
 
 static int hash_lwan_value_key_equal(const void *a, const void *b)
