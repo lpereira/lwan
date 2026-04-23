@@ -109,9 +109,9 @@ static ALWAYS_INLINE void *lwan_value_key_copy(const void *key)
     const struct lwan_value *value = key;
     struct lwan_value *v = malloc(sizeof(*v) + value->len);
     if (v) {
-        v->data = v + 1;
+        v->value = (char *)(v + 1);
         v->len = value->len;
-        memcpy(v->data, value->data, v->len);
+        memcpy(v->value, value->value, v->len);
     }
     return v;
 }
