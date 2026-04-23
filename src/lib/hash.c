@@ -296,6 +296,30 @@ struct hash *hash_str_new(void (*free_key)(void *value),
         free_key ? free_key : no_op, free_value ? free_value : no_op);
 }
 
+static unsigned hash_lwan_value_hash(const void *key)
+{
+    const struct lwan_value *v = key;
+    /* FIXME: use CRC32 when available? */
+    return fnv1a_32(v->value, v->len);
+}
+
+static int hash_lwan_value_key_equal(const void *a, const void *b)
+{
+    const struct lwan_value *va = a;
+    const struct lwan_value *vb = b;
+    if (va->len == vb->len)
+        return memcmp(va->value, vb->value, va->len) == 0;
+    return 0;
+}
+
+struct hash *hash_lwan_value_new(void (*free_key)(void *value),
+                                 void (*free_value)(void *value))
+{
+    return hash_internal_new(hash_lwan_value_hash, hash_lwan_value_key_equal,
+                             free_key ? free_key : no_op,
+                             free_value ? free_value : no_op);
+}
+
 struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
                              int (*key_equal)(const void *k1, const void *k2),
                              void (*free_key)(void *value),
