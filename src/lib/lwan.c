@@ -537,6 +537,7 @@ static void parse_tls_listener(struct config *conf, const struct config_line *li
     config_error(conf, "Expecting section end while parsing SSL configuration");
 }
 
+#if defined(LWAN_HAVE_LANDLOCK)
 static void
 allow_bind_for_listener(const char *listener)
 {
@@ -560,6 +561,7 @@ allow_bind_for_listener(const char *listener)
         }
     }
 }
+#endif
 
 static void
 parse_listener(struct config *c, const struct config_line *l, struct lwan *lwan)
