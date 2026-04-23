@@ -619,7 +619,7 @@ static bool build_stdin_records(struct lwan_request *request,
 
     iovec = iovec_array_append(iovec_array);
     if (UNLIKELY(!iovec))
-        return HTTP_INTERNAL_ERROR;
+        return false;
     *iovec = (struct iovec){
         .iov_base = &(struct record){.version = 1,
                                      .type = FASTCGI_TYPE_STDIN,
