@@ -345,3 +345,5 @@ bool lwan_send_websocket_ping_for_tq(struct lwan_connection *conn);
 coro_deferred lwan_request_sleep_internal(struct lwan_request *request,
                                           uint64_t ms);
 
+char *lwan_get_real_root_path(const char *root_path);
+

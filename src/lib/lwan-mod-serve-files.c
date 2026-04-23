@@ -926,7 +926,7 @@ static void redir_free(struct file_cache_entry *fce)
     free(rd->redir_to);
 }
 
-static char *get_real_root_path(const char *root_path)
+char *lwan_get_real_root_path(const char *root_path)
 {
     char path_buf[PATH_MAX];
     char *path;
@@ -961,7 +961,7 @@ static void *serve_files_create(const char *prefix, void *args)
         return NULL;
     }
 
-    canonical_root = get_real_root_path(settings->root_path);
+    canonical_root = lwan_get_real_root_path(settings->root_path);
     if (!canonical_root) {
         lwan_status_perror("Could not obtain real path of \"%s\"",
                            settings->root_path);
