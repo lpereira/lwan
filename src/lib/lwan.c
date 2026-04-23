@@ -968,9 +968,10 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_status_debug("Initializing lwan web server");
 
 #if defined(LWAN_HAVE_LANDLOCK)
-    if (config->tls_listener)
-        allow_bind_for_listener(config->tls_listener);
-    allow_bind_for_listener(config->listener);
+    if (l->config.tls_listener)
+        allow_bind_for_listener(l->config.tls_listener);
+    if (l->config.listener)
+        allow_bind_for_listener(l->config.listener);
 
     if (!lwan_landlock_enforce()) {
         lwan_status_critical("Could not enable Landlock");
