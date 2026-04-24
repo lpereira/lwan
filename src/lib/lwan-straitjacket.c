@@ -333,12 +333,35 @@ bool lwan_straitjacket_allow_dir_path_rw(const char *path)
     return allow;
 }
 
+static void add_base_rules(void)
+{
+    /* FIXME: this is too broad, but it's kinda hard to know
+     * which files libc will open; on my system, only /etc/localtime
+     * is needed, but others might be necessary. */
+    lwan_straitjacket_allow_dir_path_ro("/etc");
+
+#if defined(__linux__)
+    /* Required to query somaxconn and tcp_allowed_congestion_control */
+    lwan_straitjacket_allow_dir_path_ro("/proc/sys/net");
+
+    /* Required for proc_pidpath if getauxval(AT_EXECFN) fails */
+    lwan_straitjacket_allow_dir_path_ro("/proc/self");
+#endif
+
+#if defined(__x86_64__)
+    /* Required to read the CPU topology */
+    lwan_straitjacket_allow_dir_path_ro("/sys/devices/system/cpu");
+#endif
+}
+
 bool lwan_landlock_enforce(void)
 {
     struct lwan_landlock *ll = get_landlock();
 
     if (!ll)
         return false;
+
+    add_base_rules();
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
         lwan_status_perror("Failed to restrict privileges");
@@ -438,30 +461,6 @@ static void abort_on_open_directories(void)
 static void abort_on_open_directories(void) {}
 #endif
 
-static void add_base_landlock_rules(const struct lwan_straitjacket *sj)
-{
-    if (sj->chroot_path)
-        lwan_straitjacket_allow_dir_path_ro(sj->chroot_path);
-
-    /* FIXME: this is too broad, but it's kinda hard to know
-     * which files libc will open; on my system, only /etc/localtime
-     * is needed, but others might be necessary. */
-    lwan_straitjacket_allow_dir_path_ro("/etc");
-
-#if defined(__linux__)
-    /* Required to query somaxconn and tcp_allowed_congestion_control */
-    lwan_straitjacket_allow_dir_path_ro("/proc/sys/net");
-
-    /* Required for proc_pidpath if getauxval(AT_EXECFN) fails */
-    lwan_straitjacket_allow_dir_path_ro("/proc/self");
-#endif
-
-#if defined(__x86_64__)
-    /* Required to read the CPU topology */
-    lwan_straitjacket_allow_dir_path_ro("/sys/devices/system/cpu");
-#endif
-}
-
 static void enforce_with_chroot(const struct lwan_straitjacket *sj)
 {
     uid_t uid = 0;
@@ -503,7 +502,8 @@ static void enforce_with_chroot(const struct lwan_straitjacket *sj)
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
     if (lwan_landlock_available()) {
-        add_base_landlock_rules(sj);
+        if (sj->chroot_path)
+            lwan_straitjacket_allow_dir_path_ro(sj->chroot_path);
     } else {
         enforce_with_chroot(sj);
     }
