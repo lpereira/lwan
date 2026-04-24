@@ -184,11 +184,17 @@ LWAN_LAZY_GLOBAL(struct lwan_landlock *, get_landlock_ruleset)
         goto err;
     }
 
-    ll->restrict_flags = 0;
-#if defined(LANDLOCK_RESTRICT_SELF_TSYNC)
-    if (abi >= 7)
-        ll->restrict_flags = LANDLOCK_RESTRICT_SELF_TSYNC;
-#endif
+    ll->restrict_flags =
+        LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON | LANDLOCK_RESTRICT_SELF_TSYNC;
+    switch (abi) {
+    case 1 ... 6:
+        ll->restrict_flags &= ~(LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON |
+                                LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF |
+                                LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF);
+        /* fallthrough */
+    case 7:
+        ll->restrict_flags &= ~LANDLOCK_RESTRICT_SELF_TSYNC;
+    }
 
     /* From the Linux kernel doc: "To be compatible with older Linux
      * versions, we detect the available Landlock ABI version, and only use
