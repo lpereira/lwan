@@ -464,36 +464,19 @@ static void abort_on_open_directories(void)
 static void abort_on_open_directories(void) {}
 #endif
 
-static void enforce_with_chroot(const struct lwan_straitjacket *sj)
+static void enforce_user(const struct lwan_straitjacket *sj)
 {
     uid_t uid = 0;
     gid_t gid = 0;
     bool got_uid_gid = false;
 
-    if (!sj->user_name && !sj->chroot_path)
+    if (!sj->user_name)
         return;
-
-    if (geteuid() != 0)
-        lwan_status_critical("Straitjacket with chroot(2) requires root privileges");
 
     if (sj->user_name && *sj->user_name) {
         if (!get_user_uid_gid(sj->user_name, &uid, &gid))
             lwan_status_critical("Unknown user: %s", sj->user_name);
         got_uid_gid = true;
-    }
-
-    if (sj->chroot_path) {
-        abort_on_open_directories();
-
-        if (chroot(sj->chroot_path) < 0) {
-            lwan_status_critical_perror("Could not chroot() to %s",
-                                        sj->chroot_path);
-        }
-
-        if (chdir("/") < 0)
-            lwan_status_critical_perror("Could not chdir() to /");
-
-        lwan_status_info("Jailed to %s", sj->chroot_path);
     }
 
     if (got_uid_gid && !switch_to_user(uid, gid, sj->user_name)) {
@@ -502,10 +485,33 @@ static void enforce_with_chroot(const struct lwan_straitjacket *sj)
     }
 }
 
+static void enforce_chroot(const struct lwan_straitjacket *sj)
+{
+    if (!sj->chroot_path)
+        return;
+
+    if (geteuid() != 0)
+        lwan_status_critical("Straitjacket with chroot(2) requires root privileges");
+
+    abort_on_open_directories();
+
+    if (chroot(sj->chroot_path) < 0) {
+        lwan_status_critical_perror("Could not chroot() to %s",
+                                    sj->chroot_path);
+    }
+
+    if (chdir("/") < 0)
+        lwan_status_critical_perror("Could not chdir() to /");
+
+    lwan_status_info("Jailed to %s", sj->chroot_path);
+}
+
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
+    enforce_user(sj);
+
     if (!lwan_landlock_available())
-        enforce_with_chroot(sj);
+        enforce_chroot(sj);
 
     if (sj->drop_capabilities) {
         struct __user_cap_header_struct header = {
