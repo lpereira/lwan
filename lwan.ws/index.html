@@ -204,6 +204,12 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
       </ul>
   </li>
   <li>IPv6 ready</li>
+  <li>Sandbox
+      <ul>
+        <li><a href="https://landlock.io">Landlock</a> on Linux</li>
+        <li><a href="https://man.openbsd.org/pledge.2">pledge(2)</a> and <a href="https://man.openbsd.org/unveil.2">unveil(2)</a> on OpenBSD</li>
+       </ul>
+   </li>
 </ul>
 
 A continuous integration systems helps keep the house in order:
@@ -333,7 +339,7 @@ produced while building Lwan, even though options to enable extra warnings are a
 <li>All tests are performed automatically, with both <b>Address
 Sanitizer</b> and <b>Undefined Behavior Sanitizer</b>; <a
 href="https://buildbot.lwan.ws/lcov/">coverage</a> is still on
-the low side, though.</li></ul>
+the low side, though.</li><li>On Linux, a <b>sandbox</b> using Landlock is always enabled.</li></ul>
 
 <p>So, to answer the question: <b>we have no idea</b>.  We were dead
 serious when we said we're not security experts.  But care is being taken to
