@@ -506,6 +506,13 @@ try_initiating_chunked_response(struct lwan_request *request)
         if (strcaseequal_neutral(key, "X-Powered-By")) {
             /* This is set by PHP-FPM.  Do not advertise this for privacy
              * reasons.  */
+        } else if (strcaseequal_neutral(key, "Transfer-Encoding")) {
+            /* FIXME: Lwan only sends chunked encoding responses, so if
+             * FastCGI sets this header to anything else (e.g.
+             * deflate), we can't serve it.  Eventually, this needs to
+             * be correctly handled.  */
+            if (!streq(value, "chunked"))
+                goto free_array_and_disarm;
         } else if (strcaseequal_neutral(key, "Content-Type")) {
             response->mime_type = coro_strdup(request->conn->coro, value);
         } else if (strcaseequal_neutral(key, "Status")) {
