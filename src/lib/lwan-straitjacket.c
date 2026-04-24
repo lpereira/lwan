@@ -388,9 +388,12 @@ static inline bool lwan_landlock_available(void) {
 static inline bool lwan_landlock_available(void) { return false; }
 bool lwan_landlock_enforce(void) { return false; }
 
-bool lwan_straitjacket_allow_dirfd(int fd) { return false; }
-bool lwan_straitjacket_allow_dir_path(const char *path) { return false; }
 bool lwan_straitjacket_allow_bind(int port) { return false; }
+bool lwan_straitjacket_allow_connect(int port) { return false; }
+bool lwan_straitjacket_allow_dirfd_ro(int fd) { return false; }
+bool lwan_straitjacket_allow_dirfd_rw(int fd) { return false; }
+bool lwan_straitjacket_allow_dir_path_ro(const char *path) { return false; }
+bool lwan_straitjacket_allow_dir_path_rw(const char *path) { return false; }
 #endif /* LWAN_HAVE_LANDLOCK */
 
 #ifdef __linux__
