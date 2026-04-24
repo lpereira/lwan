@@ -257,7 +257,7 @@ static bool lwan_straitjacket_allow_path(uint64_t allowed_access, int fd)
     if (!ll)
         return false;
 
-    if (!(ll->attr.handled_access_fs & allowed_access))
+    if ((ll->attr.handled_access_fs & allowed_access) != allowed_access)
         return false;
 
     struct landlock_path_beneath_attr path_beneath = {
@@ -289,7 +289,7 @@ static bool lwan_straitjacket_allow_net(uint64_t allowed_access, int port)
     if (!ll)
         return false;
 
-    if (!(ll->attr.handled_access_net & allowed_access)) {
+    if ((ll->attr.handled_access_net & allowed_access) != allowed_access) {
         lwan_status_debug("Kernel doesn't support requested access");
         return false;
     }
