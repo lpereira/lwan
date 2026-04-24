@@ -504,12 +504,8 @@ static void enforce_with_chroot(const struct lwan_straitjacket *sj)
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
-    if (lwan_landlock_available()) {
-        if (sj->chroot_path)
-            lwan_straitjacket_allow_dir_path_ro(sj->chroot_path);
-    } else {
+    if (!lwan_landlock_available())
         enforce_with_chroot(sj);
-    }
 
     if (sj->drop_capabilities) {
         struct __user_cap_header_struct header = {
@@ -542,6 +538,10 @@ void lwan_straitjacket_enforce_from_config(struct config *c)
             } else if (streq(l->key, "chroot")) {
                 if (chroot_path) {
                     config_error(c, "`chroot' already specified");
+                    return;
+                }
+                if (lwan_landlock_available()) {
+                    config_error(c, "`chroot' doesn't work on builds with Landlock support");
                     return;
                 }
                 chroot_path = strdupa(l->value);
