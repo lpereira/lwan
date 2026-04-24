@@ -812,7 +812,7 @@ fastcgi_handle_request(struct lwan_request *request,
             return HTTP_INTERNAL_ERROR;
 
         record.len_content = ntohs(record.len_content);
-        record.id = htons(record.id);
+        record.id = ntohs(record.id);
 
         switch (record.type) {
         case FASTCGI_TYPE_STDOUT:
