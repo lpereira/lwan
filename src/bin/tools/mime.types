@@ -1,6 +1,6 @@
 # This file maps Internet media types to unique file extension(s).
 # Although created for httpd, this file is used by many software systems
-# and has been placed in the public domain for unlimited redisribution.
+# and has been placed in the public domain for unlimited redistribution.
 #
 # The table below contains both registered and (common) unregistered types.
 # A type that has no unique extension can be ignored -- they are listed
@@ -142,6 +142,7 @@ application/ipfix				ipfix
 application/java-archive			jar
 application/java-serialized-object		ser
 application/java-vm				class
+# application/javascript
 # application/jose
 # application/jose+json
 # application/jrd+json
@@ -584,6 +585,7 @@ application/vnd.genomatix.tuxedo		txd
 # application/vnd.geo+json
 # application/vnd.geocube+xml
 application/vnd.geogebra.file			ggb
+application/vnd.geogebra.slides		ggs
 application/vnd.geogebra.tool			ggt
 application/vnd.geometry-explorer		gex gre
 application/vnd.geonext				gxt
@@ -1088,6 +1090,7 @@ application/vnd.smart.teacher			teacher
 application/vnd.solent.sdkm+xml			sdkm sdkd
 application/vnd.spotfire.dxp			dxp
 application/vnd.spotfire.sfs			sfs
+application/vnd.sqlite3					sqlite sqlite3
 # application/vnd.sss-cod
 # application/vnd.sss-dtf
 # application/vnd.sss-ntf
@@ -1536,6 +1539,7 @@ font/otf					otf
 font/ttf					ttf
 font/woff					woff
 font/woff2					woff2
+image/avif					avif
 image/bmp					bmp
 image/cgm					cgm
 # image/dicom-rle
@@ -1544,12 +1548,17 @@ image/cgm					cgm
 # image/fits
 image/g3fax					g3
 image/gif					gif
+image/heic					heic
+image/heic-sequence			heics
+image/heif					heif
+image/heif-sequence			heifs
 image/ief					ief
 # image/jls
 # image/jp2
 image/jpeg					jpeg jpg jpe
 # image/jpm
 # image/jpx
+image/jxl					jxl
 image/ktx					ktx
 # image/naplps
 image/png					png
@@ -1643,7 +1652,7 @@ model/vnd.gdl					gdl
 # model/vnd.gs.gdl
 model/vnd.gtw					gtw
 # model/vnd.moml+xml
-model/vnd.mts					mts
+# model/vnd.mts
 # model/vnd.opengex
 # model/vnd.parasolid.transmit.binary
 # model/vnd.parasolid.transmit.text
@@ -1782,7 +1791,7 @@ video/jpm					jpm jpgm
 video/mj2					mj2 mjp2
 # video/mp1s
 # video/mp2p
-# video/mp2t
+video/mp2t					ts m2t m2ts mts
 video/mp4					mp4 mp4v mpg4
 # video/mp4v-es
 video/mpeg					mpeg mpg mpe m1v m2v
