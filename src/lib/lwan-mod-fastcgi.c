@@ -822,6 +822,8 @@ fastcgi_handle_request(struct lwan_request *request,
         record.len_content = ntohs(record.len_content);
         record.id = ntohs(record.id);
 
+        assert(record.id == 1);
+
         switch (record.type) {
         case FASTCGI_TYPE_STDOUT:
             if (!handle_stdout(request, &record, fcgi_fd))
