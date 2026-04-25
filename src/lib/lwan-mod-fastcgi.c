@@ -575,6 +575,18 @@ free_array_and_disarm:
 
 DEFINE_ARRAY_TYPE_INLINEFIRST(iovec_array, struct iovec)
 
+static bool flush_iovec(struct lwan_request *request,
+                        int fcgi_fd,
+                        struct iovec_array *iovec_array)
+{
+    if (lwan_writev_fd(request, fcgi_fd, iovec_array_get_array(iovec_array),
+                       (int)iovec_array_len(iovec_array)) < 0) {
+        return false;
+    }
+    iovec_array_reset(iovec_array);
+    return true;
+}
+
 static bool build_stdin_records(struct lwan_request *request,
                                 struct iovec_array *iovec_array,
                                 int fcgi_fd,
@@ -613,12 +625,8 @@ static bool build_stdin_records(struct lwan_request *request,
             *iovec = (struct iovec){.iov_base = buffer, .iov_len = block_size};
 
             if (iovec_array_len(iovec_array) == LWAN_ARRAY_INCREMENT) {
-                if (lwan_writev_fd(request, fcgi_fd,
-                                   iovec_array_get_array(iovec_array),
-                                   (int)iovec_array_len(iovec_array)) < 0) {
+                if (!flush_iovec(request, fcgi_fd, iovec_array))
                     return false;
-                }
-                iovec_array_reset(iovec_array);
                 arena_reset(arena);
             }
 
@@ -637,7 +645,7 @@ static bool build_stdin_records(struct lwan_request *request,
         .iov_len = sizeof(struct record),
     };
 
-    return true;
+    return flush_iovec(request, fcgi_fd, iovec_array);
 }
 
 static enum lwan_http_status send_request(struct private_data *pd,
@@ -718,12 +726,6 @@ static enum lwan_http_status send_request(struct private_data *pd,
                              lwan_request_get_request_body(request))) {
         return HTTP_INTERNAL_ERROR;
     }
-
-    if (lwan_writev_fd(request, fcgi_fd, iovec_array_get_array(&iovec_array),
-                       (int)iovec_array_len(&iovec_array)) < 0) {
-        return HTTP_INTERNAL_ERROR;
-    }
-    iovec_array_reset(&iovec_array);
 
     lwan_strbuf_reset(response->buffer);
 
