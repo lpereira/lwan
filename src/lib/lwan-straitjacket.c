@@ -339,25 +339,29 @@ bool lwan_straitjacket_allow_dir_path_rw(const char *path)
     return allow;
 }
 
-static void add_base_rules(void)
+static bool add_base_rules(void)
 {
     /* FIXME: this is too broad, but it's kinda hard to know
      * which files libc will open; on my system, only /etc/localtime
      * is needed, but others might be necessary. */
-    lwan_straitjacket_allow_dir_path_ro("/etc");
+    if (!lwan_straitjacket_allow_dir_path_ro("/etc"))
+        return false;
 
-#if defined(__linux__)
     /* Required to query somaxconn and tcp_allowed_congestion_control */
-    lwan_straitjacket_allow_dir_path_ro("/proc/sys/net");
+    if (!lwan_straitjacket_allow_dir_path_ro("/proc/sys/net"))
+        return false;
 
     /* Required for proc_pidpath if getauxval(AT_EXECFN) fails */
-    lwan_straitjacket_allow_dir_path_ro("/proc/self");
-#endif
+    if (!lwan_straitjacket_allow_dir_path_ro("/proc/self"))
+        return false;
 
 #if defined(__x86_64__)
     /* Required to read the CPU topology */
-    lwan_straitjacket_allow_dir_path_ro("/sys/devices/system/cpu");
+    if (!lwan_straitjacket_allow_dir_path_ro("/sys/devices/system/cpu"))
+        return false;
 #endif
+
+    return true;
 }
 
 bool lwan_landlock_enforce(void)
@@ -367,7 +371,10 @@ bool lwan_landlock_enforce(void)
     if (!ll)
         return false;
 
-    add_base_rules();
+    if (!add_base_rules()) {
+        lwan_status_error("Could not register base Landlock rules");
+        return false;
+    }
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
         lwan_status_perror("Failed to restrict privileges");
