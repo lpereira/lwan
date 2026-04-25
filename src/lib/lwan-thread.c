@@ -1312,6 +1312,8 @@ static void *thread_io_loop(void *data)
             }
 
             if (UNLIKELY(event->events & (EPOLLRDHUP | EPOLLHUP))) {
+                /* graceful_close() should be called from here but
+                 * we're not in a coroutine at this point. */
                 timeout_queue_expire(&tq, conn);
                 continue;
             }

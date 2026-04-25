@@ -473,6 +473,7 @@ try_initiating_chunked_response(struct lwan_request *request)
     assert(!(request->flags &
              (RESPONSE_CHUNKED_ENCODING | RESPONSE_SENT_HEADERS)));
 
+    /* Do we have all the headers? */
     if (!memmem(buffer.value, buffer.len, "\r\n\r\n", 4))
         return HTTP_OK;
 
