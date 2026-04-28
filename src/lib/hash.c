@@ -127,7 +127,7 @@ static uint32_t (*hash_lwan_value)(const void *ptr) = hash_lwan_value_fnv1a;
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
 static uint32_t hash_crc32(const void *ptr, size_t len)
 {
-    uint32_t hash = fnv1a_32_seed;
+    uint32_t hash = FNV1A_32_SEED;
     const char *p = ptr;
 
 #if defined(__x86_64__)
@@ -167,7 +167,7 @@ static uint32_t hash_str_crc32(const void *key)
 static uint32_t hash_int_crc32(const void *key)
 {
     int k = (int)(intptr_t)key;
-    return __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
+    return __builtin_ia32_crc32si(FNV1A_32_SEED, (uint32_t)k);
 }
 
 static uint32_t hash_int64_crc32(const void *key)
@@ -176,9 +176,9 @@ static uint32_t hash_int64_crc32(const void *key)
     uint64_t k = (uint64_t)(uintptr_t)key;
     uint32_t hash;
 #if defined(__x86_64__)
-    hash = (uint32_t)__builtin_ia32_crc32di(fnv1a_32_seed, k);
+    hash = (uint32_t)__builtin_ia32_crc32di(FNV1A_32_SEED, k);
 #else
-    hash = __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
+    hash = __builtin_ia32_crc32si(FNV1A_32_SEED, (uint32_t)k);
     hash = __builtin_ia32_crc32si(hash, (uint32_t)(k >> 32));
 #endif
     return hash;
