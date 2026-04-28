@@ -333,7 +333,7 @@ static int hash_add_internal(struct hash *ht,
 
     assert(tophash != 0);
 
-    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->cap);
+    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->len);
 try_again:
     if (!slotptr) {
         uint32_t slot;
@@ -403,7 +403,7 @@ try_again:
         } else {
             /* tophash matches, but key is different. Try looking for the next
              * tophash! */
-            slotptr = memchr(slotptr + 1, tophash, ht->cap - slot - 1);
+            slotptr = memchr(slotptr + 1, tophash, ht->len - slot - 1);
             goto try_again;
         }
     }
@@ -443,7 +443,7 @@ int hash_del(struct hash *ht, const void *key)
 
         /* tophash matches, but key is different. Try looking for the next
          * tophash! */
-        slotptr = memchr(slotptr + 1, tophash, ht->cap - slot - 1);
+        slotptr = memchr(slotptr + 1, tophash, ht->len - slot - 1);
     }
 
     return -ENOENT;
@@ -461,7 +461,7 @@ void *hash_find(const struct hash *ht, const void *key)
         if (key_equal(ht, slot, key, midhash)) {
             return (void *)ht->buckets[slot].value;
         }
-        slotptr = memchr(slotptr + 1, tophash, ht->cap - slot - 1);
+        slotptr = memchr(slotptr + 1, tophash, ht->len - slot - 1);
     }
 
     return NULL;
