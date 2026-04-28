@@ -394,12 +394,15 @@ try_again:
                 /* ...but can we? */
                 return -EEXIST;
             }
-            ht->free_key((void *)ht->buckets[slot].key);
-            ht->free_value((void *)ht->buckets[slot].value);
-            ht->buckets[slot] = (struct bucket){
-                .key = key,
-                .value = value,
-            };
+            struct bucket *bucket = &ht->buckets[slot];
+            if (bucket->key != key) {
+                ht->free_key((void *)bucket->key);
+                bucket->key = key;
+            }
+            if (bucket->value != value) {
+                ht->free_value((void *)bucket->value);
+                bucket->value = value;
+            }
         } else {
             /* tophash matches, but key is different. Try looking for the next
              * tophash! */
