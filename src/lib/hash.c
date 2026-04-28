@@ -430,7 +430,7 @@ int hash_del(struct hash *ht, const void *key)
     const uint16_t midhash = (uint16_t)(hash >> 8);
     const uint8_t tophash = hash & 0xff;
 
-    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->cap);
+    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->len);
     while (slotptr) {
         uint32_t slot = (uint32_t)(slotptr - ht->tophashes);
         if (key_equal(ht, slot, key, midhash)) {
@@ -458,7 +458,7 @@ void *hash_find(const struct hash *ht, const void *key)
     const uint16_t midhash = (uint16_t)(hash >> 8);
     const uint8_t tophash = hash & 0xff;
 
-    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->cap);
+    uint8_t *slotptr = memchr(ht->tophashes, tophash, ht->len);
     while (slotptr) {
         uint32_t slot = (uint32_t)(slotptr - ht->tophashes);
         if (key_equal(ht, slot, key, midhash)) {
