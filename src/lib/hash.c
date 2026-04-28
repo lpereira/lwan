@@ -131,24 +131,18 @@ static uint32_t hash_crc32(const void *ptr, size_t len)
 
 #if defined(__x86_64__)
     while (len >= 8) {
-        uint64_t data;
-        memcpy(&data, p, 8);
-        hash = (uint32_t)__builtin_ia32_crc32di(hash, data);
+        hash = (uint32_t)__builtin_ia32_crc32di(hash, string_as_uint64(p));
         p += 8;
         len -= 8;
     }
 #endif
     while (len >= 4) {
-        uint32_t data;
-        memcpy(&data, p, 4);
-        hash = __builtin_ia32_crc32si(hash, data);
+        hash = __builtin_ia32_crc32si(hash, string_as_uint32(p));
         p += 4;
         len -= 4;
     }
     if (len >= 2) {
-        uint16_t data;
-        memcpy(&data, p, 2);
-        hash = __builtin_ia32_crc32hi(hash, data);
+        hash = __builtin_ia32_crc32hi(hash, string_as_uint16(p));
         p += 2;
         len -= 2;
     }
