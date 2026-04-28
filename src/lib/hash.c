@@ -416,7 +416,7 @@ try_again:
 
 int hash_add(struct hash *ht, const void *key, const void *value)
 {
-    return hash_add_internal(ht, key, value, false) == 0;
+    return hash_add_internal(ht, key, value, false);
 }
 
 int hash_add_unique(struct hash *ht, const void *key, const void *value)
