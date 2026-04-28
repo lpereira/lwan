@@ -299,6 +299,14 @@ struct hash *hash_lwan_value_new(void (*free_key)(void *key),
     return hash_new(hash_lwan_value, hash_lwan_value_eq, free_key, free_value);
 }
 
+struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
+                             bool (*key_equal)(const void *k1, const void *k2),
+                             void (*free_key)(void *value),
+                             void (*free_value)(void *value))
+{
+    return hash_new(hash_value, key_equal, free_key, free_value);
+}
+
 struct hash *hash_ref(struct hash *ht)
 {
     ht->refs++;
