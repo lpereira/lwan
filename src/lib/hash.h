@@ -39,13 +39,15 @@ bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value);
 
+#define FNV1A_64_SEED 0xcbf29ce484222325ull
+#define FNV1A_32_SEED 0x811c9dc5u
+
 static inline uint64_t fnv1a_64(const void *buffer, size_t len)
 {
     const unsigned char *data = (unsigned char *)buffer;
-    extern uint64_t fnv1a_64_seed;
     uint64_t hash;
 
-    for (hash = fnv1a_64_seed; len--; data++) {
+    for (hash = FNV1A_64_SEED; len--; data++) {
         hash = (hash ^ *data) * 0x100000001b3ul;
     }
 
@@ -55,10 +57,9 @@ static inline uint64_t fnv1a_64(const void *buffer, size_t len)
 static inline uint32_t fnv1a_32(const void *buffer, size_t len)
 {
     const unsigned char *data = (unsigned char *)buffer;
-    extern uint32_t fnv1a_32_seed;
     uint32_t hash;
 
-    for (hash = fnv1a_32_seed; len--; data++) {
+    for (hash = FNV1A_32_SEED; len--; data++) {
         hash = (hash ^ *data) * 0x1000193u;
     }
 

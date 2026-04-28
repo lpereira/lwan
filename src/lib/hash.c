@@ -33,12 +33,6 @@
 
 #define INITIAL_CAP 16
 
-#define DEFAULT_FNV1A_64_SEED 0xcbf29ce484222325ull
-#define DEFAULT_FNV1A_32_SEED 0x811c9dc5u
-
-uint64_t fnv1a_64_seed = DEFAULT_FNV1A_64_SEED;
-uint32_t fnv1a_32_seed = DEFAULT_FNV1A_32_SEED;
-
 struct bucket {
     const void *key;
     const void *value;
@@ -57,20 +51,6 @@ struct hash {
 
     int refs;
 };
-
-LWAN_CONSTRUCTOR(fnv1a_seed, 65535)
-{
-    uint8_t entropy[128];
-
-    if (UNLIKELY(lwan_getentropy(entropy, sizeof(entropy), 0) < 0)) {
-        lwan_status_critical_perror("Could not initialize FNV1a seed");
-        __builtin_unreachable();
-    }
-
-    fnv1a_64_seed = fnv1a_64(entropy, sizeof(entropy));
-    fnv1a_32_seed = fnv1a_32(entropy, sizeof(entropy));
-    lwan_always_bzero(entropy, sizeof(entropy));
-}
 
 static ALWAYS_INLINE uint32_t no_tombstone(uint32_t hash)
 {
