@@ -447,6 +447,8 @@ int hash_del(struct hash *ht, const void *key)
             ht->free_key((void *)ht->buckets[slot].key);
             ht->free_value((void *)ht->buckets[slot].value);
             ht->len--;
+
+            /* FIXME: check if table can be shrunk! */
             return 0;
         }
 
