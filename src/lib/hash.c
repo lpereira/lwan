@@ -49,12 +49,13 @@ struct hash {
     uint16_t *midhashes;
     struct bucket *buckets;
     uint32_t len, cap;
-    int refs;
 
     uint32_t (*hash)(const void *key);
     bool (*key_equal)(const void *k1, const void *k2);
     void (*free_key)(void *key);
     void (*free_value)(void *value);
+
+    int refs;
 };
 
 LWAN_CONSTRUCTOR(fnv1a_seed, 65535)
