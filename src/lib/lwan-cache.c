@@ -251,7 +251,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     /* If the lock can't be obtained, return an error to allow, for instance,
      * yielding from the coroutine and trying to obtain the lock at a later
      * time. */
-    if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->hash.lock) == EBUSY)) {
+    if (UNLIKELY(pthread_rwlock_tryrdlock(&cache->hash.lock) != 0)) {
         *error = EWOULDBLOCK;
         return NULL;
     }
@@ -289,7 +289,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
 
     *entry = (struct cache_entry) { .key =  key_copy, .refs = 1 };
 
-    if (pthread_rwlock_trywrlock(&cache->hash.lock) == EBUSY) {
+    if (pthread_rwlock_trywrlock(&cache->hash.lock) != 0) {
         /* Couldn't obtain hash write lock: instead of waiting, just return
          * the recently-created item as a temporary item.  Might result in
          * items not being added to the cache, though, so this might be
