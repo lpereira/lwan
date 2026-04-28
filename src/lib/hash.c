@@ -217,18 +217,17 @@ static struct hash *hash_new(uint32_t (*hash)(const void *key),
     uint16_t *midhashes;
 
     ht = malloc(sizeof(*ht));
-    if (!ht)
+    if (UNLIKELY(!ht))
         goto no_hash_table;
 
-
     buckets = calloc(INITIAL_CAP, sizeof(struct bucket));
-    if (!buckets)
+    if (UNLIKELY(!buckets))
         goto no_buckets;
     tophashes = calloc(INITIAL_CAP, sizeof(uint8_t));
-    if (!tophashes)
+    if (UNLIKELY(!tophashes))
         goto no_tophashes;
     midhashes = calloc(INITIAL_CAP, sizeof(uint16_t));
-    if (!midhashes)
+    if (UNLIKELY(!midhashes))
         goto no_midhashes;
 
     *ht = (struct hash){
@@ -350,26 +349,26 @@ try_again:
             if (ht->len == ht->cap) {
                 /* No space in the current table; try making some more */
                 uint32_t newcap;
-                if (__builtin_mul_overflow(ht->cap, 2, &newcap))
+                if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap)))
                     return -ENOMEM;
                 ht->cap = newcap;
 
                 uint8_t *newtophashes =
                     reallocarray(ht->tophashes, ht->cap, sizeof(uint8_t));
-                if (!newtophashes)
+                if (UNLIKELY(!newtophashes))
                     return -errno;
                 ht->tophashes = newtophashes;
                 memset(ht->tophashes + ht->len, '\0', ht->len);
 
                 uint16_t *newmidhashes =
                     reallocarray(ht->midhashes, ht->cap, sizeof(uint16_t));
-                if (!newmidhashes)
+                if (UNLIKELY(!newmidhashes))
                     return -errno;
                 ht->midhashes = newmidhashes;
 
                 struct bucket *newbuckets =
                     reallocarray(ht->buckets, ht->cap, sizeof(struct bucket));
-                if (!newbuckets)
+                if (UNLIKELY(!newbuckets))
                     return -errno;
                 ht->buckets = newbuckets;
             }
