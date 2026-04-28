@@ -205,7 +205,7 @@ LWAN_CONSTRUCTOR(detect_crc32, 65534)
 
 static void free_key_value_noop(void *unused) {}
 
-static struct hash *hash_new(uint32_t (*hash)(const void *key),
+struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
                              bool (*key_equal)(const void *k1, const void *k2),
                              void (*free_key)(void *key),
                              void (*free_value)(void *value))
@@ -256,33 +256,26 @@ no_hash_table:
 struct hash *hash_str_new(void (*free_key)(void *key),
                           void (*free_value)(void *value))
 {
-    return hash_new(hash_str, hash_str_eq, free_key, free_value);
+    return hash_custom_new(hash_str, hash_str_eq, free_key, free_value);
 }
 
 struct hash *hash_int_new(void (*free_key)(void *key),
                           void (*free_value)(void *value))
 {
-    return hash_new(hash_int, hash_int_eq, free_key, free_value);
+    return hash_custom_new(hash_int, hash_int_eq, free_key, free_value);
 }
 
 struct hash *hash_int64_new(void (*free_key)(void *key),
                             void (*free_value)(void *value))
 {
-    return hash_new(hash_int64, hash_int64_eq, free_key, free_value);
+    return hash_custom_new(hash_int64, hash_int64_eq, free_key, free_value);
 }
 
 struct hash *hash_lwan_value_new(void (*free_key)(void *key),
                                  void (*free_value)(void *value))
 {
-    return hash_new(hash_lwan_value, hash_lwan_value_eq, free_key, free_value);
-}
-
-struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
-                             bool (*key_equal)(const void *k1, const void *k2),
-                             void (*free_key)(void *value),
-                             void (*free_value)(void *value))
-{
-    return hash_new(hash_value, key_equal, free_key, free_value);
+    return hash_custom_new(hash_lwan_value, hash_lwan_value_eq, free_key,
+                           free_value);
 }
 
 struct hash *hash_ref(struct hash *ht)
