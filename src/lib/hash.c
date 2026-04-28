@@ -81,7 +81,7 @@ static ALWAYS_INLINE uint32_t no_tombstone(uint32_t hash)
     return hash | 1;
 }
 
-static uint32_t hash_str(const void *key)
+static uint32_t hash_str_fnv1a(const void *key)
 {
     assert(key != NULL);
     return fnv1a_32(key, strlen(key));
@@ -94,7 +94,7 @@ static bool hash_str_eq(const void *k1, const void *k2)
     return !strcmp(k1, k2);
 }
 
-static uint32_t hash_int(const void *key)
+static uint32_t hash_int_fnv1a(const void *key)
 {
     assert(key != NULL);
     int k = (int)(intptr_t)key;
@@ -108,7 +108,7 @@ static bool hash_int_eq(const void *k1, const void *k2)
     return i1 == i2;
 }
 
-static uint32_t hash_int64(const void *key)
+static uint32_t hash_int64_fnv1a(const void *key)
 {
     assert(key != NULL);
     int64_t k = (int64_t)(intptr_t)key;
@@ -122,7 +122,7 @@ static bool hash_int64_eq(const void *k1, const void *k2)
     return i1 == i2;
 }
 
-static uint32_t hash_lwan_value(const void *key)
+static uint32_t hash_lwan_value_fnv1a(const void *key)
 {
     assert(key != NULL);
     const struct lwan_value *v = key;
@@ -137,6 +137,91 @@ static bool hash_lwan_value_eq(const void *k1, const void *k2)
         return !memcmp(v1->value, v2->value, v1->len);
     return false;
 }
+
+static uint32_t (*hash_str)(const void *ptr) = hash_str_fnv1a;
+static uint32_t (*hash_int)(const void *ptr) = hash_int_fnv1a;
+static uint32_t (*hash_int64)(const void *ptr) = hash_int64_fnv1a;
+static uint32_t (*hash_lwan_value)(const void *ptr) = hash_lwan_value_fnv1a;
+
+#if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
+static uint32_t hash_crc32(const void *ptr, size_t len)
+{
+    uint32_t hash = fnv1a_32_seed;
+    const char *p = ptr;
+
+#if defined(__x86_64__)
+    while (len >= 8) {
+        uint64_t data;
+        memcpy(&data, p, 8);
+        hash = (uint32_t)__builtin_ia32_crc32di(hash, data);
+        p += 8;
+        len -= 8;
+    }
+#endif
+    while (len >= 4) {
+        uint32_t data;
+        memcpy(&data, p, 4);
+        hash = __builtin_ia32_crc32si(hash, data);
+        p += 4;
+        len -= 4;
+    }
+    if (len >= 2) {
+        uint16_t data;
+        memcpy(&data, p, 2);
+        hash = __builtin_ia32_crc32hi(hash, data);
+        p += 2;
+        len -= 2;
+    }
+    if (len)
+       hash = __builtin_ia32_crc32qi(hash, (uint8_t)*p);
+
+    return hash;
+}
+
+static uint32_t hash_str_crc32(const void *key)
+{
+    return hash_crc32(key, strlen(key));
+}
+
+static uint32_t hash_int_crc32(const void *key)
+{
+    int k = (int)(intptr_t)key;
+    return __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
+}
+
+static uint32_t hash_int64_crc32(const void *key)
+{
+    assert(key != NULL);
+    uint64_t k = (uint64_t)(uintptr_t)key;
+    uint32_t hash;
+#if defined(__x86_64__)
+    hash = (uint32_t)__builtin_ia32_crc32di(fnv1a_32_seed, k);
+#else
+    hash = __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
+    hash = __builtin_ia32_crc32si(hash, (uint32_t)(k >> 32));
+#endif
+    return hash;
+}
+
+static uint32_t hash_lwan_value_crc32(const void *key)
+{
+    assert(key != NULL);
+    const struct lwan_value *v = key;
+    return hash_crc32(v->value, v->len);
+}
+
+LWAN_CONSTRUCTOR(detect_crc32, 65534)
+{
+    __builtin_cpu_init();
+    if (__builtin_cpu_supports("sse4.2")) {
+        lwan_status_info("using crc32c instruction for hashes");
+        hash_str = hash_str_crc32;
+        hash_int = hash_int_crc32;
+        hash_int64 = hash_int64_crc32;
+        hash_lwan_value = hash_lwan_value_crc32;
+    }
+}
+#endif
 
 static void free_key_value_noop(void *unused) {}
 
