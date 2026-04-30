@@ -481,3 +481,78 @@ bool hash_iter_next(struct hash_iter *iter,
     }
     return false;
 }
+
+LWAN_SELF_TEST(hash_table)
+{
+    struct hash *ht = hash_str_new(free, NULL);
+    int r;
+
+    assert(ht != NULL);
+    assert(ht->len == 0);
+    assert(ht->cap == INITIAL_CAP);
+
+    r = hash_add(ht, strdup("foo"), "bar");
+    assert(r == 0);
+    assert(ht->len == 1);
+    assert(ht->cap == INITIAL_CAP);
+
+    r = hash_add(ht, strdup("bar"), "baz");
+    assert(r == 0);
+    assert(ht->len == 2);
+    assert(ht->cap == INITIAL_CAP);
+
+    r = hash_add(ht, strdup("foo"), "foobar");
+    assert(r == 0);
+    assert(ht->len == 2);
+    assert(ht->cap == INITIAL_CAP);
+
+    char *key_copy = strdup("foo");
+    r = hash_add_unique(ht, key_copy, "oops");
+    assert(r == -EEXIST);
+    assert(ht->len == 2);
+    assert(ht->cap == INITIAL_CAP);
+    free(key_copy);
+
+    for (uint32_t i = 0; i < 20; i++) {
+        char k[3];
+        snprintf(k, 3, "%d", i);
+        r = hash_add(ht, strdup(k), k);
+        assert(r == 0);
+        assert(ht->len == 2 + i + 1);
+    }
+    assert(ht->cap == 2 * INITIAL_CAP);
+
+    const char *v;
+
+    v = hash_find(ht, "bar");
+    assert(v != NULL);
+    assert(streq(v, "baz"));
+
+    v = hash_find(ht, "non-existent-key");
+    assert(v == NULL);
+
+    r = hash_del(ht, "foo");
+    assert(r == 0);
+    assert(ht->len == 21);
+
+    r = hash_del(ht, "non-existent-key");
+    assert(r == -ENOENT);
+    assert(ht->len == 21);
+
+    r = hash_del(ht, "bar");
+    assert(r == 0);
+    assert(ht->len == 20);
+
+    for (uint32_t i = 0; i < 20; i++) {
+        char k[3];
+        snprintf(k, 3, "%d", i);
+
+        r = hash_del(ht, k);
+        assert(r == 0);
+        assert(ht->len == 20 - i - 1);
+    }
+
+    assert(ht->len == 0);
+
+    hash_unref(ht);
+}
