@@ -54,10 +54,8 @@ static ALWAYS_INLINE uint32_t no_tombstone(uint32_t hash)
 {
     /* The tophash is calculated by masking the least significant 8 bits of
      * a 32-bit hash.  A tophash of 0 is used as a "slot is free" marker,
-     * so unconditionally set the least significant bit of a hash,
-     * regardless of how it was computed, to ensure that it's not a
-     * tombstone value. */
-    return ((uint8_t)hash == '\0') ? hash ^ 0xa5 : hash;
+     * so change that byte if it's 0. */
+    return ((uint8_t)hash == '\0') ? hash | 0xa5 : hash;
 }
 
 static uint32_t hash_str_fnv1a(const void *key)
