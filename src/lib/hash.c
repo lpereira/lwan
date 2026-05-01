@@ -476,7 +476,12 @@ int hash_del(struct hash *ht, const void *key)
         ht->free_value((void *)ht->buckets[slot].value);
         ht->len--;
 
-        /* FIXME: check if table can be shrunk! */
+        if (ht->cap > INITIAL_CAP && ht->len < ht->cap / 2) {
+            int r = hash_resize(ht, ht->cap / 2);
+            if (UNLIKELY(r < 0)) {
+                return r;
+            }
+        }
         return 0;
     }
 
