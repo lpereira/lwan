@@ -352,6 +352,51 @@ hash_find_probe(const struct hash *ht, const void *key, uint32_t *out_slot)
     return hash_find_probe_hash(ht, key, out_slot, hash, hash & 0xff);
 }
 
+static int hash_resize(struct hash *ht, uint32_t newcap)
+{
+    struct bucket *newbuckets;
+    struct hash clone = *ht;
+    uint8_t *newtophashes;
+    struct hash_iter iter;
+    const void *k, *v;
+
+    if (UNLIKELY(ht->len >= newcap)) {
+        return -ENOSPC;
+    }
+
+    newtophashes = calloc(newcap, 1);
+    if (!newtophashes) {
+        return -ENOMEM;
+    }
+
+    newbuckets = calloc(newcap, sizeof(struct bucket));
+    if (!newbuckets) {
+        free(newtophashes);
+        return -ENOMEM;
+    }
+
+    clone.tophashes = newtophashes;
+    clone.buckets = newbuckets;
+    clone.len = 0;
+    clone.cap = newcap;
+
+    hash_iter_init(ht, &iter);
+    while (hash_iter_next(&iter, &k, &v)) {
+        int r = hash_add(&clone, k, v);
+        if (UNLIKELY(r < 0)) {
+            free(newtophashes);
+            free(newbuckets);
+            return r;
+        }
+    }
+
+    free(ht->tophashes);
+    free(ht->buckets);
+    *ht = clone;
+
+    return 0;
+}
+
 static int hash_add_internal(struct hash *ht,
                              const void *key,
                              const void *value,
@@ -394,20 +439,11 @@ static int hash_add_internal(struct hash *ht,
             uint32_t newcap;
             if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap)))
                 return -ENOMEM;
-            ht->cap = newcap;
 
-            uint8_t *newtophashes =
-                reallocarray(ht->tophashes, ht->cap, sizeof(uint8_t));
-            if (UNLIKELY(!newtophashes))
-                return -errno;
-            ht->tophashes = newtophashes;
-            memset(ht->tophashes + ht->len, '\0', ht->len);
-
-            struct bucket *newbuckets =
-                reallocarray(ht->buckets, ht->cap, sizeof(struct bucket));
-            if (UNLIKELY(!newbuckets))
-                return -errno;
-            ht->buckets = newbuckets;
+            int r = hash_resize(ht, newcap);
+            if (UNLIKELY(r < 0)) {
+                return r;
+            }
 
             goto find_tombstone;
         } else {
