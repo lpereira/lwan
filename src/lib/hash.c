@@ -556,6 +556,22 @@ LWAN_SELF_TEST(hash_table)
     assert(ht->cap == INITIAL_CAP);
     free(key_copy);
 
+    struct hash_iter iter;
+    hash_iter_init(ht, &iter);
+    const void *key, *value;
+    bool has_foo = false, has_bar = false;
+    while (hash_iter_next(&iter, &key, &value)) {
+        if (!has_foo && streq((char *)key, "foo") && streq((char *)value, "foobar")) {
+            has_foo = true;
+        } else if (!has_bar && streq((char *)key, "bar") && streq((char *)value, "baz")) {
+            has_bar = true;
+        } else {
+            assert(0 && "Unreachable");
+        }
+    }
+    assert(has_foo);
+    assert(has_bar);
+
     for (uint32_t i = 0; i < 20; i++) {
         char k[3];
         snprintf(k, 3, "%d", i);
@@ -594,8 +610,13 @@ LWAN_SELF_TEST(hash_table)
         assert(r == 0);
         assert(ht->len == 20 - i - 1);
     }
-
     assert(ht->len == 0);
+
+    hash_iter_init(ht, &iter);
+    uint32_t count = 0;
+    while (hash_iter_next(&iter, NULL, NULL))
+        count++;
+    assert(count == ht->len);
 
     hash_unref(ht);
 }
