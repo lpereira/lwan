@@ -426,15 +426,7 @@ static int hash_add_internal(struct hash *ht,
         }
     } else {
         /* Probing hasn't found an element; look for an empty space. */
-    find_tombstone:
-        if (!hash_find_probe_hash(ht, key, &slot, hash, '\0')) {
-            ht->tophashes[slot] = tophash;
-            ht->buckets[slot] = (struct bucket){
-                .key = key,
-                .value = value,
-            };
-            ht->len++;
-        } else if (ht->len == ht->cap) {
+        if (ht->len == ht->cap) {
             /* No space in the current table; try making some more */
             uint32_t newcap;
             if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap)))
@@ -444,8 +436,15 @@ static int hash_add_internal(struct hash *ht,
             if (UNLIKELY(r < 0)) {
                 return r;
             }
+        }
 
-            goto find_tombstone;
+        if (LIKELY(!hash_find_probe_hash(ht, key, &slot, hash, '\0'))) {
+            ht->tophashes[slot] = tophash;
+            ht->buckets[slot] = (struct bucket){
+                .key = key,
+                .value = value,
+            };
+            ht->len++;
         } else {
             lwan_status_critical("Couldn't find tombstone in hash table");
             __builtin_unreachable();
