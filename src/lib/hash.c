@@ -202,7 +202,6 @@ LWAN_CONSTRUCTOR(detect_crc32, 65534)
 {
     __builtin_cpu_init();
     if (__builtin_cpu_supports("sse4.2")) {
-        lwan_status_info("using crc32c instruction for hashes");
         hash_str = hash_str_crc32;
         hash_int = hash_int_crc32;
         hash_int64 = hash_int64_crc32;
