@@ -315,7 +315,7 @@ static int hash_find_probe_half(const struct hash *ht,
 
     while (slotptr) {
         uint32_t slot = (uint32_t)(slotptr - ht->tophashes);
-        if (tophash == 0 || ht->key_equal(ht->buckets[slot].key, key)) {
+        if (LIKELY(tophash == 0 || ht->key_equal(ht->buckets[slot].key, key))) {
             *out_slot = slot;
             return 0;
         }
@@ -364,12 +364,12 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
     }
 
     newtophashes = calloc(newcap, 1);
-    if (!newtophashes) {
+    if (UNLIKELY(!newtophashes)) {
         return -ENOMEM;
     }
 
     newbuckets = calloc(newcap, sizeof(struct bucket));
-    if (!newbuckets) {
+    if (UNLIKELY(!newbuckets)) {
         free(newtophashes);
         return -ENOMEM;
     }
@@ -428,8 +428,9 @@ static int hash_add_internal(struct hash *ht,
         if (ht->len == ht->cap) {
             /* No space in the current table; try making some more */
             uint32_t newcap;
-            if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap)))
+            if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap))) {
                 return -ENOMEM;
+            }
 
             int r = hash_resize(ht, newcap);
             if (UNLIKELY(r < 0)) {
