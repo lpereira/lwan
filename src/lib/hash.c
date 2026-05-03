@@ -634,6 +634,8 @@ LWAN_SELF_TEST(hash_table)
     }
     assert(count == ht->len);
 
+    assert(ht->cap == INITIAL_CAP);
+
     hash_unref(ht);
 }
 #endif
