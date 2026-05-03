@@ -2,11 +2,14 @@ if (CMAKE_CROSSCOMPILING)
 	set(IMPORT_EXECUTABLES "IMPORTFILE-NOTFILE" CACHE FILEPATH "Point it to the export file from a native build")
 	include(${IMPORT_EXECUTABLES})
 else ()
+	add_definitions(-DNO_CORO)
+
 	add_executable(mimegen
 		mimegen.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
-		${CMAKE_SOURCE_DIR}/src/lib/missing.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-array.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
+		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 	if (LWAN_HAVE_BROTLI)
 		message(STATUS "Using Brotli for mimegen")

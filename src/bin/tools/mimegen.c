@@ -44,6 +44,9 @@
 #endif
 
 #include "../../lib/hash.h"
+#include "../../lib/lwan-array.h"
+
+DEFINE_ARRAY_TYPE(exts, const char *)
 
 struct output {
     char *ptr;
@@ -196,8 +199,8 @@ int main(int argc, char *argv[])
     size_t compressed_size;
     char *compressed, *ext;
     struct hash *ext_mime;
-    struct hash_iter iter;
-    const char **exts, *key;
+    const char *key;
+    struct exts exts;
     size_t i;
 
     if (argc < 2) {
@@ -300,16 +303,12 @@ int main(int argc, char *argv[])
     }
 
     /* Get sorted list of extensions. */
-    exts = calloc(hash_get_count(ext_mime), sizeof(char *));
-    if (!exts) {
-        fprintf(stderr, "Could not allocate extension array\n");
-        fclose(fp);
-        return 1;
+    exts_init(&exts);
+
+    HASH_FOREACH(ext_mime, (const void **)&key, NULL) {
+        *exts_append(&exts) = key;
     }
-    iter = hash_iter(ext_mime);
-    for (i = 0; hash_iter_next(&iter, (const void **)&key, NULL); i++)
-        exts[i] = key;
-    qsort(exts, hash_get_count(ext_mime), sizeof(char *), compare_ext);
+    exts_sort(&exts, compare_ext);
 
     /* Generate uncompressed blob. */
     output.ptr = malloc(output.capacity);
@@ -325,7 +324,7 @@ int main(int argc, char *argv[])
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
         /* See lwan_determine_mime_type_for_file_name() in lwan-tables.c */
-        strncpy((char *)&ext_lower, exts[i], 8);
+        strncpy((char *)&ext_lower, *exts_get_elem(&exts, i), 8);
 #pragma GCC diagnostic pop
 
         ext_lower &= ~0x2020202020202020ull;
@@ -337,11 +336,11 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        if (bin_index < 0 && streq(exts[i], "bin"))
+        if (bin_index < 0 && streq(*exts_get_elem(&exts, i), "bin"))
             bin_index = (ssize_t)i;
     }
     for (i = 0; i < hash_get_count(ext_mime); i++) {
-        if (output_append(&output, hash_find(ext_mime, exts[i])) < 0) {
+        if (output_append(&output, hash_find(ext_mime, *exts_get_elem(&exts, i))) < 0) {
             fprintf(stderr, "Could not append to output\n");
             fclose(fp);
             return 1;
@@ -383,7 +382,7 @@ int main(int argc, char *argv[])
     printf("#define MIME_ENTRIES %d\n", hash_get_count(ext_mime));
     printf("#define MIME_ENTRIES_FLOOR %d\n", entries_floor);
     printf("#define MIME_ENTRY_FALLBACK %ld\n", bin_index);
-    printf("#define MIME_EXT_FALLBACK \".%s\"\n", exts[bin_index]);
+    printf("#define MIME_EXT_FALLBACK \".%s\"\n", *exts_get_elem(&exts, (size_t)bin_index));
     printf("static const unsigned char mime_entries_compressed[] = {\n");
     for (i = 1; compressed_size; compressed_size--, i++)
         printf("0x%02x,%c", compressed[i - 1] & 0xff, " \n"[i % 13 == 0]);
@@ -391,7 +390,7 @@ int main(int argc, char *argv[])
 
     free(compressed);
     free(output.ptr);
-    free(exts);
+    exts_reset(&exts);
     hash_unref(ext_mime);
     fclose(fp);
 

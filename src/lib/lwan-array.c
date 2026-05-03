@@ -109,6 +109,7 @@ void lwan_array_sort(struct lwan_array *a,
         qsort(a->base, a->elements, element_size, cmp);
 }
 
+#ifndef NO_CORO
 static void coro_lwan_array_free_heap(void *data)
 {
     struct lwan_array *array = data;
@@ -141,3 +142,4 @@ struct lwan_array *coro_lwan_array_new(struct coro *coro,
 
     return array;
 }
+#endif
