@@ -972,10 +972,6 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
         allow_bind_for_listener(l->config.tls_listener);
     if (l->config.listener)
         allow_bind_for_listener(l->config.listener);
-
-    if (!lwan_landlock_enforce()) {
-        lwan_status_critical("Could not enable Landlock");
-    }
 #endif
 
     if (!l->config.n_threads) {
@@ -1043,6 +1039,13 @@ void lwan_shutdown(struct lwan *l)
 
 void lwan_main_loop(struct lwan *l __attribute__((unused)))
 {
+#if defined(LWAN_HAVE_LANDLOCK)
+    if (!lwan_landlock_enforce()) {
+        lwan_status_critical("Could not enable Landlock");
+    }
+#endif
+    pthread_barrier_wait(&l->thread.barrier);
+
     lwan_status_info("Ready to serve");
 
     lwan_job_thread_main_loop();

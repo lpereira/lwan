@@ -1690,6 +1690,9 @@ void lwan_thread_init(struct lwan *l)
         schedtbl = NULL;
     }
 
+    if (pthread_barrier_init(&l->thread.barrier, NULL, l->thread.count + 1))
+        lwan_status_critical("Could not create barrier");
+
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *thread;
 
@@ -1717,9 +1720,6 @@ void lwan_thread_init(struct lwan *l)
             thread = &l->thread.threads[i];
         }
 
-        if (pthread_barrier_init(&l->thread.barrier, NULL, 2))
-            lwan_status_critical("Could not create barrier");
-
         create_thread(l, thread);
 
         if ((thread->listen_fd = create_listen_socket(thread, i, false)) < 0)
@@ -1736,8 +1736,6 @@ void lwan_thread_init(struct lwan *l)
 
         if (schedtbl)
             adjust_thread_affinity(thread);
-
-        pthread_barrier_wait(&l->thread.barrier);
     }
 
     lwan_status_debug("Worker threads created and ready to serve");
