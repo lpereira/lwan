@@ -87,7 +87,6 @@ static bool hash_str_eq(const void *k1, const void *k2)
 
 static uint32_t hash_int_fnv1a(const void *key)
 {
-    assert(key != NULL);
     int k = (int)(intptr_t)key;
     return fnv1a_32(&k, sizeof(k));
 }
