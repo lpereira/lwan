@@ -152,13 +152,20 @@ static uint32_t hash_crc32(const void *ptr, size_t len)
         p += 4;
         len -= 4;
     }
-    if (len >= 2) {
-        hash = __builtin_ia32_crc32hi(hash, string_as_uint16(p));
-        p += 2;
-        len -= 2;
-    }
-    if (len)
+    if (len & 1) {
+        /* If we have 1 or 3 bytes left */
         hash = __builtin_ia32_crc32qi(hash, (uint8_t)*p);
+        p++;
+        len--;
+    }
+    if (len) {
+        /*
+         * If len was 3 in the previous check, len will be 2 here.
+         * If len was 2 in the previous check, len will be 2 here.
+         * If len was 1 in the previous check, this block won't be executed.
+         */
+        hash = __builtin_ia32_crc32hi(hash, string_as_uint16(p));
+    }
 
     return hash;
 }
