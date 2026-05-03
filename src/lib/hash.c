@@ -67,12 +67,9 @@ LWAN_CONSTRUCTOR(randomize_seed, 65535)
     fnv1a_64_seed = fnv1a_64(entropy, sizeof(entropy));
 }
 
-static ALWAYS_INLINE uint32_t no_tombstone(uint32_t hash)
+static ALWAYS_INLINE uint8_t no_tombstone(uint8_t tophash)
 {
-    /* The tophash is calculated by masking the least significant 8 bits of
-     * a 32-bit hash.  A tophash of 0 is used as a "slot is free" marker,
-     * so change that byte if it's 0. */
-    return ((uint8_t)hash == '\0') ? hash | 0xa5 : hash;
+    return (tophash == '\0') ? 0xa5 : tophash;
 }
 
 static uint32_t hash_str_fnv1a(const void *key)
@@ -347,8 +344,9 @@ static int hash_find_probe_hash(const struct hash *ht,
 static int
 hash_find_probe(const struct hash *ht, const void *key, uint32_t *out_slot)
 {
-    const uint32_t hash = no_tombstone(ht->hash(key));
-    return hash_find_probe_hash(ht, key, out_slot, hash, hash & 0xff);
+    const uint32_t hash = ht->hash(key);
+    return hash_find_probe_hash(ht, key, out_slot, hash,
+                                no_tombstone(hash & 0xff));
 }
 
 static int hash_resize(struct hash *ht, uint32_t newcap)
@@ -401,8 +399,8 @@ static int hash_add_internal(struct hash *ht,
                              const void *value,
                              bool unique)
 {
-    const uint32_t hash = no_tombstone(ht->hash(key));
-    uint8_t tophash = hash & 0xff;
+    const uint32_t hash = ht->hash(key);
+    uint8_t tophash = no_tombstone(hash & 0xff);
     uint32_t slot;
 
     if (!hash_find_probe_hash(ht, key, &slot, hash, tophash)) {
