@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan.h"
+#include "lwan-private.h"
 #include "lwan-cache.h"
 #include "lwan-mod-serve-files.h"
 #include "lwan-template.h"
@@ -407,6 +407,9 @@ int main(void)
         compile_template(csv_template_str, "application/csv; charset=UTF-8");
     struct template_mime xml_tpl =
         compile_template(xml_template_str, "text/plain; charset=UTF-8");
+
+    if (!lwan_straitjacket_allow_dir_path_rw("./db/"))
+        lwan_status_critical("Can't allow access to IPDB database directory");
 
     int result =
         sqlite3_open_v2("./db/ipdb.sqlite", &db, SQLITE_OPEN_READONLY, NULL);
