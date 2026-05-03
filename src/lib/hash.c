@@ -314,6 +314,11 @@ static int hash_find_probe_half(const struct hash *ht,
                                 uint32_t endpos,
                                 uint8_t tophash)
 {
+    /* FIXME: While using memchr() here is fine (and portable), the second call
+     * to memchr() in the presence of a collision won't reuse the memory load
+     * the first memchr() made (plus all the work to establish comparison masks
+     * and other stuff that might be necessary for a SIMD implementation).
+     * Rewrite this so this used SIMD intrinsics directly. */
     uint8_t *slotptr =
         memchr(ht->tophashes + startpos, tophash, endpos - startpos);
 
@@ -323,9 +328,6 @@ static int hash_find_probe_half(const struct hash *ht,
             *out_slot = slot;
             return 0;
         }
-
-        /* tophash matches, but key is different. Try looking for the next
-         * tophash! */
         slotptr = memchr(slotptr + 1, tophash, endpos - slot - 1);
     }
 
