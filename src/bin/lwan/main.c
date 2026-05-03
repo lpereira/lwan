@@ -147,6 +147,12 @@ print_build_time_configuration(void)
     printf(" landlock");
 #endif
 
+#if defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
+    printf(" hash-crc32");
+#else
+    printf(" hash-fnv1a");
+#endif
+
     printf(".\n");
 }
 
