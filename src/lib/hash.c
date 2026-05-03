@@ -398,7 +398,9 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
 
     free(ht->tophashes);
     free(ht->buckets);
-    *ht = clone;
+    ht->tophashes = newtophashes;
+    ht->buckets = newbuckets;
+    ht->cap = newcap;
 
     return 0;
 }
