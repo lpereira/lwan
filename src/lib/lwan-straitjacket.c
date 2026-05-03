@@ -477,25 +477,22 @@ static void abort_on_open_directories(void)
 static void abort_on_open_directories(void) {}
 #endif
 
-static void enforce_user(const struct lwan_straitjacket *sj)
+static bool
+lookup_user(const struct lwan_straitjacket *sj, uid_t *uid, gid_t *gid)
 {
-    uid_t uid = 0;
-    gid_t gid = 0;
-    bool got_uid_gid = false;
+    *uid = 0;
+    *gid = 0;
 
     if (!sj->user_name)
-        return;
+        return false;
 
     if (sj->user_name && *sj->user_name) {
-        if (!get_user_uid_gid(sj->user_name, &uid, &gid))
+        if (!get_user_uid_gid(sj->user_name, uid, gid))
             lwan_status_critical("Unknown user: %s", sj->user_name);
-        got_uid_gid = true;
+        return true;
     }
 
-    if (got_uid_gid && !switch_to_user(uid, gid, sj->user_name)) {
-        lwan_status_critical("Could not drop privileges to %s, aborting",
-                             sj->user_name);
-    }
+    return false;
 }
 
 static void enforce_chroot(const struct lwan_straitjacket *sj)
@@ -521,10 +518,21 @@ static void enforce_chroot(const struct lwan_straitjacket *sj)
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 {
-    enforce_user(sj);
+    uid_t uid;
+    gid_t gid;
+    bool got_user = lookup_user(sj, &uid, &gid);
 
-    if (!lwan_landlock_available())
+    if (!lwan_landlock_available()) {
         enforce_chroot(sj);
+    }
+
+    if (got_user) {
+        if (!switch_to_user(uid, gid, sj->user_name)) {
+            lwan_status_critical("Could not change to user %s, aborting",
+                                 sj->user_name);
+            __builtin_unreachable();
+        }
+    }
 
     if (sj->drop_capabilities) {
         struct __user_cap_header_struct header = {
