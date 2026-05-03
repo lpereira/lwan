@@ -363,6 +363,8 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
     uint8_t *newtophashes;
     const void *k, *v;
 
+    assert(ht->cap != newcap);
+
     if (UNLIKELY(ht->len >= newcap)) {
         return -ENOSPC;
     }
@@ -391,6 +393,8 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
             return r;
         }
     }
+
+    assert(ht->len == clone.len);
 
     free(ht->tophashes);
     free(ht->buckets);
