@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
         fclose(fp);
         return 1;
     }
-    hash_iter_init(ext_mime, &iter);
+    iter = hash_iter(ext_mime);
     for (i = 0; hash_iter_next(&iter, (const void **)&key, NULL); i++)
         exts[i] = key;
     qsort(exts, hash_get_count(ext_mime), sizeof(char *), compare_ext);

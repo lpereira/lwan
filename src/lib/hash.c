@@ -292,11 +292,9 @@ void hash_unref(struct hash *ht)
 {
     ht->refs--;
     if (ht->refs == 0) {
-        struct hash_iter iter;
         const void *key, *value;
 
-        hash_iter_init(ht, &iter);
-        while (hash_iter_next(&iter, &key, &value)) {
+        HASH_FOREACH(ht, &key, &value) {
             ht->free_key((void *)key);
             ht->free_value((void *)value);
         }
@@ -363,7 +361,6 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
     struct bucket *newbuckets;
     struct hash clone = *ht;
     uint8_t *newtophashes;
-    struct hash_iter iter;
     const void *k, *v;
 
     if (UNLIKELY(ht->len >= newcap)) {
@@ -386,8 +383,7 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
     clone.len = 0;
     clone.cap = newcap;
 
-    hash_iter_init(ht, &iter);
-    while (hash_iter_next(&iter, &k, &v)) {
+    HASH_FOREACH(ht, &k, &v) {
         int r = hash_add(&clone, k, v);
         if (UNLIKELY(r < 0)) {
             free(newtophashes);
@@ -505,10 +501,12 @@ void *hash_find(const struct hash *ht, const void *key)
 
 uint32_t hash_get_count(const struct hash *ht) { return ht->len; }
 
-void hash_iter_init(const struct hash *ht, struct hash_iter *iter)
+struct hash_iter hash_iter(const struct hash *ht)
 {
-    iter->ht = ht;
-    iter->index = 0;
+    return (struct hash_iter){
+        .ht = ht,
+        .index = 0,
+    };
 }
 
 bool hash_iter_next(struct hash_iter *iter,
@@ -562,11 +560,10 @@ LWAN_SELF_TEST(hash_table)
     assert(ht->cap == INITIAL_CAP);
     free(key_copy);
 
-    struct hash_iter iter;
-    hash_iter_init(ht, &iter);
     const void *key, *value;
     bool has_foo = false, has_bar = false;
-    while (hash_iter_next(&iter, &key, &value)) {
+    uint32_t count = 0;
+    HASH_FOREACH(ht, &key, &value) {
         if (!has_foo && streq((char *)key, "foo") && streq((char *)value, "foobar")) {
             has_foo = true;
         } else if (!has_bar && streq((char *)key, "bar") && streq((char *)value, "baz")) {
@@ -574,9 +571,11 @@ LWAN_SELF_TEST(hash_table)
         } else {
             assert(0 && "Unreachable");
         }
+        count++;
     }
     assert(has_foo);
     assert(has_bar);
+    assert(count == ht->len);
 
     for (uint32_t i = 0; i < 20; i++) {
         char k[3];
@@ -586,6 +585,12 @@ LWAN_SELF_TEST(hash_table)
         assert(ht->len == 2 + i + 1);
     }
     assert(ht->cap == 2 * INITIAL_CAP);
+
+    count = 0;
+    HASH_FOREACH(ht, &key, &value) {
+        count++;
+    }
+    assert(count == ht->len);
 
     const char *v;
 
@@ -618,10 +623,10 @@ LWAN_SELF_TEST(hash_table)
     }
     assert(ht->len == 0);
 
-    hash_iter_init(ht, &iter);
-    uint32_t count = 0;
-    while (hash_iter_next(&iter, NULL, NULL))
+    count = 0;
+    HASH_FOREACH(ht, NULL, NULL) {
         count++;
+    }
     assert(count == ht->len);
 
     hash_unref(ht);

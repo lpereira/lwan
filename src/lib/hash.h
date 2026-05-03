@@ -34,10 +34,17 @@ int hash_add_unique(struct hash *hash, const void *key, const void *value);
 int hash_del(struct hash *hash, const void *key);
 void *hash_find(const struct hash *hash, const void *key);
 uint32_t hash_get_count(const struct hash *hash);
-void hash_iter_init(const struct hash *hash, struct hash_iter *iter);
+
+struct hash_iter hash_iter(const struct hash *hash);
 bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value);
+
+#define HASH_FOREACH_IMPL(hash_, iter_, key_, value_)                          \
+    for (struct hash_iter iter_ = hash_iter(hash_);                            \
+         hash_iter_next(&iter_, (key_), (value_));)
+#define HASH_FOREACH(hash_, key_, value_)                                      \
+    HASH_FOREACH_IMPL(hash_, LWAN_TMP_ID, key_, value_)
 
 static inline uint64_t fnv1a_64(const void *buffer, size_t len)
 {
