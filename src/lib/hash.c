@@ -158,8 +158,7 @@ static uint32_t hash_crc32(const void *ptr, size_t len)
         len--;
     }
     if (len) {
-        /*
-         * If len was 3 in the previous check, len will be 2 here.
+        /* If len was 3 in the previous check, len will be 2 here.
          * If len was 2 in the previous check, len will be 2 here.
          * If len was 1 in the previous check, this block won't be executed.
          */
@@ -484,10 +483,10 @@ int hash_del(struct hash *ht, const void *key)
         ht->len--;
 
         if (ht->cap > INITIAL_CAP && ht->len < ht->cap / 2) {
-            int r = hash_resize(ht, ht->cap / 2);
-            if (UNLIKELY(r < 0)) {
-                return r;
-            }
+            /* Failure to resize to reduce the table won't leave it
+             * in an inconsistent state, so don't propagate the error.
+             */
+            hash_resize(ht, ht->cap / 2);
         }
         return 0;
     }
