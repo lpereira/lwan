@@ -959,6 +959,9 @@ config_init_data(struct config *config, const void *data, size_t len)
     config->opened_brackets = 0;
 
     config->constants = hash_str_new(free, free);
+    if (!config->constants) {
+        return NULL;
+    }
 
     lwan_strbuf_init(&config->parser.strbuf);
     config_ring_buffer_init(&config->parser.items);
