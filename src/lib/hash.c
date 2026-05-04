@@ -282,12 +282,17 @@ struct hash *hash_lwan_value_new(void (*free_key)(void *key),
 
 struct hash *hash_ref(struct hash *ht)
 {
-    ht->refs++;
+    if (ht) {
+        ht->refs++;
+    }
     return ht;
 }
 
 void hash_unref(struct hash *ht)
 {
+    if (!ht) {
+        return;
+    }
     ht->refs--;
     if (ht->refs == 0) {
         const void *key, *value;
@@ -368,7 +373,6 @@ static int hash_probe_tombstone(const struct hash *ht,
                                 uint32_t *out_slot,
                                 uint32_t startpos)
 {
-
     if (!hash_probe_half_tombstone(ht, key, out_slot, startpos, ht->cap) ||
         !hash_probe_half_tombstone(ht, key, out_slot, 0, startpos)) {
         return 0;
