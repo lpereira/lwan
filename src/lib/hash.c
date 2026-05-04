@@ -349,14 +349,12 @@ static int hash_probe_half_tombstone(const struct hash *ht,
     return -ENOENT;
 }
 
-static int hash_probe_hash(const struct hash *ht,
-                           const void *key,
-                           uint32_t *out_slot,
-                           uint32_t hash,
-                           uint8_t tophash)
+static int hash_probe_startpos(const struct hash *ht,
+                               const void *key,
+                               uint32_t *out_slot,
+                               uint32_t startpos,
+                               uint8_t tophash)
 {
-    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-
     if (!hash_probe_half(ht, key, out_slot, startpos, ht->cap, tophash) ||
         !hash_probe_half(ht, key, out_slot, 0, startpos, tophash)) {
         return 0;
@@ -368,9 +366,8 @@ static int hash_probe_hash(const struct hash *ht,
 static int hash_probe_tombstone(const struct hash *ht,
                                 const void *key,
                                 uint32_t *out_slot,
-                                uint32_t hash)
+                                uint32_t startpos)
 {
-    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
 
     if (!hash_probe_half_tombstone(ht, key, out_slot, startpos, ht->cap) ||
         !hash_probe_half_tombstone(ht, key, out_slot, 0, startpos)) {
@@ -384,7 +381,9 @@ static int
 hash_probe(const struct hash *ht, const void *key, uint32_t *out_slot)
 {
     const uint32_t hash = ht->hash(key);
-    return hash_probe_hash(ht, key, out_slot, hash, no_tombstone(hash & 0xff));
+    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
+    return hash_probe_startpos(ht, key, out_slot, startpos,
+                               no_tombstone(hash & 0xff));
 }
 
 static int hash_resize(struct hash *ht, uint32_t newcap)
@@ -442,12 +441,12 @@ static int hash_add_internal(struct hash *ht,
                              bool unique)
 {
     const uint32_t hash = ht->hash(key);
+    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
     uint8_t tophash = no_tombstone(hash & 0xff);
     uint32_t slot;
 
-    if (!hash_probe_hash(ht, key, &slot, hash, tophash)) {
+    if (!hash_probe_startpos(ht, key, &slot, startpos, tophash)) {
         /* Probing found an element in the table with this key already. */
-
         if (unique) {
             /* Can't replace it, though! */
             return -EEXIST;
@@ -478,7 +477,7 @@ static int hash_add_internal(struct hash *ht,
             }
         }
 
-        if (LIKELY(!hash_probe_tombstone(ht, key, &slot, hash))) {
+        if (LIKELY(!hash_probe_tombstone(ht, key, &slot, startpos))) {
             ht->tophashes[slot] = tophash;
             ht->buckets[slot] = (struct bucket){
                 .key = key,
