@@ -292,7 +292,7 @@ void hash_unref(struct hash *ht)
     if (ht->refs == 0) {
         const void *key, *value;
 
-        HASH_FOREACH(ht, &key, &value) {
+        HASH_FOREACH (ht, &key, &value) {
             ht->free_key((void *)key);
             ht->free_value((void *)value);
         }
@@ -383,7 +383,7 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
     clone.len = 0;
     clone.cap = newcap;
 
-    HASH_FOREACH(ht, &k, &v) {
+    HASH_FOREACH (ht, &k, &v) {
         int r = hash_add(&clone, k, v);
         if (UNLIKELY(r < 0)) {
             free(newtophashes);
@@ -567,10 +567,12 @@ LWAN_SELF_TEST(hash_table)
     const void *key, *value;
     bool has_foo = false, has_bar = false;
     uint32_t count = 0;
-    HASH_FOREACH(ht, &key, &value) {
-        if (!has_foo && streq((char *)key, "foo") && streq((char *)value, "foobar")) {
+    HASH_FOREACH (ht, &key, &value) {
+        if (!has_foo && streq((char *)key, "foo") &&
+            streq((char *)value, "foobar")) {
             has_foo = true;
-        } else if (!has_bar && streq((char *)key, "bar") && streq((char *)value, "baz")) {
+        } else if (!has_bar && streq((char *)key, "bar") &&
+                   streq((char *)value, "baz")) {
             has_bar = true;
         } else {
             assert(0 && "Unreachable");
@@ -591,7 +593,7 @@ LWAN_SELF_TEST(hash_table)
     assert(ht->cap == 2 * INITIAL_CAP);
 
     count = 0;
-    HASH_FOREACH(ht, &key, &value) {
+    HASH_FOREACH (ht, &key, &value) {
         count++;
     }
     assert(count == ht->len);
@@ -628,7 +630,7 @@ LWAN_SELF_TEST(hash_table)
     assert(ht->len == 0);
 
     count = 0;
-    HASH_FOREACH(ht, NULL, NULL) {
+    HASH_FOREACH (ht, NULL, NULL) {
         count++;
     }
     assert(count == ht->len);

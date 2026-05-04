@@ -68,6 +68,7 @@ ForEachMacros:
   - STRING_SWITCH_LARGE_L
   - STRING_SWITCH_SMALL
   - STRING_SWITCH_SMALL_L
+  - HASH_FOREACH
 IncludeCategories: 
   - Regex:           '^"lwan-.*'
     Priority:        2
