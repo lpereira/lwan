@@ -9,7 +9,7 @@ struct hash;
 
 struct hash_iter {
     const struct hash *ht;
-    size_t index;
+    uint32_t slot;
 };
 
 struct hash *hash_int_new(void (*free_key)(void *value),
@@ -26,16 +26,21 @@ struct hash *hash_custom_new(unsigned (*hash_value)(const void *key),
                              void (*free_key)(void *value),
                              void (*free_value)(void *value));
 
-struct hash *hash_ref(struct hash *hash);
-void hash_unref(struct hash *hash);
+struct hash *hash_ref(struct hash *ht);
+void hash_unref(struct hash *ht);
 
-int hash_add(struct hash *hash, const void *key, const void *value);
-int hash_add_unique(struct hash *hash, const void *key, const void *value);
-int hash_del(struct hash *hash, const void *key);
-void *hash_find(const struct hash *hash, const void *key);
-uint32_t hash_get_count(const struct hash *hash);
+int hash_add(struct hash *ht, const void *key, const void *value);
+int hash_add_unique(struct hash *ht, const void *key, const void *value);
+int hash_del(struct hash *ht, const void *key);
+void *hash_find(const struct hash *ht, const void *key);
+uint32_t hash_get_count(const struct hash *ht);
 
-struct hash_iter hash_iter(const struct hash *hash);
+static inline struct hash_iter hash_iter(const struct hash *ht) {
+    return (struct hash_iter){
+        .ht = hash,
+        .slot = 0,
+    };
+}
 bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value);

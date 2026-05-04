@@ -540,27 +540,22 @@ void *hash_find(const struct hash *ht, const void *key)
 
 uint32_t hash_get_count(const struct hash *ht) { return ht->len; }
 
-struct hash_iter hash_iter(const struct hash *ht)
-{
-    return (struct hash_iter){
-        .ht = ht,
-        .index = 0,
-    };
-}
-
 bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value)
 {
-    while (iter->index < iter->ht->cap) {
-        if (iter->ht->tophashes[iter->index] == '\0') {
-            iter->index++;
+    while (iter->slot < iter->ht->cap) {
+        if (iter->ht->tophashes[iter->slot] == '\0') {
+            iter->slot++;
         } else {
-            if (key)
-                *key = iter->ht->buckets[iter->index].key;
-            if (value)
-                *value = iter->ht->buckets[iter->index].value;
-            iter->index++;
+            if (key) {
+                *key = iter->ht->buckets[iter->slot].key;
+            }
+            if (value) {
+                *value = iter->ht->buckets[iter->slot].value;
+            }
+            iter->slot++;
+
             return true;
         }
     }
