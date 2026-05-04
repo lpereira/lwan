@@ -189,6 +189,23 @@ target, which will run `testrunner` to prepare a test coverage report with
 Every commit in this repository triggers the generation of this report,
 and results are [publicly available](https://buildbot.lwan.ws/lcov/).
 
+### CMake options
+
+These options are available to configure a build.  Even if an option is
+set, it'll be checked if it can be used or not (e.g. third-party libraries
+need to be installed).
+
+| Option | Default | Description |
+|--------|---------|-------------|
+|`ENABLE_BROTLI`|`ON`|Enables Brotli compression support|
+|`ENABLE_IA32_CRC32`|`ON`|Enable Intel CRC32c instructions for hashing|
+|`ENABLE_TLS`|`OFF`|Enables kTLS (with mbedTLS) support|
+|`ENABLE_ZSTD`|`ON`|Enables Zstd compression support|
+|`MTUNE_NATIVE`|`ON`|Tune the binary for the current architecture|
+|`SANITIZER`|`none`|Select which sanitizer to use (see above)|
+|`USE_ALTERNATIVE_MALLOC`|`OFF`|Select a different `malloc()` implementation; default is to use the one from libc|
+|`USE_SYSLOG`|`OFF`|Log to syslog in addition to standard output|
+
 Running
 -------
 

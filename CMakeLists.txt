@@ -298,6 +298,11 @@ endif ()
 enable_c_flag_if_avail(-fstack-protector-explicit CMAKE_C_FLAGS
 	LWAN_HAVE_STACK_PROTECTOR_EXPLICIT)
 
+option(ENABLE_IA_CRC32 "Enable Intel CRC32c instructions for hashing" "ON")
+if (ENABLE_IA_CRC32)
+    enable_c_flag_if_avail(-mcrc32 CMAKE_C_FLAGS LWAN_HAVE_BUILTIN_IA32_CRC32)
+endif ()
+
 #
 # Check if immediate binding and read-only global offset table flags
 # can be used
@@ -326,10 +331,10 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
 	enable_c_flag_if_avail(-flto=auto C_FLAGS_REL LWAN_HAVE_LTO)
 
 	enable_c_flag_if_avail(-ffat-lto-objects C_FLAGS_REL LWAN_HAVE_LTO_FAT_OBJS)
-	enable_c_flag_if_avail(-mcrc32 C_FLAGS_REL LWAN_HAVE_BUILTIN_IA32_CRC32)
 
 	enable_c_flag_if_avail(-mtls-dialect=gnu2 C_FLAGS_REL LWAN_HAVE_GNU2_TLS_DIALECT)
 endif ()
+
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Deb")
 	option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")
