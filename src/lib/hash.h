@@ -37,7 +37,7 @@ uint32_t hash_get_count(const struct hash *ht);
 
 static inline struct hash_iter hash_iter(const struct hash *ht) {
     return (struct hash_iter){
-        .ht = hash,
+        .ht = ht,
         .slot = 0,
     };
 }
