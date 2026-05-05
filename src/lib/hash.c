@@ -308,7 +308,7 @@ void hash_unref(struct hash *ht)
     }
 }
 
-static int hash_probe_half(const struct hash *ht,
+static bool hash_probe_half(const struct hash *ht,
                            const void *key,
                            uint32_t *out_slot,
                            uint32_t startpos,
@@ -329,15 +329,15 @@ static int hash_probe_half(const struct hash *ht,
         uint32_t slot = (uint32_t)(slotptr - ht->tophashes);
         if (LIKELY(ht->key_equal(ht->buckets[slot].key, key))) {
             *out_slot = slot;
-            return 0;
+            return true;
         }
         slotptr = memchr(slotptr + 1, tophash, endpos - slot - 1);
     }
 
-    return -ENOENT;
+    return false;
 }
 
-static int hash_probe_half_tombstone(const struct hash *ht,
+static bool hash_probe_half_tombstone(const struct hash *ht,
                                      const void *key,
                                      uint32_t *out_slot,
                                      uint32_t startpos,
@@ -348,40 +348,32 @@ static int hash_probe_half_tombstone(const struct hash *ht,
 
     if (slotptr) {
         *out_slot = (uint32_t)(slotptr - ht->tophashes);
-        return 0;
+        return true;
     }
 
-    return -ENOENT;
+    return false;
 }
 
-static int hash_probe_startpos(const struct hash *ht,
-                               const void *key,
-                               uint32_t *out_slot,
-                               uint32_t startpos,
-                               uint8_t tophash)
-{
-    if (!hash_probe_half(ht, key, out_slot, startpos, ht->cap, tophash) ||
-        !hash_probe_half(ht, key, out_slot, 0, startpos, tophash)) {
-        return 0;
-    }
-
-    return -ENOENT;
-}
-
-static int hash_probe_tombstone(const struct hash *ht,
+static bool hash_probe_startpos(const struct hash *ht,
                                 const void *key,
                                 uint32_t *out_slot,
-                                uint32_t startpos)
+                                uint32_t startpos,
+                                uint8_t tophash)
 {
-    if (!hash_probe_half_tombstone(ht, key, out_slot, startpos, ht->cap) ||
-        !hash_probe_half_tombstone(ht, key, out_slot, 0, startpos)) {
-        return 0;
-    }
-
-    return -ENOENT;
+    return hash_probe_half(ht, key, out_slot, startpos, ht->cap, tophash) ||
+           hash_probe_half(ht, key, out_slot, 0, startpos, tophash);
 }
 
-static int
+static bool hash_probe_tombstone(const struct hash *ht,
+                                 const void *key,
+                                 uint32_t *out_slot,
+                                 uint32_t startpos)
+{
+    return hash_probe_half_tombstone(ht, key, out_slot, startpos, ht->cap) ||
+           hash_probe_half_tombstone(ht, key, out_slot, 0, startpos);
+}
+
+static bool
 hash_probe(const struct hash *ht, const void *key, uint32_t *out_slot)
 {
     const uint32_t hash = ht->hash(key);
@@ -449,7 +441,7 @@ static int hash_add_internal(struct hash *ht,
     uint8_t tophash = no_tombstone(hash & 0xff);
     uint32_t slot;
 
-    if (!hash_probe_startpos(ht, key, &slot, startpos, tophash)) {
+    if (hash_probe_startpos(ht, key, &slot, startpos, tophash)) {
         /* Probing found an element in the table with this key already. */
         if (unique) {
             /* Can't replace it, though! */
@@ -481,7 +473,7 @@ static int hash_add_internal(struct hash *ht,
             }
         }
 
-        if (LIKELY(!hash_probe_tombstone(ht, key, &slot, startpos))) {
+        if (LIKELY(hash_probe_tombstone(ht, key, &slot, startpos))) {
             ht->tophashes[slot] = tophash;
             ht->buckets[slot] = (struct bucket){
                 .key = key,
@@ -511,7 +503,7 @@ int hash_del(struct hash *ht, const void *key)
 {
     uint32_t slot;
 
-    if (LIKELY(!hash_probe(ht, key, &slot))) {
+    if (LIKELY(hash_probe(ht, key, &slot))) {
         /* Item found! Let's remove it by tombstoning it. */
         ht->tophashes[slot] = '\0';
         ht->free_key((void *)ht->buckets[slot].key);
@@ -534,8 +526,8 @@ void *hash_find(const struct hash *ht, const void *key)
 {
     uint32_t slot;
 
-    return LIKELY(!hash_probe(ht, key, &slot)) ? (void *)ht->buckets[slot].value
-                                               : NULL;
+    return LIKELY(hash_probe(ht, key, &slot)) ? (void *)ht->buckets[slot].value
+                                              : NULL;
 }
 
 uint32_t hash_get_count(const struct hash *ht) { return ht->len; }
