@@ -545,20 +545,23 @@ bool hash_iter_next(struct hash_iter *iter,
                     const void **value)
 {
     while (iter->slot < iter->ht->cap) {
-        if (iter->ht->tophashes[iter->slot] == '\0') {
-            iter->slot++;
-        } else {
+        const struct bucket *bucket = &iter->ht->buckets[iter->slot];
+        const uint8_t tophash = iter->ht->tophashes[iter->slot];
+
+        iter->slot++;
+
+        if (tophash != '\0') {
             if (key) {
-                *key = iter->ht->buckets[iter->slot].key;
+                *key = bucket->key;
             }
             if (value) {
-                *value = iter->ht->buckets[iter->slot].value;
+                *value = bucket->value;
             }
-            iter->slot++;
 
             return true;
         }
     }
+
     return false;
 }
 
