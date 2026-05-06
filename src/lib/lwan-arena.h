@@ -32,9 +32,12 @@ struct arena {
         void *ptr;
         size_t remaining;
     } bump_ptr_alloc;
+
+    unsigned int zero_initialize : 1;
 };
 
 void arena_init(struct arena *a);
+void arena_init0(struct arena *a);
 struct arena *coro_arena_new(struct coro *coro);
 void arena_reset(struct arena *a);
 
