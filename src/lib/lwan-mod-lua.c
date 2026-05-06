@@ -21,6 +21,7 @@
 #define _GNU_SOURCE
 #include <ctype.h>
 #include <lauxlib.h>
+#include <libgen.h>
 #include <lualib.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -260,6 +261,7 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
             lwan_status_perror("strdup");
             goto error;
         }
+        lwan_straitjacket_allow_dir_path_ro(dirname(priv->script_file));
     } else {
         lwan_status_error("No Lua script_file or script provided");
         goto error;
