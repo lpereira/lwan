@@ -331,6 +331,9 @@ static bool hash_probe_half(const struct hash *ht,
             *out_slot = slot;
             return true;
         }
+        if (UNLIKELY(endpos == slot)) {
+            break;
+        }
         slotptr = memchr(slotptr + 1, tophash, endpos - slot - 1);
     }
 
