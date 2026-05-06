@@ -23,11 +23,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lwan-arena.h"
+
 struct lwan_trie_node;
 
 struct lwan_trie {
     struct lwan_trie_node *root;
     void (*free_node)(void *data);
+    struct arena arena;
 };
 
 bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data));

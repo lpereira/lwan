@@ -41,6 +41,7 @@ bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
         return false;
     trie->root = NULL;
     trie->free_node = free_node;
+    arena_init0(&trie->arena);
     return true;
 }
 
@@ -66,13 +67,22 @@ find_leaf_with_key(struct lwan_trie_node *node, const char *key, size_t len)
 #define GET_NODE()                                                             \
     do {                                                                       \
         if (!(node = *knode)) {                                                \
-            *knode = node = lwan_aligned_alloc(sizeof(*node), 64);             \
-            if (!node)                                                         \
+            *knode = node = arena_alloc(&trie->arena, sizeof(*node));          \
+            if (UNLIKELY(!node))                                               \
                 goto oom;                                                      \
-            memset(node, 0, sizeof(*node));                                    \
         }                                                                      \
         ++node->ref_count;                                                     \
     } while (0)
+
+static char *arena_strdup(struct arena *a, const char *s)
+{
+    size_t len = strlen(s) + 1;
+    char *ptr = arena_alloc(a, len);
+    if (UNLIKELY(!ptr))
+        return NULL;
+    memcpy(ptr, s, len);
+    return ptr;
+}
 
 void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
 {
@@ -93,8 +103,8 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
         find_leaf_with_key(node, orig_key, (size_t)(key - orig_key));
     bool had_key = leaf;
     if (!leaf) {
-        leaf = lwan_aligned_alloc(sizeof(*leaf), 64);
-        if (!leaf)
+        leaf = arena_alloc(&trie->arena, sizeof(*leaf));
+        if (UNLIKELY(!leaf))
             lwan_status_critical_perror("malloc");
     } else if (trie->free_node) {
         trie->free_node(leaf->data);
@@ -102,7 +112,7 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
 
     leaf->data = data;
     if (!had_key) {
-        leaf->key = strdup(orig_key);
+        leaf->key = arena_strdup(&trie->arena, orig_key);
         leaf->next = node->leaf;
         node->leaf = leaf;
     }
@@ -166,8 +176,6 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
         if (trie->free_node)
             trie->free_node(leaf->data);
 
-        free(leaf->key);
-        free(leaf);
         leaf = tmp;
     }
 
@@ -177,8 +185,6 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
             --nodes_destroyed;
         }
     }
-
-    free(node);
 }
 
 void lwan_trie_destroy(struct lwan_trie *trie)
@@ -186,4 +192,5 @@ void lwan_trie_destroy(struct lwan_trie *trie)
     if (!trie || !trie->root)
         return;
     lwan_trie_node_destroy(trie, trie->root);
+    arena_reset(&trie->arena);
 }
