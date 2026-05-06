@@ -1751,7 +1751,7 @@ static void hello_lambda(struct lwan_strbuf *b, void *v)
 {
     struct test_struct *s = v;
 
-    lwan_strbuf_append_printf("hello from lambda func! appending <%d> from test_struct", s->some_int);
+    lwan_strbuf_append_printf(b, "hello from lambda func! appending <%d> from test_struct", s->some_int);
 }
 
 int main(int argc, char *argv[])
@@ -1782,6 +1782,13 @@ int main(int argc, char *argv[])
         });
         lwan_strbuf_free(applied);
     }
+
+    struct lwan_strbuf *applied = lwan_tpl_apply(tpl, &(struct test_struct) {
+        .some_int = 42,
+        .a_string = "some string"
+    });
+    printf("%s", lwan_strbuf_get_buffer(applied));
+    lwan_strbuf_free(applied);
 
     lwan_tpl_free(tpl);
     return 0;

@@ -120,6 +120,7 @@ This will generate a few binaries:
  - `src/bin/tools/configdump`: Dumps a configuration file using the configuration reader API. Used for testing.
  - `src/bin/tools/weighttp`: Rewrite of the `weighttp` HTTP benchmarking tool.
  - `src/bin/tools/statuslookupgen`: Generates a perfect hash table for HTTP status codes and their descriptions. Used during the build process.
+ - `src/lib/lwan-template-test`: Benchmark for the template engine
 
 #### Remarks
 

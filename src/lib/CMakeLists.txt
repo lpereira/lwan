@@ -173,6 +173,27 @@ else ()
 endif ()
 
 
+add_executable(lwan-template-test
+	lwan-template.c
+
+	# We can't link to liblwan because lwan-template.c will define
+	# symbols that will also be a part of it.
+	hash.c
+	int-to-str.c
+	list.c
+	lwan-arena.c
+	lwan-array.c
+	lwan-coro.c
+	lwan-status.c
+	lwan-strbuf.c
+	missing.c
+)
+target_compile_definitions(lwan-template-test PUBLIC TEMPLATE_TEST=1)
+target_link_libraries(lwan-template-test
+	${ADDITIONAL_LIBRARIES}
+)
+
+
 install(
 	TARGETS lwan-static lwan-shared
 	DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
