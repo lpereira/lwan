@@ -311,16 +311,16 @@ void hash_unref(struct hash *ht)
 static bool hash_probe_half(const struct hash *ht,
                            const void *key,
                            uint32_t *out_slot,
-                           uint32_t startpos,
-                           uint32_t endpos,
-                           uint8_t tophash)
+                           const uint32_t startpos,
+                           const uint32_t endpos,
+                           const uint8_t tophash)
 {
     /* FIXME: While using memchr() here is fine (and portable), the second call
      * to memchr() in the presence of a collision won't reuse the memory load
      * the first memchr() made (plus all the work to establish comparison masks
      * and other stuff that might be necessary for a SIMD implementation).
      * Rewrite this so this used SIMD intrinsics directly. */
-    uint8_t *slotptr =
+    const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, tophash, endpos - startpos);
 
     assert(tophash != '\0');
@@ -343,10 +343,10 @@ static bool hash_probe_half(const struct hash *ht,
 static bool hash_probe_half_tombstone(const struct hash *ht,
                                      const void *key,
                                      uint32_t *out_slot,
-                                     uint32_t startpos,
-                                     uint32_t endpos)
+                                     const uint32_t startpos,
+                                     const uint32_t endpos)
 {
-    uint8_t *slotptr =
+    const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, '\0', endpos - startpos);
 
     if (slotptr) {
@@ -360,8 +360,8 @@ static bool hash_probe_half_tombstone(const struct hash *ht,
 static bool hash_probe_startpos(const struct hash *ht,
                                 const void *key,
                                 uint32_t *out_slot,
-                                uint32_t startpos,
-                                uint8_t tophash)
+                                const uint32_t startpos,
+                                const uint8_t tophash)
 {
     return hash_probe_half(ht, key, out_slot, startpos, ht->cap, tophash) ||
            hash_probe_half(ht, key, out_slot, 0, startpos, tophash);
@@ -370,7 +370,7 @@ static bool hash_probe_startpos(const struct hash *ht,
 static bool hash_probe_tombstone(const struct hash *ht,
                                  const void *key,
                                  uint32_t *out_slot,
-                                 uint32_t startpos)
+                                 const uint32_t startpos)
 {
     return hash_probe_half_tombstone(ht, key, out_slot, startpos, ht->cap) ||
            hash_probe_half_tombstone(ht, key, out_slot, 0, startpos);
@@ -385,7 +385,7 @@ hash_probe(const struct hash *ht, const void *key, uint32_t *out_slot)
                                no_tombstone(hash & 0xff));
 }
 
-static int hash_resize(struct hash *ht, uint32_t newcap)
+static int hash_resize(struct hash *ht, const uint32_t newcap)
 {
     struct bucket *newbuckets;
     struct hash clone = *ht;
@@ -437,11 +437,11 @@ static int hash_resize(struct hash *ht, uint32_t newcap)
 static int hash_add_internal(struct hash *ht,
                              const void *key,
                              const void *value,
-                             bool unique)
+                             const bool unique)
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-    uint8_t tophash = no_tombstone(hash & 0xff);
+    const uint8_t tophash = no_tombstone(hash & 0xff);
     uint32_t slot;
 
     if (hash_probe_startpos(ht, key, &slot, startpos, tophash)) {
