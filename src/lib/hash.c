@@ -309,11 +309,11 @@ void hash_unref(struct hash *ht)
 }
 
 static bool hash_probe_half(const struct hash *ht,
-                           const void *key,
-                           uint32_t *out_slot,
-                           const uint32_t startpos,
-                           const uint32_t endpos,
-                           const uint8_t tophash)
+                            const void *key,
+                            uint32_t *out_slot,
+                            const uint32_t startpos,
+                            const uint32_t endpos,
+                            const uint8_t tophash)
 {
     /* FIXME: While using memchr() here is fine (and portable), the second call
      * to memchr() in the presence of a collision won't reuse the memory load
@@ -341,10 +341,10 @@ static bool hash_probe_half(const struct hash *ht,
 }
 
 static bool hash_probe_half_tombstone(const struct hash *ht,
-                                     const void *key,
-                                     uint32_t *out_slot,
-                                     const uint32_t startpos,
-                                     const uint32_t endpos)
+                                      const void *key,
+                                      uint32_t *out_slot,
+                                      const uint32_t startpos,
+                                      const uint32_t endpos)
 {
     const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, '\0', endpos - startpos);
