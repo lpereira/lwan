@@ -26,7 +26,6 @@
 struct lwan_trie_node {
     struct lwan_trie_node *next[8];
     struct lwan_trie_leaf *leaf;
-    int ref_count;
 };
 
 struct lwan_trie_leaf {
@@ -71,7 +70,6 @@ find_leaf_with_key(struct lwan_trie_node *node, const char *key, size_t len)
             if (UNLIKELY(!node))                                               \
                 goto oom;                                                      \
         }                                                                      \
-        ++node->ref_count;                                                     \
     } while (0)
 
 static char *arena_strdup(struct arena *a, const char *s)
@@ -168,8 +166,6 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
     if (!node)
         return;
 
-    int32_t nodes_destroyed = node->ref_count;
-
     for (struct lwan_trie_leaf *leaf = node->leaf; leaf;) {
         struct lwan_trie_leaf *tmp = leaf->next;
 
@@ -182,7 +178,6 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
     for (int32_t i = 0; nodes_destroyed > 0 && i < 8; i++) {
         if (node->next[i]) {
             lwan_trie_node_destroy(trie, node->next[i]);
-            --nodes_destroyed;
         }
     }
 }
