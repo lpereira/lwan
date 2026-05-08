@@ -34,12 +34,14 @@ struct lwan_trie_leaf {
     struct lwan_trie_leaf *next;
 };
 
+static void free_node_noop(void *unused) {}
+
 bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
 {
     if (!trie)
         return false;
     trie->root = NULL;
-    trie->free_node = free_node;
+    trie->free_node = free_node ? free_node : free_node_noop;
     arena_init0(&trie->arena);
     return true;
 }
@@ -104,7 +106,7 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
         leaf = arena_alloc(&trie->arena, sizeof(*leaf));
         if (UNLIKELY(!leaf))
             lwan_status_critical_perror("malloc");
-    } else if (trie->free_node) {
+    } else {
         trie->free_node(leaf->data);
     }
 
@@ -168,17 +170,13 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
 
     for (struct lwan_trie_leaf *leaf = node->leaf; leaf;) {
         struct lwan_trie_leaf *tmp = leaf->next;
-
-        if (trie->free_node)
-            trie->free_node(leaf->data);
-
+        trie->free_node(leaf->data);
         leaf = tmp;
     }
 
-    for (int32_t i = 0; nodes_destroyed > 0 && i < 8; i++) {
-        if (node->next[i]) {
+    for (int32_t i = 0; i < 8; i++) {
+        if (node->next[i])
             lwan_trie_node_destroy(trie, node->next[i]);
-        }
     }
 }
 
