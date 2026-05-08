@@ -182,7 +182,7 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
 
 void lwan_trie_destroy(struct lwan_trie *trie)
 {
-    if (!trie || !trie->root)
+    if (!trie)
         return;
     lwan_trie_node_destroy(trie, trie->root);
     arena_reset(&trie->arena);
