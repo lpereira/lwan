@@ -999,7 +999,7 @@ achieve
  - *Fix the issue.*  When fixing issues found in pull requests, *please* use
 [interactive rebases](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History) to
 squash or fixup commits; don't add your fixes on top of your tree.  Do not create
-another pull request just to accomodate the changes. After rewriting
+another pull request just to accommodate the changes. After rewriting
 the history locally, force-push to your PR branch; the PR will update automatically
 with your changes.  Rewriting the history of development branches is fine, and
 force-pushing them is normal and expected
