@@ -353,14 +353,14 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
     const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, '\0', endpos - startpos);
 
-    return LIKELY(slotptr) ? &ht->buckets[slotptr - ht->tophashes]
-                           : NULL;
+    return LIKELY(slotptr) ? &ht->buckets[slotptr - ht->tophashes] : NULL;
 }
 
 static struct bucket *hash_probe_key(const struct hash *ht,
                                      const void *key,
                                      const uint32_t startpos,
-                                     const uint8_t tophash)
+                                     const uint8_t tophash,
+                                     bool deleting)
 {
     struct bucket *bucket;
 
@@ -370,7 +370,7 @@ static struct bucket *hash_probe_key(const struct hash *ht,
     }
 
     bucket = hash_probe_half(ht, key, 0, startpos, tophash);
-    if (bucket) {
+    if (bucket && !deleting) {
         /* As items are removed, buckets in the first half may become empty; in
          * that case, move the contents of the bucket in the second half to the
          * first half so probes happen more often in the [startpos..cap]
@@ -400,11 +400,13 @@ static struct bucket *hash_probe_tombstone(const struct hash *ht,
                ?: hash_probe_half_tombstone(ht, 0, startpos);
 }
 
-static struct bucket *hash_probe(const struct hash *ht, const void *key)
+static struct bucket *
+hash_probe(const struct hash *ht, const void *key, bool deleting)
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-    return hash_probe_key(ht, key, startpos, no_tombstone(hash & 0xff));
+    return hash_probe_key(ht, key, startpos, no_tombstone(hash & 0xff),
+                          deleting);
 }
 
 static int hash_resize(struct hash *ht, const uint32_t newcap)
@@ -474,7 +476,7 @@ static int hash_add_internal(struct hash *ht,
     const uint8_t tophash = no_tombstone(hash & 0xff);
     struct bucket *bucket;
 
-    bucket = hash_probe_key(ht, key, startpos, tophash);
+    bucket = hash_probe_key(ht, key, startpos, tophash, false);
     if (bucket != NULL) {
         /* Probing found an element in the table with this key already. */
         if (unique) {
@@ -533,7 +535,7 @@ int hash_add_unique(struct hash *ht, const void *key, const void *value)
 
 int hash_del(struct hash *ht, const void *key)
 {
-    struct bucket *bucket = hash_probe(ht, key);
+    struct bucket *bucket = hash_probe(ht, key, true);
 
     if (LIKELY(bucket != NULL)) {
         /* Item found! Let's remove it by tombstoning it. */
@@ -556,7 +558,7 @@ int hash_del(struct hash *ht, const void *key)
 
 void *hash_find(const struct hash *ht, const void *key)
 {
-    struct bucket *bucket = hash_probe(ht, key);
+    struct bucket *bucket = hash_probe(ht, key, false);
     return LIKELY(bucket != NULL) ? (void *)bucket->value : NULL;
 }
 
@@ -674,7 +676,7 @@ LWAN_SELF_TEST(hash_table)
     assert(r == 0);
     assert(ht->len == 20);
 
-    for (uint32_t i = 0; i < 20; i++) {
+    for (uint32_t i = 0; i < 10; i++) {
         char k[3];
         snprintf(k, 3, "%d", i);
 
@@ -682,7 +684,17 @@ LWAN_SELF_TEST(hash_table)
         assert(r == 0);
         assert(ht->len == 20 - i - 1);
     }
-    assert(ht->len == 0);
+    assert(ht->len == 10);
+
+    for (uint32_t i = 10; i < 20; i++) {
+        char k[3];
+        snprintf(k, 3, "%d", i);
+
+        v = hash_find(ht, k);
+        assert(!strcmp(k, v));
+        hash_del(ht, k);
+        assert(ht->len == 20 - i - 1);
+    }
 
     count = 0;
     HASH_FOREACH (ht, NULL, NULL) {
