@@ -443,7 +443,7 @@ coro_defer(struct coro *coro, defer1_func func, void *data)
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
     if (UNLIKELY(!defer)) {
-        lwan_status_error("Could not add new deferred function for coro %p",
+        lwan_log_error("Could not add new deferred function for coro %p",
                           coro);
         return -1;
     }
@@ -461,7 +461,7 @@ coro_defer2(struct coro *coro, defer2_func func, void *data1, void *data2)
     struct coro_defer *defer = coro_defer_array_append(&coro->defer);
 
     if (UNLIKELY(!defer)) {
-        lwan_status_error("Could not add new deferred function for coro %p",
+        lwan_log_error("Could not add new deferred function for coro %p",
                           coro);
         return -1;
     }

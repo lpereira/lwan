@@ -80,11 +80,11 @@ static struct cache *get_or_create_cache(struct lwan_lua_priv *priv)
     struct cache *cache = pthread_getspecific(priv->cache_key);
 
     if (UNLIKELY(!cache)) {
-        lwan_status_debug("Creating cache for this thread");
+        lwan_log_debug("Creating cache for this thread");
         cache =
             cache_create(state_create, state_destroy, priv, priv->cache_period);
         if (UNLIKELY(!cache))
-            lwan_status_error("Could not create cache");
+            lwan_log_error("Could not create cache");
         /* FIXME: This cache instance leaks: store it somewhere and
          * free it on module shutdown */
         pthread_setspecific(priv->cache_key, cache);
@@ -225,7 +225,7 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
 
             return HTTP_INTERNAL_ERROR;
         default:
-            lwan_status_error("Error from Lua script: %s", lua_tostring(L, -1));
+            lwan_log_error("Error from Lua script: %s", lua_tostring(L, -1));
             return HTTP_INTERNAL_ERROR;
         }
     }
@@ -238,37 +238,37 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
 
     priv = calloc(1, sizeof(*priv));
     if (!priv) {
-        lwan_status_error("Could not allocate memory for private Lua struct");
+        lwan_log_error("Could not allocate memory for private Lua struct");
         return NULL;
     }
 
     priv->default_type =
         strdup(settings->default_type ? settings->default_type : "text/plain");
     if (!priv->default_type) {
-        lwan_status_perror("strdup");
+        lwan_log_perror("strdup");
         goto error;
     }
 
     if (settings->script) {
         priv->script = strdup(settings->script);
         if (!priv->script) {
-            lwan_status_perror("strdup");
+            lwan_log_perror("strdup");
             goto error;
         }
     } else if (settings->script_file) {
         priv->script_file = strdup(settings->script_file);
         if (!priv->script_file) {
-            lwan_status_perror("strdup");
+            lwan_log_perror("strdup");
             goto error;
         }
         lwan_straitjacket_allow_dir_path_ro(dirname(priv->script_file));
     } else {
-        lwan_status_error("No Lua script_file or script provided");
+        lwan_log_error("No Lua script_file or script provided");
         goto error;
     }
 
     if (pthread_key_create(&priv->cache_key, NULL)) {
-        lwan_status_perror("pthread_key_create");
+        lwan_log_perror("pthread_key_create");
         goto error;
     }
 

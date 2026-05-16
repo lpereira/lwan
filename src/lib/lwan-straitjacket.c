@@ -34,7 +34,7 @@
 #include "lwan-private.h"
 
 #include "lwan-config.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 
 static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 {
@@ -53,7 +53,7 @@ static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
 
     buf = malloc((size_t)pw_size_max);
     if (!buf) {
-        lwan_status_error("Could not allocate buffer for passwd struct");
+        lwan_log_error("Could not allocate buffer for passwd struct");
         return false;
     }
 
@@ -66,10 +66,10 @@ static bool get_user_uid_gid(const char *user, uid_t *uid, gid_t *gid)
         return true;
 
     if (!r) {
-        lwan_status_error("Username not found: %s", user);
+        lwan_log_error("Username not found: %s", user);
     } else {
         errno = r;
-        lwan_status_perror("Could not obtain uid/gid for user %s", user);
+        lwan_log_perror("Could not obtain uid/gid for user %s", user);
     }
 
     return false;
@@ -80,7 +80,7 @@ static bool switch_to_user(uid_t uid, gid_t gid, const char *username)
     uid_t ruid, euid, suid;
     gid_t rgid, egid, sgid;
 
-    lwan_status_info("Dropping privileges to UID %d, GID %d (%s)", uid, gid,
+    lwan_log_info("Dropping privileges to UID %d, GID %d (%s)", uid, gid,
                      username);
 
     if (setresgid(gid, gid, gid) < 0)
@@ -173,13 +173,13 @@ LWAN_LAZY_GLOBAL(struct lwan_landlock *, get_landlock_ruleset)
          * version (starting at 1)." */
         switch (errno) {
         case EOPNOTSUPP:
-            lwan_status_error("Landlock disabled on this kernel");
+            lwan_log_error("Landlock disabled on this kernel");
             break;
         case ENOSYS:
-            lwan_status_error("Landlock not present in this kernel");
+            lwan_log_error("Landlock not present in this kernel");
             break;
         default:
-            lwan_status_perror("Unknown error determining Landlock ABI version");
+            lwan_log_perror("Unknown error determining Landlock ABI version");
         }
         goto err;
     }
@@ -226,7 +226,7 @@ LWAN_LAZY_GLOBAL(struct lwan_landlock *, get_landlock_ruleset)
     int ruleset_fd =
         lwan_landlock_create_ruleset(&ll->attr, sizeof(ll->attr), 0);
     if (ruleset_fd < 0) {
-        lwan_status_perror("Failed to create a Landlock ruleset");
+        lwan_log_perror("Failed to create a Landlock ruleset");
         goto err;
     }
 
@@ -244,12 +244,12 @@ static inline struct lwan_landlock *get_landlock(void)
     struct lwan_landlock *ll = get_landlock_ruleset();
 
     if (!ll) {
-        lwan_status_debug("Could not get Landlock ruleset");
+        lwan_log_debug("Could not get Landlock ruleset");
         return NULL;
     }
 
     if (ll->ruleset_fd < 0) {
-        lwan_status_debug("Landlock already in enforcing mode");
+        lwan_log_debug("Landlock already in enforcing mode");
         return NULL;
     }
 
@@ -296,7 +296,7 @@ static bool lwan_straitjacket_allow_net(uint64_t allowed_access, int port)
         return false;
 
     if ((ll->attr.handled_access_net & allowed_access) != allowed_access) {
-        lwan_status_debug("Kernel doesn't support requested access");
+        lwan_log_debug("Kernel doesn't support requested access");
         return false;
     }
 
@@ -372,17 +372,17 @@ bool lwan_landlock_enforce(void)
         return false;
 
     if (!add_base_rules()) {
-        lwan_status_error("Could not register base Landlock rules");
+        lwan_log_error("Could not register base Landlock rules");
         return false;
     }
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-        lwan_status_perror("Failed to restrict privileges");
+        lwan_log_perror("Failed to restrict privileges");
         return false;
     }
 
     if (lwan_landlock_restrict_self(ll->ruleset_fd, ll->restrict_flags)) {
-        lwan_status_perror("Couldn't enable Landlock ruleset");
+        lwan_log_perror("Couldn't enable Landlock ruleset");
         return false;
     }
 
@@ -390,7 +390,7 @@ bool lwan_landlock_enforce(void)
     lwan_always_bzero(ll, sizeof(*ll));
     ll->ruleset_fd = -1;
 
-    lwan_status_debug("Landlock in enforcement mode");
+    lwan_log_debug("Landlock in enforcement mode");
     return true;
 }
 
@@ -422,13 +422,13 @@ static void abort_on_open_directories(void)
     int ret;
 
     if (!dir) {
-        lwan_status_critical_perror(
+        lwan_log_critical_perror(
             "Could not determine if there are open directory fds");
     }
 
     ret = snprintf(own_fd, sizeof(own_fd), "%d", dirfd(dir));
     if (ret < 0 || ret >= (int)sizeof(own_fd)) {
-        lwan_status_critical("Could not get descriptor of /proc/self/fd");
+        lwan_log_critical("Could not get descriptor of /proc/self/fd");
     }
 
     while ((ent = readdir(dir))) {
@@ -443,7 +443,7 @@ static void abort_on_open_directories(void)
 
         len = readlinkat(dirfd(dir), ent->d_name, path, sizeof(path));
         if (len < 0) {
-            lwan_status_critical_perror("Could not get information about fd %s",
+            lwan_log_critical_perror("Could not get information about fd %s",
                                         ent->d_name);
         }
         path[len] = '\0';
@@ -457,14 +457,14 @@ static void abort_on_open_directories(void)
         }
 
         if (stat(path, &st) < 0) {
-            lwan_status_critical_perror(
+            lwan_log_critical_perror(
                 "Could not get information about open file: %s", path);
         }
 
         if (S_ISDIR(st.st_mode)) {
             closedir(dir);
 
-            lwan_status_critical(
+            lwan_log_critical(
                 "The directory '%s' is open (fd %s), can't chroot", path,
                 ent->d_name);
             return;
@@ -488,7 +488,7 @@ lookup_user(const struct lwan_straitjacket *sj, uid_t *uid, gid_t *gid)
 
     if (sj->user_name && *sj->user_name) {
         if (!get_user_uid_gid(sj->user_name, uid, gid))
-            lwan_status_critical("Unknown user: %s", sj->user_name);
+            lwan_log_critical("Unknown user: %s", sj->user_name);
         return true;
     }
 
@@ -501,19 +501,19 @@ static void enforce_chroot(const struct lwan_straitjacket *sj)
         return;
 
     if (geteuid() != 0)
-        lwan_status_critical("Straitjacket with chroot(2) requires root privileges");
+        lwan_log_critical("Straitjacket with chroot(2) requires root privileges");
 
     abort_on_open_directories();
 
     if (chroot(sj->chroot_path) < 0) {
-        lwan_status_critical_perror("Could not chroot() to %s",
+        lwan_log_critical_perror("Could not chroot() to %s",
                                     sj->chroot_path);
     }
 
     if (chdir("/") < 0)
-        lwan_status_critical_perror("Could not chdir() to /");
+        lwan_log_critical_perror("Could not chdir() to /");
 
-    lwan_status_info("Jailed to %s", sj->chroot_path);
+    lwan_log_info("Jailed to %s", sj->chroot_path);
 }
 
 void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
@@ -528,7 +528,7 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
 
     if (got_user) {
         if (!switch_to_user(uid, gid, sj->user_name)) {
-            lwan_status_critical("Could not change to user %s, aborting",
+            lwan_log_critical("Could not change to user %s, aborting",
                                  sj->user_name);
             __builtin_unreachable();
         }
@@ -541,7 +541,7 @@ void lwan_straitjacket_enforce(const struct lwan_straitjacket *sj)
         struct __user_cap_data_struct data = {};
 
         if (capset(&header, &data) < 0)
-            lwan_status_critical_perror("Could not drop capabilities");
+            lwan_log_critical_perror("Could not drop capabilities");
     }
 }
 

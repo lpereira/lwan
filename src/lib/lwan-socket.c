@@ -91,15 +91,15 @@ static int set_socket_flags(int fd)
 {
     int flags = fcntl(fd, F_GETFD);
     if (flags < 0)
-        lwan_status_critical_perror("Could not obtain socket flags");
+        lwan_log_critical_perror("Could not obtain socket flags");
     if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0)
-        lwan_status_critical_perror("Could not set socket flags");
+        lwan_log_critical_perror("Could not set socket flags");
 
     flags = fcntl(fd, F_GETFL);
     if (flags < 0)
-        lwan_status_critical_perror("Could not obtain socket flags");
+        lwan_log_critical_perror("Could not obtain socket flags");
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-        lwan_status_critical_perror("Could not set socket flags");
+        lwan_log_critical_perror("Could not set socket flags");
 
     return fd;
 }
@@ -171,7 +171,7 @@ static int listen_addrinfo(int fd,
                            bool is_https)
 {
     if (listen(fd, get_backlog_size()) < 0)
-        lwan_status_critical_perror("listen");
+        lwan_log_critical_perror("listen");
 
     if (print_listening_msg) {
         const char *s_if_https = is_https ? "s" : "";
@@ -180,13 +180,13 @@ static int listen_addrinfo(int fd,
                               sizeof(host_buf), serv_buf, sizeof(serv_buf),
                               NI_NUMERICHOST | NI_NUMERICSERV);
         if (ret)
-            lwan_status_critical("getnameinfo: %s", gai_strerror(ret));
+            lwan_log_critical("getnameinfo: %s", gai_strerror(ret));
 
         if (addr->ai_family == AF_INET6)
-            lwan_status_info("Listening on http%s://[%s]:%s", s_if_https,
+            lwan_log_info("Listening on http%s://[%s]:%s", s_if_https,
                              host_buf, serv_buf);
         else
-            lwan_status_info("Listening on http%s://%s:%s", s_if_https,
+            lwan_log_info("Listening on http%s://%s:%s", s_if_https,
                              host_buf, serv_buf);
     }
 
@@ -197,14 +197,14 @@ static int listen_addrinfo(int fd,
     do {                                                                       \
         const socklen_t _param_size_ = (socklen_t)sizeof(*(_param));           \
         if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
-            lwan_status_critical_perror("setsockopt");                         \
+            lwan_log_critical_perror("setsockopt");                         \
     } while (0)
 
 #define SET_SOCKET_OPTION_MAY_FAIL(_domain, _option, _param)                   \
     do {                                                                       \
         const socklen_t _param_size_ = (socklen_t)sizeof(*(_param));           \
         if (setsockopt(fd, (_domain), (_option), (_param), _param_size_) < 0)  \
-            lwan_status_perror("%s not supported by the kernel", #_option);    \
+            lwan_log_perror("%s not supported by the kernel", #_option);    \
     } while (0)
 
 static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
@@ -223,7 +223,7 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
 #ifdef SO_REUSEPORT
         SET_SOCKET_OPTION(SOL_SOCKET, SO_REUSEPORT, (int[]){1});
 #else
-        lwan_status_critical("SO_REUSEPORT not supported by the OS");
+        lwan_log_critical("SO_REUSEPORT not supported by the OS");
 #endif
 
         if (!bind(fd, addr->ai_addr, addr->ai_addrlen))
@@ -232,7 +232,7 @@ static int bind_and_listen_addrinfos(const struct addrinfo *addrs,
         close(fd);
     }
 
-    lwan_status_critical("Could not bind socket");
+    lwan_log_critical("Could not bind socket");
 }
 
 static int set_socket_options(const struct lwan *l, int fd)
@@ -272,7 +272,7 @@ static int setup_socket_normally(const struct lwan *l,
     sa_family_t family = lwan_socket_parse_address(listener, &node, &port);
 
     if (family == AF_MAX) {
-        lwan_status_critical("Could not parse listener: %s",
+        lwan_log_critical("Could not parse listener: %s",
                              l->config.listener);
     }
 
@@ -283,7 +283,7 @@ static int setup_socket_normally(const struct lwan *l,
 
     int ret = getaddrinfo(node, port, &hints, &addrs);
     if (ret)
-        lwan_status_critical("getaddrinfo: %s", gai_strerror(ret));
+        lwan_log_critical("getaddrinfo: %s", gai_strerror(ret));
 
     int fd = bind_and_listen_addrinfos(addrs, print_listening_msg, is_https);
     freeaddrinfo(addrs);
@@ -297,7 +297,7 @@ static int from_systemd_socket(const struct lwan *l, int fd)
         return set_socket_options(l, set_socket_flags(fd));
     }
 
-    lwan_status_critical("Passed file descriptor is not a "
+    lwan_log_critical("Passed file descriptor is not a "
                          "listening TCP socket");
 }
 
@@ -317,13 +317,13 @@ int lwan_create_listen_socket(const struct lwan *l,
 
         if (n < 0) {
             errno = -n;
-            lwan_status_perror(
+            lwan_log_perror(
                 "Could not parse socket activation data from systemd");
             return n;
         }
 
         if (n == 0) {
-            lwan_status_critical("Not invoked from systemd "
+            lwan_log_critical("Not invoked from systemd "
                                  "(expecting socket name %s)",
                                  listener);
         }
@@ -338,7 +338,7 @@ int lwan_create_listen_socket(const struct lwan *l,
         strv_free(names);
 
         if (fd < 0) {
-            lwan_status_critical(
+            lwan_log_critical(
                 "No socket named `%s' has been passed from systemd", listener);
         }
 
@@ -350,17 +350,17 @@ int lwan_create_listen_socket(const struct lwan *l,
 
         if (n < 0) {
             errno = -n;
-            lwan_status_perror("Could not obtain sockets passed from systemd");
+            lwan_log_perror("Could not obtain sockets passed from systemd");
             return n;
         }
 
         if (n == 0) {
-            lwan_status_critical(
+            lwan_log_critical(
                 "Not invoked from systemd (expecting 1 socket)");
         }
 
         if (n != 1) {
-            lwan_status_critical(
+            lwan_log_critical(
                 "%d listeners passed from systemd. Must specify listeners with "
                 "systemd:listener-name syntax",
                 n);

@@ -92,7 +92,7 @@ create_realm_file(const void *key, void *context __attribute__((unused)),
             zero_and_free(password);
 
             if (err == -EEXIST) {
-                lwan_status_warning(
+                lwan_log_warning(
                     "Username entry already exists, ignoring: \"%s\"", l->key);
                 continue;
             }
@@ -106,7 +106,7 @@ create_realm_file(const void *key, void *context __attribute__((unused)),
     }
 
     if (config_last_error(f)) {
-        lwan_status_error("Error on password file \"%s\", line %d: %s", (char *)key,
+        lwan_log_error("Error on password file \"%s\", line %d: %s", (char *)key,
                           config_cur_line(f), config_last_error(f));
         goto error;
     }

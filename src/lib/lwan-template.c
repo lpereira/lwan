@@ -205,7 +205,7 @@ static __attribute__((noinline)) struct lwan_var_descriptor *
 symtab_lookup_lexeme(struct parser *parser, struct lexeme *lexeme)
 {
     if (lexeme->value.len > LEXEME_MAX_LEN) {
-        lwan_status_error("Lexeme exceeds %d characters", LEXEME_MAX_LEN);
+        lwan_log_error("Lexeme exceeds %d characters", LEXEME_MAX_LEN);
         return NULL;
     }
 
@@ -326,7 +326,7 @@ static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
         formatted_len = (size_t)r;
     }
 
-    lwan_status_error("Error while parsing template: %.*s", (int)formatted_len, formatted);
+    lwan_log_error("Error while parsing template: %.*s", (int)formatted_len, formatted);
     free(formatted);
 }
 
@@ -554,7 +554,7 @@ static void parser_push_lexeme(struct parser *parser, struct lexeme *lexeme)
 {
     struct stacked_lexeme *stacked_lexeme = malloc(sizeof(*stacked_lexeme));
     if (!stacked_lexeme)
-        lwan_status_critical_perror("Could not push parser lexeme");
+        lwan_log_critical_perror("Could not push parser lexeme");
 
     stacked_lexeme->lexeme = *lexeme;
     list_add(&parser->stack, &stacked_lexeme->stack);
@@ -569,7 +569,7 @@ static void emit_chunk(struct parser *parser,
 
     chunk = chunk_array_append(&parser->chunks);
     if (!chunk)
-        lwan_status_critical_perror("Could not emit template chunk");
+        lwan_log_critical_perror("Could not emit template chunk");
 
     chunk->action = action;
     chunk->flags = flags;
@@ -1108,7 +1108,7 @@ static bool post_process_template(struct parser *parser)
                 if (chunk == last_chunk)
                     goto error;
                 if (chunk->action == ACTION_LAST) {
-                    lwan_status_error("Internal error: Could not find the end "
+                    lwan_log_error("Internal error: Could not find the end "
                                       "var not empty chunk");
                     return false;
                 }
@@ -1121,7 +1121,7 @@ static bool post_process_template(struct parser *parser)
 
             struct chunk_descriptor *cd = malloc(sizeof(*cd));
             if (!cd)
-                lwan_status_critical_perror("malloc");
+                lwan_log_critical_perror("malloc");
 
             cd->descriptor = prev_chunk->data;
             cd->chunk = chunk;
@@ -1136,7 +1136,7 @@ static bool post_process_template(struct parser *parser)
                 if (chunk == last_chunk)
                     goto error;
                 if (chunk->action == ACTION_LAST) {
-                    lwan_status_error(
+                    lwan_log_error(
                         "Internal error: Could not find the end iter chunk");
                     return false;
                 }
@@ -1158,7 +1158,7 @@ static bool post_process_template(struct parser *parser)
 
             struct chunk_descriptor *cd = malloc(sizeof(*cd));
             if (!cd)
-                lwan_status_critical_perror("malloc");
+                lwan_log_critical_perror("malloc");
 
             cd->descriptor = prev_chunk->data;
             prev_chunk->data = cd;
@@ -1181,10 +1181,10 @@ static bool post_process_template(struct parser *parser)
                     chunk->action = ACTION_VARIABLE_STR;
                 chunk->data = (void *)(uintptr_t)descriptor->offset;
             } else if (escape) {
-                lwan_status_error("Variable must be string to be escaped");
+                lwan_log_error("Variable must be string to be escaped");
                 return false;
             } else if (!descriptor->append_to_strbuf) {
-                lwan_status_error("Invalid variable descriptor");
+                lwan_log_error("Invalid variable descriptor");
                 return false;
             }
         } else if (chunk->action == ACTION_LAST) {
@@ -1197,7 +1197,7 @@ static bool post_process_template(struct parser *parser)
     return true;
 
 error:
-    lwan_status_error("Unknown error while parsing template; bug?");
+    lwan_log_error("Unknown error while parsing template; bug?");
     return false;
 }
 
@@ -1222,7 +1222,7 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     bool success = true;
 
     if (lexeme && lexeme->type == LEXEME_ERROR && lexeme->value.value) {
-        lwan_status_error("Parser error: %.*s", (int)lexeme->value.len,
+        lwan_log_error("Parser error: %.*s", (int)lexeme->value.len,
                           lexeme->value.value);
         free((char *)lexeme->value.value);
 
@@ -1233,7 +1233,7 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
         struct stacked_lexeme *stacked, *stacked_next;
 
         list_for_each_safe (&parser->stack, stacked, stacked_next, stack) {
-            lwan_status_error(
+            lwan_log_error(
                 "Parser error: EOF while looking for matching {{/%.*s}}",
                 (int)stacked->lexeme.value.len, stacked->lexeme.value.value);
             list_del(&stacked->stack);
@@ -1244,13 +1244,13 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (!parser->symtab) {
-        lwan_status_error(
+        lwan_log_error(
             "Parser error: No symbol table was found when finishing the parser");
         success = false;
     } else {
         symtab_pop(parser);
         if (parser->symtab) {
-            lwan_status_error(
+            lwan_log_error(
                 "Parser error: Symbol table not empty when finishing parser");
 
             while (parser->symtab)
@@ -1261,11 +1261,11 @@ static bool parser_shutdown(struct parser *parser, struct lexeme *lexeme)
     }
 
     if (parser->flags & FLAGS_NEGATE) {
-        lwan_status_error("Parser error: unmatched negation");
+        lwan_log_error("Parser error: unmatched negation");
         success = false;
     }
     if (parser->flags & FLAGS_QUOTE) {
-        lwan_status_error("Parser error: unmatched quote");
+        lwan_log_error("Parser error: unmatched quote");
         success = false;
     }
 
@@ -1473,7 +1473,7 @@ lwan_tpl_compile_file(const char *filename,
     tpl = lwan_tpl_compile_string(mapped, descriptor);
 
     if (munmap(mapped, (size_t)st.st_size) < 0)
-        lwan_status_perror("munmap");
+        lwan_log_perror("munmap");
 
 close_file:
     close(fd);
@@ -1533,7 +1533,7 @@ static const struct chunk *apply(struct lwan_tpl *tpl,
 #define RETURN_IF_NO_CHUNK(force_)                                             \
     do {                                                                       \
         if (force_ UNLIKELY(!chunk)) {                                         \
-            lwan_status_error("Chunk is NULL while dispatching");              \
+            lwan_log_error("Chunk is NULL while dispatching");              \
             return NULL;                                                       \
         }                                                                      \
     } while (false)
@@ -1635,11 +1635,11 @@ action_apply_tpl: {
         if (LIKELY(lwan_strbuf_grow_by(buf, inner_tpl->minimum_size))) {
             if (!apply(inner_tpl, chunk_array_get_array(&inner_tpl->chunks),
                        buf, variables, NULL)) {
-                lwan_status_warning("Could not apply subtemplate");
+                lwan_log_warning("Could not apply subtemplate");
                 return NULL;
             }
         } else {
-            lwan_status_warning("Could not grow template by %zu bytes",
+            lwan_log_warning("Could not grow template by %zu bytes",
                                 inner_tpl->minimum_size);
             return NULL;
         }
@@ -1649,7 +1649,7 @@ action_apply_tpl: {
 
 action_start_iter:
     if (UNLIKELY(coro != NULL)) {
-        lwan_status_warning("Coroutine is not NULL when starting iteration");
+        lwan_log_warning("Coroutine is not NULL when starting iteration");
         return NULL;
     }
 
@@ -1684,7 +1684,7 @@ action_end_iter:
 
     if (UNLIKELY(!coro)) {
         if (!chunk->flags) {
-            lwan_status_warning("Coroutine is NULL when finishing iteration");
+            lwan_log_warning("Coroutine is NULL when finishing iteration");
             return NULL;
         }
         DISPATCH_NEXT_ACTION_FAST();

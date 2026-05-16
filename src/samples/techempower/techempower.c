@@ -147,7 +147,7 @@ LWAN_LAZY_THREAD_LOCAL(struct db *, get_db)
     }
 
     if (!db) {
-        lwan_status_critical("Could not connect to the database");
+        lwan_log_critical("Could not connect to the database");
         __builtin_unreachable();
     }
 
@@ -227,7 +227,7 @@ LWAN_HANDLER(db)
     struct db_json db_json;
 
     if (UNLIKELY(!stmt)) {
-        lwan_status_debug("preparing stmt failed");
+        lwan_log_debug("preparing stmt failed");
         return HTTP_INTERNAL_ERROR;
     }
 
@@ -465,13 +465,13 @@ int main(void)
         };
 
         if (!db_connection_params.mysql.user)
-            lwan_status_critical("No MySQL user provided");
+            lwan_log_critical("No MySQL user provided");
         if (!db_connection_params.mysql.password)
-            lwan_status_critical("No MySQL password provided");
+            lwan_log_critical("No MySQL password provided");
         if (!db_connection_params.mysql.hostname)
-            lwan_status_critical("No MySQL hostname provided");
+            lwan_log_critical("No MySQL hostname provided");
         if (!db_connection_params.mysql.database)
-            lwan_status_critical("No MySQL database provided");
+            lwan_log_critical("No MySQL database provided");
     } else {
         static const char *pragmas[] = {"PRAGMA mmap_size=44040192",
                                         "PRAGMA journal_mode=OFF",
@@ -486,7 +486,7 @@ int main(void)
     fortune_tpl = lwan_tpl_compile_string_full(
         fortunes_template_str, fortune_desc, LWAN_TPL_FLAG_CONST_TEMPLATE);
     if (!fortune_tpl)
-        lwan_status_critical("Could not compile fortune templates");
+        lwan_log_critical("Could not compile fortune templates");
 
     cached_queries_cache = cache_create_full(cached_queries_new,
                                              cached_queries_free,
@@ -494,7 +494,7 @@ int main(void)
                                              NULL,
                                              3600 /* 1 hour */);
     if (!cached_queries_cache)
-        lwan_status_critical("Could not create cached queries cache");
+        lwan_log_critical("Could not create cached queries cache");
     /* Pre-populate the cache and make it read-only to avoid locking in the fast
      * path. */
     for (int i = 0; i < 10000; i++) {

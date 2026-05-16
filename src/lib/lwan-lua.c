@@ -397,7 +397,7 @@ LWAN_LUA_METHOD(request_date)
         size_t log_str_len = 0;                                                \
         const char *log_str = lua_tolstring(L, -1, &log_str_len);              \
         if (log_str_len) {                                                     \
-            lwan_status_##name("%.*s", (int)log_str_len, log_str);             \
+            lwan_log_##name("%.*s", (int)log_str_len, log_str);             \
             (void)log_str_len;                                                 \
             (void)log_str;                                                     \
         }                                                                      \
@@ -435,7 +435,7 @@ LWAN_LAZY_GLOBAL(luaL_reg *, lua_methods)
     LWAN_SECTION_FOREACH(lwan_lua_method, info) {
         r = lwan_lua_method_array_append(&methods);
         if (!r) {
-            lwan_status_critical("Could not register Lua method `%s`",
+            lwan_log_critical("Could not register Lua method `%s`",
                                  info->name);
         }
 
@@ -445,7 +445,7 @@ LWAN_LAZY_GLOBAL(luaL_reg *, lua_methods)
 
     r = lwan_lua_method_array_append(&methods);
     if (!r)
-        lwan_status_critical("Could not add Lua method sentinel");
+        lwan_log_critical("Could not add Lua method sentinel");
 
     r->name = NULL;
     r->func = NULL;
@@ -475,18 +475,18 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 
     if (script_file) {
         if (UNLIKELY(luaL_dofile(L, script_file) != 0)) {
-            lwan_status_error("Error opening Lua script %s: %s", script_file,
+            lwan_log_error("Error opening Lua script %s: %s", script_file,
                               lua_tostring(L, -1));
             goto close_lua_state;
         }
     } else if (script) {
         if (UNLIKELY(luaL_dostring(L, script) != 0)) {
-            lwan_status_error("Error evaluating Lua script %s",
+            lwan_log_error("Error evaluating Lua script %s",
                               lua_tostring(L, -1));
             goto close_lua_state;
         }
     } else {
-        lwan_status_error("Either file or inline script has to be provided");
+        lwan_log_error("Either file or inline script has to be provided");
         goto close_lua_state;
     }
 

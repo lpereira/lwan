@@ -122,7 +122,7 @@ static __thread __uint128_t lehmer64_state;
 static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
 {
     if (lwan_getentropy(&lehmer64_state, sizeof(lehmer64_state), 0) < 0) {
-        lwan_status_warning("Couldn't get proper entropy for PRNG, using fallback seed");
+        lwan_log_warning("Couldn't get proper entropy for PRNG, using fallback seed");
         uintptr_t ptr = (uintptr_t)t;
         lehmer64_state |= fnv1a_64(&ptr, sizeof(ptr));
         lehmer64_state <<= 64;
@@ -190,7 +190,7 @@ lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
     memcpy(info.salt, salt, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
 
     if (UNLIKELY(setsockopt(fd, SOL_TLS, rx_or_tx, &info, sizeof(info)) < 0)) {
-        lwan_status_perror("Could not set %s kTLS keys for fd %d",
+        lwan_log_perror("Could not set %s kTLS keys for fd %d",
                            rx_or_tx == TLS_TX ? "transmission" : "reception",
                            fd);
         lwan_always_bzero(&info, sizeof(info));
@@ -203,7 +203,7 @@ lwan_setup_tls_keys(int fd, const mbedtls_ssl_context *ssl, int rx_or_tx)
 
 __attribute__((format(printf, 2, 3)))
 __attribute__((noinline, cold))
-static void lwan_status_mbedtls_error(int error_code, const char *fmt, ...)
+static void lwan_log_mbedtls_error(int error_code, const char *fmt, ...)
 {
     char *formatted;
     va_list ap;
@@ -215,7 +215,7 @@ static void lwan_status_mbedtls_error(int error_code, const char *fmt, ...)
         char mbedtls_errbuf[128];
 
         mbedtls_strerror(error_code, mbedtls_errbuf, sizeof(mbedtls_errbuf));
-        lwan_status_error("%s: %s", formatted, mbedtls_errbuf);
+        lwan_log_error("%s: %s", formatted, mbedtls_errbuf);
         free(formatted);
     }
     va_end(ap);
@@ -309,7 +309,7 @@ static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
 
     r = mbedtls_ssl_setup(&ssl, &l->tls->config);
     if (UNLIKELY(r != 0)) {
-        lwan_status_mbedtls_error(r, "Could not setup TLS context");
+        lwan_log_mbedtls_error(r, "Could not setup TLS context");
         return false;
     }
 
@@ -321,7 +321,7 @@ static bool lwan_setup_tls(const struct lwan *l, struct lwan_connection *conn)
         coro_defer(conn->coro, lwan_setup_tls_free_ssl_context, &ssl);
 
     if (UNLIKELY(!defer)) {
-        lwan_status_error("Could not defer cleanup of the TLS context");
+        lwan_log_error("Could not defer cleanup of the TLS context");
         return false;
     }
 
@@ -749,7 +749,7 @@ static int prepare_awaitv(struct lwan_request *r,
             return -EINVAL;
         }
         if (UNLIKELY(conn->flags & CONN_ASYNC_AWAITV)) {
-            lwan_status_debug("ignoring second awaitv call on same fd: %d",
+            lwan_log_debug("ignoring second awaitv call on same fd: %d",
                               await_fd);
             continue;
         }
@@ -765,7 +765,7 @@ static int prepare_awaitv(struct lwan_request *r,
         int ret = prepare_await(l, events, await_fd, r->conn, epoll_fd);
         if (UNLIKELY(ret < 0)) {
             errno = -ret;
-            lwan_status_perror("prepare_await(%d)", await_fd);
+            lwan_log_perror("prepare_await(%d)", await_fd);
             return ret;
         }
     }
@@ -785,7 +785,7 @@ int lwan_request_awaitv_any(struct lwan_request *r, ...)
 
     if (UNLIKELY(ret < 0)) {
         errno = -ret;
-        lwan_status_perror("prepare_awaitv()");
+        lwan_log_perror("prepare_awaitv()");
         coro_yield(r->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -819,7 +819,7 @@ int lwan_request_awaitv_all(struct lwan_request *r, ...)
 
     if (UNLIKELY(ret < 0)) {
         errno = -ret;
-        lwan_status_perror("prepare_awaitv()");
+        lwan_log_perror("prepare_awaitv()");
         coro_yield(r->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
@@ -1006,7 +1006,7 @@ static bool spawn_coro(struct lwan_connection *conn,
 
     int fd = lwan_connection_get_fd(tq->lwan, conn);
 
-    lwan_status_error("Couldn't spawn coroutine for file descriptor %d", fd);
+    lwan_log_error("Couldn't spawn coroutine for file descriptor %d", fd);
 
     send_last_response_without_coro(tq->lwan, conn, HTTP_UNAVAILABLE);
     return false;
@@ -1060,7 +1060,7 @@ turn_timer_wheel(struct timeout_queue *tq, struct lwan_thread *t, int epoll_fd)
     struct timespec now;
 
     if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
-        lwan_status_critical("Could not get monotonic time");
+        lwan_log_critical("Could not get monotonic time");
 
     timeouts_update(t->wheel,
                     (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
@@ -1116,7 +1116,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
 
             r = epoll_ctl(conn->thread->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
             if (UNLIKELY(r < 0)) {
-                lwan_status_perror("Could not add file descriptor %d to epoll "
+                lwan_log_perror("Could not add file descriptor %d to epoll "
                                    "set %d. Dropping connection",
                                    fd, conn->thread->epoll_fd);
                 send_last_response_without_coro(t->lwan, conn, HTTP_UNAVAILABLE);
@@ -1128,7 +1128,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
 
         switch (errno) {
         default:
-            lwan_status_perror("Unexpected error while accepting connections");
+            lwan_log_perror("Unexpected error while accepting connections");
             /* fallthrough */
 
         case EAGAIN:
@@ -1137,7 +1137,7 @@ static bool accept_waiting_clients(const struct lwan_thread *t,
         case EBADF:
         case ECONNABORTED:
         case EINVAL:
-            lwan_status_info("Listening socket closed");
+            lwan_log_info("Listening socket closed");
             return false;
         }
     }
@@ -1154,7 +1154,7 @@ static int create_listen_socket(struct lwan_thread *t,
 
     listen_fd = lwan_create_listen_socket(lwan, num == 0, tls);
     if (listen_fd < 0)
-        lwan_status_critical("Could not create listen_fd");
+        lwan_log_critical("Could not create listen_fd");
 
     /* Ignore errors here, as this is just a hint */
 #if defined(LWAN_HAVE_SO_ATTACH_REUSEPORT_CBPF)
@@ -1218,7 +1218,7 @@ static int create_listen_socket(struct lwan_thread *t,
         .data.ptr = &lwan->conns[listen_fd],
     };
     if (epoll_ctl(t->epoll_fd, EPOLL_CTL_ADD, listen_fd, &event) < 0)
-        lwan_status_critical_perror("Could not add socket to epoll");
+        lwan_log_critical_perror("Could not add socket to epoll");
 
     return listen_fd;
 }
@@ -1234,10 +1234,10 @@ static void *thread_io_loop(void *data)
     struct timeout_queue tq;
 
     if (t->cpu == UINT_MAX) {
-        lwan_status_debug("Worker thread #%zd starting",
+        lwan_log_debug("Worker thread #%zd starting",
                           t - t->lwan->thread.threads + 1);
     } else {
-        lwan_status_debug("Worker thread #%zd starting on CPU %d",
+        lwan_log_debug("Worker thread #%zd starting on CPU %d",
                           t - t->lwan->thread.threads + 1, t->cpu);
     }
 
@@ -1245,7 +1245,7 @@ static void *thread_io_loop(void *data)
 
     events = calloc((size_t)max_events, sizeof(*events));
     if (UNLIKELY(!events))
-        lwan_status_critical("Could not allocate memory for events");
+        lwan_log_critical("Could not allocate memory for events");
 
     update_date_cache(t);
 
@@ -1348,25 +1348,25 @@ static void create_thread(struct lwan *l, struct lwan_thread *thread)
 
     thread->wheel = timeouts_open(&ignore);
     if (!thread->wheel)
-        lwan_status_critical("Could not create timer wheel");
+        lwan_log_critical("Could not create timer wheel");
 
     if ((thread->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
-        lwan_status_critical_perror("epoll_create");
+        lwan_log_critical_perror("epoll_create");
 
     if (pthread_attr_init(&attr))
-        lwan_status_critical_perror("pthread_attr_init");
+        lwan_log_critical_perror("pthread_attr_init");
 
     if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM))
-        lwan_status_critical_perror("pthread_attr_setscope");
+        lwan_log_critical_perror("pthread_attr_setscope");
 
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE))
-        lwan_status_critical_perror("pthread_attr_setdetachstate");
+        lwan_log_critical_perror("pthread_attr_setdetachstate");
 
     if (pthread_create(&thread->self, &attr, thread_io_loop, thread))
-        lwan_status_critical_perror("pthread_create");
+        lwan_log_critical_perror("pthread_create");
 
     if (pthread_attr_destroy(&attr))
-        lwan_status_critical_perror("pthread_attr_destroy");
+        lwan_log_critical_perror("pthread_attr_destroy");
 }
 
 #if defined(__linux__) && defined(__x86_64__)
@@ -1388,7 +1388,7 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
 
         sib = fopen(path, "re");
         if (!sib) {
-            lwan_status_warning("Could not open `%s` to determine CPU topology",
+            lwan_log_warning("Could not open `%s` to determine CPU topology",
                                 path);
             return false;
         }
@@ -1399,14 +1399,14 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
             break;
         case 3: /* SMT */
             if (!(separator == ',' || separator == '-')) {
-                lwan_status_critical("Expecting either ',' or '-' for sibling separator");
+                lwan_log_critical("Expecting either ',' or '-' for sibling separator");
                 __builtin_unreachable();
             }
 
             siblings[i] = sibling;
             break;
         default:
-            lwan_status_critical("%s has invalid format", path);
+            lwan_log_critical("%s has invalid format", path);
             __builtin_unreachable();
         }
 
@@ -1421,12 +1421,12 @@ static bool read_cpu_topology(struct lwan *l, uint32_t siblings[])
      * trying to perform an out-of-bounds array access.  */
     for (unsigned int i = 0; i < l->available_cpus; i++) {
         if (siblings[i] == 0xbebacafe) {
-            lwan_status_warning("Could not determine sibling for CPU %d", i);
+            lwan_log_warning("Could not determine sibling for CPU %d", i);
             return false;
         }
 
         if (siblings[i] >= l->available_cpus) {
-            lwan_status_warning("CPU information topology says CPU %d exists, "
+            lwan_log_warning("CPU information topology says CPU %d exists, "
                                 "but max available CPUs is %d (online CPUs: %d). "
                                 "Is Lwan running in a (broken) container?",
                                 siblings[i], l->available_cpus, l->online_cpus);
@@ -1444,7 +1444,7 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
     unsigned int n_schedtbl = 0;
 
     if (!seen)
-        lwan_status_critical("Could not allocate the seen array");
+        lwan_log_critical("Could not allocate the seen array");
 
     for (uint32_t i = 0; i < l->available_cpus; i++)
         seen[i] = -1;
@@ -1497,7 +1497,7 @@ adjust_thread_affinity(const struct lwan_thread *thread)
     CPU_SET(thread->cpu, &set);
 
     if (pthread_setaffinity_np(thread->self, sizeof(set), &set))
-        lwan_status_warning("Could not set thread affinity");
+        lwan_log_warning("Could not set thread affinity");
 }
 #else
 #define adjust_thread_affinity(...)
@@ -1545,15 +1545,15 @@ static bool lwan_init_tls(struct lwan *l)
         return false;
 
     if (!is_tls_ulp_supported()) {
-        lwan_status_critical(
+        lwan_log_critical(
             "TLS ULP not loaded. Try running `modprobe tls` as root.");
     }
 
     l->tls = calloc(1, sizeof(*l->tls));
     if (!l->tls)
-        lwan_status_critical("Could not allocate memory for SSL context");
+        lwan_log_critical("Could not allocate memory for SSL context");
 
-    lwan_status_debug("Initializing mbedTLS");
+    lwan_log_debug("Initializing mbedTLS");
 
     mbedtls_ssl_config_init(&l->tls->config);
     mbedtls_x509_crt_init(&l->tls->server_cert);
@@ -1563,14 +1563,14 @@ static bool lwan_init_tls(struct lwan *l)
 
     r = mbedtls_x509_crt_parse_file(&l->tls->server_cert, l->config.ssl.cert);
     if (r) {
-        lwan_status_mbedtls_error(r, "Could not parse certificate at %s",
+        lwan_log_mbedtls_error(r, "Could not parse certificate at %s",
                                   l->config.ssl.cert);
         abort();
     }
 
     r = mbedtls_pk_parse_keyfile(&l->tls->server_key, l->config.ssl.key, NULL);
     if (r) {
-        lwan_status_mbedtls_error(r, "Could not parse key file at %s",
+        lwan_log_mbedtls_error(r, "Could not parse key file at %s",
                                   l->config.ssl.key);
         abort();
     }
@@ -1588,14 +1588,14 @@ static bool lwan_init_tls(struct lwan *l)
     r = mbedtls_ssl_conf_own_cert(&l->tls->config, &l->tls->server_cert,
                                   &l->tls->server_key);
     if (r) {
-        lwan_status_mbedtls_error(r, "Could not set cert/key");
+        lwan_log_mbedtls_error(r, "Could not set cert/key");
         abort();
     }
 
     r = mbedtls_ctr_drbg_seed(&l->tls->ctr_drbg, mbedtls_entropy_func,
                               &l->tls->entropy, NULL, 0);
     if (r) {
-        lwan_status_mbedtls_error(r, "Could not seed ctr_drbg");
+        lwan_log_mbedtls_error(r, "Could not seed ctr_drbg");
         abort();
     }
 
@@ -1603,7 +1603,7 @@ static bool lwan_init_tls(struct lwan *l)
                                     MBEDTLS_SSL_TRANSPORT_STREAM,
                                     MBEDTLS_SSL_PRESET_DEFAULT);
     if (r) {
-        lwan_status_mbedtls_error(r, "Could not set mbedTLS default config");
+        lwan_log_mbedtls_error(r, "Could not set mbedTLS default config");
         abort();
     }
 
@@ -1634,12 +1634,12 @@ void lwan_thread_init(struct lwan *l)
     const bool tls_initialized = false;
 #endif
 
-    lwan_status_debug("Initializing threads");
+    lwan_log_debug("Initializing threads");
 
     l->thread.threads =
         calloc((size_t)l->thread.count, sizeof(struct lwan_thread));
     if (!l->thread.threads)
-        lwan_status_critical("Could not allocate memory for threads");
+        lwan_log_critical("Could not allocate memory for threads");
 
     for (unsigned int i = 0; i < l->thread.count; i++)
         l->thread.threads[i].cpu = UINT_MAX;
@@ -1653,7 +1653,7 @@ void lwan_thread_init(struct lwan *l)
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
-        lwan_status_debug("%d CPUs of %d are online. "
+        lwan_log_debug("%d CPUs of %d are online. "
                           "Reading topology to pre-schedule clients",
                           l->online_cpus, l->available_cpus);
         /*
@@ -1680,7 +1680,7 @@ void lwan_thread_init(struct lwan *l)
     } else
 #endif /* __x86_64__ && __linux__ */
     {
-        lwan_status_debug("Using round-robin to preschedule clients");
+        lwan_log_debug("Using round-robin to preschedule clients");
 
         for (unsigned int i = 0; i < l->thread.count; i++)
             l->thread.threads[i].cpu = i % l->online_cpus;
@@ -1691,7 +1691,7 @@ void lwan_thread_init(struct lwan *l)
     }
 
     if (pthread_barrier_init(&l->thread.barrier, NULL, l->thread.count + 1))
-        lwan_status_critical("Could not create barrier");
+        lwan_log_critical("Could not create barrier");
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *thread;
@@ -1723,12 +1723,12 @@ void lwan_thread_init(struct lwan *l)
         create_thread(l, thread);
 
         if ((thread->listen_fd = create_listen_socket(thread, i, false)) < 0)
-            lwan_status_critical_perror("Could not create listening socket");
+            lwan_log_critical_perror("Could not create listening socket");
         l->conns[thread->listen_fd].flags |= CONN_LISTENER;
 
         if (tls_initialized) {
             if ((thread->tls_listen_fd = create_listen_socket(thread, i, true)) < 0)
-                lwan_status_critical_perror("Could not create TLS listening socket");
+                lwan_log_critical_perror("Could not create TLS listening socket");
             l->conns[thread->tls_listen_fd].flags |= CONN_LISTENER | CONN_TLS;
         } else {
             thread->tls_listen_fd = -1;
@@ -1738,14 +1738,14 @@ void lwan_thread_init(struct lwan *l)
             adjust_thread_affinity(thread);
     }
 
-    lwan_status_debug("Worker threads created and ready to serve");
+    lwan_log_debug("Worker threads created and ready to serve");
 
     free(schedtbl);
 }
 
 void lwan_thread_shutdown(struct lwan *l)
 {
-    lwan_status_debug("Shutting down threads");
+    lwan_log_debug("Shutting down threads");
 
     for (unsigned int i = 0; i < l->thread.count; i++) {
         struct lwan_thread *t = &l->thread.threads[i];

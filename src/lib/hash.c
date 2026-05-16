@@ -59,7 +59,7 @@ LWAN_CONSTRUCTOR(randomize_seed, 65535)
     /* The seeds are randomized in order to mitigate the DDoS attack
      * described by Crosby and Wallach in UsenixSec2003.  */
     if (lwan_getentropy(entropy, sizeof(entropy), 0) < 0) {
-        lwan_status_critical("Couldn't randomize hash seeds!");
+        lwan_log_critical("Couldn't randomize hash seeds!");
         __builtin_unreachable();
     }
 
@@ -224,11 +224,11 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
     uint8_t *tophashes;
 
     if (UNLIKELY(!hash)) {
-        lwan_status_error("hash() not provided to hash_custom_new()");
+        lwan_log_error("hash() not provided to hash_custom_new()");
         return NULL;
     }
     if (UNLIKELY(!key_equal)) {
-        lwan_status_error("key_equal() not provided to hash_custom_new()");
+        lwan_log_error("key_equal() not provided to hash_custom_new()");
         return NULL;
     }
 
@@ -478,7 +478,7 @@ static int hash_add_internal(struct hash *ht,
             bucket->value = value;
             ht->len++;
         } else {
-            lwan_status_critical("Couldn't find tombstone in hash table");
+            lwan_log_critical("Couldn't find tombstone in hash table");
             __builtin_unreachable();
         }
     }

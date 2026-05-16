@@ -182,10 +182,10 @@ LWAN_HANDLER_ROUTE(ws_chat, "/ws-chat")
                     lwan_strbuf_get_buffer(response->buffer));
             }
         } else if (resumed_fd < 0) {
-            lwan_status_error("error from fd %d", -resumed_fd);
+            lwan_log_error("error from fd %d", -resumed_fd);
             goto out;
         } else {
-            lwan_status_warning("not awaiting on fd %d, ignoring", resumed_fd);
+            lwan_log_warning("not awaiting on fd %d, ignoring", resumed_fd);
         }
     }
 

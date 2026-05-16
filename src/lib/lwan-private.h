@@ -162,8 +162,8 @@ int lwan_create_listen_socket(const struct lwan *l,
 void lwan_thread_init(struct lwan *l);
 void lwan_thread_shutdown(struct lwan *l);
 
-void lwan_status_init(struct lwan *l);
-void lwan_status_shutdown(struct lwan *l);
+void lwan_log_init(struct lwan *l);
+void lwan_log_shutdown(struct lwan *l);
 
 void lwan_job_thread_init(void);
 void lwan_job_thread_main_loop(void);

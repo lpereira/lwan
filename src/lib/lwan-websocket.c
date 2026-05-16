@@ -158,7 +158,7 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
         len = (uint64_t)ntohs((uint16_t)len);
 
         if (len < 0x7e) {
-            lwan_status_warning(
+            lwan_log_warning(
                 "Can't use 16-bit encoding for frame length of %zu", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
@@ -170,12 +170,12 @@ static size_t get_frame_length(struct lwan_request *request, uint16_t header)
         len = be64toh(len);
 
         if (UNLIKELY(len > SSIZE_MAX)) {
-            lwan_status_warning("Frame length of %zu won't fit a ssize_t", len);
+            lwan_log_warning("Frame length of %zu won't fit a ssize_t", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
         }
         if (UNLIKELY(len <= 0xffff)) {
-            lwan_status_warning(
+            lwan_log_warning(
                 "Can't use 64-bit encoding for frame length of %zu", len);
             coro_yield(request->conn->coro, CONN_CORO_ABORT);
             __builtin_unreachable();
@@ -284,7 +284,7 @@ ping_pong(struct lwan_request *request, uint16_t header, enum ws_opcode opcode)
     assert(opcode == WS_OPCODE_PING || opcode == WS_OPCODE_PONG);
 
     if (UNLIKELY(len > 125)) {
-        lwan_status_debug("Received %s frame with length %zu."
+        lwan_log_debug("Received %s frame with length %zu."
                           "Max is 125. Aborting connection.",
                           opcode == WS_OPCODE_PING ? "PING" : "PONG", len);
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
@@ -352,14 +352,14 @@ next_frame:
     continuation = false;
 
     if (UNLIKELY(header & 0x7000)) {
-        lwan_status_debug("RSV1...RSV3 has non-zero value %d, aborting",
+        lwan_log_debug("RSV1...RSV3 has non-zero value %d, aborting",
                           header & 0x7000);
         /* No extensions are supported yet, so fail connection per RFC6455. */
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }
     if (UNLIKELY(!(header & WS_MASKED))) {
-        lwan_status_debug("Client sent an unmasked WebSockets frame, aborting");
+        lwan_log_debug("Client sent an unmasked WebSockets frame, aborting");
         coro_yield(request->conn->coro, CONN_CORO_ABORT);
         __builtin_unreachable();
     }

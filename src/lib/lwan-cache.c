@@ -199,7 +199,7 @@ void cache_destroy(struct cache *cache)
     assert(cache);
 
 #ifndef NDEBUG
-    lwan_status_debug("Cache stats: %d hits, %d misses, %d evictions",
+    lwan_log_debug("Cache stats: %d hits, %d misses, %d evictions",
                       cache->stats.hits, cache->stats.misses,
                       cache->stats.evicted);
 #endif
@@ -303,7 +303,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
         struct timespec now;
 
         if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
-            lwan_status_critical("clock_gettime");
+            lwan_log_critical("clock_gettime");
 
         entry->time_to_expire = now.tv_sec + cache->settings.time_to_live;
 
@@ -392,7 +392,7 @@ static bool cache_pruner_job(void *data)
     /* If the queue is empty, there's nothing to do; unlock/return*/
     if (list_empty(&cache->queue.list)) {
         if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock)))
-            lwan_status_perror("pthread_rwlock_unlock");
+            lwan_log_perror("pthread_rwlock_unlock");
         return false;
     }
 
@@ -403,12 +403,12 @@ static bool cache_pruner_job(void *data)
     list_head_init(&cache->queue.list);
 
     if (UNLIKELY(pthread_rwlock_unlock(&cache->queue.lock))) {
-        lwan_status_perror("pthread_rwlock_unlock");
+        lwan_log_perror("pthread_rwlock_unlock");
         goto end;
     }
 
     if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0)) {
-        lwan_status_perror("clock_gettime");
+        lwan_log_perror("clock_gettime");
         goto end;
     }
 
@@ -421,14 +421,14 @@ static bool cache_pruner_job(void *data)
         list_del(&node->entries);
 
         if (UNLIKELY(pthread_rwlock_wrlock(&cache->hash.lock))) {
-            lwan_status_perror("pthread_rwlock_wrlock");
+            lwan_log_perror("pthread_rwlock_wrlock");
             continue;
         }
 
         hash_del(cache->hash.table, key);
 
         if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock)))
-            lwan_status_perror("pthread_rwlock_unlock");
+            lwan_log_perror("pthread_rwlock_unlock");
 
         if (ATOMIC_INC(node->refs) == 1) {
             /* If the refcount was 0, and turned 1 after the increment, it means the item can
@@ -460,7 +460,7 @@ static bool cache_pruner_job(void *data)
         list_prepend_list(&cache->queue.list, &queue);
         pthread_rwlock_unlock(&cache->queue.lock);
     } else {
-        lwan_status_perror("pthread_rwlock_wrlock");
+        lwan_log_perror("pthread_rwlock_wrlock");
     }
 
 end:

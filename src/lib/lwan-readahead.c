@@ -79,7 +79,7 @@ void lwan_readahead_shutdown(void)
         readahead_pipe_fd[0] == -1)
         return;
 
-    lwan_status_debug("Shutting down readahead thread");
+    lwan_log_debug("Shutting down readahead thread");
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -143,12 +143,12 @@ static void *lwan_readahead_loop(void *data __attribute__((unused)))
         if (UNLIKELY(n_bytes < 0)) {
             if (errno == EAGAIN || errno == EINTR)
                 continue;
-            lwan_status_perror("Ignoring error while reading from pipe (%d)",
+            lwan_log_perror("Ignoring error while reading from pipe (%d)",
                                readahead_pipe_fd[0]);
             continue;
 #if PIPE_DIRECT_FLAG
         } else if (UNLIKELY(n_bytes % (ssize_t)sizeof(cmd[0]))) {
-            lwan_status_warning("Ignoring readahead packet read of %zd bytes",
+            lwan_log_warning("Ignoring readahead packet read of %zd bytes",
                                 n_bytes);
             continue;
 #endif
@@ -191,35 +191,35 @@ void lwan_readahead_init(void)
     if (readahead_pipe_fd[0] != readahead_pipe_fd[1])
         return;
 
-    lwan_status_debug("Initializing low priority readahead thread");
+    lwan_log_debug("Initializing low priority readahead thread");
 
     if (pipe2(readahead_pipe_fd, O_CLOEXEC | PIPE_DIRECT_FLAG) < 0) {
-        lwan_status_warning("Could not create pipe for readahead queue");
+        lwan_log_warning("Could not create pipe for readahead queue");
         goto disable_readahead;
     }
 
     /* Only write side should be non-blocking. */
     flags = fcntl(readahead_pipe_fd[1], F_GETFL);
     if (flags < 0) {
-        lwan_status_warning(
+        lwan_log_warning(
             "Could not get flags for readahead pipe write side");
         goto disable_readahead_close_pipe;
     }
     if (fcntl(readahead_pipe_fd[1], F_SETFL, flags | O_NONBLOCK) < 0) {
-        lwan_status_warning(
+        lwan_log_warning(
             "Could not set readahead write side to be no-blocking");
         goto disable_readahead_close_pipe;
     }
 
     if (pthread_create(&readahead_self, NULL, lwan_readahead_loop, NULL)) {
-        lwan_status_warning("Could not create low-priority readahead thread");
+        lwan_log_warning("Could not create low-priority readahead thread");
         goto disable_readahead_close_pipe;
     }
 
 #ifdef SCHED_IDLE
     struct sched_param sched_param = {.sched_priority = 0};
     if (pthread_setschedparam(readahead_self, SCHED_IDLE, &sched_param) < 0)
-        lwan_status_perror(
+        lwan_log_perror(
             "Could not set scheduling policy of readahead thread to idle");
 #endif /* SCHED_IDLE */
 
@@ -240,5 +240,5 @@ disable_readahead:
      * this corner case of not being able to create/set up the pipe. */
     page_size = 0;
 
-    lwan_status_warning("Readahead thread has been disabled");
+    lwan_log_warning("Readahead thread has been disabled");
 }

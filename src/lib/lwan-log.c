@@ -29,17 +29,17 @@
 #include <unistd.h>
 
 #include "lwan-private.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 
-enum lwan_status_type {
-    STATUS_INFO = 0,
-    STATUS_WARNING = 1,
-    STATUS_ERROR = 2,
-    STATUS_DEBUG = 3,
-    STATUS_PERROR = 4,
-    STATUS_NONE = 5,
+enum lwan_log_type {
+    LOG_INFO = 0,
+    LOG_WARNING = 1,
+    LOG_ERROR = 2,
+    LOG_DEBUG = 3,
+    LOG_PERROR = 4,
+    LOG_NONE = 5,
     /* [6,7] are unused so that CRITICAL can be ORed with previous items */
-    STATUS_CRITICAL = 8,
+    LOG_CRITICAL = 8,
 };
 
 static bool can_use_colors(void);
@@ -49,7 +49,7 @@ static volatile bool quiet = false;
 static bool use_colors;
 static bool use_emojis;
 
-void lwan_status_init(struct lwan *l)
+void lwan_log_init(struct lwan *l)
 {
 #ifdef NDEBUG
     quiet = l->config.quiet;
@@ -61,7 +61,7 @@ void lwan_status_init(struct lwan *l)
     use_emojis = can_use_emojis();
 }
 
-void lwan_status_shutdown(struct lwan *l __attribute__((unused))) {}
+void lwan_log_shutdown(struct lwan *l __attribute__((unused))) {}
 
 static bool can_use_colors(void)
 {
@@ -110,26 +110,26 @@ static bool can_use_emojis(void)
     return true;
 }
 
-static int status_index(enum lwan_status_type type)
+static int log_index(enum lwan_log_type type)
 {
-    return use_colors ? (int)type : STATUS_NONE;
+    return use_colors ? (int)type : LOG_NONE;
 }
 
-#define V(c) { .value = c, .len = sizeof(c) - 1 }
+#define V(c) {.value = c, .len = sizeof(c) - 1}
 static const struct lwan_value start_colors[] = {
-    [STATUS_INFO] = V("\033[36m"),
-    [STATUS_WARNING] = V("\033[33m"),
-    [STATUS_DEBUG] = V("\033[37m"),
-    [STATUS_PERROR] = V("\033[35m"),
-    [STATUS_CRITICAL] = V("\033[31;1m"),
-    [STATUS_NONE] = V(""),
-    [STATUS_ERROR] = V("\033[35m"),
-    [STATUS_CRITICAL | STATUS_PERROR] = V("\033[31;1m"),
+    [LOG_INFO] = V("\033[36m"),
+    [LOG_WARNING] = V("\033[33m"),
+    [LOG_DEBUG] = V("\033[37m"),
+    [LOG_PERROR] = V("\033[35m"),
+    [LOG_CRITICAL] = V("\033[31;1m"),
+    [LOG_NONE] = V(""),
+    [LOG_ERROR] = V("\033[35m"),
+    [LOG_CRITICAL | LOG_PERROR] = V("\033[31;1m"),
 };
 
-static inline struct lwan_value start_color(enum lwan_status_type type)
+static inline struct lwan_value start_color(enum lwan_log_type type)
 {
-    return start_colors[status_index(type)];
+    return start_colors[log_index(type)];
 }
 
 static inline struct lwan_value end_color(void)
@@ -152,10 +152,7 @@ static inline char *strerror_thunk_r(int error_number, char *buffer, size_t len)
 
 #ifndef NDEBUG
 
-LWAN_LAZY_THREAD_LOCAL(long, gettid_cached)
-{
-    return gettid();
-}
+LWAN_LAZY_THREAD_LOCAL(long, gettid_cached) { return gettid(); }
 
 LWAN_LAZY_THREAD_LOCAL(const char *, get_thread_emoji)
 {
@@ -182,23 +179,23 @@ LWAN_LAZY_THREAD_LOCAL(const char *, get_thread_emoji)
 #include <lwan-strbuf.h>
 #include <syslog.h>
 
-static int status_to_syslog_prio[] = {
-    [STATUS_CRITICAL | STATUS_PERROR] = LOG_CRIT,
-    [STATUS_CRITICAL] = LOG_CRIT,
-    [STATUS_ERROR] = LOG_ERR,
-    [STATUS_WARNING] = LOG_WARNING,
-    [STATUS_INFO] = LOG_INFO,
-    [STATUS_DEBUG] = LOG_DEBUG,
+static int log_to_syslog_prio[] = {
+    [LOG_CRITICAL | LOG_PERROR] = LOG_CRIT,
+    [LOG_CRITICAL] = LOG_CRIT,
+    [LOG_ERROR] = LOG_ERR,
+    [LOG_WARNING] = LOG_WARNING,
+    [LOG_INFO] = LOG_INFO,
+    [LOG_DEBUG] = LOG_DEBUG,
 };
 
-void lwan_syslog_status_out(
+void lwan_syslog_log_out(
 #ifndef NDEBUG
     const char *file,
     const int line,
     const char *func,
     const long tid,
 #endif
-    enum lwan_status_type type,
+    enum lwan_log_type type,
     int saved_errno,
     const char *fmt,
     va_list values)
@@ -220,7 +217,7 @@ void lwan_syslog_status_out(
     if (!lwan_strbuf_append_vprintf(&buf, fmt, copied_values))
         goto out;
 
-    if (type & STATUS_PERROR) {
+    if (type & LOG_PERROR) {
         char errbuf[128];
 
         if (!lwan_strbuf_append_strz(
@@ -229,8 +226,8 @@ void lwan_syslog_status_out(
             goto out;
     }
 
-    syslog(status_to_syslog_prio[type], "%.*s",
-           (int)lwan_strbuf_get_length(&buf), lwan_strbuf_get_buffer(&buf));
+    syslog(log_to_syslog_prio[type], "%.*s", (int)lwan_strbuf_get_length(&buf),
+           lwan_strbuf_get_buffer(&buf));
 
 out:
     lwan_strbuf_free(&buf);
@@ -241,16 +238,16 @@ LWAN_CONSTRUCTOR(register_lwan_to_syslog, 0)
     openlog("lwan", LOG_NDELAY | LOG_PID | LOG_CONS, LOG_USER);
 }
 #else
-#define lwan_syslog_status_out(...)
+#define lwan_syslog_log_out(...)
 #endif
 
-static void status_out(
+static void log_out(
 #ifndef NDEBUG
     const char *file,
     const int line,
     const char *func,
 #endif
-    enum lwan_status_type type,
+    enum lwan_log_type type,
     const char *fmt,
     va_list values)
 {
@@ -259,10 +256,10 @@ static void status_out(
     int saved_errno = errno;
 
 #ifndef NDEBUG
-    lwan_syslog_status_out(file, line, func, gettid_cached(), type, saved_errno,
-                           fmt, values);
+    lwan_syslog_log_out(file, line, func, gettid_cached(), type, saved_errno,
+                        fmt, values);
 #else
-    lwan_syslog_status_out(type, saved_errno, fmt, values);
+    lwan_syslog_log_out(type, saved_errno, fmt, values);
 #endif
 
     flockfile(stdout);
@@ -284,7 +281,7 @@ static void status_out(
     fwrite_unlocked(start.value, start.len, 1, stdout);
     vprintf(fmt, values);
 
-    if (UNLIKELY(type & STATUS_PERROR)) {
+    if (UNLIKELY(type & LOG_PERROR)) {
         char errbuf[64];
         char *errmsg =
             strerror_thunk_r(saved_errno, errbuf, sizeof(errbuf) - 1);
@@ -303,42 +300,41 @@ static void status_out(
 
 #ifdef NDEBUG
 #define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
-    void lwan_status_##fn_name_(const char *fmt, ...)                          \
+    void lwan_log_##fn_name_(const char *fmt, ...)                             \
     {                                                                          \
         if (LIKELY(!quiet)) {                                                  \
             va_list values;                                                    \
             va_start(values, fmt);                                             \
-            status_out(type_, fmt, values);                                    \
+            log_out(type_, fmt, values);                                       \
             va_end(values);                                                    \
         }                                                                      \
-        if (UNLIKELY((type_)&STATUS_CRITICAL))                                 \
+        if (UNLIKELY((type_) & LOG_CRITICAL))                                  \
             exit(1);                                                           \
     }
 #else
 #define IMPLEMENT_FUNCTION(fn_name_, type_)                                    \
-    void lwan_status_##fn_name_##_debug(const char *file, const int line,      \
-                                        const char *func, const char *fmt,     \
-                                        ...)                                   \
+    void lwan_log_##fn_name_##_debug(const char *file, const int line,         \
+                                     const char *func, const char *fmt, ...)   \
     {                                                                          \
         if (LIKELY(!quiet)) {                                                  \
             va_list values;                                                    \
             va_start(values, fmt);                                             \
-            status_out(file, line, func, type_, fmt, values);                  \
+            log_out(file, line, func, type_, fmt, values);                     \
             va_end(values);                                                    \
         }                                                                      \
-        if (UNLIKELY((type_)&STATUS_CRITICAL))                                 \
+        if (UNLIKELY((type_) & LOG_CRITICAL))                                  \
             abort();                                                           \
     }
 
-IMPLEMENT_FUNCTION(debug, STATUS_DEBUG)
+IMPLEMENT_FUNCTION(debug, LOG_DEBUG)
 #endif
 
-IMPLEMENT_FUNCTION(info, STATUS_INFO)
-IMPLEMENT_FUNCTION(warning, STATUS_WARNING)
-IMPLEMENT_FUNCTION(error, STATUS_ERROR)
-IMPLEMENT_FUNCTION(perror, STATUS_PERROR)
+IMPLEMENT_FUNCTION(info, LOG_INFO)
+IMPLEMENT_FUNCTION(warning, LOG_WARNING)
+IMPLEMENT_FUNCTION(error, LOG_ERROR)
+IMPLEMENT_FUNCTION(perror, LOG_PERROR)
 
-IMPLEMENT_FUNCTION(critical, STATUS_CRITICAL)
-IMPLEMENT_FUNCTION(critical_perror, STATUS_CRITICAL | STATUS_PERROR)
+IMPLEMENT_FUNCTION(critical, LOG_CRITICAL)
+IMPLEMENT_FUNCTION(critical_perror, LOG_CRITICAL | LOG_PERROR)
 
 #undef IMPLEMENT_FUNCTION

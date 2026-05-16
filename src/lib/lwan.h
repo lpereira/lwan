@@ -36,7 +36,7 @@ extern "C" {
 #include "lwan-array.h"
 #include "lwan-config.h"
 #include "lwan-coro.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 #include "lwan-strbuf.h"
 #include "lwan-trie.h"
 

@@ -8,7 +8,7 @@ else ()
 		mimegen.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-array.c
-		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-log.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 	)
 	if (LWAN_HAVE_BROTLI)
@@ -42,7 +42,7 @@ else ()
 	add_executable(configdump
 		configdump.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-config.c
-		${CMAKE_SOURCE_DIR}/src/lib/lwan-status.c
+		${CMAKE_SOURCE_DIR}/src/lib/lwan-log.c
 		${CMAKE_SOURCE_DIR}/src/lib/lwan-strbuf.c
 		${CMAKE_SOURCE_DIR}/src/lib/missing.c
 		${CMAKE_SOURCE_DIR}/src/lib/hash.c

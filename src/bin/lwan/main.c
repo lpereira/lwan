@@ -339,7 +339,7 @@ main(int argc, char *argv[])
 
     switch (parse_args(argc, argv, &c, root, &sj)) {
     case ARGS_SERVE_FILES:
-        lwan_status_info("Serving files from %s", root);
+        lwan_log_info("Serving files from %s", root);
 
         if (sj.chroot_path) {
             root = "/";

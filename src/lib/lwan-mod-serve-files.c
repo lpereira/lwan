@@ -957,38 +957,38 @@ static void *serve_files_create(const char *prefix, void *args)
     int root_fd;
 
     if (!settings->root_path) {
-        lwan_status_error("root_path not specified");
+        lwan_log_error("root_path not specified");
         return NULL;
     }
 
     canonical_root = lwan_get_real_root_path(settings->root_path);
     if (!canonical_root) {
-        lwan_status_perror("Could not obtain real path of \"%s\"",
+        lwan_log_perror("Could not obtain real path of \"%s\"",
                            settings->root_path);
         goto out_realpath;
     }
 
     root_fd = open(canonical_root, open_mode | O_DIRECTORY | O_PATH);
     if (root_fd < 0) {
-        lwan_status_perror("Could not open directory \"%s\"", canonical_root);
+        lwan_log_perror("Could not open directory \"%s\"", canonical_root);
         goto out_open;
     }
 
     if (!lwan_straitjacket_allow_dirfd_ro(root_fd)) {
-        lwan_status_error("Could not add Landlock rule");
+        lwan_log_error("Could not add Landlock rule");
         goto out_landlock;
     }
 
     priv = malloc(sizeof(*priv));
     if (!priv) {
-        lwan_status_perror("malloc");
+        lwan_log_perror("malloc");
         goto out_malloc;
     }
 
     priv->cache = cache_create(create_cache_entry, destroy_cache_entry, priv,
                                settings->cache_for);
     if (!priv->cache) {
-        lwan_status_error("Couldn't create cache");
+        lwan_log_error("Couldn't create cache");
         goto out_cache_create;
     }
 
@@ -1002,13 +1002,13 @@ static void *serve_files_create(const char *prefix, void *args)
                                         LWAN_TPL_FLAG_CONST_TEMPLATE);
     }
     if (!priv->directory_list_tpl) {
-        lwan_status_error("Could not compile directory list template");
+        lwan_log_error("Could not compile directory list template");
         goto out_tpl_compile;
     }
 
     priv->prefix = strdup(prefix);
     if (!priv->prefix) {
-        lwan_status_error("Could not copy prefix");
+        lwan_log_error("Could not copy prefix");
         goto out_tpl_prefix_copy;
     }
 
@@ -1069,7 +1069,7 @@ static void serve_files_destroy(void *data)
     struct serve_files_priv *priv = data;
 
     if (!priv) {
-        lwan_status_warning("Nothing to shutdown");
+        lwan_log_warning("Nothing to shutdown");
         return;
     }
 

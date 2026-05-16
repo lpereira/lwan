@@ -127,13 +127,13 @@ static struct lwan_url_map *add_url_map(struct lwan_trie *t, const char *prefix,
     struct lwan_url_map *copy = malloc(sizeof(*copy));
 
     if (!copy)
-        lwan_status_critical_perror("Could not copy URL map");
+        lwan_log_critical_perror("Could not copy URL map");
 
     memcpy(copy, map, sizeof(*copy));
 
     copy->prefix = strdup(prefix ? prefix : copy->prefix);
     if (!copy->prefix)
-        lwan_status_critical_perror("Could not copy URL prefix");
+        lwan_log_critical_perror("Could not copy URL prefix");
 
     copy->prefix_len = strlen(copy->prefix);
     lwan_trie_add(t, copy->prefix, copy);
@@ -177,7 +177,7 @@ static void build_response_headers(struct lwan *l,
 
     for (; kv && kv->key; kv++) {
         if (!can_override_header(kv->key)) {
-            lwan_status_warning("Cannot override header '%s'", kv->key);
+            lwan_log_warning("Cannot override header '%s'", kv->key);
         } else {
             if (strcaseequal_neutral(kv->key, "Server"))
                 set_server = true;
@@ -214,19 +214,19 @@ static void parse_global_headers(struct config *c,
         case CONFIG_LINE_TYPE_LINE:
             kv = lwan_key_value_array_append(&hdrs);
             if (!kv) {
-                lwan_status_critical_perror(
+                lwan_log_critical_perror(
                     "Could not allocate memory for custom response header");
             }
 
             kv->key = strdup(l->key);
             if (!kv->key) {
-                lwan_status_critical_perror(
+                lwan_log_critical_perror(
                     "Could not allocate memory for custom response header");
             }
 
             kv->value = strdup(l->value);
             if (!kv->value) {
-                lwan_status_critical_perror(
+                lwan_log_critical_perror(
                     "Could not allocate memory for custom response header");
             }
             break;
@@ -234,7 +234,7 @@ static void parse_global_headers(struct config *c,
         case CONFIG_LINE_TYPE_SECTION_END:
             kv = lwan_key_value_array_append(&hdrs);
             if (!kv) {
-                lwan_status_critical_perror(
+                lwan_log_critical_perror(
                     "Could not allocate memory for custom response header");
             }
 
@@ -328,7 +328,7 @@ static void parse_listener_prefix(struct config *c,
     struct config *isolated;
 
     if (!hash)
-        lwan_status_critical("Could not allocate hash table");
+        lwan_log_critical("Could not allocate hash table");
 
     isolated = config_isolate_section(c, l);
     if (!isolated) {
@@ -343,9 +343,9 @@ static void parse_listener_prefix(struct config *c,
             char *value_copy = strdup(l->value);
 
             if (!key_copy)
-                lwan_status_critical("Could not copy key from config file");
+                lwan_log_critical("Could not copy key from config file");
             if (!value_copy)
-                lwan_status_critical("Could not copy value from config file");
+                lwan_log_critical("Could not copy value from config file");
 
             hash_add(hash, key_copy, value_copy);
             break;
@@ -379,7 +379,7 @@ add_map:
 
         hash = NULL;
     } else if (module->create_from_hash && module->handle_request) {
-        lwan_status_debug("Initializing module %s from config",
+        lwan_log_debug("Initializing module %s from config",
                           get_module_name(module));
 
         url_map.data = module->create_from_hash(prefix, hash);
@@ -419,12 +419,12 @@ static void register_url_map(struct lwan *l, const struct lwan_url_map *map)
     struct lwan_url_map *copy = add_url_map(&l->url_map_trie, NULL, map);
 
     if (copy->module && copy->module->create) {
-        lwan_status_debug("Initializing module %s from struct",
+        lwan_log_debug("Initializing module %s from struct",
                           get_module_name(copy->module));
 
         copy->data = copy->module->create(map->prefix, copy->args);
         if (!copy->data) {
-            lwan_status_critical("Could not initialize module %s",
+            lwan_log_critical("Could not initialize module %s",
                                  get_module_name(copy->module));
         }
 
@@ -439,7 +439,7 @@ void lwan_set_url_map(struct lwan *l, const struct lwan_url_map *map)
 {
     lwan_trie_destroy(&l->url_map_trie);
     if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
-        lwan_status_critical_perror("Could not initialize trie");
+        lwan_log_critical_perror("Could not initialize trie");
 
     for (; map->prefix; map++)
         register_url_map(l, map);
@@ -452,13 +452,13 @@ void lwan_detect_url_map(struct lwan *l)
 
     lwan_trie_destroy(&l->url_map_trie);
     if (UNLIKELY(!lwan_trie_init(&l->url_map_trie, destroy_urlmap)))
-        lwan_status_critical_perror("Could not initialize trie");
+        lwan_log_critical_perror("Could not initialize trie");
 
     LWAN_SECTION_FOREACH(lwan_handler, iter) {
         if (!iter->route)
             continue;
 
-        lwan_status_debug("Using handler `%s' for route `%s'",
+        lwan_log_debug("Using handler `%s' for route `%s'",
                           iter->name, iter->route);
 
         const struct lwan_url_map map = {.prefix = iter->route,
@@ -520,12 +520,12 @@ static void parse_tls_listener(struct config *conf, const struct config_line *li
                 free(lwan->config.ssl.cert);
                 lwan->config.ssl.cert = strdup(line->value);
                 if (!lwan->config.ssl.cert)
-                    return lwan_status_critical("Could not copy string");
+                    return lwan_log_critical("Could not copy string");
             } else if (streq(line->key, "key")) {
                 free(lwan->config.ssl.key);
                 lwan->config.ssl.key = strdup(line->value);
                 if (!lwan->config.ssl.key)
-                    return lwan_status_critical("Could not copy string");
+                    return lwan_log_critical("Could not copy string");
             } else if (streq(line->key, "hsts")) {
                 lwan->config.ssl.send_hsts_header = parse_bool(line->value, false);
             } else {
@@ -551,12 +551,12 @@ allow_bind_for_listener(const char *listener)
         int int_port = parse_int(port, -1);
 
         if (int_port < 0 || int_port > 0xffff) {
-            lwan_status_critical("Port out of range 0...65535: %d", int_port);
+            lwan_log_critical("Port out of range 0...65535: %d", int_port);
             __builtin_unreachable();
         }
 
         if (!lwan_straitjacket_allow_bind(int_port)) {
-            lwan_status_critical("Cannot add Landlock rule");
+            lwan_log_critical("Cannot add Landlock rule");
             __builtin_unreachable();
         }
     }
@@ -637,7 +637,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
 
     if (!path)
         path = lwan_get_config_path(path_buf, sizeof(path_buf));
-    lwan_status_info("Loading configuration file: %s", path);
+    lwan_log_info("Loading configuration file: %s", path);
 
     conf = config_open(path);
     if (!conf)
@@ -682,7 +682,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
                     config_error(conf,
                                  "Request buffer can't be over 16MiB");
                 } else if (request_buffer_size < DEFAULT_BUFFER_SIZE) {
-                    lwan_status_warning("Using request buffer size of %d bytes instead of the "
+                    lwan_log_warning("Using request buffer size of %d bytes instead of the "
                                         "requested %ld bytes",
                                         DEFAULT_BUFFER_SIZE,
                                         request_buffer_size);
@@ -779,7 +779,7 @@ static bool setup_from_config(struct lwan *lwan, const char *path)
     }
 
     if (config_last_error(conf)) {
-        lwan_status_critical("Error on config file \"%s\", line %d: %s", path,
+        lwan_log_critical("Error on config file \"%s\", line %d: %s", path,
                              config_cur_line(conf), config_last_error(conf));
         lwan_trie_destroy(&lwan->url_map_trie);
     }
@@ -794,12 +794,12 @@ static void try_setup_from_config(struct lwan *l,
 {
     if (!setup_from_config(l, config->config_file_path)) {
         if (config->config_file_path) {
-            lwan_status_critical("Could not read config file: %s",
+            lwan_log_critical("Could not read config file: %s",
                                  config->config_file_path);
         }
     }
 
-    lwan_status_init(l); /* `quiet` key might have changed value. */
+    lwan_log_init(l); /* `quiet` key might have changed value. */
 
     l->config.request_flags =
         (l->config.proxy_protocol ? REQUEST_ALLOW_PROXY_REQS : 0) |
@@ -812,7 +812,7 @@ static rlim_t setup_open_file_count_limits(struct lwan *l)
     struct rlimit r;
 
     if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
-        lwan_status_perror("Could not obtain maximum number of file "
+        lwan_log_perror("Could not obtain maximum number of file "
                            "descriptors. Assuming %d",
                            OPEN_MAX);
         return OPEN_MAX;
@@ -834,7 +834,7 @@ static rlim_t setup_open_file_count_limits(struct lwan *l)
                               r.rlim_cur);
 
         if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
-            lwan_status_perror("Could not raise maximum number of file "
+            lwan_log_perror("Could not raise maximum number of file "
                                "descriptors to %" PRIu64 ". Leaving at "
                                "%" PRIu64, r.rlim_max, current);
             r.rlim_cur = current;
@@ -843,7 +843,7 @@ static rlim_t setup_open_file_count_limits(struct lwan *l)
 
 out:
     if (r.rlim_cur < 10 * l->thread.count) {
-        lwan_status_critical("Number of file descriptors (%ld) is smaller than 10x "
+        lwan_log_critical("Number of file descriptors (%ld) is smaller than 10x "
                              "the number of threads (%d)\n",
                              r.rlim_cur,
                              10 * l->thread.count);
@@ -858,7 +858,7 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
 
     l->conns = lwan_aligned_alloc(sz, 64);
     if (UNLIKELY(!l->conns))
-        lwan_status_critical_perror("lwan_alloc_aligned");
+        lwan_log_critical_perror("lwan_alloc_aligned");
 
     memset(l->conns, 0, sz);
 }
@@ -869,13 +869,13 @@ static void get_number_of_cpus(struct lwan *l)
     long n_available_cpus = sysconf(_SC_NPROCESSORS_CONF);
 
     if (n_online_cpus < 0) {
-        lwan_status_warning(
+        lwan_log_warning(
             "Could not get number of online CPUs, assuming 1 CPU");
         n_online_cpus = 1;
     }
 
     if (n_available_cpus < 0) {
-        lwan_status_warning(
+        lwan_log_warning(
             "Could not get number of available CPUs, assuming %ld CPUs",
             n_online_cpus);
         n_available_cpus = n_online_cpus;
@@ -918,7 +918,7 @@ call_constructors(struct lwan *l)
         struct lwan_constructor_callback_info *info =
             constructor_array_append(&constructors);
         if (!info)
-            lwan_status_critical("Could not append to constructor array");
+            lwan_log_critical("Could not append to constructor array");
         *info = *iter;
     }
     constructor_array_sort(&constructors, constructor_sort);
@@ -942,7 +942,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
     /* Initialize status first, as it is used by other things during
      * their initialization. */
-    lwan_status_init(l);
+    lwan_log_init(l);
 
     call_constructors(l);
 
@@ -965,7 +965,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     lwan_response_init(l);
 
     /* Continue initialization as normal. */
-    lwan_status_debug("Initializing lwan web server");
+    lwan_log_debug("Initializing lwan web server");
 
 #if defined(LWAN_HAVE_LANDLOCK)
     if (l->config.tls_listener)
@@ -981,14 +981,14 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     } else if (l->config.n_threads > 3 * l->online_cpus) {
         l->thread.count = l->online_cpus * 3;
 
-        lwan_status_warning("%d threads requested, but only %d online CPUs "
+        lwan_log_warning("%d threads requested, but only %d online CPUs "
                             "(out of %d configured CPUs); capping to %d threads",
                             l->config.n_threads, l->online_cpus, l->available_cpus,
                             3 * l->online_cpus);
     } else if (l->config.n_threads > 255) {
         l->thread.count = 256;
 
-        lwan_status_warning("%d threads requested, but max 256 supported",
+        lwan_log_warning("%d threads requested, but max 256 supported",
             l->config.n_threads);
     } else {
         l->thread.count = l->config.n_threads;
@@ -998,7 +998,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
     allocate_connections(l, (size_t)max_open_files);
 
     l->thread.max_fd = (unsigned)max_open_files / (unsigned)l->thread.count;
-    lwan_status_info("Using %d threads, maximum %d sockets per thread",
+    lwan_log_info("Using %d threads, maximum %d sockets per thread",
                      l->thread.count, l->thread.max_fd);
 
     signal(SIGPIPE, SIG_IGN);
@@ -1010,7 +1010,7 @@ void lwan_init_with_config(struct lwan *l, const struct lwan_config *config)
 
 void lwan_shutdown(struct lwan *l)
 {
-    lwan_status_info("Shutting down");
+    lwan_log_info("Shutting down");
 
     free(l->config.listener);
     free(l->config.error_template);
@@ -1024,7 +1024,7 @@ void lwan_shutdown(struct lwan *l)
     lwan_job_thread_shutdown();
     lwan_thread_shutdown(l);
 
-    lwan_status_debug("Shutting down URL handlers");
+    lwan_log_debug("Shutting down URL handlers");
     lwan_trie_destroy(&l->url_map_trie);
 
     free(l->headers.value);
@@ -1032,7 +1032,7 @@ void lwan_shutdown(struct lwan *l)
 
     lwan_response_shutdown(l);
     lwan_tables_shutdown();
-    lwan_status_shutdown(l);
+    lwan_log_shutdown(l);
     lwan_http_authorize_shutdown();
     lwan_readahead_shutdown();
 }
@@ -1041,12 +1041,12 @@ void lwan_main_loop(struct lwan *l __attribute__((unused)))
 {
 #if defined(LWAN_HAVE_LANDLOCK)
     if (!lwan_landlock_enforce()) {
-        lwan_status_critical("Could not enable Landlock");
+        lwan_log_critical("Could not enable Landlock");
     }
 #endif
     pthread_barrier_wait(&l->thread.barrier);
 
-    lwan_status_info("Ready to serve");
+    lwan_log_info("Ready to serve");
 
     lwan_job_thread_main_loop();
 }

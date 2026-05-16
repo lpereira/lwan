@@ -19,7 +19,7 @@ set(SOURCES
 	lwan-request.c
 	lwan-response.c
 	lwan-socket.c
-	lwan-status.c
+	lwan-log.c
 	lwan-straitjacket.c
 	lwan-strbuf.c
 	lwan-tables.c
@@ -184,7 +184,7 @@ add_executable(lwan-template-test
 	lwan-arena.c
 	lwan-array.c
 	lwan-coro.c
-	lwan-status.c
+	lwan-log.c
 	lwan-strbuf.c
 	missing.c
 )
@@ -211,7 +211,7 @@ install(FILES
 	lwan-mod-response.h
 	lwan-mod-redirect.h
 	lwan-mod-lua.h
-	lwan-status.h
+	lwan-log.h
 	lwan-template.h
 	lwan-trie.h
 	lwan-strbuf.h

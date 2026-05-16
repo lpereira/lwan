@@ -29,7 +29,7 @@
 #include <unistd.h>
 
 #include "lwan-private.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 #include "list.h"
 
 struct job {
@@ -73,7 +73,7 @@ void lwan_job_thread_main_loop(void)
     lwan_set_thread_name("job");
 
     if (pthread_mutex_lock(&job_wait_mutex))
-        lwan_status_critical("Could not lock job wait mutex");
+        lwan_log_critical("Could not lock job wait mutex");
     
     while (running) {
         bool had_job = false;
@@ -91,14 +91,14 @@ void lwan_job_thread_main_loop(void)
     }
 
     if (pthread_mutex_unlock(&job_wait_mutex))
-        lwan_status_critical("Could not lock job wait mutex");
+        lwan_log_critical("Could not lock job wait mutex");
 }
 
 void lwan_job_thread_init(void)
 {
     assert(!running);
 
-    lwan_status_debug("Initializing low priority job thread");
+    lwan_log_debug("Initializing low priority job thread");
 
     list_head_init(&jobs);
 
@@ -110,13 +110,13 @@ void lwan_job_thread_init(void)
         .sched_priority = 0
     };
     if (pthread_setschedparam(self, SCHED_IDLE, &sched_param) < 0)
-        lwan_status_perror("pthread_setschedparam");
+        lwan_log_perror("pthread_setschedparam");
 #endif  /* SCHED_IDLE */
 }
 
 void lwan_job_thread_shutdown(void)
 {
-    lwan_status_debug("Shutting down job thread");
+    lwan_log_debug("Shutting down job thread");
 
     if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
         struct job *node, *next;
@@ -133,7 +133,7 @@ void lwan_job_thread_shutdown(void)
         r = pthread_join(self, NULL);
         if (r) {
             errno = r;
-            lwan_status_perror("pthread_join");
+            lwan_log_perror("pthread_join");
         }
 
         pthread_mutex_unlock(&queue_mutex);
@@ -146,7 +146,7 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
 
     struct job *job = calloc(1, sizeof(*job));
     if (!job)
-        lwan_status_critical_perror("calloc");
+        lwan_log_critical_perror("calloc");
 
     job->cb = cb;
     job->data = data;
@@ -155,7 +155,7 @@ void lwan_job_add(bool (*cb)(void *data), void *data)
         list_add(&jobs, &job->jobs);
         pthread_mutex_unlock(&queue_mutex);
     } else {
-        lwan_status_warning("Couldn't lock job mutex");
+        lwan_log_warning("Couldn't lock job mutex");
         free(job);
     }
 }

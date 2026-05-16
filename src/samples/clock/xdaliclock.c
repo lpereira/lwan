@@ -132,7 +132,7 @@ frame_from_pixmap(const unsigned char *bits, int width, int height)
 
         for (; x < width; x++) {
             if (get_bit(bits, x, y, width)) {
-                lwan_status_critical(
+                lwan_log_critical(
                     "Font too curvy. Increase MAX_SEGS_PER_LINE "
                     "and recompile");
                 return NULL;
@@ -168,7 +168,7 @@ LWAN_CONSTRUCTOR(initialize_numbers, 0)
 
         frame = frame_from_pixmap(raw[i].bits, raw[i].width, raw[i].height);
         if (!frame)
-            lwan_status_critical("Could not allocate frame");
+            lwan_log_critical("Could not allocate frame");
 
         /* The base frames leak, but it's only one per program instance */
         base_frames[i] = frame;

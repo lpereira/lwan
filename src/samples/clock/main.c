@@ -310,7 +310,7 @@ LWAN_CONSTRUCTOR(initialize_template, 0)
     index_tpl = lwan_tpl_compile_string_full(index, index_desc,
                                              LWAN_TPL_FLAG_CONST_TEMPLATE);
     if (!index_tpl)
-        lwan_status_critical("Could not compile template");
+        lwan_log_critical("Could not compile template");
 }
 
 LWAN_HANDLER(templated_index)

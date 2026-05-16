@@ -33,7 +33,7 @@
 #include <unistd.h>
 
 #include "lwan-private.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 #include "lwan-config.h"
 #include "lwan-strbuf.h"
 
@@ -143,7 +143,7 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
         case 'M': total += period * ONE_MONTH; break;
         case 'y': total += period * ONE_YEAR; break;
         default:
-            lwan_status_warning("Ignoring unknown multiplier: %c",
+            lwan_log_warning("Ignoring unknown multiplier: %c",
                         multiplier);
         }
 
@@ -651,7 +651,7 @@ static void *parse_key_value(struct parser *parser)
                 return PARSER_ERROR(parser, "Wrong format for default value");
 
             if (!value) {
-                lwan_status_debug(
+                lwan_log_debug(
                     "Using default value of '%.*s' for variable '${%.*s}'",
                     (int)lexeme->value.len, lexeme->value.value,
                     (int)var_name->value.len, var_name->value.value);
@@ -861,7 +861,7 @@ static bool parse_constants(struct config *config, const struct config_line *l)
             char *v = strdup(l->value);
 
             if (!k || !v)
-                lwan_status_critical("Can't allocate memory for constant");
+                lwan_log_critical("Can't allocate memory for constant");
 
             hash_add(config->constants, k, v);
             break;
@@ -912,7 +912,7 @@ config_open_path(const char *path, void **data, size_t *size)
 
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
-        lwan_status_perror("Could not open configuration file: %s", path);
+        lwan_log_perror("Could not open configuration file: %s", path);
         return NULL;
     }
 

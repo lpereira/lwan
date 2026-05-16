@@ -40,7 +40,7 @@ static void *response_create(const char *prefix __attribute__((unused)),
     const char *valid_code =
         lwan_http_status_as_string_with_code(settings->code);
     if (!strncmp(valid_code, "999 ", 4)) {
-        lwan_status_error("Code %d isn't a known HTTP status code",
+        lwan_log_error("Code %d isn't a known HTTP status code",
                           settings->code);
         return NULL;
     }
@@ -54,13 +54,13 @@ static void *response_create_from_hash(const char *prefix,
     const char *code = hash_find(hash, "code");
 
     if (!code) {
-        lwan_status_error("`code` not supplied");
+        lwan_log_error("`code` not supplied");
         return NULL;
     }
 
     int code_as_int = parse_int(code, -1);
     if (code_as_int < 0) {
-        lwan_status_error("Couldn't parse `code` as an integer");
+        lwan_log_error("Couldn't parse `code` as an integer");
         return NULL;
     }
 

@@ -54,7 +54,7 @@ void lwan_tables_init(void)
     if (mime_entries_initialized)
         return;
 
-    lwan_status_debug("Uncompressing MIME type table: %u->%u bytes, %d entries",
+    lwan_log_debug("Uncompressing MIME type table: %u->%u bytes, %d entries",
                       MIME_COMPRESSED_LEN, MIME_UNCOMPRESSED_LEN, MIME_ENTRIES);
 
 #if defined(LWAN_HAVE_BROTLI)
@@ -65,13 +65,13 @@ void lwan_tables_init(void)
                                   &uncompressed_length,
                                   uncompressed_mime_entries);
     if (ret != BROTLI_DECODER_RESULT_SUCCESS)
-        lwan_status_critical("Error while uncompressing table with Brotli");
+        lwan_log_critical("Error while uncompressing table with Brotli");
 #elif defined(LWAN_HAVE_ZSTD)
     size_t uncompressed_length =
         ZSTD_decompress(uncompressed_mime_entries, MIME_UNCOMPRESSED_LEN,
                         mime_entries_compressed, MIME_COMPRESSED_LEN);
     if (ZSTD_isError(uncompressed_length))
-        lwan_status_critical("Error while uncompressing table with Zstd");
+        lwan_log_critical("Error while uncompressing table with Zstd");
 #elif defined(LWAN_HAVE_LIBDEFLATE)
     struct libdeflate_decompressor *decompressor = libdeflate_alloc_decompressor();
     size_t uncompressed_length;
@@ -83,7 +83,7 @@ void lwan_tables_init(void)
                                       MIME_UNCOMPRESSED_LEN,
                                       &uncompressed_length);
     if (ret != LIBDEFLATE_SUCCESS) {
-        lwan_status_critical("Error while uncompressing table: libdeflate error %d",
+        lwan_log_critical("Error while uncompressing table: libdeflate error %d",
                              ret);
     }
     libdeflate_free_decompressor(decompressor);
@@ -93,13 +93,13 @@ void lwan_tables_init(void)
         Z(uncompress)((Bytef *)uncompressed_mime_entries, &uncompressed_length,
                       (const Bytef *)mime_entries_compressed, MIME_COMPRESSED_LEN);
     if (ret != Z_OK) {
-        lwan_status_critical("Error while uncompressing table: zlib error %d",
+        lwan_log_critical("Error while uncompressing table: zlib error %d",
                              ret);
     }
 #endif
 
     if (uncompressed_length != MIME_UNCOMPRESSED_LEN) {
-        lwan_status_critical("Expected uncompressed length %d, got %ld",
+        lwan_log_critical("Expected uncompressed length %d, got %ld",
                              MIME_UNCOMPRESSED_LEN, uncompressed_length);
     }
 

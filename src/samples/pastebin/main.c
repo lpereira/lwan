@@ -208,7 +208,7 @@ int main(void)
                                NULL,
                                CACHE_FOR_HOURS * 60 * 60);
     if (!pastes)
-        lwan_status_critical("Could not create paste cache");
+        lwan_log_critical("Could not create paste cache");
 
     lwan_main_loop(&l);
 

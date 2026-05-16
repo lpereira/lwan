@@ -879,7 +879,7 @@ try_another_file_name:
     }
 
     close(fd);
-    lwan_status_debug("Request saved to %s", corpus_name);
+    lwan_log_debug("Request saved to %s", corpus_name);
 }
 #endif
 
@@ -1075,7 +1075,7 @@ static const char *is_dir_good_for_tmp(const char *v)
         return NULL;
 
     if (!(st.st_mode & S_ISVTX)) {
-        lwan_status_warning(
+        lwan_log_warning(
             "Using %s as temporary directory, but it doesn't have "
             "the sticky bit set.",
             v);
@@ -1084,14 +1084,14 @@ static const char *is_dir_good_for_tmp(const char *v)
 #ifdef LWAN_HAVE_STATFS_F_TYPE
     struct statfs sb;
     if (!statfs(v, &sb) && sb.f_type == TMPFS_MAGIC) {
-        lwan_status_warning("%s is a tmpfs filesystem, "
+        lwan_log_warning("%s is a tmpfs filesystem, "
                             "not considering it", v);
         return NULL;
     }
 #endif
 
     if (!lwan_straitjacket_allow_dir_path_rw(v)) {
-        lwan_status_error("Can't add Landlock rule");
+        lwan_log_error("Can't add Landlock rule");
         return NULL;
     }
 
@@ -1124,7 +1124,7 @@ LWAN_LAZY_GLOBAL(const char *, get_temp_dir)
     if (tmpdir)
         return tmpdir;
 
-    lwan_status_warning("Temporary directory could not be determined. POST "
+    lwan_log_warning("Temporary directory could not be determined. POST "
                         "or PUT requests over %zu bytes bytes will fail.",
                         body_buffer_temp_file_thresh);
     return NULL;
@@ -1569,7 +1569,7 @@ static void log_request(struct lwan_request *request,
 {
     char ip_buffer[INET6_ADDRSTRLEN];
 
-    lwan_status_debug(
+    lwan_log_debug(
         "%s [%s] %016lx \"%s %s HTTP/%s\" %d %s (r:%.3fms p:%.3fms)",
         lwan_request_get_remote_address(request, ip_buffer),
         request->conn->thread->date.date, lwan_request_get_id(request),
@@ -1588,7 +1588,7 @@ static struct timespec current_precise_monotonic_timespec(void)
     struct timespec now;
 
     if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0)) {
-        lwan_status_perror("clock_gettime");
+        lwan_log_perror("clock_gettime");
         return (struct timespec){};
     }
 
@@ -1818,7 +1818,7 @@ coro_deferred lwan_request_sleep_internal(struct lwan_request *request,
      * before it was being serviced -- causing the timeout
      * to essentially be a no-op. */
     if (UNLIKELY(clock_gettime(monotonic_clock_id, &now) < 0))
-        lwan_status_critical("Could not get monotonic time");
+        lwan_log_critical("Could not get monotonic time");
     timeouts_update(wheel,
                     (timeout_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000));
 

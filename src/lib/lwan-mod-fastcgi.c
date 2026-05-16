@@ -418,7 +418,7 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
         to_read -= (size_t)r;
     }
 
-    lwan_status_error("FastCGI stderr output: %.*s", (int)record->len_content,
+    lwan_log_error("FastCGI stderr output: %.*s", (int)record->len_content,
                       buffer);
 
     coro_defer_fire_and_disarm(request->conn->coro, buffer_free_defer);
@@ -435,12 +435,12 @@ static bool discard_unknown_record(struct lwan_request *request,
     if (record->type > 11) {
         /* Per the spec, 11 is the maximum (unknown type), so anything
          * above it is unspecified. */
-        lwan_status_warning(
+        lwan_log_warning(
             "FastCGI server sent unknown/invalid record type %d", record->type);
         return false;
     }
 
-    lwan_status_debug("Discarding record of type %d (%zu bytes incl. padding)",
+    lwan_log_debug("Discarding record of type %d (%zu bytes incl. padding)",
                       record->type, to_read);
 
     return discard(request, fd, to_read);
@@ -881,11 +881,11 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
     struct private_data *pd;
 
     if (!settings->address) {
-        lwan_status_error("FastCGI: `address` not specified");
+        lwan_log_error("FastCGI: `address` not specified");
         return NULL;
     }
     if (!settings->script_path) {
-        lwan_status_error("FastCGI: `script_path` not specified");
+        lwan_log_error("FastCGI: `script_path` not specified");
         return NULL;
     }
 
@@ -894,14 +894,14 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
 
     pd = malloc(sizeof(*pd));
     if (!pd) {
-        lwan_status_perror("FastCGI: Could not allocate memory for module");
+        lwan_log_perror("FastCGI: Could not allocate memory for module");
         return NULL;
     }
 
     pd->script_name_cache = cache_create_full(
         create_script_name, destroy_script_name, hash_lwan_value_new, pd, 60);
     if (!pd->script_name_cache) {
-        lwan_status_error("FastCGI: could not create cache for script_name");
+        lwan_log_error("FastCGI: could not create cache for script_name");
         goto free_pd;
     }
 
@@ -910,13 +910,13 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         .len = strlen(settings->default_index),
     };
     if (!pd->default_index.value) {
-        lwan_status_error("FastCGI: could not copy default_address for module");
+        lwan_log_error("FastCGI: could not copy default_address for module");
         goto destroy_cache;
     }
 
     pd->script_path = lwan_get_real_root_path(settings->script_path);
     if (!pd->script_path) {
-        lwan_status_perror("FastCGI: `script_path` of '%s' is invalid",
+        lwan_log_perror("FastCGI: `script_path` of '%s' is invalid",
                            settings->script_path);
         goto free_default_index;
     }
@@ -924,13 +924,13 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
     pd->script_path_fd =
         open(pd->script_path, O_PATH | O_DIRECTORY | O_CLOEXEC);
     if (pd->script_path_fd < 0) {
-        lwan_status_perror("FastCGI: Could not open `script_path` at '%s'",
+        lwan_log_perror("FastCGI: Could not open `script_path` at '%s'",
                            pd->script_path);
         goto free_script_path;
     }
 
     if (!lwan_straitjacket_allow_dirfd_ro(pd->script_path_fd)) {
-        lwan_status_perror("FastCGI: Can't add Landlock rule");
+        lwan_log_perror("FastCGI: Can't add Landlock rule");
         goto close_script_path_fd;
     }
 
@@ -938,19 +938,19 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         struct stat st;
 
         if (stat(settings->address, &st) < 0) {
-            lwan_status_perror("FastCGI: `address` not found: %s",
+            lwan_log_perror("FastCGI: `address` not found: %s",
                                settings->address);
             goto close_script_path_fd;
         }
 
         if (!(st.st_mode & S_IFSOCK)) {
-            lwan_status_error("FastCGI: `address` is not a socket: %s",
+            lwan_log_error("FastCGI: `address` is not a socket: %s",
                               settings->address);
             goto close_script_path_fd;
         }
 
         if (strlen(settings->address) >= sizeof(pd->un_addr.sun_path)) {
-            lwan_status_error(
+            lwan_log_error(
                 "FastCGI: `address` is too long for a sockaddr_un: %s",
                 settings->address);
             goto close_script_path_fd;
@@ -972,20 +972,20 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
 
     pd->addr_family = lwan_socket_parse_address(address_copy, &node, &port);
     if (pd->addr_family == AF_MAX) {
-        lwan_status_error("FastCGI: Could not parse '%s' as 'address:port'",
+        lwan_log_error("FastCGI: Could not parse '%s' as 'address:port'",
                           settings->address);
         goto free_address_copy;
     }
 
     int int_port = parse_int(port, -1);
     if (int_port < 0 || int_port > 0xffff) {
-        lwan_status_error("FastCGI: Port %d is not in valid range [0-65535]",
+        lwan_log_error("FastCGI: Port %d is not in valid range [0-65535]",
                           int_port);
         goto free_address_copy;
     }
 
     if (!lwan_straitjacket_allow_connect(int_port)) {
-        lwan_status_error("FastCGI: Could not remove restriction to connect to port %d", int_port);
+        lwan_log_error("FastCGI: Could not remove restriction to connect to port %d", int_port);
         goto free_address_copy;
     }
 
@@ -993,7 +993,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         struct in_addr in_addr;
 
         if (inet_pton(AF_INET, node, &in_addr) < 0) {
-            lwan_status_perror("FastCGI: Could not parse IPv4 address '%s'",
+            lwan_log_perror("FastCGI: Could not parse IPv4 address '%s'",
                                node);
             goto free_address_copy;
         }
@@ -1007,7 +1007,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
         struct in6_addr in6_addr;
 
         if (inet_pton(AF_INET6, node, &in6_addr) < 0) {
-            lwan_status_perror("FastCGI: Could not parse IPv6 address '%s'",
+            lwan_log_perror("FastCGI: Could not parse IPv6 address '%s'",
                                node);
             goto free_address_copy;
         }
@@ -1018,7 +1018,7 @@ static void *fastcgi_create(const char *prefix __attribute__((unused)),
                                   .sin6_port = htons((uint16_t)int_port)};
         pd->addr_size = sizeof(in6_addr);
     } else {
-        lwan_status_error("FastCGI: Address '%s' isn't a valid Unix Domain "
+        lwan_log_error("FastCGI: Address '%s' isn't a valid Unix Domain "
                           "Socket, IPv4, or IPv6 address",
                           settings->address);
         goto free_address_copy;

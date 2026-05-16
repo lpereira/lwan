@@ -21,7 +21,7 @@
 #include <string.h>
 
 #include "lwan-config.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 
 static void indent(int level)
 {
@@ -37,7 +37,7 @@ dump(struct config *config, int indent_level)
     const struct config_line *line;
 
     if (indent_level > 64) {
-        lwan_status_critical("Indent level %d above limit, aborting",
+        lwan_log_critical("Indent level %d above limit, aborting",
                              indent_level);
         return;
     }
@@ -55,7 +55,7 @@ dump(struct config *config, int indent_level)
 
         case CONFIG_LINE_TYPE_SECTION_END:
             if (indent_level == 0)
-                lwan_status_critical("Section ended before it started");
+                lwan_log_critical("Section ended before it started");
             return;
 
         case CONFIG_LINE_TYPE_SECTION:
@@ -76,13 +76,13 @@ int main(int argc, char *argv[])
     struct config *config;
 
     if (argc < 2) {
-        lwan_status_critical("Usage: %s /path/to/config/file.conf", argv[0]);
+        lwan_log_critical("Usage: %s /path/to/config/file.conf", argv[0]);
         return 1;
     }
 
     config = config_open(argv[1]);
     if (!config) {
-        lwan_status_critical_perror("Could not open configuration file %s",
+        lwan_log_critical_perror("Could not open configuration file %s",
                                     argv[1]);
         return 1;
     }
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     dump(config, 0);
 
     if (config_last_error(config)) {
-        lwan_status_critical("Error while reading configuration file (line %d): %s\n",
+        lwan_log_critical("Error while reading configuration file (line %d): %s\n",
                              config_cur_line(config),
                              config_last_error(config));
     }

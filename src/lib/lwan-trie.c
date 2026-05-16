@@ -105,7 +105,7 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
     if (!leaf) {
         leaf = arena_alloc(&trie->arena, sizeof(*leaf));
         if (UNLIKELY(!leaf))
-            lwan_status_critical_perror("malloc");
+            lwan_log_critical_perror("malloc");
     } else {
         trie->free_node(leaf->data);
     }
@@ -119,7 +119,7 @@ void lwan_trie_add(struct lwan_trie *trie, const char *key, void *data)
     return;
 
 oom:
-    lwan_status_critical_perror("calloc");
+    lwan_log_critical_perror("calloc");
 }
 
 #undef GET_NODE

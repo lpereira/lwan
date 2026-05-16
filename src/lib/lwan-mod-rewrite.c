@@ -250,7 +250,7 @@ static const char *expand_lua(struct lwan_request *request,
 
     lua_getglobal(L, "handle_rewrite");
     if (!lua_isfunction(L, -1)) {
-        lwan_status_error(
+        lwan_log_error(
             "Could not obtain reference to `handle_rewrite()` function: %s",
             lwan_lua_state_last_error(L));
         return NULL;
@@ -267,14 +267,14 @@ static const char *expand_lua(struct lwan_request *request,
     }
 
     if (lua_pcall(L, 2, 1, 0) != 0) {
-        lwan_status_error("Could not execute `handle_rewrite()` function: %s",
+        lwan_log_error("Could not execute `handle_rewrite()` function: %s",
                           lwan_lua_state_last_error(L));
         return NULL;
     }
 
     output = lua_tolstring(L, -1, &output_len);
     if (output_len >= PATH_MAX) {
-        lwan_status_error("Rewritten URL exceeds %d bytes (got %zu bytes)",
+        lwan_log_error("Rewritten URL exceeds %d bytes (got %zu bytes)",
                           PATH_MAX, output_len);
         return NULL;
     }
@@ -446,7 +446,7 @@ static bool condition_matches(struct lwan_request *request,
 
         lua_getglobal(L, "matches");
         if (!lua_isfunction(L, -1)) {
-            lwan_status_error(
+            lwan_log_error(
                 "Could not obtain reference to `matches()` function: %s",
                 lwan_lua_state_last_error(L));
             return false;
@@ -455,7 +455,7 @@ static bool condition_matches(struct lwan_request *request,
         lwan_lua_state_push_request(L, request);
 
         if (lua_pcall(L, 1, 1, 0) != 0) {
-            lwan_status_error("Could not execute `matches()` function: %s",
+            lwan_log_error("Could not execute `matches()` function: %s",
                               lwan_lua_state_last_error(L));
             return false;
         }
@@ -775,7 +775,7 @@ static void parse_condition_backref(struct pattern *pattern,
             free(str);
             str = strdup(line->value);
             if (!str) {
-                lwan_status_critical(
+                lwan_log_critical(
                     "Couldn't allocate memory for backref key");
             }
 
@@ -896,7 +896,7 @@ static bool rewrite_parse_conf_pattern(struct private_data *pd,
             if (streq(line->key, "condition_lua")) {
                 pattern->condition.lua.script = strdup(line->value);
                 if (!pattern->condition.lua.script)
-                    lwan_status_critical("Couldn't copy Lua script");
+                    lwan_log_critical("Couldn't copy Lua script");
                 pattern->flags |= PATTERN_COND_LUA;
             } else
 #endif

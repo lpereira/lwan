@@ -202,7 +202,7 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
         /* FIXME: use trylock and a local queue to try again? */
         pthread_mutex_lock(&sub->lock);
         if (!lwan_pubsub_queue_put(sub, msg)) {
-            lwan_status_warning("Couldn't enqueue message, dropping");
+            lwan_log_warning("Couldn't enqueue message, dropping");
             ATOMIC_DEC(msg->refcount);
         }
         pthread_mutex_unlock(&sub->lock);
@@ -220,7 +220,7 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
             if (UNLIKELY(written < 0)) {
                 if (errno == EINTR || errno == EAGAIN)
                     continue;
-                lwan_status_perror("write to eventfd failed, ignoring");
+                lwan_log_perror("write to eventfd failed, ignoring");
                 break;
             }
         }

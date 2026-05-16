@@ -388,7 +388,7 @@ static struct template_mime compile_template(const char *template,
         template, template_descriptor, LWAN_TPL_FLAG_CONST_TEMPLATE);
 
     if (!tpl) {
-        lwan_status_critical("Could not compile template for mime-type %s",
+        lwan_log_critical("Could not compile template for mime-type %s",
                              mime_type);
     }
 
@@ -409,12 +409,12 @@ int main(void)
         compile_template(xml_template_str, "text/plain; charset=UTF-8");
 
     if (!lwan_straitjacket_allow_dir_path_rw("./db/"))
-        lwan_status_critical("Can't allow access to IPDB database directory");
+        lwan_log_critical("Can't allow access to IPDB database directory");
 
     int result =
         sqlite3_open_v2("./db/ipdb.sqlite", &db, SQLITE_OPEN_READONLY, NULL);
     if (result != SQLITE_OK)
-        lwan_status_critical("Could not open database: %s", sqlite3_errmsg(db));
+        lwan_log_critical("Could not open database: %s", sqlite3_errmsg(db));
     cache = cache_create(create_ipinfo, destroy_ipinfo, NULL, 10);
 
     sqlite3_exec(db, "PRAGMA mmap_size=123217920", NULL, NULL, NULL);
@@ -422,12 +422,12 @@ int main(void)
     sqlite3_exec(db, "PRAGMA locking_mode=EXCLUSIVE", NULL, NULL, NULL);
 
 #if QUERIES_PER_HOUR != 0
-    lwan_status_info("Limiting to %d queries per hour per client",
+    lwan_log_info("Limiting to %d queries per hour per client",
                      QUERIES_PER_HOUR);
     query_limit =
         cache_create(create_query_limit, destroy_query_limit, NULL, 3600);
 #else
-    lwan_status_info("Rate-limiting disabled");
+    lwan_log_info("Rate-limiting disabled");
 #endif
 
     const struct lwan_url_map default_map[] = {

@@ -182,7 +182,7 @@ static void op_eval_code(union forth_inst *inst __attribute__((unused)),
                          double *d_stack,
                          struct forth_vars *vars)
 {
-    lwan_status_critical("eval_code instruction executed after inlining");
+    lwan_log_critical("eval_code instruction executed after inlining");
     __builtin_unreachable();
 }
 
@@ -198,7 +198,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
 #define PUSH(item_)                                                            \
     do {                                                                       \
         if ((size_t)n_items_stack >= N_ELEMENTS(items_stack)) {                \
-            lwan_status_error("if..else..then chain too deep");                \
+            lwan_log_error("if..else..then chain too deep");                \
             return false;                                                      \
         }                                                                      \
         items_stack[n_items_stack++] = (item_);                                \
@@ -206,7 +206,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
 #define POP()                                                                  \
     ({                                                                         \
         if (UNLIKELY(!n_items_stack)) {                                        \
-            lwan_status_error("Unbalanced if..else..then");                    \
+            lwan_log_error("Unbalanced if..else..then");                    \
             return false;                                                      \
         }                                                                      \
         items_stack[--n_items_stack];                                          \
@@ -222,7 +222,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         }
         if (inst->callback == op_jump_if) {
             if (UNLIKELY(!items_in_d_stack)) {
-                lwan_status_error(
+                lwan_log_error(
                     "Word `if' requires 1 item(s) in the D stack");
                 return false;
             }
@@ -267,14 +267,14 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
              * don't feel like this is really necessary right now.
              */
             if (UNLIKELY(items_in_r_stack != else_items_in_r_stack)) {
-                lwan_status_error(
+                lwan_log_error(
                     "Mismatch in number of items in the R stack for each "
                     "if..else..then block (%d vs %d items)",
                     items_in_r_stack, else_items_in_r_stack);
                 return false;
             }
             if (UNLIKELY(items_in_d_stack != else_items_in_d_stack)) {
-                lwan_status_error(
+                lwan_log_error(
                     "Mismatch in number of items in the D stack for each "
                     "if..else..then block (%d vs %d items)",
                     items_in_d_stack, else_items_in_d_stack);
@@ -286,7 +286,7 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
             continue; /* no immediate for halt */
         }
         if (UNLIKELY(inst->callback == op_eval_code)) {
-            lwan_status_critical("eval_code after inlining");
+            lwan_log_critical("eval_code after inlining");
             __builtin_unreachable();
         }
 
@@ -294,17 +294,17 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         const struct forth_builtin *b =
             find_builtin_by_callback(inst->callback);
         if (UNLIKELY(!b)) {
-            lwan_status_critical("Can't find builtin word by callback");
+            lwan_log_critical("Can't find builtin word by callback");
             __builtin_unreachable();
         }
 
         if (UNLIKELY(items_in_d_stack < b->d_pops)) {
-            lwan_status_error("Word `%s' requires %d item(s) in the D stack",
+            lwan_log_error("Word `%s' requires %d item(s) in the D stack",
                               b->name, b->d_pops);
             return false;
         }
         if (UNLIKELY(items_in_r_stack < b->r_pops)) {
-            lwan_status_error("Word `%s' requires %d item(s) in the R stack",
+            lwan_log_error("Word `%s' requires %d item(s) in the R stack",
                               b->name, b->r_pops);
             return false;
         }
@@ -315,34 +315,34 @@ static bool check_stack_effects(const struct forth_ctx *ctx,
         items_in_r_stack += b->r_pushes;
 
         if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack))) {
-            lwan_status_error(
+            lwan_log_error(
                 "Program would cause a stack overflow in the D stack");
             return false;
         }
         if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->r_stack))) {
-            lwan_status_error(
+            lwan_log_error(
                 "Program would cause a stack overflow in the R stack");
             return false;
         }
     }
 
     if (UNLIKELY(items_in_d_stack >= (int)N_ELEMENTS(ctx->d_stack))) {
-        lwan_status_error(
+        lwan_log_error(
             "Program would cause a stack overflow in the D stack");
         return false;
     }
     if (UNLIKELY(items_in_r_stack >= (int)N_ELEMENTS(ctx->r_stack))) {
-        lwan_status_error(
+        lwan_log_error(
             "Program would cause a stack overflow in the R stack");
         return false;
     }
 
     if (UNLIKELY(items_in_d_stack < 0)) {
-        lwan_status_error("Program would underflow the D stack");
+        lwan_log_error("Program would underflow the D stack");
         return false;
     }
     if (UNLIKELY(items_in_r_stack < 0)) {
-        lwan_status_error("Program would underflow the R stack");
+        lwan_log_error("Program would underflow the R stack");
         return false;
     }
 
@@ -394,7 +394,7 @@ static void dump_code(const struct forth_code *code)
         } else if (inst->callback == op_nop) {
             printf("nop\n");
         } else if (UNLIKELY(inst->callback == op_eval_code)) {
-            lwan_status_critical("eval_code shouldn't exist here");
+            lwan_log_critical("eval_code shouldn't exist here");
             __builtin_unreachable();
         } else {
             const struct forth_builtin *b =
@@ -726,7 +726,7 @@ static bool peephole(struct forth_ctx *ctx)
 
 out:
     forth_code_reset(code);
-    lwan_status_error("Could not run peephole optimizer");
+    lwan_log_error("Could not run peephole optimizer");
     return false;
 }
 
@@ -736,7 +736,7 @@ static const char *found_word(struct forth_ctx *ctx,
                               size_t word_len)
 {
     if (UNLIKELY(word_len > MAX_WORD_LEN)) {
-        lwan_status_error("Word too long: %zu characters, expecting at most 64",
+        lwan_log_error("Word too long: %zu characters, expecting at most 64",
                           word_len);
         return NULL;
     }
@@ -746,7 +746,7 @@ static const char *found_word(struct forth_ctx *ctx,
     double number;
     if (parse_number(word_copy, &number)) {
         if (UNLIKELY(!ctx->defining_word)) {
-            lwan_status_error("Can't redefine number %lf", number);
+            lwan_log_error("Can't redefine number %lf", number);
             return NULL;
         }
 
@@ -759,7 +759,7 @@ static const char *found_word(struct forth_ctx *ctx,
     struct forth_word *w = hash_find(ctx->words, word_copy);
     if (ctx->defining_word) {
         if (UNLIKELY(!w)) {
-            lwan_status_error("Undefined word: \"%.*s\"", (int)word_len, word);
+            lwan_log_error("Undefined word: \"%.*s\"", (int)word_len, word);
             return NULL;
         }
 
@@ -777,7 +777,7 @@ static const char *found_word(struct forth_ctx *ctx,
     }
 
     if (UNLIKELY(w != NULL)) {
-        lwan_status_error("Can't redefine %sword \"%.*s\"",
+        lwan_log_error("Can't redefine %sword \"%.*s\"",
                           is_word_builtin(w) ? "built-in " : "", (int)word_len,
                           word);
         return NULL;
@@ -785,7 +785,7 @@ static const char *found_word(struct forth_ctx *ctx,
 
     w = new_user_word(ctx, word_copy);
     if (UNLIKELY(!w)) {
-        lwan_status_error("Can't create new word");
+        lwan_log_error("Can't create new word");
         return NULL;
     }
 
@@ -802,7 +802,7 @@ static bool inline_calls_code(const struct forth_code *orig_code,
     size_t *j = jump_stack;
 
     if (!nested) {
-        lwan_status_error("Recursion limit reached while inlining");
+        lwan_log_error("Recursion limit reached while inlining");
         return false;
     }
 
@@ -906,7 +906,7 @@ bool forth_parse_string(struct forth_ctx *ctx, const char *code)
 
 finish:
     if (is_inside_word_def(ctx)) {
-        lwan_status_error("Word definition not finished");
+        lwan_log_error("Word definition not finished");
         return false;
     }
 
@@ -981,7 +981,7 @@ BUILTIN_COMPILER("(")
 BUILTIN_COMPILER(":")
 {
     if (UNLIKELY(is_inside_word_def(ctx))) {
-        lwan_status_error("Already defining word");
+        lwan_log_error("Already defining word");
         return NULL;
     }
 
@@ -992,12 +992,12 @@ BUILTIN_COMPILER(":")
 BUILTIN_COMPILER(";")
 {
     if (ctx->j != ctx->j_stack) {
-        lwan_status_error("Unmatched if/then/else");
+        lwan_log_error("Unmatched if/then/else");
         return NULL;
     }
 
     if (UNLIKELY(!is_inside_word_def(ctx))) {
-        lwan_status_error("Ending word without defining one");
+        lwan_log_error("Ending word without defining one");
         return NULL;
     }
 
@@ -1008,7 +1008,7 @@ BUILTIN_COMPILER(";")
 BUILTIN_COMPILER("if")
 {
     if ((size_t)(ctx->j - ctx->j_stack) >= N_ELEMENTS(ctx->j_stack)) {
-        lwan_status_error("Too many nested 'if' words");
+        lwan_log_error("Too many nested 'if' words");
         return NULL;
     }
 
@@ -1021,7 +1021,7 @@ static const char *
 builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
 {
     if (ctx->j == ctx->j_stack) {
-        lwan_status_error("'%s' before 'if'", is_then ? "then" : "else");
+        lwan_log_error("'%s' before 'if'", is_then ? "then" : "else");
         return NULL;
     }
 
@@ -1034,7 +1034,7 @@ builtin_else_then(struct forth_ctx *ctx, const char *code, bool is_then)
         EMIT(.callback = op_jump);
 
         if ((size_t)(ctx->j - ctx->j_stack) >= N_ELEMENTS(ctx->j_stack)) {
-            lwan_status_error("Else is too deep");
+            lwan_log_error("Else is too deep");
             return NULL;
         }
 
@@ -1561,13 +1561,13 @@ register_builtins(struct forth_ctx *ctx)
 
     LWAN_SECTION_FOREACH(forth_builtin, iter) {
         if (!new_builtin_word(ctx, iter)) {
-            lwan_status_critical("could not register forth word: %s",
+            lwan_log_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
     LWAN_SECTION_FOREACH(forth_compiler_builtin, iter) {
         if (!new_builtin_word(ctx, iter)) {
-            lwan_status_critical("could not register forth word: %s",
+            lwan_log_critical("could not register forth word: %s",
                                  iter->name);
         }
     }
@@ -1673,7 +1673,7 @@ int main(int argc, char *argv[])
     if (!forth_parse_string(ctx,
                             ": nice 60 5 4 + + ; : juanita 400 10 5 5 + + + ; "
                             "x if nice else juanita then 2 * 4 / 2 *")) {
-        lwan_status_critical("could not parse forth program");
+        lwan_log_critical("could not parse forth program");
         __builtin_unreachable();
     }
 

@@ -27,7 +27,7 @@
 #include <stdarg.h>
 
 #include "database.h"
-#include "lwan-status.h"
+#include "lwan-log.h"
 
 struct db_stmt {
     bool (*bind)(const struct db_stmt *stmt,

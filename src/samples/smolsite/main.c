@@ -378,7 +378,7 @@ static struct lwan_value base64_encode_to_value(struct lwan_value input)
     unsigned char *encoded =
         base64_encode((unsigned char *)input.value, input.len, &len);
     if (!encoded)
-        lwan_status_critical("Could not base64-encode smolsite.zip!");
+        lwan_log_critical("Could not base64-encode smolsite.zip!");
     return (struct lwan_value){.value = (char *)encoded, .len = len};
 }
 
@@ -395,12 +395,12 @@ int main(void)
                                              iframe_tpl_desc,
                                              LWAN_TPL_FLAG_CONST_TEMPLATE);
     if (!iframe_tpl)
-        lwan_status_critical("Could not compile template");
+        lwan_log_critical("Could not compile template");
 
     sites = cache_create_full(create_site, destroy_site, hash_str_new, NULL,
                               CACHE_FOR_MINUTES * 60);
     if (!sites)
-        lwan_status_critical("Could not create site cache");
+        lwan_log_critical("Could not create site cache");
 
     lwan_main_loop(&l);
     lwan_shutdown(&l);

@@ -47,7 +47,7 @@ static struct timespec current_precise_monotonic_timespec(void)
     struct timespec now;
 
     if (UNLIKELY(clock_gettime(CLOCK_MONOTONIC, &now) < 0)) {
-        lwan_status_perror("clock_gettime");
+        lwan_log_perror("clock_gettime");
         return (struct timespec){};
     }
 

@@ -51,7 +51,7 @@ void lwan_response_init(struct lwan *l)
 
     assert(!error_template);
 
-    lwan_status_debug("Initializing default response");
+    lwan_log_debug("Initializing default response");
 
     if (l->config.error_template) {
         error_template =
@@ -62,12 +62,12 @@ void lwan_response_init(struct lwan *l)
     }
 
     if (UNLIKELY(!error_template))
-        lwan_status_critical_perror("lwan_tpl_compile_string");
+        lwan_log_critical_perror("lwan_tpl_compile_string");
 }
 
 void lwan_response_shutdown(struct lwan *l __attribute__((unused)))
 {
-    lwan_status_debug("Shutting down response");
+    lwan_log_debug("Shutting down response");
     assert(error_template);
     lwan_tpl_free(error_template);
 }
@@ -92,7 +92,7 @@ void lwan_response(struct lwan_request *request, enum lwan_http_status status)
     }
 
     if (UNLIKELY(request->flags & RESPONSE_SENT_HEADERS)) {
-        lwan_status_debug("Headers already sent, ignoring call");
+        lwan_log_debug("Headers already sent, ignoring call");
         return;
     }
 
