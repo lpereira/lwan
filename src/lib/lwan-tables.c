@@ -193,9 +193,7 @@ lwan_http_status_as_string_with_code(const enum lwan_http_status status)
 
 ALWAYS_INLINE bool lwan_http_status_is_valid(int status)
 {
-    return (status < 0 || status > 600)
-               ? false
-               : lwan_is_http_status_valid_impl((uint32_t)status);
+    return lwan_is_http_status_valid_impl((uint32_t)status);
 }
 
 const char *

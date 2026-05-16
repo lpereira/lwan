@@ -114,9 +114,10 @@ int main(void)
     printf("}\n");
 
     printf("static inline bool lwan_is_http_status_valid_impl(uint32_t status) {\n");
+    printf("    if (status < %d || status > %d) return false;\n", min_key, max_key);
     printf("    const uint32_t k = status - %d;\n", best_subtract);
     printf("    const uint32_t hash = (k << %d) | (k >> %d);\n", 31 - best_rot, best_rot);
     printf("    const uint32_t bit = (uint32_t)(((uint64_t)hash * (uint64_t)%d) >> 32);\n", best_mod);
-    printf("    return 0x%zxull & (1ull << bit);\n", ~set_values);
+    printf("    return 0x%016zxull & (1ull << bit);\n", ~set_values);
     printf("}\n");
 }
