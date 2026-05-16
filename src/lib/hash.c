@@ -374,7 +374,13 @@ static struct bucket *hash_probe_key(const struct hash *ht,
         /* As items are removed, buckets in the first half may become empty; in
          * that case, move the contents of the bucket in the second half to the
          * first half so probes happen more often in the [startpos..cap]
-         * interval. */
+         * interval.
+         *
+         * This also happens when the table has been resized: no eager rehashing
+         * is performed, so items will either be where they were before the
+         * resize, or were moved to the first available slot.  This is very likely
+         * to leave items in the wrong position hoping that probing will lazily
+         * position them where they should ultimately land. */
         uint8_t *tombstone =
             memchr(ht->tophashes + startpos, '\0', ht->cap - startpos);
         if (tombstone) {
