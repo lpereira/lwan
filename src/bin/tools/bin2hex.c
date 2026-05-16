@@ -99,7 +99,7 @@ static int bin2hex(const char *path, const char *identifier)
 
     printf("\n/* Contents of %s available through %s_value */\n", path, identifier);
 
-    printf("#if !defined(NO_INCBIN)\n");
+    printf("#if !defined(NO_INCBIN) && defined(WANT_INCBIN)\n");
     r |= bin2hex_incbin(path, identifier);
     printf("#else\n");
     r |= bin2hex_mmap(path, identifier);
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("#if !defined(NO_INCBIN)\n");
+    printf("#if !defined(NO_INCBIN) && defined(WANT_INCBIN)\n");
     printf("LWAN_CONSTRUCTOR(bin2hex_%016lx, 0)\n", (uintptr_t)argv);
     printf("{\n");
     for (arg = 1; arg < argc; arg += 2) {
