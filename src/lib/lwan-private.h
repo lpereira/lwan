@@ -354,3 +354,5 @@ bool lwan_straitjacket_allow_dirfd_rw(int fd);
 bool lwan_straitjacket_allow_dir_path_ro(const char *path);
 bool lwan_straitjacket_allow_dir_path_rw(const char *path);
 bool lwan_landlock_enforce(void);
+
+bool lwan_http_status_is_valid(int status);

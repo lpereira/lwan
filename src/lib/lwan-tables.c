@@ -142,9 +142,14 @@ LWAN_SELF_TEST(status_codes)
         assert(!strcmp(lwan_http_status_as_string(HTTP_##id), short));         \
         assert(                                                                \
             !strcmp(lwan_http_status_as_descriptive_string(HTTP_##id), long)); \
+        assert(lwan_http_status_is_valid(code));                               \
     } while (0);
     FOR_EACH_HTTP_STATUS(ASSERT_STATUS)
 #undef ASSERT_STATUS
+
+    assert(!lwan_http_status_is_valid(0));
+    assert(!lwan_http_status_is_valid(-1));
+    assert(!lwan_http_status_is_valid(299));
 }
 
 static ALWAYS_INLINE const char *bsearch_mime_type(uint64_t ext)
@@ -184,6 +189,13 @@ ALWAYS_INLINE const char *
 lwan_http_status_as_string_with_code(const enum lwan_http_status status)
 {
     return lwan_lookup_http_status_impl(status);
+}
+
+ALWAYS_INLINE bool lwan_http_status_is_valid(int status)
+{
+    return (status < 0 || status > 600)
+               ? false
+               : lwan_is_http_status_valid_impl((uint32_t)status);
 }
 
 const char *

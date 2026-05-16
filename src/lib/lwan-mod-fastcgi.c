@@ -525,12 +525,12 @@ try_initiating_chunked_response(struct lwan_request *request)
             value[3] = '\0';
             int status_as_int = parse_int(value, -1);
 
-            if (status_as_int < 100 || status_as_int >= 600)
-                status_code = HTTP_INTERNAL_ERROR;
-            else
-                status_code = (enum lwan_http_status)status_as_int;
+            status_code = lwan_http_status_is_valid(status_as_int)
+                              ? (enum lwan_http_status)status_as_int
+                              : HTTP_INTERNAL_ERROR;
         } else {
-            struct lwan_key_value *header = header_array_append(&additional_headers);
+            struct lwan_key_value *header =
+                header_array_append(&additional_headers);
 
             if (!header)
                 goto free_array_and_disarm;
