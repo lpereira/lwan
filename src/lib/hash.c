@@ -362,8 +362,35 @@ static struct bucket *hash_probe_key(const struct hash *ht,
                                      const uint32_t startpos,
                                      const uint8_t tophash)
 {
-    return hash_probe_half(ht, key, startpos, ht->cap, tophash)
-               ?: hash_probe_half(ht, key, 0, startpos, tophash);
+    struct bucket *bucket;
+
+    bucket = hash_probe_half(ht, key, startpos, ht->cap, tophash);
+    if (bucket) {
+        return bucket;
+    }
+
+    bucket = hash_probe_half(ht, key, 0, startpos, tophash);
+    if (bucket) {
+        /* As items are removed, buckets in the first half may become empty; in
+         * that case, move the contents of the bucket in the second half to the
+         * first half so probes happen more often in the [startpos..cap]
+         * interval. */
+        uint8_t *tombstone =
+            memchr(ht->tophashes + startpos, '\0', ht->cap - startpos);
+        if (tombstone) {
+            uint32_t new_slot = (uint32_t)(tombstone - ht->tophashes);
+            uint32_t old_slot = (uint32_t)(bucket - ht->buckets);
+            struct bucket *new_bucket = &ht->buckets[new_slot];
+
+            ht->tophashes[old_slot] = '\0';
+            ht->tophashes[new_slot] = tophash;
+            *new_bucket = *bucket;
+
+            return new_bucket;
+        }
+    }
+
+    return bucket;
 }
 
 static struct bucket *hash_probe_tombstone(const struct hash *ht,
@@ -383,9 +410,7 @@ static struct bucket *hash_probe(const struct hash *ht, const void *key)
 static int hash_resize(struct hash *ht, const uint32_t newcap)
 {
     struct bucket *newbuckets;
-    struct hash clone = *ht;
     uint8_t *newtophashes;
-    const void *k, *v;
 
     assert(ht->cap != newcap);
 
@@ -393,36 +418,46 @@ static int hash_resize(struct hash *ht, const uint32_t newcap)
         return -ENOSPC;
     }
 
-    newtophashes = calloc(newcap, 1);
-    if (UNLIKELY(!newtophashes)) {
-        return -ENOMEM;
-    }
+    if (ht->cap > newcap) {
+        /* When shrinking the table, we need to move all elements from the
+         * area we're getting rid of to somewhere in the beginning.  We use
+         * a first fit strategy here, in the hope that hash_probe() puts the
+         * item where it actually belongs.  Things are done this way to
+         * avoid re-hashing the table.  */
+        uint8_t *tombstone = memchr(ht->tophashes, '\0', newcap);
 
-    newbuckets = calloc(newcap, sizeof(struct bucket));
-    if (UNLIKELY(!newbuckets)) {
-        free(newtophashes);
-        return -ENOMEM;
-    }
-
-    clone.tophashes = newtophashes;
-    clone.buckets = newbuckets;
-    clone.len = 0;
-    clone.cap = newcap;
-
-    HASH_FOREACH (ht, &k, &v) {
-        int r = hash_add(&clone, k, v);
-        if (UNLIKELY(r < 0)) {
-            free(newtophashes);
-            free(newbuckets);
-            return r;
+        for (uint32_t old_slot = newcap; old_slot < ht->cap; old_slot++) {
+            if (ht->tophashes[old_slot] == '\0') {
+                continue;
+            }
+            if (UNLIKELY(!tombstone)) {
+                lwan_log_critical(
+                    "Couldn't find tombstone when shrinking hash table");
+                __builtin_unreachable();
+            }
+            uint32_t new_slot = (uint32_t)(tombstone - ht->tophashes);
+            struct bucket *new_bucket = &ht->buckets[new_slot];
+            struct bucket *old_bucket = &ht->buckets[old_slot];
+            *new_bucket = *old_bucket;
+            ht->tophashes[new_slot] = ht->tophashes[old_slot];
+            assert(newcap != new_slot);
+            tombstone = memchr(tombstone + 1, '\0', newcap - new_slot - 1);
         }
     }
 
-    assert(ht->len == clone.len);
-
-    free(ht->tophashes);
-    free(ht->buckets);
+    newtophashes = reallocarray(ht->tophashes, newcap, 1);
+    if (UNLIKELY(!newtophashes)) {
+        return -ENOMEM;
+    }
     ht->tophashes = newtophashes;
+    if (newcap > ht->cap) {
+        memset(newtophashes + ht->cap, '\0', newcap - ht->cap);
+    }
+
+    newbuckets = reallocarray(ht->buckets, newcap, sizeof(struct bucket));
+    if (UNLIKELY(!newbuckets)) {
+        return -ENOMEM;
+    }
     ht->buckets = newbuckets;
     ht->cap = newcap;
 
