@@ -223,6 +223,15 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
     struct bucket *buckets;
     uint8_t *tophashes;
 
+    if (UNLIKELY(!hash)) {
+        lwan_status_error("hash() not provided to hash_custom_new()");
+        return NULL;
+    }
+    if (UNLIKELY(!key_equal)) {
+        lwan_status_error("key_equal() not provided to hash_custom_new()");
+        return NULL;
+    }
+
     ht = malloc(sizeof(*ht));
     if (UNLIKELY(!ht))
         goto no_hash_table;
