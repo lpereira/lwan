@@ -249,7 +249,7 @@ size_t lwan_prepare_response_header_full(
         for (header = additional_headers; header->key; header++) {
             STRING_SWITCH_L (header->key) {
             case STR4_INT_L('S', 'e', 'r', 'v'):
-                if (LIKELY(streq(header->key + 4, "er")))
+                if (LIKELY(strcaseequal_neutral(header->key + 4, "er")))
                     continue;
                 break;
             case STR4_INT_L('D', 'a', 't', 'e'):
@@ -257,7 +257,7 @@ size_t lwan_prepare_response_header_full(
                     date_override = true;
                 break;
             case STR4_INT_L('E', 'x', 'p', 'i'):
-                if (LIKELY(streq(header->key + 4, "res")))
+                if (LIKELY(strcaseequal_neutral(header->key + 4, "res")))
                     expires_override = true;
                 break;
             }
