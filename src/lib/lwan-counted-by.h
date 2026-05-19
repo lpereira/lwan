@@ -19,10 +19,22 @@
 
 #pragma once
 
+#if 0
+/* As of GCC 16.1.1, bad code seems to be generated if
+ * attribute(counted_by) is used. Disabling this attribute for now.
+ * Reproducer: https://gcc.godbolt.org/z/M3heT1Gd7
+ */
+
 #if defined __has_attribute
 #  if __has_attribute (__counted_by__)
 #    define LWAN_COUNTED_BY(member_) __attribute__((__counted_by__(member_)))
 #  else
 #    define LWAN_COUNTED_BY(member_)
 #  endif
+#endif
+
+#else
+
+#  define LWAN_COUNTED_BY(member_)
+
 #endif
