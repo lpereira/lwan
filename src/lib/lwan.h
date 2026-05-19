@@ -546,7 +546,7 @@ struct lwan {
 #endif
 
     struct {
-        struct lwan_thread *threads;
+        struct lwan_thread *threads LWAN_COUNTED_BY(count);
 
         unsigned int max_fd;
         unsigned int count;

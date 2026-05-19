@@ -93,7 +93,7 @@ enum serve_files_priv_flags {
 struct serve_files_priv {
     struct cache *cache;
 
-    char *root_path;
+    char *root_path LWAN_COUNTED_BY(root_path_len);
     size_t root_path_len;
     int root_fd;
 

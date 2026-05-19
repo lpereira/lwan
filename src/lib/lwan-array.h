@@ -33,12 +33,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lwan-counted-by.h"
 #include "lwan-coro.h"
 
 #define LWAN_ARRAY_INCREMENT 16
 
 struct lwan_array {
-    void *base;
+    void *base LWAN_COUNTED_BY(elements);
     size_t elements;
 };
 

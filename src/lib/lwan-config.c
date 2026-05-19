@@ -101,7 +101,7 @@ struct config {
     char *error_message;
     struct hash *constants;
     struct {
-        void *addr;
+        void *addr LWAN_COUNTED_BY(sz);
         size_t sz;
     } mapped;
     int opened_brackets;

@@ -73,7 +73,9 @@ void *lwan_array_append_heap(struct lwan_array *a, size_t element_size)
         a->base = new_base;
     }
 
-    return ((char *)a->base) + a->elements++ * element_size;
+    void *ptr = ((char *)a->base) + a->elements * element_size;
+    a->elements++;
+    return ptr;
 }
 
 void *lwan_array_append_inline(struct lwan_array *a,
@@ -98,7 +100,9 @@ void *lwan_array_append_inline(struct lwan_array *a,
                          LWAN_ARRAY_INCREMENT * element_size);
     }
 
-    return ((char *)a->base) + a->elements++ * element_size;
+    void *ptr = ((char *)a->base) + a->elements * element_size;
+    a->elements++;
+    return ptr;
 }
 
 void lwan_array_sort(struct lwan_array *a,
