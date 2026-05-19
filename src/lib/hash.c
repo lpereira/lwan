@@ -98,20 +98,6 @@ static bool hash_int_eq(const void *k1, const void *k2)
     return i1 == i2;
 }
 
-static uint32_t hash_int64_fnv1a(const void *key)
-{
-    assert(key != NULL);
-    int64_t k = (int64_t)(intptr_t)key;
-    return fnv1a_32(&k, sizeof(k));
-}
-
-static bool hash_int64_eq(const void *k1, const void *k2)
-{
-    int64_t i1 = (int64_t)(intptr_t)k1;
-    int64_t i2 = (int64_t)(intptr_t)k2;
-    return i1 == i2;
-}
-
 static uint32_t hash_lwan_value_fnv1a(const void *key)
 {
     assert(key != NULL);
@@ -130,7 +116,6 @@ static bool hash_lwan_value_eq(const void *k1, const void *k2)
 
 static uint32_t (*hash_str)(const void *ptr) = hash_str_fnv1a;
 static uint32_t (*hash_int)(const void *ptr) = hash_int_fnv1a;
-static uint32_t (*hash_int64)(const void *ptr) = hash_int64_fnv1a;
 static uint32_t (*hash_lwan_value)(const void *ptr) = hash_lwan_value_fnv1a;
 
 #if defined(LWAN_HAVE_BUILTIN_CPU_INIT) && defined(LWAN_HAVE_BUILTIN_IA32_CRC32)
@@ -179,20 +164,6 @@ static uint32_t hash_int_crc32(const void *key)
     return __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
 }
 
-static uint32_t hash_int64_crc32(const void *key)
-{
-    assert(key != NULL);
-    uint64_t k = (uint64_t)(uintptr_t)key;
-    uint32_t hash;
-#if defined(__x86_64__)
-    hash = (uint32_t)__builtin_ia32_crc32di(fnv1a_32_seed, k);
-#else
-    hash = __builtin_ia32_crc32si(fnv1a_32_seed, (uint32_t)k);
-    hash = __builtin_ia32_crc32si(hash, (uint32_t)(k >> 32));
-#endif
-    return hash;
-}
-
 static uint32_t hash_lwan_value_crc32(const void *key)
 {
     assert(key != NULL);
@@ -206,7 +177,6 @@ LWAN_CONSTRUCTOR(detect_crc32, 65534)
     if (__builtin_cpu_supports("sse4.2")) {
         hash_str = hash_str_crc32;
         hash_int = hash_int_crc32;
-        hash_int64 = hash_int64_crc32;
         hash_lwan_value = hash_lwan_value_crc32;
     }
 }
@@ -274,12 +244,6 @@ struct hash *hash_int_new(void (*free_key)(void *key),
                           void (*free_value)(void *value))
 {
     return hash_custom_new(hash_int, hash_int_eq, free_key, free_value);
-}
-
-struct hash *hash_int64_new(void (*free_key)(void *key),
-                            void (*free_value)(void *value))
-{
-    return hash_custom_new(hash_int64, hash_int64_eq, free_key, free_value);
 }
 
 struct hash *hash_lwan_value_new(void (*free_key)(void *key),

@@ -146,7 +146,7 @@ LWAN_HANDLER_ROUTE(view_root, "/")
     }
 }
 
-static bool parse_uint64(const char *s, uint64_t *out)
+static bool parse_uint32(const char *s, uint32_t *out)
 {
     char *endptr;
 
@@ -154,13 +154,18 @@ static bool parse_uint64(const char *s, uint64_t *out)
         return false;
 
     errno = 0;
-    *out = strtoull(s, &endptr, 10);
+    unsigned long result = strtoul(s, &endptr, 10);
 
     if (errno != 0)
         return false;
 
     if (*endptr != '\0' || s == endptr)
         return false;
+
+    if ((uint64_t)result != (uint32_t)(uint64_t)result)
+        return false;
+
+    *out = (uint32_t)result;
 
     return true;
 }
@@ -177,9 +182,9 @@ LWAN_HANDLER_ROUTE(view_paste, "/p/")
         mime_type = "text/plain";
     }
 
-    uint64_t key;
+    uint32_t key;
 
-    if (!parse_uint64(request->url.value, &key))
+    if (!parse_uint32(request->url.value, &key))
         return HTTP_BAD_REQUEST;
 
     struct paste *paste = (struct paste *)cache_coro_get_and_ref_entry(
@@ -204,7 +209,7 @@ int main(void)
 
     pastes = cache_create_full(create_paste,
                                destroy_paste,
-                               hash_int64_new,
+                               hash_int_new,
                                NULL,
                                CACHE_FOR_HOURS * 60 * 60);
     if (!pastes)
