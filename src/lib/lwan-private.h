@@ -23,6 +23,7 @@
 #include <limits.h>
 
 #include "lwan.h"
+#include "lwan-counted-by.h"
 
 #define N_HEADER_START 64
 #define DEFAULT_BUFFER_SIZE 4096

@@ -26,8 +26,10 @@
 #include <string.h>
 #include <sys/uio.h>
 
+#include "lwan-counted-by.h"
+
 struct lwan_strbuf {
-    char *buffer;
+    char *buffer LWAN_COUNTED_BY(capacity);
 
     /* `capacity` used to be derived from `used` by aligning it to the next
      * power of two, but this resulted in re-allocations after this strbuf

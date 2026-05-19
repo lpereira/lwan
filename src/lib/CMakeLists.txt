@@ -215,6 +215,7 @@ install(FILES
 	lwan-template.h
 	lwan-trie.h
 	lwan-strbuf.h
+	lwan-counted-by.h
 	timeout.h
 	list.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
