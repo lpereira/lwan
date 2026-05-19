@@ -39,7 +39,7 @@
 #define LWAN_ARRAY_INCREMENT 16
 
 struct lwan_array {
-    void *base LWAN_COUNTED_BY(elements);
+    void *base;
     size_t elements;
 };
 
