@@ -945,11 +945,16 @@ yield_and_read_again:
 try_to_finalize:
         switch (finalizer(buffer, want_to_read, request, n_packets)) {
         case FINALIZER_DONE:
-            buffer->value[buffer->len] = '\0';
+            if (LIKELY(buffer->len < want_to_read)) {
+                buffer->len++;
+                buffer->value[buffer->len - 1] = '\0';
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
-            save_to_corpus_for_fuzzing(*buffer);
+                save_to_corpus_for_fuzzing(*buffer);
 #endif
-            return HTTP_OK;
+                return HTTP_OK;
+            }
+
+            return HTTP_TOO_LARGE;
 
         case FINALIZER_TRY_AGAIN:
             goto yield_and_read_again;
