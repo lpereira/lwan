@@ -168,10 +168,8 @@ static void lwan_trie_node_destroy(struct lwan_trie *trie,
     if (!node)
         return;
 
-    for (struct lwan_trie_leaf *leaf = node->leaf; leaf;) {
-        struct lwan_trie_leaf *tmp = leaf->next;
+    for (struct lwan_trie_leaf *leaf = node->leaf; leaf; leaf = leaf->next) {
         trie->free_node(leaf->data);
-        leaf = tmp;
     }
 
     for (int32_t i = 0; i < 8; i++) {
