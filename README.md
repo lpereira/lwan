@@ -147,6 +147,7 @@ with, specify one of the following options to the CMake invocation line:
  - `-DSANITIZER=ubsan` selects the Undefined Behavior Sanitizer.
  - `-DSANITIZER=address` selects the Address Sanitizer.
  - `-DSANITIZER=thread` selects the Thread Sanitizer.
+ - `-DSANITIZER=bounds` selects the Bounds Sanitizer.
 
 Alternative memory allocators can be selected as well.  Lwan currently
 supports [TCMalloc](https://github.com/google/tcmalloc),
