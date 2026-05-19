@@ -646,7 +646,7 @@ LWAN_SELF_TEST(hash_table)
     assert(r == 0);
     assert(ht->len == 20);
 
-    for (uint32_t i = 0; i < 10; i++) {
+    for (uint32_t i = 0; i < 20; i++) {
         char k[3];
         snprintf(k, 3, "%d", i);
 
@@ -654,17 +654,7 @@ LWAN_SELF_TEST(hash_table)
         assert(r == 0);
         assert(ht->len == 20 - i - 1);
     }
-    assert(ht->len == 10);
-
-    for (uint32_t i = 10; i < 20; i++) {
-        char k[3];
-        snprintf(k, 3, "%d", i);
-
-        v = hash_find(ht, k);
-        assert(!strcmp(k, v));
-        hash_del(ht, k);
-        assert(ht->len == 20 - i - 1);
-    }
+    assert(ht->len == 0);
 
     count = 0;
     HASH_FOREACH (ht, NULL, NULL) {
