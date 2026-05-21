@@ -348,9 +348,6 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Deb")
 	if (${SANITIZER} MATCHES "(thread|race)")
 		try_sanitizer("thread")
 	endif ()
-	if (${SANITIZER} MATCHES "(bounds)")
-		try_sanitizer("bounds")
-	endif ()
 endif ()
 
 #

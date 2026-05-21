@@ -102,7 +102,7 @@ struct lwan_request_parser_helper {
 
     struct lwan_key_value_array cookies, query_params, post_params;
 
-    char **header_start LWAN_COUNTED_BY(n_header_start);   /* Headers: n: start, n+1: end */
+    char **header_start;   /* Headers: n: start, n+1: end */
     size_t n_header_start; /* len(header_start) */
 
     struct { /* If-Modified-Since: */

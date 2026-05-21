@@ -36,7 +36,7 @@ static struct cache *pastes;
 struct paste {
     struct cache_entry entry;
     size_t len;
-    char value[] LWAN_COUNTED_BY(len);
+    char value[];
 };
 
 static struct cache_entry *create_paste(const void *key __attribute__((unused)),

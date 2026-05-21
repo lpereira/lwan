@@ -29,7 +29,7 @@
 #include "lwan-counted-by.h"
 
 struct lwan_strbuf {
-    char *buffer LWAN_COUNTED_BY(capacity);
+    char *buffer;
 
     /* `capacity` used to be derived from `used` by aligning it to the next
      * power of two, but this resulted in re-allocations after this strbuf

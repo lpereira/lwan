@@ -33,7 +33,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "lwan-counted-by.h"
 #include "lwan-coro.h"
 
 #define LWAN_ARRAY_INCREMENT 16

@@ -368,7 +368,7 @@ struct lwan_response {
 };
 
 struct lwan_value {
-    char *value LWAN_COUNTED_BY(len);
+    char *value;
     size_t len;
 };
 
@@ -485,7 +485,7 @@ struct lwan_url_map {
                                      void *data);
     void *data;
 
-    const char *prefix LWAN_COUNTED_BY(prefix_len);
+    const char *prefix;
     size_t prefix_len;
     enum lwan_handler_flags flags;
 
@@ -546,7 +546,7 @@ struct lwan {
 #endif
 
     struct {
-        struct lwan_thread *threads LWAN_COUNTED_BY(count);
+        struct lwan_thread *threads;
 
         unsigned int max_fd;
         unsigned int count;

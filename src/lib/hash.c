@@ -38,8 +38,8 @@ struct bucket {
 };
 
 struct hash {
-    uint8_t *tophashes LWAN_COUNTED_BY(cap);
-    struct bucket *buckets LWAN_COUNTED_BY(cap);
+    uint8_t *tophashes;
+    struct bucket *buckets;
     uint32_t len, cap;
 
     uint32_t (*hash)(const void *key);

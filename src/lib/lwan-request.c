@@ -1163,7 +1163,7 @@ static int create_temp_file(void)
 }
 
 struct file_backed_buffer {
-    void *ptr LWAN_COUNTED_BY(size);
+    void *ptr;
     size_t size;
 };
 
