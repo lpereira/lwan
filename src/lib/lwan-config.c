@@ -165,7 +165,7 @@ static bool _parse_i64(const char *s, int64_t *out)
         negative = true;
     }
 
-    if (UNLIKELY(*s < '0' && *s > '9'))
+    if (UNLIKELY(*s < '0' || *s > '9'))
         return false;
 
     goto elide_mult_for_first_iter;
