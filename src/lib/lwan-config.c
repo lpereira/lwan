@@ -180,13 +180,14 @@ elide_mult_for_first_iter:
     }
 
     if (negative) {
-        if (((int64_t)-r) > 0) {
-           return false;
+        if (UNLIKELY(((int64_t)-r) > 0)) {
+            return false;
         }
         *out = (int64_t)-r;
-    } else if ((int64_t)r < 0) {
-        return false;
     } else {
+        if (UNLIKELY((int64_t)r < 0)) {
+            return false;
+        }
         *out = (int64_t)r;
     }
 
