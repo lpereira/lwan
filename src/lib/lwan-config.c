@@ -246,6 +246,46 @@ static bool _parse_i32(const char *s, int32_t *out)
     return false;
 }
 
+LWAN_SELF_TEST(parse_i32)
+{
+    static const char *invalid[] = {
+        "",
+        "10\x003",
+        "f",
+        "X959",
+        "/",
+        "-/",
+        "~9999",
+        "2147483648",
+        "-2147483649",
+        "4294967295",
+    };
+    for (size_t i = 0; i < N_ELEMENTS(invalid); i++) {
+        int32_t discard;
+        assert(_parse_i32(invalid[i], &discard) == false);
+        LWAN_NO_DISCARD(discard);
+    }
+
+    static const struct {
+        const char *test;
+        int32_t value;
+    } valid[] = {
+        {"0", 0},
+        {"-1", -1},
+        {"1", 1},
+        {"250", 250},
+        {"999999", 999999},
+        {"2147483647", INT32_MAX},
+        {"-2147483648", INT32_MIN},
+    };
+    for (size_t i = 0; i < N_ELEMENTS(valid); i++) {
+        int32_t value;
+        assert(_parse_i32(valid[i].test, &value) == true);
+        assert(value == valid[i].value);
+        LWAN_NO_DISCARD(value);
+    }
+}
+
 long long parse_long_long(const char *value, long long default_value)
 {
     int64_t out;
