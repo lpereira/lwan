@@ -194,7 +194,7 @@ elide_mult_for_first_iter:
     return s != orig_s && *s == '\0';
 }
 
-LWAN_SELF_TEST(test_parse_i64)
+LWAN_SELF_TEST(parse_i64)
 {
     static const char *invalid[] = {
         "",
@@ -210,8 +210,7 @@ LWAN_SELF_TEST(test_parse_i64)
     };
     for (size_t i = 0; i < N_ELEMENTS(invalid); i++) {
         int64_t discard;
-        bool parsed = _parse_i64(invalid[i], &discard);
-        assert(parsed == false);
+        assert(_parse_i64(invalid[i], &discard) == false);
         LWAN_NO_DISCARD(discard);
     }
 
@@ -229,9 +228,9 @@ LWAN_SELF_TEST(test_parse_i64)
     };
     for (size_t i = 0; i < N_ELEMENTS(valid); i++) {
         int64_t value;
-        bool parsed = _parse_i64(valid[i].test, &value);
-        assert(parsed == true);
+        assert(_parse_i64(valid[i].test, &value) == true);
         assert(value == valid[i].value);
+        LWAN_NO_DISCARD(value);
     }
 }
 
