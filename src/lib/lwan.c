@@ -379,8 +379,8 @@ add_map:
 
         hash = NULL;
     } else if (module->create_from_hash && module->handle_request) {
-        lwan_log_debug("Initializing module %s from config",
-                          get_module_name(module));
+        lwan_log_debug("Initializing module %s from config (%d key(s))",
+                       get_module_name(module), hash_get_count(hash));
 
         url_map.data = module->create_from_hash(prefix, hash);
         if (!url_map.data) {
