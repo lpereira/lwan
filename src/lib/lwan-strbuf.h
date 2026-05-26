@@ -26,8 +26,6 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#include "lwan-counted-by.h"
-
 struct lwan_strbuf {
     char *buffer;
 
