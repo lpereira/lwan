@@ -184,7 +184,7 @@ elide_mult_for_first_iter:
            return false;
         }
         *out = (int64_t)-r;
-    } else if (r > INT64_MAX) {
+    } else if ((int64_t)r < 0) {
         return false;
     } else {
         *out = (int64_t)r;
@@ -205,6 +205,7 @@ LWAN_SELF_TEST(test_parse_i64)
         "~9999",
         "9223372036854775808",
         "-9223372036854775809",
+        "18446744073709551615",
     };
     for (size_t i = 0; i < N_ELEMENTS(invalid); i++) {
         int64_t discard;
