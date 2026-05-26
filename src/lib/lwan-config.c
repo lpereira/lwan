@@ -180,6 +180,9 @@ elide_mult_for_first_iter:
     }
 
     if (negative) {
+        if (((int64_t)-r) > 0) {
+           return false;
+        }
         *out = (int64_t)-r;
     } else if (r > INT64_MAX) {
         return false;
@@ -193,7 +196,15 @@ elide_mult_for_first_iter:
 LWAN_SELF_TEST(test_parse_i64)
 {
     static const char *invalid[] = {
-        "", "10\x003", "f", "X959", "/", "-/", "~9999", "9223372036854775808",
+        "",
+        "10\x003",
+        "f",
+        "X959",
+        "/",
+        "-/",
+        "~9999",
+        "9223372036854775808",
+        "-9223372036854775809",
     };
     for (size_t i = 0; i < N_ELEMENTS(invalid); i++) {
         int64_t discard;
