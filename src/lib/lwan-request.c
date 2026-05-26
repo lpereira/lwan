@@ -1718,7 +1718,7 @@ const char *lwan_request_get_header(struct lwan_request *request,
     if (helper->n_header_start < 2)
         return NULL;
 
-    for (size_t i = 0; i < helper->n_header_start - 1; i++) {
+    for (size_t i = 0; i < helper->n_header_start; i++) {
         const char *start = helper->header_start[i];
         char *end = helper->header_start[i + 1] - HEADER_TERMINATOR_LEN;
 
