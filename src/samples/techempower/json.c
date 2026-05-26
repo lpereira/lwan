@@ -905,7 +905,7 @@ static int append_bytes_to_buf(const char *bytes, size_t len, void *data)
 {
     struct appender *appender = data;
 
-    if (UNLIKELY(len > appender->size - appender->used)) {
+    if (UNLIKELY(appender->used + len >= appender->size)) {
         return -ENOMEM;
     }
 
