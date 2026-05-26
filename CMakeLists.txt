@@ -263,7 +263,10 @@ check_c_source_compiles("#include <sys/vfs.h>
 int main(void) {
 	struct statfs sfs = {.f_type = 0};
 }" LWAN_HAVE_STATFS_F_TYPE)
-
+check_c_source_compiles("#include <linux/landlock.h>
+int main(void) {
+	char discard[sizeof(struct landlock_ruleset_attr) >= 8*3 ? 1 : -1];
+}" LWAN_HAVE_LANDLOCK)
 #
 # Look for Valgrind header
 #
@@ -276,18 +279,6 @@ if (VALGRIND_INCLUDE_DIR)
 else ()
 	message(STATUS "Valgrind headers not found -- disabling valgrind support")
 endif()
-
-#
-# Look for Landlock headers
-#
-find_path(LANDLOCK_HEADER landlock.h /usr/include/linux)
-if (LANDLOCK_HEADER)
-	message(STATUS "Enabling Landlock support")
-	set(LWAN_HAVE_LANDLOCK 1)
-else ()
-	message(STATUS "No Landlock headers found; disabling Landlock
-support")
-endif ()
 
 option(MTUNE_NATIVE "Build with -mtune=native/-march=native" "ON")
 if (MTUNE_NATIVE)
