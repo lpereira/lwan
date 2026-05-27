@@ -142,9 +142,7 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
         case 'w': total += period * ONE_WEEK; break;
         case 'M': total += period * ONE_MONTH; break;
         case 'y': total += period * ONE_YEAR; break;
-        default:
-            lwan_log_warning("Ignoring unknown multiplier: %c",
-                        multiplier);
+        default: return default_value;
         }
 
         str = strchr(str, multiplier) + 1;
