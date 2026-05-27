@@ -151,6 +151,39 @@ unsigned int parse_time_period(const char *str, unsigned int default_value)
     return total ? total : default_value;
 }
 
+LWAN_SELF_TEST(parse_time_period)
+{
+#define INVALID UINT32_MAX
+    static const struct {
+        const char *unparsed;
+        unsigned int parsed;
+    } tests[] = {
+        {"", INVALID},
+        {"1s", 1},
+        {"1m", ONE_MINUTE},
+        {"1h", ONE_HOUR},
+        {"1d", ONE_DAY},
+        {"1w", ONE_WEEK},
+        {"1M", ONE_MONTH},
+        {"1y", ONE_YEAR},
+        {"1h 30m", ONE_HOUR + 30 * ONE_MINUTE},
+        {"2h 25m 15s", 2 * ONE_HOUR + 25 * ONE_MINUTE + 15},
+        {"asdfasdfasdf", INVALID},
+        {NULL, INVALID},
+        {"60 s", INVALID},
+        {"            30d", 30 * ONE_DAY},
+        {"5w       ", 5 * ONE_WEEK},
+        {"10", INVALID},
+        {"1w 1q", INVALID},
+    };
+
+    for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+        assert(parse_time_period(tests[i].unparsed, INVALID) ==
+               tests[i].parsed);
+    }
+#undef INVALID
+}
+
 static bool _parse_i64(const char *s, int64_t *out)
 {
     /* FIXME: we only need overflow checks if strlen(s) > thresh */
