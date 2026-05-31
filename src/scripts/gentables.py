@@ -131,6 +131,8 @@ if __name__ == '__main__':
 #define LIKELY(x) x
 #define UNLIKELY(x) x
 
+#include "ringbuffer.h"
+
 static inline uint64_t read64be(const void *ptr) {
   uint64_t v;
   memcpy(&v, ptr, 8);
@@ -240,7 +242,7 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         if (LIKELY(level0[peeked_byte].num_bits)) {
             uint8_ring_buffer_put_copy(buffer, level0[peeked_byte].symbol);
             consume(reader, level0[peeked_byte].num_bits);
-            assert(bit_reader.total_bitcount >= 0);
+            assert(huff->bit_reader.total_bitcount >= 0);
             continue;
         }
 
@@ -269,7 +271,7 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
         }
 
         if (!consume(reader, 8))
-            goto fail;
+            return -1;
 
         const struct h2_huffman_code *level3 = next_level2(peeked_byte);
         if (LIKELY(level3)) {
@@ -292,8 +294,8 @@ ssize_t lwan_h2_huffman_next(struct lwan_h2_huffman_decoder *huff)
     /* FIXME: ensure we're not promoting types unnecessarily here */
     if (reader->total_bitcount) {
         const uint8_t peeked_byte = peek_byte(reader);
-        const uint8_t eos_prefix = ((1 << bit_reader.total_bitcount) - 1)
-                                   << (8 - bit_reader.total_bitcount);
+        const uint8_t eos_prefix = ((1 << huff->bit_reader.total_bitcount) - 1)
+                                   << (8 - huff->bit_reader.total_bitcount);
 
         if ((peeked_byte & eos_prefix) == eos_prefix)
             goto done;
@@ -329,7 +331,7 @@ bool lwan_h2_huffman_decode_for_fuzzing(const uint8_t *input, size_t input_len)
         if (n_decoded < 64)
             return true;
 
-        uint8_ring_buffer_init(&decoder->buffer);
+        uint8_ring_buffer_init(&decoder.buffer);
     }
 }
 
@@ -350,12 +352,12 @@ bool test_decoder(unsigned char input[], size_t input_size, const char expected[
             return false;
         while (n_decoded && expected_size) {
             uint8_t expected = *expected_ptr;
-            uint8_t got = uint8_ring_buffer_get(&decoder->buffer);
+            uint8_t got = uint8_ring_buffer_get(&decoder.buffer);
             expected_ptr++;
             expected_size--;
             n_decoded--;
             if (expected != got) {
-                fprintf(stderr, "expected %d, got %d\n", expected, got);
+                fprintf(stderr, "expected %d, got %d\\n", expected, got);
                 return false;
             }
         }
