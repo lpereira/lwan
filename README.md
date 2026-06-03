@@ -326,9 +326,8 @@ just added together; for instance, "1M 1w" specifies "1 month and 1 week"
 
 > [!NOTE]
 >
-> A number with a multiplier not in this table is ignored; a
-> warning is issued while reading the configuration file.  No spaces must
-> exist between the number and its multiplier.
+> No spaces must exist between the number and its multiplier.  Multipliers outside
+> the ones in the table above will cause parsing errors.
 
 #### Boolean Values
 
