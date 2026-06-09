@@ -14,13 +14,14 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #include <assert.h>
 #include <ctype.h>
-#include <errno.h>
 #include <endian.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -189,6 +190,48 @@ static char *compress_output(const struct output *output, size_t *outlen)
     return compressed;
 }
 
+int parse_shared_mime_info(struct hash *ext_mime)
+{
+    /* This is of course not actually parsing the XML file -- it's just a crude
+     * attempt at reading it.  It'll most likely fail spectacularly on anything
+     * that's not formatted exactly like the one I have on my system.  Not even
+     * the location seems canonical either (however, the .pc file doesn't seem
+     * to point to the actual location for it.) */
+    FILE *xml = fopen("/usr/share/mime/packages/freedesktop.org.xml", "re");
+    char buffer[512];
+    char *last_mime_type = NULL;
+    int count = 0;
+
+    while (fgets(buffer, 512, xml)) {
+        char *ptr;
+
+        ptr = strstr(buffer, "<mime-type type=");
+        if (ptr) {
+            ptr += strlen("<mime-type type=\"");
+            strend(ptr, '"');
+            free(last_mime_type);
+            last_mime_type = strdup(ptr);
+            continue;
+        }
+
+        ptr = strstr(buffer, "<glob pattern=\"*.");
+        if (ptr) {
+            ptr += strlen("<glob pattern=\"*.");
+            strend(ptr, '"');
+
+            if (!hash_add_unique(ext_mime, strdup(ptr),
+                                 strdup(last_mime_type))) {
+                count++;
+            }
+        }
+    }
+
+    free(last_mime_type);
+    fclose(xml);
+
+    return count;
+}
+
 int main(int argc, char *argv[])
 {
     /* 32k is sufficient for the provided mime.types, but we can reallocate
@@ -301,6 +344,11 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
+
+    printf("/* From mime.types: %d entries */\n", hash_get_count(ext_mime));
+
+    int smi_count = parse_shared_mime_info(ext_mime);
+    printf("/* From shared-mime-info: %d entries */\n", smi_count);
 
     /* Get sorted list of extensions. */
     exts_init(&exts);
