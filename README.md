@@ -60,6 +60,7 @@ The build system will look for these libraries and enable/link if available.
  - To build TechEmpower benchmark suite:
     - Client libraries for [MariaDB](https://mariadb.org)
     - [SQLite 3](http://sqlite.org)
+ - [shared-mime-info](https://www.freedesktop.org/wiki/Software/shared-mime-info/) may be used during build-time to augment the built-in extention/MIME type database.
 
 ### Common operating system package names
 
