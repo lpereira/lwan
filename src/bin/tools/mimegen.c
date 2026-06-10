@@ -224,8 +224,14 @@ int parse_shared_mime_info(struct hash *ext_mime)
         ptr = strstr(buffer, "<glob pattern=\"*.");
         if (ptr) {
             ptr += strlen("<glob pattern=\"*.");
-            if (!strend(ptr, '"')) {
+            char *end = strend(ptr, '"');
+            if (!end) {
                 break;
+            }
+
+            if (end - ptr > 8) {
+                /* Truncate extensions over 8 characters.  See commit 2050759297. */
+                ptr[8] = '\0';
             }
 
             /* Ideally, we'd expand the glob patterns in some cases
