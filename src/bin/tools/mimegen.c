@@ -228,6 +228,18 @@ int parse_shared_mime_info(struct hash *ext_mime)
                 break;
             }
 
+            /* Ideally, we'd expand the glob patterns in some cases
+             * (e.g. for man pages, with glob *.[1-9]); but these are
+             * rare so let's not, for now.  */
+            size_t ext_len = strlen(ptr);
+            size_t ok_len = strspn(ptr, "abcdefghijklmnopqrstuvxwyz"
+                                        "ABCDEFGHIJKLMNOPQRSTUVXWYZ"
+                                        "0123456789"
+                                        ".-+");
+            if (ok_len != ext_len) {
+                continue;
+            }
+
             if (!hash_add_unique(ext_mime, strdup(ptr),
                                  strdup(last_mime_type))) {
                 count++;
