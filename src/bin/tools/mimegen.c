@@ -216,6 +216,11 @@ int parse_shared_mime_info(struct hash *ext_mime)
                 break;
             }
 
+            if (!strchr(ptr, '/')) {
+                /* MIME type has to be in the something/something-else format */
+                continue;
+            }
+
             free(last_mime_type);
             last_mime_type = strdup(ptr);
             continue;
