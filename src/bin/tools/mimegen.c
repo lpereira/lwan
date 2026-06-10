@@ -229,6 +229,10 @@ int parse_shared_mime_info(struct hash *ext_mime)
                 break;
             }
 
+            if (end == ptr) {
+                continue;
+            }
+
             if (end - ptr > 8) {
                 /* Truncate extensions over 8 characters.  See commit 2050759297. */
                 ptr[8] = '\0';
