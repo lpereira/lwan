@@ -202,13 +202,20 @@ int parse_shared_mime_info(struct hash *ext_mime)
     char *last_mime_type = NULL;
     int count = 0;
 
+    if (!xml) {
+        return 0;
+    }
+
     while (fgets(buffer, 512, xml)) {
         char *ptr;
 
-        ptr = strstr(buffer, "<mime-type type=");
+        ptr = strstr(buffer, "<mime-type type=\"");
         if (ptr) {
             ptr += strlen("<mime-type type=\"");
-            strend(ptr, '"');
+            if (!strend(ptr, '"')) {
+                break;
+            }
+
             free(last_mime_type);
             last_mime_type = strdup(ptr);
             continue;
@@ -217,7 +224,9 @@ int parse_shared_mime_info(struct hash *ext_mime)
         ptr = strstr(buffer, "<glob pattern=\"*.");
         if (ptr) {
             ptr += strlen("<glob pattern=\"*.");
-            strend(ptr, '"');
+            if (!strend(ptr, '"')) {
+                break;
+            }
 
             if (!hash_add_unique(ext_mime, strdup(ptr),
                                  strdup(last_mime_type))) {
