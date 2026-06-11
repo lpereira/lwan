@@ -403,6 +403,11 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     for (char *buffer = s->buffer; st.st_size; ) {
         ssize_t n_read = read(fd, buffer, (size_t)st.st_size);
 
+        if (!n_read) {
+            /* If the file shrinks after the fstat() call */
+            break;
+        }
+
         if (UNLIKELY(n_read < 0)) {
             if (errno == EINTR)
                 continue;
