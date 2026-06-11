@@ -24,7 +24,7 @@
 
 struct lwan_redirect_settings {
     char *to;
-    enum lwan_http_status code;
+    int response_code;
 };
 
 LWAN_MODULE_FORWARD_DECL(redirect)
@@ -33,7 +33,7 @@ LWAN_MODULE_FORWARD_DECL(redirect)
     .module = LWAN_MODULE_REF(redirect),                                       \
     .args = ((struct lwan_redirect_settings[]) {{                              \
         .to = (to_),                                                           \
-        .code = (code_),                                                       \
+        .response_code = (code_),                                              \
     }}),                                                                       \
     .flags = (enum lwan_handler_flags)0
 

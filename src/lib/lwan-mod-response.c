@@ -37,9 +37,7 @@ static void *response_create(const char *prefix __attribute__((unused)),
 {
     struct lwan_response_settings *settings = instance;
 
-    const char *valid_code =
-        lwan_http_status_as_string_with_code(settings->code);
-    if (!strncmp(valid_code, "999 ", 4)) {
+    if (!lwan_http_status_is_valid(settings->code)) {
         lwan_log_error("Code %d isn't a known HTTP status code",
                           settings->code);
         return NULL;

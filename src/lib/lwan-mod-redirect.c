@@ -21,12 +21,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lwan-private.h"
 #include "lwan-mod-redirect.h"
+#include "lwan-private.h"
 
 struct redirect_priv {
     char *to;
-    enum lwan_http_status code;
+    int response_code;
 };
 
 static enum lwan_http_status
@@ -40,7 +40,7 @@ redirect_handle_request(struct lwan_request *request,
     response->headers =
         coro_memdup(request->conn->coro, headers, sizeof(headers));
 
-    return response->headers ? priv->code : HTTP_INTERNAL_ERROR;
+    return response->headers ? priv->response_code : HTTP_INTERNAL_ERROR;
 }
 
 static void *redirect_create(const char *prefix __attribute__((unused)),
@@ -58,7 +58,15 @@ static void *redirect_create(const char *prefix __attribute__((unused)),
         return NULL;
     }
 
-    priv->code = settings->code;
+    if (!lwan_http_status_is_valid(settings->response_code)) {
+        lwan_log_error("HTTP code %d is not supported",
+                       settings->response_code);
+        free(priv->to);
+        free(priv);
+        return NULL;
+    }
+
+    priv->response_code = settings->response_code;
 
     return priv;
 }
@@ -73,33 +81,12 @@ static void redirect_destroy(void *data)
     }
 }
 
-static enum lwan_http_status parse_http_code(const char *code,
-                                             enum lwan_http_status fallback)
-{
-    const char *known;
-    int as_int;
-
-    if (!code)
-        return fallback;
-
-    as_int = parse_int(code, 999);
-    if (as_int == 999)
-        return fallback;
-
-    known = lwan_http_status_as_string_with_code((enum lwan_http_status)as_int);
-    if (!strncmp(known, "999", 3))
-        return fallback;
-
-    return (enum lwan_http_status)as_int;
-}
-
 static void *redirect_create_from_hash(const char *prefix,
                                        const struct hash *hash)
 {
     struct lwan_redirect_settings settings = {
         .to = hash_find(hash, "to"),
-        .code =
-            parse_http_code(hash_find(hash, "code"), HTTP_MOVED_PERMANENTLY),
+        .response_code = parse_int(hash_find(hash, "code"), HTTP_MOVED_PERMANENTLY),
     };
 
     return redirect_create(prefix, &settings);
