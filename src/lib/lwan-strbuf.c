@@ -398,8 +398,6 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, (size_t)st.st_size)))
         goto error_close;
 
-    s->used = (size_t)st.st_size;
-
     for (char *buffer = s->buffer; st.st_size; ) {
         ssize_t n_read = read(fd, buffer, (size_t)st.st_size);
 
@@ -417,6 +415,7 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
         buffer += n_read;
         *buffer = '\0';
         st.st_size -= (off_t)n_read;
+        s->used += (size_t)n_read;
     }
 
     close(fd);
