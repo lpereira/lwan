@@ -220,8 +220,13 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
     }
 #elif defined(__SSE3__)
     if (msg_len >= 16) {
-        const __m128i mask128 =
-            _mm_castps_si128(_mm_broadcast_ss((const float *)mask));
+        const __m128i mask128 = _mm_castps_si128(
+#if defined(__AVX__)
+            _mm_broadcast_ss((const float *)mask)
+#else
+            _mm_set1_ps((const float *)mask)
+#endif
+        );
 
         do {
             const __m128i v = _mm_lddqu_si128((const __m128i *)msg);
@@ -230,7 +235,7 @@ static void unmask(char *msg, size_t msg_len, char mask[static 4])
             msg_len -= 16;
         } while (msg_len >= 16);
 
-        mask32 = _mm_extract_epi32(mask128, 0);
+        mask32 = (uint32_t)_mm_extract_epi32(mask128, 0);
     } else {
         mask32 = string_as_uint32(mask);
     }
