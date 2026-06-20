@@ -1,0 +1,24 @@
+name: Static Analysis (clang-analyzer)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare environment
+        run: apt update && apt install -y libdeflate-dev git cmake pkg-config libluajit-5.1-dev libsqlite3-dev libmariadb-dev build-essential ninja-build clang-tools-21
+        env:
+          DEBIAN_FRONTEND: noninteractive
+      - uses: actions/checkout@v6
+      - name: Prepare build
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
+      - name: Build
+        run: scan-build ninja -C build
+
+# FIXME: copy the results somewhere else so the reports are visible
