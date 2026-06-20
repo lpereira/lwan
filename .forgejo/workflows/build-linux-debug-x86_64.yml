@@ -17,6 +17,6 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
       - uses: actions/checkout@v6
       - name: Prepare build
-        run: cmake .. -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
       - name: Build
         run: ninja -C build
