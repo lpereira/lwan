@@ -19,6 +19,10 @@ jobs:
       - name: Prepare build
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
       - name: Build
-        run: scan-build ninja -C build
-
-# FIXME: copy the results somewhere else so the reports are visible
+        run: scan-build -o report ninja -C build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clang-static-analysis-report
+          path: report/
+          if-no-files-found: ignore
+          retention-days: 30
