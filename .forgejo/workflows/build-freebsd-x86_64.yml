@@ -11,10 +11,6 @@ jobs:
     name: Build
     runs-on: freebsd
     steps:
-      - name: Prepare environment
-        run: pkg install -y cmake pkgconf sqlite3 lua51 git libdeflate ninja
-        env:
-          DEBIAN_FRONTEND: noninteractive
       - uses: actions/checkout@v6
       - name: Prepare build
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Release -B build -GNinja
