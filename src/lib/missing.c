@@ -29,7 +29,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/prctl.h>
 #include <sys/vfs.h>
 #include <unistd.h>
 
