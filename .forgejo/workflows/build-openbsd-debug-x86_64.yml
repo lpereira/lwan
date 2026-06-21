@@ -1,0 +1,18 @@
+name: Build openbsd-debug-x86_64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build
+    runs-on: openbsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare build
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
+      - name: Build
+        run: ninja -C build
