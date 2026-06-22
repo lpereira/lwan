@@ -18,28 +18,28 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Kill testrunner
-        run: pkill -9 testrunner
+        run: pkill -9 testrunner || true
       - name: Prepare build (Release)
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Release -B build-release -GNinja
       - name: Build (Release)
         run: ninja -C build-release testsuite
 
       - name: Kill testrunner
-        run: pkill -9 testrunner
+        run: pkill -9 testrunner || true
       - name: Prepare build (Debug-ASan)
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-asan -GNinja -DSANITIZER=address
       - name: Build (Debug-ASan)
         run: ninja -C build-debug-asan testsuite
 
       - name: Kill testrunner
-        run: pkill -9 testrunner
+        run: pkill -9 testrunner || true
       - name: Prepare build (Debug-UBSan)
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-ubsan -GNinja -DSANITIZER=undefined
       - name: Build (Debug-UBSan)
         run: ninja -C build-debug-ubsan testsuite
 
       - name: Kill testrunner
-        run: pkill -9 testrunner
+        run: pkill -9 testrunner || true
       - name: Prepare build (Coverage)
         run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-cov -GNinja
       - name: Build (Coverage)
