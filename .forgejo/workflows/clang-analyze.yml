@@ -22,7 +22,7 @@ jobs:
           CC: clang
           CCC_CC: clang
       - name: Build
-        run: scan-build -o report ninja -C build
+        run: scan-build -o report --status-bugs ninja -C build
         env:
           CC: clang
           CCC_CC: clang
