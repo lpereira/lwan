@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-release:
-    name: Build
+    name: Release
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
@@ -25,7 +25,7 @@ jobs:
         run: ninja -C build-release testsuite
 
   test-debug-asan:
-    name: Build
+    name: Debug asan
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
@@ -42,7 +42,7 @@ jobs:
         run: ninja -C build-debug-asan testsuite
 
   test-debug-ubsan:
-    name: Build
+    name: Debug ubsan
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
@@ -59,7 +59,7 @@ jobs:
         run: ninja -C build-debug-ubsan testsuite
 
   test-debug-coverage:
-    name: Build
+    name: Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
