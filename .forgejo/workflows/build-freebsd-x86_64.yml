@@ -1,0 +1,27 @@
+name: Build freebsd-x86_64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-release:
+    name: Build release
+    runs-on: freebsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare build
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Release -B build -GNinja
+      - name: Build
+        run: ninja -C build
+  build-debug:
+    name: Build debug
+    runs-on: freebsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare build
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build -GNinja
+      - name: Build
+        run: ninja -C build
