@@ -537,8 +537,7 @@ class SocketTest(LwanTest):
           del sock
 
         return None
-      finally:
-        return sock
+      return sock
 
     sock = _connect(host, port)
     self.assertNotEqual(sock, None)
