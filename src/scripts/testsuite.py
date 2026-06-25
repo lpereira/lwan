@@ -88,25 +88,13 @@ class LwanTest(unittest.TestCase):
     raise Exception('Timeout waiting for lwan')
 
   def tearDown(self):
-    try:
-      requests.get('http://127.0.0.1:8080/quit-lwan')
-    except requests.exceptions.ConnectionError:
-      # Requesting /quit-lwan will make testrunner exit(0), closing the
-      # connection without sending a response, raising this exception.
-      # That's expected here.
-      return
-    finally:
-      with self.lwan as l:
-        l.communicate(timeout=1.0)
-        l.kill()
-
-    self.ensureHighlander()
-
     for file_to_remove in self.files_to_remove:
       try:
         os.remove(file_to_remove)
       except FileNotFoundError:
         pass
+
+    l.kill()
 
   def assertHttpResponseValid(self, request, status_code, content_type):
     self.assertEqual(request.status_code, status_code)
@@ -531,13 +519,11 @@ class SocketTest(LwanTest):
       try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
+        return sock
       except socket.error:
         if sock:
           sock.close()
           del sock
-
-        return None
-      return sock
 
     sock = _connect(host, port)
     self.assertNotEqual(sock, None)
@@ -632,7 +618,7 @@ class TestLua(LwanTest):
 
     self.assertEqual(r.status_code, 418)
 
-  def test_invalid_Code(self):
+  def test_invalid_code(self):
     r = requests.get('http://127.0.0.1:8080/lua/invalid_code')
 
     self.assertEqual(r.status_code, 500)
