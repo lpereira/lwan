@@ -60,7 +60,9 @@ timedwait(bool had_job)
     gettimeofday(&now, NULL);
 
     struct timespec rgtp = { now.tv_sec + secs, now.tv_usec * 1000 };
+    pthread_mutex_lock(&job_wait_mutex);
     pthread_cond_timedwait(&job_wait_cond, &job_wait_mutex, &rgtp);
+    pthread_mutex_unlock(&job_wait_mutex);
 }
 
 void lwan_job_thread_main_loop(void)
@@ -72,10 +74,14 @@ void lwan_job_thread_main_loop(void)
 
     lwan_set_thread_name("job");
 
-    if (pthread_mutex_lock(&job_wait_mutex))
-        lwan_log_critical("Could not lock job wait mutex");
-    
-    while (running) {
+    while (true) {
+        pthread_mutex_lock(&job_wait_mutex);
+        if (!running) {
+            pthread_mutex_unlock(&job_wait_mutex);
+            return;
+        }
+        pthread_mutex_unlock(&job_wait_mutex);
+
         bool had_job = false;
 
         if (LIKELY(!pthread_mutex_lock(&queue_mutex))) {
@@ -89,9 +95,6 @@ void lwan_job_thread_main_loop(void)
 
         timedwait(had_job);
     }
-
-    if (pthread_mutex_unlock(&job_wait_mutex))
-        lwan_log_critical("Could not lock job wait mutex");
 }
 
 void lwan_job_thread_init(void)
@@ -126,9 +129,11 @@ void lwan_job_thread_shutdown(void)
             list_del(&node->jobs);
             free(node);
         }
-        running = false;
 
+        pthread_mutex_lock(&job_wait_mutex);
+        running = false;
         pthread_cond_signal(&job_wait_cond);
+        pthread_mutex_unlock(&job_wait_mutex);
 
         r = pthread_join(self, NULL);
         if (r) {
