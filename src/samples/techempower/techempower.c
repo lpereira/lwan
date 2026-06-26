@@ -472,6 +472,8 @@ int main(void)
             lwan_log_critical("No MySQL hostname provided");
         if (!db_connection_params.mysql.database)
             lwan_log_critical("No MySQL database provided");
+
+        lwan_straitjacket_allow_connect(3306);
     } else {
         static const char *pragmas[] = {"PRAGMA mmap_size=44040192",
                                         "PRAGMA journal_mode=OFF",
@@ -481,6 +483,8 @@ int main(void)
             .sqlite.path = "techempower.db",
             .sqlite.pragmas = pragmas,
         };
+
+        lwan_straitjacket_allow_dir_path_ro(".");
     }
 
     fortune_tpl = lwan_tpl_compile_string_full(
