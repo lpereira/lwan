@@ -71,7 +71,7 @@ jobs:
       - name: Kill testrunner
         run: pkill -9 testrunner || true
       - name: Prepare build (Coverage)
-        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-cov -GNinja
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Coverage -B build-debug-cov -GNinja
       - name: Build (Coverage)
         run: ninja -C build-debug-cov generate-coverage
       # FIXME: add step to upload coverage artifacts
