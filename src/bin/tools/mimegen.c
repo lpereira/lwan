@@ -255,9 +255,17 @@ int parse_shared_mime_info(struct hash *ext_mime)
                 continue;
             }
 
-            if (!hash_add_unique(ext_mime, strdup(ptr),
-                                 strdup(last_mime_type))) {
+            char *k = strdup(ptr);
+            char *v = strdup(last_mime_type);
+            if (!k || !v) {
+                fprintf(stderr, "Could not allocate memory\n");
+                exit(1);
+            }
+            if (!hash_add_unique(ext_mime, k, v)) {
                 count++;
+            } else {
+                free(k);
+                free(v);
             }
         }
     }
