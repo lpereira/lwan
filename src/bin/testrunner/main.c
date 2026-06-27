@@ -282,6 +282,7 @@ main()
     struct lwan l;
 
     lwan_init(&l);
+    lwan_straitjacket_allow_dir_path_ro(".");
     lwan_main_loop(&l);
     lwan_shutdown(&l);
 

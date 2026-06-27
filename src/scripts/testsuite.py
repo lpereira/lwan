@@ -18,6 +18,8 @@ import time
 import unittest
 import logging
 
+ROOT_SRC_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 BUILD_DIR = './build'
 for arg in sys.argv[1:]:
   if not arg.startswith('-') and os.path.exists(arg):
@@ -61,6 +63,7 @@ class LwanTest(unittest.TestCase):
 
     self.files_to_remove = []
     for file_to_copy in self.files_to_copy[harness]:
+      file_to_copy = os.path.join(ROOT_SRC_DIR, file_to_copy)
       base = os.path.basename(file_to_copy)
       shutil.copyfile(file_to_copy, base)
       self.files_to_remove.append(base)
@@ -68,22 +71,29 @@ class LwanTest(unittest.TestCase):
     open('htpasswd', 'w').close()
     self.files_to_remove.append('htpasswd')
 
+    try:
+      os.symlink(os.path.join(ROOT_SRC_DIR, 'wwwroot'), os.path.join(BUILD_DIR, 'wwwroot'))
+      self.files_to_remove.append(os.path.join(BUILD_DIR, 'wwwroot'))
+    except FileExistsError:
+      pass
+
     for spawn_try in range(20):
       self.lwan = subprocess.Popen([self.harness_paths[harness]], env=env,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-
-      if self.lwan.poll() is not None:
-        raise Exception('It seems that %s is not starting up' % harness)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   cwd=BUILD_DIR)
 
       for request_try in range(20):
         try:
-          r = requests.get('http://127.0.0.1:8080/hello')
+          r = requests.get('http://127.0.0.1:8080/hello', timeout=1)
           self.assertEqual(r.status_code, 200)
           return
         except requests.ConnectionError:
           time.sleep(0.1)
+          if self.lwan.poll() is not None:
+            raise Exception(f'Harness {harness} terminated prematurely')
 
-      time.sleep(0.1)
+      self.lwan.terminate()
+      self.lwan.communicate(timeout=1)
 
     raise Exception('Timeout waiting for lwan')
 
@@ -94,11 +104,12 @@ class LwanTest(unittest.TestCase):
       # Requesting /quit-lwan will make testrunner exit(0), closing the
       # connection without sending a response, raising this exception.
       # That's expected here.
-      return
+      pass
     finally:
       with self.lwan as l:
         l.communicate(timeout=1.0)
         l.kill()
+        l.wait()
 
     self.ensureHighlander()
 
@@ -408,7 +419,7 @@ class TestFileServing(LwanTest):
     assertHasImage('file')
     assertHasImage('folder')
 
-    with open('wwwroot/icons/README.TXT', 'r') as readme:
+    with open(os.path.join(ROOT_SRC_DIR, 'wwwroot/icons/README.TXT'), 'r') as readme:
       readme = readme.read()
       readme = readme.replace('"', "&quot;")
       readme = readme.replace('/', "&#x2f;")
@@ -675,12 +686,12 @@ class TestAuthentication(LwanTest):
       self._users = users
 
     def __enter__(self):
-      with open('htpasswd', 'w') as f:
+      with open(os.path.join(BUILD_DIR, 'htpasswd'), 'w') as f:
         for u, p in self._users.items():
           f.write('%s = %s\n' % (u, p))
 
     def __exit__(self, type, value, traceback):
-      os.remove('htpasswd')
+      os.remove(os.path.join(BUILD_DIR, 'htpasswd'))
 
   def test_no_creds(self):
     r = requests.get('http://127.0.0.1:8080/admin')
@@ -1040,14 +1051,14 @@ class TestFuzzRegressionBase(SocketTest):
 
   @staticmethod
   def wrap(name):
-    with open(os.path.join("fuzz", "regression", name), "rb") as f:
+    with open(os.path.join(ROOT_SRC_DIR, "fuzz", "regression", name), "rb") as f:
       contents = str(f.read(), "latin-1")
     def run_test_wrapped(self):
       return self.run_test(contents)
     return run_test_wrapped
 
 def only_request_fuzzer_regression():
-  for path in os.listdir("fuzz/regression"):
+  for path in os.listdir(os.path.join(ROOT_SRC_DIR, "fuzz/regression")):
     if not "request_fuzzer" in path:
       continue
     if path.startswith(("clusterfuzz-", "crash-")):
