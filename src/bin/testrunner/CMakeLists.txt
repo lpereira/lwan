@@ -16,7 +16,7 @@ if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
 			EXECUTABLE ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/src/scripts/testsuite.py -v ${CMAKE_BINARY_DIR}
 			DEPENDENCIES testrunner
 			BASE_DIRECTORY "${CMAKE_SOURCE_DIR}"
-			LCOV_ARGS --ignore-errors mismatch
+			LCOV_ARGS --ignore-errors mismatch --ignore-errors inconsistent
 		)
 		message(STATUS "Python found; generate-coverage target enabled")
 	else ()
