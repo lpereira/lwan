@@ -28,6 +28,11 @@ if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Debug")
 endif ()
 
+if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
+	set(LWAN_COVERAGE 1)
+	set(CMAKE_BUILD_TYPE "Debug")
+endif ()
+
 #
 # Find libraries
 #

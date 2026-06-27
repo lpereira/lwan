@@ -7,7 +7,7 @@ target_link_libraries(testrunner
 	${ADDITIONAL_LIBRARIES}
 )
 
-if (${CMAKE_BUILD_TYPE} MATCHES "Coverage")
+if (LWAN_COVERAGE)
 	include(CodeCoverage)
 
 	if (Python3_Interpreter_FOUND)
