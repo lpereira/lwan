@@ -377,6 +377,7 @@ function(setup_target_for_coverage_lcov)
         DEPENDS ${Coverage_DEPENDENCIES}
         VERBATIM # Protect arguments to commands
         COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
+        USES_TERMINAL
     )
 
     # Show where to find the lcov info report
