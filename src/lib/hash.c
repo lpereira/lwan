@@ -67,8 +67,9 @@ LWAN_CONSTRUCTOR(randomize_seed, 65535)
     fnv1a_64_seed = fnv1a_64(entropy, sizeof(entropy));
 }
 
-static ALWAYS_INLINE uint8_t no_tombstone(uint8_t tophash)
+static ALWAYS_INLINE uint8_t extract_tophash(const uint32_t hash)
 {
+    const uint8_t tophash = hash & 0xff;
     return (tophash == '\0') ? 0xa5 : tophash;
 }
 
@@ -375,7 +376,7 @@ hash_probe(const struct hash *ht, const void *key, bool deleting)
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-    return hash_probe_key(ht, key, startpos, no_tombstone(hash & 0xff),
+    return hash_probe_key(ht, key, startpos, extract_tophash(hash),
                           deleting);
 }
 
@@ -443,7 +444,7 @@ static int hash_add_internal(struct hash *ht,
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-    const uint8_t tophash = no_tombstone(hash & 0xff);
+    const uint8_t tophash = extract_tophash(hash);
     struct bucket *bucket;
 
     bucket = hash_probe_key(ht, key, startpos, tophash, false);
