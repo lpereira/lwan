@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -190,21 +191,16 @@ static char *compress_output(const struct output *output, size_t *outlen)
     return compressed;
 }
 
-int parse_shared_mime_info(struct hash *ext_mime)
+static int parse_shared_mime_info_file(struct hash *ext_mime, FILE *xml)
 {
     /* This is of course not actually parsing the XML file -- it's just a crude
      * attempt at reading it.  It'll most likely fail spectacularly on anything
      * that's not formatted exactly like the one I have on my system.  Not even
      * the location seems canonical either (however, the .pc file doesn't seem
      * to point to the actual location for it.) */
-    FILE *xml = fopen("/usr/share/mime/packages/freedesktop.org.xml", "re");
     char buffer[512];
     char *last_mime_type = NULL;
     int count = 0;
-
-    if (!xml) {
-        return 0;
-    }
 
     while (fgets(buffer, 512, xml)) {
         char *ptr;
@@ -271,8 +267,51 @@ int parse_shared_mime_info(struct hash *ext_mime)
     }
 
     free(last_mime_type);
-    fclose(xml);
 
+    return count;
+}
+
+int parse_shared_mime_info(struct hash *ext_mime)
+{
+    int count = 0;
+    DIR *packages;
+    FILE *xml;
+    struct dirent *ent;
+
+    packages = opendir("/usr/share/mime/packages");
+    if (!packages)
+        goto out;
+
+    while ((ent = readdir(packages))) {
+        char path[PATH_MAX];
+        int ret;
+
+        char *dot = strrchr(ent->d_name, '.');
+        if (!dot)
+            continue;
+        if (strcmp(dot, ".xml") != 0)
+            continue;
+
+        ret = snprintf(path, PATH_MAX, "/usr/share/mime/packages/%s", ent->d_name);
+        if (ret < 0 || ret > PATH_MAX)
+            continue;
+
+        xml = fopen(path, "re");
+        if (!xml)
+            continue;
+
+        printf("/* processing: %s */\n", path);
+
+        ret = parse_shared_mime_info_file(ext_mime, xml);
+        if (ret > 0)
+            count += ret;
+
+        fclose(xml);
+    }
+
+    closedir(packages);
+
+out:
     return count;
 }
 
