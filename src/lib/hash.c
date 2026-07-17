@@ -515,7 +515,9 @@ int hash_del(struct hash *ht, const void *key)
         ht->free_value((void *)bucket->value);
         ht->len--;
 
-        if (ht->cap > INITIAL_CAP && ht->len < ht->cap / 2) {
+        /* Check if the number of items fall below a quarter of the
+         * capacity (rather than half) to avoid reallocation thrashing. */
+        if (ht->cap > INITIAL_CAP && ht->len < ht->cap / 4) {
             /* Failure to resize to reduce the table won't leave it
              * in an inconsistent state, so don't propagate the error.
              */
