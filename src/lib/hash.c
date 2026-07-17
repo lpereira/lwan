@@ -288,11 +288,12 @@ static struct bucket *hash_probe_half(const struct hash *ht,
                                       const uint32_t endpos,
                                       const uint8_t tophash)
 {
-    /* FIXME: While using memchr() here is fine (and portable), the second call
-     * to memchr() in the presence of a collision won't reuse the memory load
-     * the first memchr() made (plus all the work to establish comparison masks
-     * and other stuff that might be necessary for a SIMD implementation).
-     * Rewrite this so this used SIMD intrinsics directly. */
+    /* FIXME: While using memchr() here is fine (and portable), the
+     * second call to memchr() in the presence of a collision won't
+     * reuse the memory load the first memchr() made (plus all the work
+     * to establish comparison masks and other stuff that might be
+     * necessary for a SIMD implementation).  Rewrite this so this used
+     * SIMD intrinsics directly.  */
     const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, tophash, endpos - startpos);
 
@@ -336,16 +337,17 @@ static struct bucket *hash_probe_key(const struct hash *ht,
 
     bucket = hash_probe_half(ht, key, 0, startpos, tophash);
     if (bucket && !deleting) {
-        /* As items are removed, buckets in the first half may become empty; in
-         * that case, move the contents of the bucket in the second half to the
-         * first half so probes happen more often in the [startpos..cap]
-         * interval.
+        /* As items are removed, buckets in the first half may become
+         * empty; in that case, move the contents of the bucket in the
+         * second half to the first half so probes happen more often in
+         * the [startpos..cap] interval.
          *
-         * This also happens when the table has been resized: no eager rehashing
-         * is performed, so items will either be where they were before the
-         * resize, or were moved to the first available slot.  This is very likely
-         * to leave items in the wrong position hoping that probing will lazily
-         * position them where they should ultimately land. */
+         * This also happens when the table has been resized: no eager
+         * rehashing is performed, so items will either be where they
+         * were before the resize, or were moved to the first available
+         * slot.  This is very likely to leave items in the wrong
+         * position hoping that probing will lazily position them where
+         * they should ultimately land.  */
         uint8_t *tombstone =
             memchr(ht->tophashes + startpos, '\0', ht->cap - startpos);
         if (tombstone) {
