@@ -12,7 +12,7 @@ Build status
 |-------------|--------|---------|-------|-----------------|------------|
 | Linux       | x86_64 | ![BuildLinux](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/build-linux-x86_64.yml/badge.svg "Build Linux")  | ![static-analysis](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/clang-analyze.yml/badge.svg "Static Analysis") ![coverity](https://scan.coverity.com/projects/375/badge.svg) | ![tests](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/test-linux-x86_64.yml/badge.svg "TestLinux") [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/lwan.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:lwan)           |
 | FreeBSD 15  | x86_64 | ![BuildFreeBSD](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/build-freebsd-x86_64.yml/badge.svg "Build FreeBSD")                 |           |
-| OpenBSD 7.9 | x86_64 | ![BuildOpenBSD](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/build-openbsd-x86_64.yml/badge.svg "Build OpenBSD")                 | ![tests](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/test-openbsd-x86_64.yml/badge.svg "TestOpenBSD")   |
+| OpenBSD 7.9 | x86_64 | ![BuildOpenBSD](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/build-openbsd-x86_64.yml/badge.svg "Build OpenBSD")                 | 	      | ![tests](https:///forja.lhc.net.br/lafp/lwan-mirror/actions/workflows/test-openbsd-x86_64.yml/badge.svg "TestOpenBSD")   |
 
 Installing
 ----------
