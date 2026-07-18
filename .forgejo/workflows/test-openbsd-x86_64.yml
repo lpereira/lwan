@@ -1,0 +1,57 @@
+name: Test openbsd-x86_64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  test-release:
+    name: Release
+    runs-on: openbsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Kill testrunner
+        run: pkill -9 testrunner || true
+      - name: Prepare build (Release)
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Release -B build-release -GNinja
+      - name: Build (Release)
+        run: ninja -C build-release testsuite
+
+  test-debug-asan:
+    name: Debug asan
+    runs-on: openbsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Kill testrunner
+        run: pkill -9 testrunner || true
+      - name: Prepare build (Debug-ASan)
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-asan -GNinja -DSANITIZER=address
+      - name: Build (Debug-ASan)
+        run: ninja -C build-debug-asan testsuite
+
+  test-debug-ubsan:
+    name: Debug ubsan
+    runs-on: openbsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Kill testrunner
+        run: pkill -9 testrunner || true
+      - name: Prepare build (Debug-UBSan)
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Debug -B build-debug-ubsan -GNinja -DSANITIZER=undefined
+      - name: Build (Debug-UBSan)
+        run: ninja -C build-debug-ubsan testsuite
+
+  test-debug-coverage:
+    name: Coverage
+    runs-on: openbsd
+    steps:
+      - uses: actions/checkout@v6
+      - name: Kill testrunner
+        run: pkill -9 testrunner || true
+      - name: Prepare build (Coverage)
+        run: cmake ${GITHUB_WORKSPACE} -DCMAKE_BUILD_TYPE=Coverage -B build-debug-cov -GNinja
+      - name: Build (Coverage)
+        run: ninja -C build-debug-cov generate-coverage
+      # FIXME: add step to upload coverage artifacts
