@@ -262,6 +262,11 @@ size_t lwan_prepare_response_header_full(
                 break;
             }
 
+            if (UNLIKELY(strpbrk(header->key, "\r\n") != NULL))
+                return 0;
+            if (UNLIKELY(strpbrk(header->value, "\r\n") != NULL))
+                return 0;
+
             RETURN_0_ON_OVERFLOW(4);
             APPEND_CHAR_NOCHECK('\r');
             APPEND_CHAR_NOCHECK('\n');
