@@ -270,7 +270,8 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
-__attribute__((nonnull(1))) static ssize_t url_decode(char *str)
+__attribute__((nonnull(1))) static ssize_t
+url_decode_full(char *str, const unsigned char invalid_map[static 32])
 {
     static const unsigned char tbl1[256] = {
         [0 ... 255] = 255, ['0'] = 0 << 4,  ['1'] = 1 << 4,  ['2'] = 2 << 4,
@@ -304,25 +305,24 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
         const char first = (char)tbl1[(unsigned char)p[1]];
         const char second = tbl2[(unsigned char)p[2]];
         const char decoded = first | second;
-        if (UNLIKELY(decoded <= 0)) {
-            /* This shouldn't happen in normal circumstances, but if %00 is
-             * found in the encoded string, bail here. */
-            if (decoded == '\0')
-                return -1;
-
+        if (UNLIKELY((signed char)decoded <= 0)) {
             /* OR-ing both lookups will yield a negative number if either
              * encoded character is not a valid hex digit; check it here so
              * that other valid-but-negative bytes (e.g.  0xff) are still
              * written to outptr. */
-            if (first == -1) {
+            if ((signed char)first == -1) {
                 /* tbl1 is shifted so a valid nibble might be negative;
                  * check for all the bits here instead.  */
                 return -1;
             }
-            if (second < 0) {
+            if ((signed char)second < 0) {
                 /* tbl2 isn't shifted so we can check for the sign bit only. */
                 return -1;
             }
+        }
+        if (UNLIKELY(invalid_map[(unsigned char)decoded >> 3] &
+                     1 << ((unsigned char)decoded & 7))) {
+            return -1;
         }
 
         *outptr++ = decoded;
@@ -335,6 +335,64 @@ __attribute__((nonnull(1))) static ssize_t url_decode(char *str)
     }
 
     return (ssize_t)strlen(str);
+}
+
+LWAN_ACCESS_PARAM(read_write, 1)
+static ALWAYS_INLINE ssize_t url_decode(char *str)
+{
+    static const unsigned char only_nul_invalid[32] = {
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    };
+    return url_decode_full(str, only_nul_invalid);
+}
+
+LWAN_ACCESS_PARAM(read_write, 1)
+static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str)
+{
+    static const unsigned char nul_and_crlf_invalid[32] = {
+        1, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    };
+    return url_decode_full(str, nul_and_crlf_invalid);
+}
+
+LWAN_SELF_TEST(urldecode)
+{
+    {
+        char encoded[] = "%0d";
+        assert(url_decode_no_crlf(encoded) == -1);
+    }
+    {
+        char encoded[] = "%0d";
+        assert(url_decode(encoded) == 1);
+    }
+    {
+        char encoded[] = "%0a";
+        assert(url_decode_no_crlf(encoded) == -1);
+    }
+    {
+        char encoded[] = "hello%00";
+        assert(url_decode_no_crlf(encoded) == -1);
+    }
+    {
+        char encoded[] = "hello%00";
+        assert(url_decode(encoded) == -1);
+    }
+    {
+        char encoded[] = "%a0";
+        assert(url_decode_no_crlf(encoded) == 1);
+    }
+    {
+        char encoded[] = "hello";
+        assert(url_decode_no_crlf(encoded) == sizeof("hello") - 1);
+        assert(memcmp(encoded, "hello", sizeof("hello") - 1) == 0);
+    }
+    {
+        char encoded[] = "hello%21";
+        assert(url_decode_no_crlf(encoded) == sizeof("hello!") - 1);
+        assert(memcmp(encoded, "hello!", sizeof("hello!") - 1) == 0);
+    }
 }
 
 LWAN_ACCESS_PARAM(read_only, 1)
@@ -1370,7 +1428,7 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     if (UNLIKELY(!parse_headers(helper, buffer)))
         return HTTP_BAD_REQUEST;
 
-    ssize_t decoded_len = url_decode(request->url.value);
+    ssize_t decoded_len = url_decode_no_crlf(request->url.value);
     if (UNLIKELY(decoded_len < 0))
         return HTTP_BAD_REQUEST;
     request->original_url.len = request->url.len = (size_t)decoded_len;
