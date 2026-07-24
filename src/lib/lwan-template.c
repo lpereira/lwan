@@ -1180,6 +1180,9 @@ static bool post_process_template(struct parser *parser)
                 else
                     chunk->action = ACTION_VARIABLE_STR;
                 chunk->data = (void *)(uintptr_t)descriptor->offset;
+            } else if (descriptor->append_to_strbuf == lwan_append_str_escaped_to_strbuf) {
+                chunk->action = ACTION_VARIABLE_STR_ESCAPE;
+                chunk->data = (void *)(uintptr_t)descriptor->offset;
             } else if (escape) {
                 lwan_log_error("Variable must be string to be escaped");
                 return false;

@@ -256,7 +256,7 @@ static const struct lwan_var_descriptor file_list_desc[] = {
                      ((const struct lwan_var_descriptor[]){
                          TPL_VAR_STR(file_list.icon),
                          TPL_VAR_STR(file_list.icon_alt),
-                         TPL_VAR_STR(file_list.name),
+                         TPL_VAR_STR_ESCAPE(file_list.name),
                          TPL_VAR_STR(file_list.type),
                          TPL_VAR_INT(file_list.size),
                          TPL_VAR_STR(file_list.unit),
