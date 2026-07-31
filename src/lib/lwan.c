@@ -179,6 +179,15 @@ static void build_response_headers(struct lwan *l,
         if (!can_override_header(kv->key)) {
             lwan_log_warning("Cannot override header '%s'", kv->key);
         } else {
+            if (strpbrk(kv->key, ": ") != NULL) {
+                lwan_log_critical("Custom header ``%s'' has reserved character",
+                                  kv->key);
+            }
+            if (strpbrk(kv->value, "\r\n") != NULL) {
+                lwan_log_critical("Custom header ``%s'' has newline character",
+                                  kv->key);
+            }
+
             if (strcaseequal_neutral(kv->key, "Server"))
                 set_server = true;
 
