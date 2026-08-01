@@ -239,10 +239,14 @@ ALWAYS_INLINE bool lwan_header_name_is_valid(const char *name)
 ALWAYS_INLINE bool lwan_header_value_is_valid(const char *value)
 {
     static const unsigned char valid_map[32] = {
-        /* Not '\r' and not '\n' */
-        255, 219, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        /* RFC 8187, attr-char:
+         *   ALPHA / DIGIT
+         *   / "!" / "#" / "$" / "&" / "+" / "-" / "."
+         *   / "^" / "_" / "`" / "|" / "~"
+         * Plus: "*" / "'" / "%" / "/" / "="
+         */
+        1, 0, 0, 0, 250, 236, 255, 35, 254, 255, 255, 199, 255, 255, 255, 87,
+        0, 0, 0, 0, 0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,
     };
     return validate_header_string(value, valid_map);
 }
@@ -261,7 +265,7 @@ LWAN_SELF_TEST(header_name_value)
     assert(!lwan_header_name_is_valid("some_header_name1234"));
 
     assert(lwan_header_value_is_valid(""));
-    assert(lwan_header_value_is_valid(":"));
+    assert(!lwan_header_value_is_valid(":"));
     assert(!lwan_header_value_is_valid("\r\n"));
 }
 
