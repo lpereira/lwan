@@ -212,6 +212,59 @@ has_uncommon_response_headers(enum lwan_request_flags v)
                 RESPONSE_CHUNKED_ENCODING | REQUEST_WANTS_HSTS_HEADER);
 }
 
+static bool validate_header_string(const char *str,
+                                   const unsigned char valid_map[static 32])
+{
+    for (const unsigned char *p = (unsigned char *)str; *p; p++) {
+        if (!(valid_map[*p >> 3] & 1 << (*p & 7))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+ALWAYS_INLINE bool lwan_header_name_is_valid(const char *name)
+{
+    static const unsigned char valid_map[32] = {
+        /* In C locale: isalnum() + '-' */
+        0, 0, 0, 0, 0, 32, 255, 3, 254, 255, 255, 7, 254, 255, 255, 7,
+        0, 0, 0, 0, 0, 0,  0,   0, 0,   0,   0,   0, 0,   0,   0,   0,
+    };
+    if (UNLIKELY(*name == '\0'))
+        return false;
+    return validate_header_string(name, valid_map);
+}
+
+ALWAYS_INLINE bool lwan_header_value_is_valid(const char *value)
+{
+    static const unsigned char valid_map[32] = {
+        /* Not '\r' and not '\n' */
+        255, 219, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    };
+    return validate_header_string(value, valid_map);
+}
+
+LWAN_SELF_TEST(header_name_value)
+{
+    assert(lwan_header_name_is_valid("Foo"));
+    assert(lwan_header_name_is_valid("Foo-Bar"));
+    assert(lwan_header_name_is_valid("Foo-Bar-1234"));
+    assert(!lwan_header_name_is_valid("Foo:"));
+    assert(!lwan_header_name_is_valid("Foo "));
+    assert(!lwan_header_name_is_valid(""));
+    assert(!lwan_header_name_is_valid("$"));
+    assert(!lwan_header_name_is_valid("\r\n"));
+    assert(!lwan_header_name_is_valid("some_header_name"));
+    assert(!lwan_header_name_is_valid("some_header_name1234"));
+
+    assert(lwan_header_value_is_valid(""));
+    assert(lwan_header_value_is_valid(":"));
+    assert(!lwan_header_value_is_valid("\r\n"));
+}
+
 size_t lwan_prepare_response_header_full(
     struct lwan_request *request,
     enum lwan_http_status status,
@@ -262,9 +315,9 @@ size_t lwan_prepare_response_header_full(
                 break;
             }
 
-            if (UNLIKELY(strpbrk(header->key, "\r\n") != NULL))
+            if (UNLIKELY(!lwan_header_name_is_valid(header->key)))
                 return 0;
-            if (UNLIKELY(strpbrk(header->value, "\r\n") != NULL))
+            if (UNLIKELY(!lwan_header_value_is_valid(header->value)))
                 return 0;
 
             RETURN_0_ON_OVERFLOW(4);

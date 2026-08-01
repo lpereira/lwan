@@ -179,12 +179,12 @@ static void build_response_headers(struct lwan *l,
         if (!can_override_header(kv->key)) {
             lwan_log_warning("Cannot override header '%s'", kv->key);
         } else {
-            if (strpbrk(kv->key, ": ") != NULL) {
-                lwan_log_critical("Custom header ``%s'' has reserved character",
+            if (!lwan_header_name_is_valid(kv->key)) {
+                lwan_log_critical("Custom header ``%s'' is invalid",
                                   kv->key);
             }
-            if (strpbrk(kv->value, "\r\n") != NULL) {
-                lwan_log_critical("Custom header ``%s'' has newline character",
+            if (!lwan_header_value_is_valid(kv->value)) {
+                lwan_log_critical("Custom header ``%s'' has invalid contents",
                                   kv->key);
             }
 
