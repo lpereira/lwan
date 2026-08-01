@@ -305,7 +305,7 @@ url_decode_full(char *str, const unsigned char invalid_map[static 32])
         const char first = (char)tbl1[(unsigned char)p[1]];
         const char second = tbl2[(unsigned char)p[2]];
         const char decoded = first | second;
-        if (UNLIKELY((signed char)decoded <= 0)) {
+        if (UNLIKELY((signed char)decoded < 0)) {
             /* OR-ing both lookups will yield a negative number if either
              * encoded character is not a valid hex digit; check it here so
              * that other valid-but-negative bytes (e.g.  0xff) are still
