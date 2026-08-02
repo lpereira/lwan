@@ -216,7 +216,7 @@ static bool validate_header_string(const char *str,
                                    const unsigned char valid_map[static 32])
 {
     for (const unsigned char *p = (unsigned char *)str; *p; p++) {
-        if (!(valid_map[*p >> 3] & 1 << (*p & 7))) {
+        if (UNLIKELY(!(valid_map[*p >> 3] & 1 << (*p & 7)))) {
             return false;
         }
     }
