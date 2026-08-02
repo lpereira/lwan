@@ -357,6 +357,7 @@ static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str)
     return url_decode_full(str, nul_and_crlf_invalid);
 }
 
+#ifndef NDEBUG
 LWAN_SELF_TEST(urldecode)
 {
     {
@@ -394,6 +395,7 @@ LWAN_SELF_TEST(urldecode)
         assert(memcmp(encoded, "hello!", sizeof("hello!") - 1) == 0);
     }
 }
+#endif
 
 LWAN_ACCESS_PARAM(read_only, 1)
 LWAN_ACCESS_PARAM(read_only, 2)
