@@ -219,8 +219,9 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
             if (lua_isnumber(L, -1)) {
                 lua_Integer code = lua_tointeger(L, -1);
 
-                if (code >= 100 && code <= 999)
+                if (lwan_http_status_is_valid((int)code)) {
                     return (enum lwan_http_status)code;
+                }
             }
 
             return HTTP_INTERNAL_ERROR;
