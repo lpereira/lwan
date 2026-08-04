@@ -68,9 +68,7 @@ print_build_time_configuration(void)
 {
     printf("Build-time configuration:");
 
-#if defined(LWAN_HAVE_LUA_JIT)
-    printf(" LuaJIT");
-#elif defined(LWAN_HAVE_LUA)
+#if defined(LWAN_HAVE_LUA)
     printf(" Lua");
 #endif
 

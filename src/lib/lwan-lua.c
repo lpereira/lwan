@@ -417,18 +417,18 @@ static int luaopen_log(lua_State *L)
 #undef LOG_FUNCTION
 
     luaL_newmetatable(L, metatable_name);
-    luaL_register(L, metatable_name, functions);
+    luaL_setfuncs(L, functions, 0);
 
     return 0;
 }
 
-DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_reg)
+DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_Reg)
 
-LWAN_LAZY_GLOBAL(luaL_reg *, lua_methods)
+LWAN_LAZY_GLOBAL(luaL_Reg *, lua_methods)
 {
     struct lwan_lua_method_array methods;
     const struct lwan_lua_method_info *info;
-    luaL_reg *r;
+    luaL_Reg *r;
 
     lwan_lua_method_array_init(&methods);
 
@@ -470,7 +470,7 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
     luaopen_log(L);
 
     luaL_newmetatable(L, request_metatable_name);
-    luaL_register(L, NULL, lua_methods());
+    luaL_setfuncs(L, lua_methods(), 0);
     lua_setfield(L, -1, "__index");
 
     if (script_file) {

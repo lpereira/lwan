@@ -71,7 +71,6 @@
 
 /* Libraries */
 #cmakedefine LWAN_HAVE_LUA
-#cmakedefine LWAN_HAVE_LUA_JIT
 #cmakedefine LWAN_HAVE_BROTLI
 #cmakedefine LWAN_HAVE_ZSTD
 #cmakedefine LWAN_HAVE_LIBUCONTEXT

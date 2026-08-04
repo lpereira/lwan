@@ -207,13 +207,14 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     lwan_lua_state_push_request(L, request);
     response->mime_type = priv->default_type;
     while (true) {
-        switch (lua_resume(L, n_arguments)) {
+        int n_results = 0;
+        switch (lua_resume(L, NULL, n_arguments, &n_results)) {
         case LUA_YIELD:
             coro_yield(request->conn->coro, CONN_CORO_YIELD);
             n_arguments = 0;
             break;
-        case 0:
-            if (lua_isnil(L, -1))
+        case LUA_OK:
+            if (n_results == 0 || lua_isnil(L, -1))
                 return HTTP_OK;
 
             if (lua_isnumber(L, -1)) {

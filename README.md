@@ -38,7 +38,7 @@ package management tool that's used by your distribution.
 
 The build system will look for these libraries and enable/link if available.
 
- - [Lua 5.1](http://www.lua.org) or [LuaJIT 2.0](http://luajit.org)
+ - [Lua 5.5](http://www.lua.org)
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
     - Can be disabled by passing `-DENABLE_BROTLI=NO`
@@ -71,10 +71,10 @@ The build system will look for these libraries and enable/link if available.
  - macOS: `brew install cmake`
 
 #### Build with all optional features
- - ArchLinux: `pacman -S cmake zlib-ng pkgconf sqlite luajit mariadb-libs gperftools valgrind mbedtls`
- - FreeBSD: `pkg install cmake pkgconf sqlite3 lua51`
- - Debian and Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.1-dev libsqlite3-dev libmariadb-dev libmbedtls-dev`
- - macOS: `brew install cmake mariadb-connector-c sqlite lua@5.1 pkg-config`
+ - ArchLinux: `pacman -S cmake zlib-ng pkgconf sqlite lua55 mariadb-libs gperftools valgrind mbedtls`
+ - FreeBSD: `pkg install cmake pkgconf sqlite3 lua55`
+ - Debian and Ubuntu 14+: `apt-get update && apt-get install git cmake zlib1g-dev pkg-config lua5.5-dev libsqlite3-dev libmariadb-dev libmbedtls-dev`
+ - macOS: `brew install cmake mariadb-connector-c sqlite lua@5.5 pkg-config`
 
 ### Build commands
 
@@ -593,8 +593,8 @@ functionality provided by this module is quite spartan, it's able to run
 frameworks such as [Sailor](https://github.com/lpereira/sailor-hello-lwan).
 
 Scripts can be served from files or embedded in the configuration file, and
-the results of loading them, the standard Lua modules, and (optionally, if
-using LuaJIT) optimizing the code will be cached for a while.
+the results of loading them and the standard Lua modules will be cached
+for a while (see `cache_period` below).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
