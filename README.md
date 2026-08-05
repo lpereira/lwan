@@ -38,7 +38,7 @@ package management tool that's used by your distribution.
 
 The build system will look for these libraries and enable/link if available.
 
- - [Lua 5.5](http://www.lua.org)
+ - [Lua 5.4](http://www.lua.org)
  - [Valgrind](http://valgrind.org)
  - [Brotli](https://github.com/google/brotli)
     - Can be disabled by passing `-DENABLE_BROTLI=NO`
