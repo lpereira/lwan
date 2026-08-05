@@ -1263,31 +1263,35 @@ mmap_best_data(struct lwan_request *request,
     *header = NULL;
 
 #if defined(LWAN_HAVE_ZSTD)
-    if (md->zstd.len && md->zstd.len < best->len &&
-        accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
-        best = &md->zstd;
-        *header = zstd_compression_hdr;
+    if (accepts_encoding(request, REQUEST_ACCEPT_ZSTD)) {
+        if (md->zstd.len && md->zstd.len < best->len) {
+            best = &md->zstd;
+            *header = zstd_compression_hdr;
+        }
     }
 #endif
 
 #if defined(LWAN_HAVE_BROTLI)
-    if (md->brotli.len && md->brotli.len < best->len &&
-        accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
-        best = &md->brotli;
-        *header = br_compression_hdr;
+    if (accepts_encoding(request, REQUEST_ACCEPT_BROTLI)) {
+        if (md->brotli.len && md->brotli.len < best->len) {
+            best = &md->brotli;
+            *header = br_compression_hdr;
+        }
     }
 #endif
 
-    if (md->gzip.len && md->gzip.len < best->len &&
-        accepts_encoding(request, REQUEST_ACCEPT_GZIP)) {
-        best = &md->gzip;
-        *header = gzip_compression_hdr;
+    if (accepts_encoding(request, REQUEST_ACCEPT_GZIP)) {
+        if (md->gzip.len && md->gzip.len < best->len) {
+            best = &md->gzip;
+            *header = gzip_compression_hdr;
+        }
     }
 
-    if (md->deflated.len && md->deflated.len < best->len &&
-        accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
-        best = &md->deflated;
-        *header = deflate_compression_hdr;
+    if (accepts_encoding(request, REQUEST_ACCEPT_DEFLATE)) {
+        if (md->deflated.len && md->deflated.len < best->len) {
+            best = &md->deflated;
+            *header = deflate_compression_hdr;
+        }
     }
 
     return best;
