@@ -500,6 +500,8 @@ int main(int argc, char *argv[])
     printf("/* Compressed with zstd */\n");
 #elif defined(LWAN_HAVE_ZOPFLI)
     printf("/* Compressed with zopfli (deflate) */\n");
+#elif defined(LWAN_HAVE_LIBDEFLATE)
+    printf("/* Compressed with libdeflate */\n");
 #elif defined(LWAN_HAVE_ZLIB_NG)
     printf("/* Compressed with zlib_ng (deflate) */\n");
 #else
