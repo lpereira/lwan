@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
-        run: apt update && apt install -y libdeflate-dev git cmake pkg-config libluajit-5.1-dev libsqlite3-dev libmariadb-dev build-essential ninja-build
+        run: apt update && apt install -y libdeflate-dev git cmake pkg-config libsqlite3-dev libmariadb-dev build-essential ninja-build liblua5.4-dev
         env:
           DEBIAN_FRONTEND: noninteractive
       - uses: actions/checkout@v6
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Prepare environment
-        run: apt update && apt install -y libdeflate-dev git cmake pkg-config libluajit-5.1-dev libsqlite3-dev libmariadb-dev build-essential ninja-build
+        run: apt update && apt install -y libdeflate-dev git cmake pkg-config libsqlite3-dev libmariadb-dev build-essential ninja-build liblua5.4-dev
         env:
           DEBIAN_FRONTEND: noninteractive
       - uses: actions/checkout@v6
