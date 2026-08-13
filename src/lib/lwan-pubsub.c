@@ -180,6 +180,28 @@ void lwan_pubsub_msg_done(struct lwan_pubsub_msg *msg)
     }
 }
 
+static void notify_waiters(const struct lwan_pubsub_subscriber *sub)
+{
+    if (UNLIKELY(sub->event_fd[1] < 0)) {
+        return;
+    }
+
+    while (true) {
+        uint64_t num = 1;
+        ssize_t written = write(sub->event_fd[1], &num, sizeof(num));
+
+        if (LIKELY(written == (ssize_t)sizeof(num)))
+            break;
+
+        if (UNLIKELY(written < 0)) {
+            if (errno == EINTR || errno == EAGAIN)
+                continue;
+            lwan_log_perror("write to eventfd failed, ignoring");
+            break;
+        }
+    }
+}
+
 static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
                                       const struct lwan_value value)
 {
@@ -207,23 +229,7 @@ static bool lwan_pubsub_publish_value(struct lwan_pubsub_topic *topic,
         }
         pthread_mutex_unlock(&sub->lock);
 
-        if (sub->event_fd[1] < 0) {
-            continue;
-        }
-        while (true) {
-            ssize_t written =
-                write(sub->event_fd[1], &(uint64_t){1}, sizeof(uint64_t));
-
-            if (LIKELY(written == (ssize_t)sizeof(uint64_t)))
-                break;
-
-            if (UNLIKELY(written < 0)) {
-                if (errno == EINTR || errno == EAGAIN)
-                    continue;
-                lwan_log_perror("write to eventfd failed, ignoring");
-                break;
-            }
-        }
+        notify_waiters(sub);
     }
     pthread_rwlock_unlock(&topic->lock);
 
