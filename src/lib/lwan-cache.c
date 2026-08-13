@@ -258,6 +258,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     entry = hash_find(cache->hash.table, key);
     if (LIKELY(entry)) {
         ATOMIC_INC(entry->refs);
+        entry->flags |= EXISTING_ITEM;
         pthread_rwlock_unlock(&cache->hash.lock);
 #ifndef NDEBUG
         ATOMIC_INC(cache->stats.hits);
