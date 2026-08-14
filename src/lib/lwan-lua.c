@@ -375,7 +375,9 @@ LWAN_LUA_METHOD(sleep)
 
 LWAN_LUA_METHOD(request_id)
 {
-    lua_pushfstring(L, "%016lx", lwan_request_get_id(request));
+    char id[17];
+    snprintf(id, 17, "%016lx", lwan_request_get_id(request));
+    lua_pushstring(L, id);
     return 1;
 }
 
