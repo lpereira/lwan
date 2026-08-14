@@ -108,6 +108,8 @@ static inline char *lwan_strbuf_get_buffer(const struct lwan_strbuf *s)
 
 bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path);
 struct lwan_strbuf *lwan_strbuf_new_from_file(const char *path);
+bool lwan_strbuf_init_from_fd(struct lwan_strbuf *s, int fd);
+struct lwan_strbuf *lwan_strbuf_new_from_fd(int fd);
 
 struct iovec lwan_strbuf_to_iovec(const struct lwan_strbuf *s);
 struct lwan_value lwan_strbuf_to_value(const struct lwan_strbuf *s);

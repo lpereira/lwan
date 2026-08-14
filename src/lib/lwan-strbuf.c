@@ -384,21 +384,17 @@ char *lwan_strbuf_extend_unsafe(struct lwan_strbuf *s, size_t by)
     return s->buffer + prev_used;
 }
 
-bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
+bool lwan_strbuf_init_from_fd(struct lwan_strbuf *s, int fd)
 {
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
     struct stat st;
 
-    if (UNLIKELY(fd < 0))
+    if (UNLIKELY(fstat(fd, &st) < 0))
         return false;
 
-    if (UNLIKELY(fstat(fd, &st) < 0))
-        goto error_close;
-
     if (UNLIKELY(!lwan_strbuf_init_with_size(s, (size_t)st.st_size)))
-        goto error_close;
+        return false;
 
-    for (char *buffer = s->buffer; st.st_size; ) {
+    for (char *buffer = s->buffer; st.st_size;) {
         ssize_t n_read = read(fd, buffer, (size_t)st.st_size);
 
         if (!n_read) {
@@ -418,13 +414,23 @@ bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
         s->used += (size_t)n_read;
     }
 
-    close(fd);
     return true;
 
 error:
     lwan_strbuf_free(s);
-error_close:
-    close(fd);
+    return false;
+}
+
+bool lwan_strbuf_init_from_file(struct lwan_strbuf *s, const char *path)
+{
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+
+    if (LIKELY(fd >= 0)) {
+        bool success = lwan_strbuf_init_from_fd(s, fd);
+        close(fd);
+        return success;
+    }
+
     return false;
 }
 
@@ -436,6 +442,22 @@ struct lwan_strbuf *lwan_strbuf_new_from_file(const char *path)
         return NULL;
 
     if (lwan_strbuf_init_from_file(strbuf, path)) {
+        strbuf->flags |= STRBUF_MALLOCD;
+        return strbuf;
+    }
+
+    free(strbuf);
+    return NULL;
+}
+
+struct lwan_strbuf *lwan_strbuf_new_from_fd(int fd)
+{
+    struct lwan_strbuf *strbuf = malloc(sizeof(*strbuf));
+
+    if (!strbuf)
+        return NULL;
+
+    if (lwan_strbuf_init_from_fd(strbuf, fd)) {
         strbuf->flags |= STRBUF_MALLOCD;
         return strbuf;
     }
