@@ -90,6 +90,7 @@ static struct cache_entry *state_create(const void *key,
 
     if (priv->server_pages) {
         assert(key != NULL);
+        assert(priv->script == NULL);
         assert(priv->script_file == NULL);
 
         script = lua_script_from_lsp(priv, key);
