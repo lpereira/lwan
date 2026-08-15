@@ -32,13 +32,18 @@ struct lwan_lua_method_info {
     static int lwan_lua_method_##name_##_wrapper(lua_State *L);                \
     static int lwan_lua_method_##name_(lua_State *L,                           \
                                        struct lwan_request *request);          \
-    static const struct lwan_lua_method_info                                   \
-        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_method))))     \
-        lwan_lua_method_info_##name_ = {                                       \
-            .name = #name_, .func = lwan_lua_method_##name_##_wrapper};        \
+    static const struct lwan_lua_method_info __attribute__((                   \
+        used, section(LWAN_SECTION_NAME(                                       \
+                  lwan_lua_method)))) lwan_lua_method_info_##name_ = {         \
+        .name = #name_, .func = lwan_lua_method_##name_##_wrapper};            \
     static int lwan_lua_method_##name_##_wrapper(lua_State *L)                 \
     {                                                                          \
         struct lwan_request *request = lwan_lua_get_request_from_userdata(L);  \
+        if (UNLIKELY(!request)) {                                              \
+            lwan_log_error("Lua method `%s' called without request parameter", \
+                           #name_);                                            \
+            return 0;                                                          \
+        }                                                                      \
         return lwan_lua_method_##name_(L, request);                            \
     }                                                                          \
     static ALWAYS_INLINE int lwan_lua_method_##name_(                          \

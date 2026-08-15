@@ -38,8 +38,10 @@ static const char *request_metatable_name = "Lwan.Request";
 ALWAYS_INLINE struct lwan_request *
 lwan_lua_get_request_from_userdata(lua_State *L)
 {
-    struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
+    if (UNLIKELY(lua_gettop(L) < 1))
+        return NULL;
 
+    struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
     return *r;
 }
 
