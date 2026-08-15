@@ -10,20 +10,20 @@ RequestInfo.__index = function(self, key)
         self.http_method = self.request:http_method()
         return self.http_method
     elseif key == "http_headers" then
-	self.http_headers = self.request:http_headers()
-	return self.http_headers
+        self.http_headers = self.request:http_headers()
+        return self.http_headers
     elseif key == "num_headers" then
-	self.num_http_headers = self.request:num_http_headers()
-	return self.num_http_headers
+        self.num_http_headers = self.request:num_http_headers()
+        return self.num_http_headers
     elseif key == "remote_addr" then
-	self.remote_addr = self.request:remote_address()
-	return self.remote_addr
+        self.remote_addr = self.request:remote_address()
+        return self.remote_addr
     elseif key == "uri" then
-	self.request_uri = self.request:path()
-	return self.request_uri
+        self.request_uri = self.request:path()
+        return self.request_uri
     elseif key == "query_string" then
-	self.query_string = self.request:query_string()
-	return self.query_string
+        self.query_string = self.request:query_string()
+        return self.query_string
     end
 end
 
@@ -49,23 +49,23 @@ Mongoose.__index = function(self, key)
         self.version = self.request:version()
         return self.version
     elseif key == "system" then
-    	self.system = self.request:operating_system()
-    	return self.system
+        self.system = self.request:operating_system()
+        return self.system
     elseif key == "get_mime_type" then
-    	self.get_mime_type = function(arg) return self.request:get_mime_type(arg) end
-    	return self.get_mime_type
+        self.get_mime_type = function(arg) return self.request:get_mime_type(arg) end
+        return self.get_mime_type
     elseif key == "base64_encode" then
-    	self.base64_encode = function(arg) return self.request:base64_encode(arg) end
-    	return self.base64_encode
+        self.base64_encode = function(arg) return self.request:base64_encode(arg) end
+        return self.base64_encode
     elseif key == "base64_decode" then
-    	self.base64_decode = function(arg) return self.request:base64_decode(arg) end
-    	return self.base64_decode
+        self.base64_decode = function(arg) return self.request:base64_decode(arg) end
+        return self.base64_decode
     elseif key == "get_var" then
-    	self.get_var = function(arg) return self.request:query_param(arg) end
-    	return self.get_var
+        self.get_var = function(arg) return self.request:query_param(arg) end
+        return self.get_var
     elseif key == "random" then
-	self.random = function() return self.request:random_double() end
-	return self.random
+        self.random = function() return self.request:random_double() end
+        return self.random
     end
 end
 
