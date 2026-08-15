@@ -184,9 +184,11 @@ LWAN_LUA_METHOD(say)
     size_t response_str_len;
     const char *response_str = lua_tolstring(L, -1, &response_str_len);
 
-    lwan_strbuf_set_static(request->response.buffer, response_str,
-                           response_str_len);
-    lwan_response_send_chunk(request);
+    if (response_str_len) {
+        lwan_strbuf_set_static(request->response.buffer, response_str,
+                               response_str_len);
+        lwan_response_send_chunk(request);
+    }
 
     return 0;
 }
