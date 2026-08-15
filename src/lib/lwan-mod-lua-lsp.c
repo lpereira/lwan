@@ -325,7 +325,7 @@ static char *compile_string(struct lwan_value file)
 
 static bool has_valid_extension(const char *filename)
 {
-    const char *dot = strchr(filename, '.');
+    const char *dot = strrchr(filename, '.');
 
     if (!dot) {
         return false;
