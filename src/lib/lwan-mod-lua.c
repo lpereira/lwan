@@ -20,6 +20,7 @@
 
 #define _GNU_SOURCE
 #include <ctype.h>
+#include <fcntl.h>
 #include <lauxlib.h>
 #include <libgen.h>
 #include <lualib.h>
@@ -34,6 +35,7 @@
 #include "lwan-config.h"
 #include "lwan-lua.h"
 #include "lwan-mod-lua.h"
+#include "realpathat.h"
 
 struct lwan_lua_priv {
     char *default_type;
@@ -42,6 +44,7 @@ struct lwan_lua_priv {
     char *script;
     pthread_key_t cache_key;
     unsigned cache_period;
+    int server_pages_fd;
 };
 
 struct lwan_lua_state {
@@ -54,25 +57,19 @@ char *lwan_mod_lua_lsp_to_lua(const char *filename);
 static char *lua_script_from_lsp(const struct lwan_lua_priv *priv,
                                  const char *key)
 {
-    char path[PATH_MAX];
-    int r;
+    char resolved_buf[PATH_MAX];
+    char *resolved;
 
-    r = snprintf(path, sizeof(path), "%s/%s", priv->server_pages, key);
-    if (UNLIKELY(r < 0 || r >= (int)sizeof(path)))
-        return NULL;
-
-    char *resolved = realpath(path, NULL);
+    resolved = realpathat(priv->server_pages_fd, priv->server_pages, key,
+                          resolved_buf);
     if (UNLIKELY(!resolved))
         return NULL;
 
     if (LIKELY(!strncmp(resolved, priv->server_pages,
                         strlen(priv->server_pages)))) {
-        char *script = lwan_mod_lua_lsp_to_lua(resolved);
-        free(resolved);
-        return script;
+        return lwan_mod_lua_lsp_to_lua(resolved);
     }
 
-    free(resolved);
     return NULL;
 }
 
@@ -304,6 +301,8 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
         return NULL;
     }
 
+    priv->server_pages_fd = -1;
+
     priv->default_type =
         strdup(settings->default_type ? settings->default_type : "text/plain");
     if (!priv->default_type) {
@@ -315,6 +314,12 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
         priv->server_pages = lwan_get_real_root_path(settings->server_pages);
         if (!priv->server_pages) {
             lwan_log_perror("strdup");
+            goto error;
+        }
+        priv->server_pages_fd = open(
+            priv->server_pages, O_RDONLY | O_DIRECTORY | O_PATH | O_CLOEXEC);
+        if (priv->server_pages_fd < 0) {
+            lwan_log_perror("open");
             goto error;
         }
         lwan_straitjacket_allow_dir_path_ro(priv->server_pages);
@@ -346,6 +351,10 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
     return priv;
 
 error:
+    if (priv->server_pages_fd >= 0) {
+        close(priv->server_pages_fd);
+    }
+    free(priv->server_pages);
     free(priv->script_file);
     free(priv->default_type);
     free(priv->script);
@@ -364,6 +373,9 @@ static void lua_destroy(void *instance)
         free(priv->default_type);
         free(priv->script_file);
         free(priv->script);
+        if (priv->server_pages_fd >= 0) {
+            close(priv->server_pages_fd);
+        }
         free(priv);
     }
 }
