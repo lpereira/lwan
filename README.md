@@ -604,6 +604,10 @@ for a while (see `cache_period` below).
 | `server_pages` | `str` | `NULL` | 2️⃣ Path to directory containing Lua Server Pages |
 | `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
 
+> [!NOTE]
+>
+> Only one of 1️⃣ or 2️⃣ can be specified at a time.
+
 ##### Writing request handlers (1️⃣)
 
 > [!NOTE]
