@@ -322,7 +322,7 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
             lwan_log_perror("open");
             goto error;
         }
-        lwan_straitjacket_allow_dir_path_ro(priv->server_pages);
+        lwan_straitjacket_allow_dirfd_ro(priv->server_pages_fd);
     } else if (settings->script) {
         priv->script = strdup(settings->script);
         if (!priv->script) {
