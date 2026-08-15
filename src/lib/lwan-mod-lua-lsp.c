@@ -323,9 +323,25 @@ static char *compile_string(struct lwan_value file)
     return lwan_strbuf_get_buffer(&output);
 }
 
+static bool has_valid_extension(const char *filename)
+{
+    const char *dot = strchr(filename, '.');
+
+    if (!dot) {
+        return false;
+    }
+
+    return streq(dot, ".lua") || streq(dot, ".lsp") || streq(dot, ".lp");
+}
+
 char *lwan_mod_lua_lsp_to_lua(const char *filename)
 {
     struct lwan_strbuf file;
+
+    if (!has_valid_extension(filename)) {
+        lwan_log_error("Path %s has invalid extension", filename);
+        return NULL;
+    }
 
     if (!lwan_strbuf_init_from_file(&file, filename)) {
         lwan_log_error("Could not load LSP from path: %s", filename);
