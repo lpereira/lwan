@@ -488,19 +488,7 @@ void lwan_response_send_chunk_full(struct lwan_request *request,
         {.iov_base = "\r\n", .iov_len = 2},
     };
 
-    if (buffer_len < 1024) {
-        int corked = request->conn->flags & CONN_CORK;
-
-        request->conn->flags |= CONN_CORK;
-
-        lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
-
-        if (!corked) {
-            request->conn->flags &= ~CONN_CORK;
-        }
-    } else {
-        lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
-    }
+    lwan_writev(request, chunk_vec, N_ELEMENTS(chunk_vec));
 
     lwan_strbuf_reset(strbuf);
 }
