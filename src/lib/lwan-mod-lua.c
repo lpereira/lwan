@@ -290,6 +290,12 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     }
 }
 
+static void destroy_cache(void *data)
+{
+    struct cache *cache = data;
+    cache_destroy(cache);
+}
+
 static void *lua_create(const char *prefix __attribute__((unused)), void *data)
 {
     struct lwan_lua_settings *settings = data;
@@ -341,7 +347,7 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
         goto error;
     }
 
-    if (pthread_key_create(&priv->cache_key, NULL)) {
+    if (pthread_key_create(&priv->cache_key, destroy_cache)) {
         lwan_log_perror("pthread_key_create");
         goto error;
     }
