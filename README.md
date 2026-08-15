@@ -599,11 +599,12 @@ for a while (see `cache_period` below).
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `default_type` | `str` | `text/plain` | Default MIME-Type for responses |
-| `script_file` | `str` | `NULL` | Path to Lua script|
+| `script_file` | `str` | `NULL` | 1️⃣ Path to Lua script|
+| `script` | `str` | `NULL` | 1️⃣ Inline lua script |
+| `server_pages` | `str` | `NULL` | 2️⃣ Path to directory containing Lua Server Pages |
 | `cache_period` | `time` | `15s` | Time to keep Lua state loaded in memory |
-| `script` | `str` | `NULL` | Inline lua script |
 
-##### Writing request handlers
+##### Writing request handlers (1️⃣)
 
 > [!NOTE]
 >
@@ -670,6 +671,36 @@ Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return
 an invalid HTTP status code or anything other than a number or `nil` will result
 in a `500 Internal Server Error` response being thrown.
+
+##### Lua Server Pages (2️⃣)
+
+Lwan is somewhat compatible with [CivetWeb](https://github.com/civetweb/civetweb/blob/588860e30721bf5453b0440c390865a8e85dcae5/docs/UserManual.md#lua-scripts-and-lua-server-pages)'s implementation
+of Lua Server Pages (LSP).  Not all entries in the `mg` table is implemented due to API differences
+between Lwan and CivetWeb.
+
+A LSP file is converted into a Lua script and is executed as if it were a regular Lwan
+Lua script (1️⃣).  The `__request` metatable is available with the same methods described
+above; the entries in the `mg` table are a thin wrapper around this metatable, and may not
+behave exactly like their original counterparts.  Of note, elements in the table are lazily
+created (using a `__index` function in its metatable), so looping over, for instance,
+`mg.request_info` won't work unless the keys you're interested in were previously accessed.
+Because of this, the same caveat about using global variables applies to Lua Server Pages.
+
+Lua script elements must be enclosed between `<?` and `?>` blocks; other ways of enclosing
+Lua scripts (e.g. with `<%` and `%>`) aren't supported at the moment.  So, for instance, one
+could write this code into `headers.lp` to dump all the request headers:
+
+```
+<ul>
+    <? for key, value in pairs(mg.request_info.http_headers) ?>
+        <li><?= key ?>:  <?= value %></li>
+    <? end ?>
+</ul>
+```
+
+> [!NOTE]
+>
+> File names have to end with `.lua`, `.lsp`, or `.lp` extensions.
 
 ##### Logging
 
