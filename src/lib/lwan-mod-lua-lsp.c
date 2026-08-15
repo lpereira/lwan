@@ -350,8 +350,5 @@ char *lwan_mod_lua_lsp_to_lua(const char *filename)
 
     char *lua = compile_string(lwan_strbuf_to_value(&file));
     lwan_strbuf_free(&file);
-    if (lua) {
-        lwan_log_debug("Compiled Lua script: %s", lua);
-    }
     return lua;
 }
