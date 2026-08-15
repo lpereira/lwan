@@ -23,6 +23,7 @@
 
 struct lwan_lua_settings {
     const char *default_type;
+    const char *server_pages;
     const char *script_file;
     const char *script;
     unsigned int cache_period;

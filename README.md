@@ -658,6 +658,13 @@ information from the request, or to set the response, as seen below:
    - `req:http_version()` returns `HTTP/1.0` or `HTTP/1.1` depending on the request version.
    - `req:http_method()` returns a string, in uppercase, with the HTTP method (e.g. `"GET"`).
    - `req:http_headers()` returns a table with all headers and their values.
+   - `req:num_http_headers()` returns the number of HTTP headers.
+   - `req:random_double()` returns a double in the interval `[0, 1)`.
+   - `req:version()` returns the Lwan version.
+   - `req:operating_system()` returns which operating system Lwan is running on.
+   - `req:get_mime_type(path)` returns the MIME type for `path`.
+   - `req:base64_encode(str)` base 64-encodes `str`.
+   - `req:base64_decode(str)` base 64-decodes `str`.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return

@@ -52,7 +52,7 @@ set(SOURCES
 )
 
 if (LWAN_HAVE_LUA)
-	list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c)
+	list(APPEND SOURCES lwan-lua.c lwan-mod-lua.c lwan-mod-lua-lsp.c)
 endif ()
 
 add_library(lwan-static STATIC ${SOURCES})
@@ -140,6 +140,25 @@ add_custom_target(bundle_response_data
         DEPENDS ${CMAKE_BINARY_DIR}/response-data.h
 )
 add_dependencies(lwan-static bundle_response_data)
+
+if (LWAN_HAVE_LUA)
+    add_custom_command(
+            OUTPUT ${CMAKE_BINARY_DIR}/mod-lua-lsp.h
+            COMMAND bin2hex
+                    ${CMAKE_SOURCE_DIR}/src/lib/mod-lua-lsp-header.lua lsp_header
+                    ${CMAKE_SOURCE_DIR}/src/lib/mod-lua-lsp-footer.lua lsp_footer
+                    >
+                    ${CMAKE_BINARY_DIR}/mod-lua-lsp.h
+            DEPENDS ${CMAKE_SOURCE_DIR}/src/lib/mod-lua-lsp-header.lua
+		    ${CMAKE_SOURCE_DIR}/src/lib/mod-lua-lsp-footer.lua
+                    bin2hex
+            COMMENT "Bundling data for LSP"
+    )
+    add_custom_target(bundle_lsp_data
+            DEPENDS ${CMAKE_BINARY_DIR}/mod-lua-lsp.h
+    )
+    add_dependencies(lwan-static bundle_lsp_data)
+endif ()
 
 if (NOT HAVE_BUILTIN_FPCLASSIFY)
 	set(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} -lm PARENT_SCOPE)

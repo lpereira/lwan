@@ -19,25 +19,114 @@
  */
 
 #define _GNU_SOURCE
-#include <errno.h>
 #include <ctype.h>
+#include <errno.h>
 #include <lauxlib.h>
 #include <lualib.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/utsname.h>
 
+#include "base64.h"
 #include "lwan-private.h"
 
 #include "lwan-lua.h"
 
 static const char *request_metatable_name = "Lwan.Request";
 
-ALWAYS_INLINE struct lwan_request *lwan_lua_get_request_from_userdata(lua_State *L)
+ALWAYS_INLINE struct lwan_request *
+lwan_lua_get_request_from_userdata(lua_State *L)
 {
     struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
 
     return *r;
+}
+
+/* Random functions ported from the Go standard library (math/rand).
+ * Copyright 2009 The Go Authors.  Licensed under a 3-clause BSD license.
+ */
+static uint64_t random_int63(void)
+{
+    return lwan_random_uint64() & ~(1ULL << 63);
+}
+
+static uint64_t random_int63n(uint64_t n)
+{
+    if ((int64_t)n < 0) {
+        lwan_log_critical("invalid argument");
+    }
+    if ((n & (n - 1)) == 0) {
+        return random_int63() & (n - 1);
+    }
+    uint64_t max = (uint64_t)((1ULL << 63) - 1 - (1ULL << 63) % n);
+    uint64_t v = random_int63();
+    while (v > max) {
+        v = random_int63();
+    }
+    return v % n;
+}
+
+LWAN_LUA_METHOD(random_double)
+{
+    double v = (double)random_int63n(1ULL << 53) / (1ULL << 53);
+    lua_pushnumber(L, v);
+    return 1;
+}
+
+LWAN_LUA_METHOD(version)
+{
+    lua_pushstring(L, LWAN_VERSION);
+    return 1;
+}
+
+LWAN_LUA_METHOD(operating_system)
+{
+    struct utsname u;
+    if (!uname(&u)) {
+        lua_pushstring(L, u.sysname);
+    } else {
+        lua_pushstring(L, "Unknown");
+    }
+    return 1;
+}
+
+LWAN_LUA_METHOD(get_mime_type)
+{
+    size_t file_name_len;
+    const char *file_name_str = lua_tolstring(L, -1, &file_name_len);
+    lua_pushstring(L, lwan_determine_mime_type_for_file_name(file_name_str));
+    return 1;
+}
+
+LWAN_LUA_METHOD(base64_encode)
+{
+    size_t encoded_len, decoded_len;
+    const char *decoded = lua_tolstring(L, -1, &decoded_len);
+    unsigned char *encoded = base64_encode((const unsigned char *)decoded,
+                                           decoded_len, &encoded_len);
+    if (encoded) {
+        lua_pushstring(L, (const char *)encoded);
+        free(encoded);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+LWAN_LUA_METHOD(base64_decode)
+{
+    size_t encoded_len, decoded_len;
+    const char *encoded = lua_tolstring(L, -1, &encoded_len);
+    unsigned char *decoded = base64_decode((const unsigned char *)encoded,
+                                           encoded_len, &decoded_len);
+    if (decoded) {
+        lua_pushstring(L, (const char *)decoded);
+        free(decoded);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
 }
 
 LWAN_LUA_METHOD(http_version)
@@ -80,6 +169,13 @@ LWAN_LUA_METHOD(http_headers)
         lua_rawset(L, -3);
     }
 
+    return 1;
+}
+
+LWAN_LUA_METHOD(num_http_headers)
+{
+    const struct lwan_request_parser_helper *helper = request->helper;
+    lua_pushinteger(L, (int)helper->n_header_start);
     return 1;
 }
 

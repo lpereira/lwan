@@ -37,6 +37,7 @@
 
 struct lwan_lua_priv {
     char *default_type;
+    char *server_pages;
     char *script_file;
     char *script;
     pthread_key_t cache_key;
@@ -48,20 +49,66 @@ struct lwan_lua_state {
     lua_State *L;
 };
 
-static struct cache_entry *state_create(const void *key __attribute__((unused)),
+char *lwan_mod_lua_lsp_to_lua(const char *filename);
+
+static char *lua_script_from_lsp(const struct lwan_lua_priv *priv,
+                                 const char *key)
+{
+    char path[PATH_MAX];
+    int r;
+
+    r = snprintf(path, sizeof(path), "%s/%s", priv->server_pages, key);
+    if (UNLIKELY(r < 0 || r >= (int)sizeof(path)))
+        return NULL;
+
+    char *resolved = realpath(path, NULL);
+    if (UNLIKELY(!resolved))
+        return NULL;
+
+    if (LIKELY(!strncmp(resolved, priv->server_pages,
+                        strlen(priv->server_pages)))) {
+        char *script = lwan_mod_lua_lsp_to_lua(resolved);
+        free(resolved);
+        return script;
+    }
+
+    free(resolved);
+    return NULL;
+}
+
+static struct cache_entry *state_create(const void *key,
                                         void *cache_ctx,
-                                        void *create_ctx __attribute__((unused)))
+                                        void *create_ctx
+                                        __attribute__((unused)))
 {
     struct lwan_lua_priv *priv = cache_ctx;
     struct lwan_lua_state *state = malloc(sizeof(*state));
+    char *script;
 
     if (UNLIKELY(!state))
         return NULL;
 
-    state->L = lwan_lua_create_state(priv->script_file, priv->script);
+    if (priv->server_pages) {
+        assert(key != NULL);
+        assert(priv->script_file == NULL);
+
+        script = lua_script_from_lsp(priv, key);
+        if (!script) {
+            goto error;
+        }
+    } else {
+        assert(key == NULL);
+
+        script = priv->script;
+    }
+
+    state->L = lwan_lua_create_state(priv->script_file, script);
+    if (priv->server_pages)
+        free(script);
     if (LIKELY(state->L))
         return (struct cache_entry *)state;
 
+error:
     free(state);
     return NULL;
 }
@@ -109,8 +156,7 @@ get_handle_prefix(struct lwan_request *request)
     [REQUEST_METHOD_##upper] = ENTRY("handle_" #lower "_"),
 
     static const struct lwan_value method2name[REQUEST_METHOD_MASK] = {
-        FOR_EACH_REQUEST_METHOD(GEN_TABLE_ENTRY)
-    };
+        FOR_EACH_REQUEST_METHOD(GEN_TABLE_ENTRY)};
 
 #undef GEN_TABLE_ENTRY
 #undef ENTRY
@@ -118,8 +164,15 @@ get_handle_prefix(struct lwan_request *request)
     return method2name[lwan_request_get_method(request)];
 }
 
-static bool get_handler_function(lua_State *L, struct lwan_request *request)
+static bool get_handler_function(lua_State *L,
+                                 struct lwan_lua_priv *priv,
+                                 struct lwan_request *request)
 {
+    if (priv->server_pages) {
+        lua_getglobal(L, "handle");
+        return lua_isfunction(L, -1);
+    }
+
     char handler_name[128];
     struct lwan_value handle_prefix = get_handle_prefix(request);
 
@@ -190,9 +243,15 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;
 
-    struct lwan_lua_state *state =
-        (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
-            cache, request->conn->coro, "");
+    struct lwan_lua_state *state;
+
+    if (!priv->server_pages) {
+        state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
+            cache, request->conn->coro, NULL);
+    } else {
+        state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
+            cache, request->conn->coro, request->url.value);
+    }
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
 
@@ -200,7 +259,7 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     if (UNLIKELY(!L))
         return HTTP_INTERNAL_ERROR;
 
-    if (UNLIKELY(!get_handler_function(L, request)))
+    if (UNLIKELY(!get_handler_function(L, priv, request)))
         return HTTP_NOT_FOUND;
 
     int n_arguments = 1;
@@ -251,7 +310,14 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
         goto error;
     }
 
-    if (settings->script) {
+    if (settings->server_pages) {
+        priv->server_pages = lwan_get_real_root_path(settings->server_pages);
+        if (!priv->server_pages) {
+            lwan_log_perror("strdup");
+            goto error;
+        }
+        lwan_straitjacket_allow_dir_path_ro(priv->server_pages);
+    } else if (settings->script) {
         priv->script = strdup(settings->script);
         if (!priv->script) {
             lwan_log_perror("strdup");
@@ -265,7 +331,7 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
         }
         lwan_straitjacket_allow_dir_path_ro(dirname(priv->script_file));
     } else {
-        lwan_log_error("No Lua script_file or script provided");
+        lwan_log_error("No Lua script_file, server_pages, or script provided");
         goto error;
     }
 
@@ -293,6 +359,7 @@ static void lua_destroy(void *instance)
 
     if (priv) {
         pthread_key_delete(priv->cache_key);
+        free(priv->server_pages);
         free(priv->default_type);
         free(priv->script_file);
         free(priv->script);
@@ -306,8 +373,8 @@ static void *lua_create_from_hash(const char *prefix, const struct hash *hash)
         .default_type = hash_find(hash, "default_type"),
         .script_file = hash_find(hash, "script_file"),
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
-        .script = hash_find(hash, "script")
-    };
+        .script = hash_find(hash, "script"),
+        .server_pages = hash_find(hash, "server_pages")};
 
     return lua_create(prefix, &settings);
 }
