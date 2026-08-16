@@ -28,6 +28,34 @@ struct lwan_lua_method_info {
     int (*func)();
 };
 
+#define LWAN_LUA_LIB(lib_)                                                     \
+    static int lwan_luaopen_##lib_(lua_State *L)                               \
+    {                                                                          \
+        const struct lwan_lua_method_info *info;                               \
+        lua_getglobal(L, "Lwan");                                              \
+        luaL_checkversion(L);                                                  \
+        lua_newtable(L);                                                       \
+        LWAN_SECTION_FOREACH (lwan_lua_lib_##lib_, info) {                     \
+            lua_pushcclosure(L, info->func, 0);                                \
+            lua_setfield(L, -2, info->name);                                   \
+        }                                                                      \
+        lua_setfield(L, -2, #lib_);                                            \
+        return 0;                                                              \
+    }                                                                          \
+    static const struct lwan_lua_method_info                                   \
+        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib))))        \
+        lwan_luaopen_##lib_##func = {.func = lwan_luaopen_##lib_};
+
+#define LWAN_LUA_LIB_FUNCTION(lib_, function_)                                 \
+    static int lwan_lua_lib_func_##lib_##function_(lua_State *L);              \
+    static const struct lwan_lua_method_info                                   \
+        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib_##lib_)))) \
+        lwan_lua_lib_func_info_##lib_##function_ = {                           \
+            .name = #function_,                                                \
+            .func = lwan_lua_lib_func_##lib_##function_,                       \
+    };                                                                         \
+    static int lwan_lua_lib_func_##lib_##function_(lua_State *L)
+
 #define LWAN_LUA_METHOD(name_)                                                 \
     static int lwan_lua_method_##name_##_wrapper(lua_State *L);                \
     static int lwan_lua_method_##name_(lua_State *L,                           \
@@ -35,7 +63,9 @@ struct lwan_lua_method_info {
     static const struct lwan_lua_method_info __attribute__((                   \
         used, section(LWAN_SECTION_NAME(                                       \
                   lwan_lua_method)))) lwan_lua_method_info_##name_ = {         \
-        .name = #name_, .func = lwan_lua_method_##name_##_wrapper};            \
+        .name = #name_,                                                        \
+        .func = lwan_lua_method_##name_##_wrapper,                             \
+    };                                                                         \
     static int lwan_lua_method_##name_##_wrapper(lua_State *L)                 \
     {                                                                          \
         struct lwan_request *request = lwan_lua_get_request_from_userdata(L);  \
@@ -48,7 +78,6 @@ struct lwan_lua_method_info {
     }                                                                          \
     static ALWAYS_INLINE int lwan_lua_method_##name_(                          \
         lua_State *L, struct lwan_request *request)
-
 
 const char *lwan_lua_state_last_error(lua_State *L);
 lua_State *lwan_lua_create_state(const char *script_file, const char *script);

@@ -421,15 +421,15 @@ LWAN_LUA_METHOD(set_keep_alive)
     return 0;
 }
 
-#define FOR_EACH_LOG_FUNCTION(X) X(info) X(warning) X(error) X(critical) X(debug)
-
-#define IMPLEMENT_FUNCTION(name)                                               \
-    static int lwan_lua_log_##name(lua_State *L)                               \
+#define FOR_EACH_LOG_FUNCTION(X)                                               \
+    X(info) X(warning) X(error) X(critical) X(debug)
+#define IMPLEMENT_FUNCTION(name_)                                              \
+    LWAN_LUA_LIB_FUNCTION(log, name_)                                          \
     {                                                                          \
         size_t log_str_len = 0;                                                \
         const char *log_str = lua_tolstring(L, -1, &log_str_len);              \
         if (log_str_len) {                                                     \
-            lwan_log_##name("%.*s", (int)log_str_len, log_str);                \
+            lwan_log_##name_("%.*s", (int)log_str_len, log_str);               \
             (void)log_str_len;                                                 \
             (void)log_str;                                                     \
         }                                                                      \
@@ -438,23 +438,7 @@ LWAN_LUA_METHOD(set_keep_alive)
 FOR_EACH_LOG_FUNCTION(IMPLEMENT_FUNCTION)
 #undef IMPLEMENT_FUNCTION
 
-static int luaopen_log(lua_State *L)
-{
-#define LOG_FUNCTION(name) {#name, lwan_lua_log_##name},
-    static const struct luaL_Reg functions[] = {
-        FOR_EACH_LOG_FUNCTION(LOG_FUNCTION)
-        {}
-    };
-#undef LOG_FUNCTION
-
-    lua_getglobal(L, "Lwan");
-    luaL_newlib(L, functions);
-    lua_setfield(L, -2, "log");
-
-    return 0;
-}
-
-static int util_base64_encode(struct lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, base64_encode)
 {
     size_t encoded_len, decoded_len;
     const char *decoded = lua_tolstring(L, -1, &decoded_len);
@@ -469,7 +453,7 @@ static int util_base64_encode(struct lua_State *L)
     return 1;
 }
 
-static int util_base64_decode(struct lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, base64_decode)
 {
     size_t encoded_len, decoded_len;
     const char *encoded = lua_tolstring(L, -1, &encoded_len);
@@ -508,20 +492,20 @@ static uint64_t random_int63n(uint64_t n)
     return v % n;
 }
 
-static int util_random_double(lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, random_double)
 {
     double v = (double)random_int63n(1ULL << 53) / (1ULL << 53);
     lua_pushnumber(L, v);
     return 1;
 }
 
-static int util_version(lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, version)
 {
     lua_pushstring(L, LWAN_VERSION);
     return 1;
 }
 
-static int util_operating_system(lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, operating_system)
 {
     struct utsname u;
     if (!uname(&u)) {
@@ -532,7 +516,7 @@ static int util_operating_system(lua_State *L)
     return 1;
 }
 
-static int util_get_mime_type(lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, get_mime_type)
 {
     size_t file_name_len;
     const char *file_name_str = lua_tolstring(L, -1, &file_name_len);
@@ -540,69 +524,16 @@ static int util_get_mime_type(lua_State *L)
     return 1;
 }
 
-static int util_get_response_code_text(lua_State *L)
+LWAN_LUA_LIB_FUNCTION(utils, get_response_code_text)
 {
     lua_Integer code = lua_tointeger(L, -1);
-
     if (lwan_http_status_is_valid((int)code)) {
         lua_pushstring(L,
                        lwan_http_status_as_string((enum lwan_http_status)code));
     } else {
         lua_pushnil(L);
     }
-
     return 1;
-}
-
-static int luaopen_utils(lua_State *L)
-{
-    static const struct luaL_Reg functions[] = {
-#define REGISTER(fn_) {#fn_, util_##fn_}
-        REGISTER(base64_encode),
-        REGISTER(base64_decode),
-        REGISTER(random_double),
-        REGISTER(version),
-        REGISTER(operating_system),
-        REGISTER(get_mime_type),
-        REGISTER(get_response_code_text),
-        {}
-#undef REGISTER
-    };
-    lua_getglobal(L, "Lwan");
-    luaL_newlib(L, functions);
-    lua_setfield(L, -2, "utils");
-    return 0;
-}
-
-DEFINE_ARRAY_TYPE(lwan_lua_method_array, luaL_Reg)
-
-LWAN_LAZY_GLOBAL(luaL_Reg *, lua_methods)
-{
-    struct lwan_lua_method_array methods;
-    const struct lwan_lua_method_info *info;
-    luaL_Reg *r;
-
-    lwan_lua_method_array_init(&methods);
-
-    LWAN_SECTION_FOREACH(lwan_lua_method, info) {
-        r = lwan_lua_method_array_append(&methods);
-        if (!r) {
-            lwan_log_critical("Could not register Lua method `%s`",
-                                 info->name);
-        }
-
-        r->name = info->name;
-        r->func = info->func;
-    }
-
-    r = lwan_lua_method_array_append(&methods);
-    if (!r)
-        lwan_log_critical("Could not add Lua method sentinel");
-
-    r->name = NULL;
-    r->func = NULL;
-
-    return lwan_lua_method_array_get_array(&methods);
 }
 
 const char *lwan_lua_state_last_error(lua_State *L)
@@ -610,8 +541,12 @@ const char *lwan_lua_state_last_error(lua_State *L)
     return lua_tostring(L, -1);
 }
 
+LWAN_LUA_LIB(utils)
+LWAN_LUA_LIB(log)
+
 lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 {
+    const struct lwan_lua_method_info *methinfo;
     lua_State *L;
 
     L = luaL_newstate();
@@ -622,23 +557,27 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
     lua_setglobal(L, "Lwan");
 
     luaL_openlibs(L);
-    luaopen_log(L);
-    luaopen_utils(L);
+    LWAN_SECTION_FOREACH (lwan_lua_lib, methinfo) {
+        methinfo->func(L);
+    }
 
     luaL_newmetatable(L, request_metatable_name);
-    luaL_setfuncs(L, lua_methods(), 0);
+    LWAN_SECTION_FOREACH (lwan_lua_method, methinfo) {
+        lua_pushcclosure(L, methinfo->func, 0);
+        lua_setfield(L, -2, methinfo->name);
+    }
     lua_setfield(L, -1, "__index");
 
     if (script_file) {
         if (UNLIKELY(luaL_dofile(L, script_file) != 0)) {
             lwan_log_error("Error opening Lua script %s: %s", script_file,
-                              lua_tostring(L, -1));
+                           lua_tostring(L, -1));
             goto close_lua_state;
         }
     } else if (script) {
         if (UNLIKELY(luaL_dostring(L, script) != 0)) {
             lwan_log_error("Error evaluating Lua script %s",
-                              lua_tostring(L, -1));
+                           lua_tostring(L, -1));
             goto close_lua_state;
         }
     } else {
