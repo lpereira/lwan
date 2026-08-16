@@ -231,6 +231,23 @@ static lua_State *push_newthread(lua_State *L, struct coro *coro)
     return L1;
 }
 
+static struct lwan_lua_state *
+get_state_for_request(const struct lwan_lua_priv *priv,
+                      struct cache *cache,
+                      const struct lwan_request *request)
+{
+    struct cache_entry *entry;
+
+    if (priv->server_pages) {
+        entry = cache_coro_get_and_ref_entry(cache, request->conn->coro,
+                                             request->url.value);
+    } else {
+        entry = cache_coro_get_and_ref_entry(cache, request->conn->coro, NULL);
+    }
+
+    return (struct lwan_lua_state *)entry;
+}
+
 static enum lwan_http_status lua_handle_request(struct lwan_request *request,
                                                 struct lwan_response *response,
                                                 void *instance)
@@ -241,15 +258,7 @@ static enum lwan_http_status lua_handle_request(struct lwan_request *request,
     if (UNLIKELY(!cache))
         return HTTP_INTERNAL_ERROR;
 
-    struct lwan_lua_state *state;
-
-    if (!priv->server_pages) {
-        state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
-            cache, request->conn->coro, NULL);
-    } else {
-        state = (struct lwan_lua_state *)cache_coro_get_and_ref_entry(
-            cache, request->conn->coro, request->url.value);
-    }
+    struct lwan_lua_state *state = get_state_for_request(priv, cache, request);
     if (UNLIKELY(!state))
         return HTTP_NOT_FOUND;
 
@@ -319,13 +328,15 @@ static void *lua_create(const char *prefix __attribute__((unused)), void *data)
     if (settings->server_pages) {
         priv->server_pages = lwan_get_real_root_path(settings->server_pages);
         if (!priv->server_pages) {
-            lwan_log_perror("strdup");
+            lwan_log_perror("Could not determine real path of `%s'",
+                            settings->server_pages);
             goto error;
         }
         priv->server_pages_fd = open(
             priv->server_pages, O_RDONLY | O_DIRECTORY | O_PATH | O_CLOEXEC);
         if (priv->server_pages_fd < 0) {
-            lwan_log_perror("open");
+            lwan_log_perror("Could not open directory `%s'",
+                            priv->server_pages);
             goto error;
         }
         lwan_straitjacket_allow_dirfd_ro(priv->server_pages_fd);
@@ -393,7 +404,8 @@ static void *lua_create_from_hash(const char *prefix, const struct hash *hash)
         .script_file = hash_find(hash, "script_file"),
         .cache_period = parse_time_period(hash_find(hash, "cache_period"), 15),
         .script = hash_find(hash, "script"),
-        .server_pages = hash_find(hash, "server_pages")};
+        .server_pages = hash_find(hash, "server_pages"),
+    };
 
     return lua_create(prefix, &settings);
 }
