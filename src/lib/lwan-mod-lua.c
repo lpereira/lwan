@@ -54,16 +54,38 @@ struct lwan_lua_state {
 
 char *lwan_mod_lua_lsp_to_lua(const char *filename);
 
+static char *resolve_script(const struct lwan_lua_priv *priv,
+                            const char *key,
+                            char path_buf[static PATH_MAX])
+{
+    static const char *indexes[] = {"index.lsp", "index.lp", "index.lua"};
+
+    if (!streq(key, "")) {
+        return realpathat(priv->server_pages_fd, priv->server_pages, key,
+                          path_buf);
+    }
+
+    for (size_t i = 0; i < N_ELEMENTS(indexes); i++) {
+        char *resolved = realpathat(priv->server_pages_fd, priv->server_pages,
+                                    indexes[i], path_buf);
+        if (resolved) {
+            return resolved;
+        }
+    }
+
+    return NULL;
+}
+
 static char *lua_script_from_lsp(const struct lwan_lua_priv *priv,
                                  const char *key)
 {
     char resolved_buf[PATH_MAX];
     char *resolved;
 
-    resolved = realpathat(priv->server_pages_fd, priv->server_pages, key,
-                          resolved_buf);
-    if (UNLIKELY(!resolved))
+    resolved = resolve_script(priv, key, resolved_buf);
+    if (!resolved) {
         return NULL;
+    }
 
     if (LIKELY(!strncmp(resolved, priv->server_pages,
                         strlen(priv->server_pages)))) {
