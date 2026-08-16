@@ -265,7 +265,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
 {
     switch (lexeme->type) {
     case LEXEME_VERBATIM:
-        lwan_strbuf_append_strz(parser->output, "__request:say([======[");
+        lwan_strbuf_append_strz(parser->output, "__request:write([======[");
         lwan_strbuf_append_value(parser->output, &lexeme->value);
         lwan_strbuf_append_strz(parser->output, "]======])\n");
         return parser_text;
@@ -276,7 +276,7 @@ static void *parser_text(struct parser *parser, struct lexeme *lexeme)
         return parser_text;
 
     case LEXEME_PRINT:
-        lwan_strbuf_append_strz(parser->output, "__request:say(");
+        lwan_strbuf_append_strz(parser->output, "__request:write(");
         lwan_strbuf_append_value(parser->output, &lexeme->value);
         lwan_strbuf_append_strz(parser->output, ")\n");
         return parser_text;

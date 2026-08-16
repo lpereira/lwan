@@ -34,7 +34,7 @@ end
 Mongoose = {}
 Mongoose.__index = function(self, key)
     if key == "write" then
-        self.write = function(arg) return self.request:say(arg) end
+        self.write = function(arg) return self.request:write(arg) end
         return self.write
     elseif key == "request_info" then
         self.request_info = RequestInfo.new(self.request)

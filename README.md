@@ -642,6 +642,7 @@ information from the request, or to set the response, as seen below:
    - `req:post_param(param)` returns the post parameter (only for `${POST}` handlers) with the key `param`, or `nil` if not found
    - `req:set_response(str)` sets the response to the string `str`
    - `req:say(str)` sends a response chunk (using chunked encoding in HTTP)
+   - `req:write(str)` writes str to the response buffer
    - `req:send_event(event, str)` sends an event (using server-sent events)
    - `req:cookie(param)` returns the cookie named `param`, or `nil` is not found
    - `req:set_headers(tbl)` sets the response headers from the table `tbl`; a header may be specified multiple times by using a table, rather than a string, in the table value (`{'foo'={'bar', 'baz'}}`); must be called before sending any response with `say()` or `send_event()`

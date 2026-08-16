@@ -195,6 +195,16 @@ LWAN_LUA_METHOD(say)
     return 0;
 }
 
+LWAN_LUA_METHOD(write)
+{
+    size_t response_str_len;
+    const char *response_str = lua_tolstring(L, -1, &response_str_len);
+
+    lwan_strbuf_append_str(request->response.buffer, response_str,
+                           response_str_len);
+    return 0;
+}
+
 LWAN_LUA_METHOD(send_event)
 {
     size_t event_str_len;
