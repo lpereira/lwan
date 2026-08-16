@@ -69,6 +69,9 @@ Mongoose.__index = function(self, key)
     elseif key == "get_response_code_text" then
         self.get_response_code_text = Lwan.utils.get_response_code_text
         return self.get_response_code_text
+    elseif key == "keep_alive" then
+        self.keep_alive = function(arg) return self.request:set_keep_alive(arg) end
+        return self.keep_alive
     end
 end
 

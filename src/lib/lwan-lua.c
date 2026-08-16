@@ -411,6 +411,16 @@ LWAN_LUA_METHOD(request_date)
     return 1;
 }
 
+LWAN_LUA_METHOD(set_keep_alive)
+{
+    if (lua_toboolean(L, -1)) {
+        request->conn->flags |= CONN_IS_KEEP_ALIVE;
+    } else {
+        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+    }
+    return 0;
+}
+
 #define FOR_EACH_LOG_FUNCTION(X) X(info) X(warning) X(error) X(critical) X(debug)
 
 #define IMPLEMENT_FUNCTION(name)                                               \
