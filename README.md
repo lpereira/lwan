@@ -674,16 +674,24 @@ in a `500 Internal Server Error` response being thrown.
 ##### Lua Server Pages (2️⃣)
 
 Lwan is somewhat compatible with [CivetWeb](https://github.com/civetweb/civetweb/blob/588860e30721bf5453b0440c390865a8e85dcae5/docs/UserManual.md#lua-scripts-and-lua-server-pages)'s implementation
-of Lua Server Pages (LSP).  Not all entries in the `mg` table is implemented due to API differences
-between Lwan and CivetWeb.
+of Lua Server Pages (LSP).  Not all entries in the `mg` table (see the linked documentation) is implemented due to API differences between Lwan and CivetWeb.
 
 A LSP file is converted into a Lua script and is executed as if it were a regular Lwan
-Lua script (1️⃣).  The `__request` metatable is available with the same methods described
-above; the entries in the `mg` table are a thin wrapper around this metatable, and may not
-behave exactly like their original counterparts.  Of note, elements in the table are lazily
-created (using a `__index` function in its metatable), so looping over, for instance,
-`mg.request_info` won't work unless the keys you're interested in were previously accessed.
-Because of this, the same caveat about using global variables applies to Lua Server Pages.
+Lua script (1️⃣). File names have to end with `.lua`, `.lsp`, or `.lp` extensions.  If a filename
+isn't provided, Lwan will try opening, in this order, `index.lsp`, `index.lp`, and
+finally, `index.lua`.
+
+> [!NOTE]
+>
+> The `__request` metatable is available with the same methods described
+> above; the entries in the `mg` table are a thin wrapper around this
+> metatable, and may not behave exactly like their original counterparts.
+>
+> Elements in the `mg` table are lazily created (using a `__index` function
+> in its metatable), so looping over, for instance, `mg.request_info` won't
+> work unless the keys you're interested in were previously accessed. 
+> Because of this, the same caveat about using global variables applies to
+> Lua Server Pages.
 
 Lua script elements maybe enclosed between blocks delimited by:
 
@@ -692,26 +700,23 @@ Lua script elements maybe enclosed between blocks delimited by:
    - `<?lua` and `?>`
    - `<%lua` and `%>`
 
-Using an equal sign in the opening sequence, e.g. `<?=`, will print the
-string version of that particular expression. So, `<%= mg.version() %>` will
-output the current Lwan version.
+If an equal sign after the opening sequence (e.g. `<?=`) is used, the stringified
+representation of that expression will be produced. So, for example,
+`<%= mg.version %>` will output the current Lwan version.
 
-For instance, in order to dump all the HTTP headers, one could write
-the following LSP:
-
-```
-<table>
-    <? for key, value in pairs(mg.request_info.http_headers) ?>
-      <tr>
-        <td><%= key %></td><td><%= value %></td>
-      </tr>
-    <? end ?>
-</table>
-```
-
-> [!NOTE]
+> [!TIP]
 >
-> File names have to end with `.lua`, `.lsp`, or `.lp` extensions.
+> As an example, to dump all the request HTTP headers, one could write the following LSP:
+>
+> ```
+> <table>
+>     <? for key, value in pairs(mg.request_info.http_headers) ?>
+>       <tr>
+>         <td><%= key %></td><td><%= value %></td>
+>       </tr>
+>     <? end ?>
+> </table>
+> ```
 
 ##### Logging
 
