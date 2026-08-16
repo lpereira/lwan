@@ -712,11 +712,11 @@ could write this code into `headers.lp` to dump all the request headers:
 In addition to the metamethods in the `req` parameter, one can also log messages
 with different logging levels by calling methods from `Lwan.log`:
 
-   - `Lwan.log:warning(str)`
-   - `Lwan.log:info(str)`
-   - `Lwan.log:error(str)`
-   - `Lwan.log:critical(str)` (Will also abort Lwan! Use with caution)
-   - `Lwan.log:debug(str)` (Only available in debug builds; no-op otherwise)
+   - `Lwan.log.warning(str)`
+   - `Lwan.log.info(str)`
+   - `Lwan.log.error(str)`
+   - `Lwan.log.critical(str)` (Will also abort Lwan! Use with caution)
+   - `Lwan.log.debug(str)` (Only available in debug builds; no-op otherwise)
 
 > [!NOTE]
 >

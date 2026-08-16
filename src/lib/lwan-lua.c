@@ -505,7 +505,7 @@ LWAN_LUA_METHOD(request_date)
         size_t log_str_len = 0;                                                \
         const char *log_str = lua_tolstring(L, -1, &log_str_len);              \
         if (log_str_len) {                                                     \
-            lwan_log_##name("%.*s", (int)log_str_len, log_str);             \
+            lwan_log_##name("%.*s", (int)log_str_len, log_str);                \
             (void)log_str_len;                                                 \
             (void)log_str;                                                     \
         }                                                                      \
@@ -516,7 +516,6 @@ FOR_EACH_LOG_FUNCTION(IMPLEMENT_FUNCTION)
 
 static int luaopen_log(lua_State *L)
 {
-    static const char *metatable_name = "Lwan.log";
 #define LOG_FUNCTION(name) {#name, lwan_lua_log_##name},
     static const struct luaL_Reg functions[] = {
         FOR_EACH_LOG_FUNCTION(LOG_FUNCTION)
@@ -524,8 +523,9 @@ static int luaopen_log(lua_State *L)
     };
 #undef LOG_FUNCTION
 
-    luaL_newmetatable(L, metatable_name);
-    luaL_setfuncs(L, functions, 0);
+    lua_getglobal(L, "Lwan");
+    luaL_newlib(L, functions);
+    lua_setfield(L, -2, "log");
 
     return 0;
 }
@@ -575,6 +575,10 @@ lua_State *lwan_lua_create_state(const char *script_file, const char *script)
         return NULL;
 
     luaL_openlibs(L);
+
+    lua_newtable(L);
+    lua_setglobal(L, "Lwan");
+
     luaopen_log(L);
 
     luaL_newmetatable(L, request_metatable_name);
