@@ -665,12 +665,6 @@ information from the request, or to set the response, as seen below:
    - `req:http_method()` returns a string, in uppercase, with the HTTP method (e.g. `"GET"`).
    - `req:http_headers()` returns a table with all headers and their values.
    - `req:num_http_headers()` returns the number of HTTP headers.
-   - `req:random_double()` returns a double in the interval `[0, 1)`.
-   - `req:version()` returns the Lwan version.
-   - `req:operating_system()` returns which operating system Lwan is running on.
-   - `req:get_mime_type(path)` returns the MIME type for `path`.
-   - `req:base64_encode(str)` base 64-encodes `str`.
-   - `req:base64_decode(str)` base 64-decodes `str`.
 
 Handler functions may return either `nil` (in which case, a `200 OK` response
 is generated), or a number matching an HTTP status code.  Attempting to return
@@ -723,6 +717,17 @@ with different logging levels by calling methods from `Lwan.log`:
 > If Lwan is built with syslog support, these messages will also be sent to the
 > system log, otherwise they'll be printed to the standard error.
 
+
+##### Utils
+
+The `Lwan.utils` library contains some extra functions:
+
+   - `Lwan.utils.random_double()` returns a double in the interval `[0, 1)`.
+   - `Lwan.utils.version()` returns the Lwan version.
+   - `Lwan.utils.operating_system()` returns which operating system Lwan is running on.
+   - `Lwan.utils.get_mime_type(path)` returns the MIME type for `path`.
+   - `Lwan.utils.base64_encode(str)` base 64-encodes `str`.
+   - `Lwan.utils.base64_decode(str)` base 64-decodes `str`.
 
 #### Rewrite
 

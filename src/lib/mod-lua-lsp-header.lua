@@ -46,25 +46,25 @@ Mongoose.__index = function(self, key)
         self.cry = Lwan.log.error
         return self.cry
     elseif key == "version" then
-        self.version = self.request:version()
+        self.version = Lwan.utils.version()
         return self.version
     elseif key == "system" then
-        self.system = self.request:operating_system()
+        self.system = Lwan.utils.operating_system()
         return self.system
     elseif key == "get_mime_type" then
-        self.get_mime_type = function(arg) return self.request:get_mime_type(arg) end
+        self.get_mime_type = Lwan.utils.get_mime_type
         return self.get_mime_type
     elseif key == "base64_encode" then
-        self.base64_encode = function(arg) return self.request:base64_encode(arg) end
+        self.base64_encode = Lwan.utils.base64_encode
         return self.base64_encode
     elseif key == "base64_decode" then
-        self.base64_decode = function(arg) return self.request:base64_decode(arg) end
+        self.base64_decode = Lwan.utils.base64_decode
         return self.base64_decode
     elseif key == "get_var" then
         self.get_var = function(arg) return self.request:query_param(arg) end
         return self.get_var
     elseif key == "random" then
-        self.random = function() return self.request:random_double() end
+        self.random = Lwan.utils.random_double
         return self.random
     end
 end
