@@ -530,6 +530,20 @@ static int util_get_mime_type(lua_State *L)
     return 1;
 }
 
+static int util_get_response_code_text(lua_State *L)
+{
+    lua_Integer code = lua_tointeger(L, -1);
+
+    if (lwan_http_status_is_valid((int)code)) {
+        lua_pushstring(L,
+                       lwan_http_status_as_string((enum lwan_http_status)code));
+    } else {
+        lua_pushnil(L);
+    }
+
+    return 1;
+}
+
 static int luaopen_utils(lua_State *L)
 {
     static const struct luaL_Reg functions[] = {
@@ -540,6 +554,7 @@ static int luaopen_utils(lua_State *L)
         REGISTER(version),
         REGISTER(operating_system),
         REGISTER(get_mime_type),
+        REGISTER(get_response_code_text),
         {}
 #undef REGISTER
     };

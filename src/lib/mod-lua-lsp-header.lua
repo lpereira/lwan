@@ -66,6 +66,9 @@ Mongoose.__index = function(self, key)
     elseif key == "random" then
         self.random = Lwan.utils.random_double
         return self.random
+    elseif key == "get_response_code_text" then
+        self.get_response_code_text = Lwan.utils.get_response_code_text
+        return self.get_response_code_text
     end
 end
 
