@@ -685,16 +685,28 @@ created (using a `__index` function in its metatable), so looping over, for inst
 `mg.request_info` won't work unless the keys you're interested in were previously accessed.
 Because of this, the same caveat about using global variables applies to Lua Server Pages.
 
-Lua script elements must be enclosed between `<?` and `?>` blocks; other ways of enclosing
-Lua scripts (e.g. with `<%` and `%>`) aren't supported at the moment.  So, for instance, one
-could write this code into `headers.lp` to dump all the request headers:
+Lua script elements maybe enclosed between blocks delimited by:
+
+   - `<?` and `?>`
+   - `<%` and `%>`
+   - `<?lua` and `?>`
+   - `<%lua` and `%>`
+
+Using an equal sign in the opening sequence, e.g. `<?=`, will print the
+string version of that particular expression. So, `<%= mg.version() %>` will
+output the current Lwan version.
+
+For instance, in order to dump all the HTTP headers, one could write
+the following LSP:
 
 ```
-<ul>
+<table>
     <? for key, value in pairs(mg.request_info.http_headers) ?>
-        <li><?= key ?>:  <?= value %></li>
+      <tr>
+        <td><%= key %></td><td><%= value %></td>
+      </tr>
     <? end ?>
-</ul>
+</table>
 ```
 
 > [!NOTE]
