@@ -45,15 +45,10 @@
 #define FOR_EACH_LEXEME(X) X(VERBATIM) X(PRINT) X(LUA) X(ERROR) X(EOF)
 
 #define GENERATE_ENUM(id) LEXEME_##id,
-#define GENERATE_ARRAY_ITEM(id) [LEXEME_##id] = #id,
 
 enum lexeme_type { FOR_EACH_LEXEME(GENERATE_ENUM) TOTAL_LEXEMES };
 
-static const char *lexeme_type_str[TOTAL_LEXEMES] = {
-    FOR_EACH_LEXEME(GENERATE_ARRAY_ITEM)};
-
 #undef GENERATE_ENUM
-#undef GENERATE_ARRAY_ITEM
 
 struct lexeme {
     enum lexeme_type type;
@@ -69,11 +64,6 @@ struct lexer {
     struct lexeme_ring_buffer ring_buffer;
 };
 
-struct parser {
-    struct lexer lexer;
-    struct lwan_strbuf *output;
-};
-
 /* FIXME: CivetWeb supports "Kepler Syntax", using <?lua ?> and
  * <% %> blocks (similar to <? ?>), in addition to <?lua= ?> and
  * <%= %> (corresponding to <?= ?>).  Support this in Lwan too. */
@@ -84,12 +74,8 @@ static_assert(sizeof(left_meta) == sizeof(right_meta),
 
 static void *lex_text(struct lexer *lexer);
 
-static void *parser_text(struct parser *parser, struct lexeme *lexeme);
-
 static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
     __attribute__((format(printf, 2, 0)));
-static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
-    __attribute__((format(printf, 2, 3)));
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
 
@@ -156,17 +142,6 @@ static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
     lwan_log_error("Error while parsing LSP: %.*s", (int)formatted_len,
                    formatted);
     free(formatted);
-}
-
-static void *error_lexeme(struct lexeme *lexeme, const char *msg, ...)
-{
-    va_list ap;
-
-    va_start(ap, msg);
-    error_vlexeme(lexeme, msg, ap);
-    va_end(ap);
-
-    return NULL;
 }
 
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
@@ -261,50 +236,41 @@ static void lex_init(struct lexer *lexer, struct lwan_value input)
     lexeme_ring_buffer_init(&lexer->ring_buffer);
 }
 
-static void *parser_text(struct parser *parser, struct lexeme *lexeme)
-{
-    switch (lexeme->type) {
-    case LEXEME_VERBATIM:
-        lwan_strbuf_append_strz(parser->output, "__request:write([======[");
-        lwan_strbuf_append_value(parser->output, &lexeme->value);
-        lwan_strbuf_append_strz(parser->output, "]======])\n");
-        return parser_text;
-
-    case LEXEME_LUA:
-        lwan_strbuf_append_value(parser->output, &lexeme->value);
-        lwan_strbuf_append_strz(parser->output, "\n");
-        return parser_text;
-
-    case LEXEME_PRINT:
-        lwan_strbuf_append_strz(parser->output, "__request:write(");
-        lwan_strbuf_append_value(parser->output, &lexeme->value);
-        lwan_strbuf_append_strz(parser->output, ")\n");
-        return parser_text;
-
-    case LEXEME_EOF:
-        return NULL;
-
-    default:
-        return error_lexeme(lexeme, "unexpected lexeme: %s [%.*s]",
-                            lexeme_type_str[lexeme->type],
-                            (int)lexeme->value.len, lexeme->value.value);
-    }
-}
-
 static char *compile_string(struct lwan_value file)
 {
-    void *(*state)(struct parser *parser, struct lexeme *lexeme) = parser_text;
     struct lwan_strbuf output;
-    struct parser parser = {.output = &output};
+    struct lexer lexer;
 
-    lex_init(&parser.lexer, file);
+    lex_init(&lexer, file);
     lwan_strbuf_init(&output);
 
     lwan_strbuf_append_value(&output, &lsp_header_value);
 
-    while (state) {
-        struct lexeme *lexeme = lex_next(&parser.lexer);
-        if (lexeme->type == LEXEME_ERROR) {
+    while (true) {
+        const struct lexeme *lexeme = lex_next(&lexer);
+        switch (lexeme->type) {
+        case LEXEME_VERBATIM:
+            lwan_strbuf_append_strz(&output, "__request:write([======[");
+            lwan_strbuf_append_value(&output, &lexeme->value);
+            lwan_strbuf_append_strz(&output, "]======])\n");
+            break;
+
+        case LEXEME_LUA:
+            lwan_strbuf_append_value(&output, &lexeme->value);
+            lwan_strbuf_append_strz(&output, "\n");
+            break;
+
+        case LEXEME_PRINT:
+            lwan_strbuf_append_strz(&output, "__request:write(");
+            lwan_strbuf_append_value(&output, &lexeme->value);
+            lwan_strbuf_append_strz(&output, ")\n");
+            break;
+
+        case LEXEME_EOF:
+            lwan_strbuf_append_value(&output, &lsp_footer_value);
+            return lwan_strbuf_get_buffer(&output);
+
+        default:
             if (lexeme->value.len) {
                 lwan_log_error("Error while compiling LSP: %.*s",
                                (int)lexeme->value.len, lexeme->value.value);
@@ -314,13 +280,7 @@ static char *compile_string(struct lwan_value file)
             lwan_strbuf_free(&output);
             return NULL;
         }
-
-        state = state(&parser, lexeme);
     }
-
-    lwan_strbuf_append_value(&output, &lsp_footer_value);
-
-    return lwan_strbuf_get_buffer(&output);
 }
 
 static bool has_valid_extension(const char *filename)
