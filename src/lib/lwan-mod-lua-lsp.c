@@ -242,7 +242,10 @@ static char *compile_string(struct lwan_value file)
     struct lexer lexer;
 
     lex_init(&lexer, file);
-    lwan_strbuf_init(&output);
+    lwan_strbuf_init_with_size(&output,
+                               lsp_header_value.len +
+                               lsp_footer_value.len +
+                               file.len);
 
     lwan_strbuf_append_value(&output, &lsp_header_value);
 
