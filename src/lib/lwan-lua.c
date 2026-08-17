@@ -42,6 +42,9 @@ lwan_lua_get_request_from_userdata(lua_State *L)
         return NULL;
 
     struct lwan_request **r = luaL_checkudata(L, 1, request_metatable_name);
+    if (UNLIKELY(!r))
+        return NULL;
+
     return *r;
 }
 
