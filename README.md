@@ -710,9 +710,10 @@ representation of that expression will be produced. So, for example,
 >
 > ```
 > <table>
->     <? for key, value in pairs(mg.request_info.http_headers) ?>
+>     <? for key, value in pairs(mg.request_info.http_headers) do ?>
 >       <tr>
->         <td><%= key %></td><td><%= value %></td>
+>         <td><%= key %></td>
+>         <td><%= value %></td>
 >       </tr>
 >     <? end ?>
 > </table>
