@@ -55,10 +55,10 @@ Mongoose.__index = function(self, key)
         self.get_mime_type = Lwan.utils.get_mime_type
         return self.get_mime_type
     elseif key == "base64_encode" then
-        self.base64_encode = Lwan.utils.base64_encode
+        self.base64_encode = Lwan.base64.encode
         return self.base64_encode
     elseif key == "base64_decode" then
-        self.base64_decode = Lwan.utils.base64_decode
+        self.base64_decode = Lwan.base64.decode
         return self.base64_decode
     elseif key == "get_var" then
         self.get_var = function(arg) return self.request:query_param(arg) end

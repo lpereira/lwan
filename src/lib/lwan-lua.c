@@ -438,7 +438,7 @@ LWAN_LUA_METHOD(set_keep_alive)
 FOR_EACH_LOG_FUNCTION(IMPLEMENT_FUNCTION)
 #undef IMPLEMENT_FUNCTION
 
-LWAN_LUA_LIB_FUNCTION(utils, base64_encode)
+LWAN_LUA_LIB_FUNCTION(base64, encode)
 {
     size_t encoded_len, decoded_len;
     const char *decoded = lua_tolstring(L, -1, &decoded_len);
@@ -453,7 +453,7 @@ LWAN_LUA_LIB_FUNCTION(utils, base64_encode)
     return 1;
 }
 
-LWAN_LUA_LIB_FUNCTION(utils, base64_decode)
+LWAN_LUA_LIB_FUNCTION(base64, decode)
 {
     size_t encoded_len, decoded_len;
     const char *encoded = lua_tolstring(L, -1, &encoded_len);
@@ -543,6 +543,7 @@ const char *lwan_lua_state_last_error(lua_State *L)
 
 LWAN_LUA_LIB(utils)
 LWAN_LUA_LIB(log)
+LWAN_LUA_LIB(base64)
 
 lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 {
