@@ -746,6 +746,43 @@ The `Lwan.utils` library contains some extra functions:
    - `Lwan.utils.base64_encode(str)` base 64-encodes `str`.
    - `Lwan.utils.base64_decode(str)` base 64-decodes `str`.
 
+##### Extending the Lua environment
+
+Lwan provides an easy way to extend the Lua environment based on what your
+application requires, when using Lwan as a library, by using macros defined
+in `lwan-lua.h`.
+
+To create methods that will be available to the `req` parameter of a request
+handler, one uses the `LWAN_LUA_METHOD(name)` macro.  To define your own library,
+which will be installed under the `Lwan` table, one uses both the `LWAN_LUA_LIB(name)`
+macro to define the library itself, and `LWAN_LUA_LIB_FUNCTION(lib_name, func_name)`
+to define the function itself.
+
+For example, the following code adds the `is_proxied()` to the `req` metatable:
+
+```c
+LWAN_LUA_METHOD(is_proxied)
+{
+    lua_pushboolean(L, !!(request->flags & REQUEST_PROXIED));
+    return 1;
+}
+```
+
+And the following code will create the `Lwan.haiku` library with a function
+called `is_computer_on()`:
+
+```c
+LWAN_LUA_LIB(haiku)
+LWAN_LUA_LIB_FUNCTION(haiku, is_computer_on)
+{
+    lua_pushboolean(L, 1);
+    return 1;
+}
+```
+
+There's nothing else that need to be done; Lwan will take care of registering
+these functions once a new `lua_State` is created.
+
 #### Rewrite
 
 The `rewrite` module will match
