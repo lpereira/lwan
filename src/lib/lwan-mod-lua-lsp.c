@@ -51,11 +51,11 @@ enum lexeme_type { FOR_EACH_LEXEME(GENERATE_ENUM) TOTAL_LEXEMES };
 #undef GENERATE_ENUM
 
 struct lexeme {
-    enum lexeme_type type;
     struct lwan_value value;
+    enum lexeme_type type;
 };
 
-DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)
+DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 2)
 
 struct lexer {
     void *(*state)(struct lexer *);
