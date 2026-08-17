@@ -445,7 +445,7 @@ LWAN_LUA_LIB_FUNCTION(base64, encode)
     unsigned char *encoded = base64_encode((const unsigned char *)decoded,
                                            decoded_len, &encoded_len);
     if (encoded) {
-        lua_pushstring(L, (const char *)encoded);
+        lua_pushlstring(L, (const char *)encoded, encoded_len);
         free(encoded);
     } else {
         lua_pushnil(L);
@@ -460,7 +460,7 @@ LWAN_LUA_LIB_FUNCTION(base64, decode)
     unsigned char *decoded = base64_decode((const unsigned char *)encoded,
                                            encoded_len, &decoded_len);
     if (decoded) {
-        lua_pushstring(L, (const char *)decoded);
+        lua_pushlstring(L, (const char *)decoded, decoded_len);
         free(decoded);
     } else {
         lua_pushnil(L);
