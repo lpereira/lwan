@@ -14,13 +14,14 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
  */
 
 #pragma once
 
-#include <lua.h>
 #include <lauxlib.h>
+#include <lua.h>
 
 struct lwan_request;
 
@@ -28,6 +29,7 @@ struct lwan_request;
     static int lwan_luaopen_##lib_(lua_State *L)                               \
     {                                                                          \
         const luaL_Reg *info;                                                  \
+        static_assert(sizeof(#lib_) > 1, "Library name isn't empty");          \
         lua_getglobal(L, "Lwan");                                              \
         luaL_checkversion(L);                                                  \
         lua_newtable(L);                                                       \
@@ -43,6 +45,8 @@ struct lwan_request;
         lwan_luaopen_##lib_##func = {.func = lwan_luaopen_##lib_};
 
 #define LWAN_LUA_LIB_FUNCTION(lib_, function_)                                 \
+    static_assert(sizeof(#lib_) > 1, "Library name isn't empty");              \
+    static_assert(sizeof(#function_) > 1, "Function name isn't empty");        \
     static int lwan_lua_lib_func_##lib_##function_(lua_State *L);              \
     static const luaL_Reg                                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib_##lib_)))) \
@@ -53,6 +57,7 @@ struct lwan_request;
     static int lwan_lua_lib_func_##lib_##function_(lua_State *L)
 
 #define LWAN_LUA_METHOD(name_)                                                 \
+    static_assert(sizeof(#name_) > 1, "Method name isn't empty");              \
     static int lwan_lua_method_##name_##_wrapper(lua_State *L);                \
     static int lwan_lua_method_##name_(lua_State *L,                           \
                                        struct lwan_request *request);          \
