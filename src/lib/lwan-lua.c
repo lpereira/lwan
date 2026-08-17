@@ -546,7 +546,7 @@ LWAN_LUA_LIB(log)
 
 lua_State *lwan_lua_create_state(const char *script_file, const char *script)
 {
-    const struct lwan_lua_method_info *methinfo;
+    const luaL_Reg *methinfo;
     lua_State *L;
 
     L = luaL_newstate();

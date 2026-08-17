@@ -20,18 +20,14 @@
 #pragma once
 
 #include <lua.h>
+#include <lauxlib.h>
 
 struct lwan_request;
-
-struct lwan_lua_method_info {
-    const char *name;
-    int (*func)();
-};
 
 #define LWAN_LUA_LIB(lib_)                                                     \
     static int lwan_luaopen_##lib_(lua_State *L)                               \
     {                                                                          \
-        const struct lwan_lua_method_info *info;                               \
+        const luaL_Reg *info;                                                  \
         lua_getglobal(L, "Lwan");                                              \
         luaL_checkversion(L);                                                  \
         lua_newtable(L);                                                       \
@@ -42,13 +38,13 @@ struct lwan_lua_method_info {
         lua_setfield(L, -2, #lib_);                                            \
         return 0;                                                              \
     }                                                                          \
-    static const struct lwan_lua_method_info                                   \
+    static const luaL_Reg                                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib))))        \
         lwan_luaopen_##lib_##func = {.func = lwan_luaopen_##lib_};
 
 #define LWAN_LUA_LIB_FUNCTION(lib_, function_)                                 \
     static int lwan_lua_lib_func_##lib_##function_(lua_State *L);              \
-    static const struct lwan_lua_method_info                                   \
+    static const luaL_Reg                                                      \
         __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib_##lib_)))) \
         lwan_lua_lib_func_info_##lib_##function_ = {                           \
             .name = #function_,                                                \
@@ -60,7 +56,7 @@ struct lwan_lua_method_info {
     static int lwan_lua_method_##name_##_wrapper(lua_State *L);                \
     static int lwan_lua_method_##name_(lua_State *L,                           \
                                        struct lwan_request *request);          \
-    static const struct lwan_lua_method_info __attribute__((                   \
+    static const luaL_Reg __attribute__((                                      \
         used, section(LWAN_SECTION_NAME(                                       \
                   lwan_lua_method)))) lwan_lua_method_info_##name_ = {         \
         .name = #name_,                                                        \
