@@ -269,6 +269,74 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
+/* find_byte32() and find_byte64() stolen from the Bit Twiddling Hacks page */
+static inline uint64_t has_zero64(uint64_t v)
+{
+    return (v - 0x0101010101010101ull) & ~v & 0x8080808080808080ull;
+}
+
+static inline uint32_t has_zero32(uint64_t v)
+{
+    return (v - 0x01010101u) & ~v & 0x80808080u;
+}
+
+static const char *find_pct_or_plus(const char *str)
+{
+    const uint64_t mask_plus64 = '+' * 0x0101010101010101ull;
+    const uint64_t mask_pct64 = '%' * 0x0101010101010101ull;
+    const uint32_t mask_plus32 = '+' * 0x01010101u;
+    const uint32_t mask_pct32 = '%' * 0x01010101u;
+
+    while (true) {
+        const uint64_t v = string_as_uint64(str);
+        const uint64_t has_plus = has_zero64(v ^ mask_plus64);
+        const uint64_t has_pct = has_zero64(v ^ mask_pct64);
+        const uint64_t has_zero = has_zero64(v);
+        const uint64_t m = has_plus | has_pct;
+
+        if (m < has_zero) {
+            int left = __builtin_ctzll(has_zero) / 8;
+            if (left < 4)
+                goto rest;
+            if (left < 8)
+                goto check4;
+        }
+
+        if (m) {
+            return str + __builtin_ctzll(m) / 8;
+        }
+
+        str += 8;
+    }
+
+check4:
+    const uint32_t v = string_as_uint32(str);
+    const uint32_t has_plus = has_zero32(v ^ mask_plus32);
+    const uint32_t has_pct = has_zero32(v ^ mask_pct32);
+    const uint32_t has_zero = has_zero32(v);
+    const uint32_t m = has_pct | has_plus;
+
+    if (m < has_zero) {
+        goto rest;
+    }
+
+    if (m) {
+        return str + __builtin_ctz(m) / 8;
+    }
+
+    str += 4;
+
+rest:
+    while (*str) {
+        if (*str == '%' || *str == '+') {
+            return str;
+        }
+        str++;
+    }
+
+    return NULL;
+}
+
 LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t
 url_decode_full(char *str, const unsigned char invalid_map[static 32])
@@ -291,7 +359,8 @@ url_decode_full(char *str, const unsigned char invalid_map[static 32])
     const char *inptr = str;
     char *outptr = str;
 
-    for (const char *p = strpbrk(inptr, "%+"); p; p = strpbrk(inptr, "%+")) {
+    for (const char *p = find_pct_or_plus(inptr); p;
+         p = find_pct_or_plus(inptr)) {
         const ptrdiff_t diff = p - inptr;
         if (diff)
             outptr = mempmove(outptr, inptr, (size_t)diff);
