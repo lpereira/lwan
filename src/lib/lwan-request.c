@@ -289,10 +289,19 @@ static const char *find_pct_or_plus(const char *str)
         const uint64_t m = has_plus | has_pct;
 
         if (m < has_zero) {
+            /* Iterated at least once without finding a % or + */
             if (str != orig) {
-                return NULL; /* Iter. at least once without finding a % or + */
+                return NULL;
             }
-            break; /* Short string */
+
+            /* Shorter strings */
+            const int m_pos = __builtin_ctzll(m);
+            if (m_pos < __builtin_ctzll(has_zero)) {
+                /* % or + appears before \0 */
+                return str + m_pos / 8;
+            }
+
+            return NULL;
         }
 
         if (m) {
@@ -301,15 +310,6 @@ static const char *find_pct_or_plus(const char *str)
 
         str += 8;
     }
-
-    while (*str) {
-        if (*str == '%' || *str == '+') {
-            return str;
-        }
-        str++;
-    }
-
-    return NULL;
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
