@@ -438,6 +438,13 @@ LWAN_SELF_TEST(urldecode)
         assert(url_decode_no_crlf(encoded) == sizeof("hello!") - 1);
         assert(memcmp(encoded, "hello!", sizeof("hello!") - 1) == 0);
     }
+    {
+        char encoded[] = "hello%20+multiple%20spaces!+";
+        assert(url_decode_no_crlf(encoded) ==
+               sizeof("hello  multiple spaces! ") - 1);
+        assert(memcmp(encoded, "hello  multiple spaces! ",
+                      sizeof("hello  multiple spaces! ") - 1) == 0);
+    }
 }
 #endif
 
