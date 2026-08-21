@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -50,8 +51,8 @@ struct hash {
     int refs;
 };
 
-uint64_t fnv1a_64_seed = 0xcbf29ce484222325ull;
-uint32_t fnv1a_32_seed = 0x811c9dc5u;
+uint64_t fnv1a_64_seed = UINT64_C(0xcbf29ce484222325);
+uint32_t fnv1a_32_seed = UINT32_C(0x811c9dc5);
 LWAN_CONSTRUCTOR(randomize_seed, 65535)
 {
     uint8_t entropy[128];

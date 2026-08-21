@@ -272,15 +272,16 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
 
 #if BYTE_ORDER == LITTLE_ENDIAN
 /* has_zero64() stolen from the Bit Twiddling Hacks page */
-static inline uint64_t has_zero64(uint64_t v)
+static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
 {
-    return (v - 0x0101010101010101ull) & ~v & 0x8080808080808080ull;
+    return (v - UINT64_C(0x0101010101010101)) & ~v &
+           UINT64_C(0x8080808080808080);
 }
 
 static const char *find_pct_or_plus(const char *str)
 {
-    const uint64_t mask_plus64 = '+' * 0x0101010101010101ull;
-    const uint64_t mask_pct64 = '%' * 0x0101010101010101ull;
+    const uint64_t mask_plus64 = '+' * UINT64_C(0x0101010101010101);
+    const uint64_t mask_pct64 = '%' * UINT64_C(0x0101010101010101);
     const char *orig = str;
 
     while (true) {

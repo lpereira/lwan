@@ -1,5 +1,6 @@
 #pragma once
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -56,7 +57,7 @@ static inline uint64_t fnv1a_64(const void *buffer, size_t len)
     uint64_t hash;
 
     for (hash = fnv1a_64_seed; len--; data++) {
-        hash = (hash ^ *data) * 0x100000001b3ul;
+        hash = (hash ^ *data) * UINT64_C(0x100000001b3);
     }
 
     return hash;

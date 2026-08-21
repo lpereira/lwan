@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdlib.h>
@@ -133,7 +134,7 @@ static void lwan_random_seed_prng_for_thread(const struct lwan_thread *t)
 uint64_t lwan_random_uint64(void)
 {
     /* https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/ */
-    lehmer64_state *= 0xda942042e4dd58b5ull;
+    lehmer64_state *= UINT64_C(0xda942042e4dd58b5);
     return (uint64_t)(lehmer64_state >> 64);
 }
 #endif

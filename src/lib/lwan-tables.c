@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #if defined(LWAN_HAVE_BROTLI)
 #include <brotli/decode.h>
@@ -180,7 +181,7 @@ const char *lwan_determine_mime_type_for_file_name(const char *file_name)
     strncpy((char *)&key, last_dot + 1, 8);
 #pragma GCC diagnostic pop
 
-    return bsearch_mime_type(htobe64(key & ~0x2020202020202020ull));
+    return bsearch_mime_type(htobe64(key & ~UINT64_C(0x2020202020202020)));
 }
 
 #include "lookup-http-status.h" /* genrated by statuslookupgen */
