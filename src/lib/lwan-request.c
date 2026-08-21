@@ -21,6 +21,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
+#include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -269,6 +270,7 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
+#if BYTE_ORDER == LITTLE_ENDIAN
 /* has_zero64() stolen from the Bit Twiddling Hacks page */
 static inline uint64_t has_zero64(uint64_t v)
 {
@@ -311,6 +313,18 @@ static const char *find_pct_or_plus(const char *str)
         str += 8;
     }
 }
+#else
+static const char *find_pct_or_plus(const char *str)
+{
+    while (*str) {
+        if (*str == '%' || *str == '+') {
+            return str;
+        }
+        str++;
+    }
+    return NULL;
+}
+#endif
 
 LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t
