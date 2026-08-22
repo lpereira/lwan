@@ -297,11 +297,13 @@ static const char *find_pct_or_plus(const char *str)
                 return NULL;
             }
 
-            /* Shorter strings */
-            const int m_pos = __builtin_ctzll(m);
-            if (m_pos < __builtin_ctzll(has_zero)) {
-                /* % or + appears before \0 */
-                return str + m_pos / 8;
+            if (m) {
+                /* Shorter strings */
+                const int m_pos = __builtin_ctzll(m);
+                if (m_pos < __builtin_ctzll(has_zero)) {
+                    /* % or + appears before \0 */
+                    return str + m_pos / 8;
+                }
             }
 
             return NULL;
