@@ -270,6 +270,16 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
+static const char *find_pct_or_plus_fallback(const char *str, size_t len)
+{
+    for (const char *end = str + len; str < end; str++) {
+        if (*str == '%' || *str == '+') {
+            return str;
+        }
+    }
+    return NULL;
+}
+
 #if BYTE_ORDER == LITTLE_ENDIAN
 /* has_zero64() stolen from the Bit Twiddling Hacks page */
 static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
@@ -278,13 +288,13 @@ static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
            UINT64_C(0x8080808080808080);
 }
 
-static const char *find_pct_or_plus(const char *str)
+static const char *find_pct_or_plus(const char *str, size_t len)
 {
     const uint64_t mask_plus64 = '+' * UINT64_C(0x0101010101010101);
     const uint64_t mask_pct64 = '%' * UINT64_C(0x0101010101010101);
     const char *orig = str;
 
-    while (true) {
+    while (len >= 8) {
         const uint64_t v = string_as_uint64(str);
         const uint64_t has_plus = has_zero64(v ^ mask_plus64);
         const uint64_t has_pct = has_zero64(v ^ mask_pct64);
@@ -314,24 +324,21 @@ static const char *find_pct_or_plus(const char *str)
         }
 
         str += 8;
+        len -= 8;
     }
+
+    return find_pct_or_plus_fallback(str, len);
 }
 #else
-static const char *find_pct_or_plus(const char *str)
+static const char *find_pct_or_plus(const char *str, size_t len)
 {
-    while (*str) {
-        if (*str == '%' || *str == '+') {
-            return str;
-        }
-        str++;
-    }
-    return NULL;
+    return find_pct_or_plus_fallback(str, len);
 }
 #endif
 
 LWAN_ACCESS_PARAM(read_write, 1)
-__attribute__((nonnull(1))) static ssize_t
-url_decode_full(char *str, const unsigned char invalid_map[static 32])
+__attribute__((nonnull(1))) static ssize_t url_decode_full(
+    char *str, size_t len, const unsigned char invalid_map[static 32])
 {
     static const unsigned char tbl1[256] = {
         [0 ... 255] = 255, ['0'] = 0 << 4,  ['1'] = 1 << 4,  ['2'] = 2 << 4,
@@ -351,11 +358,13 @@ url_decode_full(char *str, const unsigned char invalid_map[static 32])
     const char *inptr = str;
     char *outptr = str;
 
-    for (const char *p = find_pct_or_plus(inptr); p;
-         p = find_pct_or_plus(inptr)) {
+    for (const char *p = find_pct_or_plus(inptr, len); p;
+         p = find_pct_or_plus(inptr, len)) {
         const ptrdiff_t diff = p - inptr;
-        if (diff)
+        if (diff) {
             outptr = mempmove(outptr, inptr, (size_t)diff);
+            len -= (size_t)diff;
+        }
 
         if (*p == '+') {
             *outptr++ = ' ';
@@ -399,23 +408,23 @@ url_decode_full(char *str, const unsigned char invalid_map[static 32])
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
-static ALWAYS_INLINE ssize_t url_decode(char *str)
+static ALWAYS_INLINE ssize_t url_decode(char *str, size_t len)
 {
     static const unsigned char only_nul_invalid[32] = {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     };
-    return url_decode_full(str, only_nul_invalid);
+    return url_decode_full(str, len, only_nul_invalid);
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
-static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str)
+static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str, size_t len)
 {
     static const unsigned char nul_and_crlf_invalid[32] = {
         1, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     };
-    return url_decode_full(str, nul_and_crlf_invalid);
+    return url_decode_full(str, len, nul_and_crlf_invalid);
 }
 
 #ifndef NDEBUG
@@ -423,41 +432,41 @@ LWAN_SELF_TEST(urldecode)
 {
     {
         char encoded[] = "%0d";
-        assert(url_decode_no_crlf(encoded) == -1);
+        assert(url_decode_no_crlf(encoded, 3) == -1);
     }
     {
         char encoded[] = "%0d";
-        assert(url_decode(encoded) == 1);
+        assert(url_decode(encoded, 3) == 1);
     }
     {
         char encoded[] = "%0a";
-        assert(url_decode_no_crlf(encoded) == -1);
+        assert(url_decode_no_crlf(encoded, 3) == -1);
     }
     {
         char encoded[] = "hello%00";
-        assert(url_decode_no_crlf(encoded) == -1);
+        assert(url_decode_no_crlf(encoded, 8) == -1);
     }
     {
         char encoded[] = "hello%00";
-        assert(url_decode(encoded) == -1);
+        assert(url_decode(encoded, 8) == -1);
     }
     {
         char encoded[] = "%a0";
-        assert(url_decode_no_crlf(encoded) == 1);
+        assert(url_decode_no_crlf(encoded, 3) == 1);
     }
     {
         char encoded[] = "hello";
-        assert(url_decode_no_crlf(encoded) == sizeof("hello") - 1);
+        assert(url_decode_no_crlf(encoded, 5) == sizeof("hello") - 1);
         assert(memcmp(encoded, "hello", sizeof("hello") - 1) == 0);
     }
     {
         char encoded[] = "hello%21";
-        assert(url_decode_no_crlf(encoded) == sizeof("hello!") - 1);
+        assert(url_decode_no_crlf(encoded, 8) == sizeof("hello!") - 1);
         assert(memcmp(encoded, "hello!", sizeof("hello!") - 1) == 0);
     }
     {
         char encoded[] = "hello%20+multiple%20spaces!+";
-        assert(url_decode_no_crlf(encoded) ==
+        assert(url_decode_no_crlf(encoded, 28) ==
                sizeof("hello  multiple spaces! ") - 1);
         assert(memcmp(encoded, "hello  multiple spaces! ",
                       sizeof("hello  multiple spaces! ") - 1) == 0);
@@ -484,7 +493,7 @@ reset_key_value_array(void *data)
 static void parse_key_values(struct lwan_request *request,
                              struct lwan_value *helper_value,
                              struct lwan_key_value_array *array,
-                             ssize_t (*decode_value)(char *value),
+                             ssize_t (*decode_value)(char *value, size_t len),
                              const char separator)
 {
     struct lwan_key_value *kv;
@@ -509,15 +518,23 @@ static void parse_key_values(struct lwan_request *request,
         key = ptr;
         ptr = strsep_char(key, end, separator);
 
+        size_t key_len, value_len;
+
         value = strsep_char(key, end, '=');
         if (UNLIKELY(!value)) {
             value = "";
-        } else if (UNLIKELY(decode_value(value) < 0)) {
-            /* Disallow values that failed decoding, but allow empty values */
-            goto error;
+            key_len = ptr ? (size_t)(ptr - key) : strlen(key);
+            value_len = 0;
+        } else {
+            key_len = (size_t)(value - key - 1);
+            value_len = ptr ? (size_t)(ptr - value - 1) : strlen(value);
+            if (UNLIKELY(decode_value(value, value_len) < 0)) {
+                /* Disallow values that failed decoding, but allow empty values */
+                goto error;
+            }
         }
 
-        if (UNLIKELY(decode_value(key) <= 0)) {
+        if (UNLIKELY(decode_value(key, key_len) <= 0)) {
             /* Disallow keys that failed decoding, or empty keys */
             goto error;
         }
@@ -539,7 +556,8 @@ error:
 }
 
 static ssize_t
-identity_decode(char *input __attribute__((unused)))
+identity_decode(char *input __attribute__((unused)),
+                size_t len __attribute__((unused)))
 {
     return 1;
 }
@@ -1498,7 +1516,8 @@ static enum lwan_http_status parse_http_request(struct lwan_request *request)
     if (UNLIKELY(!parse_headers(helper, buffer)))
         return HTTP_BAD_REQUEST;
 
-    ssize_t decoded_len = url_decode_no_crlf(request->url.value);
+    ssize_t decoded_len = url_decode_no_crlf(request->url.value,
+                                             request->url.len);
     if (UNLIKELY(decoded_len < 0))
         return HTTP_BAD_REQUEST;
     request->original_url.len = request->url.len = (size_t)decoded_len;
