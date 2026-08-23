@@ -292,32 +292,12 @@ static const char *find_pct_or_plus(const char *str, size_t len)
 {
     const uint64_t mask_plus64 = '+' * UINT64_C(0x0101010101010101);
     const uint64_t mask_pct64 = '%' * UINT64_C(0x0101010101010101);
-    const char *orig = str;
 
     while (len >= 8) {
         const uint64_t v = string_as_uint64(str);
         const uint64_t has_plus = has_zero64(v ^ mask_plus64);
         const uint64_t has_pct = has_zero64(v ^ mask_pct64);
-        const uint64_t has_zero = has_zero64(v);
         const uint64_t m = has_plus | has_pct;
-
-        if (m < has_zero) {
-            /* Iterated at least once without finding a % or + */
-            if (str != orig) {
-                return NULL;
-            }
-
-            if (m) {
-                /* Shorter strings */
-                const int m_pos = __builtin_ctzll(m);
-                if (m_pos < __builtin_ctzll(has_zero)) {
-                    /* % or + appears before \0 */
-                    return str + m_pos / 8;
-                }
-            }
-
-            return NULL;
-        }
 
         if (m) {
             return str + __builtin_ctzll(m) / 8;
