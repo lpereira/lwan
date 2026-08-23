@@ -338,7 +338,7 @@ static const char *find_pct_or_plus(const char *str, size_t len)
 
 LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t url_decode_full(
-    char *str, size_t len, const unsigned char invalid_map[static 32])
+    char *str, const size_t len, const unsigned char invalid_map[static 32])
 {
     static const unsigned char tbl1[256] = {
         [0 ... 255] = 255, ['0'] = 0 << 4,  ['1'] = 1 << 4,  ['2'] = 2 << 4,
@@ -356,14 +356,14 @@ __attribute__((nonnull(1))) static ssize_t url_decode_full(
         ['D'] = 13,       ['E'] = 14, ['F'] = 15,
     };
     const char *inptr = str;
+    const char *end = str + len;
     char *outptr = str;
 
-    for (const char *p = find_pct_or_plus(inptr, len); p;
-         p = find_pct_or_plus(inptr, len)) {
+    for (const char *p = find_pct_or_plus(inptr, len); p && p < end;
+         p = find_pct_or_plus(inptr, (size_t)(end - inptr))) {
         const ptrdiff_t diff = p - inptr;
         if (diff) {
             outptr = mempmove(outptr, inptr, (size_t)diff);
-            len -= (size_t)diff;
         }
 
         if (*p == '+') {
@@ -408,7 +408,7 @@ __attribute__((nonnull(1))) static ssize_t url_decode_full(
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
-static ALWAYS_INLINE ssize_t url_decode(char *str, size_t len)
+static ALWAYS_INLINE ssize_t url_decode(char *str, const size_t len)
 {
     static const unsigned char only_nul_invalid[32] = {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -418,7 +418,7 @@ static ALWAYS_INLINE ssize_t url_decode(char *str, size_t len)
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
-static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str, size_t len)
+static ALWAYS_INLINE ssize_t url_decode_no_crlf(char *str, const size_t len)
 {
     static const unsigned char nul_and_crlf_invalid[32] = {
         1, 36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -523,11 +523,13 @@ static void parse_key_values(struct lwan_request *request,
         value = strsep_char(key, end, '=');
         if (UNLIKELY(!value)) {
             value = "";
-            key_len = ptr ? (size_t)(ptr - key) : strlen(key);
+            key_len = ptr ? (size_t)(ptr - key) : (size_t)(end - key);
+            assert(key_len == strlen(key));
             value_len = 0;
         } else {
             key_len = (size_t)(value - key - 1);
-            value_len = ptr ? (size_t)(ptr - value - 1) : strlen(value);
+            value_len = ptr ? (size_t)(ptr - value - 1) : (size_t)(ptr - end - 1);
+            assert(value_len == strlen(value));
             if (UNLIKELY(decode_value(value, value_len) < 0)) {
                 /* Disallow values that failed decoding, but allow empty values */
                 goto error;
