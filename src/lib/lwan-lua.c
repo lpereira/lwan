@@ -523,7 +523,8 @@ LWAN_LUA_LIB_FUNCTION(utils, get_mime_type)
 {
     size_t file_name_len;
     const char *file_name_str = lua_tolstring(L, -1, &file_name_len);
-    lua_pushstring(L, lwan_determine_mime_type_for_file_name(file_name_str));
+    lua_pushlstring(L, lwan_determine_mime_type_for_file_name(file_name_str),
+                    file_name_len);
     return 1;
 }
 
