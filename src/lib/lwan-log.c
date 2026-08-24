@@ -67,7 +67,6 @@ static bool can_use_colors(void)
 {
     const char *term;
     const char *no_color;
-    const char *colorterm;
 
     if (!isatty(fileno(stdout)))
         return false;
@@ -79,14 +78,6 @@ static bool can_use_colors(void)
     no_color = secure_getenv("NO_COLOR");
     if (no_color && no_color[0])
         return false;
-
-    colorterm = secure_getenv("COLORTERM");
-    if (colorterm) {
-        if (streq(colorterm, "truecolor"))
-            return true;
-        if (streq(colorterm, "24bit"))
-            return true;
-    }
 
     term = secure_getenv("TERM");
     if (term && streq(term, "dumb"))
