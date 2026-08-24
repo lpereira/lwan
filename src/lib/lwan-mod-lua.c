@@ -52,7 +52,7 @@ struct lwan_lua_state {
     lua_State *L;
 };
 
-char *lwan_mod_lua_lsp_to_lua(const char *filename);
+char *lwan_mod_lua_lsp_to_lua(int dir_fd, const char *filename);
 
 static char *resolve_script(const struct lwan_lua_priv *priv,
                             const char *key,
@@ -79,6 +79,7 @@ static char *resolve_script(const struct lwan_lua_priv *priv,
 static char *lua_script_from_lsp(const struct lwan_lua_priv *priv,
                                  const char *key)
 {
+    const size_t server_pages_len = strlen(priv->server_pages);
     char resolved_buf[PATH_MAX];
     char *resolved;
 
@@ -87,9 +88,9 @@ static char *lua_script_from_lsp(const struct lwan_lua_priv *priv,
         return NULL;
     }
 
-    if (LIKELY(!strncmp(resolved, priv->server_pages,
-                        strlen(priv->server_pages)))) {
-        return lwan_mod_lua_lsp_to_lua(resolved);
+    if (LIKELY(!strncmp(resolved, priv->server_pages, server_pages_len))) {
+        return lwan_mod_lua_lsp_to_lua(priv->server_pages_fd,
+                                       resolved + server_pages_len);
     }
 
     return NULL;

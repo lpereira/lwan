@@ -20,6 +20,7 @@
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -309,21 +310,30 @@ static bool has_valid_extension(const char *filename)
     return streq(dot, ".lua") || streq(dot, ".lsp") || streq(dot, ".lp");
 }
 
-char *lwan_mod_lua_lsp_to_lua(const char *filename)
+char *lwan_mod_lua_lsp_to_lua(int dir_fd, const char *filename)
 {
     struct lwan_strbuf file;
+    int fd;
 
     if (!has_valid_extension(filename)) {
         lwan_log_error("Path %s has invalid extension", filename);
         return NULL;
     }
 
-    if (!lwan_strbuf_init_from_file(&file, filename)) {
-        lwan_log_error("Could not load LSP from path: %s", filename);
+    fd = openat(dir_fd, filename, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        lwan_log_perror("Could not open %s", filename);
+        return NULL;
+    }
+
+    if (!lwan_strbuf_init_from_fd(&file, fd)) {
+        lwan_log_error("Could not load LSP: %s", filename);
+        close(fd);
         return NULL;
     }
 
     char *lua = compile_string(lwan_strbuf_to_value(&file));
     lwan_strbuf_free(&file);
+    close(fd);
     return lua;
 }
