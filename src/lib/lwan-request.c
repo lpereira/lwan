@@ -270,17 +270,24 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
-/* has_zero64() stolen from the Bit Twiddling Hacks page */
+/* has_zero64() and has_zero32() stolen from the Bit Twiddling Hacks page */
 static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
 {
     return (v - UINT64_C(0x0101010101010101)) & ~v &
            UINT64_C(0x8080808080808080);
 }
 
+static ALWAYS_INLINE uint32_t has_zero32(uint32_t v)
+{
+    return (v - UINT32_C(0x01010101)) & ~v & UINT32_C(0x80808080);
+}
+
 static const char *find_pct_or_plus(const char *str, size_t len)
 {
     const uint64_t mask_plus64 = '+' * UINT64_C(0x0101010101010101);
     const uint64_t mask_pct64 = '%' * UINT64_C(0x0101010101010101);
+    const uint32_t mask_plus32 = '+' * UINT32_C(0x01010101);
+    const uint32_t mask_pct32 = '%' * UINT32_C(0x01010101);
 
     while (len >= 8) {
         const uint64_t v = string_as_uint64(str);
@@ -296,13 +303,38 @@ static const char *find_pct_or_plus(const char *str, size_t len)
         len -= 8;
     }
 
-    for (const char *end = str + len; str < end; str++) {
-        if (*str == '%' || *str == '+') {
-            return str;
+    if (len >= 4) {
+        const uint32_t v = string_as_uint32(str);
+        const uint32_t has_plus = has_zero32(v ^ mask_plus32);
+        const uint32_t has_pct = has_zero32(v ^ mask_pct32);
+        const uint32_t m = has_plus | has_pct;
+
+        if (m) {
+            return str + __builtin_ctz(m) / 8;
         }
+
+        str += 4;
+        len -= 4;
     }
 
-    return NULL;
+    switch (len) {
+    case 3:
+        if (*str == '%' || *str == '+')
+            return str;
+        str++;
+        /* Fallthrough */
+    case 2:
+        if (*str == '%' || *str == '+')
+            return str;
+        str++;
+        /* Fallthrough */
+    case 1:
+        if (*str == '%' || *str == '+')
+            return str;
+        /* Fallthrough */
+    default:
+        return NULL;
+    }
 }
 
 LWAN_ACCESS_PARAM(read_write, 1)
