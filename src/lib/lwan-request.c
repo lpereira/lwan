@@ -493,7 +493,6 @@ static void parse_key_values(struct lwan_request *request,
         if (UNLIKELY(!value)) {
             value = "";
             key_len = ptr ? (size_t)(ptr - key) : (size_t)(end - key);
-            assert(key_len == strlen(key));
             value_len = 0;
         } else {
             key_len = (size_t)(value - key - 1);
@@ -505,6 +504,7 @@ static void parse_key_values(struct lwan_request *request,
             }
         }
 
+        assert(key_len == strlen(key));
         if (UNLIKELY(decode_value(key, key_len) <= 0)) {
             /* Disallow keys that failed decoding, or empty keys */
             goto error;
