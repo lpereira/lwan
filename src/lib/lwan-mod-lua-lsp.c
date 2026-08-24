@@ -183,7 +183,8 @@ static void *lex_lua(struct lexer *lexer)
         }
     } while (next(lexer) != EOF);
 
-    return lex_error(lexer, "unexpected EOF");
+    return lex_error(lexer, "unexpected EOF while looking for `%s'",
+                     lexer->right_meta);
 }
 
 static void *lex_text(struct lexer *lexer)
@@ -205,10 +206,10 @@ static void *lex_text(struct lexer *lexer)
         }
 
         if (lex_streq(lexer, right_meta_question, strlen(right_meta_question))) {
-            return lex_error(lexer, "unexpected script end tag");
+            return lex_error(lexer, "unexpected `%s'", right_meta_question);
         }
         if (lex_streq(lexer, right_meta_percent, strlen(right_meta_percent))) {
-            return lex_error(lexer, "unexpected script end tag");
+            return lex_error(lexer, "unexpected `%s'", right_meta_percent);
         }
     } while (next(lexer) != EOF);
 
