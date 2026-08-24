@@ -247,7 +247,7 @@ Lwan recognizes the following environment variables:
 | `TERM` | If set to `dumb`, also disables color output. |
 | `LANG` | If it doesn't end in `.UTF-8`, or is unset, emoji output in the logger is disabled. |
 | `TMPDIR`, `TMP`, or `TEMP` | Overrides for the temporary directory.  Temporary directories may be used to store the request body for POST requests. |
-| `LISTEN_PID`, `LISTEN_FDS`, and `LISTEN_FDNAMES` | Used to implement psystemd socket activation](https://systemd.io/FILE_DESCRIPTOR_STORE/). |
+| `LISTEN_PID`, `LISTEN_FDS`, and `LISTEN_FDNAMES` | Used to implement [systemd socket activation](https://systemd.io/FILE_DESCRIPTOR_STORE/). |
 
 Other environment variables may be used (e.g. for the configuration file,
 as explained below).
