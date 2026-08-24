@@ -270,17 +270,6 @@ static ALWAYS_INLINE char *identify_http_method(struct lwan_request *request,
     return NULL;
 }
 
-static const char *find_pct_or_plus_fallback(const char *str, size_t len)
-{
-    for (const char *end = str + len; str < end; str++) {
-        if (*str == '%' || *str == '+') {
-            return str;
-        }
-    }
-    return NULL;
-}
-
-#if BYTE_ORDER == LITTLE_ENDIAN
 /* has_zero64() stolen from the Bit Twiddling Hacks page */
 static ALWAYS_INLINE uint64_t has_zero64(uint64_t v)
 {
@@ -307,14 +296,14 @@ static const char *find_pct_or_plus(const char *str, size_t len)
         len -= 8;
     }
 
-    return find_pct_or_plus_fallback(str, len);
+    for (const char *end = str + len; str < end; str++) {
+        if (*str == '%' || *str == '+') {
+            return str;
+        }
+    }
+
+    return NULL;
 }
-#else
-static const char *find_pct_or_plus(const char *str, size_t len)
-{
-    return find_pct_or_plus_fallback(str, len);
-}
-#endif
 
 LWAN_ACCESS_PARAM(read_write, 1)
 __attribute__((nonnull(1))) static ssize_t url_decode_full(
