@@ -199,7 +199,8 @@ LWAN_LUA_METHOD(host)
 LWAN_LUA_METHOD(query_string)
 {
     if (request->helper->query_string.len) {
-        lua_pushlstring(L, request->helper->query_string.value, request->helper->query_string.len);
+        lua_pushlstring(L, request->helper->query_string.value,
+                        request->helper->query_string.len);
     } else {
         lua_pushlstring(L, "", 0);
     }
@@ -224,7 +225,8 @@ LWAN_LUA_METHOD(cookie)
 LWAN_LUA_METHOD(body)
 {
     if (request->helper->body_data.len) {
-        lua_pushlstring(L, request->helper->body_data.value, request->helper->body_data.len);
+        lua_pushlstring(L, request->helper->body_data.value,
+                        request->helper->body_data.len);
     } else {
         lua_pushlstring(L, "", 0);
     }
