@@ -236,6 +236,22 @@ mess with them.
 > static file serving without any configuration file.  Run it with `--help`
 > for help on that.
 
+Environment Variables
+---------------------
+
+Lwan recognizes the following environment variables:
+
+| Variable | Meaning |
+|----------|---------|
+| `NO_COLOR` | If set, disables color output when logging. Conforms to [no-color.org](https://no-color.org). |
+| `TERM` | If set to `dumb`, also disables color output. |
+| `LANG` | If it doesn't end in `.UTF-8`, or is unset, emoji output in the logger is disabled. |
+| `TMPDIR`, `TMP`, or `TEMP` | Overrides for the temporary directory.  Temporary directories may be used to store the request body for POST requests. |
+| `LISTEN_PID`, `LISTEN_FDS`, and `LISTEN_FDNAMES` | Used to implement psystemd socket activation](https://systemd.io/FILE_DESCRIPTOR_STORE/). |
+
+Other environment variables may be used (e.g. for the configuration file,
+as explained below).
+
 Configuration File
 ------------------
 
