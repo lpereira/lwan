@@ -47,6 +47,10 @@
 #include "lwan-io-wrappers.h"
 #include "sha1.h"
 
+#if defined(__x86_64__)
+#include <immintrin.h>
+#endif
+
 #define HEADER_VALUE_SEPARATOR_LEN (sizeof(": ") - 1)
 #define HEADER_TERMINATOR_LEN (sizeof("\r\n") - 1)
 #define MIN_REQUEST_SIZE (sizeof("GET / HTTP/1.1\r\n\r\n") - 1)
@@ -288,6 +292,26 @@ static const char *find_pct_or_plus(const char *str, size_t len)
     const uint64_t mask_pct64 = '%' * UINT64_C(0x0101010101010101);
     const uint32_t mask_plus32 = '+' * UINT32_C(0x01010101);
     const uint32_t mask_pct32 = '%' * UINT32_C(0x01010101);
+
+#if defined(__SSE3__)
+    if (len >= 16) {
+        const __m128i mask_plus128 = _mm_set1_epi8('+');
+        const __m128i mask_pct128 = _mm_set1_epi8('%');
+        do {
+            const __m128i v = _mm_lddqu_si128((__m128i const *)str);
+            const __m128i has_plus = _mm_cmpeq_epi8(v, mask_plus128);
+            const __m128i has_pct = _mm_cmpeq_epi8(v, mask_pct128);
+            const int m = _mm_movemask_epi8(_mm_or_si128(has_plus, has_pct));
+
+            if (m) {
+                return str + __builtin_ctz((uint32_t)m);
+            }
+
+            str += 16;
+            len -= 16;
+        } while (len >= 16);
+    }
+#endif
 
     while (len >= 8) {
         const uint64_t v = string_as_uint64(str);
