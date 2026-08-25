@@ -293,8 +293,30 @@ static const char *find_pct_or_plus(const char *str, size_t len)
     const uint32_t mask_plus32 = '+' * UINT32_C(0x01010101);
     const uint32_t mask_pct32 = '%' * UINT32_C(0x01010101);
 
+#if defined(__AVX2__)
+    if (len >= 32) {
+        const __m256i mask_plus256 = _mm256_set1_epi8('+');
+        const __m256i mask_pct256 = _mm256_set1_epi8('%');
+        do {
+            const __m256i v = _mm256_lddqu_si256((__m256i const *)str);
+            const __m256i has_plus = _mm256_cmpeq_epi8(v, mask_plus256);
+            const __m256i has_pct = _mm256_cmpeq_epi8(v, mask_pct256);
+            const int m = _mm256_movemask_epi8(_mm256_or_si256(has_plus, has_pct));
+
+            if (m) {
+                return str + __builtin_ctz((uint32_t)m);
+            }
+
+            str += 32;
+            len -= 32;
+        } while (len >= 32);
+    }
+#endif
+
 #if defined(__SSE3__)
     if (len >= 16) {
+        /* FIXME: if defined(__AVX2__), gather 128 bits from it instead of
+         * broadcasting again */
         const __m128i mask_plus128 = _mm_set1_epi8('+');
         const __m128i mask_pct128 = _mm_set1_epi8('%');
         do {
