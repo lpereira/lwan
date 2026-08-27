@@ -293,6 +293,26 @@ static const char *find_pct_or_plus(const char *str, size_t len)
     const uint32_t mask_plus32 = '+' * UINT32_C(0x01010101);
     const uint32_t mask_pct32 = '%' * UINT32_C(0x01010101);
 
+#if defined(__AVX512F__) && defined(__AVX512BW__)
+    if (len >= 64) {
+        const __m512i mask_plus512 = _mm512_set1_epi8('+');
+        const __m512i mask_pct512 = _mm512_set1_epi8('%');
+        do {
+            const __m512i v = _mm512_loadu_epi8(str);
+            const __mmask64 has_plus = _mm512_cmpeq_epi8_mask(v, mask_plus512);
+            const __mmask64 has_pct = _mm512_cmpeq_epi8_mask(v, mask_pct512);
+            const __mmask64 m = has_plus | has_pct;
+
+            if (m) {
+                return str + __builtin_ctz((uint32_t)m);
+            }
+
+            str += 64;
+            len -= 64;
+        } while (len >= 64);
+    }
+#endif
+
 #if defined(__AVX2__)
     if (len >= 32) {
         const __m256i mask_plus256 = _mm256_set1_epi8('+');
