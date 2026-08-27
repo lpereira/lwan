@@ -299,18 +299,21 @@ static struct bucket *hash_probe_half(const struct hash *ht,
     if (endpos - startpos >= 32) {
         const __m256i mask_tophash = _mm256_set1_epi8((char)tophash);
         do {
+            struct bucket *start_bucket = &ht->buckets[startpos];
             const __m256i v =
                 _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
             uint32_t m = (uint32_t)_mm256_movemask_epi8(
                 _mm256_cmpeq_epi8(v, mask_tophash));
+
             while (m) {
-                const int bit = __builtin_ctz(m);
-                struct bucket *bucket = &ht->buckets[startpos + (uint32_t)bit];
+                struct bucket *bucket = start_bucket[__builtin_ctz(m)];
                 if (LIKELY(ht->key_equal(bucket->key, key))) {
                     return bucket;
                 }
-                m &= ~(1u << bit);
+
+                m &= m - 1;
             }
+
             startpos += 32;
         } while (endpos - startpos >= 32);
     }
@@ -320,18 +323,21 @@ static struct bucket *hash_probe_half(const struct hash *ht,
     if (endpos - startpos >= 16) {
         const __m128i mask_tophash = _mm_set1_epi8((char)tophash);
         do {
+            struct bucket *start_bucket = &ht->buckets[startpos];
             const __m128i v =
                 _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
             uint32_t m =
                 (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
+
             while (m) {
-                const int bit = __builtin_ctz(m);
-                struct bucket *bucket = &ht->buckets[startpos + (uint32_t)bit];
+                struct bucket *bucket = &start_bucket[__builtin_ctz(m)];
                 if (LIKELY(ht->key_equal(bucket->key, key))) {
                     return bucket;
                 }
-                m &= ~(1u << bit);
+
+                m &= m - 1;
             }
+
             startpos += 16;
         } while (endpos - startpos >= 16);
     }
