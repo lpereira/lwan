@@ -304,7 +304,7 @@ static const char *find_pct_or_plus(const char *str, size_t len)
             const __mmask64 m = has_plus | has_pct;
 
             if (m) {
-                return str + __builtin_ctz((uint32_t)m);
+                return str + __builtin_ctzll((uint64_t)m);
             }
 
             str += 64;
