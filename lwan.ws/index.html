@@ -181,7 +181,8 @@ awe-struck.<cite><a href="https://twitter.com/neurodrone/status/3592960802838405
         href="http://freegeoip.lwan.ws">live version</a> has been up for
         years, and serves millions of requests per day, with a RSS of
         roughtly 5MiB.</li>
-        <li>Handlers can be written in <b>C</b> and <b>Lua</b></li>
+        <li>Handlers can be written in <b>C</b> and <b>Lua</b>.</li>
+        <li>Lua Server Pages are also supported.</li>
   </ul></li>
   <li>Supports rebimboca da parafuseta</li>
   <li><b>No-nonsense configuration</b> file syntax</li>
@@ -295,6 +296,19 @@ end
 need to specify them with something akin to an <tt>lwan_url_map_t</tt>
 array. In this case, issuing a <b>GET /hello</b> will be sufficient to run
 this handler.</p>
+
+<p>It also supports Lua Server Pages, which is inspired by languages such as
+PHP, and -- to a point -- compatible with LSPs from CivetWeb.
+The same sample program above could be rewritten as:</p>
+
+<pre><code class="language-clike"><?
+local name = mg.get_var('name')
+if name then ?>
+    Hello, <?= name ?>!
+<? else ?>
+    Hello, World!
+<? end ?>
+</code></pre>
 
 <p>An in-depth view of the C API can be seen <a
 href="https://github.com/lpereira/lwan/wiki/Using-Lwan-as-a-Library">in this
