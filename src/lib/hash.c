@@ -364,7 +364,7 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 {
 #if defined(__AVX2__)
     if (endpos - startpos >= 32) {
-        const __m256i mask_tophash = _mm256_set1_epi8(0);
+        const __m256i mask_tophash = _mm256_setzero_si256();
         do {
             const __m256i v =
                 _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
@@ -380,7 +380,7 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 
 #if defined(__SSE3__)
     if (endpos - startpos >= 16) {
-        const __m128i mask_tophash = _mm_set1_epi8(0);
+        const __m128i mask_tophash = _mm_setzero_si128();
         do {
             const __m128i v =
                 _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
