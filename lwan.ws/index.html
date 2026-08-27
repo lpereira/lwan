@@ -301,13 +301,13 @@ this handler.</p>
 PHP, and -- to a point -- compatible with LSPs from CivetWeb.
 The same sample program above could be rewritten as:</p>
 
-<pre><code class="language-clike"><?
+<pre><code class="language-clike">&lt;?
 local name = mg.get_var('name')
-if name then ?>
-    Hello, <?= name ?>!
-<? else ?>
+if name then ?&gt;
+    Hello, &lt;?= name ?&gt;!
+&lt;? else ?&gt;
     Hello, World!
-<? end ?>
+&lt;? end ?&gt;
 </code></pre>
 
 <p>An in-depth view of the C API can be seen <a
