@@ -31,6 +31,10 @@
 #include "hash.h"
 #include "lwan-private.h"
 
+#if defined(__x86_64__)
+#include <immintrin.h>
+#endif
+
 #define INITIAL_CAP 16
 
 struct bucket {
@@ -285,21 +289,56 @@ void hash_unref(struct hash *ht)
 
 static struct bucket *hash_probe_half(const struct hash *ht,
                                       const void *key,
-                                      const uint32_t startpos,
+                                      uint32_t startpos,
                                       const uint32_t endpos,
                                       const uint8_t tophash)
 {
-    /* FIXME: While using memchr() here is fine (and portable), the
-     * second call to memchr() in the presence of a collision won't
-     * reuse the memory load the first memchr() made (plus all the work
-     * to establish comparison masks and other stuff that might be
-     * necessary for a SIMD implementation).  Rewrite this so this used
-     * SIMD intrinsics directly.  */
-    const uint8_t *slotptr =
-        memchr(ht->tophashes + startpos, tophash, endpos - startpos);
-
     assert(tophash != '\0');
 
+#if defined(__AVX2__)
+    if (endpos - startpos >= 32) {
+        const __m256i mask_tophash = _mm256_set1_epi8((char)tophash);
+        do {
+            const __m256i v =
+                _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
+            uint32_t m = (uint32_t)_mm256_movemask_epi8(
+                _mm256_cmpeq_epi8(v, mask_tophash));
+            while (m) {
+                const int bit = __builtin_ctz(m);
+                struct bucket *bucket = &ht->buckets[startpos + (uint32_t)bit];
+                if (LIKELY(ht->key_equal(bucket->key, key))) {
+                    return bucket;
+                }
+                m &= ~(1u << bit);
+            }
+            startpos += 32;
+        } while (endpos - startpos >= 32);
+    }
+#endif
+
+#if defined(__SSE3__)
+    if (endpos - startpos >= 16) {
+        const __m128i mask_tophash = _mm_set1_epi8((char)tophash);
+        do {
+            const __m128i v =
+                _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+            uint32_t m =
+                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
+            while (m) {
+                const int bit = __builtin_ctz(m);
+                struct bucket *bucket = &ht->buckets[startpos + (uint32_t)bit];
+                if (LIKELY(ht->key_equal(bucket->key, key))) {
+                    return bucket;
+                }
+                m &= ~(1u << bit);
+            }
+            startpos += 16;
+        } while (endpos - startpos >= 16);
+    }
+#endif
+
+    const uint8_t *slotptr =
+        memchr(ht->tophashes + startpos, tophash, endpos - startpos);
     while (slotptr) {
         ptrdiff_t slot = slotptr - ht->tophashes;
         struct bucket *bucket = &ht->buckets[slot];
@@ -314,9 +353,41 @@ static struct bucket *hash_probe_half(const struct hash *ht,
 }
 
 static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
-                                                const uint32_t startpos,
+                                                uint32_t startpos,
                                                 const uint32_t endpos)
 {
+#if defined(__AVX2__)
+    if (endpos - startpos >= 32) {
+        const __m256i mask_tophash = _mm256_set1_epi8(0);
+        do {
+            const __m256i v =
+                _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
+            uint32_t m = (uint32_t)_mm256_movemask_epi8(
+                _mm256_cmpeq_epi8(v, mask_tophash));
+            if (LIKELY(m)) {
+                return &ht->buckets[startpos + (uint32_t)__builtin_ctz(m)];
+            }
+            startpos += 32;
+        } while (endpos - startpos >= 32);
+    }
+#endif
+
+#if defined(__SSE3__)
+    if (endpos - startpos >= 16) {
+        const __m128i mask_tophash = _mm_set1_epi8(0);
+        do {
+            const __m128i v =
+                _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+            uint32_t m =
+                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
+            if (LIKELY(m)) {
+                return &ht->buckets[startpos + (uint32_t)__builtin_ctz(m)];
+            }
+            startpos += 16;
+        } while (endpos - startpos >= 16);
+    }
+#endif
+
     const uint8_t *slotptr =
         memchr(ht->tophashes + startpos, '\0', endpos - startpos);
 
