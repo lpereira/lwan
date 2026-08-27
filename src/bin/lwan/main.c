@@ -151,6 +151,16 @@ print_build_time_configuration(void)
     printf(" hash-fnv1a");
 #endif
 
+#if defined(__AVX512F__) && defined(__AVX512BW__)
+    printf(" AVX-512");
+#endif
+#if defined(__AVX2__)
+    printf(" AVX2");
+#endif
+#if defined(__SSE3__)
+    printf(" SSE3");
+#endif
+
     printf(".\n");
 }
 
