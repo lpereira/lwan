@@ -306,7 +306,7 @@ static struct bucket *hash_probe_half(const struct hash *ht,
                 _mm256_cmpeq_epi8(v, mask_tophash));
 
             while (m) {
-                struct bucket *bucket = start_bucket[__builtin_ctz(m)];
+                struct bucket *bucket = &start_bucket[__builtin_ctz(m)];
                 if (LIKELY(ht->key_equal(bucket->key, key))) {
                     return bucket;
                 }
