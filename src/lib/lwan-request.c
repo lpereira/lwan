@@ -767,6 +767,11 @@ static ALWAYS_INLINE ssize_t find_headers(char **header_start,
     ssize_t n_headers = 0;
     char *next_header;
 
+    /* Ensure that next_request is set to NULL in all error cases,
+     * except when we might have a pipelined request (or maybe some
+     * request body).  */
+    *next_request = NULL;
+
     for (char *next_chr = buffer + 1;;) {
         next_header = memchr(next_chr, '\r', (size_t)(buffer_end - next_chr));
 
