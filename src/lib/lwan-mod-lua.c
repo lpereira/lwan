@@ -118,7 +118,7 @@ static struct cache_entry *state_create(const void *key,
             goto error;
         }
     } else {
-        assert(key == NULL);
+        assert(streq(key, ""));
 
         script = priv->script;
     }
@@ -257,15 +257,10 @@ get_state_for_request(const struct lwan_lua_priv *priv,
                       struct cache *cache,
                       const struct lwan_request *request)
 {
+    const char *key = priv->server_pages ? request->url.value : "";
     struct cache_entry *entry;
 
-    if (priv->server_pages) {
-        entry = cache_coro_get_and_ref_entry(cache, request->conn->coro,
-                                             request->url.value);
-    } else {
-        entry = cache_coro_get_and_ref_entry(cache, request->conn->coro, NULL);
-    }
-
+    entry = cache_coro_get_and_ref_entry(cache, request->conn->coro, key);
     return (struct lwan_lua_state *)entry;
 }
 
