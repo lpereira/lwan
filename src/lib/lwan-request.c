@@ -1833,6 +1833,15 @@ static double elapsed_time_ms(const struct timespec then)
 }
 #endif
 
+static void abort_request(struct lwan_request *request,
+                          enum lwan_http_status status)
+{
+    /* Let process_request_coro() gracefully close the connection. */
+    request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
+    lwan_default_response(request, status);
+    log_request(request, status, 0, 0);
+}
+
 void lwan_process_request(struct lwan *l, struct lwan_request *request)
 {
     enum lwan_http_status status;
@@ -1855,15 +1864,17 @@ void lwan_process_request(struct lwan *l, struct lwan_request *request)
          * information to even log the request because it has not been
          * parsed yet at this stage.  Even if there are other requests waiting
          * in the pipeline, this seems like the safer thing to do.  */
-        request->conn->flags &= ~CONN_IS_KEEP_ALIVE;
-        lwan_default_response(request, status);
-        /* Let process_request_coro() gracefully close the connection. */
-        return;
+        return abort_request(request, status);
     }
 
     status = parse_http_request(request);
-    if (UNLIKELY(status != HTTP_OK))
-        goto log_and_return;
+    if (UNLIKELY(status != HTTP_OK)) {
+        /* If parsing the request fails here, do the same thing as above:
+         * abort the request, as it's the safest thing to do at this point.
+         * Since the connection is gracefully closed, the client can then
+         * try issuing other requests if this particular one failed. */
+        return abort_request(request, status);
+    }
 
 lookup_again:
     url_map = lwan_trie_lookup_prefix(&l->url_map_trie, request->url.value);
@@ -1888,7 +1899,8 @@ lookup_again:
 log_and_return:
     lwan_response(request, status);
 
-    log_request(request, status, time_to_read_request, elapsed_time_ms(request_begin_time));
+    log_request(request, status, time_to_read_request,
+                elapsed_time_ms(request_begin_time));
 }
 
 static inline const char *value_lookup(const struct lwan_key_value_array *array,
