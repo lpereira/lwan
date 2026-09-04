@@ -155,13 +155,14 @@ ssize_t lwan_send_fd(struct lwan_request *request,
                      int flags)
 {
     size_t to_send = count;
+    ssize_t total_sent = 0;
 
     if (request->conn->flags & CONN_CORK)
         flags |= MSG_MORE;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
-        ssize_t written = send(fd, buf, to_send, flags);
-        if (UNLIKELY(written < 0)) {
+        ssize_t sent = send(fd, buf, to_send, flags);
+        if (UNLIKELY(sent < 0)) {
             tries--;
 
             switch (errno) {
@@ -171,11 +172,14 @@ ssize_t lwan_send_fd(struct lwan_request *request,
             default:
                 return -errno;
             }
+        } else if (sent == 0) {
+            return total_sent;
         } else {
-            to_send -= (size_t)written;
+            to_send -= (size_t)sent;
+            total_sent += sent;
             if (!to_send)
-                return (ssize_t)count;
-            buf = (char *)buf + written;
+                return total_sent;
+            buf = (char *)buf + sent;
         }
 
         lwan_request_await_write(request, fd);
@@ -184,10 +188,11 @@ ssize_t lwan_send_fd(struct lwan_request *request,
     return -ETIMEDOUT;
 }
 
-ssize_t
-lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int flags)
+ssize_t lwan_recv_fd(
+    struct lwan_request *request, int fd, void *buf, size_t count, int flags)
 {
     size_t to_recv = count;
+    ssize_t total_read = 0;
 
     for (int tries = MAX_FAILED_TRIES; tries;) {
         ssize_t recvd = recv(fd, buf, to_recv, flags);
@@ -203,10 +208,13 @@ lwan_recv_fd(struct lwan_request *request, int fd, void *buf, size_t count, int 
             default:
                 return -errno;
             }
+        } else if (recvd == 0) {
+            return total_read;
         } else {
             to_recv -= (size_t)recvd;
+            total_read += recvd;
             if (!to_recv)
-                return (ssize_t)count;
+                return total_read;
             buf = (char *)buf + recvd;
         }
 
@@ -340,6 +348,8 @@ static ssize_t try_pread_file(struct lwan_request *request,
             default:
                 return -errno;
             }
+        } else if (r == 0) {
+            return total_read;
         }
 
         total_read += (size_t)r;
@@ -379,7 +389,7 @@ int lwan_sendfile_fd(struct lwan_request *request,
         size_t bytes_read = (size_t)r;
         r = lwan_send_fd(request, out_fd, buffer, bytes_read,
                          bytes_read < sizeof(buffer) ? 0 : MSG_MORE);
-        if (UNLIKELY(r < 0))
+        if (UNLIKELY(r <= 0))
             return (int)r;
 
         count -= bytes_read;
