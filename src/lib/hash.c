@@ -287,6 +287,17 @@ void hash_unref(struct hash *ht)
     }
 }
 
+#if defined(__AVX2__) || defined(__SSE3__)
+static uint32_t has_avx2;
+static uint32_t has_sse3;
+LWAN_CONSTRUCTOR(detect_avx2_or_sse3, 65533)
+{
+    __builtin_cpu_init();
+    has_avx2 = __builtin_cpu_supports("avx2");
+    has_sse3 = has_avx2 || __builtin_cpu_supports("sse3");
+}
+#endif
+
 static struct bucket *hash_probe_half(const struct hash *ht,
                                       const void *key,
                                       uint32_t startpos,
@@ -296,7 +307,7 @@ static struct bucket *hash_probe_half(const struct hash *ht,
     assert(tophash != '\0');
 
 #if defined(__AVX2__)
-    if (endpos - startpos >= 32) {
+    if (has_avx2 && (endpos - startpos >= 32)) {
         const __m256i mask_tophash = _mm256_set1_epi8((char)tophash);
         do {
             struct bucket *start_bucket = &ht->buckets[startpos];
@@ -320,7 +331,7 @@ static struct bucket *hash_probe_half(const struct hash *ht,
 #endif
 
 #if defined(__SSE3__)
-    if (endpos - startpos >= 16) {
+    if (has_sse3 && (endpos - startpos >= 16)) {
         const __m128i mask_tophash = _mm_set1_epi8((char)tophash);
         do {
             struct bucket *start_bucket = &ht->buckets[startpos];
@@ -363,7 +374,7 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
                                                 const uint32_t endpos)
 {
 #if defined(__AVX2__)
-    if (endpos - startpos >= 32) {
+    if (has_avx2 && (endpos - startpos >= 32)) {
         const __m256i mask_tophash = _mm256_setzero_si256();
         do {
             const __m256i v =
@@ -379,7 +390,7 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 #endif
 
 #if defined(__SSE3__)
-    if (endpos - startpos >= 16) {
+    if (has_sse3 && (endpos - startpos >= 16)) {
         const __m128i mask_tophash = _mm_setzero_si128();
         do {
             const __m128i v =
