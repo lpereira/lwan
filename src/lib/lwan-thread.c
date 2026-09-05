@@ -535,7 +535,7 @@ __attribute__((noreturn)) static int process_request_coro(struct coro *coro,
             break;
         }
 
-        if (helper.next_request && *helper.next_request) {
+        if (helper.next_request) {
             conn->flags |= CONN_CORK;
 
             if (!(conn->flags & CONN_EVENTS_WRITE))
