@@ -287,7 +287,7 @@ void hash_unref(struct hash *ht)
     }
 }
 
-#if defined(__AVX2__) || defined(__SSE3__)
+#if defined(__AVX2__)
 static uint32_t has_avx2;
 LWAN_CONSTRUCTOR(detect_avx2, 65533)
 {
