@@ -289,12 +289,10 @@ void hash_unref(struct hash *ht)
 
 #if defined(__AVX2__) || defined(__SSE3__)
 static uint32_t has_avx2;
-static uint32_t has_sse3;
-LWAN_CONSTRUCTOR(detect_avx2_or_sse3, 65533)
+LWAN_CONSTRUCTOR(detect_avx2, 65533)
 {
     __builtin_cpu_init();
     has_avx2 = __builtin_cpu_supports("avx2");
-    has_sse3 = has_avx2 || __builtin_cpu_supports("sse3");
 }
 #endif
 
@@ -330,13 +328,18 @@ static struct bucket *hash_probe_half(const struct hash *ht,
     }
 #endif
 
-#if defined(__SSE3__)
-    if (has_sse3 && (endpos - startpos >= 16)) {
+#if defined(__x86_64__)
+    if (endpos - startpos >= 16) {
         const __m128i mask_tophash = _mm_set1_epi8((char)tophash);
         do {
             struct bucket *start_bucket = &ht->buckets[startpos];
+#if defined(__SSE3__)
             const __m128i v =
                 _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+#else
+            const __m128i v =
+                _mm_loadu_si128((__m128i const *)(ht->tophashes + startpos));
+#endif
             uint32_t m =
                 (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
 
@@ -389,12 +392,17 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
     }
 #endif
 
-#if defined(__SSE3__)
-    if (has_sse3 && (endpos - startpos >= 16)) {
+#if defined(__x86_64__)
+    if (endpos - startpos >= 16) {
         const __m128i mask_tophash = _mm_setzero_si128();
         do {
+#if defined(__SSE3__)
             const __m128i v =
                 _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+#else
+            const __m128i v =
+                _mm_loadu_si128((__m128i const *)(ht->tophashes + startpos));
+#endif
             uint32_t m =
                 (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
             if (LIKELY(m)) {

@@ -157,6 +157,9 @@ print_build_time_configuration(void)
 #if defined(__AVX2__)
     printf(" AVX2");
 #endif
+#if defined(__x86_64__)
+    printf(" SSE2");
+#endif
 #if defined(__SSE3__)
     printf(" SSE3");
 #endif

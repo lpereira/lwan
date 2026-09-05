@@ -286,17 +286,15 @@ static ALWAYS_INLINE uint32_t has_zero32(uint32_t v)
     return (v - UINT32_C(0x01010101)) & ~v & UINT32_C(0x80808080);
 }
 
-#if defined(__AVX512F__) || defined(__AVX2__) || defined(__SSE3__)
+#if defined(__AVX512F__) || defined(__AVX2__)
 static uint32_t has_avx512;
 static uint32_t has_avx2;
-static uint32_t has_sse3;
-LWAN_CONSTRUCTOR(detect_avx512_avx2_sse3, 65535)
+LWAN_CONSTRUCTOR(detect_avx512_avx2, 65535)
 {
     __builtin_cpu_init();
     has_avx512 =
         __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw");
     has_avx2 = has_avx512 || __builtin_cpu_supports("avx2");
-    has_sse3 = has_avx2 || __builtin_cpu_supports("sse3");
 }
 #endif
 
@@ -347,14 +345,18 @@ static const char *find_pct_or_plus(const char *str, size_t len)
     }
 #endif
 
-#if defined(__SSE3__)
-    if (has_sse3 && len >= 16) {
+#if defined(__x86_64__)
+    if (len >= 16) {
         /* FIXME: if defined(__AVX2__), gather 128 bits from it instead of
          * broadcasting again */
         const __m128i mask_plus128 = _mm_set1_epi8('+');
         const __m128i mask_pct128 = _mm_set1_epi8('%');
         do {
+#if defined(__SSE3__)
             const __m128i v = _mm_lddqu_si128((__m128i const *)str);
+#else
+            const __m128i v = _mm_loadu_si128((__m128i const *)str);
+#endif
             const __m128i has_plus = _mm_cmpeq_epi8(v, mask_plus128);
             const __m128i has_pct = _mm_cmpeq_epi8(v, mask_pct128);
             const int m = _mm_movemask_epi8(_mm_or_si128(has_plus, has_pct));
