@@ -191,32 +191,27 @@ static void *lex_open_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '?':
-        backup(lexer); /* < */
-        backup(lexer); /* ? */
-        if (lexer->pos > lexer->start)
-            emit(lexer, LEXEME_VERBATIM);
-
         lexer->left_meta = left_meta_question;
         lexer->right_meta = right_meta_question;
-
-        return lex_lua;
+        goto accept;
 
     case '%':
-        backup(lexer); /* < */
-        backup(lexer); /* % */
-        if (lexer->pos > lexer->start)
-            emit(lexer, LEXEME_VERBATIM);
-
         lexer->left_meta = left_meta_percent;
         lexer->right_meta = right_meta_percent;
-
-        return lex_lua;
+        goto accept;
 
     case EOF:
         backup(lexer);
         break;
     }
     return lex_text;
+
+accept:
+    backup(lexer); /* < */
+    backup(lexer); /* ? or % */
+    if (lexer->pos > lexer->start)
+        emit(lexer, LEXEME_VERBATIM);
+    return lex_lua;
 }
 
 static void *lex_close_tag(struct lexer *lexer)
