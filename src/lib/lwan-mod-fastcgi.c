@@ -240,14 +240,15 @@ static enum lwan_http_status add_script_paths(const struct private_data *pd,
     return HTTP_NOT_FOUND;
 }
 
-static void add_header_to_strbuf(const char *header,
+static bool add_header_to_strbuf(const char *header,
                                  size_t header_len,
                                  const char *value,
                                  size_t value_len,
                                  void *user_data)
 {
     struct lwan_strbuf *strbuf = user_data;
-    return add_param_len(strbuf, header, header_len, value, value_len);
+    add_param_len(strbuf, header, header_len, value, value_len);
+    return true;
 }
 
 static bool fill_addr_and_port(const struct lwan_request *r,

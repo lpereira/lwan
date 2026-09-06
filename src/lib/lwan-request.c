@@ -2292,7 +2292,7 @@ __attribute__((used)) int fuzz_parse_http_request(const uint8_t *data,
 #endif
 
 void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
-                                         void (*cb)(const char *header_name,
+                                         bool (*cb)(const char *header_name,
                                                     size_t header_len,
                                                     const char *value,
                                                     size_t value_len,
@@ -2336,7 +2336,9 @@ void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
             continue;
         }
 
-        cb(header_name, (size_t)header_len + sizeof("HTTP_") - 1, colon + 2,
-           (size_t)value_len, user_data);
+        if (!cb(header_name, (size_t)header_len + sizeof("HTTP_") - 1,
+                colon + 2, (size_t)value_len, user_data)) {
+            break;
+        }
     }
 }

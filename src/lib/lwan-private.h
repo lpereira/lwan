@@ -333,7 +333,7 @@ ssize_t lwan_find_headers(char **header_start, struct lwan_value *buffer,
 sa_family_t lwan_socket_parse_address(char *listener, char **node, char **port);
 
 void lwan_request_foreach_header_for_cgi(struct lwan_request *request,
-                                         void (*cb)(const char *header_name,
+                                         bool (*cb)(const char *header_name,
                                                     size_t header_len,
                                                     const char *value,
                                                     size_t value_len,
