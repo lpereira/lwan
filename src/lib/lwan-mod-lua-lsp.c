@@ -187,37 +187,70 @@ static void *lex_lua(struct lexer *lexer)
                      lexer->right_meta);
 }
 
+static void *lex_open_tag(struct lexer *lexer)
+{
+    switch (next(lexer)) {
+    case '?':
+        backup(lexer); /* < */
+        backup(lexer); /* ? */
+        if (lexer->pos > lexer->start)
+            emit(lexer, LEXEME_VERBATIM);
+
+        lexer->left_meta = left_meta_question;
+        lexer->right_meta = right_meta_question;
+
+        return lex_lua;
+
+    case '%':
+        backup(lexer); /* < */
+        backup(lexer); /* % */
+        if (lexer->pos > lexer->start)
+            emit(lexer, LEXEME_VERBATIM);
+
+        lexer->left_meta = left_meta_percent;
+        lexer->right_meta = right_meta_percent;
+
+        return lex_lua;
+
+    case EOF:
+        backup(lexer);
+        break;
+    }
+    return lex_text;
+}
+
+static void *lex_close_tag(struct lexer *lexer)
+{
+    switch (next(lexer)) {
+    case '>':
+        return lex_error(lexer, "unspected close tag");
+
+    case EOF:
+        backup(lexer);
+        break;
+    }
+    return lex_text;
+}
+
 static void *lex_text(struct lexer *lexer)
 {
-    do {
-        if (lex_streq(lexer, left_meta_question, strlen(left_meta_question))) {
+    while (true) {
+        switch (next(lexer)) {
+        case EOF:
             if (lexer->pos > lexer->start)
                 emit(lexer, LEXEME_VERBATIM);
-            lexer->left_meta = left_meta_question;
-            lexer->right_meta = right_meta_question;
-            return lex_lua;
-        }
-        if (lex_streq(lexer, left_meta_percent, strlen(left_meta_percent))) {
-            if (lexer->pos > lexer->start)
-                emit(lexer, LEXEME_VERBATIM);
-            lexer->left_meta = left_meta_percent;
-            lexer->right_meta = right_meta_percent;
-            return lex_lua;
-        }
 
-        if (lex_streq(lexer, right_meta_question, strlen(right_meta_question))) {
-            return lex_error(lexer, "unexpected `%s'", right_meta_question);
-        }
-        if (lex_streq(lexer, right_meta_percent, strlen(right_meta_percent))) {
-            return lex_error(lexer, "unexpected `%s'", right_meta_percent);
-        }
-    } while (next(lexer) != EOF);
+            emit(lexer, LEXEME_EOF);
+            return NULL;
 
-    if (lexer->pos > lexer->start)
-        emit(lexer, LEXEME_VERBATIM);
+        case '<':
+            return lex_open_tag;
 
-    emit(lexer, LEXEME_EOF);
-    return NULL;
+        case '?':
+        case '%':
+            return lex_close_tag;
+        }
+    }
 }
 
 static struct lexeme *lex_next(struct lexer *lexer)
