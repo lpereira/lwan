@@ -211,7 +211,7 @@ static void *lex_close_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '>':
-        return lex_error(lexer, "unspected close tag");
+        return lex_error(lexer, "unspected close tag: `%s'", lexer->right_meta);
 
     case EOF:
         backup(lexer);
@@ -235,7 +235,11 @@ static void *lex_text(struct lexer *lexer)
             return lex_open_tag;
 
         case '?':
+            lexer->right_meta = right_meta_question;
+            return lex_close_tag;
+
         case '%':
+            lexer->right_meta = right_meta_percent;
             return lex_close_tag;
         }
     }
