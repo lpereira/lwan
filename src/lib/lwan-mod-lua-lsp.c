@@ -55,19 +55,12 @@ DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 2)
 struct lexer {
     void *(*state)(struct lexer *);
     const char *start, *pos, *end;
-    const char *left_meta, *right_meta;
+    const char *right_meta;
     struct lexeme_ring_buffer ring_buffer;
 };
 
-static const char left_meta_question[] = "<?";
 static const char right_meta_question[] = "?>";
-static const char left_meta_percent[] = "<%";
 static const char right_meta_percent[] = "%>";
-
-static_assert(sizeof(left_meta_question) == sizeof(right_meta_question),
-              "right_meta_question and left_meta_question are the same length");
-static_assert(sizeof(left_meta_percent) == sizeof(right_meta_percent),
-              "right_meta_percent and left_meta_percent are the same length");
 
 static void *lex_text(struct lexer *lexer);
 
@@ -158,13 +151,6 @@ static void *lex_lua(struct lexer *lexer)
 {
     enum lexeme_type type = LEXEME_LUA;
 
-    lexer->pos += strlen(lexer->left_meta);
-    ignore(lexer);
-
-    if (lex_streq(lexer, "lua", strlen("lua"))) {
-        lexer->pos += strlen("lua");
-        ignore(lexer);
-    }
     if (next(lexer) == '=') {
         type = LEXEME_PRINT;
         ignore(lexer);
@@ -191,12 +177,10 @@ static void *lex_open_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '?':
-        lexer->left_meta = left_meta_question;
         lexer->right_meta = right_meta_question;
         goto accept;
 
     case '%':
-        lexer->left_meta = left_meta_percent;
         lexer->right_meta = right_meta_percent;
         goto accept;
 
@@ -211,6 +195,15 @@ accept:
     backup(lexer); /* ? or % */
     if (lexer->pos > lexer->start)
         emit(lexer, LEXEME_VERBATIM);
+
+    lexer->pos += strlen("<?");
+    ignore(lexer);
+
+    if (lex_streq(lexer, "lua", strlen("lua"))) {
+        lexer->pos += strlen("lua");
+        ignore(lexer);
+    }
+
     return lex_lua;
 }
 
