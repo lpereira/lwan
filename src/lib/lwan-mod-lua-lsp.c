@@ -64,8 +64,6 @@ static const char right_meta_percent[] = "%>";
 
 static void *lex_text(struct lexer *lexer);
 
-static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
-    __attribute__((format(printf, 2, 0)));
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
 
@@ -80,7 +78,8 @@ static void emit(struct lexer *lexer, enum lexeme_type lexeme_type)
     struct lexeme lexeme = {
         .type = lexeme_type,
         .value = {.value = (char *)lexer->start,
-                  .len = (size_t)(lexer->pos - lexer->start)}};
+                  .len = (size_t)(lexer->pos - lexer->start)},
+    };
     emit_lexeme(lexer, &lexeme);
 }
 
@@ -110,37 +109,21 @@ static void ignore(struct lexer *lexer) { lexer->start = lexer->pos; }
 
 static void backup(struct lexer *lexer) { lexer->pos--; }
 
-static void error_vlexeme(struct lexeme *lexeme, const char *msg, va_list ap)
-{
-    char *formatted;
-    size_t formatted_len;
-    int r;
-
-    *lexeme = (struct lexeme){.type = LEXEME_ERROR};
-
-    r = vasprintf(&formatted, msg, ap);
-    if (r < 0) {
-        lexeme->value.value = strdup(strerror(errno));
-        if (!lexeme->value.value)
-            return;
-
-        formatted_len = strlen(lexeme->value.value);
-    } else {
-        formatted_len = (size_t)r;
-    }
-
-    lwan_log_error("Error while parsing LSP: %.*s", (int)formatted_len,
-                   formatted);
-    free(formatted);
-}
-
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
 {
-    struct lexeme lexeme;
+    struct lexeme lexeme = (struct lexeme){.type = LEXEME_ERROR};
+    char *formatted;
     va_list ap;
+    int r;
 
     va_start(ap, msg);
-    error_vlexeme(&lexeme, msg, ap);
+    r = vasprintf(&formatted, msg, ap);
+    if (r < 0) {
+        lwan_log_perror("Error while parsing LSP");
+    } else {
+        lwan_log_error("Error while parsing LSP: %.*s", (int)r, formatted);
+        free(formatted);
+    }
     va_end(ap);
 
     emit_lexeme(lexer, &lexeme);
@@ -322,12 +305,6 @@ static char *compile_string(struct lwan_value file)
             return lwan_strbuf_get_buffer(&output);
 
         default:
-            if (lexeme->value.len) {
-                lwan_log_error("Error while compiling LSP: %.*s",
-                               (int)lexeme->value.len, lexeme->value.value);
-                free((char *)lexeme->value.value);
-            }
-
             lwan_strbuf_free(&output);
             return NULL;
         }
