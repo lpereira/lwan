@@ -150,6 +150,7 @@ static void *lex_error(struct lexer *lexer, const char *msg, ...)
 static void *lex_lua(struct lexer *lexer)
 {
     enum lexeme_type type = LEXEME_LUA;
+    int first_meta_chr = lexer->right_meta[0];
 
     if (next(lexer) == '=') {
         type = LEXEME_PRINT;
@@ -158,7 +159,18 @@ static void *lex_lua(struct lexer *lexer)
         backup(lexer);
     }
 
-    do {
+    while (true) {
+        int chr = next(lexer);
+
+        if (UNLIKELY(chr == EOF)) {
+            return lex_error(lexer, "unexpected EOF while looking for `%s'",
+                             lexer->right_meta);
+        }
+
+        if (chr != first_meta_chr)
+            continue;
+
+        backup(lexer);
         if (lex_streq(lexer, lexer->right_meta, strlen(lexer->right_meta))) {
             emit(lexer, type);
 
@@ -167,10 +179,7 @@ static void *lex_lua(struct lexer *lexer)
 
             return lex_text;
         }
-    } while (next(lexer) != EOF);
-
-    return lex_error(lexer, "unexpected EOF while looking for `%s'",
-                     lexer->right_meta);
+    }
 }
 
 static void *lex_open_tag(struct lexer *lexer)
