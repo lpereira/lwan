@@ -55,14 +55,13 @@ DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 2)
 struct lexer {
     void *(*state)(struct lexer *);
     const char *start, *pos, *end;
-    const char *right_meta;
     struct lexeme_ring_buffer ring_buffer;
+    enum lexeme_type open_tag_type;
+    char first_meta_chr;
 };
 
-static const char right_meta_question[] = "?>";
-static const char right_meta_percent[] = "%>";
-
 static void *lex_text(struct lexer *lexer);
+static void *lex_lua(struct lexer *lexer);
 
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
     __attribute__((format(printf, 2, 3)));
@@ -130,15 +129,25 @@ static void *lex_error(struct lexer *lexer, const char *msg, ...)
     return NULL;
 }
 
+static void *lex_close_tag(struct lexer *lexer)
+{
+    switch (next(lexer)) {
+    case '>':
+        emit(lexer, lexer->open_tag_type);
+        return lex_text;
+
+    default:
+        return lex_lua;
+    }
+}
+
 static void *lex_lua(struct lexer *lexer)
 {
-    enum lexeme_type type = LEXEME_LUA;
-    int first_meta_chr = lexer->right_meta[0];
-
     if (next(lexer) == '=') {
-        type = LEXEME_PRINT;
+        lexer->open_tag_type = LEXEME_PRINT;
         ignore(lexer);
     } else {
+        lexer->open_tag_type = LEXEME_LUA;
         backup(lexer);
     }
 
@@ -146,21 +155,12 @@ static void *lex_lua(struct lexer *lexer)
         int chr = next(lexer);
 
         if (UNLIKELY(chr == EOF)) {
-            return lex_error(lexer, "unexpected EOF while looking for `%s'",
-                             lexer->right_meta);
+            return lex_error(lexer, "unexpected EOF while looking for `%c>'",
+                             lexer->first_meta_chr);
         }
 
-        if (chr != first_meta_chr)
-            continue;
-
-        backup(lexer);
-        if (lex_streq(lexer, lexer->right_meta, strlen(lexer->right_meta))) {
-            emit(lexer, type);
-
-            lexer->pos += strlen(lexer->right_meta);
-            ignore(lexer);
-
-            return lex_text;
+        if (chr == lexer->first_meta_chr) {
+            return lex_close_tag;
         }
     }
 }
@@ -169,11 +169,11 @@ static void *lex_open_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '?':
-        lexer->right_meta = right_meta_question;
+        lexer->first_meta_chr = '?';
         goto accept;
 
     case '%':
-        lexer->right_meta = right_meta_percent;
+        lexer->first_meta_chr = '%';
         goto accept;
 
     case EOF:
@@ -199,11 +199,12 @@ accept:
     return lex_lua;
 }
 
-static void *lex_close_tag(struct lexer *lexer)
+static void *lex_maybe_close_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '>':
-        return lex_error(lexer, "unspected close tag: `%s'", lexer->right_meta);
+        return lex_error(lexer, "unspected close tag: `%c>'",
+                         lexer->first_meta_chr);
 
     case EOF:
         backup(lexer);
@@ -227,12 +228,12 @@ static void *lex_text(struct lexer *lexer)
             return lex_open_tag;
 
         case '?':
-            lexer->right_meta = right_meta_question;
-            return lex_close_tag;
+            lexer->first_meta_chr = '?';
+            return lex_maybe_close_tag;
 
         case '%':
-            lexer->right_meta = right_meta_percent;
-            return lex_close_tag;
+            lexer->first_meta_chr = '%';
+            return lex_maybe_close_tag;
         }
     }
 }
