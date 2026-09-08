@@ -133,7 +133,13 @@ static void *lex_close_tag(struct lexer *lexer)
 {
     switch (next(lexer)) {
     case '>':
+        backup(lexer); /* ? or % */
+        backup(lexer); /* > */
         emit(lexer, lexer->open_tag_type);
+
+        lexer->pos += strlen("?>");
+        ignore(lexer);
+
         return lex_text;
 
     default:
