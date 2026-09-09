@@ -45,7 +45,7 @@ struct bucket {
 struct hash {
     uint8_t *tophashes;
     struct bucket *buckets;
-    uint32_t len, cap;
+    uint32_t len, cap_shift;
 
     uint32_t (*hash)(const void *key);
     bool (*key_equal)(const void *k1, const void *k2);
@@ -220,7 +220,7 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
         goto no_tophashes;
 
     *ht = (struct hash){
-        .cap = INITIAL_CAP,
+        .cap_shift = 32 - __builtin_ctz(INITIAL_CAP),
         .len = 0,
         .refs = 1,
         .buckets = buckets,
@@ -257,6 +257,11 @@ struct hash *hash_lwan_value_new(void (*free_key)(void *key),
 {
     return hash_custom_new(hash_lwan_value, hash_lwan_value_eq, free_key,
                            free_value);
+}
+
+static ALWAYS_INLINE uint32_t hash_cap(const struct hash *ht)
+{
+    return 1u << (32u - ht->cap_shift);
 }
 
 struct hash *hash_ref(struct hash *ht)
@@ -422,99 +427,63 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 static struct bucket *hash_probe_key(const struct hash *ht,
                                      const void *key,
                                      const uint32_t startpos,
-                                     const uint8_t tophash,
-                                     bool deleting)
+                                     const uint8_t tophash)
 {
-    struct bucket *bucket;
-
-    bucket = hash_probe_half(ht, key, startpos, ht->cap, tophash);
-    if (bucket) {
-        return bucket;
-    }
-
-    bucket = hash_probe_half(ht, key, 0, startpos, tophash);
-    if (bucket && !deleting) {
-        /* As items are removed, buckets in the first half may become
-         * empty; in that case, move the contents of the bucket in the
-         * second half to the first half so probes happen more often in
-         * the [startpos..cap] interval.
-         *
-         * This also happens when the table has been resized: no eager
-         * rehashing is performed, so items will either be where they
-         * were before the resize, or were moved to the first available
-         * slot.  This is very likely to leave items in the wrong
-         * position hoping that probing will lazily position them where
-         * they should ultimately land.  */
-        uint8_t *tombstone =
-            memchr(ht->tophashes + startpos, '\0', ht->cap - startpos);
-        if (tombstone) {
-            uint32_t new_slot = (uint32_t)(tombstone - ht->tophashes);
-            uint32_t old_slot = (uint32_t)(bucket - ht->buckets);
-            struct bucket *new_bucket = &ht->buckets[new_slot];
-
-            ht->tophashes[old_slot] = '\0';
-            ht->tophashes[new_slot] = tophash;
-            *new_bucket = *bucket;
-
-            return new_bucket;
-        }
-    }
-
-    return bucket;
+    return hash_probe_half(ht, key, startpos, hash_cap(ht), tophash)
+               ?: hash_probe_half(ht, key, 0, startpos, tophash);
 }
 
 static struct bucket *hash_probe_tombstone(const struct hash *ht,
                                            const uint32_t startpos)
 {
-    return hash_probe_half_tombstone(ht, startpos, ht->cap)
+    return hash_probe_half_tombstone(ht, startpos, hash_cap(ht))
                ?: hash_probe_half_tombstone(ht, 0, startpos);
 }
 
 static struct bucket *
-hash_probe(const struct hash *ht, const void *key, bool deleting)
+hash_probe(const struct hash *ht, const void *key)
 {
     const uint32_t hash = ht->hash(key);
-    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
-    return hash_probe_key(ht, key, startpos, extract_tophash(hash),
-                          deleting);
+    const uint32_t startpos = hash >> ht->cap_shift;
+    return hash_probe_key(ht, key, startpos, extract_tophash(hash));
 }
 
-static int hash_resize(struct hash *ht, const uint32_t newcap)
+static int hash_resize(struct hash *ht, const uint32_t newcap_shift)
 {
+    const uint32_t newcap = 1u << (32u - newcap_shift);
+    const uint32_t oldcap = hash_cap(ht);
     struct bucket *newbuckets;
     uint8_t *newtophashes;
 
-    assert(ht->cap != newcap);
+    assert(ht->cap_shift != newcap_shift);
 
     if (UNLIKELY(ht->len >= newcap)) {
         return -ENOSPC;
     }
 
-    if (ht->cap > newcap) {
-        /* When shrinking the table, we need to move all elements from the
-         * area we're getting rid of to somewhere in the beginning.  We use
-         * a first fit strategy here, in the hope that hash_probe() puts the
-         * item where it actually belongs.  Things are done this way to
-         * avoid re-hashing the table.  */
-        uint8_t *tombstone = memchr(ht->tophashes, '\0', newcap);
+    ht->cap_shift = newcap_shift;
 
-        for (uint32_t old_slot = newcap; old_slot < ht->cap; old_slot++) {
-            if (ht->tophashes[old_slot] == '\0') {
-                continue;
-            }
-            if (UNLIKELY(!tombstone)) {
-                lwan_log_critical(
-                    "Couldn't find tombstone when shrinking hash table");
-                __builtin_unreachable();
-            }
-            uint32_t new_slot = (uint32_t)(tombstone - ht->tophashes);
-            struct bucket *new_bucket = &ht->buckets[new_slot];
-            struct bucket *old_bucket = &ht->buckets[old_slot];
-            *new_bucket = *old_bucket;
-            ht->tophashes[new_slot] = ht->tophashes[old_slot];
-            assert(newcap != new_slot);
-            tombstone = memchr(tombstone + 1, '\0', newcap - new_slot - 1);
+    /* The hash table only has to be rehashed when being shrunk.  This is because
+     * the top bits of the hash are used to determine an item's initial position,
+     * making their position fixed regardless of the size of the table.  However,
+     * when shrinking the table, items beyond the old capacity of the table must
+     * be moved before the cut point. */
+    if (newcap < oldcap) {
+        uint32_t items_to_move = 0;
+#ifndef NDEBUG
+        const uint32_t old_len = ht->len;
+#endif
+        for (uint32_t old_slot = newcap; old_slot < oldcap; old_slot++) {
+            items_to_move += !!ht->tophashes[old_slot];
         }
+        ht->len -= items_to_move;
+        for (uint32_t old_slot = newcap; old_slot < oldcap; old_slot++) {
+            if (ht->tophashes[old_slot]) {
+                const struct bucket *bucket = &ht->buckets[old_slot];
+                hash_add(ht, bucket->key, bucket->value);
+            }
+        }
+        assert(ht->len == old_len);
     }
 
     newtophashes = reallocarray(ht->tophashes, newcap, 1);
@@ -522,8 +491,8 @@ static int hash_resize(struct hash *ht, const uint32_t newcap)
         return -ENOMEM;
     }
     ht->tophashes = newtophashes;
-    if (newcap > ht->cap) {
-        memset(newtophashes + ht->cap, '\0', newcap - ht->cap);
+    if (oldcap < newcap) {
+        memset(newtophashes + oldcap, '\0', newcap - oldcap);
     }
 
     newbuckets = reallocarray(ht->buckets, newcap, sizeof(struct bucket));
@@ -531,7 +500,6 @@ static int hash_resize(struct hash *ht, const uint32_t newcap)
         return -ENOMEM;
     }
     ht->buckets = newbuckets;
-    ht->cap = newcap;
 
     return 0;
 }
@@ -542,11 +510,11 @@ static int hash_add_internal(struct hash *ht,
                              const bool unique)
 {
     const uint32_t hash = ht->hash(key);
-    const uint32_t startpos = (hash >> 8) & (ht->cap - 1);
+    const uint32_t startpos = hash >> ht->cap_shift;
     const uint8_t tophash = extract_tophash(hash);
     struct bucket *bucket;
 
-    bucket = hash_probe_key(ht, key, startpos, tophash, false);
+    bucket = hash_probe_key(ht, key, startpos, tophash);
     if (bucket != NULL) {
         /* Probing found an element in the table with this key already. */
         if (unique) {
@@ -565,14 +533,14 @@ static int hash_add_internal(struct hash *ht,
         }
     } else {
         /* Probing hasn't found an element; look for an empty space. */
-        if (ht->len == ht->cap) {
+        if (ht->len == hash_cap(ht)) {
             /* No space in the current table; try making some more */
-            uint32_t newcap;
-            if (UNLIKELY(__builtin_mul_overflow(ht->cap, 2, &newcap))) {
+            uint32_t newcap_shift = ht->cap_shift - 1;
+            if (UNLIKELY(newcap_shift > ht->cap_shift)) {
                 return -ENOMEM;
             }
 
-            int r = hash_resize(ht, newcap);
+            int r = hash_resize(ht, newcap_shift);
             if (UNLIKELY(r < 0)) {
                 return r;
             }
@@ -605,7 +573,7 @@ int hash_add_unique(struct hash *ht, const void *key, const void *value)
 
 int hash_del(struct hash *ht, const void *key)
 {
-    struct bucket *bucket = hash_probe(ht, key, true);
+    struct bucket *bucket = hash_probe(ht, key);
 
     if (LIKELY(bucket != NULL)) {
         /* Item found! Let's remove it by tombstoning it. */
@@ -616,11 +584,12 @@ int hash_del(struct hash *ht, const void *key)
 
         /* Check if the number of items fall below a quarter of the
          * capacity (rather than half) to avoid reallocation thrashing. */
-        if (ht->cap > INITIAL_CAP && ht->len < ht->cap / 4) {
+        uint32_t cap = hash_cap(ht);
+        if (cap > INITIAL_CAP && ht->len < cap / 4) {
             /* Failure to resize to reduce the table won't leave it
              * in an inconsistent state, so don't propagate the error.
              */
-            hash_resize(ht, ht->cap / 2);
+            hash_resize(ht, ht->cap_shift + 1);
         }
         return 0;
     }
@@ -630,7 +599,7 @@ int hash_del(struct hash *ht, const void *key)
 
 void *hash_find(const struct hash *ht, const void *key)
 {
-    struct bucket *bucket = hash_probe(ht, key, false);
+    struct bucket *bucket = hash_probe(ht, key);
     return LIKELY(bucket != NULL) ? (void *)bucket->value : NULL;
 }
 
@@ -640,7 +609,8 @@ bool hash_iter_next(struct hash_iter *iter,
                     const void **key,
                     const void **value)
 {
-    while (iter->slot < iter->ht->cap) {
+    const uint32_t cap = hash_cap(iter->ht);
+    while (iter->slot < cap) {
         const struct bucket *bucket = &iter->ht->buckets[iter->slot];
         const uint8_t tophash = iter->ht->tophashes[iter->slot];
 
@@ -669,28 +639,28 @@ LWAN_SELF_TEST(hash_table)
 
     assert(ht != NULL);
     assert(ht->len == 0);
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
 
     r = hash_add(ht, strdup("foo"), "bar");
     assert(r == 0);
     assert(ht->len == 1);
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
 
     r = hash_add(ht, strdup("bar"), "baz");
     assert(r == 0);
     assert(ht->len == 2);
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
 
     r = hash_add(ht, strdup("foo"), "foobar");
     assert(r == 0);
     assert(ht->len == 2);
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
 
     char *key_copy = strdup("foo");
     r = hash_add_unique(ht, key_copy, "oops");
     assert(r == -EEXIST);
     assert(ht->len == 2);
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
     free(key_copy);
 
     const void *key, *value;
@@ -719,7 +689,7 @@ LWAN_SELF_TEST(hash_table)
         assert(r == 0);
         assert(ht->len == 2 + i + 1);
     }
-    assert(ht->cap == 2 * INITIAL_CAP);
+    assert(hash_cap(ht) == 2 * INITIAL_CAP);
 
     count = 0;
     HASH_FOREACH (ht, &key, &value) {
@@ -764,7 +734,7 @@ LWAN_SELF_TEST(hash_table)
     }
     assert(count == ht->len);
 
-    assert(ht->cap == INITIAL_CAP);
+    assert(hash_cap(ht) == INITIAL_CAP);
 
     hash_unref(ht);
 }
