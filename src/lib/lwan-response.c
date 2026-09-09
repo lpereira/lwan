@@ -243,9 +243,9 @@ ALWAYS_INLINE bool lwan_header_value_is_valid(const char *value)
          *   ALPHA / DIGIT
          *   / "!" / "#" / "$" / "&" / "+" / "-" / "."
          *   / "^" / "_" / "`" / "|" / "~"
-         * Plus: "*" / "'" / "%" / "/" / "=" / " "
+         * Plus: "*" / "'" / "%" / "/" / "=" / " " / ":" / ","
          */
-        1, 0, 0, 0, 251, 236, 255, 35, 254, 255, 255, 199, 255, 255, 255, 87,
+        1, 0, 0, 0, 251, 252, 255, 39, 254, 255, 255, 199, 255, 255, 255, 87,
         0, 0, 0, 0, 0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,
     };
     return validate_header_string(value, valid_map);
@@ -265,7 +265,7 @@ LWAN_SELF_TEST(header_name_value)
     assert(!lwan_header_name_is_valid("some_header_name1234"));
 
     assert(lwan_header_value_is_valid(""));
-    assert(!lwan_header_value_is_valid(":"));
+    assert(lwan_header_value_is_valid(":"));
     assert(!lwan_header_value_is_valid("\r\n"));
 }
 
