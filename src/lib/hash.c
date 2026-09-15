@@ -437,9 +437,10 @@ static struct bucket *hash_probe_key(const struct hash *ht,
                                      const uint8_t tophash,
                                      bool deleting)
 {
+    const uint32_t cap = hash_cap(ht);
     struct bucket *bucket;
 
-    bucket = hash_probe_half(ht, key, startpos, hash_cap(ht), tophash);
+    bucket = hash_probe_half(ht, key, startpos, cap, tophash);
     if (bucket) {
         return bucket;
     }
@@ -457,10 +458,12 @@ static struct bucket *hash_probe_key(const struct hash *ht,
          * slot.  This is very likely to leave items in the wrong
          * position hoping that probing will lazily position them where
          * they should ultimately land.  */
-        struct bucket *new_bucket = hash_probe_tombstone(ht, startpos);
-        if (new_bucket) {
-            uint32_t new_slot = (uint32_t)(new_bucket - ht->buckets);
+        const uint8_t *slotptr =
+            memchr(ht->tophashes + startpos, '\0', cap - startpos);
+        if (slotptr) {
+            uint32_t new_slot = (uint32_t)(slotptr - ht->tophashes);
             uint32_t old_slot = (uint32_t)(bucket - ht->buckets);
+            struct bucket *new_bucket = &ht->buckets[new_slot];
 
             ht->tophashes[old_slot] = '\0';
             ht->tophashes[new_slot] = tophash;
