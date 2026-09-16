@@ -214,9 +214,11 @@ static void *lex_maybe_close_tag(struct lexer *lexer)
 
     case EOF:
         backup(lexer);
-        break;
+        /* fallthrough */
+
+    default:
+        return lex_text;
     }
-    return lex_text;
 }
 
 static void *lex_text(struct lexer *lexer)
