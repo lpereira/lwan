@@ -839,7 +839,7 @@ static rlim_t setup_open_file_count_limits(struct lwan *l)
             goto out;
         }
 
-        r.rlim_cur = LWAN_MIN(l->config.max_file_descriptors,
+        r.rlim_cur = LWAN_MIN((rlim_t)l->config.max_file_descriptors,
                               r.rlim_cur);
 
         if (setrlimit(RLIMIT_NOFILE, &r) < 0) {

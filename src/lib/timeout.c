@@ -319,7 +319,7 @@ void timeouts_update(struct timeouts *T, abstime_t curtime)
             break; /* break if we didn't wrap around end of wheel */
 
         /* if we're continuing, the next wheel must tick at least once */
-        elapsed = LWAN_MAX(elapsed, (WHEEL_LEN << (wheel * WHEEL_BIT)));
+        elapsed = LWAN_MAX(elapsed, (timeout_t)(WHEEL_LEN << (wheel * WHEEL_BIT)));
     }
 
     T->curtime = curtime;

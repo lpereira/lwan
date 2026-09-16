@@ -248,7 +248,7 @@ static long get_number_of_queries(struct lwan_request *request)
 {
     const char *queries_str = lwan_request_get_query_param(request, "queries");
     return LIKELY(queries_str)
-               ? LWAN_MIN(500, LWAN_MAX(1, parse_long(queries_str, -1)))
+               ? LWAN_MIN(500, LWAN_MAX(1, parse_int(queries_str, -1)))
                : 1;
 }
 

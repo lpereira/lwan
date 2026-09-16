@@ -143,6 +143,8 @@ struct lwan_thread {
     ({                                                                         \
         const __typeof__((a_) + 0) name_a_ = (a_);                             \
         const __typeof__((b_) + 0) name_b_ = (b_);                             \
+        static_assert(sizeof(name_a_) == sizeof(name_b_),                      \
+                      "min/max with same-sized types");                        \
         name_a_ op_ name_b_ ? name_b_ : name_a_;                               \
     })
 
