@@ -54,7 +54,9 @@ DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 2)
 
 struct lexer {
     void *(*state)(struct lexer *);
-    const char *start, *pos, *end;
+    const char *begin, *end; /* input begin/end */
+    const char *start, *pos; /* lexeme start/pos */
+    const char *filename;
     struct lexeme_ring_buffer ring_buffer;
     enum lexeme_type open_tag_type;
     char first_meta_chr;
@@ -108,19 +110,43 @@ static void ignore(struct lexer *lexer) { lexer->start = lexer->pos; }
 
 static void backup(struct lexer *lexer) { lexer->pos--; }
 
+static void lex_coords(const struct lexer *lexer, int *line, int *column) {
+    *line = 1;
+    *column = 1;
+
+    for (const char *p = lexer->begin; p < lexer->pos; p++) {
+        switch (*p) {
+        case '\n':
+            *column = 1;
+            *line = *line + 1;
+            break;
+        case '\r':
+            *column = 1;
+            break;
+        default:
+            *column = *column + 1;
+        }
+    }
+}
+
 static void *lex_error(struct lexer *lexer, const char *msg, ...)
 {
     struct lexeme lexeme = (struct lexeme){.type = LEXEME_ERROR};
     char *formatted;
     va_list ap;
+    int line, column;
     int r;
+
+    lex_coords(lexer, &line, &column);
 
     va_start(ap, msg);
     r = vasprintf(&formatted, msg, ap);
     if (r < 0) {
-        lwan_log_perror("Error while parsing LSP");
+        lwan_log_perror("Error while parsing LSP %s:%d,%d", lexer->filename,
+                        line, column);
     } else {
-        lwan_log_error("Error while parsing LSP: %.*s", (int)r, formatted);
+        lwan_log_error("Error while parsing LSP %s:%d,%d: %.*s",
+                       lexer->filename, line, column, (int)r, formatted);
         free(formatted);
     }
     va_end(ap);
@@ -268,20 +294,22 @@ static struct lexeme *lex_next(struct lexer *lexer)
     return lexeme_ring_buffer_get_ptr_or_null(&lexer->ring_buffer);
 }
 
-static void lex_init(struct lexer *lexer, struct lwan_value input)
+static void
+lex_init(struct lexer *lexer, struct lwan_value input, const char *filename)
 {
+    lexer->filename = filename;
     lexer->state = lex_text;
-    lexer->pos = lexer->start = input.value;
+    lexer->begin = lexer->pos = lexer->start = input.value;
     lexer->end = input.value + input.len;
     lexeme_ring_buffer_init(&lexer->ring_buffer);
 }
 
-static char *compile_string(struct lwan_value file)
+static char *compile_string(struct lwan_value file, const char *filename)
 {
     struct lwan_strbuf output;
     struct lexer lexer;
 
-    lex_init(&lexer, file);
+    lex_init(&lexer, file, filename);
     lwan_strbuf_init_with_size(&output,
                                lsp_header_value.len +
                                lsp_footer_value.len +
@@ -353,7 +381,7 @@ char *lwan_mod_lua_lsp_to_lua(int dir_fd, const char *filename)
         return NULL;
     }
 
-    char *lua = compile_string(lwan_strbuf_to_value(&file));
+    char *lua = compile_string(lwan_strbuf_to_value(&file), filename);
     lwan_strbuf_free(&file);
     close(fd);
     return lua;
