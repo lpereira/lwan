@@ -442,8 +442,12 @@ static struct bucket *hash_maybe_move(const struct hash *ht,
     }
 
     uint32_t old_slot = (uint32_t)(bucket - ht->buckets);
+#if defined(__AVX2__)
+    if (old_slot - startpos < 32) {
+#else
     if (old_slot - startpos < 16) {
-        /* Item is within ~16 slots from startpos, so should be found
+#endif
+        /* Item is within 16-32 slots from startpos, so should be found
          * quickly using SIMD. */
         goto dont_move;
     }
