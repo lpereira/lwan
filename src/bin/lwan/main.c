@@ -27,11 +27,28 @@
 #include "lwan-private.h"
 #include "lwan-mod-serve-files.h"
 
+#if defined(LWAN_HAVE_LUA)
+#include <lauxlib.h>
+#endif
+
 enum args {
     ARGS_FAILED,
     ARGS_USE_CONFIG,
     ARGS_SERVE_FILES
 };
+
+static void print_lua_info(void)
+{
+#if defined(LWAN_HAVE_LUA)
+    const luaL_Reg *methinfo;
+
+    printf("Built-in Lua libraries:");
+    LWAN_SECTION_FOREACH(lwan_lua_lib, methinfo) {
+        printf(" Lwan.%s", methinfo->name);
+    }
+    printf("\n");
+#endif
+}
 
 static void print_module_info(void)
 {
@@ -238,6 +255,7 @@ static void print_version(void)
     print_build_time_configuration();
     print_module_info();
     print_handler_info();
+    print_lua_info();
 }
 
 static enum args

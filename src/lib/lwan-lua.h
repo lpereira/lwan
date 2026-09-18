@@ -40,9 +40,12 @@ struct lwan_request;
         lua_setfield(L, -2, #lib_);                                            \
         return 0;                                                              \
     }                                                                          \
-    static const luaL_Reg                                                      \
-        __attribute__((used, section(LWAN_SECTION_NAME(lwan_lua_lib))))        \
-        lwan_luaopen_##lib_##func = {.func = lwan_luaopen_##lib_};
+    static const luaL_Reg __attribute__((                                      \
+        used, section(LWAN_SECTION_NAME(                                       \
+                  lwan_lua_lib)))) lwan_luaopen_##lib_##func = {               \
+        .func = lwan_luaopen_##lib_,                                           \
+        .name = #lib_,                                                         \
+    };
 
 #define LWAN_LUA_LIB_FUNCTION(lib_, function_)                                 \
     static_assert(sizeof(#lib_) > 1, "Library name isn't empty");              \
