@@ -1654,9 +1654,9 @@ void lwan_thread_init(struct lwan *l)
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
-        lwan_log_debug("%d CPUs of %d are online. "
-                          "Reading topology to pre-schedule clients",
-                          l->online_cpus, l->available_cpus);
+        lwan_log_debug("Setting up for %d threads. %d CPUs of %d are online. "
+                       "Reading topology to pre-schedule clients",
+                       l->thread.count, l->online_cpus, l->available_cpus);
         /*
          * Pre-schedule each file descriptor, to reduce some operations in the
          * fast path.
@@ -1666,7 +1666,7 @@ void lwan_thread_init(struct lwan *l)
          * use the CPU topology to group two connections per cache line in such
          * a way that false sharing is avoided.
          */
-        schedtbl = calloc(l->thread.count, sizeof(uint32_t));
+        schedtbl = calloc(LWAN_MAX(l->thread.count, l->online_cpus), sizeof(uint32_t));
         bool adjust_affinity = topology_to_schedtbl(l, schedtbl, l->thread.count);
 
         for (unsigned int i = 0; i < total_conns; i++) {
