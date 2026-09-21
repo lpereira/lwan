@@ -1635,7 +1635,7 @@ void lwan_thread_init(struct lwan *l)
     const bool tls_initialized = false;
 #endif
 
-    lwan_log_debug("Initializing threads");
+    lwan_log_debug("Initializing %d I/O threads", l->thread.count);
 
     l->thread.threads =
         calloc((size_t)l->thread.count, sizeof(struct lwan_thread));
@@ -1654,9 +1654,9 @@ void lwan_thread_init(struct lwan *l)
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
-        lwan_log_debug("Setting up for %d threads. %d CPUs of %d are online. "
+        lwan_log_debug("%d CPUs of %d are online. "
                        "Reading topology to pre-schedule clients",
-                       l->thread.count, l->online_cpus, l->available_cpus);
+                       l->online_cpus, l->available_cpus);
         /*
          * Pre-schedule each file descriptor, to reduce some operations in the
          * fast path.
