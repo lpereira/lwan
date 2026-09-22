@@ -220,20 +220,21 @@ install(
 
 install(FILES
 	hash.h
+	list.h
+	lwan-arena.h
 	lwan-array.h
 	lwan-config.h
 	lwan-coro.h
 	lwan.h
 	lwan-http-status.h
-	lwan-mod-serve-files.h
-	lwan-mod-rewrite.h
-	lwan-mod-response.h
-	lwan-mod-redirect.h
-	lwan-mod-lua.h
 	lwan-log.h
+	lwan-mod-lua.h
+	lwan-mod-redirect.h
+	lwan-mod-response.h
+	lwan-mod-rewrite.h
+	lwan-mod-serve-files.h
+	lwan-strbuf.h
 	lwan-template.h
 	lwan-trie.h
-	lwan-strbuf.h
 	timeout.h
-	list.h
   DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/lwan")
