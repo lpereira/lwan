@@ -384,29 +384,20 @@ can be decided automatically, so some configuration options are provided.
 
 ### Straitjacket
 
-Lwan can drop its privileges to a user in the system, and limit its
-filesystem view with a chroot.  While not bulletproof, this provides a
+In addition to dropping its privileges to a user in the system, Lwan uses
+[Landlock](https://docs.kernel.org/userspace-api/landlock.html) on Linux to
+reduce its ability to access files outside the configured paths and forbid
+Lwan from spawning processes.  While not bulletproof, this provides a
 first layer of security in the case there's a bug in Lwan.
 
-In order to use this feature, declare a `straitjacket` (or `straightjacket`)
-section, and set some options.  This requires Lwan to be executed as `root`.
-
-Although this section can be written anywhere in the file (as long as
-it is a top level declaration), if any directories are open, due to
-e.g.  instantiating the `serve_files` module, Lwan will refuse to
-start.  (This check is only performed on Linux as a safeguard for
-malconfiguration.)
-
-> [!TIP]
->
->  Declare a Straitjacket right before a `site` section
-> in such a way that configuration files and private data (e.g. TLS keys)
-> are out of reach of the server after initialization has taken place.
+This feature is always enabled, and there's no way to disable it.  It's possible
+to set it up somewhat, by declaring a `straitjacket` (or `straightjacket`)
+section.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `user` | `str`  | `NULL` | Drop privileges to this user name |
-| `chroot` | `str` | `NULL` | Path to `chroot()` |
+| `chroot` | `str` | `NULL` | Path to `chroot()`, available on non-Linux systems as a fallback |
 | `drop_capabilities` | `bool` | `true` | Drop all capabilities with capset(2) (under Linux), or pledge(2) (under OpenBSD). |
 
 ### Headers
