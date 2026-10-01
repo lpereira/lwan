@@ -42,7 +42,7 @@ bool lwan_trie_init(struct lwan_trie *trie, void (*free_node)(void *data))
         return false;
     trie->root = NULL;
     trie->free_node = free_node ? free_node : free_node_noop;
-    arena_init0(&trie->arena);
+    arena_init(&trie->arena);
     return true;
 }
 

@@ -43,13 +43,6 @@ void arena_init(struct arena *a)
     ptr_array_init(&a->ptrs);
     a->bump_ptr_alloc.ptr = NULL;
     a->bump_ptr_alloc.remaining = 0;
-    a->zero_initialize = 0;
-}
-
-void arena_init0(struct arena *a)
-{
-    arena_init(a);
-    a->zero_initialize = 1;
 }
 
 void arena_reset(struct arena *a)
@@ -70,7 +63,7 @@ void *arena_alloc(struct arena *a, const size_t sz)
 
     if (a->bump_ptr_alloc.remaining < aligned_sz) {
         const size_t alloc_sz = LWAN_MAX((size_t)PAGE_SIZE, aligned_sz);
-        void *ptr = a->zero_initialize ? calloc(alloc_sz, 1) : malloc(alloc_sz);
+        void *ptr = calloc(alloc_sz, 1);
 
         if (UNLIKELY(!ptr))
             return NULL;
