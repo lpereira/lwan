@@ -428,10 +428,13 @@ static bool parse_number(const char *ptr, double *number)
     errno = 0;
     *number = strtod(ptr, &endptr);
 
-    if (errno != 0)
+    if (errno == ERANGE)
         return false;
 
     if (*endptr != '\0')
+        return false;
+
+    if (endptr == ptr)
         return false;
 
     return true;
