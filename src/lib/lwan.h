@@ -150,7 +150,7 @@ static ALWAYS_INLINE uint64_t string_as_uint64(const char *s)
 #define LIKELY(x) LIKELY_IS(!!(x), 1)
 #define UNLIKELY(x) LIKELY_IS((x), 0)
 
-#define ATOMIC_READ(V) (*(volatile typeof(V) *)&(V))
+#define ATOMIC_READ(V) __atomic_load_n(&(V), __ATOMIC_RELAXED)
 #define ATOMIC_OP(P, O, V) (__sync_##O##_and_fetch((P), (V)))
 #define ATOMIC_AAF(P, V) ATOMIC_OP((P), add, (V))
 #define ATOMIC_SAF(P, V) ATOMIC_OP((P), sub, (V))

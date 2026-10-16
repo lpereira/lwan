@@ -34,10 +34,9 @@
 
 enum {
     /* Entry flags */
-    FLOATING = 1 << 0,
-    TEMPORARY = 1 << 1,
-    FREE_KEY_ON_DESTROY = 1 << 2,
-    EXISTING_ITEM = 1 << 3,
+    TEMPORARY = 1 << 0, /* Note: refcount is ignored on TEMPORARY entries */
+    FREE_KEY_ON_DESTROY = 1 << 1,
+    EXISTING_ITEM = 1 << 2,
 
     /* Cache flags */
     SHUTTING_DOWN = 1 << 0,
@@ -215,7 +214,7 @@ void cache_destroy(struct cache *cache)
 
 bool cache_entry_is_new(const struct cache_entry *entry)
 {
-    return !(entry->flags & EXISTING_ITEM);
+    return !(ATOMIC_READ(entry->flags) & EXISTING_ITEM);
 }
 
 struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
@@ -238,7 +237,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     if (cache->flags & READ_ONLY) {
         entry = hash_find(cache->hash.table, key);
         if (LIKELY(entry)) {
-            entry->flags |= EXISTING_ITEM;
+            ATOMIC_OP(&entry->flags, or, EXISTING_ITEM);
 #ifndef NDEBUG
             ATOMIC_INC(cache->stats.hits);
         } else {
@@ -258,7 +257,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     entry = hash_find(cache->hash.table, key);
     if (LIKELY(entry)) {
         ATOMIC_INC(entry->refs);
-        entry->flags |= EXISTING_ITEM;
+        ATOMIC_OP(&entry->flags, or, EXISTING_ITEM);
         pthread_rwlock_unlock(&cache->hash.lock);
 #ifndef NDEBUG
         ATOMIC_INC(cache->stats.hits);
@@ -288,7 +287,13 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
         return NULL;
     }
 
-    *entry = (struct cache_entry) { .key =  key_copy, .refs = 1 };
+    *entry = (struct cache_entry) {
+        .key = key_copy,
+
+        /* Keep one reference for the cache, and one reference to whoever
+         * asked for this particular entry. */
+        .refs = 2,
+    };
 
     if (pthread_rwlock_trywrlock(&cache->hash.lock) != 0) {
         /* Couldn't obtain hash write lock: instead of waiting, just return
@@ -325,9 +330,7 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
         /* Either there's another item with the same key (-EEXIST), or
          * there was an error inside the hash table. In either case,
          * just return a TEMPORARY entry so that it is destroyed the first
-         * time someone unrefs this entry. TEMPORARY entries are pretty much
-         * like FLOATING entries, but unreffing them do not use atomic
-         * operations. */
+         * time someone unrefs this entry.  */
         entry->flags = TEMPORARY | FREE_KEY_ON_DESTROY;
     }
 
@@ -353,23 +356,24 @@ void cache_entry_unref(struct cache *cache, struct cache_entry *entry)
      * calling the destroy_entry callback function will dereference
      * deallocated memory. */
 
-    if (entry->flags & TEMPORARY) {
-        /* FREE_KEY_ON_DESTROY is set on elements that never got into the
-         * hash table, so their keys are never destroyed automatically. */
-        if (entry->flags & FREE_KEY_ON_DESTROY)
+    if (ATOMIC_READ(entry->flags) & TEMPORARY) {
+        /* TEMPORARY entries are entries that never got into the hash table
+         * or the timeout queue, so it'll never be picked up by the pruner
+         * job.  Their refcount do not matter. */
+
+        if (ATOMIC_READ(entry->flags) & FREE_KEY_ON_DESTROY) {
+            /* FREE_KEY_ON_DESTROY is set on elements that never got into the
+             * hash table, so their keys are never destroyed automatically. */
             cache->key.free(entry->key);
+        }
 
         return cache->cb.destroy_entry(entry, cache->cb.context);
     }
 
-    if (ATOMIC_DEC(entry->refs))
-        return;
-
-    /* FLOATING entries without references won't be picked up by the pruner
-     * job, so destroy them right here. */
-    if (entry->flags & FLOATING) {
-        assert(!(entry->flags & FREE_KEY_ON_DESTROY));
-        return cache->cb.destroy_entry(entry, cache->cb.context);
+    if (!ATOMIC_DEC(entry->refs)) {
+        /* A zero refcount means both the cache and all users have released
+         * it.  Never access the entry after dropping a non-final reference. */
+        cache->cb.destroy_entry(entry, cache->cb.context);
     }
 }
 
@@ -431,19 +435,11 @@ static bool cache_pruner_job(void *data)
         if (UNLIKELY(pthread_rwlock_unlock(&cache->hash.lock)))
             lwan_log_perror("pthread_rwlock_unlock");
 
-        if (ATOMIC_INC(node->refs) == 1) {
-            /* If the refcount was 0, and turned 1 after the increment, it means the item can
-             * be destroyed here. */
+        if (!ATOMIC_DEC(node->refs)) {
+            /* Drop the cache-owned reference after removing the entry from
+             * the hash table.  The last user, or this thread, destroys the
+             * entry.  */
             cache->cb.destroy_entry(node, cache->cb.context);
-        } else {
-            /* If not, some other thread had references to this object. */
-            ATOMIC_OP(&node->flags, or, FLOATING);
-            /* If in the time between the ref check above and setting the floating flag the
-             * thread holding the reference drops it, if our reference is 0 after dropping it,
-             * the pruner thread was the last thread holding the reference to this entry, so
-             * it's safe to destroy it at this point. */
-            if (!ATOMIC_DEC(node->refs))
-                cache->cb.destroy_entry(node, cache->cb.context);
         }
 
         evicted++;
