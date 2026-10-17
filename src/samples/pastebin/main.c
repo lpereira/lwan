@@ -36,6 +36,7 @@ static struct cache *pastes;
 struct paste {
     struct cache_entry entry;
     size_t len;
+    int32_t new;
     char value[];
 };
 
@@ -55,6 +56,7 @@ static struct cache_entry *create_paste(const void *key __attribute__((unused)),
     struct paste *paste = malloc(alloc_size);
     if (paste) {
         paste->len = body->len;
+        paste->new = 1;
         memcpy(paste->value, body->value, body->len);
     }
 
@@ -86,8 +88,9 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             pastes, request->conn->coro, key, (void *)body);
 
         if (paste) {
-            if (!cache_entry_is_new(paste))
-                continue;
+            struct paste *p = (struct paste *)paste;
+            if (!ATOMIC_READ(p->new))
+               continue;
 
             const char *host_hdr = lwan_request_get_host(request);
 
@@ -97,6 +100,8 @@ static enum lwan_http_status post_paste(struct lwan_request *request,
             response->mime_type = "text/plain";
             lwan_strbuf_printf(response->buffer, "https://%s/p/%zu\n\n",
                                host_hdr, (uint64_t)(uintptr_t)key);
+
+            ATOMIC_DEC(p->new);
 
             return HTTP_OK;
         }

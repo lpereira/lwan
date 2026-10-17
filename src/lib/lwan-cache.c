@@ -36,7 +36,6 @@ enum {
     /* Entry flags */
     TEMPORARY = 1 << 0, /* Note: refcount is ignored on TEMPORARY entries */
     FREE_KEY_ON_DESTROY = 1 << 1,
-    EXISTING_ITEM = 1 << 2,
 
     /* Cache flags */
     SHUTTING_DOWN = 1 << 0,
@@ -212,11 +211,6 @@ void cache_destroy(struct cache *cache)
     free(cache);
 }
 
-bool cache_entry_is_new(const struct cache_entry *entry)
-{
-    return !(ATOMIC_READ(entry->flags) & EXISTING_ITEM);
-}
-
 struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
                                             const void *key, void *create_ctx,
                                             int *error)
@@ -237,7 +231,6 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     if (cache->flags & READ_ONLY) {
         entry = hash_find(cache->hash.table, key);
         if (LIKELY(entry)) {
-            ATOMIC_OP(&entry->flags, or, EXISTING_ITEM);
 #ifndef NDEBUG
             ATOMIC_INC(cache->stats.hits);
         } else {
@@ -257,7 +250,6 @@ struct cache_entry *cache_get_and_ref_entry_with_ctx(struct cache *cache,
     entry = hash_find(cache->hash.table, key);
     if (LIKELY(entry)) {
         ATOMIC_INC(entry->refs);
-        ATOMIC_OP(&entry->flags, or, EXISTING_ITEM);
         pthread_rwlock_unlock(&cache->hash.lock);
 #ifndef NDEBUG
         ATOMIC_INC(cache->stats.hits);
