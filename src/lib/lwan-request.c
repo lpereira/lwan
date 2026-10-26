@@ -99,6 +99,9 @@ parse_ascii_port(char *port, unsigned short *out)
     if (UNLIKELY(*end_ptr != '\0'))
         return false;
 
+    if (UNLIKELY(port == end_ptr))
+        return false;
+
     if (UNLIKELY((unsigned long)(unsigned short)parsed != parsed))
         return false;
 
