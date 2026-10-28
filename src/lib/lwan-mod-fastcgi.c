@@ -825,7 +825,10 @@ fastcgi_handle_request(struct lwan_request *request,
         record.len_content = ntohs(record.len_content);
         record.id = ntohs(record.id);
 
-        assert(record.id == 1);
+        if (UNLIKELY(record.id != 1)) {
+            lwan_log_debug("Expected a FastCGI with record ID=1, got %d", record.id);
+            return HTTP_INTERNAL_ERROR;
+        }
 
         switch (record.type) {
         case FASTCGI_TYPE_STDOUT:
