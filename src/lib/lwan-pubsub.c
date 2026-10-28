@@ -254,7 +254,12 @@ bool lwan_pubsub_publish(struct lwan_pubsub_topic *topic,
     if (!value.value)
         return false;
 
-    return lwan_pubsub_publish_value(topic, value);
+    if (!lwan_pubsub_publish_value(topic, value)) {
+        free(value.value);
+        return false;
+    }
+
+    return true;
 }
 
 bool lwan_pubsub_publishf(struct lwan_pubsub_topic *topic,
