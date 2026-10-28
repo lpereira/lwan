@@ -105,12 +105,20 @@ static ALWAYS_INLINE void str_key_free(void *key)
 static ALWAYS_INLINE void *lwan_value_key_copy(const void *key)
 {
     const struct lwan_value *value = key;
-    struct lwan_value *v = malloc(sizeof(*v) + value->len);
+    size_t alloc_size;
+
+    if (UNLIKELY(__builtin_add_overflow(sizeof(struct lwan_value), value->len,
+                                        &alloc_size))) {
+        return NULL;
+    }
+
+    struct lwan_value *v = malloc(alloc_size);
     if (v) {
         v->value = (char *)(v + 1);
         v->len = value->len;
         memcpy(v->value, value->value, v->len);
     }
+
     return v;
 }
 
