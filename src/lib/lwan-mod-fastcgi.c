@@ -366,7 +366,7 @@ static bool discard(struct lwan_request *request, int fd, size_t to_read)
         ssize_t r;
 
         r = lwan_recv_fd(request, fd, buffer, recv_len, MSG_TRUNC);
-        if (UNLIKELY(r < 0))
+        if (UNLIKELY(r <= 0))
             return false;
 
         to_read -= (size_t)r;
@@ -387,7 +387,7 @@ handle_stdout(struct lwan_request *request, const struct record *record, int fd)
     while (to_read) {
         ssize_t r = lwan_recv_fd(request, fd, buffer, to_read, 0);
 
-        if (r < 0)
+        if (UNLIKELY(r <= 0))
             return false;
 
         to_read -= (size_t)r;
@@ -412,7 +412,7 @@ handle_stderr(struct lwan_request *request, const struct record *record, int fd)
     for (char *p = buffer; to_read;) {
         ssize_t r = lwan_recv_fd(request, fd, p, to_read, 0);
 
-        if (r < 0)
+        if (UNLIKELY(r <= 0))
             return false;
 
         p += r;
