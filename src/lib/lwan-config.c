@@ -534,6 +534,8 @@ static void *lex_multiline_string(struct lexer *lexer)
 
             return lex_config;
         }
+        if (UNLIKELY(current_len(lexer) > 1ull<<20))
+           return LEX_ERROR(lexer, "multiline string is too large");
     } while (next(lexer) != '\0');
 
     return LEX_ERROR(lexer, "EOF while scanning multiline string");
