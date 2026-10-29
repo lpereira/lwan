@@ -58,6 +58,11 @@ void arena_reset(struct arena *a)
 
 void *arena_alloc(struct arena *a, const size_t sz)
 {
+    /* Check for overflow before aligned_sz is calculated */
+    if (UNLIKELY(sz > (SIZE_MAX - sizeof(void *) - 1))) {
+        return NULL;
+    }
+
     const size_t aligned_sz =
         (sz + sizeof(void *) - 1ul) & ~(sizeof(void *) - 1ul);
 
