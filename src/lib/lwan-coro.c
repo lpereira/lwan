@@ -479,8 +479,13 @@ void *coro_malloc_full(struct coro *coro,
                        void (*destroy_func)(void *data))
 {
     void *ptr = malloc(size);
-    if (LIKELY(ptr))
-        coro_defer(coro, destroy_func, ptr);
+    if (LIKELY(ptr)) {
+        coro_deferred r = coro_defer(coro, destroy_func, ptr);
+        if (UNLIKELY(r < 0)) {
+            free(ptr);
+            return NULL;
+        }
+    }
 
     return ptr;
 }
