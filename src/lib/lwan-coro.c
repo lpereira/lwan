@@ -400,7 +400,15 @@ static void coro_defer_disarm_internal(struct coro *coro,
 {
     const size_t num_defers = coro_defer_array_len(&coro->defer);
 
-    assert(num_defers != 0 && defer != NULL);
+    if (UNLIKELY(num_defers == 0)) {
+        lwan_log_error("Tried to disarm defer %p, but coro %p has none", defer,
+                       coro);
+        return;
+    }
+    if (UNLIKELY(defer == NULL)) {
+        lwan_log_error("Tried to disarm defer NULL in coro %p", coro);
+        return;
+    }
 
     if (defer == coro_defer_array_get_elem(&coro->defer, num_defers - 1)) {
         /* If we're disarming the last defer we armed, there's no need to waste
@@ -416,7 +424,11 @@ static void coro_defer_disarm_internal(struct coro *coro,
 
 void coro_defer_disarm(struct coro *coro, coro_deferred d)
 {
-    assert(d >= 0);
+    if (UNLIKELY(d < 0 ||
+                 d > (coro_deferred)coro_defer_array_len(&coro->defer))) {
+        lwan_log_error("Tried to disarm invalid defer %zd", d);
+        return;
+    }
 
     return coro_defer_disarm_internal(
         coro, coro_defer_array_get_elem(&coro->defer, (size_t)d));
