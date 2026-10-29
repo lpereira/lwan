@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lwan.h"
 #include "base64.h"
 
 static const unsigned char base64_table[65] =
@@ -149,8 +150,13 @@ base64_decode(const unsigned char *src, size_t len, size_t *out_len)
         if (tmp == 0x80)
             continue;
 
-        if (src[i] == '=')
+        if (src[i] == '=') {
             pad++;
+        } else if (UNLIKELY(pad)) {
+            /* Padding can only appear at the end; if we already
+             * found some, then this is invalid base64. */
+            goto invalid_padding;
+        }
         block[count] = tmp;
         count++;
         if (count == 4) {
@@ -163,11 +169,8 @@ base64_decode(const unsigned char *src, size_t len, size_t *out_len)
                     pos--;
                 else if (pad == 2)
                     pos -= 2;
-                else {
-                    /* Invalid padding */
-                    free(out);
-                    return NULL;
-                }
+                else
+                    goto invalid_padding;
                 break;
             }
         }
@@ -176,4 +179,8 @@ base64_decode(const unsigned char *src, size_t len, size_t *out_len)
 
     *out_len = (size_t)(pos - out);
     return out;
+
+invalid_padding:
+    free(out);
+    return NULL;
 }
