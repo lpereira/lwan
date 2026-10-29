@@ -245,11 +245,12 @@ int lwan_sendfile_fd(struct lwan_request *request,
      * [1] https://www.kernel.org/doc/html/v5.12/networking/tls.html#sending-tls-application-data
      * [2] https://github.com/lpereira/lwan/issues/334
      */
+    if (header_len >= (1ul << 21)) {
+        return -EINVAL;
+    }
     size_t chunk_size = LWAN_MIN(count, (1ul << 21) - header_len);
     size_t to_be_written = count;
     ssize_t r;
-
-    assert(header_len < (1ul << 21));
 
     r = lwan_send_fd(request, out_fd, header, header_len, MSG_MORE);
     if (r < 0)
