@@ -943,10 +943,10 @@ char *lwan_get_real_root_path(const char *root_path)
         return strdup(path);
 
     char *ret;
-    if (asprintf(&ret, "%s/", path))
-        return ret;
+    if (asprintf(&ret, "%s/", path) < 0)
+        return NULL;
 
-    return NULL;
+    return ret;
 }
 
 static void *serve_files_create(const char *prefix, void *args)
