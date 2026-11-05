@@ -43,7 +43,7 @@ struct bucket {
 };
 
 struct hash {
-    uint8_t *tophashes;
+    uint8_t *lowhashes;
     struct bucket *buckets;
     uint32_t len, cap_shift;
 
@@ -72,10 +72,10 @@ LWAN_CONSTRUCTOR(randomize_seed, 65535)
     fnv1a_64_seed = fnv1a_64(entropy, sizeof(entropy));
 }
 
-static ALWAYS_INLINE uint8_t extract_tophash(const uint32_t hash)
+static ALWAYS_INLINE uint8_t extract_lowhash(const uint32_t hash)
 {
-    const uint8_t tophash = hash & 0xff;
-    return (tophash == '\0') ? 0xa5 : tophash;
+    const uint8_t lowhash = hash & 0xff;
+    return (lowhash == '\0') ? 0xa5 : lowhash;
 }
 
 static uint32_t hash_str_fnv1a(const void *key)
@@ -197,7 +197,7 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
 {
     struct hash *ht;
     struct bucket *buckets;
-    uint8_t *tophashes;
+    uint8_t *lowhashes;
 
     if (UNLIKELY(!hash)) {
         lwan_log_error("hash() not provided to hash_custom_new()");
@@ -215,16 +215,16 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
     buckets = calloc(INITIAL_CAP, sizeof(struct bucket));
     if (UNLIKELY(!buckets))
         goto no_buckets;
-    tophashes = calloc(INITIAL_CAP, sizeof(uint8_t));
-    if (UNLIKELY(!tophashes))
-        goto no_tophashes;
+    lowhashes = calloc(INITIAL_CAP, sizeof(uint8_t));
+    if (UNLIKELY(!lowhashes))
+        goto no_lowhashes;
 
     *ht = (struct hash){
         .cap_shift = 32 - __builtin_ctz(INITIAL_CAP),
         .len = 0,
         .refs = 1,
         .buckets = buckets,
-        .tophashes = tophashes,
+        .lowhashes = lowhashes,
         .hash = hash,
         .key_equal = key_equal,
         .free_key = free_key ? free_key : free_key_value_noop,
@@ -232,7 +232,7 @@ struct hash *hash_custom_new(uint32_t (*hash)(const void *key),
     };
     return ht;
 
-no_tophashes:
+no_lowhashes:
     free(buckets);
 no_buckets:
     free(ht);
@@ -286,7 +286,7 @@ void hash_unref(struct hash *ht)
             ht->free_value((void *)value);
         }
 
-        free(ht->tophashes);
+        free(ht->lowhashes);
         free(ht->buckets);
         free(ht);
     }
@@ -305,19 +305,19 @@ static struct bucket *hash_probe_half(const struct hash *ht,
                                       const void *key,
                                       uint32_t startpos,
                                       const uint32_t endpos,
-                                      const uint8_t tophash)
+                                      const uint8_t lowhash)
 {
-    assert(tophash != '\0');
+    assert(lowhash != '\0');
 
 #if defined(__AVX2__)
     if (has_avx2 && (endpos - startpos >= 32)) {
-        const __m256i mask_tophash = _mm256_set1_epi8((char)tophash);
+        const __m256i mask_lowhash = _mm256_set1_epi8((char)lowhash);
         do {
             struct bucket *start_bucket = &ht->buckets[startpos];
             const __m256i v =
-                _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
+                _mm256_lddqu_si256((__m256i const *)(ht->lowhashes + startpos));
             uint32_t m = (uint32_t)_mm256_movemask_epi8(
-                _mm256_cmpeq_epi8(v, mask_tophash));
+                _mm256_cmpeq_epi8(v, mask_lowhash));
 
             while (m) {
                 struct bucket *bucket = &start_bucket[__builtin_ctz(m)];
@@ -335,18 +335,18 @@ static struct bucket *hash_probe_half(const struct hash *ht,
 
 #if defined(__x86_64__)
     if (endpos - startpos >= 16) {
-        const __m128i mask_tophash = _mm_set1_epi8((char)tophash);
+        const __m128i mask_lowhash = _mm_set1_epi8((char)lowhash);
         do {
             struct bucket *start_bucket = &ht->buckets[startpos];
 #if defined(__SSE3__)
             const __m128i v =
-                _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+                _mm_lddqu_si128((__m128i const *)(ht->lowhashes + startpos));
 #else
             const __m128i v =
-                _mm_loadu_si128((__m128i const *)(ht->tophashes + startpos));
+                _mm_loadu_si128((__m128i const *)(ht->lowhashes + startpos));
 #endif
             uint32_t m =
-                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
+                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_lowhash));
 
             while (m) {
                 struct bucket *bucket = &start_bucket[__builtin_ctz(m)];
@@ -363,15 +363,15 @@ static struct bucket *hash_probe_half(const struct hash *ht,
 #endif
 
     const uint8_t *slotptr =
-        memchr(ht->tophashes + startpos, tophash, endpos - startpos);
+        memchr(ht->lowhashes + startpos, lowhash, endpos - startpos);
     while (slotptr) {
-        ptrdiff_t slot = slotptr - ht->tophashes;
+        ptrdiff_t slot = slotptr - ht->lowhashes;
         struct bucket *bucket = &ht->buckets[slot];
         if (LIKELY(ht->key_equal(bucket->key, key))) {
             return bucket;
         }
         assert(endpos != slot);
-        slotptr = memchr(slotptr + 1, tophash, endpos - (size_t)slot - 1);
+        slotptr = memchr(slotptr + 1, lowhash, endpos - (size_t)slot - 1);
     }
 
     return NULL;
@@ -383,12 +383,12 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 {
 #if defined(__AVX2__)
     if (has_avx2 && (endpos - startpos >= 32)) {
-        const __m256i mask_tophash = _mm256_setzero_si256();
+        const __m256i mask_lowhash = _mm256_setzero_si256();
         do {
             const __m256i v =
-                _mm256_lddqu_si256((__m256i const *)(ht->tophashes + startpos));
+                _mm256_lddqu_si256((__m256i const *)(ht->lowhashes + startpos));
             uint32_t m = (uint32_t)_mm256_movemask_epi8(
-                _mm256_cmpeq_epi8(v, mask_tophash));
+                _mm256_cmpeq_epi8(v, mask_lowhash));
             if (LIKELY(m)) {
                 return &ht->buckets[startpos + (uint32_t)__builtin_ctz(m)];
             }
@@ -399,17 +399,17 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 
 #if defined(__x86_64__)
     if (endpos - startpos >= 16) {
-        const __m128i mask_tophash = _mm_setzero_si128();
+        const __m128i mask_lowhash = _mm_setzero_si128();
         do {
 #if defined(__SSE3__)
             const __m128i v =
-                _mm_lddqu_si128((__m128i const *)(ht->tophashes + startpos));
+                _mm_lddqu_si128((__m128i const *)(ht->lowhashes + startpos));
 #else
             const __m128i v =
-                _mm_loadu_si128((__m128i const *)(ht->tophashes + startpos));
+                _mm_loadu_si128((__m128i const *)(ht->lowhashes + startpos));
 #endif
             uint32_t m =
-                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_tophash));
+                (uint32_t)_mm_movemask_epi8(_mm_cmpeq_epi8(v, mask_lowhash));
             if (LIKELY(m)) {
                 return &ht->buckets[startpos + (uint32_t)__builtin_ctz(m)];
             }
@@ -419,9 +419,9 @@ static struct bucket *hash_probe_half_tombstone(const struct hash *ht,
 #endif
 
     const uint8_t *slotptr =
-        memchr(ht->tophashes + startpos, '\0', endpos - startpos);
+        memchr(ht->lowhashes + startpos, '\0', endpos - startpos);
 
-    return LIKELY(slotptr) ? &ht->buckets[slotptr - ht->tophashes] : NULL;
+    return LIKELY(slotptr) ? &ht->buckets[slotptr - ht->lowhashes] : NULL;
 }
 
 static struct bucket *hash_probe_tombstone(const struct hash *ht,
@@ -434,7 +434,7 @@ static struct bucket *hash_probe_tombstone(const struct hash *ht,
 static struct bucket *hash_maybe_move(const struct hash *ht,
                                       struct bucket *bucket,
                                       const uint32_t startpos,
-                                      const uint8_t tophash,
+                                      const uint8_t lowhash,
                                       bool deleting)
 {
     if (deleting) {
@@ -468,8 +468,8 @@ static struct bucket *hash_maybe_move(const struct hash *ht,
     if (new_bucket) {
         uint32_t new_slot = (uint32_t)(new_bucket - ht->buckets);
 
-        ht->tophashes[old_slot] = '\0';
-        ht->tophashes[new_slot] = tophash;
+        ht->lowhashes[old_slot] = '\0';
+        ht->lowhashes[new_slot] = lowhash;
         *new_bucket = *bucket;
 
         return new_bucket;
@@ -482,20 +482,20 @@ dont_move:
 static struct bucket *hash_probe_key(const struct hash *ht,
                                      const void *key,
                                      const uint32_t startpos,
-                                     const uint8_t tophash,
+                                     const uint8_t lowhash,
                                      bool deleting)
 {
     const uint32_t cap = hash_cap(ht);
     struct bucket *bucket;
 
-    bucket = hash_probe_half(ht, key, startpos, cap, tophash);
+    bucket = hash_probe_half(ht, key, startpos, cap, lowhash);
     if (bucket) {
-        return hash_maybe_move(ht, bucket, startpos, tophash, deleting);
+        return hash_maybe_move(ht, bucket, startpos, lowhash, deleting);
     }
 
-    bucket = hash_probe_half(ht, key, 0, startpos, tophash);
+    bucket = hash_probe_half(ht, key, 0, startpos, lowhash);
     if (bucket) {
-        return hash_maybe_move(ht, bucket, startpos, tophash, deleting);
+        return hash_maybe_move(ht, bucket, startpos, lowhash, deleting);
     }
 
     return NULL;
@@ -506,7 +506,7 @@ hash_probe(const struct hash *ht, const void *key, bool deleting)
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = hash >> ht->cap_shift;
-    return hash_probe_key(ht, key, startpos, extract_tophash(hash), deleting);
+    return hash_probe_key(ht, key, startpos, extract_lowhash(hash), deleting);
 }
 
 static int hash_resize(struct hash *ht, const uint32_t newcap_shift)
@@ -514,7 +514,7 @@ static int hash_resize(struct hash *ht, const uint32_t newcap_shift)
     const uint32_t newcap = 1u << (32u - newcap_shift);
     const uint32_t oldcap = hash_cap(ht);
     struct bucket *newbuckets;
-    uint8_t *newtophashes;
+    uint8_t *newlowhashes;
 
     assert(ht->cap_shift != newcap_shift);
 
@@ -535,11 +535,11 @@ static int hash_resize(struct hash *ht, const uint32_t newcap_shift)
         const uint32_t old_len = ht->len;
 #endif
         for (uint32_t old_slot = newcap; old_slot < oldcap; old_slot++) {
-            items_to_move += !!ht->tophashes[old_slot];
+            items_to_move += !!ht->lowhashes[old_slot];
         }
         ht->len -= items_to_move;
         for (uint32_t old_slot = newcap; old_slot < oldcap; old_slot++) {
-            if (ht->tophashes[old_slot]) {
+            if (ht->lowhashes[old_slot]) {
                 const struct bucket *bucket = &ht->buckets[old_slot];
                 hash_add(ht, bucket->key, bucket->value);
             }
@@ -547,13 +547,13 @@ static int hash_resize(struct hash *ht, const uint32_t newcap_shift)
         assert(ht->len == old_len);
     }
 
-    newtophashes = reallocarray(ht->tophashes, newcap, 1);
-    if (UNLIKELY(!newtophashes)) {
+    newlowhashes = reallocarray(ht->lowhashes, newcap, 1);
+    if (UNLIKELY(!newlowhashes)) {
         return -ENOMEM;
     }
-    ht->tophashes = newtophashes;
+    ht->lowhashes = newlowhashes;
     if (oldcap < newcap) {
-        memset(newtophashes + oldcap, '\0', newcap - oldcap);
+        memset(newlowhashes + oldcap, '\0', newcap - oldcap);
     }
 
     newbuckets = reallocarray(ht->buckets, newcap, sizeof(struct bucket));
@@ -572,10 +572,10 @@ static int hash_add_internal(struct hash *ht,
 {
     const uint32_t hash = ht->hash(key);
     const uint32_t startpos = hash >> ht->cap_shift;
-    const uint8_t tophash = extract_tophash(hash);
+    const uint8_t lowhash = extract_lowhash(hash);
     struct bucket *bucket;
 
-    bucket = hash_probe_key(ht, key, startpos, tophash, false);
+    bucket = hash_probe_key(ht, key, startpos, lowhash, false);
     if (bucket != NULL) {
         /* Probing found an element in the table with this key already. */
         if (unique) {
@@ -609,7 +609,7 @@ static int hash_add_internal(struct hash *ht,
 
         bucket = hash_probe_tombstone(ht, startpos);
         if (LIKELY(bucket != NULL)) {
-            ht->tophashes[bucket - ht->buckets] = tophash;
+            ht->lowhashes[bucket - ht->buckets] = lowhash;
             bucket->key = key;
             bucket->value = value;
             ht->len++;
@@ -638,7 +638,7 @@ int hash_del(struct hash *ht, const void *key)
 
     if (LIKELY(bucket != NULL)) {
         /* Item found! Let's remove it by tombstoning it. */
-        ht->tophashes[bucket - ht->buckets] = '\0';
+        ht->lowhashes[bucket - ht->buckets] = '\0';
         ht->free_key((void *)bucket->key);
         ht->free_value((void *)bucket->value);
         ht->len--;
@@ -673,11 +673,11 @@ bool hash_iter_next(struct hash_iter *iter,
     const uint32_t cap = hash_cap(iter->ht);
     while (iter->slot < cap) {
         const struct bucket *bucket = &iter->ht->buckets[iter->slot];
-        const uint8_t tophash = iter->ht->tophashes[iter->slot];
+        const uint8_t lowhash = iter->ht->lowhashes[iter->slot];
 
         iter->slot++;
 
-        if (tophash != '\0') {
+        if (lowhash != '\0') {
             if (key) {
                 *key = bucket->key;
             }
