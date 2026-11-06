@@ -437,18 +437,20 @@ static struct bucket *hash_maybe_move(const struct hash *ht,
                                       const uint8_t lowhash,
                                       bool deleting)
 {
+#if defined(__AVX2__)
+#define REG_WIDTH 32
+#else
+#define REG_WIDTH 16
+#endif
+
     if (deleting) {
         goto dont_move;
     }
 
     uint32_t old_slot = (uint32_t)(bucket - ht->buckets);
-#if defined(__AVX2__)
-    if (old_slot - startpos < 32) {
-#else
-    if (old_slot - startpos < 16) {
-#endif
-        /* Item is within 16-32 slots from startpos, so should be found
-         * quickly using SIMD. */
+    if (old_slot - startpos < REG_WIDTH) {
+        /* Item is within REG_WIDTH slots from startpos, so should be found
+         * quickly using SIMD.  */
         goto dont_move;
     }
 
@@ -464,7 +466,7 @@ static struct bucket *hash_maybe_move(const struct hash *ht,
      * position hoping that probing will lazily position them where
      * they should ultimately land.  */
     struct bucket *new_bucket = hash_probe_half_tombstone(
-        ht, startpos, LWAN_MIN(hash_cap(ht), startpos + 16));
+        ht, startpos, LWAN_MIN(hash_cap(ht), startpos + REG_WIDTH));
     if (new_bucket) {
         uint32_t new_slot = (uint32_t)(new_bucket - ht->buckets);
 
@@ -477,6 +479,7 @@ static struct bucket *hash_maybe_move(const struct hash *ht,
 
 dont_move:
     return bucket;
+#undef REG_WIDTH
 }
 
 static struct bucket *hash_probe_key(const struct hash *ht,
