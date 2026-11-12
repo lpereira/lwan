@@ -60,8 +60,6 @@ typedef uint64_t timeout_t;
     }
 
 struct timeout {
-    int flags;
-
     timeout_t expires;
     /* absolute expiration time */
 
@@ -70,6 +68,8 @@ struct timeout {
 
     struct list_node tqe;
     /* entry member for struct timeout_list lists */
+
+    int flags;
 }; /* struct timeout */
 
 struct timeout *timeout_init(struct timeout *);

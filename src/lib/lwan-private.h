@@ -131,8 +131,8 @@ struct lwan_thread {
     struct timeouts *wheel;
     int listen_fd;
     int tls_listen_fd;
-    unsigned int cpu;
     pthread_t self;
+    unsigned int cpu;
 };
 
 #define LWAN_CONCAT(a_, b_) a_ ## b_
