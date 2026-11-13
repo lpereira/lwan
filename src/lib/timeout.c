@@ -250,10 +250,7 @@ timeouts_sched(struct timeouts *T, struct timeout *to, timeout_t expires)
 
 void timeouts_add(struct timeouts *T, struct timeout *to, timeout_t timeout)
 {
-    if (to->flags & TIMEOUT_ABS)
-        timeouts_sched(T, to, timeout);
-    else
-        timeouts_sched(T, to, T->curtime + timeout);
+    timeouts_sched(T, to, T->curtime + timeout);
 }
 
 void timeouts_update(struct timeouts *T, abstime_t curtime)

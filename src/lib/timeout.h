@@ -52,8 +52,6 @@ typedef uint64_t timeout_t;
  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define TIMEOUT_ABS 0x01 /* treat timeout values as absolute */
-
 #define TIMEOUT_INITIALIZER(flags)                                             \
     {                                                                          \
         (flags)                                                                \
@@ -68,8 +66,6 @@ struct timeout {
 
     struct list_node tqe;
     /* entry member for struct timeout_list lists */
-
-    int flags;
 }; /* struct timeout */
 
 struct timeout *timeout_init(struct timeout *);
