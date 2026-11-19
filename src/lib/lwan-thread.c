@@ -1684,9 +1684,14 @@ void lwan_thread_init(struct lwan *l)
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         assert(sysconf(_SC_LEVEL1_DCACHE_LINESIZE) == 64);
 #endif
-        lwan_log_debug("%d CPUs of %d are online. "
-                       "Reading topology to pre-schedule clients",
-                       l->online_cpus, l->available_cpus);
+        if (l->online_cpus != l->available_cpus) {
+            lwan_log_debug("%d CPUs of %d are online",
+                           l->online_cpus, l->available_cpus);
+        } else {
+            lwan_log_debug("%d CPUs of %d are online. "
+                           "Reading topology to pre-schedule clients",
+                           l->online_cpus, l->available_cpus);
+        }
         /*
          * Pre-schedule each file descriptor, to reduce some operations in the
          * fast path.
