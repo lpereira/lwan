@@ -74,8 +74,8 @@ enum lexeme_type {
 #undef GENERATE_ENUM
 
 struct lexeme {
-    enum lexeme_type type;
     struct lwan_value value;
+    enum lexeme_type type;
 };
 
 DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)

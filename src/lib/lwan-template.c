@@ -124,11 +124,11 @@ struct symtab {
 };
 
 struct lexeme {
-    enum lexeme_type type;
     struct {
         const char *value;
         size_t len;
     } value;
+    enum lexeme_type type;
 };
 
 DEFINE_RING_BUFFER_TYPE(lexeme_ring_buffer, struct lexeme, 4)
