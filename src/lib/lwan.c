@@ -872,14 +872,73 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
+#ifdef __linux__
+static unsigned int get_cgroup_cpu_quota(void)
+{
+    /* For "docker --cpus" */
+    FILE *fp;
+    long quota = 0;
+    long period = 0;
+
+    fp = fopen("/sys/fs/cgroup/cpu.max", "re");
+    if (fp) {
+        char max_str[32];
+        if (fscanf(fp, "%31s %ld", max_str, &period) == 2 && period > 0) {
+            if (max_str[0] != 'm') {
+		/* Not "max" (unlimited) */
+                quota = strtol(max_str, NULL, 10);
+            }
+        }
+        fclose(fp);
+
+        if (quota > 0 && period > 0)
+            return (unsigned int)((quota + period - 1) / period);
+    }
+
+    fp = fopen("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "re");
+    if (fp) {
+        if (fscanf(fp, "%ld", &quota) != 1)
+            quota = -1;
+        fclose(fp);
+    }
+
+    if (quota > 0) {
+        fp = fopen("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "re");
+        if (fp) {
+            if (fscanf(fp, "%ld", &period) != 1)
+                period = -1;
+            fclose(fp);
+        }
+
+        if (period > 0)
+            return (unsigned int)((quota + period - 1) / period);
+    }
+
+    return 0;
+}
+
+static unsigned int get_affinity_cpus(void)
+{
+    /* For taskset or "docker --cpus" */
+    cpu_set_t set;
+    CPU_ZERO(&set);
+
+    if (sched_getaffinity(0, sizeof(set), &set) == 0) {
+        int count = CPU_COUNT(&set);
+        if (count > 0)
+            return (unsigned int)count;
+    }
+    return 0;
+}
+#endif
+
 static void get_number_of_cpus(struct lwan *l)
 {
     long n_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
     long n_available_cpus = sysconf(_SC_NPROCESSORS_CONF);
 
     if (n_online_cpus < 0) {
-        lwan_log_warning(
-            "Could not get number of online CPUs, assuming 1 CPU");
+        lwan_log_warning("Could not get number of online CPUs, assuming 1 CPU");
         n_online_cpus = 1;
     }
 
@@ -892,6 +951,23 @@ static void get_number_of_cpus(struct lwan *l)
 
     l->online_cpus = (unsigned int)n_online_cpus;
     l->available_cpus = (unsigned int)n_available_cpus;
+
+#ifdef __linux__
+    unsigned int affinity_cpus = get_affinity_cpus();
+    if (affinity_cpus > 0 && affinity_cpus < l->online_cpus) {
+        l->online_cpus = affinity_cpus;
+    }
+
+    unsigned int quota_cpus = get_cgroup_cpu_quota();
+    if (quota_cpus > 0 && quota_cpus < l->online_cpus) {
+        l->online_cpus = quota_cpus;
+    }
+
+    if (l->online_cpus != l->available_cpus) {
+        lwan_log_debug("Probably running with taskset or in a container with "
+                       "restricted number of CPUs. Scheduling won't be optimal.");
+    }
+#endif
 }
 
 void lwan_init(struct lwan *l) { lwan_init_with_config(l, &default_config); }

@@ -1471,9 +1471,39 @@ siblings_to_schedtbl(struct lwan *l, uint32_t siblings[], uint32_t schedtbl[])
 static bool
 topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
 {
+    if (l->online_cpus != l->available_cpus) {
+        cpu_set_t set;
+
+        lwan_log_debug("Online CPUs and available CPUs differ; "
+                       "switching to round-robin scheduling");
+
+        CPU_ZERO(&set);
+        if (sched_getaffinity(0, sizeof(set), &set) == 0) {
+            unsigned int mask_count = (unsigned int)CPU_COUNT(&set);
+            unsigned int *cpumask = calloc(mask_count, sizeof(unsigned int));
+            unsigned int cpu = 0;
+
+            for (unsigned int i = 0; i < l->available_cpus; i++) {
+                if (CPU_ISSET(i, &set)) {
+                    cpumask[cpu] = i;
+                    cpu++;
+                }
+            }
+            assert(cpu == mask_count);
+
+            for (unsigned int i = 0; i < l->thread.count; i++) {
+                schedtbl[i] = cpumask[i % mask_count];
+            }
+            free(cpumask);
+
+            return true;
+        }
+
+        return false;
+    }
+
     uint32_t *siblings = calloc(l->available_cpus, sizeof(uint32_t));
     bool ret = false;
-
     if (siblings) {
         if (read_cpu_topology(l, siblings)) {
             siblings_to_schedtbl(l, siblings, schedtbl);
@@ -1666,8 +1696,10 @@ void lwan_thread_init(struct lwan *l)
          * use the CPU topology to group two connections per cache line in such
          * a way that false sharing is avoided.
          */
-        schedtbl = calloc(LWAN_MAX(l->thread.count, l->online_cpus), sizeof(uint32_t));
-        bool adjust_affinity = topology_to_schedtbl(l, schedtbl, l->thread.count);
+        schedtbl =
+            calloc(LWAN_MAX(l->thread.count, l->online_cpus), sizeof(uint32_t));
+        bool adjust_affinity =
+            topology_to_schedtbl(l, schedtbl, l->thread.count);
 
         for (unsigned int i = 0; i < total_conns; i++) {
             unsigned int thread_id = schedtbl[i % l->thread.count];
@@ -1713,10 +1745,13 @@ void lwan_thread_init(struct lwan *l)
              * SO_REUSEPORT mechanism might be used if the returned
              * index is wrong, so maybe that's what's happening?  I don't
              * know, gotta debug the kernel to figure this out. */
-            thread = &l->thread.threads[schedtbl[i]];
-
-            /* FIXME: figure out which CPUs are actually online */
-            thread->cpu = i;
+            if (l->online_cpus == l->available_cpus) {
+                thread = &l->thread.threads[schedtbl[i]];
+                thread->cpu = i;
+            } else {
+                thread = &l->thread.threads[i];
+                thread->cpu = schedtbl[i];
+            }
         } else {
             thread = &l->thread.threads[i];
         }
@@ -1728,8 +1763,10 @@ void lwan_thread_init(struct lwan *l)
         l->conns[thread->listen_fd].flags |= CONN_LISTENER;
 
         if (tls_initialized) {
-            if ((thread->tls_listen_fd = create_listen_socket(thread, i, true)) < 0)
-                lwan_log_critical_perror("Could not create TLS listening socket");
+            if ((thread->tls_listen_fd =
+                     create_listen_socket(thread, i, true)) < 0)
+                lwan_log_critical_perror(
+                    "Could not create TLS listening socket");
             l->conns[thread->tls_listen_fd].flags |= CONN_LISTENER | CONN_TLS;
         } else {
             thread->tls_listen_fd = -1;
