@@ -1480,7 +1480,7 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
         CPU_ZERO(&set);
         if (sched_getaffinity(0, sizeof(set), &set) == 0) {
             const unsigned int mask_count = (unsigned int)CPU_COUNT(&set);
-            const unsigned int max_cpus = LWAN_MIN(l->available_cpus, mask_count);
+            const unsigned int max_cpus = LWAN_MAX(l->available_cpus, mask_count);
             unsigned int cpumask[CPU_SETSIZE];
             unsigned int cpu = 0;
 
