@@ -880,13 +880,15 @@ static unsigned int get_cgroup_cpu_quota(void)
     long quota = 0;
     long period = 0;
 
+    /* FIXME: look how the Go runtime finds these files and implement
+     * it here; this won't work everywhere. */
     fp = fopen("/sys/fs/cgroup/cpu.max", "re");
     if (fp) {
         char max_str[32];
         if (fscanf(fp, "%31s %ld", max_str, &period) == 2 && period > 0) {
             if (max_str[0] != 'm') {
-		/* Not "max" (unlimited) */
-                quota = strtol(max_str, NULL, 10);
+                /* Not "max" (unlimited) */
+                quota = parse_int(max_str, -1);
             }
         }
         fclose(fp);
