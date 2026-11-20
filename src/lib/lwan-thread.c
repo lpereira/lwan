@@ -1478,47 +1478,52 @@ topology_to_schedtbl(struct lwan *l, uint32_t schedtbl[], uint32_t n_threads)
                        "switching to round-robin scheduling");
 
         CPU_ZERO(&set);
-        if (sched_getaffinity(0, sizeof(set), &set) == 0) {
-            const unsigned int mask_count = (unsigned int)CPU_COUNT(&set);
-            const unsigned int max_cpus = LWAN_MAX(l->available_cpus, mask_count);
-            unsigned int cpumask[CPU_SETSIZE];
-            unsigned int cpu = 0;
+        if (UNLIKELY(sched_getaffinity(0, sizeof(set), &set) < 0)) {
+            lwan_log_perror("sched_getaffinity() failed");
+            goto out;
+        }
 
-            for (unsigned int i = 0; i < max_cpus; i++) {
-                if (CPU_ISSET(i, &set)) {
-                    cpumask[cpu] = i;
-                    cpu++;
-                }
-                if (cpu == mask_count) {
-                    break;
-                }
+        const unsigned int mask_count = (unsigned int)CPU_COUNT(&set);
+        const unsigned int max_cpus = LWAN_MAX(l->available_cpus, mask_count);
+        unsigned int cpumask[CPU_SETSIZE];
+        unsigned int cpu = 0;
+
+        if (UNLIKELY(mask_count > CPU_SETSIZE)) {
+            lwan_log_warning("sched_getaffinity() returned %d CPUs, and "
+                             "CPU_SETSIZE is %d",
+                             mask_count, CPU_SETSIZE);
+            goto out;
+        }
+
+        for (unsigned int i = 0; i < max_cpus; i++) {
+            if (CPU_ISSET(i, &set)) {
+                cpumask[cpu] = i;
+                cpu++;
             }
-
-            for (unsigned int i = 0; i < l->thread.count; i++) {
-                schedtbl[i] = cpumask[i % mask_count];
+            if (cpu == mask_count) {
+                break;
             }
+        }
 
+        for (unsigned int i = 0; i < l->thread.count; i++) {
+            schedtbl[i] = cpumask[i % mask_count];
+        }
+
+        return true;
+    } else {
+        uint32_t siblings[CPU_SETSIZE];
+        if (LIKELY(read_cpu_topology(l, siblings))) {
+            siblings_to_schedtbl(l, siblings, schedtbl);
             return true;
         }
 
-        return false;
+        lwan_log_warning("Could not read CPU topology; using fallback");
     }
 
-    uint32_t *siblings = calloc(l->available_cpus, sizeof(uint32_t));
-    bool ret = false;
-    if (siblings) {
-        if (read_cpu_topology(l, siblings)) {
-            siblings_to_schedtbl(l, siblings, schedtbl);
-            ret = true;
-        } else {
-            for (uint32_t i = 0; i < n_threads; i++)
-                schedtbl[i] = (i / 2) % l->thread.count;
-        }
-
-        free(siblings);
-    }
-
-    return ret;
+out:
+    for (uint32_t i = 0; i < n_threads; i++)
+        schedtbl[i] = (i / 2) % l->thread.count;
+    return false;
 }
 
 static void
