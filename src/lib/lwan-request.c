@@ -109,26 +109,6 @@ parse_ascii_port(char *port, unsigned short *out)
     return true;
 }
 
-LWAN_ACCESS_PARAM(read_write, 1)
-static char *
-strsep_char(char *strp, const char *end, char delim)
-{
-    char *ptr;
-
-    if (UNLIKELY(!strp))
-        return NULL;
-
-    if (UNLIKELY(strp > end))
-        return NULL;
-
-    ptr = strchr(strp, delim);
-    if (UNLIKELY(!ptr))
-        return NULL;
-
-    *ptr = '\0';
-    return ptr + 1;
-}
-
 LWAN_ACCESS_PARAM(read_only, 2)
 static char *
 parse_proxy_protocol_v1(struct lwan_request *request, char *buffer)

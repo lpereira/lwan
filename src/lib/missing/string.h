@@ -79,4 +79,23 @@ static inline void *mempmove(void *dest, const void *src, size_t len)
 bool strcaseequal_neutral(const char *a, const char *b);
 bool strcaseequal_neutral_len(const char *a, const char *b, size_t len);
 
+static inline char *
+strsep_char(char *strp, const char *end, char delim)
+{
+    char *ptr;
+
+    if (!strp)
+        return NULL;
+
+    if (strp > end)
+        return NULL;
+
+    ptr = strchr(strp, delim);
+    if (!ptr)
+        return NULL;
+
+    *ptr = '\0';
+    return ptr + 1;
+}
+
 #endif /* MISSING_STRING_H */
