@@ -976,9 +976,9 @@ static unsigned int get_cgroup_v1_cpu_quota_mount(const char *ns,
 
 static unsigned int get_cgroup_v1_cpu_quota(const char *ns)
 {
-    return get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/group/cpu")
+    return get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu")
                ?: get_cgroup_v1_cpu_quota_mount(ns,
-                                                "/sys/fs/group/cpu,cpuacct");
+                                                "/sys/fs/cgroup/cpu,cpuacct");
 }
 
 static unsigned int get_cgroup_cpu_quota(void)
