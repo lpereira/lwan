@@ -896,7 +896,7 @@ static unsigned int get_cgroup_v2_cpu_quota_path(const char *path)
             return (unsigned int)((quota + period - 1) / period);
     }
 
-    return 0;
+    return INT_MAX;
 }
 
 static unsigned int get_cgroup_v2_cpu_quota(const char *ns)
@@ -928,12 +928,12 @@ static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
 
     r = snprintf(cfs_quota_us, PATH_MAX, "%s/cpu.cfs_quota_us", path);
     if (r < 0 || r >= PATH_MAX) {
-        return 0;
+        return INT_MAX;
     }
 
     r = snprintf(cfs_period_us, PATH_MAX, "%s/cpu.cfs_period_us", path);
     if (r < 0 || r >= PATH_MAX) {
-        return 0;
+        return INT_MAX;
     }
 
     fp = fopen(cfs_quota_us, "re");
@@ -955,7 +955,7 @@ static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
             return (unsigned int)((quota + period - 1) / period);
     }
 
-    return 0;
+    return INT_MAX;
 }
 
 static unsigned int get_cgroup_v1_cpu_quota_mount(const char *ns,
@@ -986,7 +986,7 @@ static unsigned int get_cgroup_cpu_quota(void)
     FILE *fp;
     char buffer[1024];
     char *buffer_end = buffer + sizeof(buffer);
-    unsigned int quota = 0;
+    unsigned int quota = INT_MAX;
 
     fp = fopen("/proc/self/cgroup", "re");
     if (!fp) {
@@ -1005,21 +1005,17 @@ static unsigned int get_cgroup_cpu_quota(void)
         }
 
         if (streq(hierarchy, "0") && streq(controllers, "")) {
-            quota = get_cgroup_v2_cpu_quota(path);
-            if (quota)
-                break;
+            quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota(path));
         } else if (strstr(controllers, "cpu")) {
             /* FIXME: this can be comma-delimited and a controller
              * name can contain cpu but not be the one we're interested
              * in! */
-            quota = get_cgroup_v1_cpu_quota(path);
-            if (quota)
-                break;
+            quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota(path));
         }
     }
     fclose(fp);
 
-    return quota;
+    return quota == INT_MAX ? 0 : quota;
 }
 
 static unsigned int get_affinity_cpus(void)
