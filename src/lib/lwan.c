@@ -986,8 +986,6 @@ static unsigned int get_cgroup_cpu_quota(void)
     FILE *fp;
     char buffer[1024];
     char *buffer_end = buffer + sizeof(buffer);
-    const char *path_v2 = NULL;
-    const char *path_v1 = NULL;
     unsigned int quota = 0;
 
     fp = fopen("/proc/self/cgroup", "re");
@@ -1007,34 +1005,21 @@ static unsigned int get_cgroup_cpu_quota(void)
         }
 
         if (streq(hierarchy, "0") && streq(controllers, "")) {
-            lwan_log_debug("cgroup v2 detected at path %s", path_v2);
-            path_v2 = path;
+            quota = get_cgroup_v2_cpu_quota(path);
+            if (quota)
+                break;
         } else if (strstr(controllers, "cpu")) {
             /* FIXME: this can be comma-delimited and a controller
              * name can contain cpu but not be the one we're interested
              * in! */
-            lwan_log_debug("cgroup v1 detected at path %s", path_v2);
-            path_v1 = path;
-        }
-        if (path_v1 && path_v2) {
-            break;
+            quota = get_cgroup_v1_cpu_quota(path);
+            if (quota)
+                break;
         }
     }
     fclose(fp);
 
-    if (path_v2) {
-        quota = get_cgroup_v2_cpu_quota(path_v2);
-        if (quota)
-            return quota;
-    }
-
-    if (path_v1) {
-        quota = get_cgroup_v1_cpu_quota(path_v1);
-        if (quota)
-            return quota;
-    }
-
-    return 0;
+    return quota;
 }
 
 static unsigned int get_affinity_cpus(void)
