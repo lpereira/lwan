@@ -927,12 +927,12 @@ static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
     lwan_log_debug("Getting CPU quota from cgroups v1 path %s", path);
 
     r = snprintf(cfs_quota_us, PATH_MAX, "%s/cpu.cfs_quota_us", path);
-    if (r < 0 || r >= PATH_MAX) {
+    if (r < 0 || r > PATH_MAX) {
         return INT_MAX;
     }
 
     r = snprintf(cfs_period_us, PATH_MAX, "%s/cpu.cfs_period_us", path);
-    if (r < 0 || r >= PATH_MAX) {
+    if (r < 0 || r > PATH_MAX) {
         return INT_MAX;
     }
 
