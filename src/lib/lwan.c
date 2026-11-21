@@ -873,22 +873,21 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
 }
 
 #ifdef __linux__
-static unsigned int get_cgroup_cpu_quota(void)
+static unsigned int get_cgroup_v2_cpu_quota_path(const char *path)
 {
-    /* For "docker --cpus" */
     FILE *fp;
     long quota = 0;
     long period = 0;
 
-    /* FIXME: look how the Go runtime finds these files and implement
-     * it here; this won't work everywhere. */
-    fp = fopen("/sys/fs/cgroup/cpu.max", "re");
+    lwan_log_debug("Getting CPU quota from cgroups v2 path %s", path);
+
+    fp = fopen(path, "re");
     if (fp) {
         char max_str[32];
         if (fscanf(fp, "%31s %ld", max_str, &period) == 2 && period > 0) {
             if (max_str[0] != 'm') {
                 /* Not "max" (unlimited) */
-                quota = parse_int(max_str, -1);
+                quota = parse_long(max_str, -1);
             }
         }
         fclose(fp);
@@ -897,7 +896,47 @@ static unsigned int get_cgroup_cpu_quota(void)
             return (unsigned int)((quota + period - 1) / period);
     }
 
-    fp = fopen("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "re");
+    return 0;
+}
+
+static unsigned int get_cgroup_v2_cpu_quota(const char *ns)
+{
+    char path[PATH_MAX];
+    int r;
+
+    r = snprintf(path, PATH_MAX, "/sys/fs/cgroup/%s/cpu.max",
+                 ns[0] == '/' ? ns + 1 : ns);
+    if (r > 0 && r < PATH_MAX) {
+        unsigned int quota = get_cgroup_v2_cpu_quota_path(path);
+        if (quota)
+            return quota;
+    }
+
+    return get_cgroup_v2_cpu_quota_path("/sys/fs/cgroup/cpu.max");
+}
+
+static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
+{
+    char cfs_quota_us[PATH_MAX];
+    char cfs_period_us[PATH_MAX];
+    long quota = 0;
+    long period = 0;
+    FILE *fp;
+    int r;
+
+    lwan_log_debug("Getting CPU quota from cgroups v1 path %s", path);
+
+    r = snprintf(cfs_quota_us, PATH_MAX, "%s/cpu.cfs_quota_us", path);
+    if (r < 0 || r >= PATH_MAX) {
+        return 0;
+    }
+
+    r = snprintf(cfs_period_us, PATH_MAX, "%s/cpu.cfs_period_us", path);
+    if (r < 0 || r >= PATH_MAX) {
+        return 0;
+    }
+
+    fp = fopen(cfs_quota_us, "re");
     if (fp) {
         if (fscanf(fp, "%ld", &quota) != 1)
             quota = -1;
@@ -905,7 +944,7 @@ static unsigned int get_cgroup_cpu_quota(void)
     }
 
     if (quota > 0) {
-        fp = fopen("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "re");
+        fp = fopen(cfs_period_us, "re");
         if (fp) {
             if (fscanf(fp, "%ld", &period) != 1)
                 period = -1;
@@ -914,6 +953,85 @@ static unsigned int get_cgroup_cpu_quota(void)
 
         if (period > 0)
             return (unsigned int)((quota + period - 1) / period);
+    }
+
+    return 0;
+}
+
+static unsigned int get_cgroup_v1_cpu_quota_mount(const char *ns,
+                                                  const char *mount)
+{
+    char path[PATH_MAX];
+    int r;
+
+    r = snprintf(path, PATH_MAX, "%s/%s", mount, ns[0] == '/' ? ns + 1 : ns);
+    if (r > 0 && r < PATH_MAX) {
+        unsigned int quota = get_cgroup_v1_cpu_quota_path(path);
+        if (quota)
+            return quota;
+    }
+
+    return get_cgroup_v1_cpu_quota_path(mount);
+}
+
+static unsigned int get_cgroup_v1_cpu_quota(const char *ns)
+{
+    return get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/group/cpu")
+               ?: get_cgroup_v1_cpu_quota_mount(ns,
+                                                "/sys/fs/group/cpu,cpuacct");
+}
+
+static unsigned int get_cgroup_cpu_quota(void)
+{
+    FILE *fp;
+    char buffer[1024];
+    char *buffer_end = buffer + sizeof(buffer);
+    const char *path_v2 = NULL;
+    const char *path_v1 = NULL;
+    unsigned int quota = 0;
+
+    fp = fopen("/proc/self/cgroup", "re");
+    if (!fp) {
+        lwan_log_debug("Process not in a cgroup");
+        return 0;
+    }
+
+    while (fgets(buffer, 1024, fp)) {
+        char *hierarchy, *controllers, *path;
+
+        hierarchy = strsep_char(buffer, buffer_end, ':');
+        controllers = strsep_char(hierarchy, buffer_end, ':');
+        path = strsep_char(controllers, buffer_end, '\n');
+        if (!path) {
+            continue;
+        }
+
+        if (streq(hierarchy, "0") && streq(controllers, "")) {
+            lwan_log_debug("cgroup v2 detected at path %s", path_v2);
+            path_v2 = path;
+        } else if (strstr(controllers, "cpu")) {
+            /* FIXME: this can be comma-delimited and a controller
+             * name can contain cpu but not be the one we're interested
+             * in! */
+            lwan_log_debug("cgroup v1 detected at path %s", path_v2);
+            path_v1 = path;
+        }
+        if (path_v1 && path_v2) {
+            break;
+        }
+    }
+    fclose(fp);
+
+    if (path_v2) {
+        quota = get_cgroup_v2_cpu_quota(path_v2);
+        if (quota)
+            return quota;
+    }
+
+    if (path_v1) {
+        quota = get_cgroup_v1_cpu_quota(path_v1);
+        if (quota)
+            return quota;
     }
 
     return 0;
