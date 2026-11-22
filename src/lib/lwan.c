@@ -1121,7 +1121,6 @@ static unsigned int get_cgroup_cpu_quota(void)
         lwan_log_debug("No cgroup mount point with cpu controller found");
         return INT_MAX;
     }
-    lwan_log_debug("cgroups mount point found at %s", mount);
 
     fp = fopen("/proc/self/cgroup", "re");
     if (!fp) {
