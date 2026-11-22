@@ -1052,18 +1052,21 @@ static bool cgroup_v2_has_cpu_controller(const char *mount)
 
     char buf[1024];
     bool found = false;
-    if (fgets(buf, sizeof(buf), f) != NULL) {
-        char *saveptr;
-        char *tok = strtok_r(buf, " \n\t", &saveptr);
-        while (tok != NULL) {
-            if (strcmp(tok, "cpu") == 0) {
+    if (fgets(buf, sizeof(buf), f)) {
+        char **controllers;
+        int n_controllers;
+
+        n_controllers = strv_split(&controllers, buf, ' ');
+        for (int i = 0; i < n_controllers; i++) {
+            if (streq(controllers[i], "cpu")) {
                 found = true;
                 break;
             }
-            tok = strtok_r(NULL, " \n\t", &saveptr);
         }
+        strv_free(controllers);
     }
     fclose(f);
+
     return found;
 }
 
