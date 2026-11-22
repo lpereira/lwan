@@ -1061,7 +1061,7 @@ static bool cgroup_v2_has_cpu_controller(const char *mount)
         char **controllers;
         int n_controllers;
 
-        n_controllers = strv_split(&controllers, buf, ' ');
+        n_controllers = strv_split_str(&controllers, buf, " \t\n");
         for (int i = 0; i < n_controllers; i++) {
             if (streq(controllers[i], "cpu")) {
                 found = true;
@@ -1145,7 +1145,7 @@ static unsigned int get_cgroup_cpu_quota(void)
             int n_controllers;
             char **c;
 
-            n_controllers = strv_split(&c, controllers, ',');
+            n_controllers = strv_split_str(&c, controllers, " ,\n");
             if (n_controllers < 0) {
                 continue;
             }
