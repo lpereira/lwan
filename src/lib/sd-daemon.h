@@ -255,12 +255,3 @@ int sd_booted(void);
   See sd_watchdog_enabled(3) for more information.
 */
 int sd_watchdog_enabled(int unset_environment, uint64_t *usec);
-
-
-static inline void strv_free(char **p)
-{
-    if (p) {
-        free(p[0]);
-        free(p);
-    }
-}

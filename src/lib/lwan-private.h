@@ -360,3 +360,12 @@ bool lwan_landlock_enforce(void);
 bool lwan_http_status_is_valid(int status);
 bool lwan_header_name_is_valid(const char *name);
 bool lwan_header_value_is_valid(const char *value);
+
+int strv_split(char ***p, const char *value, const char separator);
+static inline void strv_free(char **p)
+{
+    if (p) {
+        free(p[0]);
+        free(p);
+    }
+}

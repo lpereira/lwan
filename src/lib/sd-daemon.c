@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "lwan-private.h"
 #include "lwan-config.h"
 
 static void unsetenv_listen_vars(void) {
@@ -136,46 +137,6 @@ static int strv_extend_n(char ***p, const char *s, int n) {
         }        
 
         return 0;
-}
-
-static int strv_split(char ***p, const char *value, const char separator) {
-        char *copy = strdup(value);
-        if (!copy)
-                return -ENOMEM;
-
-        int n_split = 1;
-        for (char *c = copy; *c; ) {
-                char *sep_pos = strchr(c, separator);
-                if (!sep_pos)
-                        break;
-
-                n_split++;
-                c = sep_pos + 1;
-        }        
-
-        *p = calloc((size_t)(n_split + 1), sizeof(char *));
-        if (!*p) {
-                free(copy);
-                return -ENOMEM;
-        }
-
-        if (n_split == 1) {
-                *p[0] = copy;
-                return 1;
-        }
-
-        int i = 0;
-        for (char *c = copy; *c; ) {
-                char *sep_pos = strchr(c, separator);
-                if (!sep_pos)
-                        break;
-
-                *sep_pos = '\0';
-                *p[i++] = c;
-                c = sep_pos + 1;
-        }        
-
-        return n_split;
 }
 
 int sd_listen_fds_with_names(int unset_environment, char ***names) {

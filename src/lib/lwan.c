@@ -876,6 +876,47 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
+int strv_split(char ***p, const char *value, const char separator)
+{
+    char *copy = strdup(value);
+    if (!copy)
+        return -ENOMEM;
+
+    int n_split = 1;
+    for (char *c = copy; *c;) {
+        char *sep_pos = strchr(c, separator);
+        if (!sep_pos)
+            break;
+
+        n_split++;
+        c = sep_pos + 1;
+    }
+
+    *p = calloc((size_t)(n_split + 1), sizeof(char *));
+    if (!*p) {
+        free(copy);
+        return -ENOMEM;
+    }
+
+    if (n_split == 1) {
+        *p[0] = copy;
+        return 1;
+    }
+
+    int i = 0;
+    for (char *c = copy; *c;) {
+        char *sep_pos = strchr(c, separator);
+        if (!sep_pos)
+            break;
+
+        *sep_pos = '\0';
+        *p[i++] = c;
+        c = sep_pos + 1;
+    }
+
+    return n_split;
+}
+
 #ifdef __linux__
 static unsigned int get_cgroup_v2_cpu_quota_path(const char *path)
 {
