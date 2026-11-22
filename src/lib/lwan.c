@@ -878,6 +878,9 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
 
 int strv_split(char ***p, const char *value, const char separator)
 {
+    if (separator == '\0')
+        return -EINVAL;
+
     char *copy = strdup(value);
     if (!copy)
         return -ENOMEM;
@@ -899,18 +902,21 @@ int strv_split(char ***p, const char *value, const char separator)
     }
 
     if (n_split == 1) {
-        *p[0] = copy;
+        (*p)[0] = copy;
         return 1;
     }
 
     int i = 0;
-    for (char *c = copy; *c;) {
+    for (char *c = copy;;) {
         char *sep_pos = strchr(c, separator);
-        if (!sep_pos)
+        if (!sep_pos) {
+            (*p)[i++] = c;
             break;
+        }
 
         *sep_pos = '\0';
-        *p[i++] = c;
+
+        (*p)[i++] = c;
         c = sep_pos + 1;
     }
 
