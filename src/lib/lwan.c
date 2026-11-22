@@ -988,7 +988,7 @@ static unsigned int get_cgroup_cpu_quota(void)
     fp = fopen("/proc/self/cgroup", "re");
     if (!fp) {
         lwan_log_debug("Process not in a cgroup");
-        return 0;
+        return INT_MAX;
     }
 
     while (fgets(buffer, 1024, fp)) {
@@ -1012,7 +1012,7 @@ static unsigned int get_cgroup_cpu_quota(void)
     }
     fclose(fp);
 
-    return quota == INT_MAX ? 0 : quota;
+    return quota;
 }
 
 static unsigned int get_affinity_cpus(void)
@@ -1026,7 +1026,8 @@ static unsigned int get_affinity_cpus(void)
         if (count > 0)
             return (unsigned int)count;
     }
-    return 0;
+
+    return INT_MAX;
 }
 #endif
 
@@ -1051,25 +1052,13 @@ static void get_number_of_cpus(struct lwan *l)
     l->available_cpus = (unsigned int)n_available_cpus;
 
 #ifdef __linux__
-    unsigned int affinity_cpus = get_affinity_cpus();
-    if (affinity_cpus > 0 && affinity_cpus < l->online_cpus) {
-        lwan_log_debug(
-            "System has %ld online CPUs, but the affinity mask has %d",
-            n_online_cpus, affinity_cpus);
-        l->online_cpus = affinity_cpus;
-    }
-
-    unsigned int quota_cpus = get_cgroup_cpu_quota();
-    if (quota_cpus > 0 && quota_cpus < l->online_cpus) {
-        lwan_log_debug("System has %ld online CPUs, but the cpu cgroup has %d",
-                       n_online_cpus, quota_cpus);
-        l->online_cpus = quota_cpus;
-    }
+    l->online_cpus = LWAN_MIN(l->online_cpus, get_affinity_cpus());
+    l->online_cpus = LWAN_MIN(l->online_cpus, get_cgroup_cpu_quota());
 
     if (l->online_cpus != l->available_cpus) {
         lwan_log_debug(
             "Probably running with taskset or in a container with "
-            "restricted number of CPUs. Scheduling won't be optimal.");
+            "restricted number of CPUs. Scheduling won't be optimal");
     }
 #endif
 }
