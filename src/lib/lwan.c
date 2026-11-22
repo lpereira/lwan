@@ -43,6 +43,10 @@
 #include "lwan-lua.h"
 #endif
 
+#ifdef __linux__
+#include <mntent.h>
+#endif
+
 /* Ideally, this would check if all items in enum lwan_request_flags,
  * when bitwise-or'd together, would not have have any bit set that
  * is also set in REQUEST_METHOD_MASK. */
@@ -899,19 +903,22 @@ static unsigned int get_cgroup_v2_cpu_quota_path(const char *path)
     return INT_MAX;
 }
 
-static unsigned int get_cgroup_v2_cpu_quota(const char *ns)
+static unsigned int get_cgroup_v2_cpu_quota(const char *mount, const char *ns)
 {
     unsigned int quota = INT_MAX;
     char path[PATH_MAX];
     int r;
 
-    r = snprintf(path, PATH_MAX, "/sys/fs/cgroup/%s/cpu.max",
+    r = snprintf(path, PATH_MAX, "%s/%s/cpu.max", mount,
                  ns[0] == '/' ? ns + 1 : ns);
     if (r > 0 && r < PATH_MAX)
         quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota_path(path));
 
-    return LWAN_MIN(quota,
-                    get_cgroup_v2_cpu_quota_path("/sys/fs/cgroup/cpu.max"));
+    r = snprintf(path, PATH_MAX, "%s/cpu.max", mount);
+    if (r > 0 && r < PATH_MAX)
+        quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota_path(path));
+
+    return quota;
 }
 
 static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
@@ -957,33 +964,109 @@ static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
     return INT_MAX;
 }
 
-static unsigned int get_cgroup_v1_cpu_quota_mount(const char *ns,
-                                                  const char *mount)
+static unsigned int get_cgroup_v1_cpu_quota_mount(const char *mount,
+                                                  const char *ns,
+                                                  const char *controller)
 {
     unsigned int quota = INT_MAX;
     char path[PATH_MAX];
     int r;
 
-    r = snprintf(path, PATH_MAX, "%s/%s", mount, ns[0] == '/' ? ns + 1 : ns);
+    r = snprintf(path, PATH_MAX, "%s/%s/%s", mount, controller,
+                 ns[0] == '/' ? ns + 1 : ns);
     if (r > 0 && r < PATH_MAX)
         quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota_path(path));
 
-    return LWAN_MIN(quota, get_cgroup_v1_cpu_quota_path(mount));
+    r = snprintf(path, PATH_MAX, "%s/%s", mount, controller);
+    if (r > 0 && r < PATH_MAX)
+        quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota_path(path));
+
+    return quota;
 }
 
-static unsigned int get_cgroup_v1_cpu_quota(const char *ns)
+static unsigned int get_cgroup_v1_cpu_quota(const char *mount, const char *ns)
 {
-    return LWAN_MIN(
-        get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu"),
-        get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu,cpuacct"));
+    return LWAN_MIN(get_cgroup_v1_cpu_quota_mount(mount, ns, "cpu"),
+                    get_cgroup_v1_cpu_quota_mount(mount, ns, "cpu,cpuacct"));
+}
+
+static bool cgroup_v2_has_cpu_controller(const char *mount)
+{
+    char path[PATH_MAX];
+    int r;
+
+    r = snprintf(path, sizeof(path), "%s/cgroup.controllers", mount);
+    if (r < 0 || r > PATH_MAX)
+        return false;
+
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return false;
+
+    char buf[1024];
+    bool found = false;
+    if (fgets(buf, sizeof(buf), f) != NULL) {
+        char *saveptr;
+        char *tok = strtok_r(buf, " \n\t", &saveptr);
+        while (tok != NULL) {
+            if (strcmp(tok, "cpu") == 0) {
+                found = true;
+                break;
+            }
+            tok = strtok_r(NULL, " \n\t", &saveptr);
+        }
+    }
+    fclose(f);
+    return found;
+}
+
+static bool find_cgroup_mount(char path[static PATH_MAX])
+{
+    struct mntent *ent;
+    FILE *fp;
+
+    fp = setmntent("/proc/self/mounts", "r");
+    if (!fp)
+        return false;
+
+    path[0] = '\0';
+
+    while ((ent = getmntent(fp))) {
+        if (streq(ent->mnt_type, "cgroup")) {
+            if (!hasmntopt(ent, "cpu"))
+                continue;
+
+            memcpy(path, ent->mnt_dir, strlen(ent->mnt_dir) + 1);
+            endmntent(fp);
+
+            return true;
+        }
+
+        if (streq(ent->mnt_type, "cgroup2")) {
+            memcpy(path, ent->mnt_dir, strlen(ent->mnt_dir) + 1);
+        }
+    }
+    endmntent(fp);
+
+    if (path[0] != '\0' && cgroup_v2_has_cpu_controller(path))
+        return true;
+
+    return false;
 }
 
 static unsigned int get_cgroup_cpu_quota(void)
 {
-    FILE *fp;
+    char mount[PATH_MAX];
     char buffer[1024];
     char *buffer_end = buffer + sizeof(buffer);
     unsigned int quota = INT_MAX;
+    FILE *fp;
+
+    if (!find_cgroup_mount(mount)) {
+        lwan_log_debug("No cgroup mount point with cpu controller found");
+        return INT_MAX;
+    }
+    lwan_log_debug("cgroups mount point found at %s", mount);
 
     fp = fopen("/proc/self/cgroup", "re");
     if (!fp) {
@@ -1002,12 +1085,12 @@ static unsigned int get_cgroup_cpu_quota(void)
         }
 
         if (streq(hierarchy, "0") && streq(controllers, "")) {
-            quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota(path));
+            quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota(mount, path));
         } else if (strstr(controllers, "cpu")) {
             /* FIXME: this can be comma-delimited and a controller
              * name can contain cpu but not be the one we're interested
              * in! */
-            quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota(path));
+            quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota(mount, path));
         }
     }
     fclose(fp);
