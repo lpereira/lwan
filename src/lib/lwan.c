@@ -876,18 +876,15 @@ static void allocate_connections(struct lwan *l, size_t max_open_files)
     memset(l->conns, 0, sz);
 }
 
-int strv_split(char ***p, const char *value, const char separator)
+int strv_split_str(char ***p, const char *value, const char *separator)
 {
-    if (separator == '\0')
-        return -EINVAL;
-
     char *copy = strdup(value);
     if (!copy)
         return -ENOMEM;
 
     int n_split = 1;
     for (char *c = copy; *c;) {
-        char *sep_pos = strchr(c, separator);
+        char *sep_pos = strpbrk(c, separator);
         if (!sep_pos)
             break;
 
@@ -908,9 +905,12 @@ int strv_split(char ***p, const char *value, const char separator)
 
     int i = 0;
     for (char *c = copy;;) {
-        char *sep_pos = strchr(c, separator);
+        char *sep_pos = strpbrk(c, separator);
         if (!sep_pos) {
-            (*p)[i++] = c;
+            if (*c)
+                (*p)[i++] = c;
+            else
+                n_split--;
             break;
         }
 
@@ -921,6 +921,11 @@ int strv_split(char ***p, const char *value, const char separator)
     }
 
     return n_split;
+}
+
+int strv_split(char ***p, const char *value, const char separator)
+{
+    return strv_split_str(p, value, (char[]){separator, '\0'});
 }
 
 #ifdef __linux__
