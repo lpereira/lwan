@@ -1127,11 +1127,22 @@ static unsigned int get_cgroup_cpu_quota(void)
 
         if (streq(hierarchy, "0") && streq(controllers, "")) {
             quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota(mount, path));
-        } else if (strstr(controllers, "cpu")) {
-            /* FIXME: this can be comma-delimited and a controller
-             * name can contain cpu but not be the one we're interested
-             * in! */
-            quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota(mount, path));
+        } else {
+            int n_controllers;
+            char **c;
+
+            n_controllers = strv_split(&c, controllers, ',');
+            if (n_controllers < 0) {
+                continue;
+            }
+
+            for (int i = 0; i < n_controllers; i++) {
+                if (streq(c[i], "cpu")) {
+                    quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota(mount, path));
+                    break;
+                }
+            }
+            strv_free(c);
         }
     }
     fclose(fp);
