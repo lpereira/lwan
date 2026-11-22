@@ -901,18 +901,17 @@ static unsigned int get_cgroup_v2_cpu_quota_path(const char *path)
 
 static unsigned int get_cgroup_v2_cpu_quota(const char *ns)
 {
+    unsigned int quota = INT_MAX;
     char path[PATH_MAX];
     int r;
 
     r = snprintf(path, PATH_MAX, "/sys/fs/cgroup/%s/cpu.max",
                  ns[0] == '/' ? ns + 1 : ns);
-    if (r > 0 && r < PATH_MAX) {
-        unsigned int quota = get_cgroup_v2_cpu_quota_path(path);
-        if (quota)
-            return quota;
-    }
+    if (r > 0 && r < PATH_MAX)
+        quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota_path(path));
 
-    return get_cgroup_v2_cpu_quota_path("/sys/fs/cgroup/cpu.max");
+    return LWAN_MIN(quota,
+                    get_cgroup_v2_cpu_quota_path("/sys/fs/cgroup/cpu.max"));
 }
 
 static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
@@ -961,24 +960,22 @@ static unsigned int get_cgroup_v1_cpu_quota_path(const char *path)
 static unsigned int get_cgroup_v1_cpu_quota_mount(const char *ns,
                                                   const char *mount)
 {
+    unsigned int quota = INT_MAX;
     char path[PATH_MAX];
     int r;
 
     r = snprintf(path, PATH_MAX, "%s/%s", mount, ns[0] == '/' ? ns + 1 : ns);
-    if (r > 0 && r < PATH_MAX) {
-        unsigned int quota = get_cgroup_v1_cpu_quota_path(path);
-        if (quota)
-            return quota;
-    }
+    if (r > 0 && r < PATH_MAX)
+        quota = LWAN_MIN(quota, get_cgroup_v1_cpu_quota_path(path));
 
-    return get_cgroup_v1_cpu_quota_path(mount);
+    return LWAN_MIN(quota, get_cgroup_v1_cpu_quota_path(mount));
 }
 
 static unsigned int get_cgroup_v1_cpu_quota(const char *ns)
 {
-    return get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu")
-               ?: get_cgroup_v1_cpu_quota_mount(ns,
-                                                "/sys/fs/cgroup/cpu,cpuacct");
+    return LWAN_MIN(
+        get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu"),
+        get_cgroup_v1_cpu_quota_mount(ns, "/sys/fs/cgroup/cpu,cpuacct"));
 }
 
 static unsigned int get_cgroup_cpu_quota(void)
