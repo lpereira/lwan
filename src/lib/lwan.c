@@ -1084,29 +1084,23 @@ static bool find_cgroup_mount(char path[static PATH_MAX])
     if (!fp)
         return false;
 
-    path[0] = '\0';
-
     while ((ent = getmntent(fp))) {
         if (streq(ent->mnt_type, "cgroup")) {
-            if (!hasmntopt(ent, "cpu"))
-                continue;
-
-            memcpy(path, ent->mnt_dir, strlen(ent->mnt_dir) + 1);
-            endmntent(fp);
-
-            return true;
-        }
-
-        if (streq(ent->mnt_type, "cgroup2")) {
-            memcpy(path, ent->mnt_dir, strlen(ent->mnt_dir) + 1);
+            if (hasmntopt(ent, "cpu"))
+                goto found;
+        } else if (streq(ent->mnt_type, "cgroup2")) {
+            if (cgroup_v2_has_cpu_controller(ent->mnt_dir))
+                goto found;
         }
     }
     endmntent(fp);
 
-    if (path[0] != '\0' && cgroup_v2_has_cpu_controller(path))
-        return true;
-
     return false;
+
+found:
+    memcpy(path, ent->mnt_dir, strlen(ent->mnt_dir) + 1);
+    endmntent(fp);
+    return true;
 }
 
 static unsigned int get_cgroup_cpu_quota(void)
