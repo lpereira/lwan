@@ -1051,7 +1051,7 @@ static bool cgroup_v2_has_cpu_controller(const char *mount)
     if (r < 0 || r > PATH_MAX)
         return false;
 
-    FILE *f = fopen(path, "r");
+    FILE *f = fopen(path, "re");
     if (!f)
         return false;
 
@@ -1080,7 +1080,7 @@ static bool find_cgroup_mount(char path[static PATH_MAX])
     struct mntent *ent;
     FILE *fp;
 
-    fp = setmntent("/proc/self/mounts", "r");
+    fp = setmntent("/proc/self/mounts", "re");
     if (!fp)
         return false;
 
