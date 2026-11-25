@@ -1107,7 +1107,6 @@ static unsigned int get_cgroup_cpu_quota(void)
 {
     char mount[PATH_MAX];
     char buffer[1024];
-    char *buffer_end = buffer + sizeof(buffer);
     unsigned int quota = INT_MAX;
     FILE *fp;
 
@@ -1123,14 +1122,17 @@ static unsigned int get_cgroup_cpu_quota(void)
     }
 
     while (fgets(buffer, 1024, fp)) {
+        char *line = buffer;
         char *hierarchy, *controllers, *path;
 
-        hierarchy = strsep_char(buffer, buffer_end, ':');
-        controllers = strsep_char(hierarchy, buffer_end, ':');
-        path = strsep_char(controllers, buffer_end, '\n');
+        hierarchy = strsep(&line, ":");
+        controllers = strsep(&line, ":");
+        path = strsep(&line, ":");
         if (!path) {
             continue;
         }
+
+        path[strcspn(path, "\n")] = '\0';
 
         if (streq(hierarchy, "0") && streq(controllers, "")) {
             quota = LWAN_MIN(quota, get_cgroup_v2_cpu_quota(mount, path));
